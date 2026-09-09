@@ -1,0 +1,145 @@
+import { boolean, check, date, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+
+export const principals = pgTable("principals", {
+  id: text("id").primaryKey(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
+});
+
+export const sources = pgTable("sources", {
+  id: text("id").primaryKey(),
+  subjectId: text("subject_id").references(() => principals.id).notNull(),
+  kind: text("kind").notNull(),
+  externalId: text("external_id"),
+  capturedOn: date("captured_on"),
+  capturedAt: timestamp("captured_at", { withTimezone: true }),
+  timeZone: text("time_zone"),
+  originalText: text("original_text"),
+  assetVersionId: text("asset_version_id"),
+  revision: integer("revision").default(1).notNull()
+}, (table) => [
+  uniqueIndex("sources_subject_external_unique").on(table.subjectId, table.kind, table.externalId).where(sql`${table.externalId} is not null`),
+  check("sources_content_required", sql`${table.originalText} is not null or ${table.assetVersionId} is not null`),
+  check("sources_capture_time_required", sql`${table.capturedOn} is not null or ${table.capturedAt} is not null`)
+]);
+
+export const meals = pgTable("meals", {
+  id: text("id").primaryKey(),
+  subjectId: text("subject_id").references(() => principals.id).notNull(),
+  occurredOn: date("occurred_on").notNull(),
+  occurredAt: timestamp("occurred_at", { withTimezone: true }),
+  timeZone: text("time_zone").notNull(),
+  mealType: text("meal_type").notNull(),
+  note: text("note"),
+  revision: integer("revision").default(1).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
+}, (table) => [index("meals_subject_date_idx").on(table.subjectId, table.occurredOn)]);
+
+export const intakeItems = pgTable("intake_items", {
+  id: text("id").primaryKey(),
+  subjectId: text("subject_id").references(() => principals.id).notNull(),
+  mealId: text("meal_id").references(() => meals.id, { onDelete: "cascade" }).notNull(),
+  position: integer("position").notNull(),
+  name: text("name").notNull(),
+  foodRefId:text("food_ref_id"),
+  freeText:text("free_text"),
+  quantity: numeric("quantity", { precision: 24, scale: 6 }),
+  unit: text("unit"),
+  amountG:numeric("amount_g",{precision:24,scale:6}),
+  energyKcal: numeric("energy_kcal", { precision: 24, scale: 6 }),
+  fiberG:numeric("fiber_g",{precision:24,scale:6}),sodiumMg:numeric("sodium_mg",{precision:24,scale:6}),consumedFraction:numeric("consumed_fraction",{precision:24,scale:6}),effective:boolean("effective").default(true).notNull(),
+  proteinG:numeric("protein_g",{precision:24,scale:6}),
+  fatG:numeric("fat_g",{precision:24,scale:6}),
+  carbG:numeric("carb_g",{precision:24,scale:6}),
+  provenance:text("provenance"),
+  groupingOrigin:text("grouping_origin"),
+  estimate: boolean("estimate").default(false).notNull(),
+  evidenceNote: text("evidence_note"),
+  revision: integer("revision").default(1).notNull()
+}, (table) => [uniqueIndex("intake_items_meal_position_unique").on(table.mealId, table.position)]);
+export const intakeItemRevisions = pgTable("intake_item_revisions", { itemId:text("item_id").references(()=>intakeItems.id,{onDelete:"cascade"}).notNull(), revision:integer("revision").notNull(), snapshot:jsonb("snapshot").notNull(), reason:text("reason").notNull(), createdAt:timestamp("created_at",{withTimezone:true}).defaultNow().notNull() },table=>[primaryKey({columns:[table.itemId,table.revision]})]);
+
+export const moneyEntries = pgTable("money_entries", {
+  id: text("id").primaryKey(),
+  subjectId: text("subject_id").references(() => principals.id).notNull(),
+  entryType: text("entry_type").notNull(),
+  amount: numeric("amount", { precision: 24, scale: 6 }).notNull(),
+  currency: text("currency").notNull(),
+  occurredOn: date("occurred_on").notNull(),
+  occurredAt: timestamp("occurred_at", { withTimezone: true }),
+  timeZone: text("time_zone").notNull(),
+  note: text("note"),
+  category: text("category"),
+  counterparty: text("counterparty"),
+  sourceId: text("source_id").references(() => sources.id),
+  recordId: text("record_id").notNull(),
+  paymentMethod: text("payment_method"),
+  sourceScale: integer("source_scale").default(2).notNull(),
+  revision: integer("revision").default(1).notNull()
+}, (table) => [check("money_entries_positive_amount", sql`${table.amount} > 0`),uniqueIndex("money_entries_record_unique").on(table.recordId),uniqueIndex("money_entries_id_subject_unique").on(table.id,table.subjectId)]);
+
+export const mealMoneyLinks = pgTable("meal_money_links", {
+  mealId: text("meal_id").references(() => meals.id, { onDelete: "cascade" }).notNull(),
+  moneyEntryId: text("money_entry_id").references(() => moneyEntries.id).notNull()
+}, (table) => [primaryKey({ columns: [table.mealId, table.moneyEntryId] })]);
+
+export const mealSourceLinks = pgTable("meal_source_links", {
+  mealId: text("meal_id").references(() => meals.id, { onDelete: "cascade" }).notNull(),
+  sourceId: text("source_id").references(() => sources.id).notNull(),role:text("role").default("evidence").notNull()
+}, (table) => [primaryKey({ columns: [table.mealId, table.sourceId] })]);
+export const mealConsumptionLinks=pgTable("meal_consumption_links",{subjectId:text("subject_id").references(()=>principals.id).notNull(),mealId:text("meal_id").references(()=>meals.id,{onDelete:"cascade"}).notNull(),consumptionRecordId:text("consumption_record_id").notNull(),evidence:text("evidence").notNull(),createdAt:timestamp("created_at",{withTimezone:true}).defaultNow().notNull()},table=>[primaryKey({columns:[table.mealId,table.consumptionRecordId]})]);
+
+export const operations = pgTable("operations", {
+  executionId: text("execution_id").primaryKey(),
+  subjectId: text("subject_id").references(() => principals.id).notNull(),
+  commandId: text("command_id").notNull(),
+  capability: text("capability").notNull(),
+  legacyCapabilityVersion:integer("legacy_capability_version"),
+  fingerprint: text("fingerprint").notNull(),
+  result: jsonb("result").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
+}, (table) => [uniqueIndex("operations_subject_command_unique").on(table.subjectId, table.commandId)]);
+
+export const outbox = pgTable("outbox", {
+  id: text("id").primaryKey(),
+  subjectId: text("subject_id").references(() => principals.id).notNull(),
+  eventType: text("event_type").notNull(),
+  aggregateId: text("aggregate_id").notNull(),
+  payload: jsonb("payload").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  deliveredAt: timestamp("delivered_at", { withTimezone: true })
+}, (table) => [index("outbox_pending_idx").on(table.createdAt).where(sql`${table.deliveredAt} is null`)]);
+
+export const consumptionRecords = pgTable("consumption_records", { id:text("id").primaryKey(),subjectId:text("subject_id").references(()=>principals.id).notNull(),recordKind:text("record_kind").notNull(),state:text("state").notNull(),occurredOn:date("occurred_on").notNull(),occurredAt:timestamp("occurred_at",{withTimezone:true}),timeZone:text("time_zone").notNull(),note:text("note"),revision:integer("revision").default(1).notNull(),confirmedAt:timestamp("confirmed_at",{withTimezone:true}),voidedAt:timestamp("voided_at",{withTimezone:true}),createdAt:timestamp("created_at",{withTimezone:true}).defaultNow().notNull(),updatedAt:timestamp("updated_at",{withTimezone:true}).defaultNow().notNull() });
+export const consumptionRecordRevisions=pgTable("consumption_record_revisions",{recordId:text("record_id").references(()=>consumptionRecords.id).notNull(),revision:integer("revision").notNull(),snapshot:jsonb("snapshot").notNull(),reason:text("reason").notNull(),createdAt:timestamp("created_at",{withTimezone:true}).defaultNow().notNull()},table=>[primaryKey({columns:[table.recordId,table.revision]})]);
+export const purchases = pgTable("purchases", { id: text("id").primaryKey(), subjectId: text("subject_id").references(() => principals.id).notNull(), recordId:text("record_id").references(()=>consumptionRecords.id).notNull(), merchant: text("merchant"), amount: numeric("amount", { precision: 24, scale: 6 }), currency: text("currency").notNull(), category: text("category"), occurredOn: date("occurred_on").notNull(), occurredAt: timestamp("occurred_at", { withTimezone: true }), timeZone: text("time_zone").notNull(), note: text("note"), sourceId: text("source_id").references(() => sources.id), scene:text("scene"),channelNameRaw:text("channel_name_raw"),placeRef:text("place_ref"),rating:integer("rating"),wouldRepeat:boolean("would_repeat"), revision: integer("revision").default(1).notNull() },table=>[uniqueIndex("purchases_record_unique").on(table.recordId)]);
+export const purchaseItems = pgTable("purchase_items", { id: text("id").primaryKey(), purchaseId: text("purchase_id").references(() => purchases.id, { onDelete: "cascade" }).notNull(), position: integer("position").notNull(), rawName: text("raw_name").notNull(), quantity: numeric("quantity", { precision: 24, scale: 6 }), unitPrice: numeric("unit_price", { precision: 24, scale: 6 }),unit:text("unit"),lineAmount:numeric("line_amount",{precision:24,scale:6}),categoryKey:text("category_key") }, (table) => [uniqueIndex("purchase_items_position_unique").on(table.purchaseId, table.position)]);
+export const purchaseSourceLinks=pgTable("purchase_source_links",{purchaseId:text("purchase_id").references(()=>purchases.id,{onDelete:"cascade"}).notNull(),sourceId:text("source_id").references(()=>sources.id).notNull(),role:text("role").notNull()},table=>[primaryKey({columns:[table.purchaseId,table.sourceId]})]);
+export const refunds = pgTable("refunds", { id: text("id").primaryKey(), subjectId: text("subject_id").references(() => principals.id).notNull(), originalEntryId: text("original_entry_id").references(() => moneyEntries.id), refundEntryId: text("refund_entry_id").references(() => moneyEntries.id).notNull(), linkState:text("link_state").default("linked").notNull(), revision: integer("revision").default(1).notNull() });
+export const budgets = pgTable("budgets", { id: text("id").primaryKey(), subjectId: text("subject_id").references(() => principals.id).notNull(), period: text("period").notNull(), category: text("category").notNull(), amount: numeric("amount", { precision: 24, scale: 6 }).notNull(), currency: text("currency").notNull(), revision: integer("revision").default(1).notNull() }, (table) => [uniqueIndex("budgets_subject_period_category_unique").on(table.subjectId, table.period, table.category)]);
+export const recurringPlans = pgTable("recurring_plans", { id: text("id").primaryKey(), subjectId: text("subject_id").references(() => principals.id).notNull(), title: text("title").notNull(), amount: numeric("amount", { precision: 24, scale: 6 }).notNull(), currency: text("currency").notNull(), cadence: text("cadence").notNull(), nextDueOn: date("next_due_on").notNull(), category: text("category"), active: boolean("active").notNull(), revision: integer("revision").default(1).notNull() });
+export const healthMeasurements = pgTable("health_measurements", { id: text("id").primaryKey(), subjectId: text("subject_id").references(() => principals.id).notNull(), metric: text("metric").notNull(), value: numeric("value", { precision: 24, scale: 6 }).notNull(), unit: text("unit").notNull(), label: text("label"), occurredOn: date("occurred_on").notNull(), occurredAt: timestamp("occurred_at", { withTimezone: true }), timeZone: text("time_zone").notNull(), note: text("note"), sourceId: text("source_id").references(() => sources.id), rawId:text("raw_id"),groupId:text("group_id"),autofilled:boolean("autofilled").default(false).notNull(),effective:boolean("effective").default(true).notNull(), revision: integer("revision").default(1).notNull(), createdAt:timestamp("created_at",{withTimezone:true}).defaultNow().notNull() });
+export const healthSourceInstances=pgTable("health_source_instances",{id:text("id").primaryKey(),subjectId:text("subject_id").references(()=>principals.id).notNull(),sourceType:text("source_type").notNull(),instanceKey:text("instance_key").notNull(),fingerprint:text("fingerprint"),permissionState:text("permission_state").default("granted").notNull(),syncEpoch:integer("sync_epoch").default(1).notNull(),createdAt:timestamp("created_at",{withTimezone:true}).defaultNow().notNull()},table=>[uniqueIndex("health_source_instance_unique").on(table.subjectId,table.sourceType,table.instanceKey)]);
+export const healthRawRecords=pgTable("health_raw_records",{id:text("id").primaryKey(),subjectId:text("subject_id").references(()=>principals.id).notNull(),sourceInstanceId:text("source_instance_id").references(()=>healthSourceInstances.id).notNull(),recordType:text("record_type").notNull(),clientRecordId:text("client_record_id").notNull(),currentVersion:integer("current_version").notNull(),currentSyncEpoch:integer("current_sync_epoch").notNull(),currentHash:text("current_hash").notNull(),state:text("state").notNull(),pendingReason:text("pending_reason"),parseVersion:text("parse_version"),normalizationAttempts:integer("normalization_attempts").default(0).notNull(),receivedAt:timestamp("received_at",{withTimezone:true}).defaultNow().notNull()},table=>[uniqueIndex("health_raw_identity_unique").on(table.subjectId,table.sourceInstanceId,table.recordType,table.clientRecordId)]);
+export const healthRawRevisions=pgTable("health_raw_revisions",{rawId:text("raw_id").references(()=>healthRawRecords.id).notNull(),recordVersion:integer("record_version").notNull(),payloadHash:text("payload_hash").notNull(),payload:jsonb("payload"),changeKind:text("change_kind").notNull(),receivedAt:timestamp("received_at",{withTimezone:true}).defaultNow().notNull()},table=>[primaryKey({columns:[table.rawId,table.recordVersion]})]);
+export const healthProviderAliases=pgTable("health_provider_aliases",{subjectId:text("subject_id").references(()=>principals.id).notNull(),sourceInstanceId:text("source_instance_id").references(()=>healthSourceInstances.id).notNull(),recordType:text("record_type").notNull(),providerRecordId:text("provider_record_id").notNull(),rawId:text("raw_id").references(()=>healthRawRecords.id).notNull()},table=>[primaryKey({columns:[table.subjectId,table.sourceInstanceId,table.recordType,table.providerRecordId]})]);
+export const healthSyncCursors=pgTable("health_sync_cursors",{subjectId:text("subject_id").references(()=>principals.id).notNull(),deviceId:text("device_id").notNull(),sourceInstanceId:text("source_instance_id").references(()=>healthSourceInstances.id).notNull(),recordType:text("record_type").notNull(),permissionFingerprint:text("permission_fingerprint").notNull(),syncEpoch:integer("sync_epoch").notNull(),cursor:text("cursor"),state:text("state").notNull(),updatedAt:timestamp("updated_at",{withTimezone:true}).defaultNow().notNull()},table=>[primaryKey({columns:[table.subjectId,table.deviceId,table.sourceInstanceId,table.recordType]})]);
+export const healthObservations=pgTable("health_observations",{id:text("id").primaryKey(),subjectId:text("subject_id").references(()=>principals.id).notNull(),rawId:text("raw_id").references(()=>healthRawRecords.id).notNull(),rawVersion:integer("raw_version").notNull(),metricKey:text("metric_key").notNull(),position:integer("position").default(0).notNull(),value:numeric("value",{precision:24,scale:6}).notNull(),unit:text("unit").notNull(),occurredOn:date("occurred_on").notNull(),occurredAt:timestamp("occurred_at",{withTimezone:true}),timeZone:text("time_zone").notNull(),groupId:text("group_id").notNull(),groupKind:text("group_kind").notNull(),originalField:text("original_field"),autofilled:boolean("autofilled").default(false).notNull(),effective:boolean("effective").default(true).notNull(),revision:integer("revision").default(1).notNull(),createdAt:timestamp("created_at",{withTimezone:true}).defaultNow().notNull()},table=>[uniqueIndex("health_observations_raw_metric_position_unique").on(table.rawId,table.metricKey,table.position),index("health_observations_subject_metric_date_idx").on(table.subjectId,table.metricKey,table.occurredOn)]);
+export const healthDailyWellbeing=pgTable("health_daily_wellbeing",{id:text("id").primaryKey(),subjectId:text("subject_id").references(()=>principals.id).notNull(),rawId:text("raw_id").references(()=>healthRawRecords.id).notNull().unique(),rawVersion:integer("raw_version").notNull(),occurredOn:date("occurred_on").notNull(),timeZone:text("time_zone").notNull(),moodScore:integer("mood_score"),energyLevel:integer("energy_level"),sleepQuality:integer("sleep_quality"),morningErection:boolean("morning_erection"),notes:text("notes"),effective:boolean("effective").default(true).notNull(),revision:integer("revision").default(1).notNull(),createdAt:timestamp("created_at",{withTimezone:true}).defaultNow().notNull()});
+export const healthSleepSessions=pgTable("health_sleep_sessions",{id:text("id").primaryKey(),subjectId:text("subject_id").references(()=>principals.id).notNull(),rawId:text("raw_id").references(()=>healthRawRecords.id).notNull().unique(),rawVersion:integer("raw_version").notNull(),wakeDate:date("wake_date").notNull(),timeZone:text("time_zone").notNull(),startedAt:timestamp("started_at",{withTimezone:true}),endedAt:timestamp("ended_at",{withTimezone:true}),totalMinutes:integer("total_minutes").notNull(),deepMinutes:integer("deep_minutes"),lightMinutes:integer("light_minutes"),remMinutes:integer("rem_minutes"),awakeMinutes:integer("awake_minutes"),effective:boolean("effective").default(true).notNull(),revision:integer("revision").default(1).notNull(),createdAt:timestamp("created_at",{withTimezone:true}).defaultNow().notNull()});
+export const healthWorkoutSessions=pgTable("health_workout_sessions",{id:text("id").primaryKey(),subjectId:text("subject_id").references(()=>principals.id).notNull(),rawId:text("raw_id").references(()=>healthRawRecords.id).notNull().unique(),rawVersion:integer("raw_version").notNull(),occurredOn:date("occurred_on").notNull(),timeZone:text("time_zone").notNull(),sessionType:text("session_type").notNull(),startedAt:timestamp("started_at",{withTimezone:true}),durationMinutes:integer("duration_minutes"),distanceKm:numeric("distance_km",{precision:24,scale:6}),caloriesKcal:numeric("calories_kcal",{precision:24,scale:6}),rpe:integer("rpe"),heartRateAvg:integer("heart_rate_avg"),detail:jsonb("detail"),effective:boolean("effective").default(true).notNull(),revision:integer("revision").default(1).notNull(),createdAt:timestamp("created_at",{withTimezone:true}).defaultNow().notNull()});
+export const healthDailyActivity=pgTable("health_daily_activity",{id:text("id").primaryKey(),subjectId:text("subject_id").references(()=>principals.id).notNull(),rawId:text("raw_id").references(()=>healthRawRecords.id).notNull().unique(),rawVersion:integer("raw_version").notNull(),occurredOn:date("occurred_on").notNull(),timeZone:text("time_zone").notNull(),steps:integer("steps"),activeMinutes:integer("active_minutes"),deviceCaloriesKcal:numeric("device_calories_kcal",{precision:24,scale:6}),workoutCaloriesKcal:numeric("workout_calories_kcal",{precision:24,scale:6}),effectiveCaloriesKcal:numeric("effective_calories_kcal",{precision:24,scale:6}),fieldSources:jsonb("field_sources").notNull(),effective:boolean("effective").default(true).notNull(),revision:integer("revision").default(1).notNull(),createdAt:timestamp("created_at",{withTimezone:true}).defaultNow().notNull()});
+export const healthHabitLogs=pgTable("health_habit_logs",{id:text("id").primaryKey(),subjectId:text("subject_id").references(()=>principals.id).notNull(),rawId:text("raw_id").references(()=>healthRawRecords.id).notNull().unique(),rawVersion:integer("raw_version").notNull(),occurredOn:date("occurred_on").notNull(),timeZone:text("time_zone").notNull(),habitKey:text("habit_key").notNull(),doneCount:integer("done_count").notNull(),explicitDenial:boolean("explicit_denial").default(false).notNull(),note:text("note"),effective:boolean("effective").default(true).notNull(),revision:integer("revision").default(1).notNull(),createdAt:timestamp("created_at",{withTimezone:true}).defaultNow().notNull()});
+export const healthNormalizationSteps=pgTable("health_normalization_steps",{rawId:text("raw_id").references(()=>healthRawRecords.id).notNull(),rawVersion:integer("raw_version").notNull(),normalizerVersion:text("normalizer_version").notNull(),state:text("state").notNull(),affectedDates:jsonb("affected_dates").notNull(),error:text("error"),startedAt:timestamp("started_at",{withTimezone:true}).defaultNow().notNull(),finishedAt:timestamp("finished_at",{withTimezone:true}).defaultNow().notNull()},table=>[primaryKey({columns:[table.rawId,table.rawVersion,table.normalizerVersion]})]);
+export const healthProjectionInvalidations=pgTable("health_projection_invalidations",{subjectId:text("subject_id").references(()=>principals.id).notNull(),occurredOn:date("occurred_on").notNull(),projectionKey:text("projection_key").notNull(),algorithmVersion:text("algorithm_version").notNull(),valid:boolean("valid").default(false).notNull(),updatedAt:timestamp("updated_at",{withTimezone:true}).defaultNow().notNull()},table=>[primaryKey({columns:[table.subjectId,table.occurredOn,table.projectionKey,table.algorithmVersion]})]);
+export const trips = pgTable("trips", { id: text("id").primaryKey(), subjectId: text("subject_id").references(() => principals.id).notNull(), title: text("title").notNull(), startsOn: date("starts_on").notNull(), endsOn: date("ends_on").notNull(), timeZone: text("time_zone").notNull(), note: text("note"), revision: integer("revision").default(1).notNull(), createdAt:timestamp("created_at",{withTimezone:true}).defaultNow().notNull() });
+export const reservations = pgTable("reservations", { id: text("id").primaryKey(), subjectId: text("subject_id").references(() => principals.id).notNull(), tripId: text("trip_id").references(() => trips.id, { onDelete: "cascade" }).notNull(), reservationType: text("reservation_type").notNull(), title: text("title").notNull(), startsAt: timestamp("starts_at", { withTimezone: true }), endsAt: timestamp("ends_at", { withTimezone: true }), confirmationCode: text("confirmation_code"),state:text("state").default("confirmed").notNull(),origin:text("origin"),destination:text("destination"),serviceNumber:text("service_number"),seat:text("seat"),fareEntryId:text("fare_entry_id").references(()=>moneyEntries.id),voidedAt:timestamp("voided_at",{withTimezone:true}), sourceId: text("source_id").references(() => sources.id), revision: integer("revision").default(1).notNull(), createdAt:timestamp("created_at",{withTimezone:true}).defaultNow().notNull() });
+export const tripSegments=pgTable("trip_segments",{id:text("id").primaryKey(),subjectId:text("subject_id").references(()=>principals.id).notNull(),tripId:text("trip_id").references(()=>trips.id,{onDelete:"cascade"}).notNull(),mode:text("mode").notNull(),origin:text("origin").notNull(),destination:text("destination").notNull(),startsAt:timestamp("starts_at",{withTimezone:true}),endsAt:timestamp("ends_at",{withTimezone:true}),distanceKm:numeric("distance_km",{precision:24,scale:6}),note:text("note"),sourceId:text("source_id").references(()=>sources.id),revision:integer("revision").default(1).notNull(),voidedAt:timestamp("voided_at",{withTimezone:true}),createdAt:timestamp("created_at",{withTimezone:true}).defaultNow().notNull()});
+export const visits = pgTable("visits", { id: text("id").primaryKey(), subjectId: text("subject_id").references(() => principals.id).notNull(), tripId: text("trip_id").references(() => trips.id), placeName: text("place_name").notNull(), latitude: numeric("latitude", { precision: 10, scale: 7 }), longitude: numeric("longitude", { precision: 10, scale: 7 }), occurredOn: date("occurred_on").notNull(), occurredAt: timestamp("occurred_at", { withTimezone: true }), timeZone: text("time_zone").notNull(), note: text("note"), sourceId: text("source_id").references(() => sources.id), revision: integer("revision").default(1).notNull(), createdAt:timestamp("created_at",{withTimezone:true}).defaultNow().notNull() });
+export const libraryItems = pgTable("library_items", { id: text("id").primaryKey(), subjectId: text("subject_id").references(() => principals.id).notNull(), title: text("title").notNull(), itemType: text("item_type").notNull(), currentRevision: integer("current_revision").default(1).notNull(), sourceId: text("source_id").references(() => sources.id), createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull() });
+export const libraryRevisions = pgTable("library_revisions", { itemId: text("item_id").references(() => libraryItems.id, { onDelete: "cascade" }).notNull(), revision: integer("revision").notNull(), text: text("text"), url: text("url"), tags: jsonb("tags").notNull(), createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull() }, (table) => [primaryKey({ columns: [table.itemId, table.revision] })]);
+
+export const threads = pgTable("threads", { id: text("id").primaryKey(), subjectId: text("subject_id").references(() => principals.id).notNull(), title: text("title").notNull(), createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(), updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull() });
+export const messages = pgTable("messages", { id: text("id").primaryKey(), threadId: text("thread_id").references(() => threads.id, { onDelete: "cascade" }).notNull(), role: text("role").notNull(), content: text("content").notNull(), createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull() });
+export const runs = pgTable("runs", { id: text("id").primaryKey(), threadId: text("thread_id").references(() => threads.id, { onDelete: "cascade" }).notNull(), status: text("status").notNull(), error: text("error"), startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(), finishedAt: timestamp("finished_at", { withTimezone: true }) });
+export const runEvents = pgTable("run_events", { runId: text("run_id").references(() => runs.id, { onDelete: "cascade" }).notNull(), sequence: integer("sequence").notNull(), eventType: text("event_type").notNull(), payload: jsonb("payload").notNull(), createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull() }, (table) => [primaryKey({ columns: [table.runId, table.sequence] })]);

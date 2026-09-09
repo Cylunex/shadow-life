@@ -1,0 +1,9 @@
+{
+  "name": "@shadow/agent-adapter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": { "typecheck": "tsc -p tsconfig.json --noEmit", "test": "node --import tsx --test test/*.test.ts" },
+  "dependencies": { "zod": "^4.1.12" }
+}

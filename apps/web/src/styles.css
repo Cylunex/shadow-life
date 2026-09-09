@@ -1,0 +1,29 @@
+:root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #17231c; background: #eef1e8; font-synthesis: none; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+main { width: min(720px, calc(100% - 32px)); margin: 0 auto; padding: 64px 0; }
+header { margin-bottom: 32px; }
+.eyebrow { color: #5a725f; font-size: 12px; font-weight: 800; letter-spacing: .16em; }
+h1 { margin: 10px 0 8px; font-family: Georgia, serif; font-size: clamp(36px, 7vw, 64px); line-height: .98; font-weight: 500; }
+header p { color: #58665d; }
+form, .receipt, .error { border: 1px solid #cad2c5; border-radius: 22px; background: rgba(255,255,255,.72); padding: 24px; box-shadow: 0 20px 60px rgba(44,66,50,.08); }
+label { display: grid; gap: 8px; margin-bottom: 18px; font-weight: 650; }
+input, textarea { width: 100%; border: 1px solid #bac5b6; border-radius: 12px; background: #fff; padding: 13px 14px; color: inherit; font: inherit; }
+textarea { min-height: 96px; resize: vertical; }
+button { border: 0; border-radius: 999px; background: #214d36; color: white; padding: 13px 22px; font: inherit; font-weight: 750; cursor: pointer; }
+button:disabled { opacity: .6; }
+nav { display:flex; gap:8px; overflow:auto; margin:0 0 24px; }
+nav button { background:transparent; color:#496052; border:1px solid #cad2c5; white-space:nowrap; }
+nav button.active { background:#214d36; color:#fff; }
+.grid { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
+article,.wide { background:#fff9; border:1px solid #cad2c5; border-radius:18px; padding:20px; }
+article { display:flex; align-items:center; justify-content:space-between; }
+article strong { font:500 32px Georgia,serif; }
+.wide { grid-column:1/-1; overflow:auto; }
+pre { white-space:pre-wrap; overflow-wrap:anywhere; font-size:12px; color:#58665d; }
+select { width:100%; border:1px solid #bac5b6; border-radius:12px; background:#fff; padding:13px 14px; color:inherit; font:inherit; }
+.receipt, .error { margin-top: 20px; }
+.receipt span { color: #26734a; font-weight: 800; }
+.receipt h2 { margin: 6px 0; }
+.receipt p, .receipt small { display: block; color: #667168; }
+.error { color: #9d2d2d; border-color: #e0b6b2; }

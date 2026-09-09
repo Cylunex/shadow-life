@@ -1,0 +1,9 @@
+{
+  "name": "@shadow/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": { "shadow": "./src/main.ts" },
+  "scripts": { "start": "node --import tsx src/main.ts", "typecheck": "tsc -p tsconfig.json --noEmit" },
+  "dependencies": { "@shadow/contracts": "workspace:*" }
+}

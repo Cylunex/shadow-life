@@ -1,0 +1,22 @@
+{
+  "name": "@shadow/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch --import tsx src/start.ts",
+    "start": "node --import tsx src/start.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --import tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.6",
+    "@shadow/contracts": "workspace:*",
+    "@shadow/agent-adapter": "workspace:*",
+    "@shadow/database": "workspace:*",
+    "@shadow/kernel": "workspace:*",
+    "hono": "^4.10.6",
+    "jose": "^6.1.0",
+    "zod": "^4.1.12"
+  }
+}

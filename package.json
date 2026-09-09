@@ -1,0 +1,30 @@
+{
+  "name": "shadow-life",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.19.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "setup": "pnpm install --frozen-lockfile",
+    "dev": "pnpm --parallel --filter @shadow/api --filter @shadow/web dev",
+    "db:migrate": "node --import tsx packages/database/src/migrate.ts",
+    "build": "pnpm -r --if-present build",
+    "check": "pnpm check:contracts && pnpm check:boundaries && pnpm -r --if-present typecheck && pnpm -r --if-present test",
+    "check:contracts": "pnpm --filter @shadow/contracts check-generated",
+    "check:boundaries": "node scripts/check-boundaries.mjs",
+    "test:journey": "node scripts/test-journey.mjs",
+    "test:health-ledger": "node scripts/test-journey.mjs health-ledger",
+    "eval:agent": "node scripts/eval-agent.mjs",
+    "mcp": "pnpm --filter @shadow/mcp start",
+    "import:dry-run": "pnpm --filter @shadow/legacy-importer dry-run",
+    "migration": "pnpm --filter @shadow/legacy-importer migration"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}

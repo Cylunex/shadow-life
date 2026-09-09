@@ -1,0 +1,11 @@
+# Health / Ledger cutover runbook
+
+1. Restore the latest backups into isolation and verify they can be queried. Export both legacy databases with the read-only exporter and hash every referenced asset.
+2. Map each legacy owner to one verified Life subject. Validate the bundle, resolve all unsupported fields and inaccessible assets, then apply it to an isolated Life database twice. The second run must report only replays.
+3. Run reconciliation. All source objects need a disposition; all target components, links, exact per-currency money totals, raw health revisions, nutritional snapshots and source hashes must match. Complete every projection checkpoint.
+4. Put Life Health and Ledger into `read_only`, stop old web/API/MCP writers, scheduled jobs, directory ingestion and device sync, then drain or quarantine old offline queues. Take the final consistent snapshots and apply their deletion delta.
+5. Run `cutover-check` against the exact final snapshot bundle. It selects the matching `final_delta` batch, requires both Life write epochs to remain `read_only`, verifies all normalization and daily-projection queues are drained, and reruns target reconciliation inside one repeatable-read transaction. A prior successful summary is never sufficient. Change each `write_epochs` row to the next epoch and `life` only after this fresh report is ready. Route supported clients to Life. Clients read `/api/write-epochs` and send the values as `x-shadow-write-epochs: health=N,ledger=N`; a stale supplied epoch is rejected inside the same transaction as the write. The server-side stage remains authoritative when older clients do not supply an epoch.
+6. Verify Web, MCP, Agent and Android reads and writes, including an unknown response replay, cross-day payment, cross-month refund, Health cursor replay and an attachment reference. Keep old databases read-only and take a new Life backup.
+7. Revoke legacy machine credentials and retire the old services only after the observation window and restore exercise succeed.
+
+Before Life accepts a new write, rollback may reopen the verified final legacy state as the sole writer. After Life accepts a new write, freeze Life and repair forward unless a separately tested reverse mapper can preserve every new fact, receipt and asset reference. Never reopen both writers.

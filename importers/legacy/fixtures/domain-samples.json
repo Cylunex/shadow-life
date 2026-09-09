@@ -1,0 +1,6 @@
+[
+  {"kind":"ledger","legacy_id":"ledger-1","owner_mapping":"subject_example","input":{"entry_type":"expense","amount":"18.00","currency":"CNY","occurred_on":"2026-09-01","time_zone":"Asia/Shanghai","note":"公交"}},
+  {"kind":"health","legacy_id":"health-1","owner_mapping":"subject_example","input":{"metric":"weight","value":"68.5","unit":"kg","occurred_on":"2026-09-02","time_zone":"Asia/Shanghai"}},
+  {"kind":"trip","legacy_id":"trip-1","owner_mapping":"subject_example","input":{"title":"杭州","starts_on":"2026-10-01","ends_on":"2026-10-03","time_zone":"Asia/Shanghai"}},
+  {"kind":"archive","legacy_id":"archive-1","owner_mapping":"subject_example","input":{"title":"旧资料","item_type":"note","text":"只保留原文，不补造时间。","tags":["legacy"]}}
+]

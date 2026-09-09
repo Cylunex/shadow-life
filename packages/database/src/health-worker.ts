@@ -1,0 +1,30 @@
+import { createHash } from "node:crypto";
+import { Pool, type PoolClient } from "pg";
+import { normalizeHealthRaw, type HealthNormalizationResult } from "./health-normalizer.js";
+
+export async function processPendingHealth(pool:Pool,limit=50):Promise<HealthNormalizationResult[]> {
+  const claimed=await pool.query<{raw_id:string;raw_version:number;normalizer_version:string}>("with candidates as (select raw_id,raw_version,normalizer_version from health_normalization_queue where state in ('pending','failed') or (state='running' and updated_at<now()-interval '5 minutes') order by updated_at for update skip locked limit $1) update health_normalization_queue queue set state='running',attempts=attempts+1,updated_at=now() from candidates where queue.raw_id=candidates.raw_id and queue.raw_version=candidates.raw_version and queue.normalizer_version=candidates.normalizer_version returning queue.raw_id,queue.raw_version,queue.normalizer_version",[limit]);
+  const results:HealthNormalizationResult[]=[];
+  for(const work of claimed.rows){try{const result=await normalizeHealthRaw(pool,work.raw_id,work.raw_version,work.normalizer_version);results.push(result);if(result.state==="failed"){await markFailed(pool,work,result.error??"normalization failed");continue;}await pool.query("update health_normalization_queue set state='completed',last_error=null,updated_at=now() where raw_id=$1 and raw_version=$2 and normalizer_version=$3",[work.raw_id,work.raw_version,work.normalizer_version]);}catch(error){await markFailed(pool,work,error instanceof Error?error.message:"health work failed");}}
+  await processPendingHealthDays(pool,limit);
+  return results;
+}
+
+async function markFailed(pool:Pool,work:{raw_id:string;raw_version:number;normalizer_version:string},message:string):Promise<void>{await pool.query("update health_normalization_queue set state='failed',last_error=$4,updated_at=now() where raw_id=$1 and raw_version=$2 and normalizer_version=$3",[work.raw_id,work.raw_version,work.normalizer_version,message]);}
+
+export async function processPendingHealthDays(pool:Pool,limit=50):Promise<number>{
+  let processed=0;
+  while(processed<limit){const client=await pool.connect();try{await client.query("begin");const claimed=await client.query<{subject_id:string;occurred_on:string;algorithm_version:string}>("select subject_id,occurred_on::text,algorithm_version from health_projection_invalidations where projection_key='daily_health' and not valid order by updated_at for update skip locked limit 1");const work=claimed.rows[0];if(!work){await client.query("commit");break;}await rebuildHealthDay(client,work.subject_id,work.occurred_on,work.algorithm_version);await client.query("update health_projection_invalidations set valid=true,updated_at=now() where subject_id=$1 and occurred_on=$2 and projection_key='daily_health' and algorithm_version=$3",[work.subject_id,work.occurred_on,work.algorithm_version]);await client.query("commit");processed++;}catch(error){await client.query("rollback");throw error;}finally{client.release();}}
+  return processed;
+}
+
+async function rebuildHealthDay(client:PoolClient,subjectId:string,date:string,algorithmVersion:string):Promise<void>{
+  const facts=await client.query("select 'observation' kind,id,metric_key key,value::text value,unit from health_observations where subject_id=$1 and occurred_on=$2 and effective union all select 'measurement',id,metric,value::text,unit from health_measurements where subject_id=$1 and occurred_on=$2 and effective order by kind,id",[subjectId,date]);
+  const activity=await client.query("select max(steps)::int steps,max(active_minutes)::int active_minutes,max(effective_calories_kcal)::text calories_kcal from health_daily_activity where subject_id=$1 and occurred_on=$2 and effective having count(*)>0",[subjectId,date]);
+  const sleep=await client.query("select total_minutes,deep_minutes,light_minutes,rem_minutes,awake_minutes from health_sleep_sessions where subject_id=$1 and wake_date=$2 and effective order by revision desc,id limit 1",[subjectId,date]);
+  const wellbeing=await client.query("select mood_score,energy_level,sleep_quality,morning_erection,notes from health_daily_wellbeing where subject_id=$1 and occurred_on=$2 and effective order by revision desc,id",[subjectId,date]);
+  const workouts=await client.query("select id,session_type,started_at,duration_minutes,distance_km::text,calories_kcal::text,rpe,heart_rate_avg,detail from health_workout_sessions where subject_id=$1 and occurred_on=$2 and effective order by started_at nulls last,id",[subjectId,date]);
+  const habits=await client.query("select id,habit_key,done_count,explicit_denial,note from health_habit_logs where subject_id=$1 and occurred_on=$2 and effective order by habit_key,id",[subjectId,date]);
+  const result={facts:facts.rows,activity:activity.rows[0]??null,sleep:sleep.rows[0]??null,wellbeing:wellbeing.rows,workouts:workouts.rows,habits:habits.rows};const hash=createHash("sha256").update(JSON.stringify(result)).digest("hex");
+  await client.query("insert into health_daily_summaries(subject_id,occurred_on,algorithm_version,result,source_set_hash) values($1,$2,$3,$4,$5) on conflict(subject_id,occurred_on,algorithm_version) do update set result=excluded.result,source_set_hash=excluded.source_set_hash,revision=case when health_daily_summaries.source_set_hash=excluded.source_set_hash then health_daily_summaries.revision else health_daily_summaries.revision+1 end,updated_at=now()",[subjectId,date,algorithmVersion,result,hash]);
+}

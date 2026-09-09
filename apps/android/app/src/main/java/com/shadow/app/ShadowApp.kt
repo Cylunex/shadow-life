@@ -1,0 +1,6 @@
+package com.shadow.app
+import android.app.Application
+import androidx.room.Room
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
+class ShadowApp:Application(){val database by lazy{Room.databaseBuilder(this,ShadowDatabase::class.java,"shadow-life.db").addMigrations(object:Migration(1,2){override fun migrate(db:SupportSQLiteDatabase){db.execSQL("CREATE TABLE IF NOT EXISTS pending_attachments (id TEXT NOT NULL PRIMARY KEY, accountId TEXT NOT NULL, subjectId TEXT NOT NULL, commandId TEXT NOT NULL, localPath TEXT NOT NULL, mediaType TEXT NOT NULL, state TEXT NOT NULL, createdAt INTEGER NOT NULL)");db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_pending_attachments_subjectId_commandId ON pending_attachments(subjectId,commandId)")}},object:Migration(2,3){override fun migrate(db:SupportSQLiteDatabase){db.execSQL("ALTER TABLE pending_commands ADD COLUMN accountId TEXT NOT NULL DEFAULT ''");db.execSQL("DROP INDEX IF EXISTS index_pending_commands_subjectId_commandId");db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_pending_commands_accountId_subjectId_commandId ON pending_commands(accountId,subjectId,commandId)")}}).build()};val sessions by lazy{SessionStore(this)};override fun onCreate(){super.onCreate();sessions.active()?.let{SyncScheduler.schedule(this,it.accountId)}}}

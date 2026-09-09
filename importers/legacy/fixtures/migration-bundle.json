@@ -1,0 +1,20 @@
+{
+  "protocol": "shadow.legacy-bundle",
+  "source_snapshot": "synthetic-2026-09-08",
+  "mapper_version": "hl-m2",
+  "target_schema_version": "0005",
+  "owners": { "legacy-owner": "subject_import_fixture" },
+  "manifest": { "files": [] },
+  "objects": [
+    {
+      "source": { "instance": "ledger-fixture", "table": "money_entries", "pk": { "id": "expense-1" }, "owner": "legacy-owner", "revision": "1" },
+      "payload": { "amount": "10.0010", "currency": "USD" },
+      "targets": [{ "component": "money", "type": "money_entry", "id": "money_import_fixture", "role": "primary", "data": { "record_id": "record_import_fixture", "state": "confirmed", "entry_type": "expense", "amount": "10.0010", "currency": "USD", "source_scale": 4, "occurred_on": "2026-09-01", "time_zone": "Asia/Shanghai" } }]
+    },
+    {
+      "source": { "instance": "health-fixture", "table": "diet_logs", "pk": { "id": 7 }, "owner": "legacy-owner", "revision": "1" },
+      "payload": { "date": "2026-09-01", "meal": "lunch" },
+      "targets": [{ "component": "meal", "type": "meal", "id": "meal_import_fixture", "role": "legacy_bucket", "data": { "occurred_on": "2026-09-01", "time_zone": "Asia/Shanghai", "meal_type": "lunch", "grouping_origin": "legacy_meal_bucket", "items": [{ "id": "intake_import_fixture", "name": "合成样例", "amount_g": "100", "energy_kcal": "120", "protein_g": "8", "fat_g": "2", "carb_g": "18", "provenance": "legacy" }] } }]
+    }
+  ]
+}
