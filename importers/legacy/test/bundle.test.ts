@@ -1,9 +1,15 @@
 import assert from "node:assert/strict";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
-import { canonical, findSecretFields, stableMigrationId, validateBundle } from "../src/bundle.js";
+import { canonical, findSecretFields, sha256, stableMigrationId, validateBundle, verifyBundleFiles } from "../src/bundle.js";
 
 const bundle={protocol:"shadow.legacy-bundle",source_snapshot:"snapshot-1",mapper_version:"mapper-1",target_schema_version:"0005",owners:{old:"subject_test"},manifest:{files:[]},objects:[{source:{instance:"ledger",table:"money",pk:{id:1},owner:"old",revision:"1"},payload:{amount:"10.0010"},targets:[{component:"money",type:"money_entry",id:"money_import_0001",role:"primary",data:{entry_type:"expense",amount:"10.0010",currency:"USD",occurred_on:"2025-01-01"}}]}]};
 test("canonical identity is independent of object key order",()=>assert.equal(canonical({b:2,a:1}),canonical({a:1,b:2})));
 test("stable ids include structured source identity",()=>assert.notEqual(stableMigrationId("x",["a","bc"]),stableMigrationId("x",["ab","c"])));
-test("bundle validates owner mapping and historical precision",()=>assert.equal(validateBundle(bundle).objects[0]?.payload.amount,"10.0010"));
+test("bundle validates owner mapping and historical precision",()=>{const parsed=validateBundle(bundle);assert.equal(parsed.objects[0]?.payload.amount,"10.0010");assert.equal(parsed.objects[0]?.change_kind,"upsert");});
+test("a deletion delta requires a source revision",()=>{const object=bundle.objects[0]!;assert.throws(()=>validateBundle({...bundle,objects:[{...object,change_kind:"delete",source:{...object.source,revision:undefined}}]}),/deleted source needs a revision/u);assert.equal(validateBundle({...bundle,objects:[{...object,change_kind:"delete"}]}).objects[0]?.change_kind,"delete");});
+test("bundle identities and manifest paths are unambiguous",()=>{const object=bundle.objects[0]!;assert.throws(()=>validateBundle({...bundle,objects:[object,{...object,source:{...object.source,pk:{id:2}}}]}),/duplicate target identity/u);assert.throws(()=>validateBundle({...bundle,manifest:{files:[{path:"a",sha256:"0".repeat(64),bytes:0},{path:"a",sha256:"0".repeat(64),bytes:0}]}}),/duplicate manifest path/u);});
 test("secret-bearing export is rejected",()=>{assert.deepEqual(findSecretFields({profile:{access_token:"x"}}),["$.profile.access_token"]);assert.throws(()=>validateBundle({...bundle,objects:[{...bundle.objects[0],payload:{password_hash:"x"}}]}),/forbidden secret/);});
+test("manifest files are verified from actual bytes and cannot escape the bundle",async()=>{const directory=await mkdtemp(join(tmpdir(),"shadow-life-bundle-")),bundlePath=join(directory,"bundle.json"),assetPath=join(directory,"receipt.bin"),bytes=Buffer.from("receipt bytes");await writeFile(bundlePath,"{}\n");await writeFile(assetPath,bytes);const parsed=validateBundle({...bundle,manifest:{files:[{path:"receipt.bin",sha256:sha256("receipt bytes"),bytes:bytes.byteLength}]}});assert.deepEqual(await verifyBundleFiles(parsed,bundlePath),parsed.manifest.files);await assert.rejects(()=>verifyBundleFiles(validateBundle({...bundle,manifest:{files:[{path:"missing.bin",sha256:"0".repeat(64),bytes:0}]}}),bundlePath),/does not exist/u);await assert.rejects(()=>verifyBundleFiles(validateBundle({...bundle,manifest:{files:[{path:"../outside.bin",sha256:"0".repeat(64),bytes:0}]}}),bundlePath),/does not exist|escapes/u);});

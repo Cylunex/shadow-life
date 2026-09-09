@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { capabilityRegistry, commandEnvelopeSchema, recordDiningInputSchema, recordMealInputSchema, setHealthPlanInputSchema, universalCommandEnvelopeSchema } from "../src/index.js";
+import { capabilityRegistry, commandEnvelopeSchema, recordDiningInputSchema, recordMealInputSchema, setHealthPlanInputSchema, setRecurringPlanInputSchema, universalCommandEnvelopeSchema } from "../src/index.js";
 
 const meal = {
   occurred_on: "2026-09-08",
@@ -60,4 +60,12 @@ test("life detail sections resolve the exact read effects",()=>{
   assert.deepEqual(capabilityRegistry["life.get_record"].resolveEffects({id:"record_12345678",sections:["meal","sources"]}),["life.meal.read"]);
   assert.deepEqual(capabilityRegistry["life.get_record"].resolveEffects({id:"record_12345678",sections:["money"]}),["money.entry.read"]);
   assert.deepEqual(capabilityRegistry["life.get_record"].resolveEffects({id:"record_12345678",sections:["purchase","money"]}),["life.meal.read","money.entry.read"]);
+});
+
+test("recurring plans preserve an explicit local schedule and supported RRULE",()=>{
+  const value={title:"月末复盘",amount:"20.00",currency:"CNY",cadence:"monthly",next_due_on:"2026-01-31",anchor_on:"2026-01-31",local_time:"09:30",time_zone:"Asia/Shanghai",missing_date_policy:"last_day",recurrence_rule:"FREQ=MONTHLY;BYMONTHDAY=-1",state:"active"} as const;
+  assert.equal(setRecurringPlanInputSchema.safeParse(value).success,true);
+  assert.equal(setRecurringPlanInputSchema.safeParse({...value,recurrence_rule:"FREQ=MONTHLY;BYDAY=MO"}).success,false);
+  assert.equal(setRecurringPlanInputSchema.safeParse({...value,next_due_on:"2026-01-01"}).success,false);
+  assert.equal(setRecurringPlanInputSchema.safeParse({...value,cadence:"interval",interval_days:367,recurrence_rule:"FREQ=DAILY;INTERVAL=367"}).success,false);
 });

@@ -8560,7 +8560,7 @@
           "interval_days": {
             "type": "integer",
             "exclusiveMinimum": 0,
-            "maximum": 9007199254740991
+            "maximum": 366
           },
           "time_zone": {
             "default": "Asia/Shanghai",
@@ -8572,6 +8572,29 @@
             "type": "string",
             "format": "date",
             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "anchor_on": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "local_time": {
+            "type": "string",
+            "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d)?$"
+          },
+          "missing_date_policy": {
+            "default": "skip",
+            "type": "string",
+            "enum": [
+              "skip",
+              "last_day"
+            ]
+          },
+          "recurrence_rule": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "^FREQ=(?:DAILY|WEEKLY|MONTHLY|YEARLY)(?:;INTERVAL=[1-9]\\d{0,2})?(?:;BYMONTH=(?:[1-9]|1[0-2]))?(?:;BYMONTHDAY=(?:-1|[1-9]|[12]\\d|3[01]))?$"
           },
           "category": {
             "type": "string",
@@ -8598,6 +8621,7 @@
           "cadence",
           "time_zone",
           "next_due_on",
+          "missing_date_policy",
           "state"
         ],
         "additionalProperties": false
@@ -8670,7 +8694,7 @@
               "interval_days": {
                 "type": "integer",
                 "exclusiveMinimum": 0,
-                "maximum": 9007199254740991
+                "maximum": 366
               },
               "time_zone": {
                 "default": "Asia/Shanghai",
@@ -8682,6 +8706,29 @@
                 "type": "string",
                 "format": "date",
                 "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "anchor_on": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "local_time": {
+                "type": "string",
+                "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d)?$"
+              },
+              "missing_date_policy": {
+                "default": "skip",
+                "type": "string",
+                "enum": [
+                  "skip",
+                  "last_day"
+                ]
+              },
+              "recurrence_rule": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500,
+                "pattern": "^FREQ=(?:DAILY|WEEKLY|MONTHLY|YEARLY)(?:;INTERVAL=[1-9]\\d{0,2})?(?:;BYMONTH=(?:[1-9]|1[0-2]))?(?:;BYMONTHDAY=(?:-1|[1-9]|[12]\\d|3[01]))?$"
               },
               "category": {
                 "type": "string",
@@ -8708,6 +8755,7 @@
               "cadence",
               "time_zone",
               "next_due_on",
+              "missing_date_policy",
               "state"
             ],
             "additionalProperties": false

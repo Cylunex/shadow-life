@@ -1,0 +1,22 @@
+{
+  "protocol": "shadow.legacy-bundle",
+  "source_snapshot": "synthetic-2026-09-09-final",
+  "mapper_version": "hl-m2",
+  "target_schema_version": "0013",
+  "owners": { "legacy-owner": "subject_import_fixture" },
+  "manifest": { "files": [] },
+  "objects": [
+    {
+      "change_kind": "upsert",
+      "source": { "instance": "ledger-fixture", "table": "money_entries", "pk": { "id": "expense-1" }, "owner": "legacy-owner", "revision": "2" },
+      "payload": { "amount": "11.50", "currency": "USD" },
+      "targets": [{ "component": "money", "type": "money_entry", "id": "money_import_fixture", "role": "primary", "data": { "record_id": "record_import_fixture", "state": "confirmed", "entry_type": "expense", "amount": "11.500000", "currency": "USD", "source_scale": 2, "occurred_on": "2026-09-02", "time_zone": "Asia/Shanghai" } }]
+    },
+    {
+      "change_kind": "delete",
+      "source": { "instance": "health-fixture", "table": "diet_logs", "pk": { "id": 7 }, "owner": "legacy-owner", "revision": "2" },
+      "payload": { "deleted": true },
+      "targets": [{ "component": "meal", "type": "meal", "id": "meal_import_fixture", "role": "legacy_bucket", "data": {} }]
+    }
+  ]
+}

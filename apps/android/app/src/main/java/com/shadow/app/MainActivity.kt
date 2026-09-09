@@ -21,6 +21,7 @@ class MainActivity:ComponentActivity(){
   private lateinit var oidc:OidcSessions
   private var activeSession by mutableStateOf<ProductSession?>(null)
   private var loginMessage by mutableStateOf<String?>(null)
+  private var recoverableCommands by mutableIntStateOf(0)
   private var pendingSharedImage:Uri?=null
   private val loginResult=registerForActivityResult(ActivityResultContracts.StartActivityForResult()){result->
     val data=result.data
@@ -35,7 +36,8 @@ class MainActivity:ComponentActivity(){
     val shared=intent.takeIf{it.action==Intent.ACTION_SEND}?.getStringExtra(Intent.EXTRA_TEXT).orEmpty()
     val image=intent.takeIf{it.action==Intent.ACTION_SEND&&it.type?.startsWith("image/")==true}?.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
     if(image!=null){if(activeSession==null)pendingSharedImage=image else enqueueImage(image)}
-    setContent{MaterialTheme{Capture(shared,activeSession,oidc.configured,loginMessage,onLogin=::login,onSave=::enqueue)}}
+    lifecycleScope.launch{app.database.commands().observeRecoverableCount().collect{recoverableCommands=it}}
+    setContent{MaterialTheme{Capture(shared,activeSession,oidc.configured,loginMessage,recoverableCommands,onLogin=::login,onSave=::enqueue,onRecover=::recoverLegacyCommands)}}
   }
 
   override fun onDestroy(){oidc.close();super.onDestroy()}
@@ -58,15 +60,21 @@ class MainActivity:ComponentActivity(){
     file.parentFile?.mkdirs();contentResolver.openInputStream(uri)?.use{input->file.outputStream().use(input::copyTo)}?:return
     lifecycleScope.launch{withContext(Dispatchers.IO){app.database.commands().enqueueAttachment(PendingAttachment(id,session.accountId,session.subjectId,commandId,file.absolutePath,mediaType))};SyncScheduler.schedule(this@MainActivity,session.accountId)}
   }
+
+  private fun recoverLegacyCommands(){
+    val app=application as ShadowApp;val session=app.sessions.active()?:return
+    lifecycleScope.launch{val restored=withContext(Dispatchers.IO){app.database.commands().recoverToAccount(session.accountId,session.subjectId)};loginMessage="$restored 条历史离线任务已归入当前账号";if(restored>0)SyncScheduler.schedule(this@MainActivity,session.accountId)}
+  }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun Capture(initial:String,session:ProductSession?,loginConfigured:Boolean,loginMessage:String?,onLogin:()->Unit,onSave:(String)->Unit){
+@Composable fun Capture(initial:String,session:ProductSession?,loginConfigured:Boolean,loginMessage:String?,recoverableCommands:Int,onLogin:()->Unit,onSave:(String)->Unit,onRecover:()->Unit){
   var value by remember{mutableStateOf(initial)}
   Scaffold(topBar={TopAppBar(title={Text("Shadow Life")})}){padding->Column(Modifier.padding(padding).padding(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)){
     Text("保存生活中的原始资料",style=MaterialTheme.typography.headlineMedium)
-    if(session==null){Button(onClick=onLogin,enabled=loginConfigured){Text("统一账号登录")};loginMessage?.let{Text(it)};if(!loginConfigured)Text("请先配置身份提供方")}
-    else Text("已登录：${session.subjectId}")
+    if(session==null){Button(onClick=onLogin,enabled=loginConfigured){Text("统一账号登录")};if(!loginConfigured)Text("请先配置身份提供方")}
+    else {Text("已登录：${session.subjectId}");if(recoverableCommands>0){Text("发现 $recoverableCommands 条旧版离线任务，账号归属未知。确认后才会同步。");OutlinedButton(onClick=onRecover){Text("归入当前账号")}}}
+    loginMessage?.let{Text(it)}
     OutlinedTextField(value,{value=it},Modifier.fillMaxWidth(),minLines=6,label={Text("文字或分享内容")})
     Button(onClick={onSave(value)},enabled=value.isNotBlank()&&session!=null){Text("保存到离线队列")}
     Text("队列按账号隔离；同步前会自动刷新会话，刷新失败时暂停该账号。")

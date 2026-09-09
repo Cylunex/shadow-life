@@ -11,7 +11,7 @@ async function scan(directory) {
     else if (/\.(?:ts|tsx|js|mjs|kt|sql|md|json)$/u.test(entry.name)) {
       const text = await readFile(path, "utf8");
       const relative = path.slice(root.length + 1);
-      const internalLegacyArtifact=relative.startsWith("packages/database/migrations/")||relative==="packages/database/src/schema.ts"||relative.startsWith("packages/database/test/");
+      const internalLegacyArtifact=relative.startsWith("packages/database/migrations/")||relative==="packages/database/src/schema.ts"||relative==="packages/database/src/migrate.ts"||relative.startsWith("packages/database/test/");
       const publicVersionMarker=!internalLegacyArtifact&&/\/api\/v\d+\b|shadow\.[a-z0-9_.-]+\.v\d+\b|capability_version/u.test(text);
       if (relative !== "scripts/check-boundaries.mjs" && publicVersionMarker) violations.push(`${relative}: public contracts use one current version`);
       if (/\.(?:ts|tsx|js|mjs)$/u.test(entry.name)) {
