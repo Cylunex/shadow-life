@@ -2,6 +2,7 @@ export * from "./errors.js";
 export * from "./health.js";
 export * from "./ports.js";
 export * from "./recurrence.js";
+export * from "./travel.js";
 export * from "./record-meal.js";
 export * from "./queries.js";
 export * from "./runtime.js";

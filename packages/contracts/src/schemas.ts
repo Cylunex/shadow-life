@@ -201,6 +201,7 @@ export const createTripInputSchema = z.object({
   time_zone: ianaTimeZone,
   note: z.string().trim().min(1).max(2_000).optional()
 }).strict().refine((trip) => trip.ends_on >= trip.starts_on, { path: ["ends_on"], message: "ends_on must not be before starts_on" });
+export const correctTripInputSchema=createTripInputSchema.extend({trip_id:stableId,expected_revision:z.number().int().positive(),reason:z.string().trim().min(1).max(500)}).strict();
 
 export const addReservationInputSchema = z.object({
   trip_id: stableId,
@@ -227,8 +228,12 @@ export const recordVisitInputSchema = datedFactSchema.extend({
   if ((visit.latitude === undefined) !== (visit.longitude === undefined)) context.addIssue({ code: "custom", message: "latitude and longitude must be supplied together" });
 });
 export const savePlaceInputSchema=z.object({place_id:stableId.optional(),expected_revision:z.number().int().positive().optional(),name:z.string().trim().min(1).max(200),address:z.string().trim().min(1).max(500).optional(),latitude:z.number().min(-90).max(90).optional(),longitude:z.number().min(-180).max(180).optional(),tags:z.array(z.string().trim().min(1).max(64)).max(30).default([]),favorite:z.boolean().default(false)}).strict().superRefine((value,context)=>{if((value.place_id===undefined)!==(value.expected_revision===undefined))context.addIssue({code:"custom",message:"place_id and expected_revision must be supplied together"});if((value.latitude===undefined)!==(value.longitude===undefined))context.addIssue({code:"custom",message:"latitude and longitude must be supplied together"});});
-export const setTripDayPlanInputSchema=z.object({trip_id:stableId,plan_date:localDate,expected_revision:z.number().int().positive().optional(),items:z.array(z.object({title:z.string().trim().min(1).max(200),starts_at:instant.optional(),place_id:stableId.optional(),note:z.string().max(1000).optional()}).strict()).max(100)}).strict();
+export const tripPlanItemSchema=z.object({stop_id:stableId.optional(),title:z.string().trim().min(1).max(200),starts_at:instant.optional(),place_id:stableId.optional(),note:z.string().max(1000).optional()}).strict();
+export const setTripDayPlanInputSchema=z.object({trip_id:stableId,plan_date:localDate,expected_revision:z.number().int().positive().optional(),items:z.array(tripPlanItemSchema).max(100)}).strict();
 export const setTripMemberInputSchema=z.object({trip_id:stableId,member_subject_id:stableId,role:z.enum(["editor","viewer"]),visibility:z.enum(["shared","private"])}).strict();
+export const publishTripPlanInputSchema=z.object({trip_id:stableId,label:z.string().trim().min(1).max(200).optional(),note:z.string().trim().min(1).max(2_000).optional()}).strict();
+export const startTripRunInputSchema=z.object({trip_id:stableId,plan_version_id:stableId.optional()}).strict();
+export const setTripStopOutcomeInputSchema=z.object({run_id:stableId,stop_id:stableId,state:z.enum(["arrived","skipped"]),occurred_at:instant.optional(),note:z.string().trim().min(1).max(1_000).optional(),expected_revision:z.number().int().positive().optional()}).strict();
 
 export const captureLibraryItemInputSchema = z.object({
   title: z.string().trim().min(1).max(300),
@@ -273,6 +278,7 @@ export const writeCommandSchemas = {
   "health.set_source_state":setHealthSourceStateInputSchema,
   "health.set_plan":setHealthPlanInputSchema,
   "travel.create_trip": createTripInputSchema,
+  "travel.correct_trip":correctTripInputSchema,
   "travel.add_reservation": addReservationInputSchema,
   "travel.correct_reservation":correctReservationInputSchema,
   "travel.void_reservation":voidReservationInputSchema,
@@ -281,6 +287,9 @@ export const writeCommandSchemas = {
   "travel.save_place":savePlaceInputSchema,
   "travel.set_day_plan":setTripDayPlanInputSchema,
   "travel.set_member":setTripMemberInputSchema,
+  "travel.publish_plan":publishTripPlanInputSchema,
+  "travel.start_run":startTripRunInputSchema,
+  "travel.set_stop_outcome":setTripStopOutcomeInputSchema,
   "library.capture": captureLibraryItemInputSchema,
   "library.revise":reviseLibraryItemInputSchema,
   "library.annotate":annotateLibraryItemInputSchema,
@@ -299,7 +308,7 @@ export const universalCommandEnvelopeSchema = z.object({
 });
 
 export const resourceReferenceSchema = z.object({
-  type: z.enum(["meal", "meal_template", "personal_alias", "intake_item", "consumption_record", "purchase", "purchase_item", "money_entry", "refund", "budget", "recurring_plan", "recurring_occurrence", "spending_intent", "use_cycle", "health_measurement", "health_raw", "health_sync_cursor", "health_plan", "trip", "trip_segment", "reservation", "visit", "place", "trip_day_plan", "trip_member", "library_item", "library_annotation", "library_derivation", "source", "thread", "run", "task"]),
+  type: z.enum(["meal", "meal_template", "personal_alias", "intake_item", "consumption_record", "purchase", "purchase_item", "money_entry", "refund", "budget", "recurring_plan", "recurring_occurrence", "spending_intent", "use_cycle", "health_measurement", "health_raw", "health_sync_cursor", "health_plan", "trip", "trip_segment", "reservation", "visit", "place", "trip_day_plan", "trip_member", "trip_plan_version", "trip_run", "trip_stop_outcome", "library_item", "library_annotation", "library_derivation", "source", "thread", "run", "task"]),
   id: stableId,
   revision: z.number().int().positive()
 }).strict();
