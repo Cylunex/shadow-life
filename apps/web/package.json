@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "typecheck": "tsc -b --pretty false"
+    "typecheck": "tsc -b --pretty false",
+    "test": "node --import tsx --test test/*.test.ts"
   },
   "dependencies": {
     "@shadow/contracts": "workspace:*",

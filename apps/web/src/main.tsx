@@ -1,7 +1,8 @@
-import { StrictMode, useEffect, useState, type FormEvent } from "react";
+import { StrictMode, useEffect, useRef, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import type { ExecutionResult, WriteCapabilityName } from "@shadow/contracts";
 import "./styles.css";
+import { applyAssistantEvent, createAssistantView, readAssistantSse, renderAssistantView, type AssistantRunState } from "./assistant-stream.js";
 type Tab="today"|"record"|"plan"|"library"|"assistant";
 const auth=import.meta.env.DEV?{authorization:"Bearer dev:subject_example"}:{}; const headers={"content-type":"application/json",...auth};let epochHeader="";const writeHeaders=()=>({...headers,...(epochHeader?{"x-shadow-write-epochs":epochHeader}:{})});
 const today=()=>new Intl.DateTimeFormat("en-CA").format(new Date()); const zone=()=>Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -13,9 +14,29 @@ return <main><header><span className="eyebrow">SHADOW LIFE</span><h1>生活事�
 function FactList({data}:{data:Record<string,unknown[]>}){const labels:Record<string,string>={meals:"饮食",money:"账目",health:"健康",travel:"旅程",library:"资料"};const rows=Object.entries(data).flatMap(([domain,items])=>items.slice(0,3).map(value=>({domain,value:value as Record<string,unknown>})));if(!rows.length)return <p>还没有记录。</p>;return <ul>{rows.map(({domain,value},index)=><li key={`${domain}:${String(value.id??index)}`}><b>{labels[domain]??domain}</b> · {String(value.title??value.name??value.metric??value.entryType??value.kind??"记录")}{value.amount?` · ${String(value.amount)} ${String(value.currency??"")}`:""}{(value.occurredOn??value.createdAt)?` · ${String(value.occurredOn??value.createdAt).slice(0,10)}`:""}</li>)}</ul>}
 function Card({title,value}:{title:string;value:number|string}){return <article><span>{title}</span><strong>{value}</strong></article>}
 function Assistant(){
-  const[text,setText]=useState(""),[threadId,setThreadId]=useState<string|undefined>(()=>localStorage.getItem("shadow.thread")??undefined),[turns,setTurns]=useState<{role:"user"|"assistant";text:string}[]>([]),[pendingRun,setPendingRun]=useState(false);
+  const[text,setText]=useState(""),[threadId,setThreadId]=useState<string|undefined>(()=>localStorage.getItem("shadow.thread")??undefined),[turns,setTurns]=useState<{role:"user"|"assistant";text:string}[]>([]),[pendingRun,setPendingRun]=useState(false),[runState,setRunState]=useState<AssistantRunState>(),[activeRunId,setActiveRunId]=useState<string>();
+  const active=useRef<{runId?:string}|undefined>(undefined);
   useEffect(()=>{if(!threadId)return;void fetch(`/api/threads/${threadId}/messages`,{headers:auth}).then(async response=>{if(!response.ok)throw new Error();const body=await response.json() as {items:{role:"user"|"assistant";content:string}[]};setTurns(body.items.map(item=>({role:item.role,text:item.content})));}).catch(()=>{localStorage.removeItem("shadow.thread");setThreadId(undefined);});},[threadId]);
-  async function run(e:FormEvent){e.preventDefault();const prompt=text.trim();if(!prompt||pendingRun)return;setPendingRun(true);setText("");setTurns(current=>[...current,{role:"user",text:prompt}]);try{let id=threadId;if(!id){const thread=await fetch("/api/threads",{method:"POST",headers:writeHeaders(),body:JSON.stringify({title:prompt.slice(0,40)})});if(!thread.ok)throw new Error(thread.status===401?"登录已失效，请重新登录。":"助手运行时暂不可用");id=((await thread.json()) as {id:string}).id;localStorage.setItem("shadow.thread",id);setThreadId(id);}const response=await fetch(`/api/threads/${id}/runs`,{method:"POST",headers:writeHeaders(),body:JSON.stringify({text:prompt})});if(!response.ok||!response.body)throw new Error(`助手请求失败（HTTP ${response.status}）`);const reader=response.body.getReader(),decoder=new TextDecoder();let pending="",answer="",interrupted="";const receipts:string[]=[];while(true){const{value,done}=await reader.read();pending+=decoder.decode(value,{stream:!done});const lines=pending.split("\n");pending=lines.pop()??"";for(const line of lines)if(line.startsWith("data:")){try{const event=JSON.parse(line.slice(5).trim()) as {type?:string;text?:string;reason?:string;result?:{status?:string;execution_id?:string}};if(event.type==="message.delta")answer+=event.text??"";if(event.type==="run.interrupted")interrupted=event.reason??"运行已中断";if(event.type==="tool.completed"&&event.result?.status==="committed")receipts.push(`已保存：${event.result.execution_id??"操作回执已提交"}`);}catch{/* transport keeps waiting for a valid terminal event */}}if(done)break;}const visible=interrupted?`未完成：${interrupted}`:answer||receipts.join("\n")||"运行结束，但没有返回可核验的结果。";setTurns(current=>[...current,{role:"assistant",text:visible}]);}catch(error){setTurns(current=>[...current,{role:"assistant",text:error instanceof Error?error.message:"助手请求失败"}]);}finally{setPendingRun(false)}}
-  return <section><div>{turns.map((turn,index)=><p key={index}><b>{turn.role==="user"?"你":"Shadow"}：</b>{turn.text}</p>)}</div><form onSubmit={run}><label>告诉 Shadow 要记录、补充或查找什么<textarea required value={text} onChange={e=>setText(e.target.value)}/></label><button disabled={pendingRun}>{pendingRun?"处理中…":"发送"}</button></form></section>;
+  async function run(e:FormEvent){
+    e.preventDefault();const prompt=text.trim();if(!prompt||pendingRun)return;
+    setPendingRun(true);setRunState("started");setActiveRunId(undefined);setText("");setTurns(current=>[...current,{role:"user",text:prompt}]);
+    const view=createAssistantView();active.current={};
+    try{
+      let id=threadId;
+      if(!id){const thread=await fetch("/api/threads",{method:"POST",headers:writeHeaders(),body:JSON.stringify({title:prompt.slice(0,40)})});if(!thread.ok)throw new Error(thread.status===401?"登录已失效，请重新登录。":"助手运行时暂不可用");id=((await thread.json()) as {id:string}).id;localStorage.setItem("shadow.thread",id);setThreadId(id);}
+      const response=await fetch(`/api/threads/${id}/runs`,{method:"POST",headers:writeHeaders(),body:JSON.stringify({text:prompt})});
+      if(!response.ok||!response.body)throw new Error(`助手请求失败（HTTP ${response.status}）`);
+      await readAssistantSse(response.body,(event,sequence)=>{applyAssistantEvent(view,event,sequence);if(view.runId){active.current={runId:view.runId};setActiveRunId(view.runId);}if(view.state)setRunState(view.state);});
+      if(view.runId&&view.state!=="completed"&&view.state!=="interrupted"&&view.state!=="awaiting_input"){
+        const recovery=await fetch(`/api/runs/${view.runId}?after=${view.lastSequence}`,{headers:auth});
+        if(recovery.ok){const body=await recovery.json() as {run:{status:string;error?:string|null};events:{sequence:number;payload:unknown}[]};for(const event of body.events)applyAssistantEvent(view,event.payload,event.sequence);if(!view.state||view.state==="started"||view.state==="streaming"||view.state==="committed_partial"){if(body.run.status==="completed")view.state="completed";else if(body.run.status==="awaiting_input")view.state="awaiting_input";else if(body.run.status==="interrupted"||body.run.status==="failed"){view.state="interrupted";view.reason=body.run.error??"运行已中断";}}}
+      }
+      setRunState(view.state);setTurns(current=>[...current,{role:"assistant",text:renderAssistantView(view)}]);
+    }catch(error){setTurns(current=>[...current,{role:"assistant",text:error instanceof Error?error.message:"助手请求失败"}]);}
+    finally{active.current=undefined;setActiveRunId(undefined);setPendingRun(false);}
+  }
+  async function stop(){const runId=active.current?.runId;if(!runId)return;setRunState("interrupted");await fetch(`/api/runs/${runId}/stop`,{method:"POST",headers:writeHeaders()});}
+  return <section><div>{turns.map((turn,index)=><p key={index}><b>{turn.role==="user"?"你":"Shadow"}：</b>{turn.text}</p>)}</div>{pendingRun&&<p className="run-state">状态：{runStateLabel(runState)}{activeRunId?` · ${activeRunId}`:""}</p>}<form onSubmit={run}><label>告诉 Shadow 要记录、补充或查找什么<textarea required value={text} onChange={e=>setText(e.target.value)}/></label><div className="actions"><button disabled={pendingRun}>{pendingRun?"处理中…":"发送"}</button>{pendingRun&&<button className="secondary" type="button" disabled={!activeRunId} onClick={()=>void stop()}>停止</button>}</div></form></section>;
 }
+function runStateLabel(state:AssistantRunState|undefined):string{return({started:"正在启动",streaming:"正在回复",awaiting_input:"等待补充",committed_partial:"部分操作已保存",completed:"已完成",interrupted:"正在停止"} as const)[state??"started"];}
 createRoot(document.getElementById("root")!).render(<StrictMode><App/></StrictMode>);

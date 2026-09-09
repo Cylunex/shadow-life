@@ -21,6 +21,8 @@ DATABASE_URL=postgresql://localhost/shadow_life SHADOW_DEV_AUTH=true pnpm dev
 ```
 
 `SHADOW_RUNTIME_URL` enables the NDJSON Runtime Adapter; without it the assistant returns an explicit unavailable event.
+The Runtime/Host trust split and resumable run states are defined in
+[ADR 0002](docs/decisions/0002-agent-event-trust-boundary.md).
 Run `SHADOW_ACCESS_TOKEN=... pnpm mcp` to expose the same write capabilities to an MCP client.
 Production startup requires the OIDC verification and browser PKCE settings shown in `.env.example`; Web uses a protected same-origin session cookie and does not ask the user to paste a token.
 Migration tooling and the cutover sequence are documented in [docs/migration/health-ledger-inventory.md](docs/migration/health-ledger-inventory.md)

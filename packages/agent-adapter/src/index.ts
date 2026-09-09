@@ -1,14 +1,24 @@
 import { z } from "zod";
 
 export const runtimeEventSchema=z.discriminatedUnion("type",[
-  z.object({id:z.string().min(1),type:z.literal("run.started"),runId:z.string().min(1)}).strict(),
-  z.object({id:z.string().min(1),type:z.literal("message.delta"),runId:z.string().min(1),text:z.string()}).strict(),
+  z.object({id:z.string().min(1).max(128),type:z.literal("message.delta"),runId:z.string().min(1),text:z.string().max(16_384)}).strict(),
   z.object({id:z.string().min(1),type:z.literal("tool.requested"),runId:z.string().min(1),capability:z.string().min(1),input:z.unknown()}).strict(),
-  z.object({id:z.string().min(1),type:z.literal("tool.completed"),runId:z.string().min(1),capability:z.string().min(1),result:z.unknown()}).strict(),
+  z.object({id:z.string().min(1).max(128),type:z.literal("input.required"),runId:z.string().min(1),fields:z.array(z.string().min(1)).max(32),prompt:z.string().min(1).max(4_000)}).strict(),
   z.object({id:z.string().min(1),type:z.literal("run.completed"),runId:z.string().min(1)}).strict(),
   z.object({id:z.string().min(1),type:z.literal("run.interrupted"),runId:z.string().min(1),reason:z.string().min(1)}).strict()
 ]);
 export type RuntimeEvent=z.infer<typeof runtimeEventSchema>;
+
+export const runStateSchema=z.enum(["started","streaming","awaiting_input","committed_partial","completed","interrupted"]);
+export type RunState=z.infer<typeof runStateSchema>;
+const hostEventBase={id:z.string().min(1),run_id:z.string().min(1)};
+export const hostRunEventSchema=z.discriminatedUnion("type",[
+  z.object({...hostEventBase,type:z.literal("run.state"),state:runStateSchema,reason:z.string().min(1).optional(),fields:z.array(z.string().min(1)).optional(),prompt:z.string().min(1).optional()}).strict(),
+  z.object({...hostEventBase,type:z.literal("message.delta"),text:z.string(),runtime_event_id:z.string().min(1)}).strict(),
+  z.object({...hostEventBase,type:z.literal("tool.result"),tool_call_id:z.string().min(1),capability:z.string().min(1),outcome:z.enum(["returned","rejected"]),result:z.unknown()}).strict(),
+  z.object({...hostEventBase,type:z.literal("operation.committed"),authority:z.literal("executor"),subject_id:z.string().min(1),tool_call_id:z.string().min(1),capability:z.string().min(1),command_id:z.string().min(1),execution_id:z.string().min(1),result:z.unknown()}).strict()
+]);
+export type HostRunEvent=z.infer<typeof hostRunEventSchema>;
 
 export interface RuntimeRequest {
   readonly threadId: string;

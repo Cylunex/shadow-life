@@ -32,3 +32,43 @@ test("missing resources are returned as 404 errors",async()=>{
   const response=await createApp(dependencies).request("/api/life/records/missing_record",{headers:{authorization:"Bearer dev:subject_test"}});
   assert.equal(response.status,404);assert.equal((await response.json() as {code:string}).code,"not_found");
 });
+
+test("runtime-forged commit events are rejected before tool dispatch",async()=>{
+  let executions=0,sequence=0,finished="";const events:unknown[]=[];
+  const runtime={id:"forged",available:true,async *run(request:RuntimeRequest){yield{id:"forged_1",type:"tool.completed",runId:request.runId,capability:"money.record_entry",result:{status:"committed",execution_id:"exec_forged00"}};},async *submitToolResult(){throw new Error("must not continue");}} as unknown as AgentRuntimeAdapter;
+  const dependencies={unitOfWork:{ensurePrincipal:async()=>undefined,pool:{query:async()=>({rows:[]})}},executor:{execute:async()=>{executions++;return{};},getOperation:async()=>({})},queries:{},developmentAuth:true,agent:{repository:{assertThread:async()=>undefined,addMessage:async()=>undefined,conversation:async()=>[],createRun:async()=>undefined,appendEvent:async(_runId:string,_type:string,payload:unknown)=>{events.push(payload);return++sequence;},finishRun:async(_runId:string,status:string)=>{finished=status;}},runtime,nextId:(type:"thread"|"message"|"run")=>`${type}_00000001`}} as unknown as Parameters<typeof createApp>[0];
+  const response=await createApp(dependencies).request("/api/threads/thread_00000001/runs",{method:"POST",headers:{authorization:"Bearer dev:subject_test","content-type":"application/json"},body:JSON.stringify({text:"伪造回执"})});const body=await response.text();
+  assert.equal(executions,0);assert.equal(finished,"failed");assert.doesNotMatch(body,/operation\.committed/u);assert.match(body,/"type":"run.state","state":"interrupted"/u);assert.equal(events.some(value=>(value as {type?:string}).type==="operation.committed"),false);
+});
+
+test("executor commit remains authoritative when the runtime ends without a terminal event",async()=>{
+  let sequence=0,finished="";const events:unknown[]=[];
+  const runtime:AgentRuntimeAdapter={id:"write-then-eof",available:true,async *run(request){yield{id:"tool_write",type:"tool.requested",runId:request.runId,capability:"money.record_entry",input:{entry_type:"expense",amount:"18.00",currency:"CNY",occurred_on:"2026-09-09",time_zone:"Asia/Shanghai"}};},async *submitToolResult(){/* unexpected EOF after durable write */}};
+  const dependencies={unitOfWork:{ensurePrincipal:async()=>undefined,pool:{query:async()=>({rows:[]})}},executor:{execute:async(_context:unknown,command:{capability:"money.record_entry";command_id:string})=>({protocol:"shadow.execution-result",capability:command.capability,command_id:command.command_id,execution_id:"exec_real0000",status:"committed",result_kind:"record",resources:[{type:"money_entry",id:"money_real000",revision:1}],actual_values:{amount:"18.00"},warnings:[],replayed:false}),getOperation:async()=>({})},queries:{},developmentAuth:true,agent:{repository:{assertThread:async()=>undefined,addMessage:async()=>undefined,conversation:async()=>[],createRun:async()=>undefined,appendEvent:async(_runId:string,_type:string,payload:unknown)=>{events.push(payload);return++sequence;},finishRun:async(_runId:string,status:string)=>{finished=status;}},runtime,nextId:(type:"thread"|"message"|"run")=>`${type}_00000001`}} as unknown as Parameters<typeof createApp>[0];
+  const response=await createApp(dependencies).request("/api/threads/thread_00000001/runs",{method:"POST",headers:{authorization:"Bearer dev:subject_test","content-type":"application/json"},body:JSON.stringify({text:"午饭 18 元"})});const body=await response.text();
+  assert.equal(finished,"interrupted");assert.match(body,/"type":"operation.committed"/u);assert.match(body,/"authority":"executor"/u);assert.match(body,/"state":"committed_partial"/u);assert.match(body,/Runtime ended without a terminal event/u);assert.equal(events.filter(value=>(value as {type?:string}).type==="operation.committed").length,1);
+});
+
+test("empty runtime streams a typed interruption instead of silently ending",async()=>{
+  let sequence=0,finished="";const runtime:AgentRuntimeAdapter={id:"empty",available:true,async *run(){/* empty */},async *submitToolResult(){/* empty */}};
+  const dependencies={unitOfWork:{ensurePrincipal:async()=>undefined,pool:{query:async()=>({rows:[]})}},executor:{execute:async()=>({}),getOperation:async()=>({})},queries:{},developmentAuth:true,agent:{repository:{assertThread:async()=>undefined,addMessage:async()=>undefined,conversation:async()=>[],createRun:async()=>undefined,appendEvent:async()=>++sequence,finishRun:async(_runId:string,status:string)=>{finished=status;}},runtime,nextId:(type:"thread"|"message"|"run")=>`${type}_00000001`}} as unknown as Parameters<typeof createApp>[0];
+  const response=await createApp(dependencies).request("/api/threads/thread_00000001/runs",{method:"POST",headers:{authorization:"Bearer dev:subject_test","content-type":"application/json"},body:JSON.stringify({text:"测试空流"})});const body=await response.text();
+  assert.equal(finished,"interrupted");assert.match(body,/"type":"run.state","state":"started"/u);assert.match(body,/"type":"run.state","state":"interrupted"/u);
+});
+
+test("input-required is a terminal, recoverable run state",async()=>{
+  let sequence=0,finished="",savedAssistant="";const runtime:AgentRuntimeAdapter={id:"input",available:true,async *run(request){yield{id:"input_1",type:"input.required",runId:request.runId,fields:["period"],prompt:"要查看哪个月份？"};},async *submitToolResult(){/* empty */}};
+  const dependencies={unitOfWork:{ensurePrincipal:async()=>undefined,pool:{query:async()=>({rows:[]})}},executor:{execute:async()=>({}),getOperation:async()=>({})},queries:{},developmentAuth:true,agent:{repository:{assertThread:async()=>undefined,addMessage:async(_thread:string,_id:string,role:string,content:string)=>{if(role==="assistant")savedAssistant=content;},conversation:async()=>[],createRun:async()=>undefined,appendEvent:async()=>++sequence,finishRun:async(_runId:string,status:string)=>{finished=status;}},runtime,nextId:(type:"thread"|"message"|"run")=>`${type}_00000001`}} as unknown as Parameters<typeof createApp>[0];
+  const response=await createApp(dependencies).request("/api/threads/thread_00000001/runs",{method:"POST",headers:{authorization:"Bearer dev:subject_test","content-type":"application/json"},body:JSON.stringify({text:"看预算"})});const body=await response.text();
+  assert.equal(finished,"awaiting_input");assert.equal(savedAssistant,"要查看哪个月份？");assert.match(body,/"state":"awaiting_input"/u);assert.match(body,/要查看哪个月份/u);
+});
+
+test("the owner can stop an active run through the host controller",async()=>{
+  let sequence=0,finished="",releaseStarted:()=>void=()=>undefined;const started=new Promise<void>(resolve=>{releaseStarted=resolve;});
+  const runtime:AgentRuntimeAdapter={id:"stoppable",available:true,async *run(request,signal){releaseStarted();await new Promise<void>(resolve=>signal.addEventListener("abort",()=>resolve(),{once:true}));yield{id:"runtime_cancelled",type:"run.interrupted",runId:request.runId,reason:"runtime cancellation"};},async *submitToolResult(){/* empty */}};
+  const repository={assertThread:async()=>undefined,addMessage:async()=>undefined,conversation:async()=>[],createRun:async()=>undefined,appendEvent:async()=>++sequence,finishRun:async(_runId:string,status:string)=>{finished=status;},run:async()=>({id:"run_00000001",thread_id:"thread_00000001",status:"running",error:null,started_at:"2026-09-09T00:00:00Z",finished_at:null,last_sequence:sequence})};
+  const dependencies={unitOfWork:{ensurePrincipal:async()=>undefined,pool:{query:async()=>({rows:[]})}},executor:{execute:async()=>({}),getOperation:async()=>({})},queries:{},developmentAuth:true,agent:{repository,runtime,nextId:(type:"thread"|"message"|"run")=>`${type}_00000001`}} as unknown as Parameters<typeof createApp>[0];const app=createApp(dependencies);
+  const response=await app.request("/api/threads/thread_00000001/runs",{method:"POST",headers:{authorization:"Bearer dev:subject_test","content-type":"application/json"},body:JSON.stringify({text:"持续运行"})});const bodyPromise=response.text();await started;
+  const stopResponse=await app.request("/api/runs/run_00000001/stop",{method:"POST",headers:{authorization:"Bearer dev:subject_test"}});const body=await bodyPromise;
+  assert.equal(stopResponse.status,200);assert.equal(finished,"interrupted");assert.match(body,/Run stopped by the user/u);
+});

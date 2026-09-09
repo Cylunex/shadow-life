@@ -3,10 +3,10 @@ import { bodyLimit } from "hono/body-limit";
 import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 import { createHash } from "node:crypto";
-import { capabilityRegistry, healthTrendInputSchema, lifeRecordInputSchema, writeCapabilityNameSchema } from "@shadow/contracts";
+import { capabilityRegistry, executionResultSchema, healthTrendInputSchema, lifeRecordInputSchema, writeCapabilityNameSchema } from "@shadow/contracts";
 import { AssetService, type PostgresUnitOfWork } from "@shadow/database";
 import type { AgentRepository } from "@shadow/database";
-import type { AgentRuntimeAdapter } from "@shadow/agent-adapter";
+import { hostRunEventSchema, runtimeEventSchema, type AgentRuntimeAdapter, type HostRunEvent, type RuntimeEvent, type RunState } from "@shadow/agent-adapter";
 import { CommandExecutor, KernelError, QueryService } from "@shadow/kernel";
 import { authMiddleware } from "./auth.js";
 import { installWebSessionRoutes, type WebSessionOptions } from "./web-session.js";
@@ -14,6 +14,7 @@ import { installWebSessionRoutes, type WebSessionOptions } from "./web-session.j
 export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; executor: CommandExecutor; queries: QueryService; developmentAuth: boolean; auth?:{issuer:string;audience:string;jwksUrl:string;webOrigin?:string}; webSession?:WebSessionOptions; agent?: { repository: AgentRepository; runtime: AgentRuntimeAdapter; nextId(type: "thread"|"message"|"run"): string } }) {
   const app = new Hono();
   const assets=new AssetService(dependencies.unitOfWork.pool);
+  const activeRuns=new Map<string,{subjectId:string;controller:AbortController}>();
   const visibleCapabilities=(effects:ReadonlySet<string>)=>Object.values(capabilityRegistry).filter(item=>item.possibleEffects.some(effect=>effects.has(effect)));
   app.get("/healthz", (context) => context.json({ status: "ok" }));
   if(dependencies.webSession)installWebSessionRoutes(app,dependencies.webSession);
@@ -69,7 +70,14 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
     const {repository,runtime,nextId}=dependencies.agent; const threadId=context.req.param("threadId"); await repository.assertThread(requestContext.subjectId,threadId); const messageId=nextId("message"),runId=nextId("run"); await repository.addMessage(threadId,messageId,"user",body.text.trim()); const [history,aliases,mealTemplates]=await Promise.all([repository.conversation(requestContext.subjectId,threadId),dependencies.unitOfWork.pool.query("select alias,target_kind,target_value,revision from personal_aliases where subject_id=$1 order by alias",[requestContext.subjectId]),dependencies.unitOfWork.pool.query("select template.id,template.name,template.revision,jsonb_agg(item.snapshot order by item.position) items from meal_templates template join meal_template_items item on item.template_id=template.id where template.subject_id=$1 group by template.id order by template.name",[requestContext.subjectId])]);const personalContext={aliases:aliases.rows,mealTemplates:mealTemplates.rows}; await repository.createRun(threadId,runId);
     const capabilityProfile=visibleCapabilities(requestContext.effects).map(item=>item.name);
     return streamSSE(context,async(stream)=>{
-      const controller=new AbortController();stream.onAbort(()=>controller.abort());let assistant="",terminal:"completed"|"interrupted"|undefined;
+      const controller=new AbortController(),startedAt=Date.now(),seenRuntimeEvents=new Set<string>();
+      let assistant="",terminal:"awaiting_input"|"completed"|"interrupted"|undefined,runtimeEventCount=0,toolCallCount=0,hostEventCount=0,currentState:RunState="started";
+      const deadline=setTimeout(()=>controller.abort("deadline_exceeded"),120_000);
+      activeRuns.set(runId,{subjectId:requestContext.subjectId,controller});
+      stream.onAbort(()=>{if(!controller.signal.aborted)controller.abort("client_disconnected");});
+      const emit=async(event:HostRunEvent):Promise<number>=>{const parsed=hostRunEventSchema.parse(event),sequence=await repository.appendEvent(runId,parsed.type,parsed);try{await stream.writeSSE({id:String(sequence),event:parsed.type,data:JSON.stringify(parsed)});}catch{/* persistence remains authoritative when the client disconnects */}return sequence;};
+      const hostId=()=>`${runId}:host:${++hostEventCount}`;
+      const state=async(next:RunState,detail?:{reason?:string;fields?:string[];prompt?:string})=>{currentState=next;await emit({id:hostId(),run_id:runId,type:"run.state",state:next,...detail});};
       const dispatchTool=async(capabilityName:string,input:unknown,callId:string):Promise<unknown>=>{
         const capability=capabilityRegistry[capabilityName as keyof typeof capabilityRegistry];
         if(!capability||!capability.possibleEffects.some(effect=>requestContext.effects.has(effect)))throw new KernelError(403,{protocol:"shadow.error",code:"permission_denied",message:"Runtime requested a capability that is not visible."});
@@ -88,20 +96,58 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         if(capabilityName==="operations.get")return dependencies.executor.getOperation(requestContext,(parsed as {execution_id:string}).execution_id);
         throw new KernelError(422,{protocol:"shadow.error",code:"validation",message:"Runtime requested an unsupported query capability."});
       };
-      const consume=async(events:AsyncIterable<import("@shadow/agent-adapter").RuntimeEvent>):Promise<void>=>{for await(const event of events){
-        if(event.type==="message.delta")assistant+=event.text;if(event.type==="run.completed")terminal="completed";if(event.type==="run.interrupted")terminal="interrupted";
-        let sequence=await repository.appendEvent(runId,event.type,event);await stream.writeSSE({id:String(sequence),event:event.type,data:JSON.stringify(event)});
-        if(event.type==="tool.requested"){
-          let result:unknown;try{result=await dispatchTool(event.capability,event.input,event.id);}catch(error){result=toolFailure(error,event.input);}
-          const completed={id:`${event.id}:result`,type:"tool.completed" as const,runId,capability:event.capability,result};
-          sequence=await repository.appendEvent(runId,completed.type,completed);await stream.writeSSE({id:String(sequence),event:completed.type,data:JSON.stringify(completed)});
-          await consume(runtime.submitToolResult({protocol:"shadow.runtime-tool-result",threadId,runId,toolCallId:event.id,capability:event.capability,result},controller.signal));return;
+      const consume=async(events:AsyncIterable<RuntimeEvent>):Promise<void>=>{for await(const rawEvent of events){
+        const event=runtimeEventSchema.parse(rawEvent);
+        if(terminal)return;
+        if(++runtimeEventCount>200)throw new Error("Runtime event limit exceeded.");
+        if(Date.now()-startedAt>120_000)throw new Error("Runtime deadline exceeded.");
+        if(Buffer.byteLength(JSON.stringify(event))>256*1024)throw new Error("Runtime event is too large.");
+        if(seenRuntimeEvents.has(event.id))continue;seenRuntimeEvents.add(event.id);
+        if(event.type==="message.delta"){
+          if(currentState==="started")await state("streaming");
+          assistant+=event.text;if(assistant.length>200_000)throw new Error("Runtime answer is too large.");
+          await emit({id:hostId(),run_id:runId,type:"message.delta",text:event.text,runtime_event_id:event.id});continue;
         }
+        if(event.type==="input.required"){
+          if(!assistant.includes(event.prompt))assistant+=`${assistant?"\n":""}${event.prompt}`;
+          terminal="awaiting_input";await state("awaiting_input",{fields:[...event.fields],prompt:event.prompt});return;
+        }
+        if(event.type==="run.completed"){
+          terminal="completed";await state("completed");return;
+        }
+        if(event.type==="run.interrupted"){
+          terminal="interrupted";await state("interrupted",{reason:controller.signal.aborted?abortReason(controller.signal):event.reason});return;
+        }
+        if(++toolCallCount>20)throw new Error("Runtime tool-call limit exceeded.");
+        if(currentState==="started")await state("streaming");
+        let result:unknown;try{result=await dispatchTool(event.capability,event.input,event.id);}catch(error){result=toolFailure(error,event.input);}
+        const execution=executionResultSchema.safeParse(result);
+        if(execution.success){
+          await emit({id:hostId(),run_id:runId,type:"operation.committed",authority:"executor",subject_id:requestContext.subjectId,tool_call_id:event.id,capability:event.capability,command_id:execution.data.command_id,execution_id:execution.data.execution_id,result:execution.data});
+          await state("committed_partial");
+        }else{
+          const rejected=isRuntimeToolError(result);
+          await emit({id:hostId(),run_id:runId,type:"tool.result",tool_call_id:event.id,capability:event.capability,outcome:rejected?"rejected":"returned",result});
+        }
+        const runtimeResult=serializedSize(result)<=1024*1024?result:{protocol:"shadow.runtime-tool-error",code:"outcome_unknown",message:"Tool result exceeded the Runtime transfer limit.",retryable:false};
+        await consume(runtime.submitToolResult({protocol:"shadow.runtime-tool-result",threadId,runId,toolCallId:event.id,capability:event.capability,result:runtimeResult},controller.signal));return;
       }};
-      try{await consume(runtime.run({threadId,runId,messageId,text:body.text.trim(),history,personalContext,capabilityProfile},controller.signal));if(assistant)await repository.addMessage(threadId,nextId("message"),"assistant",assistant);await repository.finishRun(runId,terminal??"interrupted",terminal?undefined:"Runtime ended without a terminal event.");}
-      catch(error){const message=error instanceof Error?error.message:"Agent run failed";await repository.appendEvent(runId,"run.interrupted",{id:`${runId}:error`,type:"run.interrupted",runId,reason:message});await repository.finishRun(runId,controller.signal.aborted?"interrupted":"failed",message);await stream.writeSSE({event:"run.interrupted",data:JSON.stringify({runId,reason:message})});}
+      try{
+        await state("started");
+        await consume(runtime.run({threadId,runId,messageId,text:body.text.trim(),history,personalContext,capabilityProfile},controller.signal));
+        if(!terminal){const reason=controller.signal.aborted?abortReason(controller.signal):"Runtime ended without a terminal event.";terminal="interrupted";await state("interrupted",{reason});}
+        if(assistant)await repository.addMessage(threadId,nextId("message"),"assistant",assistant);
+        await repository.finishRun(runId,terminal,terminal==="interrupted"?"Run was interrupted.":undefined);
+      }catch(error){
+        const message=controller.signal.aborted?abortReason(controller.signal):error instanceof Error?error.message:"Agent run failed";
+        terminal="interrupted";await state("interrupted",{reason:message});
+        if(assistant)await repository.addMessage(threadId,nextId("message"),"assistant",assistant);
+        await repository.finishRun(runId,controller.signal.aborted?"interrupted":"failed",message);
+      }finally{clearTimeout(deadline);activeRuns.delete(runId);}
     });
   });
+  app.get("/api/runs/:runId",async context=>{if(!dependencies.agent)return context.json({protocol:"shadow.error",code:"not_found",message:"Run not found."},404);const requestContext=context.get("requestContext"),runId=context.req.param("runId"),run=await dependencies.agent.repository.run(requestContext.subjectId,runId);if(!run)return context.json({protocol:"shadow.error",code:"not_found",message:"Run not found."},404);const after=Number(context.req.query("after")??"0"),safeAfter=Number.isInteger(after)&&after>=0?after:0;return context.json({run,events:await dependencies.agent.repository.events(requestContext.subjectId,runId,safeAfter)});});
+  app.post("/api/runs/:runId/stop",async context=>{if(!dependencies.agent)return context.json({protocol:"shadow.error",code:"not_found",message:"Run not found."},404);const requestContext=context.get("requestContext"),runId=context.req.param("runId"),run=await dependencies.agent.repository.run(requestContext.subjectId,runId);if(!run)return context.json({protocol:"shadow.error",code:"not_found",message:"Run not found."},404);const active=activeRuns.get(runId);if(active?.subjectId===requestContext.subjectId&&!active.controller.signal.aborted)active.controller.abort("stopped_by_user");return context.json({run_id:runId,status:active?"stopping":run.status});});
   app.get("/api/runs/:runId/events", async(context)=>{if(!dependencies.agent)return context.json({items:[]});const after=Number(context.req.query("after")??"0");return context.json({items:await dependencies.agent.repository.events(context.get("requestContext").subjectId,context.req.param("runId"),Number.isInteger(after)&&after>=0?after:0)});});
 
   app.onError((error, context) => {
@@ -120,3 +166,6 @@ function toolFailure(error:unknown,input?:unknown):Record<string,unknown>{
   return{protocol:"shadow.runtime-tool-error",code:"outcome_unknown",message:error instanceof Error?error.message:"Tool execution failed",retryable:false};
 }
 function valueAt(value:unknown,path:readonly PropertyKey[]):unknown{let current=value;for(const key of path){if(current===null||typeof current!=="object")return undefined;current=(current as Record<PropertyKey,unknown>)[key];}return current;}
+function serializedSize(value:unknown):number{try{return Buffer.byteLength(JSON.stringify(value));}catch{return Number.POSITIVE_INFINITY;}}
+function isRuntimeToolError(value:unknown):boolean{return value!==null&&typeof value==="object"&&(value as {protocol?:unknown}).protocol==="shadow.runtime-tool-error";}
+function abortReason(signal:AbortSignal):string{if(signal.reason==="stopped_by_user")return"Run stopped by the user.";if(signal.reason==="deadline_exceeded")return"Runtime deadline exceeded.";if(signal.reason==="client_disconnected")return"Client disconnected before the run completed.";return"Run was cancelled.";}
