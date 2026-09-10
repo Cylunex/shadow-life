@@ -34,7 +34,7 @@ class OfflineQueue(private val database:ShadowDatabase,private val crypto:QueueC
   fun commandBody(command:PendingCommand)=crypto.decryptCommand(command)
   fun receiptBody(command:PendingCommand)=crypto.decryptReceipt(command)
   fun copyAttachment(attachment:PendingAttachment,input:InputStream,output:OutputStream)=crypto.decryptAttachment(attachment,input,output)
-  suspend fun commit(command:PendingCommand,plainReceipt:String)=database.commands().commitCommand(command.commandId,crypto.encryptReceipt(command,plainReceipt))
+  suspend fun commit(command:PendingCommand,plainReceipt:String)=database.commands().commitWithHealthRound(command,crypto.encryptReceipt(command,plainReceipt))
 
   suspend fun retry(session:ProductSession):Int=database.commands().retryCommands(session.accountId,session.subjectId)+database.commands().retryAttachments(session.accountId,session.subjectId)
 

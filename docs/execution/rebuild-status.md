@@ -10,7 +10,7 @@ Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The tab
 | Archive `a6f294f` | Library item/revision, annotation, immutable original, processing job, derivation, indexed snippet, reading state, proof, legacy URI, asset/version/blob and read grant | Capture/revise/read, protected originals, text extraction, external processor claim/failure/completion, full-text snippet lookup, reading resume and explicit legacy proof states are implemented | No production archive bytes or old proof chain imported | Not taken over; reviewed real URI mapping, old-key verification corpus and production export/restore remain release work |
 | Platform `57424fc` | Principal, effects, write epochs and resource grants | JWT verification plus server-side Web OIDC PKCE session; transaction write fence shared by HTTP/CLI/MCP/Agent | Identity data is intentionally not copied | Not taken over; production issuer/client configuration and account session run are release gates |
 | Nexus `2df5787` | Thread, Message, Run, event log, short-lived object Context Pack and bounded durable memory | Conversation recovery, capability-filtered MCP discovery, Host-only operation receipts, typed run states, stop/sequence recovery, permission-rechecked object context and explicit/aggregate memory filtering pass automated tests | Historical Nexus conversations not imported | Not taken over; configured real Runtime evaluation and attachment-to-assistant flow remain release work |
-| App `6bd237b` | Account-isolated pending commands, attachments and encrypted receipts | Share text/image, OIDC Authorization Code + PKCE and WorkManager refresh exist; Room 5 quarantines accountless legacy rows, encrypts known-account command/attachment payloads with per-account Keystore keys and exposes bounded queue recovery without changing command IDs | No installed-device queue migrated | Not taken over; configured issuer, Keystore/process-death matrix, Health Connect Changes and device compatibility remain SL-03/SL-05 |
+| App `6bd237b` | Account-isolated pending commands, attachments and encrypted receipts | Share text/image, OIDC Authorization Code + PKCE and WorkManager refresh exist; Room 6 preserves the Room 5 accountless-row quarantine, adds receipt-driven Health Connect round progress, encrypts known-account command/attachment payloads with per-account Keystore keys and exposes bounded queue recovery without changing command IDs | No installed-device queue migrated | Not taken over; configured issuer, Keystore/process-death matrix, Health Connect Changes and device compatibility remain SL-03/SL-05 |
 
 ## Current implementation packages
 
@@ -269,3 +269,13 @@ Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The tab
   verifies that an unchanged provider version reappearing after reconciliation returns its actual pending state
   without marking an incomplete cursor active. See [the F01–F10 delivery record](review-fixes-2026-09-11.md) for
   exact implementation SHAs, test paths, semantic choices and remaining device/production acceptance boundaries.
+
+## Android independent re-verification follow-up (2026-09-11)
+
+V01/V02 exposed gaps in the first Kotlin policy-only checks. The Worker now uses a directly tested production
+JSON builder and a durable four-type round runner. Room 6 atomically stores each encrypted command with its
+receipt continuation and advances only on a verified receipt; hasMore keeps the current type, a terminal page
+rotates to the next type, and completed rounds do not self-start. 13 policy plus 117 production-path JVM
+assertions, four actual emitted command contract checks, the Room 5→6 SQLite migration check and Android Kotlin
+compilation pass. See [the scoped follow-up](android-health-reverification-fixes-2026-09-11.md). Real device,
+provider and OS process-death validation remain release work.

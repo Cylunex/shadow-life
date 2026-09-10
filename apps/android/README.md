@@ -11,3 +11,5 @@ Health Connect 权限已在 manifest 声明。客户端显式授权后为体重�
 本地源码编译使用 JDK 17 与已安装的 Android SDK：`gradle :app:compileDebugKotlin`。Room v5 schema 会输出到 `app/schemas/`，迁移变更应与 schema 一并评审。
 
 重扫协议使用明确窗口和一次完整批次：读完所有页并复查权限后才带 `rescan.generation/window_start/window_end/complete` 入队；总数超过 1000 时失败，不提交不完整扫描。服务端仅对完整覆盖窗口做缺失对账，范围外历史保留。步数采用 `steps_interval`，保留起止时间与来源；服务端按来源去重，跨午夜整段归入记录时区的开始日。旧日总量编码只在完整窗口内退役，不改写旧 raw revision。纯 JVM 协议回归入口为 `node scripts/test-health-policy.mjs`（仓库根目录，需本地 Kotlin Gradle 缓存与 JDK 17）。
+
+Android Health Connect 请求构造、同步轮次与本地回归验证见 [V01/V02 返修记录](../../docs/execution/android-health-reverification-fixes-2026-09-11.md)。

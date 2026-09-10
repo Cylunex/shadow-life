@@ -23,12 +23,12 @@ import java.time.Instant
 import java.time.ZoneOffset
 
 object SyncScheduler {
-  fun schedule(context:Context,accountId:String){
+  fun schedule(context:Context,accountId:String,ensureNext:Boolean=false){
     val request=OneTimeWorkRequestBuilder<SyncWorker>()
       .setInputData(workDataOf("account_id" to accountId))
       .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
       .build()
-    WorkManager.getInstance(context).enqueueUniqueWork("shadow-sync-$accountId",ExistingWorkPolicy.KEEP,request)
+    WorkManager.getInstance(context).enqueueUniqueWork("shadow-sync-$accountId",if(ensureNext)ExistingWorkPolicy.APPEND_OR_REPLACE else ExistingWorkPolicy.KEEP,request)
   }
 }
 
@@ -118,12 +118,13 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
         if(recovered!=null)commitVerified(app,command,recovered)else if(command.attempts>=7)dao.setCommandState(command.commandId,"failed")else{dao.setCommandState(command.commandId,"unknown");needsRetry=true}
       }finally{connection?.disconnect()}
     }
+    // Also recovers a process death after the atomic receipt commit but before the wake-up.
+    if(dao.healthRound(accountId,session.subjectId)?.progress?.ready==true)HealthConnectScheduler.resume(applicationContext,accountId)
     if(needsRetry)Result.retry()else Result.success()
   }
 
   private suspend fun commitVerified(app:ShadowApp,command:PendingCommand,receipt:String){
-    try{app.queue.commit(command,receipt)}catch(_:QueueKeyUnavailableException){app.database.commands().setCommandState(command.commandId,"committed")}
-    if(command.capability=="health.ingest_batch"||command.capability=="health.set_source_state")HealthConnectScheduler.schedule(applicationContext,command.accountId)
+    try{app.queue.commit(command,receipt)}catch(_:QueueKeyUnavailableException){app.database.commands().commitWithHealthRound(command,"")}
   }
 
   private fun lookupReceipt(session:ProductSession,accessToken:String,command:PendingCommand):String?=runCatching{

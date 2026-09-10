@@ -14,6 +14,7 @@ import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.request.ChangesTokenRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
+import androidx.room.withTransaction
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
@@ -45,12 +46,14 @@ object HealthConnectSync {
 
 object HealthConnectScheduler {
   fun workName(accountId:String)="shadow-health-connect-$accountId"
-  fun schedule(context:Context,accountId:String){
+  fun schedule(context:Context,accountId:String)=enqueue(context,accountId,UUID.randomUUID().toString())
+  fun resume(context:Context,accountId:String)=enqueue(context,accountId,null)
+  private fun enqueue(context:Context,accountId:String,startRequestId:String?){
     val request=OneTimeWorkRequestBuilder<HealthConnectSyncWorker>()
-      .setInputData(workDataOf("account_id" to accountId))
+      .setInputData(workDataOf("account_id" to accountId,"start_request_id" to startRequestId))
       .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
       .build()
-    WorkManager.getInstance(context).enqueueUniqueWork(workName(accountId),ExistingWorkPolicy.KEEP,request)
+    WorkManager.getInstance(context).enqueueUniqueWork(workName(accountId),if(startRequestId==null)ExistingWorkPolicy.APPEND_OR_REPLACE else ExistingWorkPolicy.KEEP,request)
   }
 }
 
@@ -65,8 +68,10 @@ class HealthConnectSyncWorker(context:Context,params:WorkerParameters):Coroutine
     }
     val session=fresh.session
     val dao=app.database.commands()
+    val store=QueuedHealthRoundStore(app,session)
+    if(prepareHealthSyncRound(inputData.getString("start_request_id"),store)==null)return@withContext Result.success(workDataOf("state" to "up_to_date"))
     if(dao.inFlight(accountId,session.subjectId,"health.ingest_batch")>0||dao.inFlight(accountId,session.subjectId,"health.set_source_state")>0){
-      SyncScheduler.schedule(applicationContext,accountId)
+      SyncScheduler.schedule(applicationContext,accountId,ensureNext=true)
       return@withContext Result.success(workDataOf("state" to "waiting_for_receipt"))
     }
     if(!HealthConnectSync.available(applicationContext))return@withContext Result.failure(workDataOf("reason" to "health_connect_unavailable"))
@@ -80,7 +85,7 @@ class HealthConnectSyncWorker(context:Context,params:WorkerParameters):Coroutine
     if(!granted.containsAll(HealthConnectSync.permissions)){
       if(source?.permissionState!="revoked"||source.fingerprint!=fingerprint){
         enqueueState(app,session,instanceKey,fingerprint,(source?.syncEpoch?:0)+1,"revoked","Health Connect permission is incomplete")
-        SyncScheduler.schedule(applicationContext,accountId)
+        SyncScheduler.schedule(applicationContext,accountId,ensureNext=true)
       }
       return@withContext Result.failure(workDataOf("reason" to "permissions_required"))
     }
@@ -91,45 +96,60 @@ class HealthConnectSyncWorker(context:Context,params:WorkerParameters):Coroutine
       HealthSpec(ExerciseSessionRecord::class,"workout",HealthConnectEncoder::exercise)
     )
     try{
-      for(spec in specs){
+      if(source?.permissionState=="revoked")store.current()?.takeIf{it.ready}?.let{store.save(it.copy(typeIndex=0))}
+      val result=runHealthSyncRound(inputData.getString("start_request_id"),store){recordType->
+        val spec=specs.first{it.serverType==recordType}
         val cursor=source?.cursors?.firstOrNull{it.deviceId==deviceId&&it.recordType==spec.serverType}
-        if(source?.permissionState=="rescan_required"&&cursor?.state=="active")continue
+        if(source?.permissionState=="rescan_required"&&cursor?.state=="active")return@runHealthSyncRound HealthRoundRead.Skip
         val epoch=HealthSyncPolicy.epoch(source?.syncEpoch,source?.fingerprint==fingerprint,source?.permissionState=="revoked")
         val page=if(cursor?.cursor.isNullOrBlank()||cursor?.state!="active")bootstrap(client,spec,relevant) else changes(client,spec,cursor!!.cursor!!)
         if(page.expired){
-          enqueueState(app,session,instanceKey,fingerprint,maxOf(epoch,source?.syncEpoch?.plus(1)?:1),"rescan_required","Health Connect changes token expired")
-          SyncScheduler.schedule(applicationContext,accountId)
-          return@withContext Result.success(workDataOf("state" to "rescan_required"))
+          HealthRoundRead.Reset(sourceStateCommand(instanceKey,fingerprint,maxOf(epoch,source?.syncEpoch?.plus(1)?:1),"rescan_required","Health Connect changes token expired"))
+        }else{
+          HealthRoundRead.Page(HealthBatchContext(accountId,session.subjectId,instanceKey,fingerprint,deviceId,spec.serverType,epoch,cursor?.cursor),page)
         }
-        if(page.records.isEmpty()&&page.nextCursor==cursor?.cursor)continue
-        val commandId="cmd_hc_${sha256("$accountId:${spec.serverType}:${cursor?.cursor.orEmpty()}:${page.nextCursor}").take(32)}"
-        val body=JSONObject().put("protocol","shadow.command").put("capability","health.ingest_batch").put("command_id",commandId).put("input",JSONObject()
-          .put("source_type","health_connect").put("source_instance_key",instanceKey).put("source_fingerprint",fingerprint)
-          .put("device_id",deviceId).put("record_type",spec.serverType).put("permission_fingerprint",fingerprint)
-          .put("sync_epoch",epoch).put("previous_cursor",cursor?.cursor?:JSONObject.NULL).put("next_cursor",page.nextCursor)
-          .put("parse_version","health-connect-2").put("records",JSONArray(page.records)).also { envelope->page.rescan?.let { envelope.getJSONObject("input").put("rescan",it) } }).toString()
-        app.queue.enqueueCommand(session,commandId,"health.ingest_batch",body)
-        SyncScheduler.schedule(applicationContext,accountId)
-        return@withContext Result.success(workDataOf("state" to "queued","record_type" to spec.serverType,"records" to page.records.size))
       }
-      Result.success(workDataOf("state" to "up_to_date"))
+      if(result!=HealthRoundResult.COMPLETE)SyncScheduler.schedule(applicationContext,accountId,ensureNext=true)
+      Result.success(workDataOf("state" to when(result){
+        HealthRoundResult.QUEUED->"queued"
+        HealthRoundResult.WAITING_FOR_RECEIPT->"waiting_for_receipt"
+        HealthRoundResult.COMPLETE->"up_to_date"
+      }))
     }catch(error:CancellationException){throw error
     }catch(_:HealthScanTooLargeException){Result.failure(workDataOf("reason" to "bootstrap_too_large"))
     }catch(_:SecurityException){
-      if(source?.permissionState!="revoked"){enqueueState(app,session,instanceKey,fingerprint,(source?.syncEpoch?:0)+1,"revoked","Health Connect permission was revoked");SyncScheduler.schedule(applicationContext,accountId)}
+      if(source?.permissionState!="revoked"){enqueueState(app,session,instanceKey,fingerprint,(source?.syncEpoch?:0)+1,"revoked","Health Connect permission was revoked");SyncScheduler.schedule(applicationContext,accountId,ensureNext=true)}
       Result.failure(workDataOf("reason" to "permissions_revoked"))
     }catch(error:Exception){Result.retry()}
   }
 
   private suspend fun enqueueState(app:ShadowApp,session:ProductSession,instanceKey:String,fingerprint:String,epoch:Int,state:String,reason:String){
-    val commandId="cmd_hc_state_${UUID.randomUUID().toString().replace("-","")}"
-    val body=JSONObject().put("protocol","shadow.command").put("capability","health.set_source_state").put("command_id",commandId).put("input",JSONObject().put("source_type","health_connect").put("source_instance_key",instanceKey).put("source_fingerprint",fingerprint).put("sync_epoch",epoch).put("permission_state",state).put("reason",reason)).toString()
-    app.queue.enqueueCommand(session,commandId,"health.set_source_state",body)
+    val command=sourceStateCommand(instanceKey,fingerprint,epoch,state,reason)
+    app.queue.enqueueCommand(session,command.commandId,command.capability,command.body)
+  }
+}
+
+private fun sourceStateCommand(instanceKey:String,fingerprint:String,epoch:Int,state:String,reason:String):HealthQueuedCommand{
+  val commandId="cmd_hc_state_${UUID.randomUUID().toString().replace("-","")}"
+  val capability="health.set_source_state"
+  val body=JSONObject().put("protocol","shadow.command").put("capability",capability).put("command_id",commandId).put("input",JSONObject().put("source_type","health_connect").put("source_instance_key",instanceKey).put("source_fingerprint",fingerprint).put("sync_epoch",epoch).put("permission_state",state).put("reason",reason)).toString()
+  return HealthQueuedCommand(commandId,capability,body)
+}
+
+private class QueuedHealthRoundStore(private val app:ShadowApp,private val session:ProductSession):HealthRoundStore{
+  private val dao=app.database.commands()
+  override suspend fun current()=dao.healthRound(session.accountId,session.subjectId)?.progress
+  override suspend fun save(state:HealthRoundState)=dao.saveHealthRound(HealthSyncRoundRow(session.accountId,session.subjectId,state))
+  override suspend fun enqueue(command:HealthQueuedCommand,state:HealthRoundState){
+    app.database.withTransaction{
+      app.queue.enqueueCommand(session,command.commandId,command.capability,command.body)
+      // A replay already committed locally must not leave a continuation waiting forever.
+      save(if(dao.command(command.commandId)?.state=="committed")state.confirmed(command.commandId) else state)
+    }
   }
 }
 
 private data class HealthSpec<T:Record>(val recordClass:KClass<T>,val serverType:String,val encode:(T)->JSONObject)
-private data class HealthPage(val records:List<JSONObject>,val nextCursor:String,val expired:Boolean=false,val rescan:JSONObject?=null)
 private data class ServerCursor(val deviceId:String,val recordType:String,val cursor:String?,val state:String)
 private data class ServerSource(val permissionState:String,val syncEpoch:Int,val fingerprint:String?,val cursors:List<ServerCursor>)
 
@@ -158,7 +178,7 @@ private suspend fun <T:Record> changes(client:HealthConnectClient,spec:HealthSpe
     is DeletionChange->JSONObject().put("client_record_id",change.recordId).put("provider_record_id",change.recordId).put("record_version",System.currentTimeMillis()).put("change_kind","delete")
     else->null
   }}
-  return HealthPage(records,response.nextChangesToken)
+  return HealthPage(records,response.nextChangesToken,hasMore=response.hasMore)
 }
 
 private fun upsert(record:Record,payload:JSONObject):JSONObject{

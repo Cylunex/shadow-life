@@ -6,7 +6,22 @@ import { spawnSync } from "node:child_process";
 const cache=process.env.KOTLIN_GRADLE_CACHE??join(homedir(),".gradle/caches/modules-2/files-2.1");
 function jar(group,name,version){const dir=join(cache,group,name,version);for(const hash of readdirSync(dir)){for(const file of readdirSync(join(dir,hash))){if(file.endsWith(".jar"))return join(dir,hash,file);}}throw Error(`missing ${name} ${version}`);}
 const stdlib=jar("org.jetbrains.kotlin","kotlin-stdlib","2.2.21");
+const json=jar("org.json","json","20250517"),coroutines=jar("org.jetbrains.kotlinx","kotlinx-coroutines-core-jvm","1.8.0");
 const compiler=[jar("org.jetbrains.kotlin","kotlin-compiler-embeddable","2.2.21"),stdlib,jar("org.jetbrains.kotlin","kotlin-reflect","1.6.10"),jar("org.jetbrains.kotlinx","kotlinx-coroutines-core-jvm","1.8.0"),jar("org.jetbrains","annotations","13.0")].join(":");
 const java=process.env.JAVA_HOME?join(process.env.JAVA_HOME,"bin/java"):"java",dir=mkdtempSync(join(tmpdir(),"life-health-kotlin-")),root=resolve(import.meta.dirname,"..");
 function run(args){const result=spawnSync(java,args,{cwd:root,stdio:"inherit"});if(result.status!==0)throw Error(`JVM check exited ${result.status}`);}
-try{run(["-cp",compiler,"org.jetbrains.kotlin.cli.jvm.K2JVMCompiler","-no-stdlib","-no-reflect","-classpath",`${stdlib}:${jar("org.jetbrains","annotations","13.0")}`,"-d",dir,"apps/android/app/src/main/java/com/shadow/app/HealthSyncPolicy.kt","apps/android/tests/HealthSyncPolicyTest.kt"]);run(["-cp",`${dir}:${stdlib}`,"com.shadow.app.HealthSyncPolicyTestKt"]);}finally{rmSync(dir,{recursive:true,force:true});}
+const runtime=[dir,stdlib,json,coroutines].join(":");
+try{
+  run(["-cp",compiler,"org.jetbrains.kotlin.cli.jvm.K2JVMCompiler","-no-stdlib","-no-reflect","-classpath",[stdlib,json,coroutines,jar("org.jetbrains","annotations","13.0")].join(":"),"-d",dir,
+    "apps/android/app/src/main/java/com/shadow/app/HealthSyncPolicy.kt",
+    "apps/android/app/src/main/java/com/shadow/app/HealthBatchCommand.kt",
+    "apps/android/app/src/main/java/com/shadow/app/HealthSyncRound.kt",
+    "apps/android/tests/HealthSyncPolicyTest.kt","apps/android/tests/HealthSyncRoundTest.kt"]);
+  run(["-cp",runtime,"com.shadow.app.HealthSyncPolicyTestKt"]);
+  const fixtures=join(dir,"production-commands.json");
+  run(["-cp",runtime,"com.shadow.app.HealthSyncRoundTestKt",fixtures]);
+  const contracts=spawnSync(process.execPath,["--import","tsx","scripts/verify-health-commands.ts",fixtures],{cwd:root,stdio:"inherit"});
+  if(contracts.status!==0)throw Error(`Production command contract check exited ${contracts.status}`);
+  const migration=spawnSync("python3",["scripts/test-health-round-migration.py",fixtures],{cwd:root,stdio:"inherit"});
+  if(migration.status!==0)throw Error(`Room migration check exited ${migration.status}`);
+}finally{rmSync(dir,{recursive:true,force:true});}

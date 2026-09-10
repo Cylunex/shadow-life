@@ -17,6 +17,7 @@
     "check:boundaries": "node scripts/check-boundaries.mjs",
     "test:journey": "node scripts/test-journey.mjs",
     "test:health-ledger": "node scripts/test-journey.mjs health-ledger",
+    "test:android-health": "node scripts/test-health-policy.mjs",
     "eval:agent": "node scripts/eval-agent.mjs",
     "mcp": "pnpm --filter @shadow/mcp start",
     "import:dry-run": "pnpm --filter @shadow/legacy-importer dry-run",

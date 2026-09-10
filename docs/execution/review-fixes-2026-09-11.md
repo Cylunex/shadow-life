@@ -1,5 +1,7 @@
 # 独立审查 F01–F10 修复记录
 
+后续独立复验发现 Android 重扫请求构造与类型轮转仍有 V01/V02 问题。初轮 13 项 Kotlin 策略断言不能证明 Worker 同步闭环；生产路径返修及直接执行证据见 [Android 返修记录](android-health-reverification-fixes-2026-09-11.md)。
+
 审查基线：`5064b0c1412bfdcac9c47cfc94a43bf547b382c7`。本轮只修复已确认的十项问题，保留 TypeScript 单体、统一 Executor 和业务 kernel 边界。所有提交仅保留本地。
 
 | 项目 | 处置 | 实现提交 |
