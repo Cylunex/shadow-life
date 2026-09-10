@@ -14,3 +14,9 @@ test("agent context selects only fact kinds authorized for the run",async()=>{
   await queries.agentPersonalContext(context(["agent.run","money.entry.read"]));assert.deepEqual(calls.pop(),{kinds:["merchant","payment_method"],templates:false});
   await queries.agentPersonalContext(context(["agent.run","life.meal.read"]));assert.deepEqual(calls.pop(),{kinds:["food","meal_template"],templates:true});
 });
+
+test("money planning rejects impossible months before reading storage",async()=>{
+  let reads=0;const unit={read:async()=>{reads++;return{};}} as unknown as UnitOfWork,queries=new QueryService(unit);
+  await assert.rejects(()=>queries.moneyPlanning(context(["money.entry.read"]),"2026-13"),(error:unknown)=>(error as {detail?:{code?:string}}).detail?.code==="validation");
+  assert.equal(reads,0);
+});

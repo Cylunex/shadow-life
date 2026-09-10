@@ -15,7 +15,7 @@ test("complete Life journey uses PostgreSQL transactions and survives replay", {
   const intermediateInitial=initialMigrations[0]!.contents.replace("capability_version integer NOT NULL, ","");
   await Promise.all([migrate(pool),migrate(pool)]); await migrate(pool);
   assert.equal(createHash("sha256").update(initialMigrations[0]!.contents).digest("hex"),"c418d9faaf5ed2017433a8069b9a8ba863233aa9c1969e8d0920675ebf4fd73f");
-  assert.equal((await pool.query("select count(*)::int count from schema_migrations")).rows[0].count,14);
+  assert.equal((await pool.query("select count(*)::int count from schema_migrations")).rows[0].count,15);
   assert.deepEqual((await pool.query("select distinct stage from write_epochs")).rows.map(row=>row.stage),["read_only"]);
   await pool.query("update schema_migrations set checksum='invalid' where name='0001_initial.sql'");
   await assert.rejects(()=>migrate(pool),/checksum mismatch/u);
@@ -26,7 +26,7 @@ test("complete Life journey uses PostgreSQL transactions and survives replay", {
   await pool.query("create table schema_migrations(name text primary key, checksum text not null, applied_at timestamptz not null default now())");
   await pool.query("insert into schema_migrations(name,checksum) values('0001_initial.sql',$1),('0002_first_release.sql',$2)",[createHash("sha256").update(intermediateInitial).digest("hex"),createHash("sha256").update(initialMigrations[1]!.contents).digest("hex")]);
   await migrate(pool);
-  assert.equal((await pool.query("select count(*)::int count from schema_migrations")).rows[0].count,14);
+  assert.equal((await pool.query("select count(*)::int count from schema_migrations")).rows[0].count,15);
   assert.deepEqual((await pool.query("select column_name from information_schema.columns where table_name='operations' and column_name in ('capability_version','legacy_capability_version')")).rows.map(row=>row.column_name),["legacy_capability_version"]);
   await pool.query("drop schema public cascade; create schema public");
   for(const migration of initialMigrations) await pool.query(migration.contents);
@@ -37,7 +37,7 @@ test("complete Life journey uses PostgreSQL transactions and survives replay", {
   await pool.query("create table schema_migrations(name text primary key, checksum text not null, applied_at timestamptz not null default now())");
   for(const migration of initialMigrations) await pool.query("insert into schema_migrations(name,checksum) values($1,$2)",[migration.name,createHash("sha256").update(migration.contents).digest("hex")]);
   await migrate(pool);
-  assert.equal((await pool.query("select count(*)::int count from schema_migrations")).rows[0].count,14);
+  assert.equal((await pool.query("select count(*)::int count from schema_migrations")).rows[0].count,15);
   assert.deepEqual((await pool.query("select legacy_capability_version,result->>'protocol' protocol from operations where execution_id='exec_legacy_operation'")).rows[0],{legacy_capability_version:1,protocol:"shadow.execution-result"});assert.equal((await pool.query("select event_type from outbox where id='event_legacy_operation'")).rows[0].event_type,"health.record_measurement.committed");const legacyExecutor=new CommandExecutor({unitOfWork:new PostgresUnitOfWork(pool),ids:uuidIds,clock:systemClock,fingerprinter:sha256Fingerprinter});const legacyReplay=await legacyExecutor.execute({actorId:"subject_legacy",subjectId:"subject_legacy",clientId:"client_legacy",traceId:"trace_legacy",effects:new Set(["health.measurement.write"])},{protocol:"shadow.command",capability:"health.record_measurement",command_id:"cmd_legacy_operation",input:legacyInput});assert.equal(legacyReplay.replayed,true);assert.equal(legacyReplay.protocol,"shadow.execution-result");
   const legacyRoots=await pool.query("select p.record_id purchase_record,m.record_id money_record,m.amount::text amount,m.currency from purchases p cross join money_entries m where p.id='purchase_legacy' and m.id='money_legacy'");
   assert.notEqual(legacyRoots.rows[0].purchase_record,legacyRoots.rows[0].money_record);
@@ -84,8 +84,14 @@ test("complete Life journey uses PostgreSQL transactions and survives replay", {
   const moneyTime = await pool.query("select occurred_on::text, occurred_at from money_entries");
   assert.equal(moneyTime.rows[0].occurred_on, "2026-09-08");
   assert.equal(moneyTime.rows[0].occurred_at, null);
-  const restrictedMealView = await queries.listMeals({ ...context, effects: new Set([...context.effects, "life.meal.read"]) });assert.equal(restrictedMealView.every(meal=>meal.payments.length===0),true);
-  const mealView = await queries.listMeals({ ...context, effects: new Set([...context.effects, "life.meal.read","money.entry.read"]) });
+  const countedPool=pool as unknown as {query:(...args:unknown[])=>unknown},originalPoolQuery=countedPool.query;let mealReadStatements=0;
+  countedPool.query=(...args:unknown[])=>{mealReadStatements++;return originalPoolQuery.apply(pool,args);};
+  let restrictedMealView:Awaited<ReturnType<typeof queries.listMeals>>,mealView:Awaited<ReturnType<typeof queries.listMeals>>;
+  try{
+    restrictedMealView=await queries.listMeals({ ...context, effects: new Set([...context.effects, "life.meal.read"]) });assert.equal(mealReadStatements,3);
+    mealReadStatements=0;mealView=await queries.listMeals({ ...context, effects: new Set([...context.effects, "life.meal.read","money.entry.read"]) });assert.equal(mealReadStatements,4);
+  }finally{countedPool.query=originalPoolQuery;}
+  assert.equal(restrictedMealView.every(meal=>meal.payments.length===0),true);
   const moneyView = await queries.summarizeMoney({ ...context, effects: new Set([...context.effects, "money.summary.read"]) });
   assert.equal(mealView.length, 2);
   assert.equal(mealView[0]?.payments[0]?.amount, "35.00");
@@ -158,5 +164,11 @@ test("complete Life journey uses PostgreSQL transactions and survives replay", {
   const tripDetail=await queries.travelTrip(travelContext,String(trip.actual_values.trip_id)) as {reservations:unknown[];segments:unknown[];day_plans:unknown[];members:unknown[];plan_versions:unknown[];revisions:unknown[]};assert.equal(tripDetail.reservations.length,2);assert.equal(tripDetail.segments.length,1);assert.equal(tripDetail.day_plans.length,1);assert.equal(tripDetail.members.length,2);assert.equal(tripDetail.plan_versions.length,2);assert.equal(tripDetail.revisions.length,1);const sharedTrip=await queries.travelTrip({...context,subjectId:"subject_companion",effects:new Set([...context.effects,"travel.trip.read"])},String(trip.actual_values.trip_id)) as {reservations:Array<Record<string,unknown>>;my_runs:Array<{state:string;outcomes:unknown[]}>;revisions:unknown[]};assert.ok(sharedTrip);const ownerReservation=sharedTrip.reservations.find(item=>item.title==="G1234")!;assert.equal("fare_entry_id" in ownerReservation,false);assert.equal("source_id" in ownerReservation,false);assert.equal(sharedTrip.my_runs[0]!.state,"completed");assert.equal(sharedTrip.my_runs[0]!.outcomes.length,2);assert.equal(sharedTrip.revisions.length,0);const libraryDetail=await queries.libraryItem({...context,effects:new Set([...context.effects,"library.item.read"])},String(libraryItem.actual_values.library_item_id)) as {revisions:unknown[];annotations:unknown[];derivations:unknown[];proofs:unknown[]};assert.equal(libraryDetail.revisions.length,2);assert.equal(libraryDetail.annotations.length,1);assert.equal(libraryDetail.derivations.length,1);assert.equal(libraryDetail.proofs.length,2);
   assert.equal(purchase.actual_values.amount,"88.00");
   const agent=new AgentRepository(pool);await agent.createThread("subject_journey","thread_journey","测试");await agent.addMessage("thread_journey","message_journey","user","记录午饭");await agent.createRun("thread_journey","run_journey");assert.equal(await agent.appendEvent("run_journey","run.state",{id:"run_journey:host:1",run_id:"run_journey",type:"run.state",state:"started"}),1);await agent.finishRun("run_journey","completed");assert.equal((await agent.events("subject_journey","run_journey")).length,1);const storedRun=await agent.run("subject_journey","run_journey");assert.equal(storedRun?.status,"completed");assert.equal(storedRun?.last_sequence,1);assert.equal(await agent.run("subject_companion","run_journey"),undefined);
+  const planner=await pool.connect();
+  try{
+    await planner.query("set enable_seqscan=off");
+    const mealPlan=await planner.query("explain (format json) select id from meals where subject_id=$1 order by occurred_on desc,created_at desc,id desc limit 20",["subject_journey"]);assert.match(JSON.stringify(mealPlan.rows),/meals_subject_timeline_idx/u);
+    const budgetPlan=await planner.query("explain (format json) select sum(entry.amount) from money_entries entry join consumption_records record on record.id=entry.record_id where entry.subject_id=$1 and record.state='confirmed' and entry.entry_type='expense' and entry.currency=$2 and entry.occurred_on>=$3::date and entry.occurred_on<$4::date and entry.category=$5",["subject_journey","CNY","2026-09-01","2026-10-01","food"]);assert.match(JSON.stringify(budgetPlan.rows),/money_entries_subject_budget_period_idx/u);
+  }finally{await planner.query("reset enable_seqscan");planner.release();}
   await unitOfWork.close();
 });

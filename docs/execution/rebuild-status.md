@@ -62,3 +62,9 @@ Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The tab
   cleanup in the queue UI. A SQLite version-4 fixture preserved known/accountless command and attachment rows
   while moving them to `needs_encryption`/`needs_account`; the generated Room 5 schema and final Android source
   pass `compileDebugKotlin`. No APK was built.
+- Meal timeline reads now use one bounded parent query plus batched item/source/payment reads, keep a stable
+  date/creation/ID order, omit the payment query without money permission, and remain at three or four SQL
+  statements regardless of page size. Money planning validates real calendar months and uses half-open date
+  bounds instead of formatting every expense date; migration 0015 adds matching meal and budget indexes, and
+  the isolated PostgreSQL journey asserts both fixed query counts and usable index plans. Contract generation,
+  dependency boundaries, all TypeScript checks and 58 non-PostgreSQL tests pass for this batch.
