@@ -211,3 +211,17 @@ Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The tab
   separation, invalid rates/allocations and cross-domain permission trimming. Contract generation, dependency
   boundaries, every TypeScript project, the complete non-PostgreSQL suite, the PostgreSQL journey and Web production
   build pass. No APK was packaged, no real issuer/device/runtime or production data was used, and nothing was deployed.
+
+## Independent-review corrections on 2026-09-11
+
+- F01–F03: Context Pack creation and reads now share a database visibility predicate. Mutable facts require
+  their current effective revision; an active Library item may reference an independently addressable immutable
+  Library revision. Bound packs require the matching thread even on direct HTTP reads (`thread_id`); omitted or
+  wrong threads fail closed. `valid_from`/`valid_to` describe the selected fact window, while `expires_at` alone
+  bounds access. Intake correction also advances the owning Meal revision. Aggregate memory is recomputed by the
+  Host registry (`meal-count-v1` counts only the selected distinct, authorized Meal facts), rejects supplied values
+  that disagree, and filters stale or unregistered historical aggregates on every read. Explicit preferences keep
+  their ordinary direct write path. Creation and expiry use PostgreSQL `now()` with the existing one-hour constraint.
+  Two new isolated PostgreSQL regressions pass, covering correction, void, cross-subject and shared-member denial,
+  revoked effects, exact 5/15/60-minute TTL, delayed insertion, expiry, thread binding and command replay; 43 focused
+  contract/kernel/API tests also pass. Real Runtime and device acceptance remain open.

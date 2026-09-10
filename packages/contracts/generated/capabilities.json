@@ -28858,7 +28858,6 @@
         "required": [
           "category",
           "memory_key",
-          "value",
           "evidence_refs",
           "state"
         ],
@@ -28999,7 +28998,6 @@
             "required": [
               "category",
               "memory_key",
-              "value",
               "evidence_refs",
               "state"
             ],
