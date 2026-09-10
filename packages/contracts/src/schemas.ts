@@ -276,6 +276,14 @@ export const captureLibraryItemInputSchema = z.object({
 export const reviseLibraryItemInputSchema=z.object({item_id:stableId,expected_revision:z.number().int().positive(),title:z.string().trim().min(1).max(300),text:z.string().min(1).max(100_000).optional(),url:z.url().max(2_000).optional(),tags:z.array(z.string().trim().min(1).max(64)).max(30).default([]),reason:z.string().trim().min(1).max(500)}).strict().refine(value=>value.text!==undefined||value.url!==undefined,{message:"revision needs text or url"});
 export const annotateLibraryItemInputSchema=z.object({item_id:stableId,anchor:z.json(),note:z.string().trim().min(1).max(10_000)}).strict();
 export const registerLibraryDerivationInputSchema=z.object({item_id:stableId,source_asset_version_id:stableId,derived_asset_version_id:stableId,kind:z.string().trim().min(1).max(100),processor_version:z.string().trim().min(1).max(100)}).strict();
+export const queueLibraryProcessingInputSchema=z.object({item_id:stableId,source_asset_version_id:stableId,kind:z.enum(["text_extract","ocr","transcript"]),requested_processor:z.string().trim().min(1).max(100)}).strict();
+export const retryLibraryProcessingInputSchema=z.object({job_id:stableId}).strict();
+export const claimLibraryProcessingInputSchema=z.object({job_id:stableId}).strict();
+export const failLibraryProcessingInputSchema=z.object({job_id:stableId,error:z.string().trim().min(1).max(2_000)}).strict();
+export const completeLibraryProcessingInputSchema=z.object({job_id:stableId,derived_asset_version_id:stableId,processor_version:z.string().trim().min(1).max(100),snippets:z.array(z.object({text:z.string().trim().min(1).max(20_000),locator:z.json()}).strict()).min(1).max(500)}).strict();
+export const libraryProcessingQueueInputSchema=z.object({kind:z.enum(["text_extract","ocr","transcript"]).optional(),limit:z.number().int().min(1).max(100).default(20)}).strict();
+export const setLibraryReadingStateInputSchema=z.object({item_id:stableId,item_revision:z.number().int().positive(),locator:z.json(),progress:z.number().min(0).max(1),state:z.enum(["active","completed"])}).strict().superRefine((value,context)=>{if(value.state==="completed"&&value.progress!==1)context.addIssue({code:"custom",path:["progress"],message:"completed reading state requires progress 1"});});
+export const registerLibraryLegacyLinkInputSchema=z.object({item_id:stableId,legacy_uri:z.string().trim().min(1).max(2_000),algorithm:z.enum(["ed25519-sha256-ascii-v1","legacy-unverified"]),source_asset_version_id:stableId.optional(),signed_content_sha256:z.string().regex(/^[0-9a-f]{64}$/u).optional(),public_key_pem:z.string().min(1).max(10_000).optional(),signature_base64:z.string().regex(/^[A-Za-z0-9+/]+={0,2}$/u).max(1_000).optional()}).strict().superRefine((value,context)=>{const proofFields=[value.source_asset_version_id,value.signed_content_sha256,value.public_key_pem,value.signature_base64];if(value.algorithm==="ed25519-sha256-ascii-v1"&&proofFields.some(field=>field===undefined))context.addIssue({code:"custom",message:"verified legacy proof requires the asset version, hash, public key, and signature"});if(value.algorithm==="legacy-unverified"&&proofFields.some(field=>field!==undefined))context.addIssue({code:"custom",message:"unverified legacy links cannot carry unverifiable proof fields"});});
 
 export const writeCommandSchemas = {
   "life.record_meal": recordMealInputSchema,
@@ -334,7 +342,14 @@ export const writeCommandSchemas = {
   "library.capture": captureLibraryItemInputSchema,
   "library.revise":reviseLibraryItemInputSchema,
   "library.annotate":annotateLibraryItemInputSchema,
-  "library.register_derivation":registerLibraryDerivationInputSchema
+  "library.register_derivation":registerLibraryDerivationInputSchema,
+  "library.queue_processing":queueLibraryProcessingInputSchema,
+  "library.retry_processing":retryLibraryProcessingInputSchema,
+  "library.claim_processing":claimLibraryProcessingInputSchema,
+  "library.fail_processing":failLibraryProcessingInputSchema,
+  "library.complete_processing":completeLibraryProcessingInputSchema,
+  "library.set_reading_state":setLibraryReadingStateInputSchema,
+  "library.register_legacy_link":registerLibraryLegacyLinkInputSchema
 } as const;
 
 export const writeCapabilityNameSchema = z.enum(Object.keys(writeCommandSchemas) as [keyof typeof writeCommandSchemas, ...(keyof typeof writeCommandSchemas)[]]);
@@ -349,7 +364,7 @@ export const universalCommandEnvelopeSchema = z.object({
 });
 
 export const resourceReferenceSchema = z.object({
-  type: z.enum(["meal", "meal_template", "food", "recipe", "personal_alias", "intake_item", "consumption_record", "purchase", "purchase_item", "money_entry", "refund", "budget", "recurring_plan", "recurring_occurrence", "spending_intent", "use_cycle", "money_import_batch", "money_import_candidate", "money_import_rule", "health_measurement", "health_workout_session", "health_raw", "health_sync_cursor", "health_plan", "trip", "trip_segment", "reservation", "visit", "place", "travel_map", "trip_track", "trip_day_plan", "trip_member", "trip_plan_version", "trip_run", "trip_stop_outcome", "library_item", "library_annotation", "library_derivation", "source", "thread", "run", "task"]),
+  type: z.enum(["meal", "meal_template", "food", "recipe", "personal_alias", "intake_item", "consumption_record", "purchase", "purchase_item", "money_entry", "refund", "budget", "recurring_plan", "recurring_occurrence", "spending_intent", "use_cycle", "money_import_batch", "money_import_candidate", "money_import_rule", "health_measurement", "health_workout_session", "health_raw", "health_sync_cursor", "health_plan", "trip", "trip_segment", "reservation", "visit", "place", "travel_map", "trip_track", "trip_day_plan", "trip_member", "trip_plan_version", "trip_run", "trip_stop_outcome", "library_item", "library_annotation", "library_derivation", "library_processing_job", "library_reading_state", "library_legacy_link", "source", "thread", "run", "task"]),
   id: stableId,
   revision: z.number().int().positive()
 }).strict();

@@ -8,7 +8,7 @@ h1 { margin: 10px 0 8px; font-family: Georgia, serif; font-size: clamp(36px, 7vw
 header p { color: #58665d; }
 form, .receipt, .error { border: 1px solid #cad2c5; border-radius: 22px; background: rgba(255,255,255,.72); padding: 24px; box-shadow: 0 20px 60px rgba(44,66,50,.08); }
 .workspace { display: grid; gap: 20px; }
-.empty-state, .health-panel, .import-panel, .record-browser, .workout-panel, .food-panel, .travel-panel { border: 1px solid #cad2c5; border-radius: 22px; background: rgba(255,255,255,.72); padding: 24px; box-shadow: 0 20px 60px rgba(44,66,50,.08); }
+.empty-state, .health-panel, .import-panel, .record-browser, .workout-panel, .food-panel, .travel-panel, .library-panel { border: 1px solid #cad2c5; border-radius: 22px; background: rgba(255,255,255,.72); padding: 24px; box-shadow: 0 20px 60px rgba(44,66,50,.08); }
 label { display: grid; gap: 8px; margin-bottom: 18px; font-weight: 650; }
 label small { color: #68736b; font-weight: 450; }
 input, textarea { width: 100%; border: 1px solid #bac5b6; border-radius: 12px; background: #fff; padding: 13px 14px; color: inherit; font: inherit; }
@@ -147,4 +147,22 @@ select { width:100%; border:1px solid #bac5b6; border-radius:12px; background:#f
 .track-form { padding:16px; }
 .bundle-restore { margin-top:18px; padding-top:18px; border-top:1px solid #d4dbd0; }
 .bundle-restore textarea { min-height:140px; }
-@media (max-width:560px){main{padding:36px 0}.grid,.health-grid,.import-form,.candidate-fields,.catalog-grid,.field-pair,.nutrient-grid,.travel-grid{grid-template-columns:1fr}.panel-heading{align-items:stretch;flex-direction:column}.panel-heading label{width:100%}.catalog-search{width:100%}.trend-list li{grid-template-columns:1fr auto}.trend-list small{grid-column:1/-1}.health-card,.trend-card,.sources-card,.import-form .full,.candidate-fields .full,.recipe-meal{grid-column:1}}
+.library-search { display:flex; gap:8px; padding:0; border:0; box-shadow:none; background:transparent; }
+.library-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+.library-upload,.legacy-form { padding:18px; border-radius:16px; box-shadow:none; background:#f7f9f3; }
+.library-upload h3,.library-list h3 { margin-top:0; }
+.library-upload small { display:block; color:#667168; margin-top:10px; }
+.library-list { border:1px solid #d4dbd0; border-radius:16px; background:#f9faf6; padding:18px; }
+.library-list ul,.library-reader ul { list-style:none; padding:0; margin:0; }
+.library-list button { width:100%; display:grid; gap:3px; text-align:left; border-radius:0; border-top:1px solid #e1e5dd; background:transparent; color:inherit; padding:12px 0; }
+.library-list span,.library-reader small { display:block; color:#667168; }
+.library-reader { margin-top:18px; padding-top:18px; border-top:1px solid #d4dbd0; }
+.library-reader>header { display:flex; align-items:start; justify-content:space-between; margin:0 0 18px; }
+.library-reader h3 { margin:4px 0; }
+.library-reader blockquote { margin:10px 0; padding:14px; border-left:3px solid #78967f; background:#f7f9f3; white-space:pre-wrap; }
+.library-reader li { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:9px 0; border-top:1px solid #e1e5dd; }
+.library-reader li button { padding:7px 12px; }
+.status.verified,.status.completed { background:#d9ebdf; color:#24643d; }
+.status.invalid,.status.failed { background:#f3dfdc; color:#8b3434; }
+.status.unverified,.status.queued,.status.running { background:#f4e7c9; color:#725414; }
+@media (max-width:560px){main{padding:36px 0}.grid,.health-grid,.import-form,.candidate-fields,.catalog-grid,.field-pair,.nutrient-grid,.travel-grid,.library-grid{grid-template-columns:1fr}.panel-heading{align-items:stretch;flex-direction:column}.panel-heading label{width:100%}.catalog-search,.library-search{width:100%}.trend-list li{grid-template-columns:1fr auto}.trend-list small{grid-column:1/-1}.health-card,.trend-card,.sources-card,.import-form .full,.candidate-fields .full,.recipe-meal{grid-column:1}}

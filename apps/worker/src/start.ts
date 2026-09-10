@@ -1,6 +1,6 @@
 import { PgBoss } from "pg-boss";
 import { Pool } from "pg";
-import { materializeRecurringOccurrences, processPendingHealth } from "@shadow/database";
+import { materializeRecurringOccurrences, processPendingHealth, processPendingLibrary } from "@shadow/database";
 
 const connectionString = process.env.DATABASE_URL;
 if (connectionString === undefined) throw new Error("DATABASE_URL is required");
@@ -33,9 +33,11 @@ await boss.work("shadow-events", async (jobs) => {
 const timer = setInterval(() => void dispatchOutbox().catch((error) => console.error(error)), 1_000);
 const recoveryTimer=setInterval(()=>void processPendingHealth(pool).catch(error=>console.error(error)),30_000);
 const planningTimer=setInterval(()=>void materializeRecurringOccurrences(pool).catch(error=>console.error(error)),60_000);
+const libraryTimer=setInterval(()=>void processPendingLibrary(pool).catch(error=>console.error(error)),30_000);
 await dispatchOutbox();
 await materializeRecurringOccurrences(pool);
+await processPendingLibrary(pool);
 
-async function shutdown() { clearInterval(timer);clearInterval(recoveryTimer);clearInterval(planningTimer); await boss.stop(); await pool.end(); process.exit(0); }
+async function shutdown() { clearInterval(timer);clearInterval(recoveryTimer);clearInterval(planningTimer);clearInterval(libraryTimer); await boss.stop(); await pool.end(); process.exit(0); }
 process.on("SIGINT", () => void shutdown());
 process.on("SIGTERM", () => void shutdown());

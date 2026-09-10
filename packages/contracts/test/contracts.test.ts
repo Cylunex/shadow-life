@@ -68,6 +68,14 @@ test("source-bearing capabilities require the source-link effect",()=>{
   assert.deepEqual(capabilityRegistry["travel.record_visit"].resolveEffects({place_name:"西湖",occurred_on:"2026-09-09",time_zone:"Asia/Shanghai",source}),["travel.visit.write","library.source.link"]);
 });
 
+test("library processing and legacy proof inputs fail closed",()=>{
+  assert.equal(capabilityRegistry["library.queue_processing"].inputSchema.safeParse({item_id:"library_12345678",source_asset_version_id:"assetv_12345678",kind:"text_extract",requested_processor:"builtin-text-v1"}).success,true);
+  assert.equal(capabilityRegistry["library.complete_processing"].inputSchema.safeParse({job_id:"library_job_12345678",derived_asset_version_id:"assetv_12345678",processor_version:"v1",snippets:[]}).success,false);
+  assert.equal(capabilityRegistry["library.set_reading_state"].inputSchema.safeParse({item_id:"library_12345678",item_revision:1,locator:{page:3},progress:.5,state:"completed"}).success,false);
+  assert.equal(capabilityRegistry["library.register_legacy_link"].inputSchema.safeParse({item_id:"library_12345678",legacy_uri:"shadow://old/1",algorithm:"legacy-unverified"}).success,true);
+  assert.equal(capabilityRegistry["library.register_legacy_link"].inputSchema.safeParse({item_id:"library_12345678",legacy_uri:"shadow://old/1",algorithm:"ed25519-sha256-ascii-v1"}).success,false);
+});
+
 test("life detail sections resolve the exact read effects",()=>{
   assert.deepEqual(capabilityRegistry["life.get_record"].resolveEffects({id:"record_12345678",sections:["meal","sources"]}),["life.meal.read"]);
   assert.deepEqual(capabilityRegistry["life.get_record"].resolveEffects({id:"record_12345678",sections:["money"]}),["money.entry.read"]);
