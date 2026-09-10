@@ -251,7 +251,7 @@ Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The tab
   pages, permission changes and unknown record coverage cannot mark completion or delete absent records. Only
   fully contained missing facts are invalidated, with their IDs retained in `health_rescan_generations`; normalizer
   work is requeued without inventing provider versions. Expired/revoked cursors cannot become active through an
-  ordinary upsert batch. Four fresh PostgreSQL regressions, 12 pure Kotlin policy assertions and Android
+  ordinary upsert batch. Four fresh PostgreSQL regressions, 13 pure Kotlin policy assertions and Android
   `compileDebugKotlin` pass. The protocol follows the [Health Connect sync guidance](https://developer.android.com/health-and-fitness/health-connect/sync-data);
   real provider priorities, signed-device permission/process-death and Samsung acceptance remain open.
 - F09: Runs have a persistent owner and 30-second lease renewed every five seconds. Reads/new runs/stop recover
@@ -262,3 +262,10 @@ Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The tab
   transaction, allowing recovery to reconstruct a missing receipt event without replaying the business command.
   Two repository PostgreSQL tests and two real API/PostgreSQL tests pass, including local stub Runtime injection
   for stale contexts/forged aggregates. No external Runtime was invoked. Migration 0031 is additive.
+- Final review validation: all 136 Node tests pass together with the isolated PostgreSQL cluster (zero failures
+  or skips), including the 31-migration full journey. All TS projects, generated contracts, dependency boundaries,
+  Web production build, Android Kotlin compilation and 13 pure Kotlin assertions pass. A real two-instance API
+  heartbeat-stop test and a historical-snapshot-to-empty-database restore drill also pass. The final Health check
+  verifies that an unchanged provider version reappearing after reconciliation returns its actual pending state
+  without marking an incomplete cursor active. See [the F01–F10 delivery record](review-fixes-2026-09-11.md) for
+  exact implementation SHAs, test paths, semantic choices and remaining device/production acceptance boundaries.

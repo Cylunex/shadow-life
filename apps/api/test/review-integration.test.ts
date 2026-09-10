@@ -49,3 +49,14 @@ test("F01/F02 API: stale evidence never enters Runtime and public/Agent aggregat
   const forged=await api.request("/api/commands/agent.set_memory",{method:"POST",headers,body:JSON.stringify({protocol:"shadow.command",capability:"agent.set_memory",command_id:"cmd_api_fake_memory",input:{category:"deterministic_aggregate",memory_key:"fake_http",algorithm_version:"not-implemented",evidence_refs:[{...refs[0],revision:2}],value:{count:1}}})});assert.equal(forged.status,422);assert.match((await forged.json() as {message:string}).message,/not registered/);
   assert.equal((await pool.query("select count(*)::int n from user_memories")).rows[0].n,1);
 });
+
+test("F09 API: a different instance requests stop and the live owner's heartbeat terminates the stream",{...pgOnly,timeout:15_000},async t=>{
+  const {pool,context,headers,app}=await fixture(t),owner=new AgentRepository(pool);await owner.createThread(context.subjectId,"thread_two_instances","多实例停止");
+  let notifyStarted!:()=>void;const began=new Promise<void>(resolve=>{notifyStarted=resolve;});
+  const waiting:AgentRuntimeAdapter={...completed,async *run(request,signal){notifyStarted();await new Promise<void>(resolve=>{if(signal?.aborted)resolve();else signal?.addEventListener("abort",()=>resolve(),{once:true});});yield{id:"stopped",type:"run.interrupted",runId:request.runId,reason:"signal stopped"};}};
+  const response=await app(waiting,owner).request("/api/threads/thread_two_instances/runs",{method:"POST",headers,body:JSON.stringify({text:"等待停止"})}),body=response.text();await began;
+  const id=String((await pool.query("select id from runs where thread_id='thread_two_instances'")).rows[0].id);
+  const observer=app(completed),stop=await observer.request(`/api/runs/${id}/stop`,{method:"POST",headers});assert.equal((await stop.json() as {status:string}).status,"stopping");
+  assert.match(await body,/"state":"interrupted"/);
+  assert.equal((await owner.run(context.subjectId,id))?.status,"interrupted");
+});

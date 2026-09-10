@@ -319,6 +319,7 @@ function storeFor(database: Database | Transaction): TransactionStore {
               if(raw.pendingReason==="rescan_absent"&&input.sync_epoch>raw.currentSyncEpoch){
                 await database.execute(sql`update health_raw_records set state='pending',pending_reason='normalization_pending',current_sync_epoch=${input.sync_epoch} where id=${raw.id}`);
                 await database.execute(sql`insert into health_normalization_queue(raw_id,raw_version,normalizer_version,state) values(${raw.id},${raw.currentVersion},${input.parse_version},'pending') on conflict(raw_id,raw_version,normalizer_version) do update set state='pending',last_error=null,updated_at=now()`);
+                raw={...raw,state:"pending",pendingReason:"normalization_pending",currentSyncEpoch:input.sync_epoch};
               }
               return { resources: [{ type: "health_raw", id: raw.id, revision: raw.currentVersion + 1 }], actualValues: { raw_id: raw.id, current_version: raw.currentVersion, state: raw.state }, warnings: ["来源版本已接收，未重复创建。"] };
             }

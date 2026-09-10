@@ -43,6 +43,10 @@ test("F08: only a complete, bounded generation reconciles absence and replays at
   await assert.rejects(()=>run("health.ingest_batch",{...base,sync_epoch:4,previous_cursor:"scan-3",next_cursor:"scan-4",records:[],rescan:{...window,generation:"hcscan_regression_0004"}}),/revoked permission/);
   await run("health.ingest_batch",{...base,sync_epoch:5,previous_cursor:"scan-3",next_cursor:"scan-5",records:[],rescan:{...window,generation:"hcscan_regression_0005"}});await processPendingHealth(pool);
   assert.deepEqual((await pool.query("select steps from health_daily_activity where effective")).rows.map(x=>x.steps),[300]);
+  await state(6);
+  const reappeared=await run("health.ingest_raw",{source_type:base.source_type,source_instance_key:base.source_instance_key,source_fingerprint:base.source_fingerprint,record_type:base.record_type,sync_epoch:6,parse_version:base.parse_version,...b});
+  assert.equal(reappeared.actual_values.state,"pending");
+  assert.equal((await pool.query("select permission_state from health_source_instances")).rows[0].permission_state,"rescan_required");
 });
 
 test("F07/F08: complete interval upgrade retires only covered legacy HC totals",pgOnly,async t=>{

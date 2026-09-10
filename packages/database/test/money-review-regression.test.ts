@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { randomUUID } from "node:crypto";
+import { Pool } from "pg";
+import { migrate } from "../src/index.js";
 import { spawnSync } from "node:child_process";
 import { mkdtemp,readFile,writeFile,rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -34,7 +37,7 @@ test("F04: generic correction preserves FX, allocation and source-scale invarian
 
 test("F10: migration CLI update/delete/replay preserves every exact historical decimal",pgOnly,async t=>{
   const {pool,connectionString}=await reviewFixture(t),root=resolve(import.meta.dirname,"../../.."),dir=await mkdtemp(join(tmpdir(),"life-decimal-test-"));t.after(()=>rm(dir,{recursive:true,force:true}));
-  const bundle=JSON.parse(await readFile(resolve(root,"importers/legacy/fixtures/migration-bundle.json"),"utf8"));
+  let bundle=JSON.parse(await readFile(resolve(root,"importers/legacy/fixtures/migration-bundle.json"),"utf8"));
   bundle.target_schema_version=(await pool.query("select left(max(name),4) version from schema_migrations")).rows[0].version;
   bundle.owners={"legacy-owner":"subject_decimal_regression"};
   const money=bundle.objects[0],meal=bundle.objects[1];
@@ -42,7 +45,8 @@ test("F10: migration CLI update/delete/replay preserves every exact historical d
   meal.targets[0].data.items[0].unit="g";
   const nutrientFields=["quantity","amount_g","energy_kcal","protein_g","fat_g","carb_g","fiber_g","sodium_mg","consumed_fraction"];
   for(const field of nutrientFields)meal.targets[0].data.items[0][field]=field==="consumed_fraction"?"0.123400":"9007199254740993.123456";
-  async function invoke(mode:string){const file=join(dir,"bundle.json");await writeFile(file,JSON.stringify(bundle));const result=spawnSync(process.execPath,["--import","tsx","importers/legacy/src/cli.ts",mode,file],{cwd:root,env:{...process.env,DATABASE_URL:connectionString},encoding:"utf8"});assert.equal(result.status,0,result.stdout+result.stderr);return JSON.parse(result.stdout);}
+  const originalBundle=structuredClone(bundle);
+  async function invoke(mode:string,databaseUrl=connectionString){const file=join(dir,"bundle.json");await writeFile(file,JSON.stringify(bundle));const result=spawnSync(process.execPath,["--import","tsx","importers/legacy/src/cli.ts",mode,file],{cwd:root,env:{...process.env,DATABASE_URL:databaseUrl,SHADOW_MIGRATION_DRILL:"isolated-empty-database"},encoding:"utf8"});assert.equal(result.status,0,result.stdout+result.stderr);return JSON.parse(result.stdout);}
   assert.equal((await invoke("apply")).applied,2);assert.equal((await invoke("apply")).replayed,2);
   money.source.revision="2";meal.source.revision="2";
   money.targets[0].data.amount="9007199254740994.123400";money.payload.amount=money.targets[0].data.amount;meal.targets[0].data.items[0].name="已修正合成样例";
@@ -57,4 +61,14 @@ test("F10: migration CLI update/delete/replay preserves every exact historical d
   assert.equal((await pool.query("select snapshot->'money_entry'->>'amount' amount from consumption_record_revisions where record_id='record_import_fixture' and revision=2")).rows[0].amount,"9007199254740994.123400");
   assert.equal((await pool.query("select count(*)::int n from meal_revisions where meal_id='meal_import_fixture'")).rows[0].n,2);
   assert.equal((await invoke("reconcile")).complete,true);
+  const restoreName=`restore_${randomUUID().replaceAll("-","")}`;await pool.query(`create database "${restoreName}"`);
+  const restoreUrl=new URL(connectionString);restoreUrl.pathname=`/${restoreName}`;const restore=new Pool({connectionString:restoreUrl.toString()});
+  t.after(async()=>{await restore.end();const cleanup=new Pool({connectionString:process.env.TEST_DATABASE_URL});try{await cleanup.query(`drop database "${restoreName}" with (force)`);}finally{await cleanup.end();}});
+  await migrate(restore);
+  // Build the restore bundle from exact prior snapshots rather than rounded current values.
+  bundle=originalBundle;bundle.objects[0].targets[0].data.amount=moneySnapshot.money_entry.amount;
+  for(const field of nutrientFields)bundle.objects[1].targets[0].data.items[0][field]=mealSnapshot.items[0][field];
+  assert.equal((await invoke("restore-drill",restoreUrl.toString())).ready,true);
+  assert.equal((await restore.query("select amount::text amount from money_entries where id='money_import_fixture'")).rows[0].amount,"9007199254740993.123456");
+  assert.equal((await restore.query("select consumed_fraction::text value from intake_items where id='intake_import_fixture'")).rows[0].value,"0.123400");
 });

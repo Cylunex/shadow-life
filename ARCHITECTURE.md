@@ -20,9 +20,10 @@ travel and library facts commit with an Operation receipt and Outbox event. Miss
 meal. A purchase or receipt alone never proves that a meal occurred. Corrections require an expected revision
 and preserve the prior snapshot.
 
-New interactive money writes are intentionally limited to CNY with two decimal places. Historical imports retain
-NUMERIC(24,6), source scale and ISO currency, and every summary groups by currency without converting through
-JavaScript numbers. Date-only legacy facts remain date-only; the importer never manufactures midnight timestamps.
+Ordinary money writes use CNY with two decimal places. Explicit foreign-entry writes and historical imports
+retain NUMERIC(24,6), source scale and ISO currency; conversions and allocations are separate relationships.
+Generic correction cannot change amount or currency while those relationships exist. Every summary groups by
+currency without converting through JavaScript numbers. Date-only legacy facts remain date-only; the importer never manufactures midnight timestamps.
 
 Development authentication is deliberately explicit: `dev:` bearer tokens are accepted only when
 `SHADOW_DEV_AUTH=true`, and production startup rejects that setting. Production verifies issuer, audience,
