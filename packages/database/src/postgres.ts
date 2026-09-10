@@ -381,6 +381,9 @@ function storeFor(database: Database | Transaction): TransactionStore {
         }
         case "life.update_shopping_item":{
           const input=updateShoppingItemInputSchema.parse(command.input);
+          // Every item transition serializes on its list before mutating children or reading remaining items.
+          const parent=await database.execute(sql`select list.id from shopping_lists list join shopping_list_items item on item.shopping_list_id=list.id where item.id=${input.shopping_item_id} and list.subject_id=${subjectId} for update of list`);
+          if(!parent.rowCount)throw conflict("shopping item does not exist under this subject");
           if(input.purchase_item_id){const purchase=await database.execute(sql`select 1 from purchase_items item join purchases purchase on purchase.id=item.purchase_id join consumption_records record on record.id=purchase.record_id where item.id=${input.purchase_item_id} and purchase.subject_id=${subjectId} and record.state='confirmed'`);if(!purchase.rowCount)throw conflict("shopping purchase item does not exist under this subject or is not active");}
           const saved=await database.execute<{shopping_list_id:string;revision:number}>(sql`update shopping_list_items item set state=${input.state},purchase_item_id=${input.purchase_item_id??null},revision=item.revision+1 from shopping_lists list where item.id=${input.shopping_item_id} and item.shopping_list_id=list.id and list.subject_id=${subjectId} and item.revision=${input.expected_revision} returning item.shopping_list_id,item.revision`);
           if(!saved.rowCount)throw conflict("shopping item revision changed or does not exist");

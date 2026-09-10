@@ -233,3 +233,10 @@ Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The tab
   decoding; source-scale integers and unrelated JSON numbers retain their types. Two isolated PostgreSQL tests
   pass, including real CLI apply/update/delete/replay and reconciliation with a value above JavaScript's safe
   integer range, all intake numeric fields, and trailing zeros. No historical migration checksum was changed.
+- F05/F06: Shopping transitions lock the parent list before updating any child or calculating remaining items.
+  A two-connection PostgreSQL barrier proves concurrent completion and reopening, unchanged children while blocked,
+  stable replay, and revision conflict rejection. Asset storage preserves existing original IDs; MIME variants and
+  derived representations receive deterministic logical identities independent of the byte digest. Plain text,
+  Markdown and JSON all finish extraction without changing original bytes/hash/MIME, repeating the same derivation
+  does not add assets, and cross-owner originals remain inaccessible. Both new database regressions, database TS,
+  and the two text-worker unit tests pass.
