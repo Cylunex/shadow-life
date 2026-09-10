@@ -34,14 +34,15 @@ test("missing resources are returned as 404 errors",async()=>{
 });
 
 test("overview routes parse typed filters before calling query services",async()=>{
-  let todayInput:unknown,timelineInput:unknown,importBatchId="";
+  let todayInput:unknown,timelineInput:unknown,importBatchId="",healthRecordId="";
   const dependencies={
     unitOfWork:{ensurePrincipal:async()=>undefined,pool:{query:async()=>({rows:[]})}},
     executor:{execute:async()=>({}),getOperation:async()=>({})},
     queries:{
       lifeToday:async(_context:unknown,input:unknown)=>{todayInput=input;return{date:"2026-09-10",time_zone:"Asia/Shanghai",domains:{money:{entries:1,totals:[],freshness:"2026-09-10T01:00:00.000Z"}},as_of:"2026-09-10T02:00:00.000Z"};},
       lifeTimeline:async(_context:unknown,input:unknown)=>{timelineInput=input;return{items:[],next_cursor:null,as_of:"2026-09-10T02:00:00.000Z"};},
-      moneyImportReview:async(_context:unknown,batchId:string)=>{importBatchId=batchId;return{batch:{id:batchId},candidates:[]};}
+      moneyImportReview:async(_context:unknown,batchId:string)=>{importBatchId=batchId;return{batch:{id:batchId},candidates:[]};},
+      healthRecord:async(_context:unknown,id:string)=>{healthRecordId=id;return{kind:"measurement",fact:{id}};}
     },
     developmentAuth:true
   } as unknown as Parameters<typeof createApp>[0];
@@ -49,7 +50,8 @@ test("overview routes parse typed filters before calling query services",async()
   const today=await app.request("/api/today?date=2026-09-10&time_zone=Asia%2FShanghai&domains=money,health",{headers});
   const timeline=await app.request("/api/timeline?domains=money&limit=2",{headers});
   const importReview=await app.request("/api/money/imports/import_batch_12345678",{headers});
-  assert.equal(today.status,200);assert.equal(timeline.status,200);assert.equal(importReview.status,200);assert.equal(importBatchId,"import_batch_12345678");
+  const healthRecord=await app.request("/api/health/records/health_12345678",{headers});
+  assert.equal(today.status,200);assert.equal(timeline.status,200);assert.equal(importReview.status,200);assert.equal(healthRecord.status,200);assert.equal(importBatchId,"import_batch_12345678");assert.equal(healthRecordId,"health_12345678");
   assert.deepEqual(todayInput,{date:"2026-09-10",time_zone:"Asia/Shanghai",domains:["money","health"]});
   assert.deepEqual(timelineInput,{domains:["money"],limit:2});
 });

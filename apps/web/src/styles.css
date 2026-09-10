@@ -8,7 +8,7 @@ h1 { margin: 10px 0 8px; font-family: Georgia, serif; font-size: clamp(36px, 7vw
 header p { color: #58665d; }
 form, .receipt, .error { border: 1px solid #cad2c5; border-radius: 22px; background: rgba(255,255,255,.72); padding: 24px; box-shadow: 0 20px 60px rgba(44,66,50,.08); }
 .workspace { display: grid; gap: 20px; }
-.empty-state, .health-panel, .import-panel { border: 1px solid #cad2c5; border-radius: 22px; background: rgba(255,255,255,.72); padding: 24px; box-shadow: 0 20px 60px rgba(44,66,50,.08); }
+.empty-state, .health-panel, .import-panel, .record-browser { border: 1px solid #cad2c5; border-radius: 22px; background: rgba(255,255,255,.72); padding: 24px; box-shadow: 0 20px 60px rgba(44,66,50,.08); }
 label { display: grid; gap: 8px; margin-bottom: 18px; font-weight: 650; }
 label small { color: #68736b; font-weight: 450; }
 input, textarea { width: 100%; border: 1px solid #bac5b6; border-radius: 12px; background: #fff; padding: 13px 14px; color: inherit; font: inherit; }
@@ -84,6 +84,21 @@ select { width:100%; border:1px solid #bac5b6; border-radius:12px; background:#f
 .import-rules article small { color:#667168; overflow-wrap:anywhere; }
 .status.active { background:#d9ebdf; color:#24643d; }
 .status.disabled { background:#e2e8df; color:#526158; }
+.record-browser>p { color:#667168; }
+.record-list { list-style:none; padding:0; margin:0; display:grid; gap:8px; }
+.record-list li { border:1px solid #d4dbd0; border-radius:14px; background:#f9faf6; }
+.record-list a { display:grid; gap:4px; padding:13px 15px; color:inherit; text-decoration:none; }
+.record-list a:hover { border-radius:14px; background:#eff4ec; }
+.record-list small { color:#667168; }
+.record-detail { position:relative; margin-top:20px; border-top:1px solid #cad2c5; padding-top:20px; }
+.record-detail>code { color:#667168; overflow-wrap:anywhere; }
+.detail-close { position:absolute; right:0; top:20px; color:#496052; }
+.detail-grid { display:grid; gap:10px; margin:18px 0; }
+.detail-grid>div { display:grid; grid-template-columns:minmax(100px,.35fr) 1fr; gap:12px; border-top:1px solid #e1e5dd; padding-top:10px; }
+.detail-grid dt { color:#667168; }
+.detail-grid dd { margin:0; white-space:pre-wrap; overflow-wrap:anywhere; }
+.detail-edit { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 14px; margin-top:18px; box-shadow:none; background:#f7f9f3; padding:18px; }
+.detail-edit h3,.detail-edit .full { grid-column:1/-1; }
 .attention>p { color:#667168; }
 .attention-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:18px; }
 .attention-grid h3 { margin:0 0 10px; }

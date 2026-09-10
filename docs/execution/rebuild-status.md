@@ -111,3 +111,11 @@ Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The tab
   stop affecting new batches without rewriting history. The Web supports stage, per-row repair/confirm/ignore,
   rule creation and rule disablement. Migration 0021 and a fresh PostgreSQL journey verify duplicate-file replay,
   duplicate transactions, invalid repair, linked refunds, rule hit/confirmation/disable and subject isolation.
+- Unified records now expose a stable, bounded timeline with domain filters, keyset pagination and shareable
+  object URLs. Meal and money links open the permission-trimmed aggregate with relationships and evidence;
+  Travel children point back to their authorized trip context; Library opens its revision/proof context; and
+  every effective Health fact has a provenance detail that identifies its manual source or raw source identity
+  without exposing device cursors. Meal, money and manual Health details can be corrected with an expected
+  revision and reason. Device-derived Health facts remain read-only and must change through source versions.
+  Migration 0022 preserves manual Health snapshots, invalidates both affected daily projections on date moves,
+  and the fresh PostgreSQL journey covers stale revisions, subject isolation and timeline parent references.

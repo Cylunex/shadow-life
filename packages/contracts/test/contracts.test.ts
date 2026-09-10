@@ -43,6 +43,8 @@ test("health plan states stay compatible with their model",()=>{
   assert.equal(setHealthPlanInputSchema.safeParse({kind:"workout",name:"跑步",state:"active",schedule:{days:[2,4]}}).success,true);
 });
 
+test("health corrections are versioned and cannot target an unspecified fact",()=>{const schema=capabilityRegistry["health.correct_measurement"].inputSchema;assert.equal(schema.safeParse({measurement_id:"health_12345678",expected_revision:1,metric:"weight",value:"68.8",unit:"kg",occurred_on:"2026-09-10",time_zone:"Asia/Shanghai",reason:"秤面读数核对"}).success,true);assert.equal(schema.safeParse({measurement_id:"health_12345678",metric:"weight",value:"68.8",unit:"kg",occurred_on:"2026-09-10",time_zone:"Asia/Shanghai",reason:"缺少版本"}).success,false);});
+
 test("today attention remains bounded and defaults safely for older read rows",()=>{
   const parsed=lifeTodayResultSchema.parse({date:"2026-09-10",domains:{money:{entries:0,totals:[],freshness:null},health:{facts:0,freshness:null},travel:{visits:0,freshness:null}},as_of:"2026-09-10T00:00:00Z"});
   assert.deepEqual(parsed.domains.money?.due_items,[]);assert.deepEqual(parsed.domains.health?.sync_issues,[]);assert.deepEqual(parsed.domains.travel?.current_trips,[]);

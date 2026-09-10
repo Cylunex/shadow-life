@@ -43,6 +43,7 @@ export interface TransactionStore {
   moneyPlanning(subjectId:string,period:string):Promise<unknown>;
   moneyImportReview(subjectId:string,batchId:string):Promise<unknown|undefined>;
   healthDaily(subjectId:string,date:string):Promise<unknown|undefined>;
+  healthRecord(subjectId:string,id:string):Promise<unknown|undefined>;
   travelTrip(subjectId:string,id:string):Promise<unknown|undefined>;
   libraryItem(subjectId:string,id:string):Promise<unknown|undefined>;
   agentPersonalContext(subjectId:string,aliasKinds:readonly string[],includeMealTemplates:boolean):Promise<{aliases:readonly Record<string,unknown>[];mealTemplates:readonly Record<string,unknown>[]}>;

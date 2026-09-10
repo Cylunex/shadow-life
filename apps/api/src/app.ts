@@ -59,6 +59,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.get("/api/money/planning",async context=>context.json(await dependencies.queries.moneyPlanning(context.get("requestContext"),context.req.query("period")??new Date().toISOString().slice(0,7))));
   app.get("/api/money/imports/:batchId",async context=>context.json(await dependencies.queries.moneyImportReview(context.get("requestContext"),context.req.param("batchId"))));
   app.get("/api/health/daily/:date",async context=>context.json(await dependencies.queries.healthDaily(context.get("requestContext"),context.req.param("date"))));
+  app.get("/api/health/records/:id",async context=>context.json(await dependencies.queries.healthRecord(context.get("requestContext"),context.req.param("id"))));
   app.get("/api/travel/trips/:id",async context=>context.json(await dependencies.queries.travelTrip(context.get("requestContext"),context.req.param("id"))));
   app.get("/api/library/items/:id",async context=>context.json(await dependencies.queries.libraryItem(context.get("requestContext"),context.req.param("id"))));
   app.get("/api/:domain{money|health|travel|library}", async (context) => {const query=context.req.query("q"),cursor=context.req.query("cursor");return context.json(await dependencies.queries.listDomain(context.get("requestContext"), context.req.param("domain") as "money" | "health" | "travel" | "library", {limit:Number(context.req.query("limit")??"50"),...(query?{query}:{}),...(cursor?{cursor}:{})}));});
@@ -99,6 +100,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         if(capabilityName==="money.planning")return dependencies.queries.moneyPlanning(requestContext,(parsed as {period:string}).period);
         if(capabilityName==="money.import_review")return dependencies.queries.moneyImportReview(requestContext,(parsed as {batch_id:string}).batch_id);
         if(capabilityName==="health.daily")return dependencies.queries.healthDaily(requestContext,(parsed as {date:string}).date);
+        if(capabilityName==="health.get_record")return dependencies.queries.healthRecord(requestContext,(parsed as {id:string}).id);
         if(capabilityName==="travel.get_trip")return dependencies.queries.travelTrip(requestContext,(parsed as {id:string}).id);
         if(capabilityName==="library.get_item")return dependencies.queries.libraryItem(requestContext,(parsed as {id:string}).id);
         if(capabilityName==="operations.get")return dependencies.executor.getOperation(requestContext,(parsed as {execution_id:string}).execution_id);
