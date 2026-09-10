@@ -586,7 +586,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -660,6 +665,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -1252,7 +1261,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -1326,6 +1340,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -2385,7 +2403,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -2459,6 +2482,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -2746,7 +2773,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -2820,6 +2852,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -3223,7 +3259,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -3297,6 +3338,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -3518,7 +3563,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -3592,6 +3642,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -3916,7 +3970,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -3990,6 +4049,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -4316,7 +4379,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -4390,6 +4458,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -4621,7 +4693,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -4695,6 +4772,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -5098,7 +5179,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -5172,6 +5258,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -5517,7 +5607,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -5591,6 +5686,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -5813,7 +5912,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -5887,6 +5991,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -6113,7 +6221,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -6187,6 +6300,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -6596,7 +6713,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -6670,6 +6792,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -7139,7 +7265,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -7213,6 +7344,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -7550,7 +7685,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -7624,6 +7764,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -8081,7 +8225,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -8155,6 +8304,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -8440,7 +8593,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -8514,6 +8672,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -8925,7 +9087,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -8999,6 +9166,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -9352,7 +9523,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -9426,6 +9602,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -9763,7 +9943,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -9837,6 +10022,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -10058,7 +10247,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -10132,6 +10326,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -10383,7 +10581,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -10457,6 +10660,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -10864,7 +11071,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -10938,6 +11150,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -11235,7 +11451,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -11309,6 +11530,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -11574,7 +11799,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -11648,6 +11878,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -11963,7 +12197,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -12037,6 +12276,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -12278,7 +12521,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -12352,6 +12600,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -12789,7 +13041,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -12863,6 +13120,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -13178,7 +13439,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -13252,6 +13518,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -13637,7 +13907,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -13711,6 +13986,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -14038,7 +14317,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -14112,6 +14396,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -14471,7 +14759,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -14545,6 +14838,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -14952,7 +15249,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -15026,6 +15328,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -15519,7 +15825,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -15593,6 +15904,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -15868,7 +16183,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -15942,6 +16262,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -16377,7 +16701,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -16451,6 +16780,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -16696,7 +17029,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -16770,6 +17108,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -17049,7 +17391,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -17123,6 +17470,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -17676,7 +18027,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -17750,6 +18106,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -18212,7 +18572,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -18286,6 +18651,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -18507,7 +18876,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -18581,6 +18955,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -18983,7 +19361,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -19057,6 +19440,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -19439,7 +19826,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -19513,6 +19905,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -19792,7 +20188,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -19866,6 +20267,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -20157,7 +20562,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -20231,6 +20641,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -20470,7 +20884,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -20544,6 +20963,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -20761,7 +21184,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -20835,6 +21263,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -21040,7 +21472,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -21114,6 +21551,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -21367,7 +21808,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -21441,6 +21887,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -21762,7 +22212,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -21836,6 +22291,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -22055,7 +22514,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -22129,6 +22593,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -22338,7 +22806,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -22412,6 +22885,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -22768,7 +23245,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -22842,6 +23324,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -23117,7 +23603,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -23191,6 +23682,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -23474,7 +23969,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -23548,6 +24048,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -23789,7 +24293,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -23863,6 +24372,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -24100,7 +24613,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -24174,6 +24692,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -24371,7 +24893,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -24445,6 +24972,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -24642,7 +25173,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -24716,6 +25252,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -24925,7 +25465,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -24999,6 +25544,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -25332,7 +25881,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -25406,6 +25960,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -25717,7 +26275,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -25791,6 +26354,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -26052,7 +26619,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -26126,6 +26698,1806 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
+                    "source",
+                    "thread",
+                    "run",
+                    "task"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "revision": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "revision"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "actual_values": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "replayed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "protocol",
+          "capability",
+          "command_id",
+          "execution_id",
+          "status",
+          "result_kind",
+          "resources",
+          "actual_values",
+          "warnings",
+          "replayed"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "agent.create_context_pack": {
+      "name": "agent.create_context_pack",
+      "description": "创建最多一小时有效的授权对象引用包；只保存身份、版本与时间范围，不复制事实正文。",
+      "possible_effects": [
+        "agent.run",
+        "life.meal.read",
+        "money.entry.read",
+        "health.measurement.read",
+        "travel.trip.read",
+        "library.item.read"
+      ],
+      "idempotency": "required",
+      "status_query": "operations.get",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "thread_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "object_refs": {
+            "minItems": 1,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "meal",
+                    "purchase",
+                    "money_entry",
+                    "health_measurement",
+                    "health_workout",
+                    "trip",
+                    "library_item"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "revision": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "kind",
+                "id",
+                "revision"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "valid_from": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+          },
+          "valid_to": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+          },
+          "ttl_minutes": {
+            "default": 15,
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 60
+          }
+        },
+        "required": [
+          "object_refs",
+          "ttl_minutes"
+        ],
+        "additionalProperties": false
+      },
+      "command_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "const": "shadow.command"
+          },
+          "capability": {
+            "type": "string",
+            "const": "agent.create_context_pack"
+          },
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+          },
+          "input": {
+            "type": "object",
+            "properties": {
+              "thread_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{7,127}$"
+              },
+              "object_refs": {
+                "minItems": 1,
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "meal",
+                        "purchase",
+                        "money_entry",
+                        "health_measurement",
+                        "health_workout",
+                        "trip",
+                        "library_item"
+                      ]
+                    },
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "id",
+                    "revision"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "valid_from": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+              },
+              "valid_to": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+              },
+              "ttl_minutes": {
+                "default": 15,
+                "type": "integer",
+                "minimum": 5,
+                "maximum": 60
+              }
+            },
+            "required": [
+              "object_refs",
+              "ttl_minutes"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "protocol",
+          "capability",
+          "command_id",
+          "input"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "const": "shadow.execution-result"
+          },
+          "capability": {
+            "type": "string",
+            "enum": [
+              "life.record_meal",
+              "life.record_dining",
+              "life.correct_meal",
+              "life.add_intake",
+              "life.remove_intake",
+              "life.add_meal_payment",
+              "life.attach_meal_source",
+              "life.set_personal_alias",
+              "life.record_purchase",
+              "life.correct_intake",
+              "life.correct_purchase",
+              "life.void_purchase",
+              "life.link_meal_consumption",
+              "life.save_meal_template",
+              "life.record_meal_from_template",
+              "life.save_food",
+              "life.save_recipe",
+              "life.record_meal_from_recipe",
+              "money.record_entry",
+              "money.record_refund",
+              "money.correct_entry",
+              "money.void_entry",
+              "money.set_budget",
+              "money.set_recurring_plan",
+              "money.set_spending_intent",
+              "money.set_use_cycle",
+              "money.set_occurrence_state",
+              "money.stage_import",
+              "money.resolve_import_candidate",
+              "money.set_import_rule",
+              "health.record_measurement",
+              "health.correct_measurement",
+              "health.record_workout",
+              "health.ingest_raw",
+              "health.ingest_batch",
+              "health.set_source_state",
+              "health.set_plan",
+              "travel.create_trip",
+              "travel.correct_trip",
+              "travel.add_reservation",
+              "travel.correct_reservation",
+              "travel.void_reservation",
+              "travel.record_segment",
+              "travel.record_visit",
+              "travel.save_place",
+              "travel.set_day_plan",
+              "travel.set_member",
+              "travel.publish_plan",
+              "travel.start_run",
+              "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
+              "travel.restore_bundle",
+              "library.capture",
+              "library.revise",
+              "library.annotate",
+              "library.register_derivation",
+              "library.queue_processing",
+              "library.retry_processing",
+              "library.claim_processing",
+              "library.fail_processing",
+              "library.complete_processing",
+              "library.set_reading_state",
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
+            ]
+          },
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+          },
+          "execution_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "status": {
+            "type": "string",
+            "const": "committed"
+          },
+          "result_kind": {
+            "type": "string",
+            "enum": [
+              "record",
+              "plan",
+              "task"
+            ]
+          },
+          "resources": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "meal",
+                    "meal_template",
+                    "food",
+                    "recipe",
+                    "personal_alias",
+                    "intake_item",
+                    "consumption_record",
+                    "purchase",
+                    "purchase_item",
+                    "money_entry",
+                    "refund",
+                    "budget",
+                    "recurring_plan",
+                    "recurring_occurrence",
+                    "spending_intent",
+                    "use_cycle",
+                    "money_import_batch",
+                    "money_import_candidate",
+                    "money_import_rule",
+                    "health_measurement",
+                    "health_workout_session",
+                    "health_raw",
+                    "health_sync_cursor",
+                    "health_plan",
+                    "trip",
+                    "trip_segment",
+                    "reservation",
+                    "visit",
+                    "place",
+                    "travel_map",
+                    "trip_track",
+                    "trip_day_plan",
+                    "trip_member",
+                    "trip_plan_version",
+                    "trip_run",
+                    "trip_stop_outcome",
+                    "library_item",
+                    "library_annotation",
+                    "library_derivation",
+                    "library_processing_job",
+                    "library_reading_state",
+                    "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
+                    "source",
+                    "thread",
+                    "run",
+                    "task"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "revision": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "revision"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "actual_values": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "replayed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "protocol",
+          "capability",
+          "command_id",
+          "execution_id",
+          "status",
+          "result_kind",
+          "resources",
+          "actual_values",
+          "warnings",
+          "replayed"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "agent.revoke_context_pack": {
+      "name": "agent.revoke_context_pack",
+      "description": "立即撤销本人短期对象上下文包。",
+      "possible_effects": [
+        "agent.run"
+      ],
+      "idempotency": "required",
+      "status_query": "operations.get",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "context_pack_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          }
+        },
+        "required": [
+          "context_pack_id"
+        ],
+        "additionalProperties": false
+      },
+      "command_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "const": "shadow.command"
+          },
+          "capability": {
+            "type": "string",
+            "const": "agent.revoke_context_pack"
+          },
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+          },
+          "input": {
+            "type": "object",
+            "properties": {
+              "context_pack_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{7,127}$"
+              }
+            },
+            "required": [
+              "context_pack_id"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "protocol",
+          "capability",
+          "command_id",
+          "input"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "const": "shadow.execution-result"
+          },
+          "capability": {
+            "type": "string",
+            "enum": [
+              "life.record_meal",
+              "life.record_dining",
+              "life.correct_meal",
+              "life.add_intake",
+              "life.remove_intake",
+              "life.add_meal_payment",
+              "life.attach_meal_source",
+              "life.set_personal_alias",
+              "life.record_purchase",
+              "life.correct_intake",
+              "life.correct_purchase",
+              "life.void_purchase",
+              "life.link_meal_consumption",
+              "life.save_meal_template",
+              "life.record_meal_from_template",
+              "life.save_food",
+              "life.save_recipe",
+              "life.record_meal_from_recipe",
+              "money.record_entry",
+              "money.record_refund",
+              "money.correct_entry",
+              "money.void_entry",
+              "money.set_budget",
+              "money.set_recurring_plan",
+              "money.set_spending_intent",
+              "money.set_use_cycle",
+              "money.set_occurrence_state",
+              "money.stage_import",
+              "money.resolve_import_candidate",
+              "money.set_import_rule",
+              "health.record_measurement",
+              "health.correct_measurement",
+              "health.record_workout",
+              "health.ingest_raw",
+              "health.ingest_batch",
+              "health.set_source_state",
+              "health.set_plan",
+              "travel.create_trip",
+              "travel.correct_trip",
+              "travel.add_reservation",
+              "travel.correct_reservation",
+              "travel.void_reservation",
+              "travel.record_segment",
+              "travel.record_visit",
+              "travel.save_place",
+              "travel.set_day_plan",
+              "travel.set_member",
+              "travel.publish_plan",
+              "travel.start_run",
+              "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
+              "travel.restore_bundle",
+              "library.capture",
+              "library.revise",
+              "library.annotate",
+              "library.register_derivation",
+              "library.queue_processing",
+              "library.retry_processing",
+              "library.claim_processing",
+              "library.fail_processing",
+              "library.complete_processing",
+              "library.set_reading_state",
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
+            ]
+          },
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+          },
+          "execution_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "status": {
+            "type": "string",
+            "const": "committed"
+          },
+          "result_kind": {
+            "type": "string",
+            "enum": [
+              "record",
+              "plan",
+              "task"
+            ]
+          },
+          "resources": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "meal",
+                    "meal_template",
+                    "food",
+                    "recipe",
+                    "personal_alias",
+                    "intake_item",
+                    "consumption_record",
+                    "purchase",
+                    "purchase_item",
+                    "money_entry",
+                    "refund",
+                    "budget",
+                    "recurring_plan",
+                    "recurring_occurrence",
+                    "spending_intent",
+                    "use_cycle",
+                    "money_import_batch",
+                    "money_import_candidate",
+                    "money_import_rule",
+                    "health_measurement",
+                    "health_workout_session",
+                    "health_raw",
+                    "health_sync_cursor",
+                    "health_plan",
+                    "trip",
+                    "trip_segment",
+                    "reservation",
+                    "visit",
+                    "place",
+                    "travel_map",
+                    "trip_track",
+                    "trip_day_plan",
+                    "trip_member",
+                    "trip_plan_version",
+                    "trip_run",
+                    "trip_stop_outcome",
+                    "library_item",
+                    "library_annotation",
+                    "library_derivation",
+                    "library_processing_job",
+                    "library_reading_state",
+                    "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
+                    "source",
+                    "thread",
+                    "run",
+                    "task"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "revision": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "revision"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "actual_values": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "replayed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "protocol",
+          "capability",
+          "command_id",
+          "execution_id",
+          "status",
+          "result_kind",
+          "resources",
+          "actual_values",
+          "warnings",
+          "replayed"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "agent.set_memory": {
+      "name": "agent.set_memory",
+      "description": "保存显式偏好或有算法和证据的确定性聚合；模型推断不属于可持久化类别。",
+      "possible_effects": [
+        "agent.run",
+        "life.meal.read",
+        "money.entry.read",
+        "health.measurement.read",
+        "travel.trip.read",
+        "library.item.read"
+      ],
+      "idempotency": "required",
+      "status_query": "operations.get",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "memory_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "explicit_preference",
+              "deterministic_aggregate"
+            ]
+          },
+          "memory_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "value": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "evidence_refs": {
+            "default": [],
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "meal",
+                    "purchase",
+                    "money_entry",
+                    "health_measurement",
+                    "health_workout",
+                    "trip",
+                    "library_item"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "revision": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "kind",
+                "id",
+                "revision"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "algorithm_version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "state": {
+            "default": "active",
+            "type": "string",
+            "enum": [
+              "active",
+              "archived"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "category",
+          "memory_key",
+          "value",
+          "evidence_refs",
+          "state"
+        ],
+        "additionalProperties": false,
+        "$defs": {
+          "__schema0": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema0"
+                }
+              },
+              {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "$ref": "#/$defs/__schema0"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "command_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "const": "shadow.command"
+          },
+          "capability": {
+            "type": "string",
+            "const": "agent.set_memory"
+          },
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+          },
+          "input": {
+            "type": "object",
+            "properties": {
+              "memory_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{7,127}$"
+              },
+              "expected_revision": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "category": {
+                "type": "string",
+                "enum": [
+                  "explicit_preference",
+                  "deterministic_aggregate"
+                ]
+              },
+              "memory_key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "value": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "evidence_refs": {
+                "default": [],
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "meal",
+                        "purchase",
+                        "money_entry",
+                        "health_measurement",
+                        "health_workout",
+                        "trip",
+                        "library_item"
+                      ]
+                    },
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "id",
+                    "revision"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "algorithm_version": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "state": {
+                "default": "active",
+                "type": "string",
+                "enum": [
+                  "active",
+                  "archived"
+                ]
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "required": [
+              "category",
+              "memory_key",
+              "value",
+              "evidence_refs",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "protocol",
+          "capability",
+          "command_id",
+          "input"
+        ],
+        "additionalProperties": false,
+        "$defs": {
+          "__schema0": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema0"
+                }
+              },
+              {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "$ref": "#/$defs/__schema0"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "const": "shadow.execution-result"
+          },
+          "capability": {
+            "type": "string",
+            "enum": [
+              "life.record_meal",
+              "life.record_dining",
+              "life.correct_meal",
+              "life.add_intake",
+              "life.remove_intake",
+              "life.add_meal_payment",
+              "life.attach_meal_source",
+              "life.set_personal_alias",
+              "life.record_purchase",
+              "life.correct_intake",
+              "life.correct_purchase",
+              "life.void_purchase",
+              "life.link_meal_consumption",
+              "life.save_meal_template",
+              "life.record_meal_from_template",
+              "life.save_food",
+              "life.save_recipe",
+              "life.record_meal_from_recipe",
+              "money.record_entry",
+              "money.record_refund",
+              "money.correct_entry",
+              "money.void_entry",
+              "money.set_budget",
+              "money.set_recurring_plan",
+              "money.set_spending_intent",
+              "money.set_use_cycle",
+              "money.set_occurrence_state",
+              "money.stage_import",
+              "money.resolve_import_candidate",
+              "money.set_import_rule",
+              "health.record_measurement",
+              "health.correct_measurement",
+              "health.record_workout",
+              "health.ingest_raw",
+              "health.ingest_batch",
+              "health.set_source_state",
+              "health.set_plan",
+              "travel.create_trip",
+              "travel.correct_trip",
+              "travel.add_reservation",
+              "travel.correct_reservation",
+              "travel.void_reservation",
+              "travel.record_segment",
+              "travel.record_visit",
+              "travel.save_place",
+              "travel.set_day_plan",
+              "travel.set_member",
+              "travel.publish_plan",
+              "travel.start_run",
+              "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
+              "travel.restore_bundle",
+              "library.capture",
+              "library.revise",
+              "library.annotate",
+              "library.register_derivation",
+              "library.queue_processing",
+              "library.retry_processing",
+              "library.claim_processing",
+              "library.fail_processing",
+              "library.complete_processing",
+              "library.set_reading_state",
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
+            ]
+          },
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+          },
+          "execution_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "status": {
+            "type": "string",
+            "const": "committed"
+          },
+          "result_kind": {
+            "type": "string",
+            "enum": [
+              "record",
+              "plan",
+              "task"
+            ]
+          },
+          "resources": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "meal",
+                    "meal_template",
+                    "food",
+                    "recipe",
+                    "personal_alias",
+                    "intake_item",
+                    "consumption_record",
+                    "purchase",
+                    "purchase_item",
+                    "money_entry",
+                    "refund",
+                    "budget",
+                    "recurring_plan",
+                    "recurring_occurrence",
+                    "spending_intent",
+                    "use_cycle",
+                    "money_import_batch",
+                    "money_import_candidate",
+                    "money_import_rule",
+                    "health_measurement",
+                    "health_workout_session",
+                    "health_raw",
+                    "health_sync_cursor",
+                    "health_plan",
+                    "trip",
+                    "trip_segment",
+                    "reservation",
+                    "visit",
+                    "place",
+                    "travel_map",
+                    "trip_track",
+                    "trip_day_plan",
+                    "trip_member",
+                    "trip_plan_version",
+                    "trip_run",
+                    "trip_stop_outcome",
+                    "library_item",
+                    "library_annotation",
+                    "library_derivation",
+                    "library_processing_job",
+                    "library_reading_state",
+                    "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
+                    "source",
+                    "thread",
+                    "run",
+                    "task"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "revision": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "revision"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "actual_values": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "replayed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "protocol",
+          "capability",
+          "command_id",
+          "execution_id",
+          "status",
+          "result_kind",
+          "resources",
+          "actual_values",
+          "warnings",
+          "replayed"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "notifications.set_preferences": {
+      "name": "notifications.set_preferences",
+      "description": "设置通知总开关、时区和可跨午夜的静默时间。",
+      "possible_effects": [
+        "notifications.write"
+      ],
+      "idempotency": "required",
+      "status_query": "operations.get",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "quiet_start": {
+            "type": "string",
+            "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$"
+          },
+          "quiet_end": {
+            "type": "string",
+            "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$"
+          },
+          "time_zone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "enabled",
+          "time_zone"
+        ],
+        "additionalProperties": false
+      },
+      "command_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "const": "shadow.command"
+          },
+          "capability": {
+            "type": "string",
+            "const": "notifications.set_preferences"
+          },
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+          },
+          "input": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "quiet_start": {
+                "type": "string",
+                "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$"
+              },
+              "quiet_end": {
+                "type": "string",
+                "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$"
+              },
+              "time_zone": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              }
+            },
+            "required": [
+              "enabled",
+              "time_zone"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "protocol",
+          "capability",
+          "command_id",
+          "input"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "const": "shadow.execution-result"
+          },
+          "capability": {
+            "type": "string",
+            "enum": [
+              "life.record_meal",
+              "life.record_dining",
+              "life.correct_meal",
+              "life.add_intake",
+              "life.remove_intake",
+              "life.add_meal_payment",
+              "life.attach_meal_source",
+              "life.set_personal_alias",
+              "life.record_purchase",
+              "life.correct_intake",
+              "life.correct_purchase",
+              "life.void_purchase",
+              "life.link_meal_consumption",
+              "life.save_meal_template",
+              "life.record_meal_from_template",
+              "life.save_food",
+              "life.save_recipe",
+              "life.record_meal_from_recipe",
+              "money.record_entry",
+              "money.record_refund",
+              "money.correct_entry",
+              "money.void_entry",
+              "money.set_budget",
+              "money.set_recurring_plan",
+              "money.set_spending_intent",
+              "money.set_use_cycle",
+              "money.set_occurrence_state",
+              "money.stage_import",
+              "money.resolve_import_candidate",
+              "money.set_import_rule",
+              "health.record_measurement",
+              "health.correct_measurement",
+              "health.record_workout",
+              "health.ingest_raw",
+              "health.ingest_batch",
+              "health.set_source_state",
+              "health.set_plan",
+              "travel.create_trip",
+              "travel.correct_trip",
+              "travel.add_reservation",
+              "travel.correct_reservation",
+              "travel.void_reservation",
+              "travel.record_segment",
+              "travel.record_visit",
+              "travel.save_place",
+              "travel.set_day_plan",
+              "travel.set_member",
+              "travel.publish_plan",
+              "travel.start_run",
+              "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
+              "travel.restore_bundle",
+              "library.capture",
+              "library.revise",
+              "library.annotate",
+              "library.register_derivation",
+              "library.queue_processing",
+              "library.retry_processing",
+              "library.claim_processing",
+              "library.fail_processing",
+              "library.complete_processing",
+              "library.set_reading_state",
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
+            ]
+          },
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+          },
+          "execution_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "status": {
+            "type": "string",
+            "const": "committed"
+          },
+          "result_kind": {
+            "type": "string",
+            "enum": [
+              "record",
+              "plan",
+              "task"
+            ]
+          },
+          "resources": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "meal",
+                    "meal_template",
+                    "food",
+                    "recipe",
+                    "personal_alias",
+                    "intake_item",
+                    "consumption_record",
+                    "purchase",
+                    "purchase_item",
+                    "money_entry",
+                    "refund",
+                    "budget",
+                    "recurring_plan",
+                    "recurring_occurrence",
+                    "spending_intent",
+                    "use_cycle",
+                    "money_import_batch",
+                    "money_import_candidate",
+                    "money_import_rule",
+                    "health_measurement",
+                    "health_workout_session",
+                    "health_raw",
+                    "health_sync_cursor",
+                    "health_plan",
+                    "trip",
+                    "trip_segment",
+                    "reservation",
+                    "visit",
+                    "place",
+                    "travel_map",
+                    "trip_track",
+                    "trip_day_plan",
+                    "trip_member",
+                    "trip_plan_version",
+                    "trip_run",
+                    "trip_stop_outcome",
+                    "library_item",
+                    "library_annotation",
+                    "library_derivation",
+                    "library_processing_job",
+                    "library_reading_state",
+                    "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
+                    "source",
+                    "thread",
+                    "run",
+                    "task"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "revision": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "revision"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "actual_values": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "replayed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "protocol",
+          "capability",
+          "command_id",
+          "execution_id",
+          "status",
+          "result_kind",
+          "resources",
+          "actual_values",
+          "warnings",
+          "replayed"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "notifications.update": {
+      "name": "notifications.update",
+      "description": "忽略、延期或标记本人通知已投递。",
+      "possible_effects": [
+        "notifications.write"
+      ],
+      "idempotency": "required",
+      "status_query": "operations.get",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "notification_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "dismiss",
+              "snooze",
+              "mark_delivered"
+            ]
+          },
+          "snoozed_until": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+          }
+        },
+        "required": [
+          "notification_id",
+          "action"
+        ],
+        "additionalProperties": false
+      },
+      "command_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "const": "shadow.command"
+          },
+          "capability": {
+            "type": "string",
+            "const": "notifications.update"
+          },
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+          },
+          "input": {
+            "type": "object",
+            "properties": {
+              "notification_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{7,127}$"
+              },
+              "action": {
+                "type": "string",
+                "enum": [
+                  "dismiss",
+                  "snooze",
+                  "mark_delivered"
+                ]
+              },
+              "snoozed_until": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+              }
+            },
+            "required": [
+              "notification_id",
+              "action"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "protocol",
+          "capability",
+          "command_id",
+          "input"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "const": "shadow.execution-result"
+          },
+          "capability": {
+            "type": "string",
+            "enum": [
+              "life.record_meal",
+              "life.record_dining",
+              "life.correct_meal",
+              "life.add_intake",
+              "life.remove_intake",
+              "life.add_meal_payment",
+              "life.attach_meal_source",
+              "life.set_personal_alias",
+              "life.record_purchase",
+              "life.correct_intake",
+              "life.correct_purchase",
+              "life.void_purchase",
+              "life.link_meal_consumption",
+              "life.save_meal_template",
+              "life.record_meal_from_template",
+              "life.save_food",
+              "life.save_recipe",
+              "life.record_meal_from_recipe",
+              "money.record_entry",
+              "money.record_refund",
+              "money.correct_entry",
+              "money.void_entry",
+              "money.set_budget",
+              "money.set_recurring_plan",
+              "money.set_spending_intent",
+              "money.set_use_cycle",
+              "money.set_occurrence_state",
+              "money.stage_import",
+              "money.resolve_import_candidate",
+              "money.set_import_rule",
+              "health.record_measurement",
+              "health.correct_measurement",
+              "health.record_workout",
+              "health.ingest_raw",
+              "health.ingest_batch",
+              "health.set_source_state",
+              "health.set_plan",
+              "travel.create_trip",
+              "travel.correct_trip",
+              "travel.add_reservation",
+              "travel.correct_reservation",
+              "travel.void_reservation",
+              "travel.record_segment",
+              "travel.record_visit",
+              "travel.save_place",
+              "travel.set_day_plan",
+              "travel.set_member",
+              "travel.publish_plan",
+              "travel.start_run",
+              "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
+              "travel.restore_bundle",
+              "library.capture",
+              "library.revise",
+              "library.annotate",
+              "library.register_derivation",
+              "library.queue_processing",
+              "library.retry_processing",
+              "library.claim_processing",
+              "library.fail_processing",
+              "library.complete_processing",
+              "library.set_reading_state",
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
+            ]
+          },
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+          },
+          "execution_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "status": {
+            "type": "string",
+            "const": "committed"
+          },
+          "result_kind": {
+            "type": "string",
+            "enum": [
+              "record",
+              "plan",
+              "task"
+            ]
+          },
+          "resources": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "meal",
+                    "meal_template",
+                    "food",
+                    "recipe",
+                    "personal_alias",
+                    "intake_item",
+                    "consumption_record",
+                    "purchase",
+                    "purchase_item",
+                    "money_entry",
+                    "refund",
+                    "budget",
+                    "recurring_plan",
+                    "recurring_occurrence",
+                    "spending_intent",
+                    "use_cycle",
+                    "money_import_batch",
+                    "money_import_candidate",
+                    "money_import_rule",
+                    "health_measurement",
+                    "health_workout_session",
+                    "health_raw",
+                    "health_sync_cursor",
+                    "health_plan",
+                    "trip",
+                    "trip_segment",
+                    "reservation",
+                    "visit",
+                    "place",
+                    "travel_map",
+                    "trip_track",
+                    "trip_day_plan",
+                    "trip_member",
+                    "trip_plan_version",
+                    "trip_run",
+                    "trip_stop_outcome",
+                    "library_item",
+                    "library_annotation",
+                    "library_derivation",
+                    "library_processing_job",
+                    "library_reading_state",
+                    "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",
@@ -29121,6 +31493,163 @@
         "additionalProperties": {}
       }
     },
+    "agent.get_context_pack": {
+      "name": "agent.get_context_pack",
+      "description": "读取仍有效且当前权限仍覆盖全部引用的短期上下文包。",
+      "possible_effects": [
+        "agent.run"
+      ],
+      "idempotency": "not-applicable",
+      "status_query": "operations.get",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "context_pack_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          }
+        },
+        "required": [
+          "context_pack_id"
+        ],
+        "additionalProperties": false
+      },
+      "command_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "context_pack_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          }
+        },
+        "required": [
+          "context_pack_id"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {}
+      }
+    },
+    "agent.memories": {
+      "name": "agent.memories",
+      "description": "读取显式偏好和确定性聚合记忆；模型推断不会出现在此列表。",
+      "possible_effects": [
+        "agent.run"
+      ],
+      "idempotency": "not-applicable",
+      "status_query": "operations.get",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": [
+              "explicit_preference",
+              "deterministic_aggregate"
+            ]
+          },
+          "limit": {
+            "default": 50,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "limit"
+        ],
+        "additionalProperties": false
+      },
+      "command_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": [
+              "explicit_preference",
+              "deterministic_aggregate"
+            ]
+          },
+          "limit": {
+            "default": 50,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "limit"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {}
+      }
+    },
+    "notifications.list": {
+      "name": "notifications.list",
+      "description": "读取脱敏通知及其静默、关闭、延期或就绪状态。",
+      "possible_effects": [
+        "notifications.read"
+      ],
+      "idempotency": "not-applicable",
+      "status_query": "operations.get",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 50,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "limit"
+        ],
+        "additionalProperties": false
+      },
+      "command_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 50,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "limit"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {}
+      }
+    },
     "operations.get": {
       "name": "operations.get",
       "description": "Read a visible deterministic execution receipt.",
@@ -29231,7 +31760,12 @@
               "library.fail_processing",
               "library.complete_processing",
               "library.set_reading_state",
-              "library.register_legacy_link"
+              "library.register_legacy_link",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update"
             ]
           },
           "command_id": {
@@ -29305,6 +31839,10 @@
                     "library_processing_job",
                     "library_reading_state",
                     "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
                     "source",
                     "thread",
                     "run",

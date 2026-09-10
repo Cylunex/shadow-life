@@ -68,6 +68,9 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.post("/api/travel/portable/preview",async context=>context.json(await dependencies.queries.previewTravelPortable(context.get("requestContext"),await context.req.json())));
   app.get("/api/library/items/:id",async context=>context.json(await dependencies.queries.libraryItem(context.get("requestContext"),context.req.param("id"))));
   app.get("/api/library/processing",async context=>context.json(await dependencies.queries.libraryProcessingQueue(context.get("requestContext"),{...(context.req.query("kind")?{kind:context.req.query("kind")}:{}),limit:Number(context.req.query("limit")??"20")})));
+  app.get("/api/agent/context-packs/:id",async context=>context.json(await dependencies.queries.agentContextPack(context.get("requestContext"),{context_pack_id:context.req.param("id")})));
+  app.get("/api/agent/memories",async context=>context.json(await dependencies.queries.agentMemories(context.get("requestContext"),{...(context.req.query("category")?{category:context.req.query("category")}:{}),limit:Number(context.req.query("limit")??"50")})));
+  app.get("/api/notifications",async context=>context.json(await dependencies.queries.notifications(context.get("requestContext"),{limit:Number(context.req.query("limit")??"50")})));
   app.get("/api/:domain{money|health|travel|library}", async (context) => {const query=context.req.query("q"),cursor=context.req.query("cursor");return context.json(await dependencies.queries.listDomain(context.get("requestContext"), context.req.param("domain") as "money" | "health" | "travel" | "library", {limit:Number(context.req.query("limit")??"50"),...(query?{query}:{}),...(cursor?{cursor}:{})}));});
   app.get("/api/threads", async (context) => context.json({ items: dependencies.agent ? await dependencies.agent.repository.listThreads(context.get("requestContext").subjectId) : [] }));
   app.get("/api/threads/:threadId/messages",async context=>{if(!dependencies.agent)return context.json({items:[]});const requestContext=context.get("requestContext"),threadId=context.req.param("threadId");await dependencies.agent.repository.assertThread(requestContext.subjectId,threadId);return context.json({items:await dependencies.agent.repository.conversation(requestContext.subjectId,threadId,100)});});
@@ -78,8 +81,8 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.post("/api/threads/:threadId/runs", async (context) => {
     if (!dependencies.agent) return context.json({ protocol:"shadow.error",code:"retryable_not_applied",message:"Agent runtime is unavailable." },503);
     const requestContext=context.get("requestContext"); if(!requestContext.effects.has("agent.run")) throw new KernelError(403,{protocol:"shadow.error",code:"permission_denied",message:"Missing effect: agent.run"});
-    const body=await context.req.json<{text:string}>(); if(typeof body.text!=="string"||!body.text.trim()) return context.json({protocol:"shadow.error",code:"validation",message:"text is required",fields:["text"]},422);
-    const {repository,runtime,nextId}=dependencies.agent; const threadId=context.req.param("threadId"); await repository.assertThread(requestContext.subjectId,threadId); const messageId=nextId("message"),runId=nextId("run"); await repository.addMessage(threadId,messageId,"user",body.text.trim()); const [history,personalContext]=await Promise.all([repository.conversation(requestContext.subjectId,threadId),dependencies.queries.agentPersonalContext(requestContext)]);await repository.createRun(threadId,runId);
+    const body=await context.req.json<{text:string;context_pack_id?:string}>(); if(typeof body.text!=="string"||!body.text.trim()) return context.json({protocol:"shadow.error",code:"validation",message:"text is required",fields:["text"]},422);
+    const {repository,runtime,nextId}=dependencies.agent; const threadId=context.req.param("threadId"); await repository.assertThread(requestContext.subjectId,threadId);const contextPack=body.context_pack_id?await dependencies.queries.agentContextPack(requestContext,{context_pack_id:body.context_pack_id},threadId):undefined;const messageId=nextId("message"),runId=nextId("run"); await repository.addMessage(threadId,messageId,"user",body.text.trim()); const [history,baseContext,memoryContext]=await Promise.all([repository.conversation(requestContext.subjectId,threadId),dependencies.queries.agentPersonalContext(requestContext),dependencies.queries.agentMemories?.(requestContext)??Promise.resolve({items:[]})]),personalContext={...baseContext,memories:(memoryContext as {items:unknown[]}).items};await repository.createRun(threadId,runId);
     const capabilityProfile=visibleCapabilities(requestContext.effects).map(item=>item.name);
     return streamSSE(context,async(stream)=>{
       const controller=new AbortController(),startedAt=Date.now(),seenRuntimeEvents=new Set<string>();
@@ -114,6 +117,9 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         if(capabilityName==="travel.preview_portable")return dependencies.queries.previewTravelPortable(requestContext,parsed);
         if(capabilityName==="library.get_item")return dependencies.queries.libraryItem(requestContext,(parsed as {id:string}).id);
         if(capabilityName==="library.processing_queue")return dependencies.queries.libraryProcessingQueue(requestContext,parsed);
+        if(capabilityName==="agent.get_context_pack")return dependencies.queries.agentContextPack(requestContext,parsed,threadId);
+        if(capabilityName==="agent.memories")return dependencies.queries.agentMemories(requestContext,parsed);
+        if(capabilityName==="notifications.list")return dependencies.queries.notifications(requestContext,parsed);
         if(capabilityName==="operations.get")return dependencies.executor.getOperation(requestContext,(parsed as {execution_id:string}).execution_id);
         throw new KernelError(422,{protocol:"shadow.error",code:"validation",message:"Runtime requested an unsupported query capability."});
       };
@@ -155,7 +161,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
       }};
       try{
         await state("started");
-        await consume(runtime.run({threadId,runId,messageId,text:body.text.trim(),history,personalContext,capabilityProfile},controller.signal));
+        await consume(runtime.run({threadId,runId,messageId,text:body.text.trim(),history,personalContext,contextPack,capabilityProfile},controller.signal));
         if(!terminal){const reason=controller.signal.aborted?abortReason(controller.signal):"Runtime ended without a terminal event.";terminal="interrupted";await state("interrupted",{reason});}
         if(assistant)await repository.addMessage(threadId,nextId("message"),"assistant",assistant);
         await repository.finishRun(runId,terminal,terminal==="interrupted"?"Run was interrupted.":undefined);

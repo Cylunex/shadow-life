@@ -50,6 +50,9 @@ export interface TransactionStore {
   travelExportData(subjectId:string,tripId:string):Promise<unknown|undefined>;
   libraryItem(subjectId:string,id:string):Promise<unknown|undefined>;
   libraryProcessingQueue(subjectId:string,kind:string|undefined,limit:number):Promise<unknown>;
+  agentContextPack(subjectId:string,id:string,threadId?:string):Promise<unknown|undefined>;
+  agentMemories(subjectId:string,category:string|undefined,limit:number):Promise<readonly Record<string,unknown>[]>;
+  notifications(subjectId:string,limit:number):Promise<unknown>;
   agentPersonalContext(subjectId:string,aliasKinds:readonly string[],includeMealTemplates:boolean):Promise<{aliases:readonly Record<string,unknown>[];mealTemplates:readonly Record<string,unknown>[]}>;
 }
 

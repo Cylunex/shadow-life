@@ -26,7 +26,8 @@ export interface RuntimeRequest {
   readonly messageId: string;
   readonly text: string;
   readonly history?: readonly { readonly id:string; readonly role:"user"|"assistant"; readonly content:string; readonly createdAt:string }[];
-  readonly personalContext?: { readonly aliases:readonly unknown[]; readonly mealTemplates:readonly unknown[] };
+  readonly personalContext?: { readonly aliases:readonly unknown[]; readonly mealTemplates:readonly unknown[]; readonly memories?:readonly unknown[] };
+  readonly contextPack?: unknown;
   readonly capabilityProfile: readonly string[];
 }
 

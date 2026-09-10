@@ -6,4 +6,5 @@ export * from "./health-worker.js";
 export * from "./asset-service.js";
 export * from "./planning-worker.js";
 export * from "./library-worker.js";
+export * from "./notification-worker.js";
 export * as schema from "./schema.js";

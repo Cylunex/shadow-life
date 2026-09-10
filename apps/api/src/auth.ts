@@ -7,7 +7,7 @@ declare module "hono" {
   interface ContextVariableMap { requestContext: RequestContext; }
 }
 
-const developmentEffects = new Set(["life.meal.write", "life.meal.read", "life.purchase.write", "money.entry.write", "money.refund.write", "money.budget.write", "money.plan.write", "money.summary.read", "money.entry.read", "health.measurement.write", "health.raw.ingest", "health.measurement.read", "travel.trip.write", "travel.reservation.write", "travel.visit.write", "travel.trip.read", "library.source.link", "library.item.write", "library.processor.write", "library.item.read", "library.asset.read", "operations.read", "agent.run"]);
+const developmentEffects = new Set(["life.meal.write", "life.meal.read", "life.purchase.write", "money.entry.write", "money.refund.write", "money.budget.write", "money.plan.write", "money.summary.read", "money.entry.read", "health.measurement.write", "health.raw.ingest", "health.measurement.read", "travel.trip.write", "travel.reservation.write", "travel.visit.write", "travel.trip.read", "library.source.link", "library.item.write", "library.processor.write", "library.item.read", "library.asset.read", "notifications.read", "notifications.write", "operations.read", "agent.run"]);
 
 const knownEffects = developmentEffects;
 type AuthOptions={development:boolean;issuer?:string;audience?:string;jwksUrl?:string;webOrigin?:string};

@@ -165,4 +165,11 @@ select { width:100%; border:1px solid #bac5b6; border-radius:12px; background:#f
 .status.verified,.status.completed { background:#d9ebdf; color:#24643d; }
 .status.invalid,.status.failed { background:#f3dfdc; color:#8b3434; }
 .status.unverified,.status.queued,.status.running { background:#f4e7c9; color:#725414; }
-@media (max-width:560px){main{padding:36px 0}.grid,.health-grid,.import-form,.candidate-fields,.catalog-grid,.field-pair,.nutrient-grid,.travel-grid,.library-grid{grid-template-columns:1fr}.panel-heading{align-items:stretch;flex-direction:column}.panel-heading label{width:100%}.catalog-search,.library-search{width:100%}.trend-list li{grid-template-columns:1fr auto}.trend-list small{grid-column:1/-1}.health-card,.trend-card,.sources-card,.import-form .full,.candidate-fields .full,.recipe-meal{grid-column:1}}
+.notice-preferences { display:grid; grid-template-columns:1fr 1fr auto; align-items:end; gap:12px; }
+.notice-preferences label { margin:0; }
+.notification-panel>ul { list-style:none; padding:0; }
+.notification-panel>ul>li { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:13px 0; border-top:1px solid #e1e5dd; }
+.notification-panel>ul>li>div:first-child { display:grid; gap:3px; }
+.notification-panel span,.notification-panel small { color:#667168; }
+.notification-panel .actions button { padding:8px 12px; }
+@media (max-width:560px){main{padding:36px 0}.grid,.health-grid,.import-form,.candidate-fields,.catalog-grid,.field-pair,.nutrient-grid,.travel-grid,.library-grid,.notice-preferences{grid-template-columns:1fr}.panel-heading{align-items:stretch;flex-direction:column}.panel-heading label{width:100%}.catalog-search,.library-search{width:100%}.trend-list li{grid-template-columns:1fr auto}.trend-list small{grid-column:1/-1}.notification-panel>ul>li{align-items:stretch;flex-direction:column}.health-card,.trend-card,.sources-card,.import-form .full,.candidate-fields .full,.recipe-meal{grid-column:1}}

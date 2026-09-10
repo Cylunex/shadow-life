@@ -76,6 +76,15 @@ test("library processing and legacy proof inputs fail closed",()=>{
   assert.equal(capabilityRegistry["library.register_legacy_link"].inputSchema.safeParse({item_id:"library_12345678",legacy_uri:"shadow://old/1",algorithm:"ed25519-sha256-ascii-v1"}).success,false);
 });
 
+test("agent context and durable memory keep permission and inference boundaries",()=>{
+  const refs=[{kind:"meal" as const,id:"meal_12345678",revision:1},{kind:"library_item" as const,id:"library_12345678",revision:2}];
+  assert.deepEqual(capabilityRegistry["agent.create_context_pack"].resolveEffects({object_refs:refs,ttl_minutes:15}),["agent.run","library.item.read","life.meal.read"]);
+  assert.equal(capabilityRegistry["agent.create_context_pack"].inputSchema.safeParse({object_refs:[refs[0],refs[0]],ttl_minutes:15}).success,false);
+  assert.equal(capabilityRegistry["agent.set_memory"].inputSchema.safeParse({category:"model_inference",memory_key:"guess",value:true,evidence_refs:[],state:"active"}).success,false);
+  assert.equal(capabilityRegistry["agent.set_memory"].inputSchema.safeParse({category:"deterministic_aggregate",memory_key:"count",value:{count:2},evidence_refs:refs,algorithm_version:"count-v1",state:"active"}).success,true);
+  assert.equal(capabilityRegistry["notifications.update"].inputSchema.safeParse({notification_id:"notification_12345678",action:"snooze"}).success,false);
+});
+
 test("life detail sections resolve the exact read effects",()=>{
   assert.deepEqual(capabilityRegistry["life.get_record"].resolveEffects({id:"record_12345678",sections:["meal","sources"]}),["life.meal.read"]);
   assert.deepEqual(capabilityRegistry["life.get_record"].resolveEffects({id:"record_12345678",sections:["money"]}),["money.entry.read"]);
