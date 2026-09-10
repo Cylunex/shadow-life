@@ -145,4 +145,6 @@ select { width:100%; border:1px solid #bac5b6; border-radius:12px; background:#f
 .map-list>ul button { width:100%; display:grid; gap:3px; text-align:left; border-radius:0; border-top:1px solid #e1e5dd; background:transparent; color:inherit; padding:12px 0; }
 .map-list>ul span { color:#667168; font-size:13px; }
 .track-form { padding:16px; }
+.bundle-restore { margin-top:18px; padding-top:18px; border-top:1px solid #d4dbd0; }
+.bundle-restore textarea { min-height:140px; }
 @media (max-width:560px){main{padding:36px 0}.grid,.health-grid,.import-form,.candidate-fields,.catalog-grid,.field-pair,.nutrient-grid,.travel-grid{grid-template-columns:1fr}.panel-heading{align-items:stretch;flex-direction:column}.panel-heading label{width:100%}.catalog-search{width:100%}.trend-list li{grid-template-columns:1fr auto}.trend-list small{grid-column:1/-1}.health-card,.trend-card,.sources-card,.import-form .full,.candidate-fields .full,.recipe-meal{grid-column:1}}

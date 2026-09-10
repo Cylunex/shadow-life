@@ -34,6 +34,7 @@ function queryRequest(name:string,input:unknown,headers:Record<string,string>):P
   if(name==="travel.get_trip")return fetch(`${api}/api/travel/trips/${encodeURIComponent((input as {id:string}).id)}`,{headers});
   if(name==="travel.workspace"){const value=input as {trip_id?:string},search=new URLSearchParams();if(value.trip_id)search.set("trip_id",value.trip_id);return fetch(`${api}/api/travel/workspace${search.size?`?${search}`:""}`,{headers});}
   if(name==="travel.export"){const value=input as {trip_id:string;format:string};return fetch(`${api}/api/travel/trips/${encodeURIComponent(value.trip_id)}/export?format=${encodeURIComponent(value.format)}`,{headers});}
+  if(name==="travel.preview_portable")return fetch(`${api}/api/travel/portable/preview`,{method:"POST",headers,body:JSON.stringify(input)});
   if(name==="library.get_item")return fetch(`${api}/api/library/items/${encodeURIComponent((input as {id:string}).id)}`,{headers});
   if(name==="operations.get")return fetch(`${api}/api/operations/${encodeURIComponent((input as {execution_id:string}).execution_id)}`,{headers});
   throw new Error("Query capability is not wired");

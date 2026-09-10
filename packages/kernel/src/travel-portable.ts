@@ -1,6 +1,7 @@
 import { sha256Fingerprinter } from "./runtime.js";
+import { tripPlanStopIds } from "./travel.js";
 
-export interface TravelTrackPoint {latitude:number;longitude:number;elevation_m?:number;recorded_at?:string;}
+export interface TravelTrackPoint {latitude:number;longitude:number;elevation_m?:number|undefined;recorded_at?:string|undefined;}
 
 function xmlText(value:string):string{return value.replace(/&/gu,"&amp;").replace(/</gu,"&lt;").replace(/>/gu,"&gt;").replace(/"/gu,"&quot;").replace(/'/gu,"&apos;");}
 function decodeXml(value:string):string{return value.replace(/&(amp|lt|gt|quot|apos);/gu,(_,entity:string)=>({amp:"&",lt:"<",gt:">",quot:'"',apos:"'"})[entity]!);}
@@ -39,6 +40,14 @@ function icsText(value:string):string{return value.replace(/\\/gu,"\\\\").replac
 export function serializeTripIcs(trip:{id:string;title:string;starts_on:string;ends_on:string;note?:string|null}):string{
   const description=trip.note?`DESCRIPTION:${icsText(trip.note)}\r\n`:"";
   return`BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Shadow Life//Travel//EN\r\nCALSCALE:GREGORIAN\r\nBEGIN:VEVENT\r\nUID:${icsText(trip.id)}@shadow-life\r\nDTSTART;VALUE=DATE:${icsDate(trip.starts_on)}\r\nDTEND;VALUE=DATE:${icsDate(addDay(trip.ends_on))}\r\nSUMMARY:${icsText(trip.title)}\r\n${description}END:VEVENT\r\nEND:VCALENDAR\r\n`;
+}
+
+function portableRecords(value:unknown,key:string):Record<string,unknown>[]{if(!value||typeof value!=="object"||!Array.isArray((value as Record<string,unknown>)[key]))throw new Error(`Travel Bundle ${key} is invalid`);return (value as Record<string,unknown>)[key] as Record<string,unknown>[];}
+function assertUnique(values:readonly unknown[],label:string):void{const usable=values.filter(value=>typeof value==="string"||typeof value==="number");if(usable.length!==values.length||new Set(usable).size!==usable.length)throw new Error(`Travel Bundle has duplicate or invalid ${label}`);}
+export function validateTravelBundleSemantics(value:unknown):void{
+  if(!value||typeof value!=="object"||!("exported_trip" in value)||!value.exported_trip||typeof value.exported_trip!=="object")throw new Error("Travel Bundle payload is invalid");const trip=value.exported_trip,places=portableRecords(trip,"places"),maps=portableRecords(trip,"maps"),days=portableRecords(trip,"day_plans"),versions=portableRecords(trip,"plan_versions"),tracks=portableRecords(trip,"tracks");
+  assertUnique(places.map(item=>item.id),"place ids");assertUnique(maps.map(item=>item.id),"map ids");assertUnique(days.map(item=>item.plan_date),"day-plan dates");assertUnique(versions.map(item=>item.version),"plan versions");assertUnique(tracks.map(item=>item.id),"track ids");
+  for(const version of versions){tripPlanStopIds(version.snapshot);if(version.content_hash!==sha256Fingerprinter.fingerprint(version.snapshot))throw new Error("Travel Bundle plan content hash does not match its snapshot");}
 }
 
 function stableValue(value:unknown):unknown{if(Array.isArray(value))return value.map(stableValue);if(value&&typeof value==="object"&&!(value instanceof Date))return Object.fromEntries(Object.entries(value).sort(([a],[b])=>a.localeCompare(b)).map(([key,item])=>[key,stableValue(item)]));return value;}

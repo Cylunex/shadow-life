@@ -25,6 +25,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
 
   app.use("/api/*", authMiddleware({ development: dependencies.developmentAuth,...dependencies.auth }));
   app.use("/api/commands/*", bodyLimit({ maxSize: 1024 * 1024, onError: (context) => context.json({ protocol: "shadow.error", code: "validation", message: "Command body is too large." }, 413) }));
+  app.use("/api/travel/portable/preview",bodyLimit({maxSize:1024*1024,onError:context=>context.json({protocol:"shadow.error",code:"validation",message:"Portable travel input is too large."},413)}));
   app.use("/api/assets",bodyLimit({maxSize:20*1024*1024,onError:context=>context.json({protocol:"shadow.error",code:"validation",message:"Asset is too large."},413)}));
   app.get("/api/capabilities", (context) => context.json({
     capabilities: visibleCapabilities(context.get("requestContext").effects).map((item) => ({ name: item.name, description: item.description, possible_effects: item.possibleEffects }))
@@ -64,6 +65,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.get("/api/travel/trips/:id",async context=>context.json(await dependencies.queries.travelTrip(context.get("requestContext"),context.req.param("id"))));
   app.get("/api/travel/workspace",async context=>context.json(await dependencies.queries.travelWorkspace(context.get("requestContext"),context.req.query("trip_id")?{trip_id:context.req.query("trip_id")} :{})));
   app.get("/api/travel/trips/:id/export",async context=>context.json(await dependencies.queries.travelExport(context.get("requestContext"),{trip_id:context.req.param("id"),format:context.req.query("format")})));
+  app.post("/api/travel/portable/preview",async context=>context.json(await dependencies.queries.previewTravelPortable(context.get("requestContext"),await context.req.json())));
   app.get("/api/library/items/:id",async context=>context.json(await dependencies.queries.libraryItem(context.get("requestContext"),context.req.param("id"))));
   app.get("/api/:domain{money|health|travel|library}", async (context) => {const query=context.req.query("q"),cursor=context.req.query("cursor");return context.json(await dependencies.queries.listDomain(context.get("requestContext"), context.req.param("domain") as "money" | "health" | "travel" | "library", {limit:Number(context.req.query("limit")??"50"),...(query?{query}:{}),...(cursor?{cursor}:{})}));});
   app.get("/api/threads", async (context) => context.json({ items: dependencies.agent ? await dependencies.agent.repository.listThreads(context.get("requestContext").subjectId) : [] }));
@@ -108,6 +110,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         if(capabilityName==="travel.get_trip")return dependencies.queries.travelTrip(requestContext,(parsed as {id:string}).id);
         if(capabilityName==="travel.workspace")return dependencies.queries.travelWorkspace(requestContext,parsed);
         if(capabilityName==="travel.export")return dependencies.queries.travelExport(requestContext,parsed);
+        if(capabilityName==="travel.preview_portable")return dependencies.queries.previewTravelPortable(requestContext,parsed);
         if(capabilityName==="library.get_item")return dependencies.queries.libraryItem(requestContext,(parsed as {id:string}).id);
         if(capabilityName==="operations.get")return dependencies.executor.getOperation(requestContext,(parsed as {execution_id:string}).execution_id);
         throw new KernelError(422,{protocol:"shadow.error",code:"validation",message:"Runtime requested an unsupported query capability."});
