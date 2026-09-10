@@ -240,3 +240,17 @@ Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The tab
   Markdown and JSON all finish extraction without changing original bytes/hash/MIME, repeating the same derivation
   does not add assets, and cross-owner originals remain inaccessible. Both new database regressions, database TS,
   and the two text-worker unit tests pass.
+- F07/F08: Health Connect steps now use `steps_interval` identities with exact start/end and provider origin.
+  The fixed server policy sums a maximum non-overlapping interval set within one origin, then takes the greatest
+  origin/device-total result. It intentionally does not sum competing providers. A whole cross-midnight interval
+  belongs to its start date in the recorded time zone; no fractional per-minute distribution is fabricated.
+  `steps_reconciliation` reports this conservative policy. Complete interval rescans retire covered old HC
+  `daily_activity` encodings while preserving their original raw revisions and out-of-window history.
+  Rescans carry a unique generation, explicit instant window and `complete:true`; Android reads every page into
+  one bounded batch (maximum 1000), checks permissions again, then queues that batch atomically. Oversize, unread
+  pages, permission changes and unknown record coverage cannot mark completion or delete absent records. Only
+  fully contained missing facts are invalidated, with their IDs retained in `health_rescan_generations`; normalizer
+  work is requeued without inventing provider versions. Expired/revoked cursors cannot become active through an
+  ordinary upsert batch. Four fresh PostgreSQL regressions, 12 pure Kotlin policy assertions and Android
+  `compileDebugKotlin` pass. The protocol follows the [Health Connect sync guidance](https://developer.android.com/health-and-fitness/health-connect/sync-data);
+  real provider priorities, signed-device permission/process-death and Samsung acceptance remain open.

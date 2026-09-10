@@ -10,3 +10,4 @@ export * from "./record-meal.js";
 export * from "./queries.js";
 export * from "./runtime.js";
 export * from "./agent-memory.js";
+export * from "./health-rescan.js";

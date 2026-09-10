@@ -15605,6 +15605,7 @@
               "sleep",
               "workout",
               "daily_activity",
+              "steps_interval",
               "habit",
               "lab",
               "fitness_test"
@@ -15739,6 +15740,7 @@
                   "sleep",
                   "workout",
                   "daily_activity",
+                  "steps_interval",
                   "habit",
                   "lab",
                   "fitness_test"
@@ -16120,6 +16122,7 @@
               "sleep",
               "workout",
               "daily_activity",
+              "steps_interval",
               "habit",
               "lab",
               "fitness_test"
@@ -16150,6 +16153,36 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 4000
+          },
+          "rescan": {
+            "type": "object",
+            "properties": {
+              "generation": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{7,127}$"
+              },
+              "window_start": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+              },
+              "window_end": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+              },
+              "complete": {
+                "type": "boolean",
+                "const": true
+              }
+            },
+            "required": [
+              "generation",
+              "window_start",
+              "window_end",
+              "complete"
+            ],
+            "additionalProperties": false
           },
           "parse_version": {
             "type": "string",
@@ -16297,6 +16330,7 @@
                   "sleep",
                   "workout",
                   "daily_activity",
+                  "steps_interval",
                   "habit",
                   "lab",
                   "fitness_test"
@@ -16327,6 +16361,36 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 4000
+              },
+              "rescan": {
+                "type": "object",
+                "properties": {
+                  "generation": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                  },
+                  "window_start": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                  },
+                  "window_end": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                  },
+                  "complete": {
+                    "type": "boolean",
+                    "const": true
+                  }
+                },
+                "required": [
+                  "generation",
+                  "window_start",
+                  "window_end",
+                  "complete"
+                ],
+                "additionalProperties": false
               },
               "parse_version": {
                 "type": "string",

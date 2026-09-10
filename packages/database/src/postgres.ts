@@ -8,7 +8,7 @@ import { createAgentContextPackInputSchema, revokeAgentContextPackInputSchema, s
 import { generateLifeReviewInputSchema, recordOwnedItemEventInputSchema, saveOwnedItemInputSchema } from "@shadow/contracts";
 import { buildShoppingListInputSchema, recordForeignEntryInputSchema, saveActionItemInputSchema, saveLifeProjectInputSchema, saveMealPlanInputSchema, updateSharedExpenseAllocationInputSchema, updateShoppingItemInputSchema } from "@shadow/contracts";
 import { applyMoneyImportRules, assignTripStopIds, buildRecurrenceRule, conflict, invalidInput, parseGpx, parseMoneyStatement, parseRecurrenceRule, publishTripPlan, retryableNotApplied, serializeGpx, sha256Fingerprinter, tripPlanStopIds, tripRunIsComplete, validateTravelBundleSemantics, verifyEd25519Sha256AsciiProof, type DraftTripPlanItem, type StoredOperation, type TransactionStore, type UnitOfWork } from "@shadow/kernel";
-import { computeAgentAggregate } from "@shadow/kernel";
+import { computeAgentAggregate, healthRescanCoverage } from "@shadow/kernel";
 import * as schema from "./schema.js";
 
 type Database = NodePgDatabase<typeof schema>;
@@ -191,14 +191,36 @@ function storeFor(database: Database | Transaction): TransactionStore {
         }
         case "health.ingest_batch": {
           const input=ingestHealthBatchInputSchema.parse(command.input);
+          await database.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${subjectId}:${input.source_type}:${input.source_instance_key}`},2))`);
           await database.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`health-cursor:${subjectId}:${input.device_id}:${input.source_instance_key}:${input.record_type}`},5))`);
-          let [source]=await database.select().from(schema.healthSourceInstances).where(and(eq(schema.healthSourceInstances.subjectId,subjectId),eq(schema.healthSourceInstances.sourceType,input.source_type),eq(schema.healthSourceInstances.instanceKey,input.source_instance_key))).limit(1);if(!source)[source]=await database.insert(schema.healthSourceInstances).values({id:nextId("source_instance"),subjectId,sourceType:input.source_type,instanceKey:input.source_instance_key,fingerprint:input.source_fingerprint,syncEpoch:input.sync_epoch,permissionState:"granted"}).returning();else{if(input.sync_epoch<source.syncEpoch)throw conflict("source sync epoch is stale");if(source.fingerprint!==input.source_fingerprint&&input.sync_epoch<=source.syncEpoch)throw conflict("source fingerprint changed without a newer sync epoch");if(source.fingerprint!==input.source_fingerprint||source.permissionState!=="granted"||input.sync_epoch>source.syncEpoch)[source]=await database.update(schema.healthSourceInstances).set({fingerprint:input.source_fingerprint,syncEpoch:input.sync_epoch,permissionState:"granted"}).where(eq(schema.healthSourceInstances.id,source.id)).returning();}
+          let [source]=await database.select().from(schema.healthSourceInstances).where(and(eq(schema.healthSourceInstances.subjectId,subjectId),eq(schema.healthSourceInstances.sourceType,input.source_type),eq(schema.healthSourceInstances.instanceKey,input.source_instance_key))).limit(1);if(!source)[source]=await database.insert(schema.healthSourceInstances).values({id:nextId("source_instance"),subjectId,sourceType:input.source_type,instanceKey:input.source_instance_key,fingerprint:input.source_fingerprint,syncEpoch:input.sync_epoch,permissionState:"granted"}).returning();else{if(input.source_type==="health_connect"&&source.permissionState!=="granted"&&!input.rescan)throw conflict("source requires a complete bounded rescan");if(source.permissionState==="revoked"&&input.sync_epoch<=source.syncEpoch)throw conflict("revoked permission requires a newer rescan epoch");if(input.sync_epoch<source.syncEpoch)throw conflict("source sync epoch is stale");if(source.fingerprint!==input.source_fingerprint&&input.sync_epoch<=source.syncEpoch)throw conflict("source fingerprint changed without a newer sync epoch");if(source.fingerprint!==input.source_fingerprint||source.permissionState!=="granted"||input.sync_epoch>source.syncEpoch)[source]=await database.update(schema.healthSourceInstances).set({fingerprint:input.source_fingerprint,syncEpoch:input.sync_epoch,permissionState:input.rescan?"rescan_required":"granted"}).where(eq(schema.healthSourceInstances.id,source.id)).returning();}
           const [cursor]=await database.select().from(schema.healthSyncCursors).where(and(eq(schema.healthSyncCursors.subjectId,subjectId),eq(schema.healthSyncCursors.deviceId,input.device_id),eq(schema.healthSyncCursors.sourceInstanceId,source!.id),eq(schema.healthSyncCursors.recordType,input.record_type))).limit(1);
+          if(cursor&&cursor.state!=="active"&&!input.rescan)throw conflict("cursor requires a complete bounded rescan");
           if((cursor?.cursor??null)!==input.previous_cursor)throw conflict("health cursor changed; replay the page from the current cursor");
+          if(input.rescan){for(const record of input.records){try{healthRescanCoverage(input.record_type,record.payload);}catch{throw conflict("complete rescan contains a record with unknown coverage");}}const existing=await database.execute(sql`select 1 from health_rescan_generations where id=${input.rescan.generation}`);if(existing.rowCount)throw conflict("rescan generation was already completed; replay its original command");if(input.source_fingerprint!==input.permission_fingerprint)throw conflict("rescan permission fingerprint must match the source permission snapshot");}
           const resources:Array<ExecutionResult["resources"][number]>=[];
           for(const record of input.records){const written=await storeFor(database).executeDomainWrite({subjectId,command:{protocol:"shadow.command",capability:"health.ingest_raw",command_id:`cmd_batch_${nextId("raw")}`,input:{source_type:input.source_type,source_instance_key:input.source_instance_key,source_fingerprint:input.source_fingerprint,record_type:input.record_type,client_record_id:record.client_record_id,...(record.provider_record_id?{provider_record_id:record.provider_record_id}:{}),record_version:record.record_version,sync_epoch:input.sync_epoch,change_kind:record.change_kind,...(record.payload!==undefined?{payload:record.payload}:{}),parse_version:input.parse_version}},nextId});resources.push(...written.resources);}
           const resolvedSource=source!;
+          if(input.rescan){
+            const window=input.rescan,seen=input.records.map(record=>record.client_record_id),absent:string[]=[];
+            const candidates=await database.execute<{id:string;client_record_id:string;current_version:number;record_type:string;payload:unknown}>(sql`select raw.id,raw.client_record_id,raw.current_version,raw.record_type,revision.payload from health_raw_records raw join health_raw_revisions revision on revision.raw_id=raw.id and revision.record_version=raw.current_version where raw.subject_id=${subjectId} and raw.source_instance_id=${resolvedSource.id} and (raw.record_type=${input.record_type} or (${input.record_type}='steps_interval' and raw.record_type='daily_activity')) and raw.state<>'deleted' for update of raw`);
+            for(const raw of candidates.rows){
+              if(raw.record_type===input.record_type&&seen.includes(raw.client_record_id))continue;
+              let coverage;try{coverage=healthRescanCoverage(raw.record_type,raw.payload);}catch{throw conflict("complete rescan cannot establish coverage of a prior record");}
+              const start="date" in coverage?sql`${coverage.date}::date::timestamp at time zone ${coverage.timeZone}`:sql`${coverage.start}::timestamptz`;
+              const end="date" in coverage?sql`(${coverage.date}::date+1)::timestamp at time zone ${coverage.timeZone}`:sql`${coverage.end}::timestamptz`;
+              const contained=await database.execute<{yes:boolean}>(sql`select (${start})>=${window.window_start}::timestamptz and (${start})<${window.window_end}::timestamptz and (${end})<=${window.window_end}::timestamptz yes`);
+              if(!contained.rows[0]?.yes)continue;
+              absent.push(raw.id);
+              // Absence is reconciliation evidence, not a fabricated provider revision or deletion event.
+              await database.execute(sql`update health_raw_records set state='deleted',pending_reason='rescan_absent',current_sync_epoch=${input.sync_epoch} where id=${raw.id}`);
+              await database.execute(sql`insert into health_normalization_queue(raw_id,raw_version,normalizer_version,state) values(${raw.id},${raw.current_version},${input.parse_version},'pending') on conflict(raw_id,raw_version,normalizer_version) do update set state='pending',last_error=null,updated_at=now()`);
+            }
+            await database.execute(sql`insert into health_rescan_generations(id,subject_id,source_instance_id,device_id,record_type,sync_epoch,permission_fingerprint,window_start,window_end,complete,observed_ids,absent_ids) values(${window.generation},${subjectId},${resolvedSource.id},${input.device_id},${input.record_type},${input.sync_epoch},${input.permission_fingerprint},${window.window_start}::timestamptz,${window.window_end}::timestamptz,true,${JSON.stringify(seen)}::jsonb,${JSON.stringify(absent)}::jsonb)`);
+          }
           await database.insert(schema.healthSyncCursors).values({subjectId,deviceId:input.device_id,sourceInstanceId:resolvedSource.id,recordType:input.record_type,permissionFingerprint:input.permission_fingerprint,syncEpoch:input.sync_epoch,cursor:input.next_cursor,state:"active",updatedAt:new Date()}).onConflictDoUpdate({target:[schema.healthSyncCursors.subjectId,schema.healthSyncCursors.deviceId,schema.healthSyncCursors.sourceInstanceId,schema.healthSyncCursors.recordType],set:{permissionFingerprint:input.permission_fingerprint,syncEpoch:input.sync_epoch,cursor:input.next_cursor,state:"active",updatedAt:new Date()}});
+          if(input.rescan&&input.record_type==="steps_interval")await database.execute(sql`update health_sync_cursors set state='active',cursor=null,updated_at=now() where source_instance_id=${resolvedSource.id} and record_type='daily_activity'`);
+          if(input.rescan)await database.execute(sql`update health_source_instances set permission_state=case when exists(select 1 from health_sync_cursors where source_instance_id=${resolvedSource.id} and state<>'active') then 'rescan_required' else 'granted' end where id=${resolvedSource.id}`);
           return{resources:[...resources,{type:"health_sync_cursor",id:stableCursorId(subjectId,input.device_id,resolvedSource.id,input.record_type),revision:input.sync_epoch}],actualValues:{records:input.records.length,next_cursor:input.next_cursor,sync_epoch:input.sync_epoch}};
         }
         case "life.correct_intake": {
@@ -276,14 +298,23 @@ function storeFor(database: Database | Transaction): TransactionStore {
             if (input.sync_epoch <= source.syncEpoch) throw conflict("source fingerprint changed without a newer sync epoch");
             [source] = await database.update(schema.healthSourceInstances).set({ fingerprint: input.source_fingerprint, syncEpoch: input.sync_epoch }).where(eq(schema.healthSourceInstances.id, source.id)).returning();
           }
+          if(input.source_type==="health_connect"&&input.record_type==="daily_activity"){
+            const upgraded=await database.execute(sql`select 1 from health_sync_cursors where source_instance_id=${source!.id} and record_type='steps_interval' and state='active'`);
+            if(upgraded.rowCount)throw conflict("Health Connect steps require interval encoding after upgrade");
+          }
+          if(input.sync_epoch<source!.syncEpoch||source!.permissionState==="revoked")throw conflict("health source epoch or permission is stale");
           await database.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${subjectId}:${source!.id}:${input.record_type}:${input.client_record_id}`}, 3))`);
           const hash = sha256Fingerprinter.fingerprint({ change_kind: input.change_kind, payload: input.payload ?? null });
           let [raw] = await database.select().from(schema.healthRawRecords).where(and(eq(schema.healthRawRecords.subjectId, subjectId), eq(schema.healthRawRecords.sourceInstanceId, source!.id), eq(schema.healthRawRecords.recordType, input.record_type), eq(schema.healthRawRecords.clientRecordId, input.client_record_id))).limit(1);
           if (raw) {
-            const stale = input.record_version < raw.currentVersion || (raw.state === "deleted" && input.change_kind === "upsert" && input.sync_epoch <= raw.currentSyncEpoch);
+            const stale = input.record_version < raw.currentVersion || (raw.state === "deleted" && input.change_kind === "upsert" && input.sync_epoch <= raw.currentSyncEpoch && input.record_version <= raw.currentVersion);
             if (stale) return { resources: [{ type: "health_raw", id: raw.id, revision: raw.currentVersion + 1 }], actualValues: { raw_id: raw.id, current_version: raw.currentVersion, state: raw.state }, warnings: ["过期来源版本已忽略。"] };
             if (input.record_version === raw.currentVersion) {
               if (hash !== raw.currentHash) throw conflict("same health source version has different payload");
+              if(raw.pendingReason==="rescan_absent"&&input.sync_epoch>raw.currentSyncEpoch){
+                await database.execute(sql`update health_raw_records set state='pending',pending_reason='normalization_pending',current_sync_epoch=${input.sync_epoch} where id=${raw.id}`);
+                await database.execute(sql`insert into health_normalization_queue(raw_id,raw_version,normalizer_version,state) values(${raw.id},${raw.currentVersion},${input.parse_version},'pending') on conflict(raw_id,raw_version,normalizer_version) do update set state='pending',last_error=null,updated_at=now()`);
+              }
               return { resources: [{ type: "health_raw", id: raw.id, revision: raw.currentVersion + 1 }], actualValues: { raw_id: raw.id, current_version: raw.currentVersion, state: raw.state }, warnings: ["来源版本已接收，未重复创建。"] };
             }
             await database.insert(schema.healthRawRevisions).values({ rawId: raw.id, recordVersion: input.record_version, payloadHash: hash, payload: input.payload, changeKind: input.change_kind });

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { Pool, type PoolClient } from "pg";
-import { reconcileActivityEnergy } from "@shadow/kernel";
+import { reconcileActivityEnergy, reconcileSteps, type StepInterval } from "@shadow/kernel";
 import { normalizeHealthRaw, type HealthNormalizationResult } from "./health-normalizer.js";
 
 export async function processPendingHealth(pool:Pool,limit=50):Promise<HealthNormalizationResult[]> {
@@ -21,13 +21,15 @@ export async function processPendingHealthDays(pool:Pool,limit=50):Promise<numbe
 
 async function rebuildHealthDay(client:PoolClient,subjectId:string,date:string,algorithmVersion:string):Promise<void>{
   const facts=await client.query("select 'observation' kind,id,metric_key key,value::text value,unit from health_observations where subject_id=$1 and occurred_on=$2 and effective union all select 'measurement',id,metric,value::text,unit from health_measurements where subject_id=$1 and occurred_on=$2 and effective order by kind,id",[subjectId,date]);
-  const activity=await client.query<{steps:number|null;active_minutes:number|null;device_summary_calories_kcal:string|null}>("select max(steps)::int steps,max(active_minutes)::int active_minutes,max(effective_calories_kcal)::text device_summary_calories_kcal from health_daily_activity where subject_id=$1 and occurred_on=$2 and effective having count(*)>0",[subjectId,date]);
+  const activity=await client.query<{steps:number|null;active_minutes:number|null;device_summary_calories_kcal:string|null}>("select max(steps) filter(where steps_started_at is null)::int steps,max(active_minutes)::int active_minutes,max(effective_calories_kcal)::text device_summary_calories_kcal from health_daily_activity where subject_id=$1 and occurred_on=$2 and effective having count(*)>0",[subjectId,date]);
+  const intervals=await client.query<StepInterval>("select id,steps_origin origin,steps_started_at::text started_at,steps_ended_at::text ended_at,steps from health_daily_activity where subject_id=$1 and occurred_on=$2 and effective and steps_started_at is not null",[subjectId,date]);
+  const stepResult=reconcileSteps(activity.rows[0]?.steps??null,intervals.rows);
   const sleep=await client.query("select total_minutes,deep_minutes,light_minutes,rem_minutes,awake_minutes from health_sleep_sessions where subject_id=$1 and wake_date=$2 and effective order by revision desc,id limit 1",[subjectId,date]);
   const wellbeing=await client.query("select mood_score,energy_level,sleep_quality,morning_erection,notes from health_daily_wellbeing where subject_id=$1 and occurred_on=$2 and effective order by revision desc,id",[subjectId,date]);
   const workouts=await client.query("select id,session_type,started_at,duration_minutes,distance_km::text,calories_kcal::text,rpe,heart_rate_avg,detail from health_workout_sessions where subject_id=$1 and occurred_on=$2 and effective order by started_at nulls last,id",[subjectId,date]);
   const workoutEnergy=(await client.query<{calories_kcal:string|null}>("select sum(calories_kcal)::text calories_kcal from health_workout_sessions where subject_id=$1 and occurred_on=$2 and effective",[subjectId,date])).rows[0]?.calories_kcal??null;
   const habits=await client.query("select id,habit_key,done_count,explicit_denial,note from health_habit_logs where subject_id=$1 and occurred_on=$2 and effective order by habit_key,id",[subjectId,date]);
-  const activityRow=activity.rows[0],energy=reconcileActivityEnergy(activityRow?.device_summary_calories_kcal??null,workoutEnergy);const activityResult=activityRow||energy.caloriesKcal!==null?{steps:activityRow?.steps??null,active_minutes:activityRow?.active_minutes??null,device_summary_calories_kcal:activityRow?.device_summary_calories_kcal??null,workout_sum_calories_kcal:workoutEnergy,calories_kcal:energy.caloriesKcal,calories_source:energy.source}:null;
+  const activityRow=activity.rows[0],energy=reconcileActivityEnergy(activityRow?.device_summary_calories_kcal??null,workoutEnergy);const activityResult=activityRow||energy.caloriesKcal!==null?{steps:stepResult.steps,steps_reconciliation:stepResult,active_minutes:activityRow?.active_minutes??null,device_summary_calories_kcal:activityRow?.device_summary_calories_kcal??null,workout_sum_calories_kcal:workoutEnergy,calories_kcal:energy.caloriesKcal,calories_source:energy.source}:null;
   const result={facts:facts.rows,activity:activityResult,sleep:sleep.rows[0]??null,wellbeing:wellbeing.rows,workouts:workouts.rows,habits:habits.rows};const hash=createHash("sha256").update(JSON.stringify(result)).digest("hex");
   await client.query("insert into health_daily_summaries(subject_id,occurred_on,algorithm_version,result,source_set_hash) values($1,$2,$3,$4,$5) on conflict(subject_id,occurred_on,algorithm_version) do update set result=excluded.result,source_set_hash=excluded.source_set_hash,revision=case when health_daily_summaries.source_set_hash=excluded.source_set_hash then health_daily_summaries.revision else health_daily_summaries.revision+1 end,updated_at=now()",[subjectId,date,algorithmVersion,result,hash]);
 }

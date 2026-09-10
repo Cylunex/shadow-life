@@ -86,15 +86,16 @@ class HealthConnectSyncWorker(context:Context,params:WorkerParameters):Coroutine
     }
     val specs=listOf(
       HealthSpec(WeightRecord::class,"body",HealthConnectEncoder::weight),
-      HealthSpec(StepsRecord::class,"daily_activity",HealthConnectEncoder::steps),
+      HealthSpec(StepsRecord::class,"steps_interval",HealthConnectEncoder::steps),
       HealthSpec(SleepSessionRecord::class,"sleep",HealthConnectEncoder::sleep),
       HealthSpec(ExerciseSessionRecord::class,"workout",HealthConnectEncoder::exercise)
     )
     try{
       for(spec in specs){
         val cursor=source?.cursors?.firstOrNull{it.deviceId==deviceId&&it.recordType==spec.serverType}
-        val epoch=if(source==null)1 else if(source.fingerprint!=fingerprint||source.permissionState!="granted")source.syncEpoch+1 else source.syncEpoch
-        val page=if(cursor?.cursor.isNullOrBlank()||cursor?.state!="active")bootstrap(client,spec) else changes(client,spec,cursor!!.cursor!!)
+        if(source?.permissionState=="rescan_required"&&cursor?.state=="active")continue
+        val epoch=HealthSyncPolicy.epoch(source?.syncEpoch,source?.fingerprint==fingerprint,source?.permissionState=="revoked")
+        val page=if(cursor?.cursor.isNullOrBlank()||cursor?.state!="active")bootstrap(client,spec,relevant) else changes(client,spec,cursor!!.cursor!!)
         if(page.expired){
           enqueueState(app,session,instanceKey,fingerprint,maxOf(epoch,source?.syncEpoch?.plus(1)?:1),"rescan_required","Health Connect changes token expired")
           SyncScheduler.schedule(applicationContext,accountId)
@@ -106,14 +107,14 @@ class HealthConnectSyncWorker(context:Context,params:WorkerParameters):Coroutine
           .put("source_type","health_connect").put("source_instance_key",instanceKey).put("source_fingerprint",fingerprint)
           .put("device_id",deviceId).put("record_type",spec.serverType).put("permission_fingerprint",fingerprint)
           .put("sync_epoch",epoch).put("previous_cursor",cursor?.cursor?:JSONObject.NULL).put("next_cursor",page.nextCursor)
-          .put("parse_version","health-connect-1").put("records",JSONArray(page.records))).toString()
+          .put("parse_version","health-connect-2").put("records",JSONArray(page.records)).also { envelope->page.rescan?.let { envelope.getJSONObject("input").put("rescan",it) } }).toString()
         app.queue.enqueueCommand(session,commandId,"health.ingest_batch",body)
         SyncScheduler.schedule(applicationContext,accountId)
         return@withContext Result.success(workDataOf("state" to "queued","record_type" to spec.serverType,"records" to page.records.size))
       }
       Result.success(workDataOf("state" to "up_to_date"))
     }catch(error:CancellationException){throw error
-    }catch(_:BootstrapTooLargeException){Result.failure(workDataOf("reason" to "bootstrap_too_large"))
+    }catch(_:HealthScanTooLargeException){Result.failure(workDataOf("reason" to "bootstrap_too_large"))
     }catch(_:SecurityException){
       if(source?.permissionState!="revoked"){enqueueState(app,session,instanceKey,fingerprint,(source?.syncEpoch?:0)+1,"revoked","Health Connect permission was revoked");SyncScheduler.schedule(applicationContext,accountId)}
       Result.failure(workDataOf("reason" to "permissions_revoked"))
@@ -128,16 +129,25 @@ class HealthConnectSyncWorker(context:Context,params:WorkerParameters):Coroutine
 }
 
 private data class HealthSpec<T:Record>(val recordClass:KClass<T>,val serverType:String,val encode:(T)->JSONObject)
-private data class HealthPage(val records:List<JSONObject>,val nextCursor:String,val expired:Boolean=false)
+private data class HealthPage(val records:List<JSONObject>,val nextCursor:String,val expired:Boolean=false,val rescan:JSONObject?=null)
 private data class ServerCursor(val deviceId:String,val recordType:String,val cursor:String?,val state:String)
 private data class ServerSource(val permissionState:String,val syncEpoch:Int,val fingerprint:String?,val cursors:List<ServerCursor>)
-private class BootstrapTooLargeException:IllegalStateException("Health Connect bootstrap exceeded one safe batch")
 
-private suspend fun <T:Record> bootstrap(client:HealthConnectClient,spec:HealthSpec<T>):HealthPage{
+private suspend fun <T:Record> bootstrap(client:HealthConnectClient,spec:HealthSpec<T>,permissions:Set<String>):HealthPage{
+  val end=Instant.now()
+  val scan=CompleteHealthScan<JSONObject>(end.minus(Duration.ofDays(30)),end)
   val changesToken=client.getChangesToken(ChangesTokenRequest(setOf(spec.recordClass)))
-  val response=client.readRecords(ReadRecordsRequest(spec.recordClass,TimeRangeFilter.after(Instant.now().minus(Duration.ofDays(30))),pageSize=1_000))
-  if(response.pageToken!=null)throw BootstrapTooLargeException()
-  return HealthPage(response.records.map{upsert(it,spec.encode(it))},changesToken)
+  var pageToken:String?=null
+  do {
+    val response=client.readRecords(ReadRecordsRequest(spec.recordClass,TimeRangeFilter.between(scan.start,scan.end),pageSize=1_000,pageToken=pageToken))
+    scan.page(response.records.map{upsert(it,spec.encode(it))},response.pageToken!=null)
+    pageToken=response.pageToken
+    if(client.permissionController.getGrantedPermissions().intersect(HealthConnectSync.permissions)!=permissions)throw SecurityException("Health Connect permission changed during scan")
+  } while(pageToken!=null)
+  val records=scan.complete(client.permissionController.getGrantedPermissions().intersect(HealthConnectSync.permissions)==permissions)
+  val rescan=JSONObject().put("generation","hcscan_${UUID.randomUUID().toString().replace("-","")}")
+    .put("window_start",scan.start.toString()).put("window_end",scan.end.toString()).put("complete",true)
+  return HealthPage(records,changesToken,rescan=rescan)
 }
 
 private suspend fun <T:Record> changes(client:HealthConnectClient,spec:HealthSpec<T>,cursor:String):HealthPage{
@@ -162,7 +172,12 @@ private object HealthConnectEncoder{
   private fun zone()=ZoneId.systemDefault()
   private fun decimal(value:Double)=BigDecimal.valueOf(value).stripTrailingZeros().toPlainString()
   fun weight(record:WeightRecord)=JSONObject().put("occurred_on",record.time.atZone(zone()).toLocalDate().toString()).put("occurred_at",record.time.toString()).put("time_zone",zone().id).put("observations",JSONArray().put(JSONObject().put("metric_key","weight").put("value",decimal(record.weight.inKilograms)).put("unit","kg")))
-  fun steps(record:StepsRecord)=JSONObject().put("occurred_on",record.endTime.atZone(zone()).toLocalDate().toString()).put("time_zone",zone().id).put("steps",record.count).put("field_sources",JSONObject().put("steps","health_connect:${record.metadata.dataOrigin.packageName}"))
+  fun steps(record:StepsRecord):JSONObject{
+    val value=HealthSyncPolicy.steps(record.startTime,record.endTime,record.metadata.dataOrigin.packageName,record.count,zone())
+    return JSONObject().put("occurred_on",value.date).put("time_zone",value.zone).put("steps",value.count)
+      .put("step_interval",JSONObject().put("started_at",value.start).put("ended_at",value.end).put("data_origin",value.origin))
+      .put("field_sources",JSONObject().put("steps","health_connect:${value.origin}"))
+  }
   fun sleep(record:SleepSessionRecord):JSONObject{
     val stages=record.stages.groupBy{it.stage}.mapValues{(_,items)->items.sumOf{Duration.between(it.startTime,it.endTime).toMinutes()}}
     return JSONObject().put("wake_date",record.endTime.atZone(zone()).toLocalDate().toString()).put("time_zone",zone().id).put("started_at",record.startTime.toString()).put("ended_at",record.endTime.toString()).put("total_minutes",Duration.between(record.startTime,record.endTime).toMinutes())
