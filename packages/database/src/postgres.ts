@@ -72,6 +72,11 @@ function storeFor(database: Database | Transaction): TransactionStore {
     return proposedId;
   }
   return {
+    async assertAgentRun(subjectId,runId,ownerId){
+      await database.execute(sql`select id from runs where id=${runId} for share`);
+      const valid=await database.execute(sql`select run.id from runs run join threads thread on thread.id=run.thread_id where run.id=${runId} and thread.subject_id=${subjectId} and run.owner_id=${ownerId} and run.status='running' and run.lease_expires_at>clock_timestamp() and run.stop_requested_at is null`);
+      if(!valid.rowCount)throw conflict("agent run lease is no longer valid");
+    },
     async lockCommand(subjectId, commandId) { await database.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${subjectId}:${commandId}`}, 0))`); },
     async assertWriteDomains(domains,expected){for(const domain of [...new Set(domains)].sort()){const state=await database.execute<{stage:string;epoch:number}>(sql`select stage,epoch from write_epochs where domain=${domain} for share`),current=state.rows[0];if(current?.stage!=="life")throw retryableNotApplied(`${domain} writes are currently fenced for migration.`);if(expected?.[domain]!==undefined&&expected[domain]!==current.epoch)throw conflict(`${domain} write epoch is stale; refresh before retrying.`);}},
     async findOperation(subjectId, commandId) {
@@ -92,7 +97,7 @@ function storeFor(database: Database | Transaction): TransactionStore {
     },
     async linkMealSource(mealId, sourceId) { await database.insert(schema.mealSourceLinks).values({ mealId, sourceId }); },
     async insertOperation(value) {
-      await database.insert(schema.operations).values({ executionId: value.executionId, subjectId: value.subjectId, commandId: value.commandId, capability: value.capability, fingerprint: value.fingerprint, result: value.result });
+      await database.insert(schema.operations).values({ executionId: value.executionId, subjectId: value.subjectId, commandId: value.commandId, capability: value.capability, fingerprint: value.fingerprint, result: value.result,agentRunId:value.agentRunId,agentToolCallId:value.agentToolCallId });
     },
     async insertOutbox(value) { await database.insert(schema.outbox).values(value); },
     async getOperationByExecutionId(subjectId, executionId) {

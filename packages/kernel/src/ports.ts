@@ -6,10 +6,13 @@ export interface RequestContext {
   readonly clientId: string;
   readonly effects: ReadonlySet<string>;
   readonly traceId: string;
+  readonly agentRun?:{readonly runId:string;readonly ownerId:string;readonly toolCallId:string};
   readonly writeEpochs?: Readonly<Partial<Record<"health" | "ledger", number>>>;
 }
 
 export interface StoredOperation {
+  readonly agentRunId?:string;
+  readonly agentToolCallId?:string;
   readonly executionId: string;
   readonly subjectId: string;
   readonly commandId: string;
@@ -20,6 +23,7 @@ export interface StoredOperation {
 }
 
 export interface TransactionStore {
+  assertAgentRun(subjectId:string,runId:string,ownerId:string):Promise<void>;
   lockCommand(subjectId: string, commandId: string): Promise<void>;
   assertWriteDomains(domains:readonly ("health"|"ledger")[],expected?:Readonly<Partial<Record<"health"|"ledger",number>>>):Promise<void>;
   findOperation(subjectId: string, commandId: string): Promise<StoredOperation | undefined>;

@@ -9,6 +9,7 @@ class MemoryUnitOfWork implements UnitOfWork {
     const draft = structuredClone(this.state);
     const touch = (name: keyof typeof draft, id: string) => { if (this.failAt === name) throw new Error(`injected ${name}`); (draft[name] as string[]).push(id); };
     const store: TransactionStore = {
+      assertAgentRun:async()=>undefined,
       lockCommand: async () => undefined,
       assertWriteDomains:async()=>undefined,
       findOperation: async (subjectId, commandId) => draft.operations.find((item) => item.subjectId === subjectId && item.commandId === commandId),

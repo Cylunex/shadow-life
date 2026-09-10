@@ -254,3 +254,11 @@ Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The tab
   ordinary upsert batch. Four fresh PostgreSQL regressions, 12 pure Kotlin policy assertions and Android
   `compileDebugKotlin` pass. The protocol follows the [Health Connect sync guidance](https://developer.android.com/health-and-fitness/health-connect/sync-data);
   real provider priorities, signed-device permission/process-death and Samsung acceptance remain open.
+- F09: Runs have a persistent owner and 30-second lease renewed every five seconds. Reads/new runs/stop recover
+  expired or pre-lease orphan runs as interrupted, while cross-instance stop persists a request for the live owner.
+  User-message insertion and run admission are atomic. Executor commands validate and lock their run lease inside
+  the business transaction; stop/recovery waits for admitted writes, and expired owners cannot start another write,
+  append late events or insert a late assistant message. Committed operations bind run/tool IDs in the same
+  transaction, allowing recovery to reconstruct a missing receipt event without replaying the business command.
+  Two repository PostgreSQL tests and two real API/PostgreSQL tests pass, including local stub Runtime injection
+  for stale contexts/forged aggregates. No external Runtime was invoked. Migration 0031 is additive.

@@ -87,12 +87,21 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
     if (!dependencies.agent) return context.json({ protocol:"shadow.error",code:"retryable_not_applied",message:"Agent runtime is unavailable." },503);
     const requestContext=context.get("requestContext"); if(!requestContext.effects.has("agent.run")) throw new KernelError(403,{protocol:"shadow.error",code:"permission_denied",message:"Missing effect: agent.run"});
     const body=await context.req.json<{text:string;context_pack_id?:string}>(); if(typeof body.text!=="string"||!body.text.trim()) return context.json({protocol:"shadow.error",code:"validation",message:"text is required",fields:["text"]},422);
-    const {repository,runtime,nextId}=dependencies.agent; const threadId=context.req.param("threadId"); await repository.assertThread(requestContext.subjectId,threadId);const contextPack=body.context_pack_id?await dependencies.queries.agentContextPack(requestContext,{context_pack_id:body.context_pack_id},threadId):undefined;const messageId=nextId("message"),runId=nextId("run"); await repository.addMessage(threadId,messageId,"user",body.text.trim()); const [history,baseContext,memoryContext]=await Promise.all([repository.conversation(requestContext.subjectId,threadId),dependencies.queries.agentPersonalContext(requestContext),dependencies.queries.agentMemories?.(requestContext)??Promise.resolve({items:[]})]),personalContext={...baseContext,memories:(memoryContext as {items:unknown[]}).items};await repository.createRun(threadId,runId);
+    const {repository,runtime,nextId}=dependencies.agent;
+    const threadId=context.req.param("threadId");await repository.assertThread(requestContext.subjectId,threadId);
+    const contextPack=body.context_pack_id?await dependencies.queries.agentContextPack(requestContext,{context_pack_id:body.context_pack_id},threadId):undefined;
+    const [baseContext,memoryContext]=await Promise.all([dependencies.queries.agentPersonalContext(requestContext),dependencies.queries.agentMemories?.(requestContext)??Promise.resolve({items:[]})]);
+    const personalContext={...baseContext,memories:(memoryContext as {items:unknown[]}).items},messageId=nextId("message"),runId=nextId("run");
+    await repository.createRun(threadId,runId,{id:messageId,content:body.text.trim()});
+    const history=await repository.conversation(requestContext.subjectId,threadId);
+
     const capabilityProfile=visibleCapabilities(requestContext.effects).map(item=>item.name);
     return streamSSE(context,async(stream)=>{
       const controller=new AbortController(),startedAt=Date.now(),seenRuntimeEvents=new Set<string>();
       let assistant="",terminal:"awaiting_input"|"completed"|"interrupted"|undefined,runtimeEventCount=0,toolCallCount=0,hostEventCount=0,currentState:RunState="started";
       const deadline=setTimeout(()=>controller.abort("deadline_exceeded"),120_000);
+      const heartbeat=setInterval(()=>{void repository.heartbeat(runId).then(valid=>{if(!valid&&!controller.signal.aborted)controller.abort("lease_lost_or_stop_requested");}).catch(()=>controller.abort("lease_heartbeat_failed"));},5_000);
+      heartbeat.unref();
       activeRuns.set(runId,{subjectId:requestContext.subjectId,controller});
       stream.onAbort(()=>{if(!controller.signal.aborted)controller.abort("client_disconnected");});
       const emit=async(event:HostRunEvent):Promise<number>=>{const parsed=hostRunEventSchema.parse(event),sequence=await repository.appendEvent(runId,parsed.type,parsed);try{await stream.writeSSE({id:String(sequence),event:parsed.type,data:JSON.stringify(parsed)});}catch{/* persistence remains authoritative when the client disconnects */}return sequence;};
@@ -101,7 +110,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
       const dispatchTool=async(capabilityName:string,input:unknown,callId:string):Promise<unknown>=>{
         const capability=capabilityRegistry[capabilityName as keyof typeof capabilityRegistry];
         if(!capability||!capability.possibleEffects.some(effect=>requestContext.effects.has(effect)))throw new KernelError(403,{protocol:"shadow.error",code:"permission_denied",message:"Runtime requested a capability that is not visible."});
-        if(capability.idempotency==="required"){const callKey=createHash("sha256").update(`${runId}:${callId}`).digest("hex");return dependencies.executor.execute(requestContext,{protocol:"shadow.command",capability:capabilityName,command_id:`cmd_agent_${callKey}`,input});}
+        if(capability.idempotency==="required"){const callKey=createHash("sha256").update(`${runId}:${callId}`).digest("hex");return dependencies.executor.execute({...requestContext,agentRun:{runId,ownerId:repository.ownerId,toolCallId:callId}},{protocol:"shadow.command",capability:capabilityName,command_id:`cmd_agent_${callKey}`,input});}
         const parsed=capability.inputSchema.parse(input);
         if(capabilityName==="life.list_meals")return{items:await dependencies.queries.listMeals(requestContext,(parsed as {limit:number}).limit)};
         if(capabilityName==="life.food_catalog")return dependencies.queries.foodCatalog(requestContext,parsed);
@@ -173,18 +182,23 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         await state("started");
         await consume(runtime.run({threadId,runId,messageId,text:body.text.trim(),history,personalContext,contextPack,capabilityProfile},controller.signal));
         if(!terminal){const reason=controller.signal.aborted?abortReason(controller.signal):"Runtime ended without a terminal event.";terminal="interrupted";await state("interrupted",{reason});}
-        if(assistant)await repository.addMessage(threadId,nextId("message"),"assistant",assistant);
-        await repository.finishRun(runId,terminal,terminal==="interrupted"?"Run was interrupted.":undefined);
+        await repository.finishRun(runId,terminal,terminal==="interrupted"?"Run was interrupted.":undefined,assistant?{id:nextId("message"),content:assistant}:undefined);
       }catch(error){
         const message=controller.signal.aborted?abortReason(controller.signal):error instanceof Error?error.message:"Agent run failed";
-        terminal="interrupted";await state("interrupted",{reason:message});
-        if(assistant)await repository.addMessage(threadId,nextId("message"),"assistant",assistant);
-        await repository.finishRun(runId,controller.signal.aborted?"interrupted":"failed",message);
-      }finally{clearTimeout(deadline);activeRuns.delete(runId);}
+        terminal="interrupted";
+        try{await state("interrupted",{reason:message});await repository.finishRun(runId,controller.signal.aborted?"interrupted":"failed",message,assistant?{id:nextId("message"),content:assistant}:undefined);}
+        catch(finishError){if(!(finishError instanceof KernelError&&finishError.detail.code==="conflict"))throw finishError;}
+      }finally{clearInterval(heartbeat);clearTimeout(deadline);activeRuns.delete(runId);}
     });
   });
   app.get("/api/runs/:runId",async context=>{if(!dependencies.agent)return context.json({protocol:"shadow.error",code:"not_found",message:"Run not found."},404);const requestContext=context.get("requestContext"),runId=context.req.param("runId"),run=await dependencies.agent.repository.run(requestContext.subjectId,runId);if(!run)return context.json({protocol:"shadow.error",code:"not_found",message:"Run not found."},404);const after=Number(context.req.query("after")??"0"),safeAfter=Number.isInteger(after)&&after>=0?after:0;return context.json({run,events:await dependencies.agent.repository.events(requestContext.subjectId,runId,safeAfter)});});
-  app.post("/api/runs/:runId/stop",async context=>{if(!dependencies.agent)return context.json({protocol:"shadow.error",code:"not_found",message:"Run not found."},404);const requestContext=context.get("requestContext"),runId=context.req.param("runId"),run=await dependencies.agent.repository.run(requestContext.subjectId,runId);if(!run)return context.json({protocol:"shadow.error",code:"not_found",message:"Run not found."},404);const active=activeRuns.get(runId);if(active?.subjectId===requestContext.subjectId&&!active.controller.signal.aborted)active.controller.abort("stopped_by_user");return context.json({run_id:runId,status:active?"stopping":run.status});});
+  app.post("/api/runs/:runId/stop",async context=>{
+    if(!dependencies.agent)return context.json({protocol:"shadow.error",code:"not_found",message:"Run not found."},404);
+    const requestContext=context.get("requestContext"),runId=context.req.param("runId"),status=await dependencies.agent.repository.requestStop(requestContext.subjectId,runId);
+    if(!status)return context.json({protocol:"shadow.error",code:"not_found",message:"Run not found."},404);
+    const active=activeRuns.get(runId);if(active?.subjectId===requestContext.subjectId&&!active.controller.signal.aborted)active.controller.abort("stopped_by_user");
+    return context.json({run_id:runId,status});
+  });
   app.get("/api/runs/:runId/events", async(context)=>{if(!dependencies.agent)return context.json({items:[]});const after=Number(context.req.query("after")??"0");return context.json({items:await dependencies.agent.repository.events(context.get("requestContext").subjectId,context.req.param("runId"),Number.isInteger(after)&&after>=0?after:0)});});
 
   app.onError((error, context) => {

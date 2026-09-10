@@ -96,6 +96,7 @@ export const mealSourceLinks = pgTable("meal_source_links", {
 export const mealConsumptionLinks=pgTable("meal_consumption_links",{subjectId:text("subject_id").references(()=>principals.id).notNull(),mealId:text("meal_id").references(()=>meals.id,{onDelete:"cascade"}).notNull(),consumptionRecordId:text("consumption_record_id").notNull(),evidence:text("evidence").notNull(),createdAt:timestamp("created_at",{withTimezone:true}).defaultNow().notNull()},table=>[primaryKey({columns:[table.mealId,table.consumptionRecordId]})]);
 
 export const operations = pgTable("operations", {
+  agentRunId:text("agent_run_id"),agentToolCallId:text("agent_tool_call_id"),
   executionId: text("execution_id").primaryKey(),
   subjectId: text("subject_id").references(() => principals.id).notNull(),
   commandId: text("command_id").notNull(),
