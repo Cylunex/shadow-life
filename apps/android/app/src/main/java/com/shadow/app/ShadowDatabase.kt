@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao interface CommandDao{
   @Insert(onConflict=OnConflictStrategy.IGNORE)suspend fun enqueue(value:PendingCommand):Long
   @Query("select * from pending_commands where accountId=:account and subjectId=:subject and state in ('pending','uploading','unknown') and encryptionVersion=1 order by createdAt")suspend fun pending(account:String,subject:String):List<PendingCommand>
+  @Query("select count(*) from pending_commands where accountId=:account and subjectId=:subject and capability=:capability and state in ('pending','uploading','unknown')")suspend fun inFlight(account:String,subject:String,capability:String):Int
   @Query("select * from pending_commands where accountId=:account and subjectId=:subject order by createdAt desc")fun observe(account:String,subject:String):Flow<List<PendingCommand>>
   @Query("select (select count(*) from pending_commands where accountId='' and state='needs_account')+(select count(*) from pending_attachments where accountId='' and state='needs_account')")fun observeRecoverableCount():Flow<Int>
   @Query("update pending_commands set accountId=:account,subjectId=:subject,state='needs_encryption' where accountId='' and state='needs_account'")suspend fun recoverCommandsToAccount(account:String,subject:String):Int

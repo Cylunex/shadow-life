@@ -83,4 +83,12 @@ Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The tab
   occurrence instants, an authorization-bound snapshot cursor and explicit DTOs rather than merging arbitrary
   per-domain JSON in the browser. Migration 0018 adds the first overview paths; contracts, permission tests,
   API route parsing, Web loading tests and the PostgreSQL journey cover partial access, local dates, ordering and
-  late-write exclusion. All TypeScript checks, 64 non-PostgreSQL tests and the Web production build pass.
+  late-write exclusion. All TypeScript checks, the complete non-PostgreSQL suite and the Web production build pass.
+- Android now has an explicit Health Connect permission and sync path for weight, steps, sleep and exercise.
+  Each type resumes from the server-committed opaque Changes token, serializes one encrypted idempotent batch at
+  a time, preserves provider IDs across upserts/deletes, and records permission revocation or token expiry before
+  a bounded rescan. Initial capture refuses silent truncation beyond the documented 30-day/1000-record window.
+  Source/queue/rescan failures are visible in the Android UI. Migration 0019 and the worker align provider
+  millisecond versions with PostgreSQL bigint semantics. Kotlin compilation and the isolated PostgreSQL journey
+  pass; signed-device, Samsung-provider and physical permission/process-death evidence remain release acceptance
+  and are not claimed by this source-level implementation.

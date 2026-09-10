@@ -11566,7 +11566,7 @@
               "granted",
               "revoked",
               "expired",
-              "reset_required"
+              "rescan_required"
             ]
           },
           "reason": {
@@ -11634,7 +11634,7 @@
                   "granted",
                   "revoked",
                   "expired",
-                  "reset_required"
+                  "rescan_required"
                 ]
               },
               "reason": {
@@ -19537,6 +19537,12 @@
                       "record_type": {
                         "type": "string"
                       },
+                      "cursor": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
                       "state": {
                         "type": "string"
                       },
@@ -19554,6 +19560,7 @@
                     "required": [
                       "device_id",
                       "record_type",
+                      "cursor",
                       "state",
                       "sync_epoch",
                       "updated_at"

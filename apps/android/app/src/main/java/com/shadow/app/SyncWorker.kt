@@ -123,6 +123,7 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
 
   private suspend fun commitVerified(app:ShadowApp,command:PendingCommand,receipt:String){
     try{app.queue.commit(command,receipt)}catch(_:QueueKeyUnavailableException){app.database.commands().setCommandState(command.commandId,"committed")}
+    if(command.capability=="health.ingest_batch"||command.capability=="health.set_source_state")HealthConnectScheduler.schedule(applicationContext,command.accountId)
   }
 
   private fun lookupReceipt(session:ProductSession,accessToken:String,command:PendingCommand):String?=runCatching{

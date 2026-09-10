@@ -6,7 +6,10 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.lifecycleScope
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -32,9 +35,15 @@ class MainActivity:ComponentActivity(){
   private var recoverableCommands by mutableIntStateOf(0)
   private var queueStates by mutableStateOf<Map<String,Int>>(emptyMap())
   private var lastReceipt by mutableStateOf<String?>(null)
+  private var healthSyncMessage by mutableStateOf<String?>(null)
   private var saving by mutableStateOf(false)
   private var queueObservation:Job?=null
   private var pendingSharedImage:Uri?=null
+  private val healthPermissionResult=registerForActivityResult(PermissionController.createRequestPermissionResultContract()){granted->
+    val session=activeSession
+    if(session==null){loginMessage="请先登录再同步健康数据";return@registerForActivityResult}
+    if(granted.containsAll(HealthConnectSync.permissions)){loginMessage="Health Connect 已授权，正在按类型核对增量";HealthConnectScheduler.schedule(this,session.accountId)}else loginMessage="Health Connect 权限不完整；已保留现有数据并停止同步"
+  }
   private val loginResult=registerForActivityResult(ActivityResultContracts.StartActivityForResult()){result->
     val data=result.data
     if(data==null){loginMessage="登录已取消";return@registerForActivityResult}
@@ -49,7 +58,7 @@ class MainActivity:ComponentActivity(){
     val image=intent.takeIf{it.action==Intent.ACTION_SEND&&it.type?.startsWith("image/")==true}?.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
     if(image!=null){if(activeSession==null)pendingSharedImage=image else enqueueImage(image)}
     lifecycleScope.launch{app.database.commands().observeRecoverableCount().collect{recoverableCommands=it}}
-    setContent{MaterialTheme{Capture(shared,activeSession,oidc.configured,loginMessage,recoverableCommands,queueStates,lastReceipt,saving,onLogin=::login,onSave=::enqueue,onRecover=::recoverLegacyCommands,onRetry=::retryQueue,onClear=::clearQueue)}}
+    setContent{MaterialTheme{Capture(shared,activeSession,oidc.configured,HealthConnectSync.available(this),loginMessage,healthSyncMessage,recoverableCommands,queueStates,lastReceipt,saving,onLogin=::login,onSave=::enqueue,onHealthSync=::syncHealthConnect,onRecover=::recoverLegacyCommands,onRetry=::retryQueue,onClear=::clearQueue)}}
   }
 
   override fun onDestroy(){oidc.close();super.onDestroy()}
@@ -73,6 +82,12 @@ class MainActivity:ComponentActivity(){
     val file=java.io.File(filesDir,"pending-assets/$id.slq")
     val capturedOn=LocalDate.now().toString()
     lifecycleScope.launch{try{val saved=withContext(Dispatchers.IO){contentResolver.openInputStream(uri)?.let{input->app.queue.enqueueAttachment(session,id,commandId,mediaType,capturedOn,input,file)}?:-1};if(saved>=0){loginMessage="图片已加密保存到离线队列";SyncScheduler.schedule(this@MainActivity,session.accountId)}else loginMessage="无法读取分享的图片"}catch(error:CancellationException){throw error}catch(_:Exception){file.delete();loginMessage="无法加密分享的图片，请检查设备密钥后重试"}}
+  }
+
+  private fun syncHealthConnect(){
+    val session=requireActiveSession(application as ShadowApp)?:return
+    if(!HealthConnectSync.available(this)){loginMessage="此设备未提供可用的 Health Connect";return}
+    lifecycleScope.launch{val client=androidx.health.connect.client.HealthConnectClient.getOrCreate(this@MainActivity);val granted=client.permissionController.getGrantedPermissions();if(granted.containsAll(HealthConnectSync.permissions)){loginMessage="正在按类型核对 Health Connect 增量";HealthConnectScheduler.schedule(this@MainActivity,session.accountId)}else healthPermissionResult.launch(HealthConnectSync.permissions)}
   }
 
   private fun recoverLegacyCommands(){
@@ -101,19 +116,37 @@ class MainActivity:ComponentActivity(){
         QueueView(states,receipt)
       }.flowOn(Dispatchers.IO).collect{queueStates=it.states;lastReceipt=it.receipt}
     }
+    val observedAccount=session.accountId
+    WorkManager.getInstance(this).getWorkInfosForUniqueWorkLiveData(HealthConnectScheduler.workName(observedAccount)).observe(this){work->
+      if(activeSession?.accountId!=observedAccount)return@observe
+      val latest=work.maxByOrNull{it.runAttemptCount}?:return@observe
+      val state=latest.outputData.getString("state")
+      val reason=latest.outputData.getString("reason")
+      healthSyncMessage=when{
+        state=="queued"->"已加密排队 ${latest.outputData.getInt("records",0)} 条 ${latest.outputData.getString("record_type").orEmpty()} 变更"
+        state=="up_to_date"->"Health Connect 已同步到最新"
+        state=="waiting_for_receipt"->"正在核对上一页 Health Connect 回执"
+        state=="rescan_required"->"Health Connect 游标已过期，正在受控重扫"
+        reason=="permissions_required"||reason=="permissions_revoked"->"Health Connect 权限不完整，同步已停止"
+        reason=="bootstrap_too_large"->"最近 30 天记录超过安全批次上限，未截断导入"
+        reason=="health_connect_unavailable"->"此设备未提供可用的 Health Connect"
+        latest.state==WorkInfo.State.RUNNING->"正在核对 Health Connect 来源与游标"
+        else->healthSyncMessage
+      }
+    }
   }
 
   private fun requireActiveSession(app:ShadowApp):ProductSession?=app.sessions.active()?:run{activeSession=null;loginMessage="会话已失效，请重新登录；离线队列仍保留在原账号下";null}
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun Capture(initial:String,session:ProductSession?,loginConfigured:Boolean,loginMessage:String?,recoverableCommands:Int,queueStates:Map<String,Int>,lastReceipt:String?,saving:Boolean,onLogin:()->Unit,onSave:(String)->Unit,onRecover:()->Unit,onRetry:()->Unit,onClear:()->Unit){
+@Composable fun Capture(initial:String,session:ProductSession?,loginConfigured:Boolean,healthConnectAvailable:Boolean,loginMessage:String?,healthSyncMessage:String?,recoverableCommands:Int,queueStates:Map<String,Int>,lastReceipt:String?,saving:Boolean,onLogin:()->Unit,onSave:(String)->Unit,onHealthSync:()->Unit,onRecover:()->Unit,onRetry:()->Unit,onClear:()->Unit){
   var value by remember{mutableStateOf(initial)}
   var confirmClear by remember{mutableStateOf(false)}
   Scaffold(topBar={TopAppBar(title={Text("Shadow Life")})}){padding->Column(Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)){
     Text("保存生活中的原始资料",style=MaterialTheme.typography.headlineMedium)
     if(session==null){Button(onClick=onLogin,enabled=loginConfigured){Text("统一账号登录")};if(!loginConfigured)Text("请先配置身份提供方")}
-    else {Text("已登录：${session.subjectId}");if(recoverableCommands>0){Text("发现 $recoverableCommands 条旧版离线任务，账号归属未知。确认后才会同步。");OutlinedButton(onClick=onRecover){Text("归入当前账号")}};if(queueStates.isNotEmpty()){Text(queueStates.entries.sortedBy{it.key}.joinToString(" · "){(state,count)->"${queueStateLabel(state)} $count"});Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){if((queueStates["blocked"]?:0)+(queueStates["failed"]?:0)>0)OutlinedButton(onClick=onRetry){Text("按原 ID 重试")};if((queueStates["committed"]?:0)+(queueStates["blocked"]?:0)+(queueStates["failed"]?:0)>0)TextButton(onClick={confirmClear=true}){Text("清理终态记录")}};if(confirmClear){Text("将删除已完成回执，以及失败或需处理的本地内容；尚未同步的内容删除后无法恢复。",style=MaterialTheme.typography.bodySmall);Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Button(onClick={confirmClear=false;onClear()}){Text("确认清理")};TextButton(onClick={confirmClear=false}){Text("取消")}}}};lastReceipt?.let{Text("最近回执：$it",style=MaterialTheme.typography.bodySmall)}}
+    else {Text("已登录：${session.subjectId}");OutlinedButton(onClick=onHealthSync,enabled=healthConnectAvailable){Text(if(healthConnectAvailable)"同步 Health Connect" else "Health Connect 不可用")};healthSyncMessage?.let{Text(it)};Text("体重、步数、睡眠和训练分别维护增量游标；授权撤销或游标过期时停止并受控重扫。",style=MaterialTheme.typography.bodySmall);if(recoverableCommands>0){Text("发现 $recoverableCommands 条旧版离线任务，账号归属未知。确认后才会同步。");OutlinedButton(onClick=onRecover){Text("归入当前账号")}};if(queueStates.isNotEmpty()){Text(queueStates.entries.sortedBy{it.key}.joinToString(" · "){(state,count)->"${queueStateLabel(state)} $count"});Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){if((queueStates["blocked"]?:0)+(queueStates["failed"]?:0)>0)OutlinedButton(onClick=onRetry){Text("按原 ID 重试")};if((queueStates["committed"]?:0)+(queueStates["blocked"]?:0)+(queueStates["failed"]?:0)>0)TextButton(onClick={confirmClear=true}){Text("清理终态记录")}};if(confirmClear){Text("将删除已完成回执，以及失败或需处理的本地内容；尚未同步的内容删除后无法恢复。",style=MaterialTheme.typography.bodySmall);Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Button(onClick={confirmClear=false;onClear()}){Text("确认清理")};TextButton(onClick={confirmClear=false}){Text("取消")}}}};lastReceipt?.let{Text("最近回执：$it",style=MaterialTheme.typography.bodySmall)}}
     loginMessage?.let{Text(it)}
     OutlinedTextField(value,{value=it},Modifier.fillMaxWidth(),minLines=6,label={Text("文字或分享内容")})
     Button(onClick={onSave(value)},enabled=value.isNotBlank()&&session!=null&&!saving){Text(if(saving)"正在加密…" else "保存到离线队列")}

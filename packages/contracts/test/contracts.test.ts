@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { capabilityRegistry, commandEnvelopeSchema, lifeTimelineInputSchema, lifeTodayInputSchema, moneyPlanningInputSchema, publishTripPlanInputSchema, recordDiningInputSchema, recordMealInputSchema, setHealthPlanInputSchema, setRecurringPlanInputSchema, setTripDayPlanInputSchema, setTripStopOutcomeInputSchema, universalCommandEnvelopeSchema } from "../src/index.js";
+import { capabilityRegistry, commandEnvelopeSchema, healthSourcesResultSchema, lifeTimelineInputSchema, lifeTodayInputSchema, moneyPlanningInputSchema, publishTripPlanInputSchema, recordDiningInputSchema, recordMealInputSchema, setHealthPlanInputSchema, setHealthSourceStateInputSchema, setRecurringPlanInputSchema, setTripDayPlanInputSchema, setTripStopOutcomeInputSchema, universalCommandEnvelopeSchema } from "../src/index.js";
 
 const meal = {
   occurred_on: "2026-09-08",
@@ -83,6 +83,15 @@ test("overview contracts bound domains, dates and page sizes",()=>{
   assert.equal(lifeTodayInputSchema.safeParse({date:"2026-09-10",time_zone:"Invalid/Zone"}).success,false);
   assert.equal(lifeTimelineInputSchema.safeParse({limit:100,domains:["meals"]}).success,true);
   assert.equal(lifeTimelineInputSchema.safeParse({limit:101}).success,false);
+});
+
+test("health source status exposes the committed opaque cursor needed for device recovery",()=>{
+  const value={items:[{id:"source_instance_12345678",source_type:"health_connect",instance_key:"android-hc-device",permission_state:"granted",sync_epoch:2,fingerprint:"permissions",cursors:[{device_id:"device",record_type:"body",cursor:"opaque-token",state:"active",sync_epoch:2,updated_at:"2026-09-10T00:00:00Z"}]}],as_of:"2026-09-10T00:00:01Z"};
+  assert.deepEqual(healthSourcesResultSchema.parse(value),value);
+  assert.equal(healthSourcesResultSchema.safeParse({...value,items:[{...value.items[0],cursors:[{...value.items[0]!.cursors[0],cursor:7}]}]}).success,false);
+  const source={source_type:"health_connect",source_instance_key:"phone",source_fingerprint:"permissions",sync_epoch:2,permission_state:"rescan_required"} as const;
+  assert.equal(setHealthSourceStateInputSchema.safeParse(source).success,true);
+  assert.equal(setHealthSourceStateInputSchema.safeParse({...source,permission_state:"reset_required"}).success,false);
 });
 
 test("trip planning contracts preserve stable stop and runtime identities",()=>{assert.equal(setTripDayPlanInputSchema.safeParse({trip_id:"trip_12345678",plan_date:"2026-10-01",items:[{stop_id:"trip_stop_12345678",title:"西湖"}]}).success,true);assert.equal(publishTripPlanInputSchema.safeParse({trip_id:"trip_12345678",label:"出发版"}).success,true);assert.equal(setTripStopOutcomeInputSchema.safeParse({run_id:"trip_run_12345678",stop_id:"trip_stop_12345678",state:"arrived"}).success,true);assert.equal(setTripStopOutcomeInputSchema.safeParse({run_id:"trip_run_12345678",stop_id:"trip_stop_12345678",state:"pending"}).success,false);});

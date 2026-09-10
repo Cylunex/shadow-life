@@ -4,6 +4,8 @@
 
 本地通过 `~/.gradle/gradle.properties` 或命令行 Gradle 属性配置 `SHADOW_API_BASE`、`SHADOW_OIDC_ISSUER`、`SHADOW_OIDC_CLIENT_ID`、`SHADOW_OIDC_REDIRECT_URI` 和 `SHADOW_OIDC_REDIRECT_SCHEME`。这些值不得包含客户端密钥；Android 使用身份提供方注册的 public client。
 
-Health Connect 权限已在 manifest 声明，服务端使用 `health.ingest_batch` 原子接收一页变更并在全部记录持久化后推进按设备/类型 cursor。正式启用仍须在签名候选 APK 上验证权限撤销、token 过期、分页、删除和断网恢复。仓库不包含真实 API 地址、会话、签名材料或生产数据。
+Health Connect 权限已在 manifest 声明。客户端显式授权后为体重、步数、睡眠和训练分别申请并维护 Changes token，首次只回填最近 30 天且超过 1000 条时拒绝截断；后续将 upsert/delete 分页写入账号加密队列。服务端使用 `health.ingest_batch` 原子接收一页变更并在全部记录持久化后推进按设备/类型 cursor，客户端每次从服务端已提交游标继续，因此响应丢失或重装不会盲目跳页。权限撤销和 token 过期会写入来源状态并进入受控重扫。
 
-本地源码编译使用 JDK 17 与已安装的 Android SDK：`gradle :app:compileDebugKotlin`。Room v3 schema 会输出到 `app/schemas/`，迁移变更应与 schema 一并评审。
+这条源码链路通过 `compileDebugKotlin`，但正式启用仍须在签名候选安装包上逐项验证权限撤销、token 过期、多页、删除、断网/进程死亡和三星设备提供的数据类型。仓库不包含真实 API 地址、会话、签名材料或生产数据。
+
+本地源码编译使用 JDK 17 与已安装的 Android SDK：`gradle :app:compileDebugKotlin`。Room v5 schema 会输出到 `app/schemas/`，迁移变更应与 schema 一并评审。
