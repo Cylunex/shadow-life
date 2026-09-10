@@ -103,3 +103,11 @@ Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The tab
   The Web presents these as a compact attention section and keeps a truthful all-clear state. Migration 0020
   adds the open-due, source-state and trip-window read paths; a fresh isolated PostgreSQL journey applies all
   twenty migrations and verifies the three result families, authorization trimming and usable query plans.
+- Ledger imports now deterministically parse bounded CSV, JSON and Markdown statements into review candidates
+  without writing accounting facts. Raw rows, parse issues, source hashes, external IDs and duplicate links are
+  retained; confirmation reuses the normal entry/refund constraints, and refunds still require an explicit
+  original expense. Exact counterparty rules are visible, versioned and reversible: a reviewed non-refund may
+  remember its type/category/payment method, later candidates explain the rule IDs applied, and disabled rules
+  stop affecting new batches without rewriting history. The Web supports stage, per-row repair/confirm/ignore,
+  rule creation and rule disablement. Migration 0021 and a fresh PostgreSQL journey verify duplicate-file replay,
+  duplicate transactions, invalid repair, linked refunds, rule hit/confirmation/disable and subject isolation.

@@ -1,0 +1,47 @@
+import { useRef, useState, type FormEvent } from "react";
+import type { ExecutionResult, WriteCapabilityName } from "@shadow/contracts";
+import {
+  disableImportRuleCommand,
+  initialCandidateFields,
+  loadMoneyImportReview,
+  resolveCandidateCommand,
+  type CandidateFields,
+  type MoneyImportCandidate,
+  type MoneyImportReview,
+  type MoneyImportRule
+} from "./money-import.js";
+
+type Execute=(capability:WriteCapabilityName,input:unknown,commandId:string)=>Promise<ExecutionResult>;
+
+export function MoneyImportPanel({enabled,headers,execute,timeZone}:{enabled:boolean;headers:HeadersInit;execute:Execute;timeZone:string}){
+  const [format,setFormat]=useState<"csv"|"json"|"markdown">("csv");
+  const [sourceName,setSourceName]=useState("账单.csv");
+  const [content,setContent]=useState("");
+  const [review,setReview]=useState<MoneyImportReview>();
+  const [pending,setPending]=useState(false);
+  const [error,setError]=useState<string>();
+  const commandIds=useRef(new Map<string,string>());
+  const commandId=(key:string)=>{const existing=commandIds.current.get(key);if(existing)return existing;const id=`cmd_web_${crypto.randomUUID()}`;commandIds.current.set(key,id);return id;};
+  async function refresh(batchId:string){setReview(await loadMoneyImportReview(fetch,headers,batchId));}
+  async function stage(event:FormEvent){event.preventDefault();setPending(true);setError(undefined);const key=`stage:${format}:${sourceName}:${content}`;try{const result=await execute("money.stage_import",{format,source_name:sourceName,content,time_zone:timeZone},commandId(key)),batchId=String(result.actual_values.batch_id);commandIds.current.delete(key);await refresh(batchId);}catch(caught){setError(caught instanceof Error?caught.message:"导入失败");}finally{setPending(false);}}
+  async function resolve(candidate:MoneyImportCandidate,decision:"confirm"|"ignore",fields:CandidateFields){setPending(true);setError(undefined);const built=resolveCandidateCommand(candidate,decision,fields),key=`${candidate.id}:${candidate.revision}:${decision}`;try{await execute(built.capability,built.input,commandId(key));commandIds.current.delete(key);await refresh(review!.batch.id);}catch(caught){setError(caught instanceof Error?caught.message:"复核失败");}finally{setPending(false);}}
+  async function disableRule(rule:MoneyImportRule){setPending(true);setError(undefined);const built=disableImportRuleCommand(rule),key=`rule:${rule.id}:${rule.revision}:disabled`;try{await execute(built.capability,built.input,commandId(key));commandIds.current.delete(key);await refresh(review!.batch.id);}catch(caught){setError(caught instanceof Error?caught.message:"规则更新失败");}finally{setPending(false);}}
+  if(!enabled)return null;
+  return <section className="import-panel">
+    <div className="panel-heading"><div><span className="eyebrow">LEDGER</span><h2>账单导入复核</h2></div>{review&&<span className={`status ${review.batch.status}`}>{review.batch.status==="completed"?"已完成":"待复核"}</span>}</div>
+    <p>解析只生成候选；逐条确认后才写入账目。原始行、修正、规则命中和忽略原因都会保留。</p>
+    <form className="import-form" onSubmit={stage}><label>格式<select value={format} onChange={event=>setFormat(event.target.value as typeof format)}><option value="csv">CSV</option><option value="json">JSON</option><option value="markdown">Markdown 表格</option></select></label><label>来源名称<input required value={sourceName} onChange={event=>setSourceName(event.target.value)}/></label><label className="full">账单内容<textarea required value={content} onChange={event=>setContent(event.target.value)} placeholder="粘贴平台导出的原始账单内容"/></label><button disabled={pending}>{pending?"解析中…":"生成复核候选"}</button></form>
+    {error&&<p className="inline-error">{error}</p>}
+    {review&&<><div className="import-summary"><b>{review.batch.source_name}</b><span>共 {review.batch.total} · 待确认 {review.batch.pending} · 无效 {review.batch.invalid} · 已确认 {review.batch.confirmed} · 已忽略 {review.batch.ignored}</span><code>{review.batch.id}</code></div><div className="candidate-list">{review.candidates.map(candidate=><CandidateEditor key={`${candidate.id}:${candidate.revision}`} candidate={candidate} pending={pending} timeZone={timeZone} resolve={resolve}/>)}</div><RuleList rules={review.rules} pending={pending} disableRule={disableRule}/></>}
+  </section>;
+}
+
+function CandidateEditor({candidate,pending,timeZone,resolve}:{candidate:MoneyImportCandidate;pending:boolean;timeZone:string;resolve:(candidate:MoneyImportCandidate,decision:"confirm"|"ignore",fields:CandidateFields)=>Promise<void>}){
+  const [fields,setFields]=useState(()=>initialCandidateFields(candidate,timeZone));
+  const resolved=candidate.status==="confirmed"||candidate.status==="ignored";
+  return <article className={`candidate ${candidate.status}`}><header><div><b>第 {candidate.position+1} 行</b><span className={`status ${candidate.status}`}>{candidateStatus(candidate.status)}</span></div>{candidate.external_id&&<small>{candidate.external_id}</small>}</header>{candidate.duplicate_of_record_id&&<p className="inline-error">已确认交易重复：{candidate.duplicate_of_record_id}</p>}{candidate.issues.length>0&&<p className="inline-error">需修正：{candidate.issues.map(issueLabel).join("、")}</p>}{candidate.warnings.length>0&&<p className="warning">提示：{candidate.warnings.map(issueLabel).join("、")}</p>}{candidate.applied_rule_ids.length>0&&<p className="rule-hit">已应用规则：{candidate.applied_rule_ids.join("、")}</p>}{resolved?<p>{candidate.status==="confirmed"?`已写入 ${candidate.linked_record_id}`:"已忽略"}</p>:<div className="candidate-fields"><label>类型<select value={fields.entryType} onChange={event=>setFields({...fields,entryType:event.target.value as CandidateFields["entryType"],rememberRule:event.target.value==="refund"?false:fields.rememberRule})}><option value="expense">支出</option><option value="income">收入</option><option value="refund">退款</option></select></label><label>金额<input required inputMode="decimal" value={fields.amount} onChange={event=>setFields({...fields,amount:event.target.value})}/></label><label>发生日<input required type="date" value={fields.occurredOn} onChange={event=>setFields({...fields,occurredOn:event.target.value})}/></label><label>时区<input required value={fields.timeZone} onChange={event=>setFields({...fields,timeZone:event.target.value})}/></label><label>交易对方<input value={fields.counterparty} onChange={event=>setFields({...fields,counterparty:event.target.value})}/></label><label>分类<input value={fields.category} onChange={event=>setFields({...fields,category:event.target.value})}/></label><label>支付方式<select value={fields.paymentMethod} onChange={event=>setFields({...fields,paymentMethod:event.target.value})}><option value="">未映射</option><option value="alipay">支付宝</option><option value="wechat">微信</option><option value="cash">现金</option><option value="bank_card">银行卡</option><option value="bank_transfer">银行转账</option><option value="other">其他</option></select></label>{fields.entryType==="refund"&&<label>原交易 ID<input required value={fields.originalEntryId} onChange={event=>setFields({...fields,originalEntryId:event.target.value})}/></label>}<label className="full">备注<textarea value={fields.note} onChange={event=>setFields({...fields,note:event.target.value})}/></label>{fields.entryType!=="refund"&&<label className="full checkbox-row"><input type="checkbox" checked={fields.rememberRule} disabled={!fields.counterparty.trim()} onChange={event=>setFields({...fields,rememberRule:event.target.checked})}/>记住该交易对方的类型、分类与支付方式</label>}<div className="actions full"><button type="button" disabled={pending||Boolean(candidate.duplicate_of_record_id)} onClick={()=>void resolve(candidate,"confirm",fields)}>确认写入</button><button type="button" className="secondary" disabled={pending} onClick={()=>void resolve(candidate,"ignore",fields)}>忽略</button></div></div>}<details><summary>查看原始行</summary><pre>{JSON.stringify(candidate.raw,null,2)}</pre></details></article>;
+}
+
+function RuleList({rules,pending,disableRule}:{rules:MoneyImportRule[];pending:boolean;disableRule:(rule:MoneyImportRule)=>Promise<void>}){if(!rules.length)return null;return <section className="import-rules"><h3>商家导入规则</h3><p>仅精确匹配交易对方；可随时停用，不改写已确认账目。</p>{rules.map(rule=><article key={`${rule.id}:${rule.revision}`}><div><b>{rule.match_value}</b><small>{Object.entries(rule.replacements).map(([key,value])=>`${key}=${value}`).join(" · ")}</small></div><span className={`status ${rule.state}`}>{rule.state==="active"?"启用":"已停用"}</span>{rule.state==="active"&&<button type="button" className="secondary" disabled={pending} onClick={()=>void disableRule(rule)}>停用</button>}</article>)}</section>;}
+function candidateStatus(value:MoneyImportCandidate["status"]):string{return({pending:"待确认",invalid:"需修正",confirmed:"已确认",ignored:"已忽略"})[value];}
+function issueLabel(value:string):string{return({missing_date:"缺少日期",invalid_date:"日期无效",missing_amount:"缺少金额",invalid_amount:"金额无效",missing_entry_type:"缺少收支类型",invalid_entry_type:"收支类型无效",unsupported_currency:"仅支持 CNY 写入",unmapped_payment_method:"支付方式未映射",type_inferred_from_negative_amount:"已根据负号推断为支出",duplicate_external_id:"交易单号已确认过",import_rule_applied:"已应用精确商家规则"} as Record<string,string>)[value]??value;}

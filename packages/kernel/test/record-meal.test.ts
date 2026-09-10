@@ -28,7 +28,7 @@ class MemoryUnitOfWork implements UnitOfWork {
       healthSources:async()=>({items:[],as_of:new Date().toISOString()}),
       lifeToday:async(_subjectId,date)=>({date,domains:{},as_of:new Date().toISOString()}),
       lifeTimeline:async()=>({items:[],hasMore:false,asOf:new Date().toISOString()}),
-      lifeRecord:async()=>undefined,moneyPlanning:async()=>({}),healthDaily:async()=>undefined,travelTrip:async()=>undefined,libraryItem:async()=>undefined,agentPersonalContext:async()=>({aliases:[],mealTemplates:[]})
+      lifeRecord:async()=>undefined,moneyPlanning:async()=>({}),moneyImportReview:async()=>undefined,healthDaily:async()=>undefined,travelTrip:async()=>undefined,libraryItem:async()=>undefined,agentPersonalContext:async()=>({aliases:[],mealTemplates:[]})
     };
     const result = await work(store);
     this.state = draft;

@@ -1,4 +1,4 @@
-import { healthSourcesResultSchema, healthTrendResultSchema, lifeTimelineInputSchema, lifeTimelineResultSchema, lifeTodayInputSchema, lifeTodayResultSchema, mealViewSchema, moneySummarySchema, type LifeOverviewDomain, type MealView, type MoneySummary } from "@shadow/contracts";
+import { healthSourcesResultSchema, healthTrendResultSchema, lifeTimelineInputSchema, lifeTimelineResultSchema, lifeTodayInputSchema, lifeTodayResultSchema, mealViewSchema, moneyImportReviewResultSchema, moneySummarySchema, type LifeOverviewDomain, type MealView, type MoneySummary } from "@shadow/contracts";
 import { invalidInput, notFound, permissionDenied } from "./errors.js";
 import type { RequestContext, UnitOfWork } from "./ports.js";
 
@@ -35,6 +35,7 @@ export class QueryService {
     const value=await this.unitOfWork.read(store=>store.lifeRecord(context.subjectId,id,sections));if(value===undefined)throw notFound("life record was not found");return value;
   }
   async moneyPlanning(context:RequestContext,period:string){if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");if(!/^(?:0{3}[1-9]|0{2}[1-9]\d|0[1-9]\d{2}|[1-9]\d{3})-(0[1-9]|1[0-2])$/u.test(period))throw invalidInput("period must be a valid YYYY-MM",["period"]);return this.unitOfWork.read(store=>store.moneyPlanning(context.subjectId,period));}
+  async moneyImportReview(context:RequestContext,batchId:string){if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");const value=await this.unitOfWork.read(store=>store.moneyImportReview(context.subjectId,batchId));if(value===undefined)throw notFound("money import batch was not found");return moneyImportReviewResultSchema.parse(value);}
   async healthDaily(context:RequestContext,date:string){if(!context.effects.has("health.measurement.read"))throw permissionDenied("health.measurement.read");const value=await this.unitOfWork.read(store=>store.healthDaily(context.subjectId,date));if(value===undefined)throw notFound("health day was not found");return value;}
   async travelTrip(context:RequestContext,id:string){if(!context.effects.has("travel.trip.read"))throw permissionDenied("travel.trip.read");const value=await this.unitOfWork.read(store=>store.travelTrip(context.subjectId,id));if(value===undefined)throw notFound("trip was not found");return value;}
   async libraryItem(context:RequestContext,id:string){if(!context.effects.has("library.item.read"))throw permissionDenied("library.item.read");const value=await this.unitOfWork.read(store=>store.libraryItem(context.subjectId,id));if(value===undefined)throw notFound("library item was not found");return value;}

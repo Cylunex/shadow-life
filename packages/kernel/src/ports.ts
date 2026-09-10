@@ -41,6 +41,7 @@ export interface TransactionStore {
   lifeTimeline(subjectId:string,domains:readonly LifeOverviewDomain[],options:{limit:number;asOf?:string;before?:{at:string;domain:LifeOverviewDomain;kind:string;id:string}}):Promise<{items:readonly LifeTimelineItem[];hasMore:boolean;asOf:string}>;
   lifeRecord(subjectId:string,id:string,sections:readonly ("meal"|"purchase"|"money"|"sources")[]):Promise<unknown|undefined>;
   moneyPlanning(subjectId:string,period:string):Promise<unknown>;
+  moneyImportReview(subjectId:string,batchId:string):Promise<unknown|undefined>;
   healthDaily(subjectId:string,date:string):Promise<unknown|undefined>;
   travelTrip(subjectId:string,id:string):Promise<unknown|undefined>;
   libraryItem(subjectId:string,id:string):Promise<unknown|undefined>;
