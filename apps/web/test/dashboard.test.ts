@@ -14,3 +14,8 @@ test("capability failure is explicit because safe domain selection is unknown",a
   const fetcher=async(input:RequestInfo|URL)=>String(input)==="/api/capabilities"?response({},401):response({items:[]});
   await assert.rejects(()=>loadDashboard(fetcher as typeof fetch,{}),/登录已失效/u);
 });
+
+test("dashboard prefers server-side daily metrics and unified timeline",async()=>{
+  const calls:string[]=[];const fetcher=async(input:RequestInfo|URL)=>{const url=String(input);calls.push(url);if(url==="/api/write-epochs")return response({items:[]});if(url==="/api/capabilities")return response({capabilities:[{name:"life.today"},{name:"life.timeline"}]});if(url.startsWith("/api/today?"))return response({date:"2026-09-10",domains:{meals:{count:7,freshness:null}},as_of:"2026-09-10T00:00:00Z"});if(url==="/api/timeline?limit=30")return response({items:[{domain:"meals",kind:"meal",id:"meal_12345678",happened_at:"2026-09-10T01:00:00Z",title:"早餐"}],next_cursor:null,as_of:"2026-09-10T02:00:00Z"});throw new Error(`unexpected ${url}`);};
+  const result=await loadDashboard(fetcher as typeof fetch,{}, {date:"2026-09-10",timeZone:"Asia/Shanghai"});assert.equal(result.today?.domains.meals?.count,7);assert.equal(result.timeline?.items[0]?.id,"meal_12345678");assert.equal(calls.some(url=>url.includes("time_zone=Asia%2FShanghai")),true);
+});

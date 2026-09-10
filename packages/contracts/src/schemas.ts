@@ -360,6 +360,18 @@ export const listMealsResultSchema = z.object({ items: z.array(mealViewSchema) }
 export const moneySummaryInputSchema = z.object({}).strict();
 export const domainRecordsInputSchema=z.object({query:z.string().trim().min(1).max(200).optional(),limit:z.number().int().min(1).max(100).default(50),cursor:z.string().max(1_000).optional()}).strict();
 export const domainRecordsResultSchema=z.object({items:z.array(z.record(z.string(),z.unknown())),next_cursor:z.string().nullable(),as_of:instant}).strict();
+export const lifeOverviewDomainSchema=z.enum(["meals","money","health","travel","library"]);
+export const lifeTodayInputSchema=z.object({date:localDate,time_zone:ianaTimeZone,domains:z.array(lifeOverviewDomainSchema).min(1).max(5).optional()}).strict();
+export const lifeTodayResultSchema=z.object({date:localDate,domains:z.object({
+  meals:z.object({count:z.number().int().nonnegative(),freshness:instant.nullable()}).strict().optional(),
+  money:z.object({entries:z.number().int().nonnegative(),totals:z.array(z.object({currency:currencyCode,gross_expense:storedAmount,refund:storedAmount,income:storedAmount,net_spending:signedStoredAmount,net_cashflow:signedStoredAmount}).strict()),freshness:instant.nullable()}).strict().optional(),
+  health:z.object({facts:z.number().int().nonnegative(),freshness:instant.nullable()}).strict().optional(),
+  travel:z.object({visits:z.number().int().nonnegative(),freshness:instant.nullable()}).strict().optional(),
+  library:z.object({captured:z.number().int().nonnegative(),freshness:instant.nullable()}).strict().optional()
+}).strict(),as_of:instant}).strict();
+export const lifeTimelineInputSchema=z.object({domains:z.array(lifeOverviewDomainSchema).min(1).max(5).optional(),limit:z.number().int().min(1).max(100).default(30),cursor:z.string().max(1_000).optional()}).strict();
+export const lifeTimelineItemSchema=z.object({domain:lifeOverviewDomainSchema,kind:z.string(),id:stableId,happened_at:instant,title:z.string(),amount:storedAmount.optional(),currency:currencyCode.optional(),record_id:stableId.optional()}).strict();
+export const lifeTimelineResultSchema=z.object({items:z.array(lifeTimelineItemSchema),next_cursor:z.string().nullable(),as_of:instant}).strict();
 export const lifeRecordSectionSchema=z.enum(["meal","purchase","money","sources"]);
 export const lifeRecordInputSchema=z.object({id:stableId,sections:z.array(lifeRecordSectionSchema).min(1).max(4).optional()}).strict();
 export const resourceDetailInputSchema=z.object({id:stableId}).strict();
@@ -373,6 +385,8 @@ export const healthSourcesResultSchema=z.object({items:z.array(z.object({id:stab
 export const getOperationInputSchema = z.object({ execution_id: stableId }).strict();
 
 export type RecordMealInput = z.infer<typeof recordMealInputSchema>;
+export type LifeOverviewDomain = z.infer<typeof lifeOverviewDomainSchema>;
+export type LifeTimelineItem = z.infer<typeof lifeTimelineItemSchema>;
 export type RecordMealCommand = z.infer<typeof recordMealCommandEnvelopeSchema>;
 export type WriteCapabilityName = z.infer<typeof writeCapabilityNameSchema>;
 export type UniversalCommandEnvelope = z.infer<typeof universalCommandEnvelopeSchema>;

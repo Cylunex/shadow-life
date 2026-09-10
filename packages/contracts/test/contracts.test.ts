@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { capabilityRegistry, commandEnvelopeSchema, moneyPlanningInputSchema, publishTripPlanInputSchema, recordDiningInputSchema, recordMealInputSchema, setHealthPlanInputSchema, setRecurringPlanInputSchema, setTripDayPlanInputSchema, setTripStopOutcomeInputSchema, universalCommandEnvelopeSchema } from "../src/index.js";
+import { capabilityRegistry, commandEnvelopeSchema, lifeTimelineInputSchema, lifeTodayInputSchema, moneyPlanningInputSchema, publishTripPlanInputSchema, recordDiningInputSchema, recordMealInputSchema, setHealthPlanInputSchema, setRecurringPlanInputSchema, setTripDayPlanInputSchema, setTripStopOutcomeInputSchema, universalCommandEnvelopeSchema } from "../src/index.js";
 
 const meal = {
   occurred_on: "2026-09-08",
@@ -75,6 +75,14 @@ test("money planning accepts only real calendar months",()=>{
   assert.equal(moneyPlanningInputSchema.safeParse({period:"0000-12"}).success,false);
   assert.equal(moneyPlanningInputSchema.safeParse({period:"2026-00"}).success,false);
   assert.equal(moneyPlanningInputSchema.safeParse({period:"2026-13"}).success,false);
+});
+
+test("overview contracts bound domains, dates and page sizes",()=>{
+  assert.equal(lifeTodayInputSchema.safeParse({date:"2026-09-10",time_zone:"Asia/Shanghai",domains:["money","health"]}).success,true);
+  assert.equal(lifeTodayInputSchema.safeParse({date:"2026-02-30",time_zone:"Asia/Shanghai"}).success,false);
+  assert.equal(lifeTodayInputSchema.safeParse({date:"2026-09-10",time_zone:"Invalid/Zone"}).success,false);
+  assert.equal(lifeTimelineInputSchema.safeParse({limit:100,domains:["meals"]}).success,true);
+  assert.equal(lifeTimelineInputSchema.safeParse({limit:101}).success,false);
 });
 
 test("trip planning contracts preserve stable stop and runtime identities",()=>{assert.equal(setTripDayPlanInputSchema.safeParse({trip_id:"trip_12345678",plan_date:"2026-10-01",items:[{stop_id:"trip_stop_12345678",title:"西湖"}]}).success,true);assert.equal(publishTripPlanInputSchema.safeParse({trip_id:"trip_12345678",label:"出发版"}).success,true);assert.equal(setTripStopOutcomeInputSchema.safeParse({run_id:"trip_run_12345678",stop_id:"trip_stop_12345678",state:"arrived"}).success,true);assert.equal(setTripStopOutcomeInputSchema.safeParse({run_id:"trip_run_12345678",stop_id:"trip_stop_12345678",state:"pending"}).success,false);});

@@ -1,10 +1,12 @@
-import { healthSourcesResultSchema, healthTrendResultSchema, mealViewSchema, moneySummarySchema, type MealView, type MoneySummary } from "@shadow/contracts";
+import { healthSourcesResultSchema, healthTrendResultSchema, lifeTimelineInputSchema, lifeTimelineResultSchema, lifeTodayInputSchema, lifeTodayResultSchema, mealViewSchema, moneySummarySchema, type LifeOverviewDomain, type MealView, type MoneySummary } from "@shadow/contracts";
 import { invalidInput, notFound, permissionDenied } from "./errors.js";
 import type { RequestContext, UnitOfWork } from "./ports.js";
 
 type Domain="money"|"health"|"travel"|"library";
 type Cursor={domain:Domain;query:string;at:string;kind:string;id:string;as_of:string};
 type LifeRecordSection="meal"|"purchase"|"money"|"sources";
+type TimelineCursor={domains:string;at:string;domain:LifeOverviewDomain;kind:string;id:string;as_of:string};
+const overviewEffects:Record<LifeOverviewDomain,string>={meals:"life.meal.read",money:"money.entry.read",health:"health.measurement.read",travel:"travel.trip.read",library:"library.item.read"};
 
 export class QueryService {
   constructor(private readonly unitOfWork:UnitOfWork) {}
@@ -18,6 +20,13 @@ export class QueryService {
   }
   async healthTrend(context:RequestContext,input:{metric_key:string;from?:string|undefined;to?:string|undefined;limit:number}){if(!context.effects.has("health.measurement.read"))throw permissionDenied("health.measurement.read");return healthTrendResultSchema.parse(await this.unitOfWork.read(store=>store.healthTrend(context.subjectId,input)));}
   async healthSources(context:RequestContext){if(!context.effects.has("health.measurement.read"))throw permissionDenied("health.measurement.read");return healthSourcesResultSchema.parse(await this.unitOfWork.read(store=>store.healthSources(context.subjectId)));}
+  async lifeToday(context:RequestContext,input:unknown){const parsed=lifeTodayInputSchema.safeParse(input);if(!parsed.success)throw invalidInput("today query is invalid",parsed.error.issues.map(issue=>issue.path.join(".")));const domains=this.overviewDomains(context,parsed.data.domains);return lifeTodayResultSchema.parse(await this.unitOfWork.read(store=>store.lifeToday(context.subjectId,parsed.data.date,parsed.data.time_zone,domains)));}
+  async lifeTimeline(context:RequestContext,input:unknown){
+    const parsed=lifeTimelineInputSchema.safeParse(input);if(!parsed.success)throw invalidInput("timeline query is invalid",parsed.error.issues.map(issue=>issue.path.join(".")));const domains=this.overviewDomains(context,parsed.data.domains),signature=domains.join(",");let before:TimelineCursor|undefined;
+    if(parsed.data.cursor){try{before=JSON.parse(Buffer.from(parsed.data.cursor,"base64url").toString("utf8")) as TimelineCursor;}catch{throw invalidInput("timeline cursor is invalid",["cursor"]);}if(before.domains!==signature||!before.at||!before.domain||!before.kind||!before.id||!before.as_of)throw invalidInput("timeline cursor does not match this query",["cursor"]);}
+    const page=await this.unitOfWork.read(store=>store.lifeTimeline(context.subjectId,domains,{limit:parsed.data.limit,...(before?{asOf:before.as_of,before:{at:before.at,domain:before.domain,kind:before.kind,id:before.id}}:{})})),last=page.items.at(-1),next=page.hasMore&&last?Buffer.from(JSON.stringify({domains:signature,at:last.happened_at,domain:last.domain,kind:last.kind,id:last.id,as_of:page.asOf} satisfies TimelineCursor)).toString("base64url"):null;
+    return lifeTimelineResultSchema.parse({items:page.items,next_cursor:next,as_of:page.asOf});
+  }
   async lifeRecord(context:RequestContext,id:string,requested?:readonly LifeRecordSection[]){
     const sections=[...new Set(requested??[...(context.effects.has("life.meal.read")?["meal","purchase","sources"] as const:[]),...(context.effects.has("money.entry.read")?["money"] as const:[])])];
     if(!sections.length)throw permissionDenied("life.meal.read");
@@ -30,4 +39,5 @@ export class QueryService {
   async travelTrip(context:RequestContext,id:string){if(!context.effects.has("travel.trip.read"))throw permissionDenied("travel.trip.read");const value=await this.unitOfWork.read(store=>store.travelTrip(context.subjectId,id));if(value===undefined)throw notFound("trip was not found");return value;}
   async libraryItem(context:RequestContext,id:string){if(!context.effects.has("library.item.read"))throw permissionDenied("library.item.read");const value=await this.unitOfWork.read(store=>store.libraryItem(context.subjectId,id));if(value===undefined)throw notFound("library item was not found");return value;}
   async agentPersonalContext(context:RequestContext){const aliasKinds=[...(context.effects.has("life.meal.read")?["food","meal_template"]:[]),...(context.effects.has("money.entry.read")?["merchant","payment_method"]:[])],includeMealTemplates=context.effects.has("life.meal.read");if(!aliasKinds.length&&!includeMealTemplates)return{aliases:[],mealTemplates:[]};return this.unitOfWork.read(store=>store.agentPersonalContext(context.subjectId,aliasKinds,includeMealTemplates));}
+  private overviewDomains(context:RequestContext,requested?:readonly LifeOverviewDomain[]):LifeOverviewDomain[]{const available=(Object.keys(overviewEffects) as LifeOverviewDomain[]).filter(domain=>context.effects.has(overviewEffects[domain])).sort();if(!requested)return available;for(const domain of requested)if(!available.includes(domain))throw permissionDenied(overviewEffects[domain]);return[...new Set(requested)].sort();}
 }

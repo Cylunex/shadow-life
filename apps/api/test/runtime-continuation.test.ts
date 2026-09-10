@@ -33,6 +33,25 @@ test("missing resources are returned as 404 errors",async()=>{
   assert.equal(response.status,404);assert.equal((await response.json() as {code:string}).code,"not_found");
 });
 
+test("overview routes parse typed filters before calling query services",async()=>{
+  let todayInput:unknown,timelineInput:unknown;
+  const dependencies={
+    unitOfWork:{ensurePrincipal:async()=>undefined,pool:{query:async()=>({rows:[]})}},
+    executor:{execute:async()=>({}),getOperation:async()=>({})},
+    queries:{
+      lifeToday:async(_context:unknown,input:unknown)=>{todayInput=input;return{date:"2026-09-10",time_zone:"Asia/Shanghai",domains:{money:{entries:1,totals:[],freshness:"2026-09-10T01:00:00.000Z"}},as_of:"2026-09-10T02:00:00.000Z"};},
+      lifeTimeline:async(_context:unknown,input:unknown)=>{timelineInput=input;return{items:[],next_cursor:null,as_of:"2026-09-10T02:00:00.000Z"};}
+    },
+    developmentAuth:true
+  } as unknown as Parameters<typeof createApp>[0];
+  const app=createApp(dependencies),headers={authorization:"Bearer dev:subject_test"};
+  const today=await app.request("/api/today?date=2026-09-10&time_zone=Asia%2FShanghai&domains=money,health",{headers});
+  const timeline=await app.request("/api/timeline?domains=money&limit=2",{headers});
+  assert.equal(today.status,200);assert.equal(timeline.status,200);
+  assert.deepEqual(todayInput,{date:"2026-09-10",time_zone:"Asia/Shanghai",domains:["money","health"]});
+  assert.deepEqual(timelineInput,{domains:["money"],limit:2});
+});
+
 test("runtime-forged commit events are rejected before tool dispatch",async()=>{
   let executions=0,sequence=0,finished="";const events:unknown[]=[];
   const runtime={id:"forged",available:true,async *run(request:RuntimeRequest){yield{id:"forged_1",type:"tool.completed",runId:request.runId,capability:"money.record_entry",result:{status:"committed",execution_id:"exec_forged00"}};},async *submitToolResult(){throw new Error("must not continue");}} as unknown as AgentRuntimeAdapter;

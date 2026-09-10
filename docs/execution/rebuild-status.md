@@ -77,3 +77,10 @@ Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The tab
 - Health source reads now fetch all authorized source instances and their cursors in two stable, batched
   statements instead of one cursor query per source. Migration 0017 adds the subject/source cursor index; the
   PostgreSQL journey asserts both the fixed statement count across multiple sources and the usable index plan.
+- The Today page now consumes server-side per-date metrics instead of treating fetched page lengths as totals.
+  A typed, permission-trimmed overview counts meals, confirmed money facts by currency, effective Health facts,
+  visible visits and locally dated Library captures with freshness timestamps. The unified timeline uses actual
+  occurrence instants, an authorization-bound snapshot cursor and explicit DTOs rather than merging arbitrary
+  per-domain JSON in the browser. Migration 0018 adds the first overview paths; contracts, permission tests,
+  API route parsing, Web loading tests and the PostgreSQL journey cover partial access, local dates, ordering and
+  late-write exclusion. All TypeScript checks, 64 non-PostgreSQL tests and the Web production build pass.

@@ -20,3 +20,19 @@ test("money planning rejects impossible months before reading storage",async()=>
   await assert.rejects(()=>queries.moneyPlanning(context(["money.entry.read"]),"2026-13"),(error:unknown)=>(error as {detail?:{code?:string}}).detail?.code==="validation");
   assert.equal(reads,0);
 });
+
+test("overview queries read only explicitly authorized domains",async()=>{
+  const calls:{today?:readonly string[];timeline?:readonly string[]}={};const store={
+    lifeToday:async(_subject:string,date:string,_zone:string,domains:readonly string[])=>{calls.today=domains;return{date,domains:{money:{entries:0,totals:[],freshness:null}},as_of:"2026-09-10T00:00:00Z"};},
+    lifeTimeline:async(_subject:string,domains:readonly string[])=>{calls.timeline=domains;return{items:[],hasMore:false,asOf:"2026-09-10T00:00:00Z"};}
+  } as unknown as TransactionStore,unit={read:async<T>(work:(value:TransactionStore)=>Promise<T>)=>work(store)} as unknown as UnitOfWork,queries=new QueryService(unit),moneyContext=context(["money.entry.read"]);
+  await queries.lifeToday(moneyContext,{date:"2026-09-10",time_zone:"Asia/Shanghai"});assert.deepEqual(calls.today,["money"]);
+  await queries.lifeTimeline(moneyContext,{});assert.deepEqual(calls.timeline,["money"]);
+  await assert.rejects(()=>queries.lifeToday(moneyContext,{date:"2026-09-10",time_zone:"Asia/Shanghai",domains:["health"]}),(error:unknown)=>(error as {detail?:{code?:string}}).detail?.code==="permission_denied");
+});
+
+test("timeline cursor is bound to the authorized domain selection",async()=>{
+  let reads=0;const store={lifeTimeline:async()=>{reads++;return{items:[{domain:"money",kind:"money_entry",id:"money_12345678",happened_at:"2026-09-10T00:00:00Z",title:"餐饮",amount:"20.00",currency:"CNY",record_id:"record_12345678"}],hasMore:true,asOf:"2026-09-10T01:00:00Z"};}} as unknown as TransactionStore,unit={read:async<T>(work:(value:TransactionStore)=>Promise<T>)=>work(store)} as unknown as UnitOfWork,queries=new QueryService(unit),readContext=context(["money.entry.read","health.measurement.read"]);
+  const first=await queries.lifeTimeline(readContext,{domains:["money"],limit:1});assert.ok(first.next_cursor);assert.equal(reads,1);
+  await assert.rejects(()=>queries.lifeTimeline(readContext,{domains:["health"],limit:1,cursor:first.next_cursor}),(error:unknown)=>(error as {detail?:{code?:string}}).detail?.code==="validation");assert.equal(reads,1);
+});

@@ -1,4 +1,4 @@
-import type { ExecutionResult, MealView, MoneySummary, RecordMealInput, UniversalCommandEnvelope } from "@shadow/contracts";
+import type { ExecutionResult, LifeOverviewDomain, LifeTimelineItem, MealView, MoneySummary, RecordMealInput, UniversalCommandEnvelope } from "@shadow/contracts";
 
 export interface RequestContext {
   readonly actorId: string;
@@ -37,6 +37,8 @@ export interface TransactionStore {
   listDomain(subjectId:string,domain:"money"|"health"|"travel"|"library",options:{query?:string;limit:number;asOf?:string;before?:{at:string;kind:string;id:string}}):Promise<{items:readonly Record<string,unknown>[];hasMore:boolean;asOf:string}>;
   healthTrend(subjectId:string,input:{metric_key:string;from?:string|undefined;to?:string|undefined;limit:number}):Promise<unknown>;
   healthSources(subjectId:string):Promise<unknown>;
+  lifeToday(subjectId:string,date:string,timeZone:string,domains:readonly LifeOverviewDomain[]):Promise<unknown>;
+  lifeTimeline(subjectId:string,domains:readonly LifeOverviewDomain[],options:{limit:number;asOf?:string;before?:{at:string;domain:LifeOverviewDomain;kind:string;id:string}}):Promise<{items:readonly LifeTimelineItem[];hasMore:boolean;asOf:string}>;
   lifeRecord(subjectId:string,id:string,sections:readonly ("meal"|"purchase"|"money"|"sources")[]):Promise<unknown|undefined>;
   moneyPlanning(subjectId:string,period:string):Promise<unknown>;
   healthDaily(subjectId:string,date:string):Promise<unknown|undefined>;
