@@ -279,3 +279,15 @@ rotates to the next type, and completed rounds do not self-start. 13 policy plus
 assertions, four actual emitted command contract checks, the Room 5→6 SQLite migration check and Android Kotlin
 compilation pass. See [the scoped follow-up](android-health-reverification-fixes-2026-09-11.md). Real device,
 provider and OS process-death validation remain release work.
+
+## Library processing recovery optimization (2026-09-11)
+
+After independent F01–F10 / V01–V02 re-verification, Library processing now uses a database-clock five-minute
+lease and monotonic attempts. Expired work is discoverable and reclaimable; renew, completion and failure are
+fenced after row-lock acquisition. Builtin text processing claims just before work and routes all job transitions
+through the shared Executor, committing derivations/snippets/status together with receipts and Outbox events.
+Migration 0032 preserves originals and terminal data. External processors must carry the returned attempt.
+The complete serial PostgreSQL/Node suite passes 143/143, including seven new regressions; ten TS projects,
+contracts, boundaries and Web build pass. One prior parallel run hit a temporary database teardown connection
+race, retained as a test stability limitation. See the [research/design](../architecture/library-processing-recovery-2026-09-11.md)
+and [delivery/validation record](library-processing-recovery-delivery-2026-09-11.md). No deployment or full historical migration is implied.

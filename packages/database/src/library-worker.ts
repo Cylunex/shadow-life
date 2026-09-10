@@ -1,4 +1,6 @@
-import { createHash } from "node:crypto";
+import { randomUUID } from "node:crypto";
+import { CommandExecutor, KernelError, sha256Fingerprinter, systemClock, uuidIds, type RequestContext } from "@shadow/kernel";
+import { PostgresUnitOfWork } from "./postgres.js";
 import type { Pool } from "pg";
 import { AssetService } from "./asset-service.js";
 
@@ -12,14 +14,43 @@ export function splitLibraryText(text:string,maxCharacters=4_000):Array<{text:st
   return snippets;
 }
 
-export async function processPendingLibrary(pool:Pool,limit=20):Promise<Array<{job_id:string;state:"completed"|"failed";error?:string}>>{
-  const claimed=await pool.query<{id:string;item_id:string;subject_id:string;source_asset_version_id:string}>("with candidates as (select id from library_processing_jobs where kind='text_extract' and requested_processor='builtin-text-v1' and (state='queued' or (state='running' and updated_at<now()-interval '5 minutes')) order by updated_at,id for update skip locked limit $1) update library_processing_jobs job set state='running',attempts=attempts+1,started_at=coalesce(started_at,now()),updated_at=now() from candidates where job.id=candidates.id returning job.id,job.item_id,job.subject_id,job.source_asset_version_id",[limit]);
-  const assets=new AssetService(pool),results:Array<{job_id:string;state:"completed"|"failed";error?:string}>=[];
-  for(const job of claimed.rows){try{
-    const source=(await pool.query<{bytes:Buffer;media_type:string}>("select blob.bytes,asset.media_type from asset_blobs blob join asset_versions version on version.id=blob.asset_version_id join assets asset on asset.id=version.asset_id where version.id=$1 and asset.subject_id=$2",[job.source_asset_version_id,job.subject_id])).rows[0];
-    if(!source)throw new Error("fixed original asset is unavailable");if(!textMediaTypes.has(source.media_type))throw new Error(`builtin-text-v1 does not support ${source.media_type}`);if(source.bytes.length>1_000_000)throw new Error("text original exceeds the 1000000 byte processing limit");
-    const text=new TextDecoder("utf-8",{fatal:true}).decode(source.bytes),snippets=splitLibraryText(text);if(!snippets.length)throw new Error("text original contains no readable content");const derived=await assets.store(job.subject_id,"text/plain",Buffer.from(text,"utf8"),{sourceVersionId:job.source_asset_version_id,processor:"builtin-text-v1",kind:"text_extract"});
-    const client=await pool.connect();try{await client.query("begin");const locked=await client.query<{revision:number}>("select item.current_revision revision from library_processing_jobs job join library_items item on item.id=job.item_id and item.subject_id=job.subject_id where job.id=$1 and job.subject_id=$2 and job.state='running' for update",[job.id,job.subject_id]);if(!locked.rowCount)throw new Error("processing job is no longer running");const revision=locked.rows[0]!.revision,short=createHash("sha256").update(job.id).digest("hex").slice(0,24),derivationId=`derivation_${short}`;await client.query("insert into library_derivations(id,item_id,subject_id,source_asset_version_id,derived_asset_version_id,kind,processor_version) values($1,$2,$3,$4,$5,'text_extract','builtin-text-v1')",[derivationId,job.item_id,job.subject_id,job.source_asset_version_id,derived.asset_version_id]);for(const [ordinal,snippet] of snippets.entries())await client.query("insert into library_snippets(id,item_id,job_id,subject_id,item_revision,ordinal,text,locator) values($1,$2,$3,$4,$5,$6,$7,$8)",[`snippet_${short}_${ordinal}`,job.item_id,job.id,job.subject_id,revision,ordinal,snippet.text,snippet.locator]);await client.query("update library_processing_jobs set state='completed',derived_asset_version_id=$2,processor_version='builtin-text-v1',last_error=null,finished_at=now(),updated_at=now() where id=$1",[job.id,derived.asset_version_id]);await client.query("commit");}catch(error){await client.query("rollback");throw error;}finally{client.release();}results.push({job_id:job.id,state:"completed"});
-  }catch(error){const message=error instanceof Error?error.message:"library processing failed";await pool.query("update library_processing_jobs set state='failed',last_error=$2,finished_at=now(),updated_at=now() where id=$1",[job.id,message]);results.push({job_id:job.id,state:"failed",error:message});}}
+export async function processPendingLibrary(pool:Pool,limit=20):Promise<Array<{job_id:string;state:"completed"|"failed"|"superseded";error?:string}>>{
+  if(!Number.isInteger(limit)||limit<1||limit>100)throw new RangeError("library processing limit must be between 1 and 100");
+  // Reading candidates grants no ownership. Claim each immediately before doing its work;
+  // simultaneous dispatchers resolve their race in the same public Executor transaction.
+  const candidates=await pool.query<{id:string;subject_id:string;source_asset_version_id:string;attempts:number}>("select id,subject_id,source_asset_version_id,attempts from library_processing_jobs where kind='text_extract' and requested_processor='builtin-text-v1' and (state='queued' or (state='running' and lease_expires_at<=clock_timestamp())) order by updated_at,id limit $1",[limit]);
+  const executor=new CommandExecutor({unitOfWork:new PostgresUnitOfWork(pool),ids:uuidIds,clock:systemClock,fingerprinter:sha256Fingerprinter});
+  const assets=new AssetService(pool),results:Array<{job_id:string;state:"completed"|"failed"|"superseded";error?:string}>=[];
+  for(const job of candidates.rows){
+    const context:RequestContext={actorId:job.subject_id,subjectId:job.subject_id,clientId:"worker_library_builtin",traceId:`trace_${randomUUID()}`,effects:new Set(["library.processor.write"])};
+    const execute=(capability:string,input:unknown)=>executor.execute(context,{protocol:"shadow.command",capability,command_id:`cmd_${randomUUID()}`,input});
+    let attempt:number;
+    try{
+      const claimed=await execute("library.claim_processing",{job_id:job.id,expected_attempt:job.attempts});
+      attempt=Number(claimed.actual_values.attempt);
+    }catch(error){if(error instanceof KernelError&&error.status===409)continue;throw error;}
+    try{
+      const source=(await pool.query<{bytes:Buffer;media_type:string}>("select blob.bytes,asset.media_type from asset_blobs blob join asset_versions version on version.id=blob.asset_version_id join assets asset on asset.id=version.asset_id where version.id=$1 and asset.subject_id=$2",[job.source_asset_version_id,job.subject_id])).rows[0];
+      if(!source)throw new Error("fixed original asset is unavailable");
+      if(!textMediaTypes.has(source.media_type))throw new Error(`builtin-text-v1 does not support ${source.media_type}`);
+      if(source.bytes.length>1_000_000)throw new Error("text original exceeds the 1000000 byte processing limit");
+      const text=new TextDecoder("utf-8",{fatal:true}).decode(source.bytes),snippets=splitLibraryText(text);
+      if(!snippets.length)throw new Error("text original contains no readable content");
+      const derived=await assets.store(job.subject_id,"text/plain",Buffer.from(text,"utf8"),{sourceVersionId:job.source_asset_version_id,processor:"builtin-text-v1",kind:"text_extract"});
+      await execute("library.complete_processing",{job_id:job.id,attempt,derived_asset_version_id:derived.asset_version_id,processor_version:"builtin-text-v1",snippets});
+      results.push({job_id:job.id,state:"completed"});
+    }catch(error){
+      const message=(error instanceof Error?error.message:"library processing failed").slice(0,2_000);
+      try{
+        // The Executor fences this failure too: a delayed worker cannot damage a new
+        // attempt or turn an already committed success into failure after a lost reply.
+        await execute("library.fail_processing",{job_id:job.id,attempt,error:message});
+        results.push({job_id:job.id,state:"failed",error:message});
+      }catch(failure){
+        if(!(failure instanceof KernelError&&failure.status===409))throw failure;
+        results.push({job_id:job.id,state:"superseded"});
+      }
+    }
+  }
   return results;
 }

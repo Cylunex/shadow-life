@@ -278,9 +278,10 @@ export const annotateLibraryItemInputSchema=z.object({item_id:stableId,anchor:z.
 export const registerLibraryDerivationInputSchema=z.object({item_id:stableId,source_asset_version_id:stableId,derived_asset_version_id:stableId,kind:z.string().trim().min(1).max(100),processor_version:z.string().trim().min(1).max(100)}).strict();
 export const queueLibraryProcessingInputSchema=z.object({item_id:stableId,source_asset_version_id:stableId,kind:z.enum(["text_extract","ocr","transcript"]),requested_processor:z.string().trim().min(1).max(100)}).strict();
 export const retryLibraryProcessingInputSchema=z.object({job_id:stableId}).strict();
-export const claimLibraryProcessingInputSchema=z.object({job_id:stableId}).strict();
-export const failLibraryProcessingInputSchema=z.object({job_id:stableId,error:z.string().trim().min(1).max(2_000)}).strict();
-export const completeLibraryProcessingInputSchema=z.object({job_id:stableId,derived_asset_version_id:stableId,processor_version:z.string().trim().min(1).max(100),snippets:z.array(z.object({text:z.string().trim().min(1).max(20_000),locator:z.json()}).strict()).min(1).max(500)}).strict();
+export const claimLibraryProcessingInputSchema=z.object({job_id:stableId,expected_attempt:z.number().int().min(0)}).strict();
+export const renewLibraryProcessingInputSchema=z.object({job_id:stableId,attempt:z.number().int().positive()}).strict();
+export const failLibraryProcessingInputSchema=z.object({job_id:stableId,attempt:z.number().int().positive(),error:z.string().trim().min(1).max(2_000)}).strict();
+export const completeLibraryProcessingInputSchema=z.object({job_id:stableId,attempt:z.number().int().positive(),derived_asset_version_id:stableId,processor_version:z.string().trim().min(1).max(100),snippets:z.array(z.object({text:z.string().trim().min(1).max(20_000),locator:z.json()}).strict()).min(1).max(500)}).strict();
 export const libraryProcessingQueueInputSchema=z.object({kind:z.enum(["text_extract","ocr","transcript"]).optional(),limit:z.number().int().min(1).max(100).default(20)}).strict();
 export const setLibraryReadingStateInputSchema=z.object({item_id:stableId,item_revision:z.number().int().positive(),locator:z.json(),progress:z.number().min(0).max(1),state:z.enum(["active","completed"])}).strict().superRefine((value,context)=>{if(value.state==="completed"&&value.progress!==1)context.addIssue({code:"custom",path:["progress"],message:"completed reading state requires progress 1"});});
 export const registerLibraryLegacyLinkInputSchema=z.object({item_id:stableId,legacy_uri:z.string().trim().min(1).max(2_000),algorithm:z.enum(["ed25519-sha256-ascii-v1","legacy-unverified"]),source_asset_version_id:stableId.optional(),signed_content_sha256:z.string().regex(/^[0-9a-f]{64}$/u).optional(),public_key_pem:z.string().min(1).max(10_000).optional(),signature_base64:z.string().regex(/^[A-Za-z0-9+/]+={0,2}$/u).max(1_000).optional()}).strict().superRefine((value,context)=>{const proofFields=[value.source_asset_version_id,value.signed_content_sha256,value.public_key_pem,value.signature_base64];if(value.algorithm==="ed25519-sha256-ascii-v1"&&proofFields.some(field=>field===undefined))context.addIssue({code:"custom",message:"verified legacy proof requires the asset version, hash, public key, and signature"});if(value.algorithm==="legacy-unverified"&&proofFields.some(field=>field!==undefined))context.addIssue({code:"custom",message:"unverified legacy links cannot carry unverifiable proof fields"});});
@@ -380,6 +381,7 @@ export const writeCommandSchemas = {
   "library.queue_processing":queueLibraryProcessingInputSchema,
   "library.retry_processing":retryLibraryProcessingInputSchema,
   "library.claim_processing":claimLibraryProcessingInputSchema,
+  "library.renew_processing":renewLibraryProcessingInputSchema,
   "library.fail_processing":failLibraryProcessingInputSchema,
   "library.complete_processing":completeLibraryProcessingInputSchema,
   "library.set_reading_state":setLibraryReadingStateInputSchema,
