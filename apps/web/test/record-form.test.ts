@@ -19,3 +19,15 @@ test("health form writes a typed metric with its label, unit and note",()=>{
 });
 
 test("money formatting rejects silent rounding",()=>{const fields={...initialRecordFields("2026-09-08","Asia/Shanghai"),amount:"18.009"};assert.throws(()=>buildFormCommand("record",fields),/两位小数/u);});
+
+test("health goal form produces a typed active goal",()=>{
+  const fields={...initialRecordFields("2026-12-31","Asia/Shanghai"),planKind:"goal" as const,title:"体重目标",amount:"65",healthMetric:"weight" as const,unit:"kg"};const built=buildFormCommand("plan",fields);
+  assert.equal(built.capability,"health.set_plan");assert.deepEqual(capabilityRegistry[built.capability].inputSchema.parse(built.input),{kind:"goal",name:"体重目标",state:"active",metric_key:"weight",target_value:"65",unit:"kg",due_on:"2026-12-31"});
+});
+
+test("workout form normalizes schedule days and preserves its note",()=>{
+  const fields={...initialRecordFields("2026-09-08","Asia/Shanghai"),planKind:"workout" as const,title:"五公里训练",scheduleDays:"5, 1，3,3",note:"轻松跑"};const built=buildFormCommand("plan",fields);
+  assert.equal(built.capability,"health.set_plan");assert.deepEqual(capabilityRegistry[built.capability].inputSchema.parse(built.input),{kind:"workout",name:"五公里训练",state:"active",schedule:{days:[1,3,5]},detail:{note:"轻松跑"}});
+});
+
+test("habit form rejects invalid weekdays",()=>{const fields={...initialRecordFields("2026-09-08","Asia/Shanghai"),planKind:"habit" as const,title:"拉伸",scheduleDays:"1,8"};assert.throws(()=>buildFormCommand("plan",fields),/1 到 7/u);});

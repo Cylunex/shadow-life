@@ -92,3 +92,9 @@ Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The tab
   millisecond versions with PostgreSQL bigint semantics. Kotlin compilation and the isolated PostgreSQL journey
   pass; signed-device, Samsung-provider and physical permission/process-death evidence remain release acceptance
   and are not claimed by this source-level implementation.
+- The Web Health workspace now loads daily projection status, selectable 90-point metric trends and every
+  authorized source independently, keeps a missing daily projection as an honest empty state, and reports
+  section-local failures without hiding sibling data. Source cards expose permission, generation and cursor
+  freshness but never render opaque cursor contents. The unified Plan tab creates typed Health goals, habits and
+  workout plans alongside budgets, normalizes weekly schedules, preserves workout notes and hides plan kinds the
+  current capability set cannot write. Focused Web tests, all TypeScript checks and the production Web build pass.
