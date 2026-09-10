@@ -53,6 +53,8 @@ export interface TransactionStore {
   agentContextPack(subjectId:string,id:string,threadId?:string):Promise<unknown|undefined>;
   agentMemories(subjectId:string,category:string|undefined,limit:number):Promise<readonly Record<string,unknown>[]>;
   notifications(subjectId:string,limit:number):Promise<unknown>;
+  ownedItems(subjectId:string,state:string|undefined,limit:number,visibility:{purchase:boolean;library:boolean;money:boolean}):Promise<unknown>;
+  lifeReviews(subjectId:string,limit:number,authorizedDomains:readonly string[]):Promise<unknown>;
   agentPersonalContext(subjectId:string,aliasKinds:readonly string[],includeMealTemplates:boolean):Promise<{aliases:readonly Record<string,unknown>[];mealTemplates:readonly Record<string,unknown>[]}>;
 }
 

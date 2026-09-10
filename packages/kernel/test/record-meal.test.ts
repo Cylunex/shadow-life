@@ -29,7 +29,7 @@ class MemoryUnitOfWork implements UnitOfWork {
       healthSources:async()=>({items:[],as_of:new Date().toISOString()}),
       lifeToday:async(_subjectId,date)=>({date,domains:{},as_of:new Date().toISOString()}),
       lifeTimeline:async()=>({items:[],hasMore:false,asOf:new Date().toISOString()}),
-      lifeRecord:async()=>undefined,moneyPlanning:async()=>({}),moneyImportReview:async()=>undefined,healthDaily:async()=>undefined,healthRecord:async()=>undefined,travelTrip:async()=>undefined,travelWorkspace:async()=>({}),travelExportData:async()=>undefined,libraryItem:async()=>undefined,libraryProcessingQueue:async()=>({items:[]}),agentContextPack:async()=>undefined,agentMemories:async()=>[],notifications:async()=>({items:[]}),agentPersonalContext:async()=>({aliases:[],mealTemplates:[]})
+      lifeRecord:async()=>undefined,moneyPlanning:async()=>({}),moneyImportReview:async()=>undefined,healthDaily:async()=>undefined,healthRecord:async()=>undefined,travelTrip:async()=>undefined,travelWorkspace:async()=>({}),travelExportData:async()=>undefined,libraryItem:async()=>undefined,libraryProcessingQueue:async()=>({items:[]}),agentContextPack:async()=>undefined,agentMemories:async()=>[],notifications:async()=>({items:[]}),ownedItems:async()=>({items:[]}),lifeReviews:async()=>({items:[]}),agentPersonalContext:async()=>({aliases:[],mealTemplates:[]})
     };
     const result = await work(store);
     this.state = draft;

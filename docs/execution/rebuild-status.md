@@ -24,6 +24,7 @@ Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The tab
 | SL-05 Health/Ledger daily replacement | Implemented at server capability level; typed Web entry and review workspaces are usable | Detail queries, habits/goals/workout plans and actual workout execution, recurring occurrences, intent/use-cycle, food/recipe catalogs, immutable recipe meal snapshots, bill review and Worker materialization are wired through HTTP/MCP/Agent; Web preserves actual date, independent payment date, time zone, correction reasons, known/unknown nutrition and explicit recipe consumption fraction; installed Android device validation remains release work |
 | SL-06 complete travel | Implemented at portable server/Web capability level and PostgreSQL-verified | Personal theme maps keep candidates, anchors and collection-only “visited” state separate from Visit facts; the map-first Web workspace shows coordinate-relative places without an external provider, immutable-plan in-transit progress, GPX import and Bundle/GPX/ICS downloads. Reservations/segments/visits carry explicit content visibility, with actual visits private by default and sensitive reservation fields still author-only. Bundle recovery requires read-only structural/semantic preview, restores a new owned copy with remapped places/maps and stable stops, and deliberately does not invent members, runs, sources or fare links. Invitations, route-provider geometry, memories and production restoration remain product/release extensions rather than this portable core |
 | SL-07 archive takeover | Implemented and PostgreSQL-verified at portable server/Web capability level | Revision, annotation, immutable originals, queued/versioned processing, indexed citable snippets, reading resume, SHA-256 asset proofs, explicit old URI status and Ed25519 compatibility verification pass the isolated journey. The Worker only performs bounded UTF-8 text extraction; OCR/transcript require a real processor to list, claim and return a derived asset or failure. Protected originals remain attachment-only and legacy keys/signatures are omitted from normal detail reads. Reviewed real URI mapping, old-key verification corpus and production export/restore remain release work |
+| D1 owned items and cross-domain review | Implemented and PostgreSQL-verified | Only an explicit user action creates an OwnedItem from a purchase line or manual entry. Item revisions, exact Library document versions, maintenance/after-sales events, optional cost links and state transitions are subject-scoped. Reviews use fixed program logic, preserve original-currency totals, coverage, bounded evidence and algorithm version, can be recomputed after corrections, and make no health-causality or opaque-score claim |
 | SL-08 release cutover | Not executed | Production snapshot, restore drill, real client/device/runtime runs, final reconciliation, writer freeze and explicit release operation |
 
 ## Verification on 2026-09-09
@@ -181,4 +182,15 @@ Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The tab
   projects, 117 non-PostgreSQL tests (116 pass and the database-only journey is skipped), contract/boundary checks
   and the Web production build pass. The live Runtime evaluation harness now includes context-pack and notification
   redaction scenarios, but it was not run because no real issuer/Runtime endpoint was configured; no APK was
+  packaged and nothing was deployed.
+- Owned items now form an explicit purchase-line → item → versioned receipt/manual → maintenance/after-sales
+  chain without treating every purchase as inventory. Updates and state-changing events preserve prior aggregate
+  snapshots; foreign purchase lines, Library revisions and cost entries are rejected, while current read effects
+  independently control purchase, document-title and cost visibility. Cross-domain reviews use `life-review-v1`
+  to calculate period metrics by original currency, record coverage and at most 100 evidence references per
+  domain, persist limitations against opaque scoring and health-causality claims, and create a new review revision
+  when corrected source facts are recomputed. Migration 0028 and a fresh PostgreSQL journey cover all 28
+  migrations, subject isolation, stale revisions, invalid maintenance after return, permission-trimmed reads and
+  changed results after a money correction. All TypeScript projects, 119 non-PostgreSQL tests (118 pass and the
+  database-only journey is skipped), contract/boundary checks and the Web production build pass. No APK was
   packaged and nothing was deployed.

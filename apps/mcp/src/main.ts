@@ -40,6 +40,8 @@ function queryRequest(name:string,input:unknown,headers:Record<string,string>):P
   if(name==="agent.get_context_pack")return fetch(`${api}/api/agent/context-packs/${encodeURIComponent((input as {context_pack_id:string}).context_pack_id)}`,{headers});
   if(name==="agent.memories"){const value=input as {category?:string;limit:number},search=new URLSearchParams({limit:String(value.limit)});if(value.category)search.set("category",value.category);return fetch(`${api}/api/agent/memories?${search}`,{headers});}
   if(name==="notifications.list")return fetch(`${api}/api/notifications?limit=${encodeURIComponent(String((input as {limit:number}).limit))}`,{headers});
+  if(name==="life.owned_items"){const value=input as {state?:string;limit:number},search=new URLSearchParams({limit:String(value.limit)});if(value.state)search.set("state",value.state);return fetch(`${api}/api/life/owned-items?${search}`,{headers});}
+  if(name==="life.reviews")return fetch(`${api}/api/life/reviews?limit=${encodeURIComponent(String((input as {limit:number}).limit))}`,{headers});
   if(name==="operations.get")return fetch(`${api}/api/operations/${encodeURIComponent((input as {execution_id:string}).execution_id)}`,{headers});
   throw new Error("Query capability is not wired");
 }

@@ -85,6 +85,17 @@ test("agent context and durable memory keep permission and inference boundaries"
   assert.equal(capabilityRegistry["notifications.update"].inputSchema.safeParse({notification_id:"notification_12345678",action:"snooze"}).success,false);
 });
 
+test("owned items stay explicit and life reviews are bounded deterministic inputs",()=>{
+  const save=capabilityRegistry["life.save_owned_item"],linked={purchase_item_id:"purchase_item_12345678",name:"耳机",ownership_state:"owned",documents:[{library_item_id:"library_12345678",library_revision:2,role:"receipt"}]} as const;
+  assert.equal(save.inputSchema.safeParse(linked).success,true);assert.deepEqual(save.resolveEffects(linked),["life.item.write","life.meal.read","library.item.read"]);
+  assert.equal(save.inputSchema.safeParse({...linked,owned_item_id:"owned_item_12345678",expected_revision:1}).success,false);
+  assert.equal(capabilityRegistry["life.record_owned_item_event"].inputSchema.safeParse({owned_item_id:"owned_item_12345678",expected_revision:1,event_kind:"repair",occurred_on:"2026-09-10",note:"更换电池"}).success,true);
+  const review={from_on:"2026-09-01",to_on:"2026-09-07",time_zone:"Asia/Shanghai",domains:["money","items"]} as const;
+  assert.equal(capabilityRegistry["life.generate_review"].inputSchema.safeParse(review).success,true);assert.deepEqual(capabilityRegistry["life.generate_review"].resolveEffects(review),["life.review.write","money.entry.read","life.item.read"]);
+  assert.equal(capabilityRegistry["life.generate_review"].inputSchema.safeParse({...review,to_on:"2027-09-10"}).success,false);
+  assert.equal(capabilityRegistry["life.generate_review"].inputSchema.safeParse({...review,domains:["money","money"]}).success,false);
+});
+
 test("life detail sections resolve the exact read effects",()=>{
   assert.deepEqual(capabilityRegistry["life.get_record"].resolveEffects({id:"record_12345678",sections:["meal","sources"]}),["life.meal.read"]);
   assert.deepEqual(capabilityRegistry["life.get_record"].resolveEffects({id:"record_12345678",sections:["money"]}),["money.entry.read"]);

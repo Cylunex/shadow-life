@@ -296,6 +296,13 @@ export const agentContextPackInputSchema=z.object({context_pack_id:stableId}).st
 export const agentMemoriesInputSchema=z.object({category:z.enum(["explicit_preference","deterministic_aggregate"]).optional(),limit:z.number().int().min(1).max(100).default(50)}).strict();
 export const notificationsInputSchema=z.object({limit:z.number().int().min(1).max(100).default(50)}).strict();
 
+export const ownedItemDocumentSchema=z.object({library_item_id:stableId,library_revision:z.number().int().positive(),role:z.enum(["receipt","manual","warranty","repair"])}).strict();
+export const saveOwnedItemInputSchema=z.object({owned_item_id:stableId.optional(),expected_revision:z.number().int().positive().optional(),purchase_item_id:stableId.nullable().optional(),name:z.string().trim().min(1).max(200),ownership_state:z.enum(["owned","gifted","returned","disposed","lost"]).default("owned"),location:z.string().trim().min(1).max(200).nullable().optional(),started_on:localDate.nullable().optional(),warranty_ends_on:localDate.nullable().optional(),return_by:localDate.nullable().optional(),documents:z.array(ownedItemDocumentSchema).max(20).default([]),reason:z.string().trim().min(1).max(500).optional()}).strict().superRefine((value,context)=>{if((value.owned_item_id===undefined)!==(value.expected_revision===undefined))context.addIssue({code:"custom",message:"owned_item_id and expected_revision must be supplied together"});if(value.owned_item_id&&value.reason===undefined)context.addIssue({code:"custom",path:["reason"],message:"updating an owned item needs a reason"});const keys=new Set<string>();for(const [index,document] of value.documents.entries()){const key=`${document.role}:${document.library_item_id}`;if(keys.has(key))context.addIssue({code:"custom",path:["documents",index],message:"duplicate owned item document"});keys.add(key);}});
+export const recordOwnedItemEventInputSchema=z.object({owned_item_id:stableId,expected_revision:z.number().int().positive(),event_kind:z.enum(["maintenance","repair","return","dispose","gift","lost","restore","note"]),occurred_on:localDate,note:z.string().trim().min(1).max(2_000),cost_entry_id:stableId.optional(),document:ownedItemDocumentSchema.omit({role:true}).optional()}).strict();
+export const ownedItemsInputSchema=z.object({state:z.enum(["owned","gifted","returned","disposed","lost"]).optional(),limit:z.number().int().min(1).max(100).default(50)}).strict();
+export const generateLifeReviewInputSchema=z.object({review_id:stableId.optional(),expected_revision:z.number().int().positive().optional(),from_on:localDate,to_on:localDate,time_zone:ianaTimeZone,domains:z.array(z.enum(["money","meals","health","items","library"])).min(1).max(5).default(["money","meals","health","items","library"])}).strict().superRefine((value,context)=>{if((value.review_id===undefined)!==(value.expected_revision===undefined))context.addIssue({code:"custom",message:"review_id and expected_revision must be supplied together"});if(value.to_on<value.from_on)context.addIssue({code:"custom",path:["to_on"],message:"to_on must not precede from_on"});const days=(Date.parse(`${value.to_on}T00:00:00Z`)-Date.parse(`${value.from_on}T00:00:00Z`))/86_400_000+1;if(days>366)context.addIssue({code:"custom",path:["to_on"],message:"review period must not exceed 366 days"});if(new Set(value.domains).size!==value.domains.length)context.addIssue({code:"custom",path:["domains"],message:"review domains must be unique"});});
+export const lifeReviewsInputSchema=z.object({limit:z.number().int().min(1).max(50).default(20)}).strict();
+
 export const writeCommandSchemas = {
   "life.record_meal": recordMealInputSchema,
   "life.record_dining":recordDiningInputSchema,
@@ -365,7 +372,10 @@ export const writeCommandSchemas = {
   "agent.revoke_context_pack":revokeAgentContextPackInputSchema,
   "agent.set_memory":setAgentMemoryInputSchema,
   "notifications.set_preferences":setNotificationPreferencesInputSchema,
-  "notifications.update":updateNotificationInputSchema
+  "notifications.update":updateNotificationInputSchema,
+  "life.save_owned_item":saveOwnedItemInputSchema,
+  "life.record_owned_item_event":recordOwnedItemEventInputSchema,
+  "life.generate_review":generateLifeReviewInputSchema
 } as const;
 
 export const writeCapabilityNameSchema = z.enum(Object.keys(writeCommandSchemas) as [keyof typeof writeCommandSchemas, ...(keyof typeof writeCommandSchemas)[]]);
@@ -380,7 +390,7 @@ export const universalCommandEnvelopeSchema = z.object({
 });
 
 export const resourceReferenceSchema = z.object({
-  type: z.enum(["meal", "meal_template", "food", "recipe", "personal_alias", "intake_item", "consumption_record", "purchase", "purchase_item", "money_entry", "refund", "budget", "recurring_plan", "recurring_occurrence", "spending_intent", "use_cycle", "money_import_batch", "money_import_candidate", "money_import_rule", "health_measurement", "health_workout_session", "health_raw", "health_sync_cursor", "health_plan", "trip", "trip_segment", "reservation", "visit", "place", "travel_map", "trip_track", "trip_day_plan", "trip_member", "trip_plan_version", "trip_run", "trip_stop_outcome", "library_item", "library_annotation", "library_derivation", "library_processing_job", "library_reading_state", "library_legacy_link", "agent_context_pack", "agent_memory", "notification_preferences", "notification", "source", "thread", "run", "task"]),
+  type: z.enum(["meal", "meal_template", "food", "recipe", "personal_alias", "intake_item", "consumption_record", "purchase", "purchase_item", "money_entry", "refund", "budget", "recurring_plan", "recurring_occurrence", "spending_intent", "use_cycle", "money_import_batch", "money_import_candidate", "money_import_rule", "health_measurement", "health_workout_session", "health_raw", "health_sync_cursor", "health_plan", "trip", "trip_segment", "reservation", "visit", "place", "travel_map", "trip_track", "trip_day_plan", "trip_member", "trip_plan_version", "trip_run", "trip_stop_outcome", "library_item", "library_annotation", "library_derivation", "library_processing_job", "library_reading_state", "library_legacy_link", "agent_context_pack", "agent_memory", "notification_preferences", "notification", "owned_item", "owned_item_event", "life_review", "source", "thread", "run", "task"]),
   id: stableId,
   revision: z.number().int().positive()
 }).strict();

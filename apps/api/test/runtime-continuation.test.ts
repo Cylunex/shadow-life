@@ -41,7 +41,7 @@ test("missing resources are returned as 404 errors",async()=>{
 });
 
 test("overview routes parse typed filters before calling query services",async()=>{
-  let todayInput:unknown,timelineInput:unknown,importBatchId="",healthRecordId="",travelWorkspaceInput:unknown,travelExportInput:unknown,travelPreviewInput:unknown;
+  let todayInput:unknown,timelineInput:unknown,importBatchId="",healthRecordId="",travelWorkspaceInput:unknown,travelExportInput:unknown,travelPreviewInput:unknown,ownedItemsInput:unknown,reviewsInput:unknown;
   const dependencies={
     unitOfWork:{ensurePrincipal:async()=>undefined,pool:{query:async()=>({rows:[]})}},
     executor:{execute:async()=>({}),getOperation:async()=>({})},
@@ -53,6 +53,8 @@ test("overview routes parse typed filters before calling query services",async()
       travelWorkspace:async(_context:unknown,input:unknown)=>{travelWorkspaceInput=input;return{places:[],maps:[],trips:[]};},
       travelExport:async(_context:unknown,input:unknown)=>{travelExportInput=input;return{format:"ics",mime_type:"text/calendar",filename:"trip_demo.ics",sha256:"0".repeat(64),content:"BEGIN:VCALENDAR"};}
       ,previewTravelPortable:async(_context:unknown,input:unknown)=>{travelPreviewInput=input;return{format:"gpx",points:1};}
+      ,ownedItems:async(_context:unknown,input:unknown)=>{ownedItemsInput=input;return{items:[]};}
+      ,lifeReviews:async(_context:unknown,input:unknown)=>{reviewsInput=input;return{items:[]};}
     },
     developmentAuth:true
   } as unknown as Parameters<typeof createApp>[0];
@@ -64,10 +66,12 @@ test("overview routes parse typed filters before calling query services",async()
   const travelWorkspace=await app.request("/api/travel/workspace?trip_id=trip_12345678",{headers});
   const travelExport=await app.request("/api/travel/trips/trip_12345678/export?format=ics",{headers});
   const travelPreview=await app.request("/api/travel/portable/preview",{method:"POST",headers:{...headers,"content-type":"application/json"},body:JSON.stringify({format:"gpx",content:'<gpx><trkpt lat="1" lon="2"></trkpt></gpx>'})});
-  assert.equal(today.status,200);assert.equal(timeline.status,200);assert.equal(importReview.status,200);assert.equal(healthRecord.status,200);assert.equal(travelWorkspace.status,200);assert.equal(travelExport.status,200);assert.equal(travelPreview.status,200);assert.equal(importBatchId,"import_batch_12345678");assert.equal(healthRecordId,"health_12345678");
+  const ownedItems=await app.request("/api/life/owned-items?state=owned&limit=12",{headers});const reviews=await app.request("/api/life/reviews?limit=7",{headers});
+  assert.equal(today.status,200);assert.equal(timeline.status,200);assert.equal(importReview.status,200);assert.equal(healthRecord.status,200);assert.equal(travelWorkspace.status,200);assert.equal(travelExport.status,200);assert.equal(travelPreview.status,200);assert.equal(ownedItems.status,200);assert.equal(reviews.status,200);assert.equal(importBatchId,"import_batch_12345678");assert.equal(healthRecordId,"health_12345678");
   assert.deepEqual(todayInput,{date:"2026-09-10",time_zone:"Asia/Shanghai",domains:["money","health"]});
   assert.deepEqual(timelineInput,{domains:["money"],limit:2});
   assert.deepEqual(travelWorkspaceInput,{trip_id:"trip_12345678"});assert.deepEqual(travelExportInput,{trip_id:"trip_12345678",format:"ics"});assert.deepEqual(travelPreviewInput,{format:"gpx",content:'<gpx><trkpt lat="1" lon="2"></trkpt></gpx>'});
+  assert.deepEqual(ownedItemsInput,{state:"owned",limit:12});assert.deepEqual(reviewsInput,{limit:7});
 });
 
 test("runtime-forged commit events are rejected before tool dispatch",async()=>{

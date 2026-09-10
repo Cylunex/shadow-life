@@ -71,6 +71,19 @@ select { width:100%; border:1px solid #bac5b6; border-radius:12px; background:#f
 .candidate-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 14px; }
 .candidate details { margin-top:12px; color:#667168; }
 .status.review,.status.pending { background:#f4e7c9; color:#725414; }
+.status.owned { background:#dcefe4; color:#245f3d; }
+.status.gifted,.status.returned { background:#e6e8ef; color:#465066; }
+.status.disposed,.status.lost { background:#f3dddd; color:#7b3333; }
+.owned-items,.life-reviews { padding:1rem; background:var(--surface); border-radius:18px; }
+.owned-item-list,.review-list { display:grid; gap:.8rem; padding:0; list-style:none; }
+.owned-item-list>li,.review-list>li { display:grid; gap:.45rem; padding:.9rem; border:1px solid var(--line); border-radius:14px; }
+.owned-item-list>li>div:first-child { display:flex; justify-content:space-between; gap:.8rem; }
+.compact-form { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:.75rem; margin:1rem 0; padding:1rem; border:1px solid var(--line); border-radius:14px; }
+.compact-form h3,.compact-form .full,.compact-form .actions { grid-column:1/-1; }
+.purchase-to-items { margin:1rem 0; padding:1rem; border:1px dashed var(--line); border-radius:14px; }
+.purchase-to-items button { margin:.25rem .35rem .25rem 0; }
+.review-range { display:flex; flex-wrap:wrap; align-items:end; gap:.75rem; }
+.review-list pre { max-height:22rem; overflow:auto; white-space:pre-wrap; background:#f8f7f3; padding:.75rem; border-radius:10px; }
 .status.completed,.status.confirmed { background:#d9ebdf; color:#24643d; }
 .status.invalid { background:#f3dfdc; color:#8b3434; }
 .status.ignored { background:#e2e8df; color:#526158; }
