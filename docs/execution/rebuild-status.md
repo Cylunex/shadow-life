@@ -225,3 +225,11 @@ Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The tab
   Two new isolated PostgreSQL regressions pass, covering correction, void, cross-subject and shared-member denial,
   revoked effects, exact 5/15/60-minute TTL, delayed insertion, expiry, thread binding and command replay; 43 focused
   contract/kernel/API tests also pass. Real Runtime and device acceptance remain open.
+- F04/F10: Generic monetary correction now rejects amount/currency changes while FX or allocation relationships
+  exist, preserves note-only correction, and records source precision. A settled allocation blocks void until it
+  is resolved; void waives unsettled allocations and subsequent allocation writes require a confirmed parent.
+  Correction/void history includes exact FX and allocation snapshots. Current FX reads omit inconsistent legacy
+  conversions. The migration CLI converts only exact money/intake decimal columns to strings before pg JSON
+  decoding; source-scale integers and unrelated JSON numbers retain their types. Two isolated PostgreSQL tests
+  pass, including real CLI apply/update/delete/replay and reconciliation with a value above JavaScript's safe
+  integer range, all intake numeric fields, and trailing zeros. No historical migration checksum was changed.

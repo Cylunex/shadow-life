@@ -1,0 +1,60 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { spawnSync } from "node:child_process";
+import { mkdtemp,readFile,writeFile,rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { resolve,join } from "node:path";
+import { reviewFixture,pgOnly } from "./review-fixture.js";
+
+test("F04: generic correction preserves FX, allocation and source-scale invariants",pgOnly,async t=>{
+  const {run,queries,context,pool,executor,command}=await reviewFixture(t);
+  const entry=await run("money.record_foreign_entry",{entry_type:"expense",amount:"100.00",currency:"USD",source_scale:2,occurred_on:"2026-09-10",time_zone:"Asia/Shanghai",conversion:{base_amount:"700.00",base_currency:"CNY",rate:"7",quoted_at:"2026-09-10T00:00:00Z",source_kind:"manual"},allocations:[{participant_label:"Alice",original_amount:"80.00"}]});
+  const id=String(entry.actual_values.money_entry_id),recordId=entry.actual_values.record_id;
+  const correction={record_id:recordId,expected_revision:1,amount:"100.00",currency:"USD",occurred_on:"2026-09-10",time_zone:"Asia/Shanghai",reason:"修正测试"};
+  for(const change of [{amount:"50.123456",currency:"EUR"},{amount:"99.00"},{currency:"EUR"}])await assert.rejects(()=>run("money.correct_entry",{...correction,...change}),/linked FX and allocations/);
+  const note=command("money.correct_entry",{...correction,note:"保留外币备注"});await executor.execute(context,note);assert.equal((await executor.execute(context,note)).replayed,true);
+  const actual=(await queries.foreignEntries(context)) as {items:Array<{amount:string;base_amount:string;source_scale:number;allocations:Array<{id:string;state:string}>}>};
+  assert.equal(actual.items[0]?.amount,"100.000000");assert.equal(actual.items[0]?.base_amount,"700.000000");assert.equal(actual.items[0]?.source_scale,2);
+  const allocationId=actual.items[0]!.allocations[0]!.id;
+  await run("money.update_shared_allocation",{allocation_id:allocationId,expected_revision:1,state:"settled",settled_on:"2026-09-10"});
+  await assert.rejects(()=>run("money.void_entry",{record_id:recordId,expected_revision:2,reason:"待处理结算"}),/settled allocations/);
+  await run("money.update_shared_allocation",{allocation_id:allocationId,expected_revision:2,state:"unsettled"});
+  await run("money.void_entry",{record_id:recordId,expected_revision:2,reason:"撤销未结算"});
+  await assert.rejects(()=>run("money.update_shared_allocation",{allocation_id:allocationId,expected_revision:4,state:"settled",settled_on:"2026-09-10"}),/not confirmed/);
+  assert.equal((await pool.query("select state from shared_expense_allocations where id=$1",[allocationId])).rows[0].state,"waived");
+  assert.equal(((await queries.foreignEntries(context)) as {items:unknown[]}).items.length,0);
+  const history=(await pool.query("select snapshot from consumption_record_revisions where record_id=$1 order by revision",[recordId])).rows;
+  assert.equal(history[0].snapshot.money_entry.amount,"100.000000");assert.equal(history[1].snapshot.allocations[0].original_amount,"80.000000");assert.equal(history[1].snapshot.fx.rate,"7.000000000000");
+  const plain=await run("money.record_entry",{entry_type:"expense",amount:"100.00",currency:"CNY",occurred_on:"2026-09-10",time_zone:"Asia/Shanghai"});
+  await run("money.correct_entry",{...correction,record_id:plain.actual_values.record_id,amount:"50.123456",currency:"EUR"});
+  assert.equal((await pool.query("select source_scale from money_entries where id=$1",[plain.actual_values.money_entry_id])).rows[0].source_scale,6);
+  await assert.rejects(()=>run("money.correct_entry",{...correction,record_id:plain.actual_values.record_id,expected_revision:2,amount:"-1"}));
+  assert.ok(id);
+});
+
+test("F10: migration CLI update/delete/replay preserves every exact historical decimal",pgOnly,async t=>{
+  const {pool,connectionString}=await reviewFixture(t),root=resolve(import.meta.dirname,"../../.."),dir=await mkdtemp(join(tmpdir(),"life-decimal-test-"));t.after(()=>rm(dir,{recursive:true,force:true}));
+  const bundle=JSON.parse(await readFile(resolve(root,"importers/legacy/fixtures/migration-bundle.json"),"utf8"));
+  bundle.target_schema_version=(await pool.query("select left(max(name),4) version from schema_migrations")).rows[0].version;
+  bundle.owners={"legacy-owner":"subject_decimal_regression"};
+  const money=bundle.objects[0],meal=bundle.objects[1];
+  money.targets[0].data.amount="9007199254740993.123456";money.targets[0].data.source_scale=6;money.payload.amount=money.targets[0].data.amount;
+  meal.targets[0].data.items[0].unit="g";
+  const nutrientFields=["quantity","amount_g","energy_kcal","protein_g","fat_g","carb_g","fiber_g","sodium_mg","consumed_fraction"];
+  for(const field of nutrientFields)meal.targets[0].data.items[0][field]=field==="consumed_fraction"?"0.123400":"9007199254740993.123456";
+  async function invoke(mode:string){const file=join(dir,"bundle.json");await writeFile(file,JSON.stringify(bundle));const result=spawnSync(process.execPath,["--import","tsx","importers/legacy/src/cli.ts",mode,file],{cwd:root,env:{...process.env,DATABASE_URL:connectionString},encoding:"utf8"});assert.equal(result.status,0,result.stdout+result.stderr);return JSON.parse(result.stdout);}
+  assert.equal((await invoke("apply")).applied,2);assert.equal((await invoke("apply")).replayed,2);
+  money.source.revision="2";meal.source.revision="2";
+  money.targets[0].data.amount="9007199254740994.123400";money.payload.amount=money.targets[0].data.amount;meal.targets[0].data.items[0].name="已修正合成样例";
+  assert.equal((await invoke("final-delta")).applied,2);assert.equal((await invoke("final-delta")).replayed,2);
+  const moneySnapshot=(await pool.query("select snapshot from consumption_record_revisions where record_id='record_import_fixture' and revision=1")).rows[0].snapshot;
+  assert.equal(moneySnapshot.money_entry.amount,"9007199254740993.123456");assert.equal(typeof moneySnapshot.money_entry.source_scale,"number");
+  const mealSnapshot=(await pool.query("select snapshot from meal_revisions where meal_id='meal_import_fixture' and revision=1")).rows[0].snapshot;
+  for(const field of nutrientFields)assert.equal(mealSnapshot.items[0][field],field==="consumed_fraction"?"0.123400":"9007199254740993.123456");
+  assert.equal((await invoke("reconcile")).complete,true);
+  money.source.revision="3";meal.source.revision="3";money.change_kind="delete";meal.change_kind="delete";
+  assert.equal((await invoke("final-delta")).applied,2);assert.equal((await invoke("final-delta")).replayed,2);
+  assert.equal((await pool.query("select snapshot->'money_entry'->>'amount' amount from consumption_record_revisions where record_id='record_import_fixture' and revision=2")).rows[0].amount,"9007199254740994.123400");
+  assert.equal((await pool.query("select count(*)::int n from meal_revisions where meal_id='meal_import_fixture'")).rows[0].n,2);
+  assert.equal((await invoke("reconcile")).complete,true);
+});
