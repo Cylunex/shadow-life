@@ -1,7 +1,7 @@
 plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id("org.jetbrains.kotlin.plugin.compose"); id("com.google.devtools.ksp") }
 android { namespace="com.shadow.app"; compileSdk=36
   defaultConfig {
-    applicationId="com.shadow.app"; minSdk=26; targetSdk=36; versionCode=15; versionName="1.0.0"
+    applicationId="com.shadow.app"; minSdk=26; targetSdk=36; versionCode=16; versionName="1.0.0"
     fun configured(name:String,fallback:String)=providers.gradleProperty(name).orElse(fallback).get()
     fun quoted(value:String)="\"${value.replace("\\","\\\\").replace("\"","\\\"")}\""
     buildConfigField("String","SHADOW_API_BASE",quoted(configured("SHADOW_API_BASE","https://api.example.com")))

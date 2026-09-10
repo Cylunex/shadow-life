@@ -6,6 +6,7 @@ import android.net.Uri
 import android.util.Base64
 import kotlinx.coroutines.suspendCancellableCoroutine
 import net.openid.appauth.AuthState
+import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationRequest
 import net.openid.appauth.AuthorizationResponse
 import net.openid.appauth.AuthorizationService
@@ -15,6 +16,11 @@ import org.json.JSONObject
 import kotlin.coroutines.resume
 
 data class FreshSession(val session:ProductSession,val accessToken:String)
+sealed interface SessionRefresh {
+  data class Ready(val value:FreshSession):SessionRefresh
+  data object Retryable:SessionRefresh
+  data object ReauthRequired:SessionRefresh
+}
 
 class OidcSessions(private val activity:Activity,private val store:SessionStore) {
   private val service=AuthorizationService(activity)
@@ -46,14 +52,22 @@ class OidcSessions(private val activity:Activity,private val store:SessionStore)
   fun close(){service.dispose()}
 }
 
-suspend fun SessionStore.fresh(accountId:String,context:android.content.Context):FreshSession?=suspendCancellableCoroutine{continuation->
-  val saved=load(accountId)?:run{continuation.resume(null);return@suspendCancellableCoroutine}
-  val state=runCatching{AuthState.jsonDeserialize(saved.authStateJson)}.getOrNull()?:run{revoke(accountId);continuation.resume(null);return@suspendCancellableCoroutine}
+suspend fun SessionStore.fresh(accountId:String,context:android.content.Context):SessionRefresh=suspendCancellableCoroutine{continuation->
+  val saved=load(accountId)?:run{continuation.resume(SessionRefresh.ReauthRequired);return@suspendCancellableCoroutine}
+  val state=runCatching{AuthState.jsonDeserialize(saved.authStateJson)}.getOrNull()?:run{revoke(accountId);continuation.resume(SessionRefresh.ReauthRequired);return@suspendCancellableCoroutine}
   val service=AuthorizationService(context)
   continuation.invokeOnCancellation{service.dispose()}
   state.performActionWithFreshTokens(service){token,_,error->
     if(!continuation.isActive){service.dispose();return@performActionWithFreshTokens}
-    if(error!=null||token==null){revoke(accountId);continuation.resume(null)}else{val updated=saved.copy(authStateJson=state.jsonSerializeString());save(updated);continuation.resume(FreshSession(updated,token))}
+    if(error!=null||token==null){
+      val permanent=error?.type==AuthorizationException.TYPE_OAUTH_TOKEN_ERROR&&error.error !in setOf("server_error","temporarily_unavailable")
+      if(permanent)revoke(accountId)
+      continuation.resume(if(permanent)SessionRefresh.ReauthRequired else SessionRefresh.Retryable)
+    }else{
+      val updated=saved.copy(authStateJson=state.jsonSerializeString())
+      save(updated)
+      continuation.resume(SessionRefresh.Ready(FreshSession(updated,token)))
+    }
     service.dispose()
   }
 }

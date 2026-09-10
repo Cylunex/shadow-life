@@ -1,52 +1,143 @@
 package com.shadow.app
 
 import android.content.Context
-import androidx.work.*
+import androidx.work.Constraints
+import androidx.work.CoroutineWorker
+import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
-import java.io.File
-import java.time.LocalDate
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+import java.time.Instant
+import java.time.ZoneOffset
 
 object SyncScheduler {
-  fun schedule(context:Context, accountId:String) {
-    val request=OneTimeWorkRequestBuilder<SyncWorker>().setInputData(workDataOf("account_id" to accountId)).setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()).build()
+  fun schedule(context:Context,accountId:String){
+    val request=OneTimeWorkRequestBuilder<SyncWorker>()
+      .setInputData(workDataOf("account_id" to accountId))
+      .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+      .build()
     WorkManager.getInstance(context).enqueueUniqueWork("shadow-sync-$accountId",ExistingWorkPolicy.KEEP,request)
   }
 }
 
-class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(context,params) {
-  override suspend fun doWork():Result=withContext(Dispatchers.IO) {
+class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(context,params){
+  override suspend fun doWork():Result=withContext(Dispatchers.IO){
     val accountId=inputData.getString("account_id")?:return@withContext Result.failure()
     val app=applicationContext as ShadowApp
-    val fresh=app.sessions.fresh(accountId,applicationContext)?:return@withContext Result.failure(workDataOf("reason" to "reauth_required"))
+    val fresh=when(val refresh=app.sessions.fresh(accountId,applicationContext)){
+      is SessionRefresh.Ready->refresh.value
+      SessionRefresh.Retryable->return@withContext Result.retry()
+      SessionRefresh.ReauthRequired->return@withContext Result.failure(workDataOf("reason" to "reauth_required"))
+    }
     val session=fresh.session
     val accessToken=fresh.accessToken
-    for(attachment in app.database.commands().pendingAttachments(accountId,session.subjectId)){
-      try{val file=File(attachment.localPath);val connection=URL("${session.apiBase}/api/assets").openConnection() as HttpURLConnection;connection.requestMethod="POST";connection.setRequestProperty("Authorization","Bearer $accessToken");connection.setRequestProperty("Content-Type",attachment.mediaType);connection.doOutput=true;file.inputStream().use{input->connection.outputStream.use(input::copyTo)};if(connection.responseCode==401){app.sessions.revoke(accountId);return@withContext Result.failure(workDataOf("reason" to "reauth_required"))};if(connection.responseCode !in listOf(200,201))return@withContext if(connection.responseCode in listOf(429,500,502,503,504))Result.retry() else Result.failure();val uploaded=JSONObject(connection.inputStream.bufferedReader().readText());if(uploaded.optString("protocol")!="shadow.asset")return@withContext Result.retry();val input=JSONObject().put("title","来自 Android 的图片").put("item_type","image").put("tags",org.json.JSONArray()).put("source",JSONObject().put("kind","image").put("captured_on",LocalDate.now().toString()).put("asset_version_id",uploaded.getString("asset_version_id")));val body=JSONObject().put("protocol","shadow.command").put("capability","library.capture").put("command_id",attachment.commandId).put("input",input).toString();app.database.commands().enqueue(PendingCommand(attachment.commandId,session.accountId,session.subjectId,"library.capture",body));app.database.commands().markAttachment(attachment.id,"uploaded");file.delete()}catch(_:Exception){return@withContext Result.retry()}
-    }
-    for(command in app.database.commands().pending(accountId,session.subjectId)) {
-      try {
-        val connection=URL("${session.apiBase}/api/commands/${command.capability}").openConnection() as HttpURLConnection
-        connection.requestMethod="POST";connection.connectTimeout=15_000;connection.readTimeout=30_000
-        connection.setRequestProperty("Authorization","Bearer $accessToken");connection.setRequestProperty("Content-Type","application/json");connection.doOutput=true
-        connection.outputStream.use{it.write(command.body.toByteArray())}
-        val code=connection.responseCode
-        if(code==200||code==201) {
-          val receipt=runCatching{JSONObject(connection.inputStream.bufferedReader().readText())}.getOrNull()
-          val valid=receipt?.optString("protocol")=="shadow.execution-result"&&receipt.optString("status")=="committed"&&receipt.optString("command_id")==command.commandId&&receipt.optString("capability")==command.capability&&receipt.optString("execution_id").isNotBlank()
-          if(valid||committedOperation(session,accessToken,command))app.database.commands().mark(command.commandId,"committed") else return@withContext Result.retry()
-        } else when(code) {
-          401->{app.sessions.revoke(accountId);return@withContext Result.failure(workDataOf("reason" to "reauth_required"))}
-          403,409,422->app.database.commands().mark(command.commandId,"rejected")
-          429,500,502,503,504->return@withContext Result.retry()
-          else->if(committedOperation(session,accessToken,command))app.database.commands().mark(command.commandId,"committed") else return@withContext Result.retry()
+    val dao=app.database.commands()
+    var needsRetry=false
+
+    for(attachment in dao.pendingAttachments(accountId,session.subjectId)){
+      val file=File(attachment.localPath)
+      if(!file.isFile){dao.markAttachment(attachment.id,"failed");continue}
+      dao.markAttachmentAttempt(attachment.id,"uploading")
+      var connection:HttpURLConnection?=null
+      try{
+        val activeConnection=(URL("${session.apiBase}/api/assets").openConnection() as HttpURLConnection).apply{
+          requestMethod="POST";connectTimeout=15_000;readTimeout=30_000
+          setRequestProperty("Authorization","Bearer $accessToken");setRequestProperty("Content-Type",attachment.mediaType)
+          doOutput=true;setChunkedStreamingMode(64*1024)
         }
-      } catch(_:Exception) { return@withContext Result.retry() }
+        connection=activeConnection
+        file.inputStream().use{input->activeConnection.outputStream.use{output->app.queue.copyAttachment(attachment,input,output)}}
+        val code=activeConnection.responseCode
+        if(code==401){dao.markAttachment(attachment.id,"unknown");app.sessions.revoke(accountId);return@withContext Result.failure(workDataOf("reason" to "reauth_required"))}
+        if(code !in listOf(200,201)){
+          if(code==429||code>=500){if(attachment.attempts>=7)dao.markAttachment(attachment.id,"failed")else{dao.markAttachment(attachment.id,"unknown");needsRetry=true};continue}
+          dao.markAttachment(attachment.id,if(code in listOf(403,409,413,422))"blocked" else "failed")
+          continue
+        }
+        val uploadedText=activeConnection.inputStream.bufferedReader().use{it.readText()}
+        val uploaded=runCatching{JSONObject(uploadedText)}.getOrNull()
+        val assetVersionId=uploaded?.optString("asset_version_id").orEmpty()
+        val valid=uploaded?.optString("protocol")=="shadow.asset"&&assetVersionId.isNotBlank()&&uploaded.optString("sha256").isNotBlank()&&uploaded.optString("media_type")==attachment.mediaType
+        if(!valid){if(attachment.attempts>=7)dao.markAttachment(attachment.id,"failed")else{dao.markAttachment(attachment.id,"unknown");needsRetry=true};continue}
+        val capturedOn=attachment.capturedOn.ifBlank{Instant.ofEpochMilli(attachment.createdAt).atZone(ZoneOffset.UTC).toLocalDate().toString()}
+        val input=JSONObject().put("title","来自 Android 的图片").put("item_type","image").put("tags",JSONArray()).put("source",JSONObject().put("kind","image").put("captured_on",capturedOn).put("asset_version_id",assetVersionId))
+        val body=JSONObject().put("protocol","shadow.command").put("capability","library.capture").put("command_id",attachment.commandId).put("input",input).toString()
+        app.queue.enqueueCommand(session,attachment.commandId,"library.capture",body)
+        dao.markAttachment(attachment.id,"committed")
+        if(!file.exists()||file.delete())dao.clearTerminalAttachment(attachment.id)
+      }catch(error:CancellationException){dao.markAttachment(attachment.id,"unknown");throw error
+      }catch(_:QueueKeyUnavailableException){dao.markAttachment(attachment.id,"blocked")
+      }catch(_:Exception){if(attachment.attempts>=7)dao.markAttachment(attachment.id,"failed")else{dao.markAttachment(attachment.id,"unknown");needsRetry=true}
+      }finally{connection?.disconnect()}
     }
-    Result.success()
+
+    for(command in dao.pending(accountId,session.subjectId)){
+      if(command.state=="unknown"){
+        val recovered=lookupReceipt(session,accessToken,command)
+        if(recovered!=null){commitVerified(app,command,recovered);continue}
+      }
+      val body=try{app.queue.commandBody(command)}catch(_:QueueKeyUnavailableException){dao.setCommandState(command.commandId,"blocked");continue}
+      dao.mark(command.commandId,"uploading")
+      var connection:HttpURLConnection?=null
+      try{
+        val activeConnection=(URL("${session.apiBase}/api/commands/${command.capability}").openConnection() as HttpURLConnection).apply{
+          requestMethod="POST";connectTimeout=15_000;readTimeout=30_000
+          setRequestProperty("Authorization","Bearer $accessToken");setRequestProperty("Content-Type","application/json")
+          doOutput=true
+        }
+        connection=activeConnection
+        activeConnection.outputStream.use{it.write(body.toByteArray(StandardCharsets.UTF_8))}
+        val code=activeConnection.responseCode
+        if(code==401){dao.setCommandState(command.commandId,"unknown");app.sessions.revoke(accountId);return@withContext Result.failure(workDataOf("reason" to "reauth_required"))}
+        if(code in listOf(200,201)){
+          val receiptText=activeConnection.inputStream.bufferedReader().use{it.readText()}
+          val verified=receiptText.takeIf{validReceipt(it,command)}?:lookupReceipt(session,accessToken,command)
+          if(verified!=null){commitVerified(app,command,verified);continue}
+          if(command.attempts>=7)dao.setCommandState(command.commandId,"failed")else{dao.setCommandState(command.commandId,"unknown");needsRetry=true};continue
+        }
+        val recovered=lookupReceipt(session,accessToken,command)
+        if(recovered!=null){commitVerified(app,command,recovered);continue}
+        if(code==429||code>=500){if(command.attempts>=7)dao.setCommandState(command.commandId,"failed")else{dao.setCommandState(command.commandId,"unknown");needsRetry=true};continue}
+        dao.setCommandState(command.commandId,if(code in listOf(403,409,413,422))"blocked" else "failed")
+      }catch(error:CancellationException){dao.setCommandState(command.commandId,"unknown");throw error
+      }catch(_:QueueKeyUnavailableException){dao.setCommandState(command.commandId,"blocked")
+      }catch(_:Exception){
+        val recovered=lookupReceipt(session,accessToken,command)
+        if(recovered!=null)commitVerified(app,command,recovered)else if(command.attempts>=7)dao.setCommandState(command.commandId,"failed")else{dao.setCommandState(command.commandId,"unknown");needsRetry=true}
+      }finally{connection?.disconnect()}
+    }
+    if(needsRetry)Result.retry()else Result.success()
   }
-  private fun committedOperation(session:ProductSession,accessToken:String,command:PendingCommand):Boolean=runCatching{val connection=URL("${session.apiBase}/api/operations/by-command/${java.net.URLEncoder.encode(command.commandId,"UTF-8")}").openConnection() as HttpURLConnection;connection.requestMethod="GET";connection.setRequestProperty("Authorization","Bearer $accessToken");if(connection.responseCode!=200)return@runCatching false;val receipt=JSONObject(connection.inputStream.bufferedReader().readText());receipt.optString("protocol")=="shadow.execution-result"&&receipt.optString("status")=="committed"&&receipt.optString("command_id")==command.commandId&&receipt.optString("capability")==command.capability}.getOrDefault(false)
+
+  private suspend fun commitVerified(app:ShadowApp,command:PendingCommand,receipt:String){
+    try{app.queue.commit(command,receipt)}catch(_:QueueKeyUnavailableException){app.database.commands().setCommandState(command.commandId,"committed")}
+  }
+
+  private fun lookupReceipt(session:ProductSession,accessToken:String,command:PendingCommand):String?=runCatching{
+    val encoded=URLEncoder.encode(command.commandId,StandardCharsets.UTF_8.toString())
+    val connection=URL("${session.apiBase}/api/operations/by-command/$encoded").openConnection() as HttpURLConnection
+    try{
+      connection.requestMethod="GET";connection.connectTimeout=15_000;connection.readTimeout=20_000
+      connection.setRequestProperty("Authorization","Bearer $accessToken")
+      if(connection.responseCode!=200)return@runCatching null
+      connection.inputStream.bufferedReader().use{it.readText()}.takeIf{validReceipt(it,command)}
+    }finally{connection.disconnect()}
+  }.getOrNull()
+
+  private fun validReceipt(text:String,command:PendingCommand):Boolean=runCatching{
+    val receipt=JSONObject(text)
+    receipt.optString("protocol")=="shadow.execution-result"&&receipt.optString("status")=="committed"&&receipt.optString("command_id")==command.commandId&&receipt.optString("capability")==command.capability&&receipt.optString("execution_id").isNotBlank()
+  }.getOrDefault(false)
 }
