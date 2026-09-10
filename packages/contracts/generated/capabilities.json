@@ -18371,6 +18371,67 @@
                       "additionalProperties": false
                     }
                   },
+                  "due_items": {
+                    "default": [],
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                        },
+                        "due_on": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "pending",
+                            "reminded",
+                            "snoozed"
+                          ]
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "amount": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^(?:0|[1-9]\\d{0,17})(?:\\.\\d{1,6})?$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "currency": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^[A-Z]{3}$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "due_on",
+                        "state",
+                        "title",
+                        "amount",
+                        "currency"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
                   "freshness": {
                     "anyOf": [
                       {
@@ -18387,6 +18448,7 @@
                 "required": [
                   "entries",
                   "totals",
+                  "due_items",
                   "freshness"
                 ],
                 "additionalProperties": false
@@ -18398,6 +18460,62 @@
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 9007199254740991
+                  },
+                  "sync_issues": {
+                    "default": [],
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                        },
+                        "source_type": {
+                          "type": "string"
+                        },
+                        "instance_key": {
+                          "type": "string"
+                        },
+                        "permission_state": {
+                          "type": "string"
+                        },
+                        "sync_epoch": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "cursor_states": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "last_sync_at": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "source_type",
+                        "instance_key",
+                        "permission_state",
+                        "sync_epoch",
+                        "cursor_states",
+                        "last_sync_at"
+                      ],
+                      "additionalProperties": false
+                    }
                   },
                   "freshness": {
                     "anyOf": [
@@ -18414,6 +18532,7 @@
                 },
                 "required": [
                   "facts",
+                  "sync_issues",
                   "freshness"
                 ],
                 "additionalProperties": false
@@ -18425,6 +18544,46 @@
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 9007199254740991
+                  },
+                  "current_trips": {
+                    "default": [],
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "starts_on": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "ends_on": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "time_zone": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "title",
+                        "starts_on",
+                        "ends_on",
+                        "time_zone"
+                      ],
+                      "additionalProperties": false
+                    }
                   },
                   "freshness": {
                     "anyOf": [
@@ -18441,6 +18600,7 @@
                 },
                 "required": [
                   "visits",
+                  "current_trips",
                   "freshness"
                 ],
                 "additionalProperties": false

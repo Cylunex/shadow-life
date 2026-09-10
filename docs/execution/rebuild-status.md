@@ -98,3 +98,8 @@ Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The tab
   freshness but never render opaque cursor contents. The unified Plan tab creates typed Health goals, habits and
   workout plans alongside budgets, normalizes weekly schedules, preserves workout notes and hides plan kinds the
   current capability set cannot write. Focused Web tests, all TypeScript checks and the production Web build pass.
+- Today now includes bounded, permission-trimmed action context instead of metrics alone: open recurring
+  occurrences due by the selected date, unhealthy Health source/cursor states, and trips active on that date.
+  The Web presents these as a compact attention section and keeps a truthful all-clear state. Migration 0020
+  adds the open-due, source-state and trip-window read paths; a fresh isolated PostgreSQL journey applies all
+  twenty migrations and verifies the three result families, authorization trimming and usable query plans.

@@ -1,5 +1,5 @@
 export type DashboardDomain="meals"|"money"|"health"|"travel"|"library";
-export interface TodayDomainMetric{count?:number;entries?:number;facts?:number;visits?:number;captured?:number;freshness:string|null;totals?:unknown[];}
+export interface TodayDomainMetric{count?:number;entries?:number;facts?:number;visits?:number;captured?:number;freshness:string|null;totals?:unknown[];due_items?:Array<{id:string;due_on:string;state:string;title:string;amount:string|null;currency:string|null}>;sync_issues?:Array<{id:string;source_type:string;instance_key:string;permission_state:string;sync_epoch:number;cursor_states:string[];last_sync_at:string|null}>;current_trips?:Array<{id:string;title:string;starts_on:string;ends_on:string;time_zone:string}>;}
 export interface TodayOverview{date:string;domains:Partial<Record<DashboardDomain,TodayDomainMetric>>;as_of:string;}
 export interface TimelineItem{domain:DashboardDomain;kind:string;id:string;happened_at:string;title:string;amount?:string;currency?:string;record_id?:string;}
 export interface HealthTrend{metric_key:string;points:Array<{id:string;occurred_on:string;value:string;unit:string;source_kind:string;revision:number}>;coverage:{from:string|null;to:string|null;points:number;truncated:boolean};as_of:string;}

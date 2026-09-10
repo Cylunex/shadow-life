@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { capabilityRegistry, commandEnvelopeSchema, healthSourcesResultSchema, lifeTimelineInputSchema, lifeTodayInputSchema, moneyPlanningInputSchema, publishTripPlanInputSchema, recordDiningInputSchema, recordMealInputSchema, setHealthPlanInputSchema, setHealthSourceStateInputSchema, setRecurringPlanInputSchema, setTripDayPlanInputSchema, setTripStopOutcomeInputSchema, universalCommandEnvelopeSchema } from "../src/index.js";
+import { capabilityRegistry, commandEnvelopeSchema, healthSourcesResultSchema, lifeTimelineInputSchema, lifeTodayInputSchema, lifeTodayResultSchema, moneyPlanningInputSchema, publishTripPlanInputSchema, recordDiningInputSchema, recordMealInputSchema, setHealthPlanInputSchema, setHealthSourceStateInputSchema, setRecurringPlanInputSchema, setTripDayPlanInputSchema, setTripStopOutcomeInputSchema, universalCommandEnvelopeSchema } from "../src/index.js";
 
 const meal = {
   occurred_on: "2026-09-08",
@@ -41,6 +41,12 @@ test("health plan states stay compatible with their model",()=>{
   assert.equal(setHealthPlanInputSchema.safeParse({kind:"goal",name:"体重目标",state:"paused",metric_key:"weight",target_value:"65",unit:"kg"}).success,false);
   assert.equal(setHealthPlanInputSchema.safeParse({kind:"habit",name:"每日拉伸",state:"achieved",schedule:{days:[1]}}).success,false);
   assert.equal(setHealthPlanInputSchema.safeParse({kind:"workout",name:"跑步",state:"active",schedule:{days:[2,4]}}).success,true);
+});
+
+test("today attention remains bounded and defaults safely for older read rows",()=>{
+  const parsed=lifeTodayResultSchema.parse({date:"2026-09-10",domains:{money:{entries:0,totals:[],freshness:null},health:{facts:0,freshness:null},travel:{visits:0,freshness:null}},as_of:"2026-09-10T00:00:00Z"});
+  assert.deepEqual(parsed.domains.money?.due_items,[]);assert.deepEqual(parsed.domains.health?.sync_issues,[]);assert.deepEqual(parsed.domains.travel?.current_trips,[]);
+  const tooMany=Array.from({length:21},(_,index)=>({id:`plan_${String(index).padStart(8,"0")}`,due_on:"2026-09-10",state:"pending",title:"事项",amount:null,currency:null}));assert.equal(lifeTodayResultSchema.safeParse({date:"2026-09-10",domains:{money:{entries:0,totals:[],due_items:tooMany,freshness:null}},as_of:"2026-09-10T00:00:00Z"}).success,false);
 });
 
 test("dining keeps purchased goods, consumed nutrition and source roles distinct",()=>{

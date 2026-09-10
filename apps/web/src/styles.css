@@ -56,4 +56,10 @@ select { width:100%; border:1px solid #bac5b6; border-radius:12px; background:#f
 .status.granted { background:#d9ebdf; color:#24643d; }
 .status.revoked,.status.expired,.status.rescan_required { background:#f3dfdc; color:#8b3434; }
 .inline-error { color:#9d2d2d!important; }
+.attention>p { color:#667168; }
+.attention-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:18px; }
+.attention-grid h3 { margin:0 0 10px; }
+.attention-grid ul { list-style:none; padding:0; margin:0; }
+.attention-grid li { display:grid; gap:3px; padding:9px 0; border-top:1px solid #e1e5dd; }
+.attention-grid span { color:#667168; font-size:13px; }
 @media (max-width:560px){main{padding:36px 0}.grid,.health-grid{grid-template-columns:1fr}.panel-heading{align-items:stretch;flex-direction:column}.panel-heading label{width:100%}.trend-list li{grid-template-columns:1fr auto}.trend-list small{grid-column:1/-1}.health-card,.trend-card,.sources-card{grid-column:1}}

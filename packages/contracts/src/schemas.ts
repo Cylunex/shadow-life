@@ -364,9 +364,9 @@ export const lifeOverviewDomainSchema=z.enum(["meals","money","health","travel",
 export const lifeTodayInputSchema=z.object({date:localDate,time_zone:ianaTimeZone,domains:z.array(lifeOverviewDomainSchema).min(1).max(5).optional()}).strict();
 export const lifeTodayResultSchema=z.object({date:localDate,domains:z.object({
   meals:z.object({count:z.number().int().nonnegative(),freshness:instant.nullable()}).strict().optional(),
-  money:z.object({entries:z.number().int().nonnegative(),totals:z.array(z.object({currency:currencyCode,gross_expense:storedAmount,refund:storedAmount,income:storedAmount,net_spending:signedStoredAmount,net_cashflow:signedStoredAmount}).strict()),freshness:instant.nullable()}).strict().optional(),
-  health:z.object({facts:z.number().int().nonnegative(),freshness:instant.nullable()}).strict().optional(),
-  travel:z.object({visits:z.number().int().nonnegative(),freshness:instant.nullable()}).strict().optional(),
+  money:z.object({entries:z.number().int().nonnegative(),totals:z.array(z.object({currency:currencyCode,gross_expense:storedAmount,refund:storedAmount,income:storedAmount,net_spending:signedStoredAmount,net_cashflow:signedStoredAmount}).strict()),due_items:z.array(z.object({id:stableId,due_on:localDate,state:z.enum(["pending","reminded","snoozed"]),title:z.string(),amount:storedAmount.nullable(),currency:currencyCode.nullable()}).strict()).max(20).default([]),freshness:instant.nullable()}).strict().optional(),
+  health:z.object({facts:z.number().int().nonnegative(),sync_issues:z.array(z.object({id:stableId,source_type:z.string(),instance_key:z.string(),permission_state:z.string(),sync_epoch:z.number().int().positive(),cursor_states:z.array(z.string()),last_sync_at:instant.nullable()}).strict()).max(20).default([]),freshness:instant.nullable()}).strict().optional(),
+  travel:z.object({visits:z.number().int().nonnegative(),current_trips:z.array(z.object({id:stableId,title:z.string(),starts_on:localDate,ends_on:localDate,time_zone:ianaTimeZone}).strict()).max(20).default([]),freshness:instant.nullable()}).strict().optional(),
   library:z.object({captured:z.number().int().nonnegative(),freshness:instant.nullable()}).strict().optional()
 }).strict(),as_of:instant}).strict();
 export const lifeTimelineInputSchema=z.object({domains:z.array(lifeOverviewDomainSchema).min(1).max(5).optional(),limit:z.number().int().min(1).max(100).default(30),cursor:z.string().max(1_000).optional()}).strict();
