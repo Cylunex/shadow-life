@@ -68,3 +68,9 @@ Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The tab
   bounds instead of formatting every expense date; migration 0015 adds matching meal and budget indexes, and
   the isolated PostgreSQL journey asserts both fixed query counts and usable index plans. Contract generation,
   dependency boundaries, all TypeScript checks and 58 non-PostgreSQL tests pass for this batch.
+- Monthly planning now returns only plans and occurrences attributable to the requested month, intents whose
+  intended date is in that month, and use cycles overlapping it. Every collection has a stable order, hard
+  limit and explicit truncation flag; the response states its half-open date window and limits. Migration 0016
+  adds the corresponding planning indexes. Contract and PostgreSQL regressions cover invalid/maximum years,
+  cross-month exclusion, a 101-row truncation boundary and index usability. All TypeScript checks and 59
+  non-PostgreSQL tests pass.

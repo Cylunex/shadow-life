@@ -363,7 +363,7 @@ export const domainRecordsResultSchema=z.object({items:z.array(z.record(z.string
 export const lifeRecordSectionSchema=z.enum(["meal","purchase","money","sources"]);
 export const lifeRecordInputSchema=z.object({id:stableId,sections:z.array(lifeRecordSectionSchema).min(1).max(4).optional()}).strict();
 export const resourceDetailInputSchema=z.object({id:stableId}).strict();
-export const moneyPlanningInputSchema=z.object({period:z.string().regex(/^\d{4}-\d{2}$/u)}).strict();
+export const moneyPlanningInputSchema=z.object({period:z.string().regex(/^(?:0{3}[1-9]|0{2}[1-9]\d|0[1-9]\d{2}|[1-9]\d{3})-(0[1-9]|1[0-2])$/u)}).strict();
 export const healthDailyInputSchema=z.object({date:localDate}).strict();
 export const resourceDetailResultSchema=z.record(z.string(),z.unknown());
 export const healthTrendInputSchema=z.object({metric_key:z.string().trim().min(1).max(100),from:localDate.optional(),to:localDate.optional(),limit:z.number().int().min(2).max(1000).default(100)}).strict().refine(value=>!value.from||!value.to||value.to>=value.from,{path:["to"],message:"to must not be before from"});

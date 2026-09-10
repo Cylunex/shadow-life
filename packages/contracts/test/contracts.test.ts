@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { capabilityRegistry, commandEnvelopeSchema, publishTripPlanInputSchema, recordDiningInputSchema, recordMealInputSchema, setHealthPlanInputSchema, setRecurringPlanInputSchema, setTripDayPlanInputSchema, setTripStopOutcomeInputSchema, universalCommandEnvelopeSchema } from "../src/index.js";
+import { capabilityRegistry, commandEnvelopeSchema, moneyPlanningInputSchema, publishTripPlanInputSchema, recordDiningInputSchema, recordMealInputSchema, setHealthPlanInputSchema, setRecurringPlanInputSchema, setTripDayPlanInputSchema, setTripStopOutcomeInputSchema, universalCommandEnvelopeSchema } from "../src/index.js";
 
 const meal = {
   occurred_on: "2026-09-08",
@@ -68,6 +68,13 @@ test("recurring plans preserve an explicit local schedule and supported RRULE",(
   assert.equal(setRecurringPlanInputSchema.safeParse({...value,recurrence_rule:"FREQ=MONTHLY;BYDAY=MO"}).success,false);
   assert.equal(setRecurringPlanInputSchema.safeParse({...value,next_due_on:"2026-01-01"}).success,false);
   assert.equal(setRecurringPlanInputSchema.safeParse({...value,cadence:"interval",interval_days:367,recurrence_rule:"FREQ=DAILY;INTERVAL=367"}).success,false);
+});
+
+test("money planning accepts only real calendar months",()=>{
+  assert.equal(moneyPlanningInputSchema.safeParse({period:"2026-09"}).success,true);
+  assert.equal(moneyPlanningInputSchema.safeParse({period:"0000-12"}).success,false);
+  assert.equal(moneyPlanningInputSchema.safeParse({period:"2026-00"}).success,false);
+  assert.equal(moneyPlanningInputSchema.safeParse({period:"2026-13"}).success,false);
 });
 
 test("trip planning contracts preserve stable stop and runtime identities",()=>{assert.equal(setTripDayPlanInputSchema.safeParse({trip_id:"trip_12345678",plan_date:"2026-10-01",items:[{stop_id:"trip_stop_12345678",title:"西湖"}]}).success,true);assert.equal(publishTripPlanInputSchema.safeParse({trip_id:"trip_12345678",label:"出发版"}).success,true);assert.equal(setTripStopOutcomeInputSchema.safeParse({run_id:"trip_run_12345678",stop_id:"trip_stop_12345678",state:"arrived"}).success,true);assert.equal(setTripStopOutcomeInputSchema.safeParse({run_id:"trip_run_12345678",stop_id:"trip_stop_12345678",state:"pending"}).success,false);});
