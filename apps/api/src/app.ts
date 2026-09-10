@@ -73,6 +73,9 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.get("/api/notifications",async context=>context.json(await dependencies.queries.notifications(context.get("requestContext"),{limit:Number(context.req.query("limit")??"50")})));
   app.get("/api/life/owned-items",async context=>context.json(await dependencies.queries.ownedItems(context.get("requestContext"),{...(context.req.query("state")?{state:context.req.query("state")}:{}),limit:Number(context.req.query("limit")??"50")})));
   app.get("/api/life/reviews",async context=>context.json(await dependencies.queries.lifeReviews(context.get("requestContext"),{limit:Number(context.req.query("limit")??"20")})));
+  app.get("/api/life/projects",async context=>context.json(await dependencies.queries.lifeProjects(context.get("requestContext"),{...(context.req.query("state")?{state:context.req.query("state")}:{}),limit:Number(context.req.query("limit")??"20")})));
+  app.get("/api/life/meal-planning",async context=>context.json(await dependencies.queries.mealPlanning(context.get("requestContext"),{limit:Number(context.req.query("limit")??"20")})));
+  app.get("/api/money/foreign",async context=>context.json(await dependencies.queries.foreignEntries(context.get("requestContext"),{...(context.req.query("trip_id")?{trip_id:context.req.query("trip_id")}:{}),limit:Number(context.req.query("limit")??"50")})));
   app.get("/api/:domain{money|health|travel|library}", async (context) => {const query=context.req.query("q"),cursor=context.req.query("cursor");return context.json(await dependencies.queries.listDomain(context.get("requestContext"), context.req.param("domain") as "money" | "health" | "travel" | "library", {limit:Number(context.req.query("limit")??"50"),...(query?{query}:{}),...(cursor?{cursor}:{})}));});
   app.get("/api/threads", async (context) => context.json({ items: dependencies.agent ? await dependencies.agent.repository.listThreads(context.get("requestContext").subjectId) : [] }));
   app.get("/api/threads/:threadId/messages",async context=>{if(!dependencies.agent)return context.json({items:[]});const requestContext=context.get("requestContext"),threadId=context.req.param("threadId");await dependencies.agent.repository.assertThread(requestContext.subjectId,threadId);return context.json({items:await dependencies.agent.repository.conversation(requestContext.subjectId,threadId,100)});});
@@ -124,6 +127,9 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         if(capabilityName==="notifications.list")return dependencies.queries.notifications(requestContext,parsed);
         if(capabilityName==="life.owned_items")return dependencies.queries.ownedItems(requestContext,parsed);
         if(capabilityName==="life.reviews")return dependencies.queries.lifeReviews(requestContext,parsed);
+        if(capabilityName==="life.projects")return dependencies.queries.lifeProjects(requestContext,parsed);
+        if(capabilityName==="life.meal_planning")return dependencies.queries.mealPlanning(requestContext,parsed);
+        if(capabilityName==="money.foreign_entries")return dependencies.queries.foreignEntries(requestContext,parsed);
         if(capabilityName==="operations.get")return dependencies.executor.getOperation(requestContext,(parsed as {execution_id:string}).execution_id);
         throw new KernelError(422,{protocol:"shadow.error",code:"validation",message:"Runtime requested an unsupported query capability."});
       };

@@ -25,6 +25,7 @@ Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The tab
 | SL-06 complete travel | Implemented at portable server/Web capability level and PostgreSQL-verified | Personal theme maps keep candidates, anchors and collection-only “visited” state separate from Visit facts; the map-first Web workspace shows coordinate-relative places without an external provider, immutable-plan in-transit progress, GPX import and Bundle/GPX/ICS downloads. Reservations/segments/visits carry explicit content visibility, with actual visits private by default and sensitive reservation fields still author-only. Bundle recovery requires read-only structural/semantic preview, restores a new owned copy with remapped places/maps and stable stops, and deliberately does not invent members, runs, sources or fare links. Invitations, route-provider geometry, memories and production restoration remain product/release extensions rather than this portable core |
 | SL-07 archive takeover | Implemented and PostgreSQL-verified at portable server/Web capability level | Revision, annotation, immutable originals, queued/versioned processing, indexed citable snippets, reading resume, SHA-256 asset proofs, explicit old URI status and Ed25519 compatibility verification pass the isolated journey. The Worker only performs bounded UTF-8 text extraction; OCR/transcript require a real processor to list, claim and return a derived asset or failure. Protected originals remain attachment-only and legacy keys/signatures are omitted from normal detail reads. Reviewed real URI mapping, old-key verification corpus and production export/restore remain release work |
 | D1 owned items and cross-domain review | Implemented and PostgreSQL-verified | Only an explicit user action creates an OwnedItem from a purchase line or manual entry. Item revisions, exact Library document versions, maintenance/after-sales events, optional cost links and state transitions are subject-scoped. Reviews use fixed program logic, preserve original-currency totals, coverage, bounded evidence and algorithm version, can be recomputed after corrections, and make no health-causality or opaque-score claim |
+| D2 life projects, meal planning and foreign money | Implemented and PostgreSQL-verified | LifeProject owns only goals, milestones, actions and permission-rechecked stable references. Meal plans freeze exact recipe revisions, scale and aggregate ingredients into version-bound shopping lists, and never turn a planned or bought item into intake. Foreign entries preserve original amount/source scale and store conversion provenance, trip links and shared allocations separately; travel links are hidden when current travel read authority is absent |
 | SL-08 release cutover | Not executed | Production snapshot, restore drill, real client/device/runtime runs, final reconciliation, writer freeze and explicit release operation |
 
 ## Verification on 2026-09-09
@@ -194,3 +195,19 @@ Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The tab
   changed results after a money correction. All TypeScript projects, 119 non-PostgreSQL tests (118 pass and the
   database-only journey is skipped), contract/boundary checks and the Web production build pass. No APK was
   packaged and nothing was deployed.
+
+## Verification on 2026-09-11
+
+- Lightweight projects now organize milestones, action items and exact cross-domain references without copying
+  source facts. Dynamic effects protect linked plans, recurring occurrences and habits; reads hide links whose
+  domain is not currently authorized and recheck shared Trip visibility. Meal plans freeze exact Recipe revisions,
+  scale decimal quantities in PostgreSQL and deterministically merge matching ingredients into a revision-bound
+  shopping list. Marking an item bought may link an explicit purchase line, advances the real list revision and
+  cannot create a Meal. Foreign-money writes preserve original currency and source precision, validate the
+  conversion equation and allocation ceiling transactionally, and store FX provenance, optional Trip membership
+  and shared allocation state in separate facts. Money-only reads omit Trip identities, while Trip-filtered reads
+  require current travel authority. Migration 0029 and a fresh PostgreSQL journey cover all 29 migrations, stale
+  references, subject/revision isolation, snapshot stability after Recipe edits, ingredient aggregation, purchase
+  separation, invalid rates/allocations and cross-domain permission trimming. Contract generation, dependency
+  boundaries, every TypeScript project, the complete non-PostgreSQL suite, the PostgreSQL journey and Web production
+  build pass. No APK was packaged, no real issuer/device/runtime or production data was used, and nothing was deployed.

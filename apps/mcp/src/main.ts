@@ -42,6 +42,9 @@ function queryRequest(name:string,input:unknown,headers:Record<string,string>):P
   if(name==="notifications.list")return fetch(`${api}/api/notifications?limit=${encodeURIComponent(String((input as {limit:number}).limit))}`,{headers});
   if(name==="life.owned_items"){const value=input as {state?:string;limit:number},search=new URLSearchParams({limit:String(value.limit)});if(value.state)search.set("state",value.state);return fetch(`${api}/api/life/owned-items?${search}`,{headers});}
   if(name==="life.reviews")return fetch(`${api}/api/life/reviews?limit=${encodeURIComponent(String((input as {limit:number}).limit))}`,{headers});
+  if(name==="life.projects"){const value=input as {state?:string;limit:number},search=new URLSearchParams({limit:String(value.limit)});if(value.state)search.set("state",value.state);return fetch(`${api}/api/life/projects?${search}`,{headers});}
+  if(name==="life.meal_planning")return fetch(`${api}/api/life/meal-planning?limit=${encodeURIComponent(String((input as {limit:number}).limit))}`,{headers});
+  if(name==="money.foreign_entries"){const value=input as {trip_id?:string;limit:number},search=new URLSearchParams({limit:String(value.limit)});if(value.trip_id)search.set("trip_id",value.trip_id);return fetch(`${api}/api/money/foreign?${search}`,{headers});}
   if(name==="operations.get")return fetch(`${api}/api/operations/${encodeURIComponent((input as {execution_id:string}).execution_id)}`,{headers});
   throw new Error("Query capability is not wired");
 }

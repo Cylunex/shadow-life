@@ -55,6 +55,9 @@ export interface TransactionStore {
   notifications(subjectId:string,limit:number):Promise<unknown>;
   ownedItems(subjectId:string,state:string|undefined,limit:number,visibility:{purchase:boolean;library:boolean;money:boolean}):Promise<unknown>;
   lifeReviews(subjectId:string,limit:number,authorizedDomains:readonly string[]):Promise<unknown>;
+  lifeProjects(subjectId:string,state:string|undefined,limit:number,authorizedKinds:readonly string[]):Promise<unknown>;
+  mealPlanning(subjectId:string,limit:number):Promise<unknown>;
+  foreignEntries(subjectId:string,tripId:string|undefined,limit:number,includeTrip:boolean):Promise<unknown>;
   agentPersonalContext(subjectId:string,aliasKinds:readonly string[],includeMealTemplates:boolean):Promise<{aliases:readonly Record<string,unknown>[];mealTemplates:readonly Record<string,unknown>[]}>;
 }
 

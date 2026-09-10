@@ -84,6 +84,15 @@ select { width:100%; border:1px solid #bac5b6; border-radius:12px; background:#f
 .purchase-to-items button { margin:.25rem .35rem .25rem 0; }
 .review-range { display:flex; flex-wrap:wrap; align-items:end; gap:.75rem; }
 .review-list pre { max-height:22rem; overflow:auto; white-space:pre-wrap; background:#f8f7f3; padding:.75rem; border-radius:10px; }
+.life-projects,.meal-planning,.foreign-money { padding:1rem; background:var(--surface); border-radius:18px; }
+.project-list,.foreign-list { display:grid; gap:.7rem; padding:0; list-style:none; }
+.project-list>li,.foreign-list>li,.plan-card,.shopping-card { display:grid; gap:.4rem; padding:.85rem; border:1px solid var(--line); border-radius:14px; margin:.6rem 0; }
+.allocation-row { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.5rem; padding-top:.35rem; border-top:1px dashed var(--line); }
+.shopping-card ul { display:grid; gap:.45rem; padding:0; list-style:none; }
+.shopping-card li { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.5rem; }
+.status.needed { background:#f4e7c9; color:#725414; }
+.status.bought,.status.completed { background:#dcefe4; color:#245f3d; }
+.status.skipped,.status.cancelled { background:#e6e8ef; color:#465066; }
 .status.completed,.status.confirmed { background:#d9ebdf; color:#24643d; }
 .status.invalid { background:#f3dfdc; color:#8b3434; }
 .status.ignored { background:#e2e8df; color:#526158; }
