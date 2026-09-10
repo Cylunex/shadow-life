@@ -1,4 +1,4 @@
-import { healthSourcesResultSchema, healthTrendResultSchema, lifeTimelineInputSchema, lifeTimelineResultSchema, lifeTodayInputSchema, lifeTodayResultSchema, mealViewSchema, moneyImportReviewResultSchema, moneySummarySchema, type LifeOverviewDomain, type MealView, type MoneySummary } from "@shadow/contracts";
+import { foodCatalogInputSchema, foodCatalogResultSchema, healthSourcesResultSchema, healthTrendResultSchema, lifeTimelineInputSchema, lifeTimelineResultSchema, lifeTodayInputSchema, lifeTodayResultSchema, mealViewSchema, moneyImportReviewResultSchema, moneySummarySchema, type LifeOverviewDomain, type MealView, type MoneySummary } from "@shadow/contracts";
 import { invalidInput, notFound, permissionDenied } from "./errors.js";
 import type { RequestContext, UnitOfWork } from "./ports.js";
 
@@ -11,6 +11,7 @@ const overviewEffects:Record<LifeOverviewDomain,string>={meals:"life.meal.read",
 export class QueryService {
   constructor(private readonly unitOfWork:UnitOfWork) {}
   async listMeals(context:RequestContext,limit=20):Promise<readonly MealView[]>{if(!context.effects.has("life.meal.read"))throw permissionDenied("life.meal.read");if(!Number.isInteger(limit)||limit<1||limit>100)throw invalidInput("limit must be between 1 and 100",["limit"]);return mealViewSchema.array().parse(await this.unitOfWork.read(store=>store.listMeals(context.subjectId,limit,context.effects.has("money.entry.read"))));}
+  async foodCatalog(context:RequestContext,input:unknown){if(!context.effects.has("life.meal.read"))throw permissionDenied("life.meal.read");const parsed=foodCatalogInputSchema.safeParse(input);if(!parsed.success)throw invalidInput("food catalog query is invalid",parsed.error.issues.map(issue=>issue.path.join(".")));return foodCatalogResultSchema.parse(await this.unitOfWork.read(store=>store.foodCatalog(context.subjectId,parsed.data.query,parsed.data.limit)));}
   async summarizeMoney(context:RequestContext):Promise<MoneySummary>{if(!context.effects.has("money.summary.read"))throw permissionDenied("money.summary.read");return moneySummarySchema.parse(await this.unitOfWork.read(store=>store.summarizeMoney(context.subjectId)));}
   async listDomain(context:RequestContext,domain:Domain,options:{query?:string|undefined;limit?:number|undefined;cursor?:string|undefined}={}):Promise<{items:readonly Record<string,unknown>[];next_cursor:string|null;as_of:string}>{
     const effect=`${domain}.${domain==="library"?"item":domain==="health"?"measurement":domain==="travel"?"trip":"entry"}.read`;if(!context.effects.has(effect))throw permissionDenied(effect);

@@ -8,7 +8,7 @@ h1 { margin: 10px 0 8px; font-family: Georgia, serif; font-size: clamp(36px, 7vw
 header p { color: #58665d; }
 form, .receipt, .error { border: 1px solid #cad2c5; border-radius: 22px; background: rgba(255,255,255,.72); padding: 24px; box-shadow: 0 20px 60px rgba(44,66,50,.08); }
 .workspace { display: grid; gap: 20px; }
-.empty-state, .health-panel, .import-panel, .record-browser { border: 1px solid #cad2c5; border-radius: 22px; background: rgba(255,255,255,.72); padding: 24px; box-shadow: 0 20px 60px rgba(44,66,50,.08); }
+.empty-state, .health-panel, .import-panel, .record-browser, .workout-panel, .food-panel { border: 1px solid #cad2c5; border-radius: 22px; background: rgba(255,255,255,.72); padding: 24px; box-shadow: 0 20px 60px rgba(44,66,50,.08); }
 label { display: grid; gap: 8px; margin-bottom: 18px; font-weight: 650; }
 label small { color: #68736b; font-weight: 450; }
 input, textarea { width: 100%; border: 1px solid #bac5b6; border-radius: 12px; background: #fff; padding: 13px 14px; color: inherit; font: inherit; }
@@ -99,10 +99,28 @@ select { width:100%; border:1px solid #bac5b6; border-radius:12px; background:#f
 .detail-grid dd { margin:0; white-space:pre-wrap; overflow-wrap:anywhere; }
 .detail-edit { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 14px; margin-top:18px; box-shadow:none; background:#f7f9f3; padding:18px; }
 .detail-edit h3,.detail-edit .full { grid-column:1/-1; }
+.workout-panel>p { color:#667168; }
+.workout-form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 14px; box-shadow:none; background:#f7f9f3; padding:18px; }
+.workout-form .full { grid-column:1/-1; }
+.workout-history { list-style:none; padding:0; margin:0; }
+.workout-history li { display:grid; gap:3px; padding:10px 0; border-top:1px solid #e1e5dd; }
+.workout-history span { color:#667168; }
+.food-panel>p { color:#667168; }
+.catalog-search { display:flex; gap:8px; padding:0; border:0; border-radius:0; box-shadow:none; background:transparent; }
+.catalog-search input { min-width:0; }
+.catalog-search button { padding-inline:16px; }
+.catalog-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; align-items:start; }
+.catalog-form { padding:18px; border-radius:16px; background:#f7f9f3; box-shadow:none; }
+.catalog-form h3 { margin-top:0; }
+.recipe-meal { grid-column:1/-1; }
+.field-pair,.nutrient-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 12px; }
+.catalog-list { list-style:none; padding:0; margin:0; }
+.catalog-list li { display:grid; gap:3px; padding:10px 0; border-top:1px solid #e1e5dd; }
+.catalog-list span { color:#667168; }
 .attention>p { color:#667168; }
 .attention-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:18px; }
 .attention-grid h3 { margin:0 0 10px; }
 .attention-grid ul { list-style:none; padding:0; margin:0; }
 .attention-grid li { display:grid; gap:3px; padding:9px 0; border-top:1px solid #e1e5dd; }
 .attention-grid span { color:#667168; font-size:13px; }
-@media (max-width:560px){main{padding:36px 0}.grid,.health-grid,.import-form,.candidate-fields{grid-template-columns:1fr}.panel-heading{align-items:stretch;flex-direction:column}.panel-heading label{width:100%}.trend-list li{grid-template-columns:1fr auto}.trend-list small{grid-column:1/-1}.health-card,.trend-card,.sources-card,.import-form .full,.candidate-fields .full{grid-column:1}}
+@media (max-width:560px){main{padding:36px 0}.grid,.health-grid,.import-form,.candidate-fields,.catalog-grid,.field-pair,.nutrient-grid{grid-template-columns:1fr}.panel-heading{align-items:stretch;flex-direction:column}.panel-heading label{width:100%}.catalog-search{width:100%}.trend-list li{grid-template-columns:1fr auto}.trend-list small{grid-column:1/-1}.health-card,.trend-card,.sources-card,.import-form .full,.candidate-fields .full,.recipe-meal{grid-column:1}}

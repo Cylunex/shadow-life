@@ -50,6 +50,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.get("/api/operations/by-command/:commandId",async context=>context.json(await dependencies.executor.findOperationByCommand(context.get("requestContext"),context.req.param("commandId"))));
   app.get("/api/operations/:executionId", async (context) => context.json(await dependencies.executor.getOperation(context.get("requestContext"), context.req.param("executionId"))));
   app.get("/api/meals", async (context) => context.json({ items: await dependencies.queries.listMeals(context.get("requestContext"), Number(context.req.query("limit") ?? "20")) }));
+  app.get("/api/life/foods",async context=>context.json(await dependencies.queries.foodCatalog(context.get("requestContext"),{...(context.req.query("q")?{query:context.req.query("q")} :{}),limit:Number(context.req.query("limit")??"50")})));
   app.get("/api/today",async context=>{const domains=context.req.query("domains")?.split(",").filter(Boolean);return context.json(await dependencies.queries.lifeToday(context.get("requestContext"),lifeTodayInputSchema.parse({date:context.req.query("date")??new Date().toISOString().slice(0,10),time_zone:context.req.query("time_zone")??"UTC",...(domains?.length?{domains}:{})})));});
   app.get("/api/timeline",async context=>{const domains=context.req.query("domains")?.split(",").filter(Boolean),cursor=context.req.query("cursor");return context.json(await dependencies.queries.lifeTimeline(context.get("requestContext"),lifeTimelineInputSchema.parse({...(domains?.length?{domains}:{}),limit:Number(context.req.query("limit")??"30"),...(cursor?{cursor}:{})})));});
   app.get("/api/money/summary", async (context) => context.json(await dependencies.queries.summarizeMoney(context.get("requestContext"))));
@@ -90,6 +91,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         if(capability.idempotency==="required"){const callKey=createHash("sha256").update(`${runId}:${callId}`).digest("hex");return dependencies.executor.execute(requestContext,{protocol:"shadow.command",capability:capabilityName,command_id:`cmd_agent_${callKey}`,input});}
         const parsed=capability.inputSchema.parse(input);
         if(capabilityName==="life.list_meals")return{items:await dependencies.queries.listMeals(requestContext,(parsed as {limit:number}).limit)};
+        if(capabilityName==="life.food_catalog")return dependencies.queries.foodCatalog(requestContext,parsed);
         if(capabilityName==="life.today")return dependencies.queries.lifeToday(requestContext,parsed);
         if(capabilityName==="life.timeline")return dependencies.queries.lifeTimeline(requestContext,parsed);
         if(capabilityName==="money.summarize")return dependencies.queries.summarizeMoney(requestContext);

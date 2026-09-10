@@ -32,6 +32,7 @@ export interface TransactionStore {
   insertOutbox(value: { id: string; subjectId: string; eventType: string; aggregateId: string; payload: unknown }): Promise<void>;
   getOperationByExecutionId(subjectId: string, executionId: string): Promise<StoredOperation | undefined>;
   listMeals(subjectId: string, limit: number, includeMoney: boolean): Promise<readonly MealView[]>;
+  foodCatalog(subjectId:string,query:string|undefined,limit:number):Promise<unknown>;
   summarizeMoney(subjectId: string): Promise<MoneySummary>;
   executeDomainWrite(value: { subjectId: string; command: UniversalCommandEnvelope; nextId(type: string): string }): Promise<{ resources: ExecutionResult["resources"]; actualValues: ExecutionResult["actual_values"]; warnings?: string[] }>;
   listDomain(subjectId:string,domain:"money"|"health"|"travel"|"library",options:{query?:string;limit:number;asOf?:string;before?:{at:string;kind:string;id:string}}):Promise<{items:readonly Record<string,unknown>[];hasMore:boolean;asOf:string}>;

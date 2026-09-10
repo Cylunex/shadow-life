@@ -1,0 +1,10 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { capabilityRegistry } from "@shadow/contracts";
+import { buildRecipeMealCommand, buildSaveFoodCommand, buildSaveRecipeCommand, emptyFoodFields, emptyRecipeFields, initialRecipeMealFields, parseIngredientLines } from "../src/food-catalog.js";
+
+const food={id:"food_12345678",name:"燕麦",serving_amount:"40",serving_unit:"g",nutrients:{energy_kcal:"150"},provenance:"包装标签",state:"active" as const,revision:1};
+test("ingredient lines are strict and attach only an exact owned catalog match",()=>{assert.deepEqual(parseIngredientLines("燕麦|40|g\n牛奶|250|ml",[food]),[{name:"燕麦",quantity:"40",unit:"g",estimate:false,food_ref_id:food.id},{name:"牛奶",quantity:"250",unit:"ml",estimate:false}]);assert.throws(()=>parseIngredientLines("燕麦,40,g"),/名称\|数量\|单位/u);assert.throws(()=>parseIngredientLines("燕麦||g"),/不能为空/u);});
+test("unknown nutrients remain absent instead of becoming zero",()=>{const built=buildSaveFoodCommand({...emptyFoodFields(),name:"香蕉"});assert.deepEqual(capabilityRegistry[built.capability].inputSchema.parse(built.input),{name:"香蕉",nutrients:{},state:"active"});});
+test("recipe update keeps revision reason and snapshot references",()=>{const built=buildSaveRecipeCommand({...emptyRecipeFields(),recipeId:"recipe_12345678",revision:2,title:"早餐碗",ingredients:"燕麦|40|g",reason:"调整燕麦份量"},[food]);assert.deepEqual(capabilityRegistry[built.capability].inputSchema.parse(built.input),{recipe_id:"recipe_12345678",expected_revision:2,reason:"调整燕麦份量",title:"早餐碗",servings:"1",items:[{name:"燕麦",quantity:"40",unit:"g",estimate:false,food_ref_id:food.id}],state:"active"});});
+test("recording from recipe requires an explicit revision and consumed fraction",()=>{const built=buildRecipeMealCommand({...initialRecipeMealFields("2026-09-10","Asia/Shanghai"),recipeId:"recipe_12345678",recipeRevision:3,mealType:"breakfast",consumedFraction:"0.5"});assert.equal(capabilityRegistry[built.capability].inputSchema.safeParse(built.input).success,true);assert.equal(capabilityRegistry[built.capability].inputSchema.safeParse({...built.input,consumed_fraction:"1.1"}).success,false);});
