@@ -1,6 +1,6 @@
 # Health / Ledger migration inventory
 
-The PostgreSQL exporter discovers the live catalog inside one `REPEATABLE READ READ ONLY` transaction. Every discovered table and column is written to the snapshot manifest. Tables or columns added by a legacy release therefore remain visible to the mapper instead of being silently skipped.
+The PostgreSQL exporter discovers the live catalog inside one `REPEATABLE READ READ ONLY` transaction. Every discovered table and column, its PostgreSQL type, nullability and primary-key position is written to the snapshot. Values are converted recursively to deterministic JSON (including instants, bigint values and bytes), rows are canonically sorted, and each table, catalog and full snapshot receives a content identity. Tables or columns added by a legacy release therefore remain visible to the mapper instead of being silently skipped.
 
 Health facts mapped to native facts are body metrics, daily activity, sleep, foods, recipes, diet logs/photos, templates, fitness/lab records, workout plans/logs, habits/logs, goals, preferences, monitors, raw revisions and sync cursors. Reviews, achievements, release logs, prior tasks and non-secret Agent audit records are retained as subject-visible archive records when no active native behavior depends on them.
 
@@ -31,10 +31,22 @@ Run snapshots only into an isolated operations directory:
 
 ```bash
 LEGACY_DATABASE_URL=... pnpm --filter @shadow/legacy-importer export:postgres health-prod /isolated/health-snapshot.json
+pnpm migration:mapping skeleton /isolated/health-snapshot.json /isolated/health-mapping-review.json health-800af69-v1
+pnpm migration:mapping audit /isolated/health-snapshot.json /isolated/health-mapping-review.json /isolated/health-mapping-audit.json
 pnpm migration validate fixtures/migration-bundle.json
 DATABASE_URL=... pnpm migration apply fixtures/migration-bundle.json
 DATABASE_URL=... pnpm migration reconcile fixtures/migration-bundle.json
 DATABASE_URL=... pnpm migration cutover-check fixtures/migration-bundle.json
 ```
 
-The checked-in bundle is synthetic. Production owner maps, exported rows, asset paths, counts and reports stay outside the repository.
+The generated mapping skeleton is deliberately blocked. It becomes ready only when every included table and every discovered field has a native or historical-archive disposition, every mapped table names its reviewed mapper, and session/identity exclusions exactly match exporter exclusions. The audit is bound to the snapshot content ID and refuses missing, duplicate or invented tables/columns. This coverage gate does not prove that production rows reconcile; the mapped bundle still needs isolated apply, replay and target readback.
+
+For an empty-database recovery exercise, set the explicit isolation guard and run the combined drill after applying the current schema migrations:
+
+```bash
+SHADOW_MIGRATION_DRILL=isolated-empty-database DATABASE_URL=... pnpm migration restore-drill /isolated/final-bundle.json /isolated/restore-report.json
+```
+
+The command refuses any database containing business facts, Operations or earlier migration batches. It requires the bundle's four-digit target schema to equal the database's latest migration, performs an initial apply, requires an exact replay on the second apply, and reconciles fresh target readback and verified files. It never changes write epochs or claims production cutover readiness.
+
+The checked-in bundle is synthetic. Production owner maps, exported rows, asset paths, counts, mapping reviews and reports stay outside the repository.

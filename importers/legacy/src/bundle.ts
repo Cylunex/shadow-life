@@ -28,7 +28,7 @@ export const migrationBundleSchema = z.object({
   protocol: z.literal("shadow.legacy-bundle"),
   source_snapshot: z.string().min(1).max(200),
   mapper_version: z.string().min(1).max(100),
-  target_schema_version: z.string().min(1).max(100),
+  target_schema_version: z.string().regex(/^\d{4}$/u),
   owners: z.record(z.string(), z.string().regex(/^[a-z][a-z0-9_]{7,127}$/u)),
   manifest: z.object({ files: z.array(z.object({ path:z.string().min(1), sha256:z.string().regex(/^[a-f0-9]{64}$/u), bytes:z.number().int().nonnegative() }).strict()).default([]) }).strict(),
   objects: z.array(migrationObjectSchema)

@@ -2,7 +2,7 @@
   "protocol": "shadow.legacy-bundle",
   "source_snapshot": "synthetic-2026-09-08",
   "mapper_version": "hl-m2",
-  "target_schema_version": "0005",
+  "target_schema_version": "0024",
   "owners": { "legacy-owner": "subject_import_fixture" },
   "manifest": { "files": [] },
   "objects": [

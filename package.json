@@ -20,7 +20,8 @@
     "eval:agent": "node scripts/eval-agent.mjs",
     "mcp": "pnpm --filter @shadow/mcp start",
     "import:dry-run": "pnpm --filter @shadow/legacy-importer dry-run",
-    "migration": "pnpm --filter @shadow/legacy-importer migration"
+    "migration": "pnpm --filter @shadow/legacy-importer migration",
+    "migration:mapping": "pnpm --filter @shadow/legacy-importer mapping"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",

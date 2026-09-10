@@ -4,7 +4,7 @@ import { canonical, sha256, stableMigrationId, validateBundle, verifyBundleFiles
 
 type Mode = "dry_run"|"apply"|"final_delta";
 const [command, bundlePath, reportPath] = process.argv.slice(2);
-if (!command || !bundlePath) throw new Error("usage: cli <validate|plan|apply|final-delta|reconcile|cutover-check> <bundle.json> [report.json]");
+if (!command || !bundlePath) throw new Error("usage: cli <validate|plan|apply|restore-drill|final-delta|reconcile|cutover-check> <bundle.json> [report.json]");
 const raw = JSON.parse(await readFile(bundlePath,"utf8"));
 const bundle = validateBundle(raw);
 const verifiedFiles=await verifyBundleFiles(bundle,bundlePath);
@@ -32,13 +32,16 @@ if(command==="validate"||command==="plan"){
   if(!connectionString)throw new Error("DATABASE_URL is required");
   const pool=new Pool({connectionString});
   try {
+    await assertTargetSchema(pool,bundle.target_schema_version);
     const selected=command==="reconcile"||command==="cutover-check"?await pool.query<{id:string;mode:Mode}>("select id,mode from migration_batches where bundle_hash=$1 and mapper_version=$2 and owner_map_hash=$3 and mode in ('apply','final_delta') order by case mode when 'final_delta' then 0 else 1 end,started_at desc limit 1",[bundleHash,bundle.mapper_version,ownerMapHash]):undefined;
     const activeMode=selected?.rows[0]?.mode??batchMode,activeBatchId=selected?.rows[0]?.id??batchIdFor(activeMode),items=plan(bundle,activeBatchId),baseReport={protocol:"shadow.migration-report",batch_id:activeBatchId,bundle_hash:bundleHash,source_snapshot:bundle.source_snapshot,mapper_version:bundle.mapper_version,objects:bundle.objects.length,components:items.length};
-    const report=command==="apply"||command==="final-delta"?await apply(pool,bundle,items,activeBatchId,bundleHash,ownerMapHash,activeMode):command==="reconcile"?await reconcile(pool,bundle,items,activeBatchId,verifiedFiles):command==="cutover-check"?await cutoverCheck(pool,bundle,items,activeBatchId,bundleHash,ownerMapHash,verifiedFiles):(()=>{throw new Error(`unknown command: ${command}`)})();
+    const report=command==="apply"||command==="final-delta"?await apply(pool,bundle,items,activeBatchId,bundleHash,ownerMapHash,activeMode):command==="restore-drill"?await restoreDrill(pool,bundle,items,activeBatchId,bundleHash,ownerMapHash,verifiedFiles):command==="reconcile"?await reconcile(pool,bundle,items,activeBatchId,verifiedFiles):command==="cutover-check"?await cutoverCheck(pool,bundle,items,activeBatchId,bundleHash,ownerMapHash,verifiedFiles):(()=>{throw new Error(`unknown command: ${command}`)})();
     if(reportPath)await writeFile(reportPath,JSON.stringify({...baseReport,files_verified:verifiedFiles.length,...report},null,2)+"\n");else console.log(JSON.stringify({...baseReport,files_verified:verifiedFiles.length,...report},null,2));
-    const gate=report as {complete?:boolean;ready?:boolean;conflicts?:number};if((command==="reconcile"&&gate.complete!==true)||(command==="cutover-check"&&gate.ready!==true)||((command==="apply"||command==="final-delta")&&(gate.conflicts??0)>0))process.exitCode=2;
+    const gate=report as {complete?:boolean;ready?:boolean;conflicts?:number};if((command==="reconcile"&&gate.complete!==true)||(command==="restore-drill"&&gate.ready!==true)||(command==="cutover-check"&&gate.ready!==true)||((command==="apply"||command==="final-delta")&&(gate.conflicts??0)>0))process.exitCode=2;
   } finally { await pool.end(); }
 }
+
+async function assertTargetSchema(pool:Pool,expected:string){const result=await pool.query<{name:string}>("select name from schema_migrations order by name desc limit 1"),name=result.rows[0]?.name,current=name?.match(/^(\d{4})_/u)?.[1];if(current!==expected)throw new Error(`bundle targets schema ${expected}, but database is ${current??"unmigrated"}`);}
 
 async function apply(pool:Pool,bundle:MigrationBundle,items:ReturnType<typeof plan>,id:string,bundleHash:string,ownerMapHash:string,mode:Mode){
   const client=await pool.connect();let applied=0,replayed=0,conflicts=0;
@@ -81,6 +84,12 @@ async function apply(pool:Pool,bundle:MigrationBundle,items:ReturnType<typeof pl
     await client.query("update migration_batches set stage=$2,summary=$3 where id=$1",[id,conflicts?"blocked":"reconciling",{applied,replayed,conflicts}]);await client.query("commit");
   }catch(error){await client.query("rollback");throw error;}finally{client.release();}
   return {applied,replayed,conflicts};
+}
+
+async function restoreDrill(pool:Pool,bundle:MigrationBundle,items:ReturnType<typeof plan>,id:string,bundleHash:string,ownerMapHash:string,verifiedFiles:VerifiedManifestFile[]){
+  if(process.env.SHADOW_MIGRATION_DRILL!=="isolated-empty-database")throw new Error("restore-drill requires SHADOW_MIGRATION_DRILL=isolated-empty-database");
+  const counts=await pool.query<{facts:number;batches:number;operations:number}>("select ((select count(*) from consumption_records)+(select count(*) from meals)+(select count(*) from health_raw_records)+(select count(*) from library_items))::int facts,(select count(*) from migration_batches)::int batches,(select count(*) from operations)::int operations"),before=counts.rows[0]!;if(before.facts!==0||before.batches!==0||before.operations!==0)throw new Error(`restore-drill refuses a non-empty database: ${JSON.stringify(before)}`);
+  const first=await apply(pool,bundle,items,id,bundleHash,ownerMapHash,"apply"),second=await apply(pool,bundle,items,id,bundleHash,ownerMapHash,"apply"),reconciliation=await reconcile(pool,bundle,items,id,verifiedFiles),ready=first.applied===items.length&&first.conflicts===0&&second.applied===0&&second.replayed===items.length&&second.conflicts===0&&reconciliation.complete;return{ready,empty_database_verified:true,first_apply:first,replay_apply:second,reconciliation};
 }
 
 async function saveMigrationItem(c:PoolClient,item:ReturnType<typeof plan>[number],batchId:string,status:"applied"|"replayed"|"archived",revision:number|null,detail:Record<string,unknown>){await c.query("insert into migration_items(id,batch_id,source_instance,source_table,source_pk,source_pk_hash,source_revision,payload_hash,target_component,status,target_type,target_id,last_applied_target_revision,detail) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)",[item.item_id,batchId,item.source.instance,item.source.table,item.source.pk,item.source_pk_hash,item.source.revision??null,item.payload_hash,item.target.component,status,item.target.type,item.target.id,revision,detail]);}
