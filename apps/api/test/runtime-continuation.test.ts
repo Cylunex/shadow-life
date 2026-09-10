@@ -34,7 +34,7 @@ test("missing resources are returned as 404 errors",async()=>{
 });
 
 test("overview routes parse typed filters before calling query services",async()=>{
-  let todayInput:unknown,timelineInput:unknown,importBatchId="",healthRecordId="";
+  let todayInput:unknown,timelineInput:unknown,importBatchId="",healthRecordId="",travelWorkspaceInput:unknown,travelExportInput:unknown;
   const dependencies={
     unitOfWork:{ensurePrincipal:async()=>undefined,pool:{query:async()=>({rows:[]})}},
     executor:{execute:async()=>({}),getOperation:async()=>({})},
@@ -42,7 +42,9 @@ test("overview routes parse typed filters before calling query services",async()
       lifeToday:async(_context:unknown,input:unknown)=>{todayInput=input;return{date:"2026-09-10",time_zone:"Asia/Shanghai",domains:{money:{entries:1,totals:[],freshness:"2026-09-10T01:00:00.000Z"}},as_of:"2026-09-10T02:00:00.000Z"};},
       lifeTimeline:async(_context:unknown,input:unknown)=>{timelineInput=input;return{items:[],next_cursor:null,as_of:"2026-09-10T02:00:00.000Z"};},
       moneyImportReview:async(_context:unknown,batchId:string)=>{importBatchId=batchId;return{batch:{id:batchId},candidates:[]};},
-      healthRecord:async(_context:unknown,id:string)=>{healthRecordId=id;return{kind:"measurement",fact:{id}};}
+      healthRecord:async(_context:unknown,id:string)=>{healthRecordId=id;return{kind:"measurement",fact:{id}};},
+      travelWorkspace:async(_context:unknown,input:unknown)=>{travelWorkspaceInput=input;return{places:[],maps:[],trips:[]};},
+      travelExport:async(_context:unknown,input:unknown)=>{travelExportInput=input;return{format:"ics",mime_type:"text/calendar",filename:"trip_demo.ics",sha256:"0".repeat(64),content:"BEGIN:VCALENDAR"};}
     },
     developmentAuth:true
   } as unknown as Parameters<typeof createApp>[0];
@@ -51,9 +53,12 @@ test("overview routes parse typed filters before calling query services",async()
   const timeline=await app.request("/api/timeline?domains=money&limit=2",{headers});
   const importReview=await app.request("/api/money/imports/import_batch_12345678",{headers});
   const healthRecord=await app.request("/api/health/records/health_12345678",{headers});
-  assert.equal(today.status,200);assert.equal(timeline.status,200);assert.equal(importReview.status,200);assert.equal(healthRecord.status,200);assert.equal(importBatchId,"import_batch_12345678");assert.equal(healthRecordId,"health_12345678");
+  const travelWorkspace=await app.request("/api/travel/workspace?trip_id=trip_12345678",{headers});
+  const travelExport=await app.request("/api/travel/trips/trip_12345678/export?format=ics",{headers});
+  assert.equal(today.status,200);assert.equal(timeline.status,200);assert.equal(importReview.status,200);assert.equal(healthRecord.status,200);assert.equal(travelWorkspace.status,200);assert.equal(travelExport.status,200);assert.equal(importBatchId,"import_batch_12345678");assert.equal(healthRecordId,"health_12345678");
   assert.deepEqual(todayInput,{date:"2026-09-10",time_zone:"Asia/Shanghai",domains:["money","health"]});
   assert.deepEqual(timelineInput,{domains:["money"],limit:2});
+  assert.deepEqual(travelWorkspaceInput,{trip_id:"trip_12345678"});assert.deepEqual(travelExportInput,{trip_id:"trip_12345678",format:"ics"});
 });
 
 test("runtime-forged commit events are rejected before tool dispatch",async()=>{

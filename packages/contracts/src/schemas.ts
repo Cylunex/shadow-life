@@ -221,19 +221,21 @@ export const addReservationInputSchema = z.object({
   ends_at: instant.optional(),
   confirmation_code: z.string().trim().min(1).max(100).optional(),
   state:z.enum(["pending","waitlisted","confirmed","changed","cancelled","refunded"]).default("confirmed"),
+  visibility:z.enum(["shared","private"]).default("shared"),
   origin:z.string().trim().min(1).max(200).optional(), destination:z.string().trim().min(1).max(200).optional(), service_number:z.string().trim().min(1).max(100).optional(), seat:z.string().trim().min(1).max(100).optional(),
   fare:datedPaymentSchema.optional(),
   source: sourceInputSchema.optional()
 }).strict().refine((value)=>!value.starts_at||!value.ends_at||value.ends_at>=value.starts_at,{path:["ends_at"],message:"ends_at must not be before starts_at"});
-export const correctReservationInputSchema=z.object({reservation_id:stableId,expected_revision:z.number().int().positive(),reservation_type:z.enum(["flight","rail","hotel","restaurant","activity","other"]),title:z.string().trim().min(1).max(200),starts_at:instant.optional(),ends_at:instant.optional(),confirmation_code:z.string().trim().min(1).max(100).optional(),state:z.enum(["pending","waitlisted","confirmed","changed","cancelled","refunded"]),origin:z.string().trim().min(1).max(200).optional(),destination:z.string().trim().min(1).max(200).optional(),service_number:z.string().trim().min(1).max(100).optional(),seat:z.string().trim().min(1).max(100).optional(),source:sourceInputSchema.optional(),reason:z.string().trim().min(1).max(500)}).strict().refine(value=>!value.starts_at||!value.ends_at||value.ends_at>=value.starts_at,{path:["ends_at"],message:"ends_at must not be before starts_at"});
+export const correctReservationInputSchema=z.object({reservation_id:stableId,expected_revision:z.number().int().positive(),reservation_type:z.enum(["flight","rail","hotel","restaurant","activity","other"]),title:z.string().trim().min(1).max(200),starts_at:instant.optional(),ends_at:instant.optional(),confirmation_code:z.string().trim().min(1).max(100).optional(),state:z.enum(["pending","waitlisted","confirmed","changed","cancelled","refunded"]),visibility:z.enum(["shared","private"]).default("shared"),origin:z.string().trim().min(1).max(200).optional(),destination:z.string().trim().min(1).max(200).optional(),service_number:z.string().trim().min(1).max(100).optional(),seat:z.string().trim().min(1).max(100).optional(),source:sourceInputSchema.optional(),reason:z.string().trim().min(1).max(500)}).strict().refine(value=>!value.starts_at||!value.ends_at||value.ends_at>=value.starts_at,{path:["ends_at"],message:"ends_at must not be before starts_at"});
 export const voidReservationInputSchema=z.object({reservation_id:stableId,expected_revision:z.number().int().positive(),reason:z.string().trim().min(1).max(500)}).strict();
-export const recordTripSegmentInputSchema=z.object({trip_id:stableId,mode:z.enum(["walk","bike","taxi","car","bus","metro","rail","flight","ferry","other"]),origin:z.string().trim().min(1).max(200),destination:z.string().trim().min(1).max(200),starts_at:instant.optional(),ends_at:instant.optional(),distance_km:canonicalDecimal.optional(),note:z.string().trim().min(1).max(2_000).optional(),source:sourceInputSchema.optional()}).strict().refine(value=>!value.starts_at||!value.ends_at||value.ends_at>=value.starts_at,{path:["ends_at"],message:"ends_at must not be before starts_at"});
+export const recordTripSegmentInputSchema=z.object({trip_id:stableId,mode:z.enum(["walk","bike","taxi","car","bus","metro","rail","flight","ferry","other"]),origin:z.string().trim().min(1).max(200),destination:z.string().trim().min(1).max(200),starts_at:instant.optional(),ends_at:instant.optional(),distance_km:canonicalDecimal.optional(),note:z.string().trim().min(1).max(2_000).optional(),visibility:z.enum(["shared","private"]).default("shared"),source:sourceInputSchema.optional()}).strict().refine(value=>!value.starts_at||!value.ends_at||value.ends_at>=value.starts_at,{path:["ends_at"],message:"ends_at must not be before starts_at"});
 
 export const recordVisitInputSchema = datedFactSchema.extend({
   place_name: z.string().trim().min(1).max(200),
   latitude: z.number().min(-90).max(90).optional(),
   longitude: z.number().min(-180).max(180).optional(),
-  trip_id: stableId.optional()
+  trip_id: stableId.optional(),
+  visibility:z.enum(["shared","private"]).default("private")
 }).strict().refine(factDateMatches, { path:["occurred_at"], message:"occurred_at does not fall on occurred_on in time_zone" }).superRefine((visit, context) => {
   if ((visit.latitude === undefined) !== (visit.longitude === undefined)) context.addIssue({ code: "custom", message: "latitude and longitude must be supplied together" });
 });
@@ -244,6 +246,12 @@ export const setTripMemberInputSchema=z.object({trip_id:stableId,member_subject_
 export const publishTripPlanInputSchema=z.object({trip_id:stableId,label:z.string().trim().min(1).max(200).optional(),note:z.string().trim().min(1).max(2_000).optional()}).strict();
 export const startTripRunInputSchema=z.object({trip_id:stableId,plan_version_id:stableId.optional()}).strict();
 export const setTripStopOutcomeInputSchema=z.object({run_id:stableId,stop_id:stableId,state:z.enum(["arrived","skipped"]),occurred_at:instant.optional(),note:z.string().trim().min(1).max(1_000).optional(),expected_revision:z.number().int().positive().optional()}).strict();
+export const travelMapItemInputSchema=z.object({place_id:stableId,status:z.enum(["candidate","anchor","planned","visited"]),note:z.string().trim().min(1).max(1_000).optional()}).strict();
+export const saveTravelMapInputSchema=z.object({map_id:stableId.optional(),expected_revision:z.number().int().positive().optional(),title:z.string().trim().min(1).max(200),description:z.string().trim().min(1).max(2_000).optional(),state:z.enum(["active","archived"]).default("active"),items:z.array(travelMapItemInputSchema).max(200),reason:z.string().trim().min(1).max(500).optional()}).strict().superRefine((value,context)=>{if((value.map_id===undefined)!==(value.expected_revision===undefined))context.addIssue({code:"custom",message:"map_id and expected_revision must be supplied together"});if(value.map_id&&value.reason===undefined)context.addIssue({code:"custom",path:["reason"],message:"reason is required for an update"});if(new Set(value.items.map(item=>item.place_id)).size!==value.items.length)context.addIssue({code:"custom",path:["items"],message:"a place can occur only once in a map"});});
+export const importTravelTrackInputSchema=z.object({trip_id:stableId,name:z.string().trim().min(1).max(200).optional(),gpx:z.string().min(1).max(900_000)}).strict();
+export const travelWorkspaceInputSchema=z.object({trip_id:stableId.optional()}).strict();
+export const travelExportInputSchema=z.object({trip_id:stableId,format:z.enum(["bundle","gpx","ics"])}).strict();
+export const travelExportResultSchema=z.object({format:z.enum(["bundle","gpx","ics"]),mime_type:z.string(),filename:z.string(),sha256:z.string().regex(/^[0-9a-f]{64}$/u),content:z.string()}).strict();
 
 export const captureLibraryItemInputSchema = z.object({
   title: z.string().trim().min(1).max(300),
@@ -308,6 +316,8 @@ export const writeCommandSchemas = {
   "travel.publish_plan":publishTripPlanInputSchema,
   "travel.start_run":startTripRunInputSchema,
   "travel.set_stop_outcome":setTripStopOutcomeInputSchema,
+  "travel.save_map":saveTravelMapInputSchema,
+  "travel.import_track":importTravelTrackInputSchema,
   "library.capture": captureLibraryItemInputSchema,
   "library.revise":reviseLibraryItemInputSchema,
   "library.annotate":annotateLibraryItemInputSchema,
@@ -326,7 +336,7 @@ export const universalCommandEnvelopeSchema = z.object({
 });
 
 export const resourceReferenceSchema = z.object({
-  type: z.enum(["meal", "meal_template", "food", "recipe", "personal_alias", "intake_item", "consumption_record", "purchase", "purchase_item", "money_entry", "refund", "budget", "recurring_plan", "recurring_occurrence", "spending_intent", "use_cycle", "money_import_batch", "money_import_candidate", "money_import_rule", "health_measurement", "health_workout_session", "health_raw", "health_sync_cursor", "health_plan", "trip", "trip_segment", "reservation", "visit", "place", "trip_day_plan", "trip_member", "trip_plan_version", "trip_run", "trip_stop_outcome", "library_item", "library_annotation", "library_derivation", "source", "thread", "run", "task"]),
+  type: z.enum(["meal", "meal_template", "food", "recipe", "personal_alias", "intake_item", "consumption_record", "purchase", "purchase_item", "money_entry", "refund", "budget", "recurring_plan", "recurring_occurrence", "spending_intent", "use_cycle", "money_import_batch", "money_import_candidate", "money_import_rule", "health_measurement", "health_workout_session", "health_raw", "health_sync_cursor", "health_plan", "trip", "trip_segment", "reservation", "visit", "place", "travel_map", "trip_track", "trip_day_plan", "trip_member", "trip_plan_version", "trip_run", "trip_stop_outcome", "library_item", "library_annotation", "library_derivation", "source", "thread", "run", "task"]),
   id: stableId,
   revision: z.number().int().positive()
 }).strict();

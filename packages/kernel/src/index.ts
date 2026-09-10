@@ -4,6 +4,7 @@ export * from "./money-import.js";
 export * from "./ports.js";
 export * from "./recurrence.js";
 export * from "./travel.js";
+export * from "./travel-portable.js";
 export * from "./record-meal.js";
 export * from "./queries.js";
 export * from "./runtime.js";

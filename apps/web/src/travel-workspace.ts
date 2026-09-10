@@ -1,0 +1,11 @@
+export interface TravelPlace {id:string;name:string;address:string|null;latitude:string|null;longitude:string|null;favorite:boolean;tags:string[];revision:number;}
+export interface TravelMapItem {place_id:string;position:number;status:"candidate"|"anchor"|"planned"|"visited";note:string|null;}
+export interface TravelMap {id:string;title:string;description:string|null;state:"active"|"archived";revision:number;items:TravelMapItem[];}
+export interface TravelTrip {id:string;title:string;starts_on:string;ends_on:string;time_zone:string;revision:number;is_owner:boolean;role:string;visibility:string;latest_plan_version_id:string|null;}
+export interface TravelStop {stop_id:string;title:string;starts_at?:string;place_id?:string;note?:string;plan_date:string;}
+export interface TravelRun {id:string;trip_id:string;plan_version_id:string;state:string;plan_snapshot:{days:Array<{plan_date:string;items:Array<Omit<TravelStop,"plan_date">>}>};outcomes:Array<{stop_id:string;state:"arrived"|"skipped";revision:number}>;}
+export interface TravelWorkspace {places:TravelPlace[];maps:TravelMap[];trips:TravelTrip[];selected_trip_id:string|null;active_run:TravelRun|null;tracks:Array<{id:string;name:string;points:Array<{latitude:number;longitude:number}>;original_sha256:string}>;as_of:string;}
+
+export function nextTravelStop(run:TravelRun|null):TravelStop|null{if(!run)return null;const completed=new Set(run.outcomes.map(item=>item.stop_id)),stops=run.plan_snapshot.days.flatMap(day=>day.items.map(item=>({...item,plan_date:day.plan_date})));return stops.find(stop=>!completed.has(stop.stop_id))??null;}
+
+export function placePlot(places:readonly TravelPlace[]):Array<TravelPlace&{x:number;y:number}>{const located=places.flatMap(place=>{if(place.latitude===null||place.longitude===null)return[];const latitude=Number(place.latitude),longitude=Number(place.longitude);return Number.isFinite(latitude)&&Number.isFinite(longitude)?[{place,latitude,longitude}]:[];});if(!located.length)return[];const minLat=Math.min(...located.map(item=>item.latitude)),maxLat=Math.max(...located.map(item=>item.latitude)),minLon=Math.min(...located.map(item=>item.longitude)),maxLon=Math.max(...located.map(item=>item.longitude));return located.map(({place,latitude,longitude})=>({...place,x:8+84*(longitude-minLon)/(maxLon-minLon||1),y:92-84*(latitude-minLat)/(maxLat-minLat||1)}));}

@@ -8,7 +8,7 @@ h1 { margin: 10px 0 8px; font-family: Georgia, serif; font-size: clamp(36px, 7vw
 header p { color: #58665d; }
 form, .receipt, .error { border: 1px solid #cad2c5; border-radius: 22px; background: rgba(255,255,255,.72); padding: 24px; box-shadow: 0 20px 60px rgba(44,66,50,.08); }
 .workspace { display: grid; gap: 20px; }
-.empty-state, .health-panel, .import-panel, .record-browser, .workout-panel, .food-panel { border: 1px solid #cad2c5; border-radius: 22px; background: rgba(255,255,255,.72); padding: 24px; box-shadow: 0 20px 60px rgba(44,66,50,.08); }
+.empty-state, .health-panel, .import-panel, .record-browser, .workout-panel, .food-panel, .travel-panel { border: 1px solid #cad2c5; border-radius: 22px; background: rgba(255,255,255,.72); padding: 24px; box-shadow: 0 20px 60px rgba(44,66,50,.08); }
 label { display: grid; gap: 8px; margin-bottom: 18px; font-weight: 650; }
 label small { color: #68736b; font-weight: 450; }
 input, textarea { width: 100%; border: 1px solid #bac5b6; border-radius: 12px; background: #fff; padding: 13px 14px; color: inherit; font: inherit; }
@@ -123,4 +123,26 @@ select { width:100%; border:1px solid #bac5b6; border-radius:12px; background:#f
 .attention-grid ul { list-style:none; padding:0; margin:0; }
 .attention-grid li { display:grid; gap:3px; padding:9px 0; border-top:1px solid #e1e5dd; }
 .attention-grid span { color:#667168; font-size:13px; }
-@media (max-width:560px){main{padding:36px 0}.grid,.health-grid,.import-form,.candidate-fields,.catalog-grid,.field-pair,.nutrient-grid{grid-template-columns:1fr}.panel-heading{align-items:stretch;flex-direction:column}.panel-heading label{width:100%}.catalog-search{width:100%}.trend-list li{grid-template-columns:1fr auto}.trend-list small{grid-column:1/-1}.health-card,.trend-card,.sources-card,.import-form .full,.candidate-fields .full,.recipe-meal{grid-column:1}}
+.travel-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin-top:14px; }
+.map-board,.transit-card,.map-list { border:1px solid #d4dbd0; border-radius:16px; background:#f9faf6; padding:18px; }
+.map-board h3,.transit-card h3,.map-list h3,.travel-form h3,.track-form h3 { margin-top:0; }
+.coordinate-map { position:relative; min-height:260px; overflow:hidden; border-radius:14px; background:radial-gradient(circle at 20% 30%,#dfeadc,transparent 32%),linear-gradient(145deg,#edf3e8,#d7e5dc); }
+.coordinate-map::before { content:""; position:absolute; inset:0; background-image:linear-gradient(#fff7 1px,transparent 1px),linear-gradient(90deg,#fff7 1px,transparent 1px); background-size:32px 32px; }
+.coordinate-map span { position:absolute; z-index:1; display:grid; justify-items:center; max-width:110px; color:#214d36; font-size:12px; font-weight:750; transform:translate(-50%,-50%); text-align:center; }
+.coordinate-map i { width:13px; height:13px; border:3px solid white; border-radius:50%; background:#c45c37; box-shadow:0 2px 8px #214d3670; }
+.map-board>small,.travel-form>small,.track-form>small { display:block; color:#667168; margin-top:10px; }
+.transit-card h4 { margin:8px 0; font:500 26px Georgia,serif; }
+.export-actions { display:flex; gap:6px; margin-top:18px; }
+.export-actions button { padding:8px 12px; background:#607568; }
+.travel-form,.track-form { box-shadow:none; background:#f7f9f3; padding:18px; border-radius:16px; }
+.travel-form fieldset { border:0; padding:0; margin:0 0 14px; }
+.travel-form legend { font-weight:750; margin-bottom:10px; }
+.place-choice { display:grid; grid-template-columns:1fr 130px; align-items:center; gap:8px; padding:7px 0; border-top:1px solid #e1e5dd; }
+.place-choice label { display:flex; align-items:center; gap:8px; margin:0; font-weight:550; }
+.place-choice input { width:auto; }
+.place-choice select { padding:8px; }
+.map-list>ul { list-style:none; margin:0 0 18px; padding:0; }
+.map-list>ul button { width:100%; display:grid; gap:3px; text-align:left; border-radius:0; border-top:1px solid #e1e5dd; background:transparent; color:inherit; padding:12px 0; }
+.map-list>ul span { color:#667168; font-size:13px; }
+.track-form { padding:16px; }
+@media (max-width:560px){main{padding:36px 0}.grid,.health-grid,.import-form,.candidate-fields,.catalog-grid,.field-pair,.nutrient-grid,.travel-grid{grid-template-columns:1fr}.panel-heading{align-items:stretch;flex-direction:column}.panel-heading label{width:100%}.catalog-search{width:100%}.trend-list li{grid-template-columns:1fr auto}.trend-list small{grid-column:1/-1}.health-card,.trend-card,.sources-card,.import-form .full,.candidate-fields .full,.recipe-meal{grid-column:1}}

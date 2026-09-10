@@ -573,6 +573,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -637,6 +639,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -1224,6 +1228,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -1288,6 +1294,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -2342,6 +2350,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -2406,6 +2416,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -2688,6 +2700,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -2752,6 +2766,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -3150,6 +3166,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -3214,6 +3232,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -3430,6 +3450,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -3494,6 +3516,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -3813,6 +3837,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -3877,6 +3903,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -4198,6 +4226,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -4262,6 +4292,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -4488,6 +4520,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -4552,6 +4586,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -4950,6 +4986,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -5014,6 +5052,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -5354,6 +5394,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -5418,6 +5460,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -5635,6 +5679,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -5699,6 +5745,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -5920,6 +5968,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -5984,6 +6034,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -6388,6 +6440,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -6452,6 +6506,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -6916,6 +6972,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -6980,6 +7038,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -7312,6 +7372,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -7376,6 +7438,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -7828,6 +7892,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -7892,6 +7958,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -8172,6 +8240,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -8236,6 +8306,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -8642,6 +8714,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -8706,6 +8780,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -9054,6 +9130,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -9118,6 +9196,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -9450,6 +9530,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -9514,6 +9596,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -9730,6 +9814,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -9794,6 +9880,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -10040,6 +10128,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -10104,6 +10194,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -10506,6 +10598,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -10570,6 +10664,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -10862,6 +10958,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -10926,6 +11024,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -11186,6 +11286,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -11250,6 +11352,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -11560,6 +11664,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -11624,6 +11730,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -11860,6 +11968,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -11924,6 +12034,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -12356,6 +12468,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -12420,6 +12534,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -12730,6 +12846,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -12794,6 +12912,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -13174,6 +13294,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -13238,6 +13360,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -13560,6 +13684,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -13624,6 +13750,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -13978,6 +14106,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -14042,6 +14172,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -14444,6 +14576,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -14508,6 +14642,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -14996,6 +15132,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -15060,6 +15198,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -15330,6 +15470,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -15394,6 +15536,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -15824,6 +15968,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -15888,6 +16034,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -16128,6 +16276,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -16192,6 +16342,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -16466,6 +16618,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -16530,6 +16684,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -16662,6 +16818,14 @@
               "refunded"
             ]
           },
+          "visibility": {
+            "default": "shared",
+            "type": "string",
+            "enum": [
+              "shared",
+              "private"
+            ]
+          },
           "origin": {
             "type": "string",
             "minLength": 1,
@@ -16789,7 +16953,8 @@
           "trip_id",
           "reservation_type",
           "title",
-          "state"
+          "state",
+          "visibility"
         ],
         "additionalProperties": false
       },
@@ -16857,6 +17022,14 @@
                   "changed",
                   "cancelled",
                   "refunded"
+                ]
+              },
+              "visibility": {
+                "default": "shared",
+                "type": "string",
+                "enum": [
+                  "shared",
+                  "private"
                 ]
               },
               "origin": {
@@ -16986,7 +17159,8 @@
               "trip_id",
               "reservation_type",
               "title",
-              "state"
+              "state",
+              "visibility"
             ],
             "additionalProperties": false
           }
@@ -17060,6 +17234,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -17124,6 +17300,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -17259,6 +17437,14 @@
               "refunded"
             ]
           },
+          "visibility": {
+            "default": "shared",
+            "type": "string",
+            "enum": [
+              "shared",
+              "private"
+            ]
+          },
           "origin": {
             "type": "string",
             "minLength": 1,
@@ -17337,6 +17523,7 @@
           "reservation_type",
           "title",
           "state",
+          "visibility",
           "reason"
         ],
         "additionalProperties": false
@@ -17409,6 +17596,14 @@
                   "changed",
                   "cancelled",
                   "refunded"
+                ]
+              },
+              "visibility": {
+                "default": "shared",
+                "type": "string",
+                "enum": [
+                  "shared",
+                  "private"
                 ]
               },
               "origin": {
@@ -17489,6 +17684,7 @@
               "reservation_type",
               "title",
               "state",
+              "visibility",
               "reason"
             ],
             "additionalProperties": false
@@ -17563,6 +17759,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -17627,6 +17825,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -17843,6 +18043,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -17907,6 +18109,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -18039,6 +18243,14 @@
             "minLength": 1,
             "maxLength": 2000
           },
+          "visibility": {
+            "default": "shared",
+            "type": "string",
+            "enum": [
+              "shared",
+              "private"
+            ]
+          },
           "source": {
             "type": "object",
             "properties": {
@@ -18090,7 +18302,8 @@
           "trip_id",
           "mode",
           "origin",
-          "destination"
+          "destination",
+          "visibility"
         ],
         "additionalProperties": false
       },
@@ -18161,6 +18374,14 @@
                 "minLength": 1,
                 "maxLength": 2000
               },
+              "visibility": {
+                "default": "shared",
+                "type": "string",
+                "enum": [
+                  "shared",
+                  "private"
+                ]
+              },
               "source": {
                 "type": "object",
                 "properties": {
@@ -18212,7 +18433,8 @@
               "trip_id",
               "mode",
               "origin",
-              "destination"
+              "destination",
+              "visibility"
             ],
             "additionalProperties": false
           }
@@ -18286,6 +18508,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -18350,6 +18574,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -18518,12 +18744,21 @@
           "trip_id": {
             "type": "string",
             "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "visibility": {
+            "default": "private",
+            "type": "string",
+            "enum": [
+              "shared",
+              "private"
+            ]
           }
         },
         "required": [
           "occurred_on",
           "time_zone",
-          "place_name"
+          "place_name",
+          "visibility"
         ],
         "additionalProperties": false
       },
@@ -18630,12 +18865,21 @@
               "trip_id": {
                 "type": "string",
                 "pattern": "^[a-z][a-z0-9_]{7,127}$"
+              },
+              "visibility": {
+                "default": "private",
+                "type": "string",
+                "enum": [
+                  "shared",
+                  "private"
+                ]
               }
             },
             "required": [
               "occurred_on",
               "time_zone",
-              "place_name"
+              "place_name",
+              "visibility"
             ],
             "additionalProperties": false
           }
@@ -18709,6 +18953,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -18773,6 +19019,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -19047,6 +19295,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -19111,6 +19361,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -19397,6 +19649,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -19461,6 +19715,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -19695,6 +19951,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -19759,6 +20017,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -19971,6 +20231,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -20035,6 +20297,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -20235,6 +20499,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -20299,6 +20565,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -20547,6 +20815,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -20611,6 +20881,674 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
+                    "trip_day_plan",
+                    "trip_member",
+                    "trip_plan_version",
+                    "trip_run",
+                    "trip_stop_outcome",
+                    "library_item",
+                    "library_annotation",
+                    "library_derivation",
+                    "source",
+                    "thread",
+                    "run",
+                    "task"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "revision": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "revision"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "actual_values": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "replayed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "protocol",
+          "capability",
+          "command_id",
+          "execution_id",
+          "status",
+          "result_kind",
+          "resources",
+          "actual_values",
+          "warnings",
+          "replayed"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "travel.save_map": {
+      "name": "travel.save_map",
+      "description": "保存个人主题地图与地点状态；收藏、候选和锚点不会生成到访事实。",
+      "possible_effects": [
+        "travel.trip.write"
+      ],
+      "idempotency": "required",
+      "status_query": "operations.get",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "map_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "state": {
+            "default": "active",
+            "type": "string",
+            "enum": [
+              "active",
+              "archived"
+            ]
+          },
+          "items": {
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "place_id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "candidate",
+                    "anchor",
+                    "planned",
+                    "visited"
+                  ]
+                },
+                "note": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1000
+                }
+              },
+              "required": [
+                "place_id",
+                "status"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "title",
+          "state",
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "command_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "const": "shadow.command"
+          },
+          "capability": {
+            "type": "string",
+            "const": "travel.save_map"
+          },
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+          },
+          "input": {
+            "type": "object",
+            "properties": {
+              "map_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{7,127}$"
+              },
+              "expected_revision": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              "state": {
+                "default": "active",
+                "type": "string",
+                "enum": [
+                  "active",
+                  "archived"
+                ]
+              },
+              "items": {
+                "maxItems": 200,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "place_id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "candidate",
+                        "anchor",
+                        "planned",
+                        "visited"
+                      ]
+                    },
+                    "note": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1000
+                    }
+                  },
+                  "required": [
+                    "place_id",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "required": [
+              "title",
+              "state",
+              "items"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "protocol",
+          "capability",
+          "command_id",
+          "input"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "const": "shadow.execution-result"
+          },
+          "capability": {
+            "type": "string",
+            "enum": [
+              "life.record_meal",
+              "life.record_dining",
+              "life.correct_meal",
+              "life.add_intake",
+              "life.remove_intake",
+              "life.add_meal_payment",
+              "life.attach_meal_source",
+              "life.set_personal_alias",
+              "life.record_purchase",
+              "life.correct_intake",
+              "life.correct_purchase",
+              "life.void_purchase",
+              "life.link_meal_consumption",
+              "life.save_meal_template",
+              "life.record_meal_from_template",
+              "life.save_food",
+              "life.save_recipe",
+              "life.record_meal_from_recipe",
+              "money.record_entry",
+              "money.record_refund",
+              "money.correct_entry",
+              "money.void_entry",
+              "money.set_budget",
+              "money.set_recurring_plan",
+              "money.set_spending_intent",
+              "money.set_use_cycle",
+              "money.set_occurrence_state",
+              "money.stage_import",
+              "money.resolve_import_candidate",
+              "money.set_import_rule",
+              "health.record_measurement",
+              "health.correct_measurement",
+              "health.record_workout",
+              "health.ingest_raw",
+              "health.ingest_batch",
+              "health.set_source_state",
+              "health.set_plan",
+              "travel.create_trip",
+              "travel.correct_trip",
+              "travel.add_reservation",
+              "travel.correct_reservation",
+              "travel.void_reservation",
+              "travel.record_segment",
+              "travel.record_visit",
+              "travel.save_place",
+              "travel.set_day_plan",
+              "travel.set_member",
+              "travel.publish_plan",
+              "travel.start_run",
+              "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
+              "library.capture",
+              "library.revise",
+              "library.annotate",
+              "library.register_derivation"
+            ]
+          },
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+          },
+          "execution_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "status": {
+            "type": "string",
+            "const": "committed"
+          },
+          "result_kind": {
+            "type": "string",
+            "enum": [
+              "record",
+              "plan",
+              "task"
+            ]
+          },
+          "resources": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "meal",
+                    "meal_template",
+                    "food",
+                    "recipe",
+                    "personal_alias",
+                    "intake_item",
+                    "consumption_record",
+                    "purchase",
+                    "purchase_item",
+                    "money_entry",
+                    "refund",
+                    "budget",
+                    "recurring_plan",
+                    "recurring_occurrence",
+                    "spending_intent",
+                    "use_cycle",
+                    "money_import_batch",
+                    "money_import_candidate",
+                    "money_import_rule",
+                    "health_measurement",
+                    "health_workout_session",
+                    "health_raw",
+                    "health_sync_cursor",
+                    "health_plan",
+                    "trip",
+                    "trip_segment",
+                    "reservation",
+                    "visit",
+                    "place",
+                    "travel_map",
+                    "trip_track",
+                    "trip_day_plan",
+                    "trip_member",
+                    "trip_plan_version",
+                    "trip_run",
+                    "trip_stop_outcome",
+                    "library_item",
+                    "library_annotation",
+                    "library_derivation",
+                    "source",
+                    "thread",
+                    "run",
+                    "task"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "revision": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "revision"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "actual_values": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "replayed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "protocol",
+          "capability",
+          "command_id",
+          "execution_id",
+          "status",
+          "result_kind",
+          "resources",
+          "actual_values",
+          "warnings",
+          "replayed"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "travel.import_track": {
+      "name": "travel.import_track",
+      "description": "将有界 GPX 轨迹关联到可编辑旅程，不推断行程段或到访。",
+      "possible_effects": [
+        "travel.trip.write"
+      ],
+      "idempotency": "required",
+      "status_query": "operations.get",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "trip_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "gpx": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 900000
+          }
+        },
+        "required": [
+          "trip_id",
+          "gpx"
+        ],
+        "additionalProperties": false
+      },
+      "command_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "const": "shadow.command"
+          },
+          "capability": {
+            "type": "string",
+            "const": "travel.import_track"
+          },
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+          },
+          "input": {
+            "type": "object",
+            "properties": {
+              "trip_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{7,127}$"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "gpx": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 900000
+              }
+            },
+            "required": [
+              "trip_id",
+              "gpx"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "protocol",
+          "capability",
+          "command_id",
+          "input"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "const": "shadow.execution-result"
+          },
+          "capability": {
+            "type": "string",
+            "enum": [
+              "life.record_meal",
+              "life.record_dining",
+              "life.correct_meal",
+              "life.add_intake",
+              "life.remove_intake",
+              "life.add_meal_payment",
+              "life.attach_meal_source",
+              "life.set_personal_alias",
+              "life.record_purchase",
+              "life.correct_intake",
+              "life.correct_purchase",
+              "life.void_purchase",
+              "life.link_meal_consumption",
+              "life.save_meal_template",
+              "life.record_meal_from_template",
+              "life.save_food",
+              "life.save_recipe",
+              "life.record_meal_from_recipe",
+              "money.record_entry",
+              "money.record_refund",
+              "money.correct_entry",
+              "money.void_entry",
+              "money.set_budget",
+              "money.set_recurring_plan",
+              "money.set_spending_intent",
+              "money.set_use_cycle",
+              "money.set_occurrence_state",
+              "money.stage_import",
+              "money.resolve_import_candidate",
+              "money.set_import_rule",
+              "health.record_measurement",
+              "health.correct_measurement",
+              "health.record_workout",
+              "health.ingest_raw",
+              "health.ingest_batch",
+              "health.set_source_state",
+              "health.set_plan",
+              "travel.create_trip",
+              "travel.correct_trip",
+              "travel.add_reservation",
+              "travel.correct_reservation",
+              "travel.void_reservation",
+              "travel.record_segment",
+              "travel.record_visit",
+              "travel.save_place",
+              "travel.set_day_plan",
+              "travel.set_member",
+              "travel.publish_plan",
+              "travel.start_run",
+              "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
+              "library.capture",
+              "library.revise",
+              "library.annotate",
+              "library.register_derivation"
+            ]
+          },
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+          },
+          "execution_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "status": {
+            "type": "string",
+            "const": "committed"
+          },
+          "result_kind": {
+            "type": "string",
+            "enum": [
+              "record",
+              "plan",
+              "task"
+            ]
+          },
+          "resources": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "meal",
+                    "meal_template",
+                    "food",
+                    "recipe",
+                    "personal_alias",
+                    "intake_item",
+                    "consumption_record",
+                    "purchase",
+                    "purchase_item",
+                    "money_entry",
+                    "refund",
+                    "budget",
+                    "recurring_plan",
+                    "recurring_occurrence",
+                    "spending_intent",
+                    "use_cycle",
+                    "money_import_batch",
+                    "money_import_candidate",
+                    "money_import_rule",
+                    "health_measurement",
+                    "health_workout_session",
+                    "health_raw",
+                    "health_sync_cursor",
+                    "health_plan",
+                    "trip",
+                    "trip_segment",
+                    "reservation",
+                    "visit",
+                    "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -20962,6 +21900,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -21026,6 +21966,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -21296,6 +22238,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -21360,6 +22304,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -21638,6 +22584,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -21702,6 +22650,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -21938,6 +22888,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -22002,6 +22954,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
@@ -24610,6 +25564,135 @@
         "additionalProperties": {}
       }
     },
+    "travel.workspace": {
+      "name": "travel.workspace",
+      "description": "读取个人主题地图、地点收集和可见旅程的在途状态。",
+      "possible_effects": [
+        "travel.trip.read"
+      ],
+      "idempotency": "not-applicable",
+      "status_query": "operations.get",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "trip_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          }
+        },
+        "additionalProperties": false
+      },
+      "command_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "trip_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          }
+        },
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {}
+      }
+    },
+    "travel.export": {
+      "name": "travel.export",
+      "description": "以脱敏后的 Bundle、GPX 或 ICS 导出可见旅程。",
+      "possible_effects": [
+        "travel.trip.read"
+      ],
+      "idempotency": "not-applicable",
+      "status_query": "operations.get",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "trip_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "bundle",
+              "gpx",
+              "ics"
+            ]
+          }
+        },
+        "required": [
+          "trip_id",
+          "format"
+        ],
+        "additionalProperties": false
+      },
+      "command_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "trip_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "bundle",
+              "gpx",
+              "ics"
+            ]
+          }
+        },
+        "required": [
+          "trip_id",
+          "format"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string",
+            "enum": [
+              "bundle",
+              "gpx",
+              "ics"
+            ]
+          },
+          "mime_type": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "content": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "format",
+          "mime_type",
+          "filename",
+          "sha256",
+          "content"
+        ],
+        "additionalProperties": false
+      }
+    },
     "library.records": {
       "name": "library.records",
       "description": "分页搜索当前主体的资料标题、正文和标签。",
@@ -24844,6 +25927,8 @@
               "travel.publish_plan",
               "travel.start_run",
               "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -24908,6 +25993,8 @@
                     "reservation",
                     "visit",
                     "place",
+                    "travel_map",
+                    "trip_track",
                     "trip_day_plan",
                     "trip_member",
                     "trip_plan_version",
