@@ -74,3 +74,6 @@ Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The tab
   adds the corresponding planning indexes. Contract and PostgreSQL regressions cover invalid/maximum years,
   cross-month exclusion, a 101-row truncation boundary and index usability. All TypeScript checks and 59
   non-PostgreSQL tests pass.
+- Health source reads now fetch all authorized source instances and their cursors in two stable, batched
+  statements instead of one cursor query per source. Migration 0017 adds the subject/source cursor index; the
+  PostgreSQL journey asserts both the fixed statement count across multiple sources and the usable index plan.
