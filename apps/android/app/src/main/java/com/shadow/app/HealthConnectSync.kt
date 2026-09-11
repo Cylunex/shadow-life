@@ -188,6 +188,28 @@ private fun upsert(record:Record,payload:JSONObject):JSONObject{
   return JSONObject().put("client_record_id",id).put("provider_record_id",metadata.id).put("record_version",maxOf(metadata.clientRecordVersion,metadata.lastModifiedTime.toEpochMilli())).put("change_kind","upsert").put("payload",payload)
 }
 
+internal fun healthConnectSessionType(exerciseType:Int)=when(exerciseType){
+  ExerciseSessionRecord.EXERCISE_TYPE_WALKING->"walking"
+  ExerciseSessionRecord.EXERCISE_TYPE_RUNNING->"running"
+  ExerciseSessionRecord.EXERCISE_TYPE_RUNNING_TREADMILL->"treadmill_running"
+  ExerciseSessionRecord.EXERCISE_TYPE_BIKING->"biking"
+  ExerciseSessionRecord.EXERCISE_TYPE_BIKING_STATIONARY->"stationary_biking"
+  ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_POOL->"pool_swimming"
+  ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_OPEN_WATER->"open_water_swimming"
+  ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING->"strength_training"
+  ExerciseSessionRecord.EXERCISE_TYPE_WEIGHTLIFTING->"weightlifting"
+  ExerciseSessionRecord.EXERCISE_TYPE_HIGH_INTENSITY_INTERVAL_TRAINING->"hiit"
+  ExerciseSessionRecord.EXERCISE_TYPE_ROWING->"rowing"
+  ExerciseSessionRecord.EXERCISE_TYPE_ROWING_MACHINE->"rowing_machine"
+  ExerciseSessionRecord.EXERCISE_TYPE_HIKING->"hiking"
+  ExerciseSessionRecord.EXERCISE_TYPE_YOGA->"yoga"
+  ExerciseSessionRecord.EXERCISE_TYPE_PILATES->"pilates"
+  ExerciseSessionRecord.EXERCISE_TYPE_STRETCHING->"stretching"
+  ExerciseSessionRecord.EXERCISE_TYPE_DANCING->"dancing"
+  ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT->"other"
+  else->"health_connect_$exerciseType"
+}
+
 private object HealthConnectEncoder{
   private fun zone()=ZoneId.systemDefault()
   private fun decimal(value:Double)=BigDecimal.valueOf(value).stripTrailingZeros().toPlainString()
@@ -203,7 +225,7 @@ private object HealthConnectEncoder{
     return JSONObject().put("wake_date",record.endTime.atZone(zone()).toLocalDate().toString()).put("time_zone",zone().id).put("started_at",record.startTime.toString()).put("ended_at",record.endTime.toString()).put("total_minutes",Duration.between(record.startTime,record.endTime).toMinutes())
       .put("deep_minutes",stages[SleepSessionRecord.STAGE_TYPE_DEEP]).put("light_minutes",stages[SleepSessionRecord.STAGE_TYPE_LIGHT]).put("rem_minutes",stages[SleepSessionRecord.STAGE_TYPE_REM]).put("awake_minutes",stages[SleepSessionRecord.STAGE_TYPE_AWAKE])
   }
-  fun exercise(record:ExerciseSessionRecord)=JSONObject().put("occurred_on",record.startTime.atZone(zone()).toLocalDate().toString()).put("time_zone",zone().id).put("session_type",ExerciseSessionRecord.EXERCISE_TYPE_INT_TO_STRING_MAP[record.exerciseType]?:"other").put("started_at",record.startTime.toString()).put("duration_minutes",Duration.between(record.startTime,record.endTime).toMinutes()).put("detail",JSONObject().put("source","health_connect").put("title",record.title).put("notes",record.notes))
+  fun exercise(record:ExerciseSessionRecord)=JSONObject().put("occurred_on",record.startTime.atZone(zone()).toLocalDate().toString()).put("time_zone",zone().id).put("session_type",healthConnectSessionType(record.exerciseType)).put("started_at",record.startTime.toString()).put("duration_minutes",Duration.between(record.startTime,record.endTime).toMinutes()).put("detail",JSONObject().put("source","health_connect").put("exercise_type",record.exerciseType).put("title",record.title).put("notes",record.notes))
 }
 
 private fun fetchSource(session:ProductSession,accessToken:String,instanceKey:String):ServerSource?{
