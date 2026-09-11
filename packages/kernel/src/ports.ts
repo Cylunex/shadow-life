@@ -4,6 +4,7 @@ export interface RequestContext {
   readonly actorId: string;
   readonly subjectId: string;
   readonly clientId: string;
+  readonly issuer?: string;
   readonly effects: ReadonlySet<string>;
   readonly traceId: string;
   readonly agentRun?:{readonly runId:string;readonly ownerId:string;readonly toolCallId:string};
@@ -61,6 +62,7 @@ export interface TransactionStore {
   lifeReviews(subjectId:string,limit:number,authorizedDomains:readonly string[]):Promise<unknown>;
   lifeProjects(subjectId:string,state:string|undefined,limit:number,authorizedKinds:readonly string[]):Promise<unknown>;
   mealPlanning(subjectId:string,limit:number):Promise<unknown>;
+  purchaseItems(subjectId:string,query:string|undefined,limit:number):Promise<unknown>;
   foreignEntries(subjectId:string,tripId:string|undefined,limit:number,includeTrip:boolean):Promise<unknown>;
   agentPersonalContext(subjectId:string,aliasKinds:readonly string[],includeMealTemplates:boolean):Promise<{aliases:readonly Record<string,unknown>[];mealTemplates:readonly Record<string,unknown>[]}>;
 }

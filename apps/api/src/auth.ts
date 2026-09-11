@@ -27,12 +27,12 @@ export function authMiddleware(options: AuthOptions): MiddlewareHandler {
   return async (context, next) => {
     if(options.proxyAuth&&sameSecret(context.req.header("x-shadow-proxy-secret"),options.proxyAuth.secret)){
       let epochs;try{epochs=writeEpochs(context.req.header("x-shadow-write-epochs"));}catch{return context.json({protocol:"shadow.error",code:"validation",message:"x-shadow-write-epochs is invalid."},422);}
-      const subjectId=options.proxyAuth.subjectId;context.set("requestContext",{actorId:subjectId,subjectId,clientId:"client_trusted_proxy",effects:developmentEffects,traceId:context.req.header("x-request-id")??crypto.randomUUID(),...(epochs?{writeEpochs:epochs}:{})});await next();return;
+      const subjectId=options.proxyAuth.subjectId;context.set("requestContext",{actorId:subjectId,subjectId,clientId:"client_trusted_proxy",issuer:"shadow:trusted-proxy",effects:developmentEffects,traceId:context.req.header("x-request-id")??crypto.randomUUID(),...(epochs?{writeEpochs:epochs}:{})});await next();return;
     }
     const headerAuthorization=context.req.header("authorization"),cookieToken=getCookie(context,"shadow_access_token"),authorization=headerAuthorization??(cookieToken?`Bearer ${cookieToken}`:"");
     if(options.development&&authorization.startsWith("Bearer dev:")){
       const subjectId=authorization.slice("Bearer dev:".length);if(!/^[a-z][a-z0-9_]{7,127}$/u.test(subjectId))return context.json({protocol:"shadow.error",code:"permission_denied",message:"The development subject is invalid."},401);
-      let epochs;try{epochs=writeEpochs(context.req.header("x-shadow-write-epochs"));}catch{return context.json({protocol:"shadow.error",code:"validation",message:"x-shadow-write-epochs is invalid."},422);}context.set("requestContext",{actorId:subjectId,subjectId,clientId:"client_development",effects:developmentEffects,traceId:context.req.header("x-request-id")??crypto.randomUUID(),...(epochs?{writeEpochs:epochs}:{})});await next();return;
+      let epochs;try{epochs=writeEpochs(context.req.header("x-shadow-write-epochs"));}catch{return context.json({protocol:"shadow.error",code:"validation",message:"x-shadow-write-epochs is invalid."},422);}context.set("requestContext",{actorId:subjectId,subjectId,clientId:"client_development",issuer:"shadow:development",effects:developmentEffects,traceId:context.req.header("x-request-id")??crypto.randomUUID(),...(epochs?{writeEpochs:epochs}:{})});await next();return;
     }
     if(!authorization.startsWith("Bearer ")||!options.issuer||!options.audience||!options.jwksUrl)return context.json({protocol:"shadow.error",code:"permission_denied",message:"A verified product session is required."},401);
     if(!headerAuthorization&&!["GET","HEAD","OPTIONS"].includes(context.req.method)&&context.req.header("origin")!==options.webOrigin)return context.json({protocol:"shadow.error",code:"permission_denied",message:"The request origin is invalid."},403);
@@ -42,7 +42,7 @@ export function authMiddleware(options: AuthOptions): MiddlewareHandler {
       const subjectId=claimString(payload,"shadow_subject")??payload.sub,actorId=payload.sub,clientId=claimString(payload,"client_id")??claimString(payload,"azp");
       if(!subjectId||!actorId||!clientId||!/^[a-z][a-z0-9_]{7,127}$/u.test(subjectId))throw new Error("required identity claims are missing");
       const effects=effectsFrom(payload);if(effects.size===0)throw new Error("token has no supported effects");
-      const epochs=writeEpochs(context.req.header("x-shadow-write-epochs"));context.set("requestContext",{actorId,subjectId,clientId,effects,traceId:context.req.header("x-request-id")??crypto.randomUUID(),...(epochs?{writeEpochs:epochs}:{})});await next();
+      const epochs=writeEpochs(context.req.header("x-shadow-write-epochs"));context.set("requestContext",{actorId,subjectId,clientId,issuer:options.issuer,effects,traceId:context.req.header("x-request-id")??crypto.randomUUID(),...(epochs?{writeEpochs:epochs}:{})});await next();
     }catch{return context.json({protocol:"shadow.error",code:"permission_denied",message:"The product session is invalid or expired."},401);}
   };
 }

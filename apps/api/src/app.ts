@@ -27,9 +27,15 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.use("/api/commands/*", bodyLimit({ maxSize: 1024 * 1024, onError: (context) => context.json({ protocol: "shadow.error", code: "validation", message: "Command body is too large." }, 413) }));
   app.use("/api/travel/portable/preview",bodyLimit({maxSize:1024*1024,onError:context=>context.json({protocol:"shadow.error",code:"validation",message:"Portable travel input is too large."},413)}));
   app.use("/api/assets",bodyLimit({maxSize:20*1024*1024,onError:context=>context.json({protocol:"shadow.error",code:"validation",message:"Asset is too large."},413)}));
-  app.get("/api/capabilities", (context) => context.json({
-    capabilities: visibleCapabilities(context.get("requestContext").effects).map((item) => ({ name: item.name, description: item.description, possible_effects: item.possibleEffects }))
-  }));
+  app.get("/api/capabilities", (context) => {
+    const requestContext=context.get("requestContext");
+    return context.json({
+      subject_id:requestContext.subjectId,
+      client_id:requestContext.clientId,
+      issuer:requestContext.issuer,
+      capabilities:visibleCapabilities(requestContext.effects).map((item)=>({name:item.name,description:item.description,possible_effects:item.possibleEffects}))
+    });
+  });
   app.get("/api/write-epochs",async context=>context.json({items:(await dependencies.unitOfWork.pool.query("select domain,epoch,stage,target_schema from write_epochs order by domain")).rows}));
   app.get("/api/capabilities/:name", (context) => {
     const capability = capabilityRegistry[context.req.param("name") as keyof typeof capabilityRegistry];
@@ -75,6 +81,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.get("/api/life/reviews",async context=>context.json(await dependencies.queries.lifeReviews(context.get("requestContext"),{limit:Number(context.req.query("limit")??"20")})));
   app.get("/api/life/projects",async context=>context.json(await dependencies.queries.lifeProjects(context.get("requestContext"),{...(context.req.query("state")?{state:context.req.query("state")}:{}),limit:Number(context.req.query("limit")??"20")})));
   app.get("/api/life/meal-planning",async context=>context.json(await dependencies.queries.mealPlanning(context.get("requestContext"),{limit:Number(context.req.query("limit")??"20")})));
+  app.get("/api/life/purchase-items",async context=>context.json(await dependencies.queries.purchaseItems(context.get("requestContext"),context.req.query("q"),Number(context.req.query("limit")??"50"))));
   app.get("/api/money/foreign",async context=>context.json(await dependencies.queries.foreignEntries(context.get("requestContext"),{...(context.req.query("trip_id")?{trip_id:context.req.query("trip_id")}:{}),limit:Number(context.req.query("limit")??"50")})));
   app.get("/api/:domain{money|health|travel|library}", async (context) => {const query=context.req.query("q"),cursor=context.req.query("cursor");return context.json(await dependencies.queries.listDomain(context.get("requestContext"), context.req.param("domain") as "money" | "health" | "travel" | "library", {limit:Number(context.req.query("limit")??"50"),...(query?{query}:{}),...(cursor?{cursor}:{})}));});
   app.get("/api/threads", async (context) => context.json({ items: dependencies.agent ? await dependencies.agent.repository.listThreads(context.get("requestContext").subjectId) : [] }));

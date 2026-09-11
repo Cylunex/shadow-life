@@ -226,6 +226,9 @@ button:not(:disabled):active { transform:scale(.98); }
 .top-nav { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; width:min(520px,100%); margin:0 auto 24px; padding:6px; border:1px solid rgba(218,229,243,.9); border-radius:20px; background:rgba(255,255,255,.7); box-shadow:0 12px 35px rgba(39,72,115,.07); backdrop-filter:blur(18px); }
 .top-nav button { display:flex; align-items:center; justify-content:center; gap:7px; border:0; padding:11px 15px; color:#63758c; background:transparent; }
 .top-nav button.active { color:#fff; background:linear-gradient(135deg,#3477e6,#205bc4); box-shadow:0 8px 20px rgba(39,103,216,.25); }
+.section-nav { display:flex; gap:8px; width:min(920px,100%); margin:-10px auto 24px; padding:4px; overflow:auto; }
+.section-nav button { flex:0 0 auto; padding:9px 14px; color:var(--muted); border:1px solid var(--line); background:var(--surface); box-shadow:none; }
+.section-nav button.active { color:#fff; border-color:transparent; background:var(--primary); }
 .nav-icon { font-size:17px; }
 .nav-gap { display:none; }
 .today-page,.workspace { display:grid; gap:18px; }
@@ -277,6 +280,8 @@ button:not(:disabled):active { transform:scale(.98); }
 .workspace-intro.plan { background:linear-gradient(125deg,#236f57,#56a47e); }.workspace-intro.library { background:linear-gradient(125deg,#6045a1,#9277d2); }
 .workspace-intro .eyebrow { color:rgba(255,255,255,.72); }.workspace-intro h2 { margin:8px 0 6px;font-size:30px }.workspace-intro p { max-width:620px;margin:0;color:rgba(255,255,255,.82) }
 .workspace>form,.workspace>.record-browser,.workspace>.health-panel,.workspace>.import-panel,.workspace>.workout-panel,.workspace>.food-panel,.workspace>.travel-panel,.workspace>.library-panel,.workspace>.owned-items,.workspace>.life-reviews,.workspace>.life-projects,.workspace>.meal-planning,.workspace>.foreign-money { padding:clamp(20px,3.2vw,32px); }
+.workspace>form,.workspace>.record-browser,.workspace>.health-panel,.workspace>.import-panel,.workspace>.workout-panel,.workspace>.food-panel,.workspace>.travel-panel,.workspace>.library-panel,.workspace>.owned-items,.workspace>.life-reviews,.workspace>.life-projects,.workspace>.meal-planning,.workspace>.foreign-money { display:none; }
+.section-record-quick>form,.section-plan-quick>form,.section-library-quick>form,.section-record-timeline>.record-browser,.section-record-items>.owned-items,.section-record-money>.foreign-money,.section-record-food>.food-panel,.section-record-health>.health-panel,.section-record-health>.workout-panel,.section-plan-import>.import-panel,.section-plan-projects>.life-projects,.section-plan-meals>.meal-planning,.section-plan-reviews>.life-reviews,.section-plan-travel>.travel-panel,.section-library-browse>.library-panel { display:grid; }
 input,textarea,select { border-color:#d8e3f0; border-radius:14px; background:#fbfdff; padding:13px 14px; }
 input:hover,textarea:hover,select:hover { border-color:#b8cce6; }
 button { background:linear-gradient(135deg,#3477e6,#215bc3); box-shadow:0 7px 16px rgba(39,103,216,.16); }
@@ -297,6 +302,8 @@ button { background:linear-gradient(135deg,#3477e6,#215bc3); box-shadow:0 7px 16
 .picker-options button.selected { color:var(--primary-deep); border-color:#8eb5ef; background:#edf5ff; }
 .reference-chip { justify-self:start; padding:7px 10px; border-radius:999px; color:#315d9a; background:#e8f1ff; font-size:12px; font-weight:700; }
 .project-title { display:flex; align-items:center; justify-content:space-between; gap:12px; }.action-list { display:grid; gap:7px; padding:12px 0 0; list-style:none }.action-list li { display:flex; align-items:center; gap:9px; padding:8px 0; border-top:1px solid #edf1f6 }.action-list small { margin-left:auto }
+.project-builder { display:grid; gap:10px; padding:16px; border:1px solid var(--line); border-radius:16px; background:var(--surface-strong); }
+.project-builder h4 { margin:0; }.project-builder>.actions { align-items:end; }.project-builder>.action-list { padding-top:0; }
 .project-title p { margin:4px 0 0; color:var(--muted); font-weight:450; }
 .action-toggle { flex:0 0 auto; display:grid; place-items:center; width:28px; height:28px; padding:0; color:#6e8096; border:1px solid #cfdae7; background:transparent; box-shadow:none; }
 .action-toggle.completed { color:#fff; border-color:#48a475; background:#48a475; }
@@ -332,8 +339,10 @@ button { background:linear-gradient(135deg,#3477e6,#215bc3); box-shadow:0 7px 16
 @media (prefers-color-scheme:dark) {
   :root{--ink:#eaf2fd;--muted:#9eacc0;--surface:rgba(22,35,52,.94);--surface-strong:#172438;--line:#31435b;--soft-blue:#1e3554;color-scheme:dark;background:#0d1725}
   body{background:radial-gradient(circle at 12% 0,#193659 0,transparent 30rem),radial-gradient(circle at 90% 16%,#173c35 0,transparent 24rem),#0d1725}
-  .top-nav,.icon-button{background:rgba(20,34,51,.88);border-color:#344960}.today-hero{background:linear-gradient(125deg,#182b43,#183958)}
+  .top-nav,.icon-button,.section-nav button{background:rgba(20,34,51,.88);border-color:#344960}.section-nav button.active{background:#3477e6;border-color:transparent}.today-hero{background:linear-gradient(125deg,#182b43,#183958)}
   .quick-strip button,.quick-grid button,.summary-card{background:rgba(21,35,53,.94);border-color:#30435a}.activity-card,.attention,.workspace-intro,form,.receipt,.error,.health-panel,.import-panel,.record-browser,.workout-panel,.food-panel,.travel-panel,.library-panel,.owned-items,.life-reviews,.life-projects,.meal-planning,.foreign-money,.notification-panel{border-color:#31435b;background:var(--surface)}
-  input,textarea,select,.picker-options button{color:var(--ink);border-color:#3a4d64;background:#111f31}.picker-options button.selected{background:#193657}.quick-sheet,.assistant-sheet{background:#101d2d;border-color:#33475f}.assistant-sheet>section>div:first-child p{background:#192d47}.activity-list li,.action-list li{border-color:#2b3c52}.soft-button,button.secondary{color:#8db7f4;border-color:#3f5d80;background:#172b44}.health-card,.candidate,.map-board,.transit-card,.map-list,.travel-form,.track-form,.library-upload,.legacy-form,.library-list,.catalog-form,.import-form,.detail-edit,.workout-form{background:#142338;border-color:#30435b}
+  input,textarea,select,.picker-options button{color:var(--ink);border-color:#3a4d64;background:#111f31}.picker-options button.selected{background:#193657}.quick-sheet,.assistant-sheet{background:#101d2d;border-color:#33475f}.assistant-sheet>section>div:first-child p{background:#192d47}.activity-list li,.action-list li,.meal-entry-list li{border-color:#2b3c52}.soft-button,button.secondary{color:#8db7f4;border-color:#3f5d80;background:#172b44}.health-card,.candidate,.map-board,.transit-card,.map-list,.travel-form,.track-form,.library-upload,.legacy-form,.library-list,.catalog-form,.import-form,.detail-edit,.workout-form,.travel-basics,.shopping-card,.plan-card,.project-builder{background:#142338;border-color:#30435b}.host-message,.reference-chip{color:#a9c8f5;background:#193657}
+  .health-card p,.health-card dt,.trend-summary,.trend-list time,.trend-list small,.source-list small,.source-list ul,.import-panel>p,.import-summary span,.import-summary code,.candidate details,.import-rules>p,.import-rules article small,.record-browser>p,.record-list small,.record-detail>code,.detail-grid dt,.workout-panel>p,.workout-history span,.food-panel>p,.catalog-list span,.attention>p,.attention-grid span,.map-board>small,.travel-form>small,.track-form>small,.map-list>ul span,.library-upload small,.library-list span,.library-reader small,.notification-panel span,.notification-panel small{color:var(--muted)}
+  .trend-list li,.source-list>li,.import-rules,.import-rules article,.record-list li,.detail-grid>div,.workout-history li,.catalog-list li,.attention-grid li,.place-choice,.map-list>ul button,.bundle-restore,.library-list button,.library-reader,.library-reader li,.notification-panel>ul>li{border-color:#2b3c52}.record-list li,.review-list pre,.library-reader blockquote{background:#142338}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}

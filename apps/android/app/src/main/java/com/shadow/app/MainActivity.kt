@@ -11,12 +11,14 @@ import androidx.lifecycle.lifecycleScope
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
@@ -43,7 +45,7 @@ class MainActivity:ComponentActivity(){
   private val healthPermissionResult=registerForActivityResult(PermissionController.createRequestPermissionResultContract()){granted->
     val session=activeSession
     if(session==null){loginMessage="请先登录再同步健康数据";return@registerForActivityResult}
-    if(granted.containsAll(HealthConnectSync.permissions)){loginMessage="Health Connect 已授权，正在按类型核对增量";HealthConnectScheduler.schedule(this,session.accountId)}else loginMessage="Health Connect 权限不完整；已保留现有数据并停止同步"
+    if(HealthConnectSync.hasAnySupportedPermission(granted)){loginMessage=if(granted.containsAll(HealthConnectSync.permissions))"Health Connect 已完整授权，正在按类型核对增量" else "已获得部分 Health Connect 权限，只同步已授权类型";HealthConnectScheduler.schedule(this,session.accountId)}else loginMessage="未获得可用的 Health Connect 权限；已保留现有数据"
   }
   private val loginResult=registerForActivityResult(ActivityResultContracts.StartActivityForResult()){result->
     val data=result.data
@@ -59,7 +61,9 @@ class MainActivity:ComponentActivity(){
     val image=intent.takeIf{it.action==Intent.ACTION_SEND&&it.type?.startsWith("image/")==true}?.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
     if(image!=null){if(activeSession==null)pendingSharedImage=image else enqueueImage(image)}
     lifecycleScope.launch{app.database.commands().observeRecoverableCount().collect{recoverableCommands=it}}
-    setContent{MaterialTheme{
+    setContent{
+      val colors=if(isSystemInDarkTheme())darkColorScheme(primary=Color(0xFF8DB7F4),background=Color(0xFF0D1725),surface=Color(0xFF172438))else lightColorScheme(primary=Color(0xFF215BC3),background=Color(0xFFF5F1E8),surface=Color.White)
+      MaterialTheme(colorScheme=colors){
       var destination by rememberSaveable{mutableStateOf("life")}
       Scaffold(bottomBar={NavigationBar{
         NavigationBarItem(selected=destination=="life",onClick={destination="life"},icon={Text("●")},label={Text("生活")})
@@ -68,7 +72,8 @@ class MainActivity:ComponentActivity(){
         if(destination=="life")LifeWebScreen(BuildConfig.SHADOW_WEB_BASE)
         else Capture(shared,activeSession,oidc.configured,HealthConnectSync.available(this@MainActivity),loginMessage,healthSyncMessage,recoverableCommands,queueStates,lastReceipt,saving,onLogin=::login,onSave=::enqueue,onHealthSync=::syncHealthConnect,onRecover=::recoverLegacyCommands,onRetry=::retryQueue,onClear=::clearQueue)
       }}
-    }}
+      }
+    }
   }
 
   override fun onDestroy(){oidc.close();super.onDestroy()}
@@ -97,7 +102,7 @@ class MainActivity:ComponentActivity(){
   private fun syncHealthConnect(){
     val session=requireActiveSession(application as ShadowApp)?:return
     if(!HealthConnectSync.available(this)){loginMessage="此设备未提供可用的 Health Connect";return}
-    lifecycleScope.launch{val client=androidx.health.connect.client.HealthConnectClient.getOrCreate(this@MainActivity);val granted=client.permissionController.getGrantedPermissions();if(granted.containsAll(HealthConnectSync.permissions)){loginMessage="正在按类型核对 Health Connect 增量";HealthConnectScheduler.schedule(this@MainActivity,session.accountId)}else healthPermissionResult.launch(HealthConnectSync.permissions)}
+    lifecycleScope.launch{val client=androidx.health.connect.client.HealthConnectClient.getOrCreate(this@MainActivity);val granted=client.permissionController.getGrantedPermissions();if(HealthConnectSync.hasAnySupportedPermission(granted)){loginMessage=if(granted.containsAll(HealthConnectSync.permissions))"正在按类型核对 Health Connect 增量" else "正在同步已授权的 Health Connect 类型；可再次授权其余类型";HealthConnectScheduler.schedule(this@MainActivity,session.accountId);if(!granted.containsAll(HealthConnectSync.permissions))healthPermissionResult.launch(HealthConnectSync.permissions-granted)}else healthPermissionResult.launch(HealthConnectSync.permissions)}
   }
 
   private fun recoverLegacyCommands(){
@@ -137,7 +142,7 @@ class MainActivity:ComponentActivity(){
         state=="up_to_date"->"Health Connect 已同步到最新"
         state=="waiting_for_receipt"->"正在核对上一页 Health Connect 回执"
         state=="rescan_required"->"Health Connect 游标已过期，正在受控重扫"
-        reason=="permissions_required"||reason=="permissions_revoked"->"Health Connect 权限不完整，同步已停止"
+        reason=="permissions_required"||reason=="permissions_revoked"->"没有可同步的 Health Connect 权限；已有事实仍保留"
         reason=="bootstrap_too_large"->"最近 30 天记录超过安全批次上限，未截断导入"
         reason=="health_connect_unavailable"->"此设备未提供可用的 Health Connect"
         latest.state==WorkInfo.State.RUNNING->"正在核对 Health Connect 来源与游标"
@@ -156,7 +161,7 @@ class MainActivity:ComponentActivity(){
   Scaffold(topBar={TopAppBar(title={Text("Shadow Life")})}){padding->Column(Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)){
     Text("保存生活中的原始资料",style=MaterialTheme.typography.headlineMedium)
     if(session==null){Button(onClick=onLogin,enabled=loginConfigured){Text("统一账号登录")};if(!loginConfigured)Text("请先配置身份提供方")}
-    else {Text("已登录：${session.subjectId}");OutlinedButton(onClick=onHealthSync,enabled=healthConnectAvailable){Text(if(healthConnectAvailable)"同步 Health Connect" else "Health Connect 不可用")};healthSyncMessage?.let{Text(it)};Text("体重、步数、睡眠和训练分别维护增量游标；授权撤销或游标过期时停止并受控重扫。",style=MaterialTheme.typography.bodySmall);if(recoverableCommands>0){Text("发现 $recoverableCommands 条旧版离线任务，账号归属未知。确认后才会同步。");OutlinedButton(onClick=onRecover){Text("归入当前账号")}};if(queueStates.isNotEmpty()){Text(queueStates.entries.sortedBy{it.key}.joinToString(" · "){(state,count)->"${queueStateLabel(state)} $count"});Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){if((queueStates["blocked"]?:0)+(queueStates["failed"]?:0)>0)OutlinedButton(onClick=onRetry){Text("按原 ID 重试")};if((queueStates["committed"]?:0)+(queueStates["blocked"]?:0)+(queueStates["failed"]?:0)>0)TextButton(onClick={confirmClear=true}){Text("清理终态记录")}};if(confirmClear){Text("将删除已完成回执，以及失败或需处理的本地内容；尚未同步的内容删除后无法恢复。",style=MaterialTheme.typography.bodySmall);Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Button(onClick={confirmClear=false;onClear()}){Text("确认清理")};TextButton(onClick={confirmClear=false}){Text("取消")}}}};lastReceipt?.let{Text("最近回执：$it",style=MaterialTheme.typography.bodySmall)}}
+    else {Text("已登录：${session.subjectId}");OutlinedButton(onClick=onHealthSync,enabled=healthConnectAvailable){Text(if(healthConnectAvailable)"同步 Health Connect" else "Health Connect 不可用")};healthSyncMessage?.let{Text(it)};Text("体重、步数、睡眠和训练按已授权类型分别维护增量游标；未授权类型不会阻塞其他类型。",style=MaterialTheme.typography.bodySmall);if(recoverableCommands>0){Text("发现 $recoverableCommands 条旧版离线任务，账号归属未知。确认后才会同步。");OutlinedButton(onClick=onRecover){Text("归入当前账号")}};if(queueStates.isNotEmpty()){Text(queueStates.entries.sortedBy{it.key}.joinToString(" · "){(state,count)->"${queueStateLabel(state)} $count"});Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){if((queueStates["blocked"]?:0)+(queueStates["failed"]?:0)>0)OutlinedButton(onClick=onRetry){Text("按原 ID 重试")};if((queueStates["committed"]?:0)+(queueStates["blocked"]?:0)+(queueStates["failed"]?:0)>0)TextButton(onClick={confirmClear=true}){Text("清理终态记录")}};if(confirmClear){Text("将删除已完成回执，以及失败或需处理的本地内容；尚未同步的内容删除后无法恢复。",style=MaterialTheme.typography.bodySmall);Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Button(onClick={confirmClear=false;onClear()}){Text("确认清理")};TextButton(onClick={confirmClear=false}){Text("取消")}}}};lastReceipt?.let{Text("最近回执：$it",style=MaterialTheme.typography.bodySmall)}}
     loginMessage?.let{Text(it)}
     OutlinedTextField(value,{value=it},Modifier.fillMaxWidth(),minLines=6,label={Text("文字或分享内容")})
     Button(onClick={onSave(value)},enabled=value.isNotBlank()&&session!=null&&!saving){Text(if(saving)"正在加密…" else "保存到离线队列")}

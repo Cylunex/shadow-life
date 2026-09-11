@@ -5,7 +5,7 @@ export interface TimelineItem{domain:DashboardDomain;kind:string;id:string;happe
 export interface HealthTrend{metric_key:string;points:Array<{id:string;occurred_on:string;value:string;unit:string;source_kind:string;revision:number}>;coverage:{from:string|null;to:string|null;points:number;truncated:boolean};as_of:string;}
 export interface HealthSource{source_type:string;instance_key:string;permission_state:string;sync_epoch:number;cursors:Array<{device_id:string;record_type:string;state:string;sync_epoch:number;updated_at:string}>;}
 export interface HealthWorkspace{daily?:Record<string,unknown>;trend?:HealthTrend;sources?:HealthSource[];errors:Partial<Record<"daily"|"trend"|"sources",string>>;}
-export interface DashboardLoad { data:Partial<Record<DashboardDomain,unknown[]>>; today?:TodayOverview; timeline?:{items:TimelineItem[];next_cursor:string|null;as_of:string}; health?:HealthWorkspace; capabilities:string[]; errors:Partial<Record<DashboardDomain|"today"|"timeline",string>>; epochHeader:string; }
+export interface DashboardLoad { data:Partial<Record<DashboardDomain,unknown[]>>; today?:TodayOverview; timeline?:{items:TimelineItem[];next_cursor:string|null;as_of:string}; health?:HealthWorkspace; capabilities:string[]; identity:{subjectId:string;clientId:string;issuer:string}; errors:Partial<Record<DashboardDomain|"today"|"timeline",string>>; epochHeader:string; }
 
 const domainCapabilities:Record<DashboardDomain,string>={meals:"life.list_meals",money:"money.records",health:"health.records",travel:"travel.records",library:"library.records"};
 const domainEndpoints:Record<DashboardDomain,string>={meals:"/api/meals",money:"/api/money",health:"/api/health",travel:"/api/travel",library:"/api/library"};
@@ -13,7 +13,8 @@ const domainEndpoints:Record<DashboardDomain,string>={meals:"/api/meals",money:"
 export async function loadDashboard(fetcher:typeof fetch,headers:HeadersInit,options:{date?:string;timeZone?:string}={}):Promise<DashboardLoad>{
   const [epochResponse,capabilityResponse]=await Promise.all([fetcher("/api/write-epochs",{headers}),fetcher("/api/capabilities",{headers})]);
   if(!capabilityResponse.ok)throw new Error(capabilityResponse.status===401?"登录已失效，请重新登录。":`读取授权能力失败（HTTP ${capabilityResponse.status}）`);
-  const capabilityBody=await capabilityResponse.json() as {capabilities?:Array<{name?:unknown}>},visible=new Set((capabilityBody.capabilities??[]).flatMap(item=>typeof item.name==="string"?[item.name]:[]));
+  const capabilityBody=await capabilityResponse.json() as {subject_id?:unknown;client_id?:unknown;issuer?:unknown;capabilities?:Array<{name?:unknown}>},visible=new Set((capabilityBody.capabilities??[]).flatMap(item=>typeof item.name==="string"?[item.name]:[]));
+  if(typeof capabilityBody.subject_id!=="string"||!capabilityBody.subject_id||typeof capabilityBody.client_id!=="string"||!capabilityBody.client_id||typeof capabilityBody.issuer!=="string"||!capabilityBody.issuer)throw new Error("服务端没有返回完整的会话身份，写入功能已停用。");
   let epochHeader="";if(epochResponse.ok){const body=await epochResponse.json() as {items?:Array<{domain?:unknown;epoch?:unknown}>};epochHeader=(body.items??[]).filter((item):item is {domain:string;epoch:number}=>typeof item.domain==="string"&&Number.isSafeInteger(item.epoch)).map(item=>`${item.domain}=${item.epoch}`).join(",");}
   const data:Partial<Record<DashboardDomain,unknown[]>>={},errors:Partial<Record<DashboardDomain|"today"|"timeline",string>>={};
   await Promise.all((Object.keys(domainCapabilities) as DashboardDomain[]).filter(domain=>visible.has(domainCapabilities[domain])).map(async domain=>{try{const response=await fetcher(domainEndpoints[domain],{headers});if(!response.ok)throw new Error(response.status===401?"登录已失效，请重新登录。":`HTTP ${response.status}`);const body=await response.json() as {items?:unknown};if(!Array.isArray(body.items))throw new Error("响应格式无效");data[domain]=body.items;}catch(error){errors[domain]=error instanceof Error?error.message:"读取失败";}}));
@@ -27,7 +28,7 @@ export async function loadDashboard(fetcher:typeof fetch,headers:HeadersInit,opt
     visible.has("health.sources")?(async()=>{try{const response=await fetcher("/api/health/sources",{headers});if(!response.ok)throw new Error(`HTTP ${response.status}`);sources=(await response.json() as {items:HealthSource[]}).items;}catch(error){healthErrors.sources=error instanceof Error?error.message:"读取失败";}})():Promise.resolve()
   ]);
   const health=visible.has("health.daily")||visible.has("health.trend")||visible.has("health.sources")?{...(daily?{daily}:{}),...(trend?{trend}:{}),...(sources?{sources}:{}),errors:healthErrors}:undefined;
-  return{data,...(today?{today}:{}),...(timeline?{timeline}:{}),...(health?{health}:{}),capabilities:[...visible].sort(),errors,epochHeader};
+  return{data,...(today?{today}:{}),...(timeline?{timeline}:{}),...(health?{health}:{}),capabilities:[...visible].sort(),identity:{subjectId:capabilityBody.subject_id,clientId:capabilityBody.client_id,issuer:capabilityBody.issuer},errors,epochHeader};
 }
 
 export async function loadHealthTrend(fetcher:typeof fetch,headers:HeadersInit,metric:string):Promise<HealthTrend>{const response=await fetcher(`/api/health/trend?metric_key=${encodeURIComponent(metric)}&limit=90`,{headers});if(!response.ok)throw new Error(`HTTP ${response.status}`);return response.json() as Promise<HealthTrend>;}

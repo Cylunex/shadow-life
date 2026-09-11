@@ -35,12 +35,15 @@ import java.security.MessageDigest
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
+import java.time.ZoneOffset
+import java.util.Base64
 import java.util.UUID
 import kotlin.reflect.KClass
 
 object HealthConnectSync {
   private val recordTypes=setOf(WeightRecord::class,StepsRecord::class,SleepSessionRecord::class,ExerciseSessionRecord::class)
   val permissions:Set<String> = recordTypes.map(HealthPermission::getReadPermission).toSet()
+  fun hasAnySupportedPermission(granted:Set<String>)=granted.any{it in permissions}
   fun available(context:Context)=HealthConnectClient.getSdkStatus(context)==HealthConnectClient.SDK_AVAILABLE
 }
 
@@ -82,7 +85,7 @@ class HealthConnectSyncWorker(context:Context,params:WorkerParameters):Coroutine
     val relevant=granted.intersect(HealthConnectSync.permissions)
     val fingerprint=sha256(relevant.sorted().joinToString("\n"))
     val source=try{fetchSource(session,fresh.accessToken,instanceKey)}catch(_:Exception){return@withContext Result.retry()}
-    if(!granted.containsAll(HealthConnectSync.permissions)){
+    if(relevant.isEmpty()){
       if(source?.permissionState!="revoked"||source.fingerprint!=fingerprint){
         enqueueState(app,session,instanceKey,fingerprint,(source?.syncEpoch?:0)+1,"revoked","Health Connect permission is incomplete")
         SyncScheduler.schedule(applicationContext,accountId,ensureNext=true)
@@ -99,10 +102,11 @@ class HealthConnectSyncWorker(context:Context,params:WorkerParameters):Coroutine
       if(source?.permissionState=="revoked")store.current()?.takeIf{it.ready}?.let{store.save(it.copy(typeIndex=0))}
       val result=runHealthSyncRound(inputData.getString("start_request_id"),store){recordType->
         val spec=specs.first{it.serverType==recordType}
+        if(spec.permission !in relevant)return@runHealthSyncRound HealthRoundRead.Skip
         val cursor=source?.cursors?.firstOrNull{it.deviceId==deviceId&&it.recordType==spec.serverType}
         if(source?.permissionState=="rescan_required"&&cursor?.state=="active")return@runHealthSyncRound HealthRoundRead.Skip
         val epoch=HealthSyncPolicy.epoch(source?.syncEpoch,source?.fingerprint==fingerprint,source?.permissionState=="revoked")
-        val page=if(cursor?.cursor.isNullOrBlank()||cursor?.state!="active")bootstrap(client,spec,relevant) else changes(client,spec,cursor!!.cursor!!)
+        val page=if(cursor?.cursor.isNullOrBlank()||cursor?.state!="active")bootstrap(client,spec,relevant,deviceId) else changes(client,spec,cursor!!.cursor!!,relevant,deviceId)
         if(page.expired){
           HealthRoundRead.Reset(sourceStateCommand(instanceKey,fingerprint,maxOf(epoch,source?.syncEpoch?.plus(1)?:1),"rescan_required","Health Connect changes token expired"))
         }else{
@@ -149,28 +153,40 @@ private class QueuedHealthRoundStore(private val app:ShadowApp,private val sessi
   }
 }
 
-private data class HealthSpec<T:Record>(val recordClass:KClass<T>,val serverType:String,val encode:(T)->JSONObject)
+private data class HealthSpec<T:Record>(val recordClass:KClass<T>,val serverType:String,val encode:(T)->JSONObject){val permission:String=HealthPermission.getReadPermission(recordClass)}
 private data class ServerCursor(val deviceId:String,val recordType:String,val cursor:String?,val state:String)
 private data class ServerSource(val permissionState:String,val syncEpoch:Int,val fingerprint:String?,val cursors:List<ServerCursor>)
 
-private suspend fun <T:Record> bootstrap(client:HealthConnectClient,spec:HealthSpec<T>,permissions:Set<String>):HealthPage{
+private const val BOOTSTRAP_CURSOR_PREFIX="hc-bootstrap-v1."
+private data class BootstrapCursor(val nextStart:Instant,val end:Instant,val changesToken:String)
+
+private suspend fun <T:Record> bootstrap(client:HealthConnectClient,spec:HealthSpec<T>,permissions:Set<String>,deviceId:String):HealthPage{
   val end=Instant.now()
-  val scan=CompleteHealthScan<JSONObject>(end.minus(Duration.ofDays(30)),end)
   val changesToken=client.getChangesToken(ChangesTokenRequest(setOf(spec.recordClass)))
-  var pageToken:String?=null
-  do {
-    val response=client.readRecords(ReadRecordsRequest(spec.recordClass,TimeRangeFilter.between(scan.start,scan.end),pageSize=1_000,pageToken=pageToken))
-    scan.page(response.records.map{upsert(it,spec.encode(it))},response.pageToken!=null)
-    pageToken=response.pageToken
-    if(client.permissionController.getGrantedPermissions().intersect(HealthConnectSync.permissions)!=permissions)throw SecurityException("Health Connect permission changed during scan")
-  } while(pageToken!=null)
-  val records=scan.complete(client.permissionController.getGrantedPermissions().intersect(HealthConnectSync.permissions)==permissions)
-  val rescan=JSONObject().put("generation","hcscan_${UUID.randomUUID().toString().replace("-","")}")
-    .put("window_start",scan.start.toString()).put("window_end",scan.end.toString()).put("complete",true)
-  return HealthPage(records,changesToken,rescan=rescan)
+  return bootstrapWindow(client,spec,permissions,deviceId,end.minus(Duration.ofDays(30)),end,changesToken)
 }
 
-private suspend fun <T:Record> changes(client:HealthConnectClient,spec:HealthSpec<T>,cursor:String):HealthPage{
+private suspend fun <T:Record> bootstrapWindow(client:HealthConnectClient,spec:HealthSpec<T>,permissions:Set<String>,deviceId:String,start:Instant,overallEnd:Instant,changesToken:String):HealthPage{
+  var windowEnd=minOf(start.plus(Duration.ofHours(6)),overallEnd)
+  var records:List<JSONObject>
+  while(true){
+    try{records=readCompleteWindow(client,spec,permissions,start,windowEnd);break}
+    catch(_:HealthScanTooLargeException){val seconds=Duration.between(start,windowEnd).seconds;if(seconds<=60)throw HealthScanTooLargeException();windowEnd=start.plusSeconds(seconds/2)}
+  }
+  val hasMore=windowEnd<overallEnd,nextCursor=if(hasMore)encodeBootstrapCursor(BootstrapCursor(windowEnd,overallEnd,changesToken))else changesToken
+  val generation="hcscan_${sha256("$deviceId:${spec.serverType}:$start:$windowEnd").take(32)}"
+  val rescan=JSONObject().put("generation",generation).put("window_start",start.toString()).put("window_end",windowEnd.toString()).put("complete",true)
+  return HealthPage(records,nextCursor,rescan=rescan,hasMore=hasMore)
+}
+
+private suspend fun <T:Record> readCompleteWindow(client:HealthConnectClient,spec:HealthSpec<T>,permissions:Set<String>,start:Instant,end:Instant):List<JSONObject>{
+  val scan=CompleteHealthScan<JSONObject>(start,end);var pageToken:String?=null
+  do{val response=client.readRecords(ReadRecordsRequest(spec.recordClass,TimeRangeFilter.between(start,end),pageSize=1_000,pageToken=pageToken));scan.page(response.records.map{upsert(it,spec.encode(it))},response.pageToken!=null);pageToken=response.pageToken;if(client.permissionController.getGrantedPermissions().intersect(HealthConnectSync.permissions)!=permissions)throw SecurityException("Health Connect permission changed during scan")}while(pageToken!=null)
+  return scan.complete(client.permissionController.getGrantedPermissions().intersect(HealthConnectSync.permissions)==permissions)
+}
+
+private suspend fun <T:Record> changes(client:HealthConnectClient,spec:HealthSpec<T>,cursor:String,permissions:Set<String>,deviceId:String):HealthPage{
+  decodeBootstrapCursor(cursor)?.let{return bootstrapWindow(client,spec,permissions,deviceId,it.nextStart,it.end,it.changesToken)}
   val response=client.getChanges(cursor)
   if(response.changesTokenExpired)return HealthPage(emptyList(),cursor,true)
   val records=response.changes.mapNotNull{change->when(change){
@@ -180,6 +196,9 @@ private suspend fun <T:Record> changes(client:HealthConnectClient,spec:HealthSpe
   }}
   return HealthPage(records,response.nextChangesToken,hasMore=response.hasMore)
 }
+
+private fun encodeBootstrapCursor(value:BootstrapCursor):String{val body=JSONObject().put("next_start",value.nextStart.toString()).put("end",value.end.toString()).put("changes_token",value.changesToken).toString();return BOOTSTRAP_CURSOR_PREFIX+Base64.getUrlEncoder().withoutPadding().encodeToString(body.toByteArray())}
+private fun decodeBootstrapCursor(value:String):BootstrapCursor?=if(!value.startsWith(BOOTSTRAP_CURSOR_PREFIX))null else runCatching{val body=String(Base64.getUrlDecoder().decode(value.removePrefix(BOOTSTRAP_CURSOR_PREFIX))),json=JSONObject(body);BootstrapCursor(Instant.parse(json.getString("next_start")),Instant.parse(json.getString("end")),json.getString("changes_token"))}.getOrNull()
 
 private fun upsert(record:Record,payload:JSONObject):JSONObject{
   val metadata=record.metadata
@@ -211,21 +230,27 @@ internal fun healthConnectSessionType(exerciseType:Int)=when(exerciseType){
 }
 
 private object HealthConnectEncoder{
-  private fun zone()=ZoneId.systemDefault()
+  private fun zone(offset:ZoneOffset?,instant:Instant):ZoneId{
+    val system=ZoneId.systemDefault()
+    if(offset==null||system.rules.getOffset(instant)==offset)return system
+    return ZoneId.getAvailableZoneIds().asSequence().sorted().map(ZoneId::of).firstOrNull{it.rules.getOffset(instant)==offset}?:ZoneId.of("UTC")
+  }
   private fun decimal(value:Double)=BigDecimal.valueOf(value).stripTrailingZeros().toPlainString()
-  fun weight(record:WeightRecord)=JSONObject().put("occurred_on",record.time.atZone(zone()).toLocalDate().toString()).put("occurred_at",record.time.toString()).put("time_zone",zone().id).put("observations",JSONArray().put(JSONObject().put("metric_key","weight").put("value",decimal(record.weight.inKilograms)).put("unit","kg")))
+  fun weight(record:WeightRecord):JSONObject{val zone=zone(record.zoneOffset,record.time);return JSONObject().put("occurred_on",record.time.atZone(zone).toLocalDate().toString()).put("occurred_at",record.time.toString()).put("time_zone",zone.id).put("observations",JSONArray().put(JSONObject().put("metric_key","weight").put("value",decimal(record.weight.inKilograms)).put("unit","kg")))}
   fun steps(record:StepsRecord):JSONObject{
-    val value=HealthSyncPolicy.steps(record.startTime,record.endTime,record.metadata.dataOrigin.packageName,record.count,zone())
+    val zone=zone(record.startZoneOffset,record.startTime)
+    val value=HealthSyncPolicy.steps(record.startTime,record.endTime,record.metadata.dataOrigin.packageName,record.count,zone)
     return JSONObject().put("occurred_on",value.date).put("time_zone",value.zone).put("steps",value.count)
       .put("step_interval",JSONObject().put("started_at",value.start).put("ended_at",value.end).put("data_origin",value.origin))
-      .put("field_sources",JSONObject().put("steps","health_connect:${value.origin}"))
+      .put("field_sources",JSONObject().put("steps","health_connect:${value.origin};offset=${record.startZoneOffset?.id?:"unknown"}"))
   }
   fun sleep(record:SleepSessionRecord):JSONObject{
+    val zone=zone(record.endZoneOffset,record.endTime)
     val stages=record.stages.groupBy{it.stage}.mapValues{(_,items)->items.sumOf{Duration.between(it.startTime,it.endTime).toMinutes()}}
-    return JSONObject().put("wake_date",record.endTime.atZone(zone()).toLocalDate().toString()).put("time_zone",zone().id).put("started_at",record.startTime.toString()).put("ended_at",record.endTime.toString()).put("total_minutes",Duration.between(record.startTime,record.endTime).toMinutes())
+    return JSONObject().put("wake_date",record.endTime.atZone(zone).toLocalDate().toString()).put("time_zone",zone.id).put("started_at",record.startTime.toString()).put("ended_at",record.endTime.toString()).put("total_minutes",Duration.between(record.startTime,record.endTime).toMinutes())
       .put("deep_minutes",stages[SleepSessionRecord.STAGE_TYPE_DEEP]).put("light_minutes",stages[SleepSessionRecord.STAGE_TYPE_LIGHT]).put("rem_minutes",stages[SleepSessionRecord.STAGE_TYPE_REM]).put("awake_minutes",stages[SleepSessionRecord.STAGE_TYPE_AWAKE])
   }
-  fun exercise(record:ExerciseSessionRecord)=JSONObject().put("occurred_on",record.startTime.atZone(zone()).toLocalDate().toString()).put("time_zone",zone().id).put("session_type",healthConnectSessionType(record.exerciseType)).put("started_at",record.startTime.toString()).put("duration_minutes",Duration.between(record.startTime,record.endTime).toMinutes()).put("detail",JSONObject().put("source","health_connect").put("exercise_type",record.exerciseType).put("title",record.title).put("notes",record.notes))
+  fun exercise(record:ExerciseSessionRecord):JSONObject{val zone=zone(record.startZoneOffset,record.startTime);return JSONObject().put("occurred_on",record.startTime.atZone(zone).toLocalDate().toString()).put("time_zone",zone.id).put("session_type",healthConnectSessionType(record.exerciseType)).put("started_at",record.startTime.toString()).put("duration_minutes",Duration.between(record.startTime,record.endTime).toMinutes()).put("detail",JSONObject().put("source","health_connect").put("exercise_type",record.exerciseType).put("title",record.title).put("notes",record.notes).put("source_start_zone_offset",record.startZoneOffset?.id).put("source_end_zone_offset",record.endZoneOffset?.id))}
 }
 
 private fun fetchSource(session:ProductSession,accessToken:String,instanceKey:String):ServerSource?{
