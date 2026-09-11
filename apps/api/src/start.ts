@@ -14,4 +14,5 @@ const webSession=process.env.SHADOW_OIDC_AUTHORIZATION_URL&&process.env.SHADOW_O
 if(process.env.NODE_ENV==="production"&&(!auth||!webSession))throw new Error("Production requires complete SHADOW_OIDC_* settings, SHADOW_WEB_ORIGIN and SHADOW_SESSION_SECRET");
 const app = createApp({ unitOfWork, executor, queries: new QueryService(unitOfWork), developmentAuth: process.env.SHADOW_DEV_AUTH === "true",...(auth?{auth}:{}),...(webSession?{webSession}:{}), agent: { repository: new AgentRepository(unitOfWork.pool), runtime, nextId: (type) => uuidIds.next(type) } });
 const port = Number(process.env.PORT ?? "8787");
-serve({ fetch: app.fetch, port }, (info) => console.log(`Shadow API listening on http://127.0.0.1:${info.port}`));
+const hostname=process.env.HOST??"127.0.0.1";
+serve({ fetch: app.fetch, port, hostname }, (info) => console.log(`Shadow API listening on http://${hostname}:${info.port}`));
