@@ -173,7 +173,8 @@ private suspend fun <T:Record> bootstrapWindow(client:HealthConnectClient,spec:H
     try{records=readCompleteWindow(client,spec,permissions,start,windowEnd);break}
     catch(_:HealthScanTooLargeException){val seconds=Duration.between(start,windowEnd).seconds;if(seconds<=60)throw HealthScanTooLargeException();windowEnd=start.plusSeconds(seconds/2)}
   }
-  val hasMore=windowEnd<overallEnd,nextCursor=if(hasMore)encodeBootstrapCursor(BootstrapCursor(windowEnd,overallEnd,changesToken))else changesToken
+  val hasMore=windowEnd<overallEnd
+  val nextCursor=if(hasMore)encodeBootstrapCursor(BootstrapCursor(windowEnd,overallEnd,changesToken))else changesToken
   val generation="hcscan_${sha256("$deviceId:${spec.serverType}:$start:$windowEnd").take(32)}"
   val rescan=JSONObject().put("generation",generation).put("window_start",start.toString()).put("window_end",windowEnd.toString()).put("complete",true)
   return HealthPage(records,nextCursor,rescan=rescan,hasMore=hasMore)
@@ -198,7 +199,14 @@ private suspend fun <T:Record> changes(client:HealthConnectClient,spec:HealthSpe
 }
 
 private fun encodeBootstrapCursor(value:BootstrapCursor):String{val body=JSONObject().put("next_start",value.nextStart.toString()).put("end",value.end.toString()).put("changes_token",value.changesToken).toString();return BOOTSTRAP_CURSOR_PREFIX+Base64.getUrlEncoder().withoutPadding().encodeToString(body.toByteArray())}
-private fun decodeBootstrapCursor(value:String):BootstrapCursor?=if(!value.startsWith(BOOTSTRAP_CURSOR_PREFIX))null else runCatching{val body=String(Base64.getUrlDecoder().decode(value.removePrefix(BOOTSTRAP_CURSOR_PREFIX))),json=JSONObject(body);BootstrapCursor(Instant.parse(json.getString("next_start")),Instant.parse(json.getString("end")),json.getString("changes_token"))}.getOrNull()
+private fun decodeBootstrapCursor(value:String):BootstrapCursor?{
+  if(!value.startsWith(BOOTSTRAP_CURSOR_PREFIX))return null
+  return runCatching{
+    val body=String(Base64.getUrlDecoder().decode(value.removePrefix(BOOTSTRAP_CURSOR_PREFIX)))
+    val json=JSONObject(body)
+    BootstrapCursor(Instant.parse(json.getString("next_start")),Instant.parse(json.getString("end")),json.getString("changes_token"))
+  }.getOrNull()
+}
 
 private fun upsert(record:Record,payload:JSONObject):JSONObject{
   val metadata=record.metadata
