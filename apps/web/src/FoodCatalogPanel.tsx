@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import type { ExecutionResult, WriteCapabilityName } from "@shadow/contracts";
+import { useEffect, useState, type FormEvent } from "react";
+import type { WriteCapabilityName } from "@shadow/contracts";
 import { buildRecipeMealCommand, buildSaveFoodCommand, buildSaveRecipeCommand, emptyFoodFields, emptyRecipeFields, foodFields, initialRecipeMealFields, loadFoodCatalog, recipeFields, type FoodCatalog, type FoodFields, type RecipeFields, type RecipeMealFields } from "./food-catalog.js";
+import type { Execute } from "./command-controller.js";
 
-type Execute=(capability:WriteCapabilityName,input:unknown,commandId:string)=>Promise<ExecutionResult>;
 export function FoodCatalogPanel({headers,date,timeZone,canSaveFood,canSaveRecipe,canRecordRecipe,execute,onChanged}:{headers:HeadersInit;date:string;timeZone:string;canSaveFood:boolean;canSaveRecipe:boolean;canRecordRecipe:boolean;execute:Execute;onChanged:()=>Promise<void>}){
-  const[catalog,setCatalog]=useState<FoodCatalog>(),[query,setQuery]=useState(""),[food,setFood]=useState<FoodFields>(emptyFoodFields),[recipe,setRecipe]=useState<RecipeFields>(emptyRecipeFields),[meal,setMeal]=useState<RecipeMealFields>(()=>initialRecipeMealFields(date,timeZone)),[pending,setPending]=useState<string>(),[error,setError]=useState<string>(),ids=useRef<Record<string,string>>({});
+  const[catalog,setCatalog]=useState<FoodCatalog>(),[query,setQuery]=useState(""),[food,setFood]=useState<FoodFields>(emptyFoodFields),[recipe,setRecipe]=useState<RecipeFields>(emptyRecipeFields),[meal,setMeal]=useState<RecipeMealFields>(()=>initialRecipeMealFields(date,timeZone)),[pending,setPending]=useState<string>(),[error,setError]=useState<string>();
   async function load(search=query){try{setError(undefined);setCatalog(await loadFoodCatalog(fetch,headers,search));}catch(caught){setError(caught instanceof Error?caught.message:"食物目录读取失败");}}
   useEffect(()=>{void load("")},[]);
-  async function run(kind:string,built:{capability:WriteCapabilityName;input:unknown},reset:()=>void,event:FormEvent){event.preventDefault();setPending(kind);setError(undefined);try{ids.current[kind]??=`cmd_web_${crypto.randomUUID()}`;await execute(built.capability,built.input,ids.current[kind]!);delete ids.current[kind];reset();await Promise.all([load(""),onChanged()]);}catch(caught){setError(caught instanceof Error?caught.message:"保存失败");}finally{setPending(undefined);}}
+  async function run(kind:string,built:{capability:WriteCapabilityName;input:unknown},reset:()=>void,event:FormEvent){event.preventDefault();setPending(kind);setError(undefined);try{await execute(built.capability,built.input,`food-catalog:${kind}`);reset();await Promise.all([load(""),onChanged()]);}catch(caught){setError(caught instanceof Error?caught.message:"保存失败");}finally{setPending(undefined);}}
   const foods=catalog?.foods??[],recipes=catalog?.recipes??[];
   return <section className="food-panel"><div className="panel-heading"><div><span className="eyebrow">FOOD &amp; RECIPES</span><h2>食物与食谱</h2></div><form className="catalog-search" onSubmit={event=>{event.preventDefault();void load(query)}}><input aria-label="搜索食物或食谱" value={query} onChange={event=>setQuery(event.target.value)} placeholder="搜索名称"/><button type="submit">搜索</button></form></div><p>营养未填写就保持未知；从食谱记餐会复制当时版本，不随之后的修改变化。</p>{error&&<p className="inline-error">{error}</p>}
     <div className="catalog-grid">

@@ -1,10 +1,11 @@
 plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id("org.jetbrains.kotlin.plugin.compose"); id("com.google.devtools.ksp") }
 android { namespace="com.shadow.app"; compileSdk=36
   defaultConfig {
-    applicationId="com.shadow.app"; minSdk=26; targetSdk=36; versionCode=16; versionName="1.0.0"
+    applicationId="com.shadow.app"; minSdk=26; targetSdk=36; versionCode=17; versionName="1.0.1"
     fun configured(name:String,fallback:String)=providers.gradleProperty(name).orElse(fallback).get()
     fun quoted(value:String)="\"${value.replace("\\","\\\\").replace("\"","\\\"")}\""
     buildConfigField("String","SHADOW_API_BASE",quoted(configured("SHADOW_API_BASE","https://api.example.com")))
+    buildConfigField("String","SHADOW_WEB_BASE",quoted(configured("SHADOW_WEB_BASE","https://life.example.com/life/")))
     buildConfigField("String","SHADOW_OIDC_ISSUER",quoted(configured("SHADOW_OIDC_ISSUER","")))
     buildConfigField("String","SHADOW_OIDC_CLIENT_ID",quoted(configured("SHADOW_OIDC_CLIENT_ID","shadow-life-android")))
     buildConfigField("String","SHADOW_OIDC_REDIRECT_URI",quoted(configured("SHADOW_OIDC_REDIRECT_URI","com.shadow.app:/oauth2redirect")))

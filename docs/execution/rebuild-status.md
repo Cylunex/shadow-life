@@ -291,3 +291,28 @@ The complete serial PostgreSQL/Node suite passes 143/143, including seven new re
 contracts, boundaries and Web build pass. One prior parallel run hit a temporary database teardown connection
 race, retained as a test stability limitation. See the [research/design](../architecture/library-processing-recovery-2026-09-11.md)
 and [delivery/validation record](library-processing-recovery-delivery-2026-09-11.md). No deployment or full historical migration is implied.
+
+## Next-phase daily experience and UI optimization (2026-09-11)
+
+- The Web shell now follows four stable daily destinations: Today, Records, Plans and Library. Assistant and
+  quick-add are global overlays instead of peer destinations. Today prioritizes the next due item/current trip,
+  bounded domain summaries, attention items and recent activity over technical collection counts. Desktop,
+  390-pixel mobile, light/dark, focus and reduced-motion rules were reviewed against the local Life UI references.
+- Every Web command now passes through one persisted controller. It stores the command before dispatch, coalesces
+  an in-flight click, queries the authoritative operation before retrying an unknown outcome, and refuses to replace
+  an unresolved intent. A refreshed page rechecks a cached receipt against the current server subject instead of
+  trusting cross-session browser state; after a delivered success, an identical later click remains a new intent.
+- A reusable searchable object picker exposes human titles, dates and exact revisions. Projects no longer require
+  manual object IDs; owned-item receipts/manuals and foreign entries select real Library/Trip objects. Project
+  rewriting is disabled when the caller cannot see every reference domain, avoiding a partial permission-trimmed
+  snapshot deleting hidden links. Updating an action preserves its recurring-occurrence or Health-habit mirror.
+- Projects now support edit, pause, resume, completion and reversible action completion. Meal planning supports a
+  multi-entry draft, exact-revision edit/copy, optional shopping extras and reversible needed/bought/skipped states.
+  Travel adds normal forms for trips, saved places, private actual visits and private reservations alongside the
+  existing maps, immutable in-transit runs and portable import/export. Planned, purchased and actually occurred
+  facts remain separate throughout these flows.
+- Android version 1.0.1 uses the full responsive Web experience as its Life destination while retaining the native
+  encrypted offline capture and Health Connect destination. The WebView permits only same-origin HTTPS in-app
+  navigation, blocks file/content/mixed-content access and non-Web schemes, refuses authentication challenges from
+  other hosts, and keeps NAS Basic Auth input out of source and APK configuration. Kotlin source compilation passes;
+  no APK was packaged and no deployment, production data, Runtime or physical device was touched.

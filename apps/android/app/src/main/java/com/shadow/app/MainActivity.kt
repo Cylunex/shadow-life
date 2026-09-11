@@ -15,6 +15,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
@@ -58,7 +59,16 @@ class MainActivity:ComponentActivity(){
     val image=intent.takeIf{it.action==Intent.ACTION_SEND&&it.type?.startsWith("image/")==true}?.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
     if(image!=null){if(activeSession==null)pendingSharedImage=image else enqueueImage(image)}
     lifecycleScope.launch{app.database.commands().observeRecoverableCount().collect{recoverableCommands=it}}
-    setContent{MaterialTheme{Capture(shared,activeSession,oidc.configured,HealthConnectSync.available(this),loginMessage,healthSyncMessage,recoverableCommands,queueStates,lastReceipt,saving,onLogin=::login,onSave=::enqueue,onHealthSync=::syncHealthConnect,onRecover=::recoverLegacyCommands,onRetry=::retryQueue,onClear=::clearQueue)}}
+    setContent{MaterialTheme{
+      var destination by rememberSaveable{mutableStateOf("life")}
+      Scaffold(bottomBar={NavigationBar{
+        NavigationBarItem(selected=destination=="life",onClick={destination="life"},icon={Text("●")},label={Text("生活")})
+        NavigationBarItem(selected=destination=="capture",onClick={destination="capture"},icon={Text("＋")},label={Text("采集")})
+      }}){padding->Box(Modifier.padding(padding)){
+        if(destination=="life")LifeWebScreen(BuildConfig.SHADOW_WEB_BASE)
+        else Capture(shared,activeSession,oidc.configured,HealthConnectSync.available(this@MainActivity),loginMessage,healthSyncMessage,recoverableCommands,queueStates,lastReceipt,saving,onLogin=::login,onSave=::enqueue,onHealthSync=::syncHealthConnect,onRecover=::recoverLegacyCommands,onRetry=::retryQueue,onClear=::clearQueue)
+      }}
+    }}
   }
 
   override fun onDestroy(){oidc.close();super.onDestroy()}

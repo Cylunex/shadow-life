@@ -1,5 +1,4 @@
-import { useRef, useState, type FormEvent } from "react";
-import type { ExecutionResult, WriteCapabilityName } from "@shadow/contracts";
+import { useState, type FormEvent } from "react";
 import {
   disableImportRuleCommand,
   initialCandidateFields,
@@ -10,8 +9,7 @@ import {
   type MoneyImportReview,
   type MoneyImportRule
 } from "./money-import.js";
-
-type Execute=(capability:WriteCapabilityName,input:unknown,commandId:string)=>Promise<ExecutionResult>;
+import type { Execute } from "./command-controller.js";
 
 export function MoneyImportPanel({enabled,headers,execute,timeZone}:{enabled:boolean;headers:HeadersInit;execute:Execute;timeZone:string}){
   const [format,setFormat]=useState<"csv"|"json"|"markdown">("csv");
@@ -20,12 +18,10 @@ export function MoneyImportPanel({enabled,headers,execute,timeZone}:{enabled:boo
   const [review,setReview]=useState<MoneyImportReview>();
   const [pending,setPending]=useState(false);
   const [error,setError]=useState<string>();
-  const commandIds=useRef(new Map<string,string>());
-  const commandId=(key:string)=>{const existing=commandIds.current.get(key);if(existing)return existing;const id=`cmd_web_${crypto.randomUUID()}`;commandIds.current.set(key,id);return id;};
   async function refresh(batchId:string){setReview(await loadMoneyImportReview(fetch,headers,batchId));}
-  async function stage(event:FormEvent){event.preventDefault();setPending(true);setError(undefined);const key=`stage:${format}:${sourceName}:${content}`;try{const result=await execute("money.stage_import",{format,source_name:sourceName,content,time_zone:timeZone},commandId(key)),batchId=String(result.actual_values.batch_id);commandIds.current.delete(key);await refresh(batchId);}catch(caught){setError(caught instanceof Error?caught.message:"导入失败");}finally{setPending(false);}}
-  async function resolve(candidate:MoneyImportCandidate,decision:"confirm"|"ignore",fields:CandidateFields){setPending(true);setError(undefined);const built=resolveCandidateCommand(candidate,decision,fields),key=`${candidate.id}:${candidate.revision}:${decision}`;try{await execute(built.capability,built.input,commandId(key));commandIds.current.delete(key);await refresh(review!.batch.id);}catch(caught){setError(caught instanceof Error?caught.message:"复核失败");}finally{setPending(false);}}
-  async function disableRule(rule:MoneyImportRule){setPending(true);setError(undefined);const built=disableImportRuleCommand(rule),key=`rule:${rule.id}:${rule.revision}:disabled`;try{await execute(built.capability,built.input,commandId(key));commandIds.current.delete(key);await refresh(review!.batch.id);}catch(caught){setError(caught instanceof Error?caught.message:"规则更新失败");}finally{setPending(false);}}
+  async function stage(event:FormEvent){event.preventDefault();setPending(true);setError(undefined);try{const result=await execute("money.stage_import",{format,source_name:sourceName,content,time_zone:timeZone},"money-import:stage"),batchId=String(result.actual_values.batch_id);await refresh(batchId);}catch(caught){setError(caught instanceof Error?caught.message:"导入失败");}finally{setPending(false);}}
+  async function resolve(candidate:MoneyImportCandidate,decision:"confirm"|"ignore",fields:CandidateFields){setPending(true);setError(undefined);const built=resolveCandidateCommand(candidate,decision,fields);try{await execute(built.capability,built.input,`money-import:candidate:${candidate.id}`);await refresh(review!.batch.id);}catch(caught){setError(caught instanceof Error?caught.message:"复核失败");}finally{setPending(false);}}
+  async function disableRule(rule:MoneyImportRule){setPending(true);setError(undefined);const built=disableImportRuleCommand(rule);try{await execute(built.capability,built.input,`money-import:rule:${rule.id}`);await refresh(review!.batch.id);}catch(caught){setError(caught instanceof Error?caught.message:"规则更新失败");}finally{setPending(false);}}
   if(!enabled)return null;
   return <section className="import-panel">
     <div className="panel-heading"><div><span className="eyebrow">LEDGER</span><h2>账单导入复核</h2></div>{review&&<span className={`status ${review.batch.status}`}>{review.batch.status==="completed"?"已完成":"待复核"}</span>}</div>
