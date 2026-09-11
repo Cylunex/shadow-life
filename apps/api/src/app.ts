@@ -11,7 +11,7 @@ import { CommandExecutor, KernelError, QueryService } from "@shadow/kernel";
 import { authMiddleware } from "./auth.js";
 import { installWebSessionRoutes, type WebSessionOptions } from "./web-session.js";
 
-export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; executor: CommandExecutor; queries: QueryService; developmentAuth: boolean; auth?:{issuer:string;audience:string;jwksUrl:string;webOrigin?:string}; webSession?:WebSessionOptions; agent?: { repository: AgentRepository; runtime: AgentRuntimeAdapter; nextId(type: "thread"|"message"|"run"): string } }) {
+export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; executor: CommandExecutor; queries: QueryService; developmentAuth: boolean; auth?:{issuer?:string;audience?:string;jwksUrl?:string;webOrigin?:string;proxyAuth?:{secret:string;subjectId:string}}; webSession?:WebSessionOptions; agent?: { repository: AgentRepository; runtime: AgentRuntimeAdapter; nextId(type: "thread"|"message"|"run"): string } }) {
   const app = new Hono();
   const assets=new AssetService(dependencies.unitOfWork.pool);
   const activeRuns=new Map<string,{subjectId:string;controller:AbortController}>();
