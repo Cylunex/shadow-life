@@ -4,6 +4,7 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import androidx.browser.customtabs.CustomTabsIntent
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -46,7 +47,7 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
       composable<WorkspaceRoute>{backStack->val route=backStack.toRoute<WorkspaceRoute>();val domain=LifeDomain.valueOf(route.domain);LaunchedEffect(domain){if(viewModel.workspaceDomain!=domain)viewModel.loadWorkspace(domain)};WorkspaceScreen(domain,viewModel.workspace,{viewModel.loadWorkspace(domain,it)},{viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},{d,id,title->viewModel.loadDetail(d,id);nav.navigate(DetailRoute(d.name,id,title))})}
       composable<DetailRoute>{backStack->val route=backStack.toRoute<DetailRoute>();val domain=LifeDomain.valueOf(route.domain);LaunchedEffect(route.id){viewModel.loadDetail(domain,route.id)};DetailScreen(route.title,viewModel.detail,viewModel.submit,{viewModel.loadDetail(domain,route.id)},{nav.popBackStack()},viewModel::correct,viewModel::editAgain)}
       composable<PlanDetailRoute>{backStack->val route=backStack.toRoute<PlanDetailRoute>();val plan=(viewModel.plans as? LoadState.Ready)?.value?.firstOrNull{it.id==route.id};PlanDetailScreen(plan,{nav.popBackStack()})}
-      composable<SettingsRoute>{SettingsScreen(session,appearance,onAppearance,onHealthSync,onLogout,{nav.popBackStack()},{nav.navigate(ConnectionsRoute)})}
+      composable<SettingsRoute>{SettingsScreen(session,appearance,viewModel.queueStatus,onAppearance,onHealthSync,viewModel::retryQueue,viewModel::clearTerminalQueue,onLogout,{nav.popBackStack()},{nav.navigate(ConnectionsRoute)})}
       composable<ConnectionsRoute>{ProjectDirectoryScreen(viewModel.projectLinks,viewModel::refreshProjectLinks){nav.popBackStack()}}
     }
   }}
@@ -69,7 +70,85 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
 @Composable private fun SignInScreen(message:String?,onLogin:()->Unit){Box(Modifier.fillMaxSize().padding(28.dp),contentAlignment=Alignment.Center){Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(18.dp)){Surface(Modifier.size(72.dp),shape=RoundedCornerShape(24.dp),color=MaterialTheme.colorScheme.primaryContainer){Box(contentAlignment=Alignment.Center){Icon(Icons.Default.Add,null,Modifier.size(34.dp),tint=MaterialTheme.colorScheme.primary)}};Text("Shadow Life",style=MaterialTheme.typography.headlineLarge);Text("你的生活事实、计划与资料，在一个原生空间里。",color=MaterialTheme.colorScheme.onSurfaceVariant);message?.let{Text(it,color=MaterialTheme.colorScheme.error)};Button(onClick=onLogin,Modifier.fillMaxWidth().heightIn(min=56.dp)){Text("使用 Shadow 账号继续")}}}}
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable private fun SettingsScreen(session:ProductSession,appearance:Appearance,onAppearance:(Appearance)->Unit,onHealthSync:()->Unit,onLogout:()->Unit,onBack:()->Unit,onProjects:()->Unit){Scaffold(topBar={TopAppBar(title={Text("设置")},navigationIcon={IconButton(onClick=onBack){Text("‹",style=MaterialTheme.typography.headlineLarge)}})}){padding->Column(Modifier.fillMaxSize().padding(padding).padding(20.dp),verticalArrangement=Arrangement.spacedBy(20.dp)){LifeSection("账号"){LifeCard{Text(session.subjectId,style=MaterialTheme.typography.titleMedium);Text("Shadow Identity",color=MaterialTheme.colorScheme.onSurfaceVariant)}};LifeSection("外观"){SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()){Appearance.entries.forEachIndexed{index,value->SegmentedButton(selected=appearance==value,onClick={onAppearance(value)},shape=SegmentedButtonDefaults.itemShape(index,Appearance.entries.size)){Text(when(value){Appearance.Dark->"深色";Appearance.Light->"日间";Appearance.System->"系统"})}}}};LifeSection("连接"){OutlinedButton(onClick=onHealthSync,Modifier.fillMaxWidth().heightIn(min=52.dp)){Text("同步 Health Connect")};OutlinedButton(onClick=onProjects,Modifier.fillMaxWidth().heightIn(min=52.dp)){Text("其他项目与连接")}};Spacer(Modifier.weight(1f));TextButton(onClick=onLogout,Modifier.fillMaxWidth()){Text("退出 Life",color=MaterialTheme.colorScheme.error)}}}}
+@Composable
+private fun SettingsScreen(
+  session:ProductSession,
+  appearance:Appearance,
+  queueState:LoadState<QueueSummary>,
+  onAppearance:(Appearance)->Unit,
+  onHealthSync:()->Unit,
+  onRetryQueue:()->Unit,
+  onClearQueue:()->Unit,
+  onLogout:()->Unit,
+  onBack:()->Unit,
+  onProjects:()->Unit
+){
+  var confirmClear by remember{mutableStateOf(false)}
+  Scaffold(
+    topBar={TopAppBar(title={Text("设置")},navigationIcon={IconButton(onClick=onBack){Text("‹",style=MaterialTheme.typography.headlineLarge)}})}
+  ){padding->
+    Column(
+      Modifier.fillMaxSize().padding(padding).padding(20.dp).verticalScroll(androidx.compose.foundation.rememberScrollState()),
+      verticalArrangement=Arrangement.spacedBy(20.dp)
+    ){
+      LifeSection("账号"){
+        LifeCard{
+          Text(session.displayName?:session.subjectId,style=MaterialTheme.typography.titleMedium)
+          Text("Shadow Identity",color=MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+      }
+      LifeSection("外观"){
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()){
+          Appearance.entries.forEachIndexed{index,value->
+            SegmentedButton(
+              selected=appearance==value,
+              onClick={onAppearance(value)},
+              shape=SegmentedButtonDefaults.itemShape(index,Appearance.entries.size)
+            ){
+              Text(when(value){Appearance.Dark->"深色";Appearance.Light->"日间";Appearance.System->"系统"})
+            }
+          }
+        }
+      }
+      LifeSection("同步与离线队列"){
+        when(queueState){
+          LoadState.Loading->CircularProgressIndicator()
+          is LoadState.Failed->SectionError(queueState.message,onRetryQueue)
+          is LoadState.Empty->Text(queueState.reason)
+          is LoadState.Ready->{
+            val value=queueState.value
+            LifeCard{
+              Text("${value.waiting} 项待发送 · ${value.reconciling} 项核对中",style=MaterialTheme.typography.titleMedium)
+              Text(
+                "${value.attachments} 个加密附件 · ${value.failed} 项需处理",
+                color=if(value.failed>0)MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+              )
+              Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                TextButton(onClick=onRetryQueue,enabled=value.failed+value.reconciling>0){Text("重试")}
+                TextButton(onClick={confirmClear=true},enabled=value.terminal>0){Text("清理终态")}
+              }
+            }
+          }
+        }
+      }
+      LifeSection("连接"){
+        OutlinedButton(onClick=onHealthSync,Modifier.fillMaxWidth().heightIn(min=52.dp)){Text("同步 Health Connect")}
+        OutlinedButton(onClick=onProjects,Modifier.fillMaxWidth().heightIn(min=52.dp)){Text("其他项目与连接")}
+      }
+      Text("退出后待上传内容仍按当前账号加密保留。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+      TextButton(onClick=onLogout,Modifier.fillMaxWidth()){Text("退出 Life",color=MaterialTheme.colorScheme.error)}
+    }
+  }
+  if(confirmClear){
+    AlertDialog(
+      onDismissRequest={confirmClear=false},
+      title={Text("清理已结束项目？")},
+      text={Text("将删除已提交、失败或被阻止的本地队列记录和对应终态附件；待发送与核对中的内容不会删除。")},
+      dismissButton={TextButton(onClick={confirmClear=false}){Text("取消")}},
+      confirmButton={TextButton(onClick={confirmClear=false;onClearQueue()}){Text("确认清理",color=MaterialTheme.colorScheme.error)}}
+    )
+  }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable private fun ProjectDirectoryScreen(state:LoadState<List<ProjectLinkItem>>,onRetry:()->Unit,onBack:()->Unit){val context=LocalContext.current;var launchError by remember{mutableStateOf<String?>(null)};LaunchedEffect(Unit){onRetry()};Scaffold(topBar={TopAppBar(title={Text("其他项目")},navigationIcon={IconButton(onClick=onBack){Text("‹",style=MaterialTheme.typography.headlineLarge)}})}){padding->Column(Modifier.fillMaxSize().padding(padding).padding(20.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){Text("目录只负责到达独立项目；各项目自行登录和授权。Life 不会把会话令牌放进链接。",color=MaterialTheme.colorScheme.onSurfaceVariant);launchError?.let{Text(it,color=MaterialTheme.colorScheme.error)};when(state){LoadState.Loading->CircularProgressIndicator();is LoadState.Empty->Text(state.reason,color=MaterialTheme.colorScheme.onSurfaceVariant);is LoadState.Failed->LifeCard{Text(state.message,color=MaterialTheme.colorScheme.error);TextButton(onClick=onRetry){Text("重试")}};is LoadState.Ready->state.value.forEach{item->ProjectLink(item){launchError=if(launchProject(context,item))null else "没有可用的应用或浏览器，请检查配置后重试。"}}}}}}

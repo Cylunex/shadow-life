@@ -16,6 +16,9 @@ import android.net.Uri
 import android.provider.OpenableColumns
 
 class NativeLifeRepository(private val context:Context,private val app:ShadowApp) {
+  fun queueStatus(session:ProductSession)=app.queue.observeStatus(session)
+  suspend fun retryQueue(session:ProductSession):Int=app.queue.retry(session).also{SyncScheduler.schedule(context,session.accountId,true)}
+  suspend fun clearTerminalQueue(session:ProductSession):Int=app.queue.clearTerminal(session)
   suspend fun today(date:LocalDate=LocalDate.now()):TodaySnapshot {
     val zone=ZoneId.systemDefault().id
     val json=get("/api/today?date=$date&time_zone=${encode(zone)}")

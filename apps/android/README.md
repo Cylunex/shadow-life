@@ -23,6 +23,9 @@ method; library capture accepts content without forcing a title and derives a bo
 Reads use typed presentation models backed by the Life API, while
 writes first enter the account-bound encrypted command queue and retain their command ID until the authoritative
 receipt is known.
+Settings exposes account-scoped pending, reconciling, failed, completed and encrypted-attachment counts. Retry
+keeps the original command identities; clearing terminal rows requires an inline destructive confirmation and
+never removes pending or unknown-outcome work.
 
 Android `ACTION_SEND` and `ACTION_SEND_MULTIPLE` enter an account-assignment confirmation before any business
 write. Shared text is captured with a stable command identity. Every shared attachment is copied immediately

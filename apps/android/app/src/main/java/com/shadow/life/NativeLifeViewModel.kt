@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -23,16 +24,18 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
   var assistant:LoadState<AssistantReply>? by androidx.compose.runtime.mutableStateOf(null);private set
   var shareImport:LoadState<Int>? by androidx.compose.runtime.mutableStateOf(null);private set
   var projectLinks:LoadState<List<ProjectLinkItem>> by androidx.compose.runtime.mutableStateOf(LoadState.Loading);private set
+  var queueStatus:LoadState<QueueSummary> by androidx.compose.runtime.mutableStateOf(LoadState.Loading);private set
   private var assistantThreadId:String?=null
   private var activeAccountId:String?=null
   private var activeSearchQuery:String=""
   private var workspaceQuery:String=""
+  private var queueJob:Job?=null
 
   fun refreshAll(){
     refreshToday();refreshTimeline();refreshPlans();refreshLibrary()
   }
-  fun activateAccount(accountId:String){if(activeAccountId==accountId)return;activeAccountId=accountId;assistantThreadId=null;assistant=null;searchResults=null;workspaceDomain=null;workspace=LoadState.Loading;detail=LoadState.Loading;submit=SubmitState.Editing;refreshAll();refreshProjectLinks()}
-  fun deactivateAccount(){activeAccountId=null;assistantThreadId=null;assistant=null;searchResults=null;workspaceDomain=null;today=LoadState.Loading;timeline=LoadState.Loading;plans=LoadState.Loading;library=LoadState.Loading;workspace=LoadState.Loading;detail=LoadState.Loading;projectLinks=LoadState.Loading;submit=SubmitState.Editing}
+  fun activateAccount(accountId:String){if(activeAccountId==accountId)return;activeAccountId=accountId;assistantThreadId=null;assistant=null;searchResults=null;workspaceDomain=null;workspace=LoadState.Loading;detail=LoadState.Loading;submit=SubmitState.Editing;observeQueue();refreshAll();refreshProjectLinks()}
+  fun deactivateAccount(){queueJob?.cancel();queueJob=null;activeAccountId=null;assistantThreadId=null;assistant=null;searchResults=null;workspaceDomain=null;today=LoadState.Loading;timeline=LoadState.Loading;plans=LoadState.Loading;library=LoadState.Loading;workspace=LoadState.Loading;detail=LoadState.Loading;projectLinks=LoadState.Loading;queueStatus=LoadState.Loading;submit=SubmitState.Editing}
   fun refreshToday(date:LocalDate=LocalDate.now()){today=LoadState.Loading;viewModelScope.launch{today=load("今天还没有记录"){repository.today(date)}}}
   fun refreshTimeline(){timeline=LoadState.Loading;viewModelScope.launch{timeline=load("还没有生活记录"){repository.timeline()}}}
   fun loadMoreTimeline(){val current=(timeline as? LoadState.Ready)?.value?:return;val cursor=current.nextCursor?:return;viewModelScope.launch{when(val next=load("没有更多记录"){repository.timeline(cursor)}){is LoadState.Ready->timeline=LoadState.Ready(current.copy(items=current.items+next.value.items,nextCursor=next.value.nextCursor,asOf=current.asOf));is LoadState.Failed->timeline=next;else->Unit}}}
@@ -55,6 +58,9 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
   }
   fun correct(seed:EditSeed,draft:CorrectionDraft){if(submit is SubmitState.Sending)return;submit=SubmitState.Sending("cmd_pending");viewModelScope.launch{try{val receipt=repository.enqueueCorrection(seed,draft);submit=SubmitState.Saved(receipt);loadDetail(seed.domain,seed.detailId);refreshToday();refreshTimeline();refreshLibrary()}catch(error:CancellationException){throw error}catch(error:Exception){submit=SubmitState.Rejected(error.message?:"无法保存更正")}}}
   fun editAgain(){submit=SubmitState.Editing}
+  fun retryQueue(){val session=getApplication<ShadowApp>().sessions.active()?:return;viewModelScope.launch{try{repository.retryQueue(session)}catch(error:CancellationException){throw error}catch(error:Exception){queueStatus=LoadState.Failed(error.message?:"无法重试离线队列")}}}
+  fun clearTerminalQueue(){val session=getApplication<ShadowApp>().sessions.active()?:return;viewModelScope.launch{try{repository.clearTerminalQueue(session)}catch(error:CancellationException){throw error}catch(error:Exception){queueStatus=LoadState.Failed(error.message?:"无法清理离线队列")}}}
+  private fun observeQueue(){queueJob?.cancel();val session=getApplication<ShadowApp>().sessions.active()?:return;queueJob=viewModelScope.launch{repository.queueStatus(session).collect{queueStatus=LoadState.Ready(it)}}}
 
   private suspend fun <T> load(emptyMessage:String,block:suspend()->T):LoadState<T> = try{val value=block();when(value){is Collection<*>->if(value.isEmpty())LoadState.Empty(emptyMessage) else LoadState.Ready(value);else->LoadState.Ready(value)}}catch(error:CancellationException){throw error}catch(error:Exception){LoadState.Failed(error.message?:"读取失败")}
   private suspend fun <T> loadList(emptyMessage:String,block:suspend()->List<T>):LoadState<List<T>> = try{block().let{if(it.isEmpty())LoadState.Empty(emptyMessage) else LoadState.Ready(it)}}catch(error:CancellationException){throw error}catch(error:Exception){LoadState.Failed(error.message?:"读取失败")}

@@ -6,8 +6,20 @@ import java.io.OutputStream
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 
 class OfflineQueue(private val database:ShadowDatabase,private val crypto:QueueCrypto=QueueCrypto()) {
+  fun observeStatus(session:ProductSession):Flow<QueueSummary> = combine(
+    database.commands().observe(session.accountId,session.subjectId),
+    database.commands().observeAttachments(session.accountId,session.subjectId)
+  ){commands,attachments->QueueSummary(
+    waiting=commands.count{it.state in setOf("pending","uploading")},
+    reconciling=commands.count{it.state=="unknown"}+attachments.count{it.state=="unknown"},
+    failed=commands.count{it.state in setOf("blocked","failed")}+attachments.count{it.state in setOf("blocked","failed")},
+    completed=commands.count{it.state=="committed"}+attachments.count{it.state=="committed"},
+    attachments=attachments.count{it.state in setOf("pending","uploading","unknown")}
+  )}
   suspend fun enqueueCommand(session:ProductSession,commandId:String,capability:String,plainBody:String):Long{
     val encrypted=crypto.encryptCommand(session.accountId,session.subjectId,commandId,plainBody)
     return database.commands().enqueue(PendingCommand(commandId,session.accountId,session.subjectId,capability,encrypted,encryptionVersion=1))
