@@ -14,6 +14,7 @@ class OfflineQueue(private val database:ShadowDatabase,private val crypto:QueueC
   }
 
   suspend fun enqueueAttachment(session:ProductSession,id:String,commandId:String,mediaType:String,capturedOn:String,input:InputStream,file:File):Long{
+    if(database.commands().attachment(id)!=null)return 0
     file.parentFile?.mkdirs()
     val temporary=File(file.parentFile,"${file.name}.encrypting")
     var moved=false

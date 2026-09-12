@@ -21,6 +21,7 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
   var workspaceDomain:LifeDomain?=null;private set
   var submit:SubmitState by androidx.compose.runtime.mutableStateOf(SubmitState.Editing);private set
   var assistant:LoadState<AssistantReply>? by androidx.compose.runtime.mutableStateOf(null);private set
+  var shareImport:LoadState<Int>? by androidx.compose.runtime.mutableStateOf(null);private set
   private var assistantThreadId:String?=null
   private var activeAccountId:String?=null
   private var activeSearchQuery:String=""
@@ -41,6 +42,7 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
   fun clearSearch(){activeSearchQuery="";searchResults=null}
   fun askLife(message:String){if(message.isBlank())return;assistant=LoadState.Loading;viewModelScope.launch{assistant=load("Life 没有返回内容"){repository.assist(message,assistantThreadId).also{assistantThreadId=it.threadId}}}}
   fun clearAssistant(){assistant=null}
+  fun importShare(payload:SharePayload,onAccepted:()->Unit){if(shareImport is LoadState.Loading)return;shareImport=LoadState.Loading;viewModelScope.launch{try{val count=repository.enqueueShare(payload);shareImport=LoadState.Ready(count);onAccepted();refreshLibrary()}catch(error:CancellationException){throw error}catch(error:Exception){shareImport=LoadState.Failed(error.message?:"无法收存分享")}}}
   fun loadWorkspace(domain:LifeDomain,query:String=""){workspaceDomain=domain;workspaceQuery=query.trim();workspace=LoadState.Loading;viewModelScope.launch{workspace=load("没有符合条件的记录"){repository.records(domain,query=workspaceQuery)}}}
   fun loadMoreWorkspace(){val domain=workspaceDomain?:return;val current=(workspace as? LoadState.Ready)?.value?:return;val cursor=current.nextCursor?:return;viewModelScope.launch{when(val next=load("没有更多记录"){repository.records(domain,workspaceQuery,cursor)}){is LoadState.Ready->workspace=LoadState.Ready(current.copy(items=current.items+next.value.items,nextCursor=next.value.nextCursor,asOf=current.asOf));is LoadState.Failed->workspace=next;else->Unit}}}
   fun loadDetail(domain:LifeDomain,id:String){detail=LoadState.Loading;viewModelScope.launch{detail=load("对象不可用"){repository.detail(domain,id)}}}

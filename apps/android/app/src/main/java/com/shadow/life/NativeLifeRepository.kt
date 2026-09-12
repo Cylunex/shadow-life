@@ -10,6 +10,7 @@ import java.net.URL
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.UUID
+import android.net.Uri
 
 class NativeLifeRepository(private val context:Context,private val app:ShadowApp) {
   suspend fun today(date:LocalDate=LocalDate.now()):TodaySnapshot {
@@ -108,6 +109,13 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     enqueueCommand(capability,input)
   }
 
+  suspend fun enqueueShare(payload:SharePayload):Int=withContext(Dispatchers.IO){
+    val session=app.sessions.active()?:error("请先登录 Shadow Life");var accepted=0
+    payload.text?.trim()?.takeIf(String::isNotBlank)?.let{text->val title=text.lineSequence().firstOrNull()?.take(120)?.ifBlank{"分享的文字"}?:"分享的文字";enqueueCommand("library.capture",JSONObject().put("title",title).put("item_type",if(text.startsWith("http://")||text.startsWith("https://"))"link" else "note").put(if(text.startsWith("http://")||text.startsWith("https://"))"url" else "text",text).put("tags",JSONArray()),"cmd_android_share_${payload.ingressId.take(48)}_text");accepted++}
+    for((index,uriText) in payload.uris.withIndex()){val uri=Uri.parse(uriText);val mediaType=context.contentResolver.getType(uri)?:"application/octet-stream";val input=context.contentResolver.openInputStream(uri)?:error("无法读取分享附件");val attachmentId="attachment_${payload.ingressId.take(48)}_${index}";val commandId="cmd_android_share_${payload.ingressId.take(48)}_$index";val target=java.io.File(context.filesDir,"pending-attachments/$attachmentId.bin");input.use{app.queue.enqueueAttachment(session,attachmentId,commandId,mediaType,LocalDate.now().toString(),it,target)};accepted++}
+    if(accepted==0)error("分享内容为空");SyncScheduler.schedule(context,session.accountId);accepted
+  }
+
   private suspend fun get(path:String):JSONObject=withContext(Dispatchers.IO){
     val session=app.sessions.active()?:error("请先登录 Shadow Life")
     when(val fresh=app.sessions.fresh(session.accountId,context)){
@@ -171,8 +179,8 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     return RecordDetail(title,root.optNullableString("state"),root.optInt("revision").takeIf{it>0}?:root.optInt("current_revision").takeIf{it>0},sections.filter{it.facts.isNotEmpty()||it.itemCount!=null},editSeed)
   }
 
-  private suspend fun enqueueCommand(capability:String,input:JSONObject):OperationReceipt{
-    val session=app.sessions.active()?:error("请先登录 Shadow Life");val commandId="cmd_android_${UUID.randomUUID().toString().replace("-","")}";val body=JSONObject().put("protocol","shadow.command").put("capability",capability).put("command_id",commandId).put("input",input).toString();app.queue.enqueueCommand(session,commandId,capability,body);SyncScheduler.schedule(context,session.accountId);return OperationReceipt(capability,commandId,queued=true)
+  private suspend fun enqueueCommand(capability:String,input:JSONObject,stableCommandId:String?=null):OperationReceipt{
+    val session=app.sessions.active()?:error("请先登录 Shadow Life");val commandId=stableCommandId?:"cmd_android_${UUID.randomUUID().toString().replace("-","")}";val body=JSONObject().put("protocol","shadow.command").put("capability",capability).put("command_id",commandId).put("input",input).toString();app.queue.enqueueCommand(session,commandId,capability,body);SyncScheduler.schedule(context,session.accountId);return OperationReceipt(capability,commandId,queued=true)
   }
 }
 

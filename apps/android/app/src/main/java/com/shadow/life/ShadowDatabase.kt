@@ -34,6 +34,7 @@ data class HealthSyncRoundRow(val accountId:String,val subjectId:String,@Embedde
   @Query("update pending_commands set state='unknown',attempts=0 where accountId=:account and subjectId=:subject and state in ('blocked','failed') and encryptionVersion=1")suspend fun retryCommands(account:String,subject:String):Int
   @Query("delete from pending_commands where accountId=:account and subjectId=:subject and state in ('committed','blocked','failed') and commandId not in (select waitingCommandId from health_sync_rounds where waitingCommandId is not null)")suspend fun clearTerminalCommands(account:String,subject:String):Int
   @Insert(onConflict=OnConflictStrategy.IGNORE)suspend fun enqueueAttachment(value:PendingAttachment):Long
+  @Query("select * from pending_attachments where id=:id")suspend fun attachment(id:String):PendingAttachment?
   @Query("select * from pending_attachments where accountId=:account and subjectId=:subject and state in ('pending','uploading','unknown') and encryptionVersion=1 order by createdAt")suspend fun pendingAttachments(account:String,subject:String):List<PendingAttachment>
   @Query("select * from pending_attachments where accountId=:account and subjectId=:subject order by createdAt desc")fun observeAttachments(account:String,subject:String):Flow<List<PendingAttachment>>
   @Query("select * from pending_attachments where accountId=:account and subjectId=:subject and encryptionVersion=0")suspend fun legacyAttachments(account:String,subject:String):List<PendingAttachment>
