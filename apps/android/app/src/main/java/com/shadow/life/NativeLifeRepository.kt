@@ -225,10 +225,10 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
 
   private fun toSummary(domain:LifeDomain,item:JSONObject):RecordSummary {
     val kind=item.optString("kind",when(domain){LifeDomain.Money->"money_entry";LifeDomain.Health->"health_measurement";LifeDomain.Travel->"trip";LifeDomain.Library->"library_item";else->"meal"})
-    val title=listOf("title","name","counterparty","place_name","metric","item_type").firstNotNullOfOrNull{key->item.optNullableString(key)}?:kindLabel(kind)
-    val supporting=listOf("occurred_on","starts_on","created_at","updated_at","state").firstNotNullOfOrNull{key->item.optNullableString(key)}
+    val title=item.getString("title")
+    val supporting=item.optNullableString("supporting")
     val amount=item.optNullableString("amount")?.let{value->listOfNotNull(item.optNullableString("currency"),value).joinToString(" ")}
-    val detailId=when(domain){LifeDomain.Money->item.optNullableString("record_id");LifeDomain.Travel->item.optNullableString("trip_id");else->null}
+    val detailId=item.optNullableString("record_id")
     return RecordSummary(domain,kind,item.getString("id"),title,supporting,amount,item.optInt("revision").takeIf{it>0},detailId)
   }
 

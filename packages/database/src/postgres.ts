@@ -7,7 +7,7 @@ import { renewLibraryProcessingInputSchema, claimLibraryProcessingInputSchema, c
 import { createAgentContextPackInputSchema, registerNotificationDeviceInputSchema, revokeAgentContextPackInputSchema, setAgentMemoryInputSchema, setNotificationDeliveryStateInputSchema, setNotificationPreferencesInputSchema, updateNotificationInputSchema } from "@shadow/contracts";
 import { generateLifeReviewInputSchema, recordOwnedItemEventInputSchema, saveOwnedItemInputSchema } from "@shadow/contracts";
 import { buildShoppingListInputSchema, recordForeignEntryInputSchema, saveActionItemInputSchema, saveLifeProjectInputSchema, saveMealPlanInputSchema, updateSharedExpenseAllocationInputSchema, updateShoppingItemInputSchema } from "@shadow/contracts";
-import { applyMoneyImportRules, assignTripStopIds, buildRecurrenceRule, conflict, invalidInput, parseGpx, parseMoneyStatement, parseRecurrenceRule, publishTripPlan, retryableNotApplied, serializeGpx, sha256Fingerprinter, tripPlanStopIds, tripRunIsComplete, validateTravelBundleSemantics, type DraftTripPlanItem, type StoredOperation, type TransactionStore, type UnitOfWork } from "@shadow/kernel";
+import { applyMoneyImportRules, assignTripStopIds, buildRecurrenceRule, conflict, invalidInput, parseGpx, parseMoneyStatement, parseRecurrenceRule, publishTripPlan, retryableNotApplied, serializeGpx, sha256Fingerprinter, tripPlanStopIds, tripRunIsComplete, validateTravelBundleSemantics, type DomainRecordPageItem, type DraftTripPlanItem, type StoredOperation, type TransactionStore, type UnitOfWork } from "@shadow/kernel";
 import { computeAgentAggregate, healthRescanCoverage, libraryProcessingLeaseSeconds } from "@shadow/kernel";
 import * as schema from "./schema.js";
 
@@ -26,6 +26,14 @@ function monthWindow(period:string):{startOn:string;endOn:string}{
 }
 
 function selectedFields(value:Record<string,unknown>,keys:readonly string[]):Record<string,unknown>{return Object.fromEntries(keys.flatMap(key=>value[key]===null||value[key]===undefined?[]:[[key,value[key]]]));}
+function domainRecordSummary(row:{kind:string;id:string;page_at:string;value:Record<string,unknown>}):DomainRecordPageItem{
+  const value=row.value,text=(...keys:string[])=>keys.flatMap(key=>typeof value[key]==="string"&&value[key]!==""?[value[key] as string]:[])[0]??null;
+  const title=text("title","name","counterparty","place_name","label","metric","metric_key","session_type","item_type","category","entry_type")??row.kind.replaceAll("_"," ");
+  const happenedOn=text("occurred_on","wake_date","starts_on","plan_date");
+  const recordId=text("record_id")??(row.kind==="trip"?row.id:text("trip_id"));
+  const revision=typeof value.revision==="number"&&Number.isSafeInteger(value.revision)&&value.revision>0?value.revision:null;
+  return{kind:row.kind,id:row.id,title,supporting:text("occurred_on","wake_date","starts_on","plan_date","ends_on","state"),happened_on:happenedOn,state:text("state","ownership_state"),revision,record_id:recordId,amount:text("amount"),currency:text("currency"),_page_at:row.page_at};
+}
 function remapPlanSnapshot(value:unknown,places:ReadonlyMap<string,string>):unknown{
   if(!value||typeof value!=="object"||!Array.isArray((value as {days?:unknown}).days))throw new Error("Travel Bundle plan snapshot is invalid");
   const snapshot=value as {days:Array<{plan_date?:unknown;items?:unknown}>;stop_count?:unknown};
@@ -460,7 +468,7 @@ function storeFor(database: Database | Transaction): TransactionStore {
     async listDomain(subjectId,domain,options){
       const asOf=options.asOf??(await database.execute<{as_of:string}>(sql`select to_char(clock_timestamp() at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as as_of`)).rows[0]!.as_of;
       const pattern=`%${options.query??""}%`,before=options.before?sql`and (page_at,kind,id)<(${options.before.at}::timestamptz,${options.before.kind},${options.before.id})`:sql``;
-      const finish=(rows:{kind:string;id:string;page_at:string;value:Record<string,unknown>}[])=>({items:rows.slice(0,options.limit).map(row=>({kind:row.kind,...row.value,_page_at:row.page_at})),hasMore:rows.length>options.limit,asOf});
+      const finish=(rows:{kind:string;id:string;page_at:string;value:Record<string,unknown>}[])=>({items:rows.slice(0,options.limit).map(domainRecordSummary),hasMore:rows.length>options.limit,asOf});
       if(domain==="money"){const result=await database.execute<{kind:string;id:string;page_at:string;value:Record<string,unknown>}>(sql`select kind,id,to_char(page_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') page_at,value from (select 'money_entry'::text kind,entry.id,record.created_at page_at,to_jsonb(entry)||jsonb_build_object('amount',entry.amount::text,'record_id',record.id,'state',record.state,'revision',record.revision) value from money_entries entry join consumption_records record on record.id=entry.record_id where entry.subject_id=${subjectId}) page where page_at<=${asOf}::timestamptz ${before} and (${options.query??null}::text is null or lower(value::text) like ${pattern}) order by page_at desc,kind desc,id desc limit ${options.limit+1}`);return finish(result.rows);}
       if(domain==="health"){const result=await database.execute<{kind:string;id:string;page_at:string;value:Record<string,unknown>}>(sql`select kind,id,to_char(page_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') page_at,value from (
         select 'measurement'::text kind,id,created_at page_at,to_jsonb(value.*) value from health_measurements value where subject_id=${subjectId}

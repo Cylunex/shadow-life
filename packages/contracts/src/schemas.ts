@@ -494,7 +494,20 @@ export const listMealsInputSchema = z.object({ limit: z.number().int().min(1).ma
 export const listMealsResultSchema = z.object({ items: z.array(mealViewSchema) }).strict();
 export const moneySummaryInputSchema = z.object({}).strict();
 export const domainRecordsInputSchema=z.object({query:z.string().trim().min(1).max(200).optional(),limit:z.number().int().min(1).max(100).default(50),cursor:z.string().max(1_000).optional()}).strict();
-export const domainRecordsResultSchema=z.object({items:z.array(z.record(z.string(),z.unknown())),next_cursor:z.string().nullable(),as_of:instant}).strict();
+export const domainRecordSummarySchema=z.object({
+  kind:z.string().min(1).max(80),
+  id:stableId,
+  title:z.string().min(1).max(500),
+  supporting:z.string().max(500).nullable(),
+  happened_on:localDate.nullable(),
+  state:z.string().max(80).nullable(),
+  revision:z.number().int().positive().nullable(),
+  record_id:stableId.nullable(),
+  amount:signedStoredAmount.nullable(),
+  currency:currencyCode.nullable()
+}).strict();
+export const domainRecordsResultSchema=z.object({items:z.array(domainRecordSummarySchema),next_cursor:z.string().nullable(),as_of:instant}).strict();
+export type DomainRecordSummary=z.infer<typeof domainRecordSummarySchema>;
 export const lifeOverviewDomainSchema=z.enum(["meals","money","health","travel","library"]);
 export const lifeTodayInputSchema=z.object({date:localDate,time_zone:ianaTimeZone,domains:z.array(lifeOverviewDomainSchema).min(1).max(5).optional()}).strict();
 export const lifeTodayResultSchema=z.object({date:localDate,domains:z.object({
