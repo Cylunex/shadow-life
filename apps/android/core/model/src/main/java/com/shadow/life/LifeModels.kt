@@ -70,7 +70,8 @@ sealed interface WorkspaceOverview { val asOf:String
 }
 data class BudgetProgress(val title:String,val amount:String,val currency:String,val spent:String)
 data class PlanSummary(val id:String,val title:String,val goal:String?,val state:String,val dueOn:String?,val revision:Int,val actions:Int)
-data class AgendaItem(val sourceKind:String,val sourceId:String,val sourceKey:String,val title:String,val state:String,val dueOn:String,val dueAt:String?,val targetKind:String,val targetId:String,val projectId:String?)
+data class AgendaAction(val capability:String,val targetId:String,val expectedRevision:Int)
+data class AgendaItem(val sourceKind:String,val sourceId:String,val sourceKey:String,val title:String,val state:String,val dueOn:String,val dueAt:String?,val targetKind:String,val targetId:String,val projectId:String?,val primaryAction:AgendaAction?)
 data class OwnedItemSummary(val id:String,val name:String,val state:String,val location:String?,val warrantyEndsOn:String?,val returnBy:String?,val revision:Int,val documents:Int,val events:Int)
 data class ReviewSummary(val id:String,val fromOn:String,val toOn:String,val algorithmVersion:String,val revision:Int,val generatedAt:String,val metrics:Int,val limitations:Int)
 data class PlanningWorkspace(val agenda:List<AgendaItem>,val projects:List<PlanSummary>,val ownedItems:List<OwnedItemSummary>,val reviews:List<ReviewSummary>,val truncated:Boolean,val asOf:String)

@@ -170,7 +170,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     val projectsRequest=async{runCatching{get("/api/life/projects?limit=50")}.getOrNull()};val itemsRequest=async{runCatching{get("/api/life/owned-items?limit=50")}.getOrNull()};val reviewsRequest=async{runCatching{get("/api/life/reviews?limit=20")}.getOrNull()}
     val agenda=agendaRequest.await();val projects=projectsRequest.await();val items=itemsRequest.await();val reviews=reviewsRequest.await()
     PlanningWorkspace(
-      agenda=agenda.items.map{item->AgendaItem(item.sourceKind.wireValue,item.sourceId,item.sourceKey,item.title,item.state.wireValue,item.dueOn,item.dueAt,item.target.kind.wireValue,item.target.id,item.target.projectId)},
+      agenda=agenda.items.map{item->AgendaItem(item.sourceKind.wireValue,item.sourceId,item.sourceKey,item.title,item.state.wireValue,item.dueOn,item.dueAt,item.target.kind.wireValue,item.target.id,item.target.projectId,item.primaryAction?.let{AgendaAction(it.capability.wireValue,it.targetId,it.expectedRevision.toInt())})},
       projects=projects?.optJSONArray("items").objects().map{item->PlanSummary(item.getString("id"),item.getString("title"),item.optNullableString("goal"),item.optString("state","active"),item.optNullableString("ends_on"),item.optInt("revision",1),item.optJSONArray("actions")?.length()?:0)},
       ownedItems=items?.optJSONArray("items").objects().map{item->OwnedItemSummary(item.getString("id"),item.getString("name"),item.getString("ownership_state"),item.optNullableString("location"),item.optNullableString("warranty_ends_on"),item.optNullableString("return_by"),item.optInt("revision",1),item.optJSONArray("documents")?.length()?:0,item.optJSONArray("events")?.length()?:0)},
       reviews=reviews?.optJSONArray("items").objects().map{item->ReviewSummary(item.getString("id"),item.getString("from_on"),item.getString("to_on"),item.optString("algorithm_version"),item.optInt("revision",1),item.optString("generated_at"),item.optJSONObject("metrics")?.length()?:0,item.optJSONArray("limitations")?.length()?:0)},
@@ -181,6 +181,27 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   suspend fun projectLinks():List<ProjectLinkItem>{
     val json=get("/api/project-links")
     return json.getJSONArray("items").objects().map{item->val target=item.optJSONObject("target");ProjectLinkItem(item.getString("id"),item.getString("title"),item.getString("subtitle"),item.getString("icon"),item.getString("state"),target?.optNullableString("kind"),target?.optNullableString("url"),target?.optNullableString("web_fallback_url")?:target?.optNullableString("url"),target?.optNullableString("package_name"),item.getString("auth_hint"),item.getInt("order"))}.sortedBy(ProjectLinkItem::order)
+  }
+
+  suspend fun enqueueAgendaAction(item:AgendaItem,action:String):OperationReceipt=withContext(Dispatchers.IO){
+    val primary=item.primaryAction?:error("这项安排暂不支持直接操作")
+    val input=when(primary.capability){
+      "life.save_action_item"->JSONObject()
+        .put("action_item_id",primary.targetId)
+        .put("expected_revision",primary.expectedRevision)
+        .put("project_id",item.projectId?:item.targetId)
+        .put("title",item.title)
+        .put("due_on",item.dueOn)
+        .put("state",when(action){"complete"->"completed";"cancel"->"cancelled";else->"open"})
+        .apply{if(item.sourceKind=="health_habit")put("health_habit_id",item.sourceId)}
+      "money.set_occurrence_state"->JSONObject()
+        .put("occurrence_id",primary.targetId)
+        .put("expected_revision",primary.expectedRevision)
+        .put("state",when(action){"complete"->"handled";"dismiss"->"dismissed";"snooze"->"snoozed";else->error("不支持的周期操作")})
+        .apply{if(action=="snooze")put("snoozed_until",java.time.Instant.now().plusSeconds(3_600).toString())}
+      else->error("不支持的计划操作")
+    }
+    enqueueCommand(primary.capability,input)
   }
 
   suspend fun library(query:String=""):List<LibrarySummary> = records(LifeDomain.Library,query).items.map{LibrarySummary(it.id,it.title,it.kind,it.supporting,it.revision)}

@@ -79,12 +79,13 @@ import java.util.Locale
 @Composable private fun DomainChips(onWorkspace:(LifeDomain)->Unit){Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Text("生活空间",style=MaterialTheme.typography.titleLarge);FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){LifeDomain.entries.forEach{domain->AssistChip(onClick={onWorkspace(domain)},label={Text(domain.label())})}}}}
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun PlansScreen(state:LoadState<PlanningWorkspace>,onRetry:()->Unit,onDetail:(PlanSummary)->Unit,onAgenda:(AgendaItem)->Unit,onProjects:()->Unit,onSettings:()->Unit){
+@Composable fun PlansScreen(state:LoadState<PlanningWorkspace>,message:String?,onRetry:()->Unit,onDetail:(PlanSummary)->Unit,onAgenda:(AgendaItem)->Unit,onAgendaAction:(AgendaItem,String)->Unit,onProjects:()->Unit,onSettings:()->Unit){
   var selected by rememberSaveable{mutableIntStateOf(0)}
   RootPage("计划",onProjects,onSettings){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp,8.dp,20.dp,112.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
     item{SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()){listOf("今天","本周","项目").forEachIndexed{index,label->SegmentedButton(selected=index==selected,onClick={selected=index},shape=SegmentedButtonDefaults.itemShape(index,3)){Text(label)}}}}
+    message?.let{item{Text(it,color=MaterialTheme.colorScheme.primary,style=MaterialTheme.typography.bodyMedium)}}
     item{StateContent(state,onRetry){}}
-    if(state is LoadState.Ready){val today=LocalDate.now();val value=state.value;if(selected<2){val agenda=value.agenda.filter{selected==1||it.dueOn==today.toString()};if(agenda.isEmpty())item{EmptyState(if(selected==0)"今天没有待处理安排" else "本周没有待处理安排")} else{item{Text(if(selected==0)"今天" else "未来七天",style=MaterialTheme.typography.titleLarge)};items(agenda,key={it.sourceKey}){action->LifeCard(onClick={onAgenda(action)}){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(action.title,Modifier.weight(1f),style=MaterialTheme.typography.titleLarge);StatusLabel(action.state)};Text("${agendaKindLabel(action.sourceKind)} · ${action.dueOn}",color=MaterialTheme.colorScheme.onSurfaceVariant)}};if(value.truncated)item{Text("还有更多安排，请缩短日期范围查看。",color=MaterialTheme.colorScheme.onSurfaceVariant)}}}else{
+    if(state is LoadState.Ready){val today=LocalDate.now();val value=state.value;if(selected<2){val agenda=value.agenda.filter{selected==1||it.dueOn==today.toString()};if(agenda.isEmpty())item{EmptyState(if(selected==0)"今天没有待处理安排" else "本周没有待处理安排")} else{item{Text(if(selected==0)"今天" else "未来七天",style=MaterialTheme.typography.titleLarge)};items(agenda,key={it.sourceKey}){action->LifeCard(onClick={onAgenda(action)}){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(action.title,Modifier.weight(1f),style=MaterialTheme.typography.titleLarge);StatusLabel(action.state)};Text("${agendaKindLabel(action.sourceKind)} · ${action.dueOn}",color=MaterialTheme.colorScheme.onSurfaceVariant);if(action.primaryAction!=null&&action.state in setOf("open","pending","reminded","snoozed"))AgendaActions(action,onAgendaAction)}};if(value.truncated)item{Text("还有更多安排，请缩短日期范围查看。",color=MaterialTheme.colorScheme.onSurfaceVariant)}}}else{
       item{Text("生活项目",style=MaterialTheme.typography.titleLarge)}
       if(value.projects.isEmpty())item{EmptyState("还没有生活项目")} else items(value.projects,key={"project:${it.id}"}){plan->LifeCard(onClick={onDetail(plan)}){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(plan.title,Modifier.weight(1f),style=MaterialTheme.typography.titleLarge);StatusLabel(plan.state)};plan.goal?.let{Text(it,color=MaterialTheme.colorScheme.onSurfaceVariant)};Text("${plan.actions} 项行动${plan.dueOn?.let{" · 截止 $it"}.orEmpty()}",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
       item{Text("我的物品",style=MaterialTheme.typography.titleLarge,modifier=Modifier.padding(top=10.dp))}
@@ -96,6 +97,8 @@ import java.util.Locale
 }
 
 private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行动";"recurring_occurrence"->"周期事项";"health_habit"->"健康习惯";else->kind}
+
+@Composable private fun AgendaActions(item:AgendaItem,onAction:(AgendaItem,String)->Unit){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End){TextButton(onClick={onAction(item,"complete")}){Text("完成")};if(item.sourceKind=="recurring_occurrence"){TextButton(onClick={onAction(item,"snooze")}){Text("稍后 1 小时")};TextButton(onClick={onAction(item,"dismiss")}){Text("忽略")}}else TextButton(onClick={onAction(item,"cancel")}){Text("取消")}}}
 
 @Composable fun LibraryScreen(state:LoadState<List<LibrarySummary>>,onSearch:(String)->Unit,onDetail:(LifeDomain,String,String)->Unit,onProjects:()->Unit,onSettings:()->Unit){
   var query by rememberSaveable{mutableStateOf("")}
