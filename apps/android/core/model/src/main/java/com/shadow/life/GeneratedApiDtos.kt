@@ -1531,3 +1531,265 @@ data class LibraryItemResultDto(
   @SerialName("legacy_links") val legacyLinks: List<LibraryItemResultDtoLegacyLinksEntry>,
   @SerialName("as_of") val asOf: String
 )
+
+@Serializable
+data class TravelTripResultDtoTrip(
+  @SerialName("id") val id: String,
+  @SerialName("title") val title: String,
+  @SerialName("starts_on") val startsOn: String,
+  @SerialName("ends_on") val endsOn: String,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("note") val note: String?,
+  @SerialName("revision") val revision: Long,
+  @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+enum class TravelTripResultDtoReservationsEntryReservationType(val wireValue: String) {
+  @SerialName("flight") Flight("flight"),
+  @SerialName("rail") Rail("rail"),
+  @SerialName("hotel") Hotel("hotel"),
+  @SerialName("restaurant") Restaurant("restaurant"),
+  @SerialName("activity") Activity("activity"),
+  @SerialName("other") Other("other")
+}
+
+@Serializable
+enum class TravelTripResultDtoReservationsEntryState(val wireValue: String) {
+  @SerialName("pending") Pending("pending"),
+  @SerialName("waitlisted") Waitlisted("waitlisted"),
+  @SerialName("confirmed") Confirmed("confirmed"),
+  @SerialName("changed") Changed("changed"),
+  @SerialName("cancelled") Cancelled("cancelled"),
+  @SerialName("refunded") Refunded("refunded")
+}
+
+@Serializable
+enum class TravelTripResultDtoReservationsEntryVisibility(val wireValue: String) {
+  @SerialName("shared") Shared("shared"),
+  @SerialName("private") Private("private")
+}
+
+@Serializable
+data class TravelTripResultDtoReservationsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("trip_id") val tripId: String,
+  @SerialName("reservation_type") val reservationType: TravelTripResultDtoReservationsEntryReservationType,
+  @SerialName("title") val title: String,
+  @SerialName("starts_at") val startsAt: String?,
+  @SerialName("ends_at") val endsAt: String?,
+  @SerialName("state") val state: TravelTripResultDtoReservationsEntryState,
+  @SerialName("visibility") val visibility: TravelTripResultDtoReservationsEntryVisibility,
+  @SerialName("origin") val origin: String?,
+  @SerialName("destination") val destination: String?,
+  @SerialName("service_number") val serviceNumber: String?,
+  @SerialName("revision") val revision: Long,
+  @SerialName("created_at") val createdAt: String,
+  @SerialName("confirmation_code") val confirmationCode: String? = null,
+  @SerialName("seat") val seat: String? = null,
+  @SerialName("fare_entry_id") val fareEntryId: String? = null,
+  @SerialName("source_id") val sourceId: String? = null
+)
+
+@Serializable
+enum class TravelTripResultDtoSegmentsEntryMode(val wireValue: String) {
+  @SerialName("walk") Walk("walk"),
+  @SerialName("bike") Bike("bike"),
+  @SerialName("taxi") Taxi("taxi"),
+  @SerialName("car") Car("car"),
+  @SerialName("bus") Bus("bus"),
+  @SerialName("metro") Metro("metro"),
+  @SerialName("rail") Rail("rail"),
+  @SerialName("flight") Flight("flight"),
+  @SerialName("ferry") Ferry("ferry"),
+  @SerialName("other") Other("other")
+}
+
+@Serializable
+enum class TravelTripResultDtoSegmentsEntryVisibility(val wireValue: String) {
+  @SerialName("shared") Shared("shared"),
+  @SerialName("private") Private("private")
+}
+
+@Serializable
+data class TravelTripResultDtoSegmentsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("trip_id") val tripId: String,
+  @SerialName("mode") val mode: TravelTripResultDtoSegmentsEntryMode,
+  @SerialName("origin") val origin: String,
+  @SerialName("destination") val destination: String,
+  @SerialName("starts_at") val startsAt: String?,
+  @SerialName("ends_at") val endsAt: String?,
+  @SerialName("distance_km") val distanceKm: String?,
+  @SerialName("visibility") val visibility: TravelTripResultDtoSegmentsEntryVisibility,
+  @SerialName("revision") val revision: Long,
+  @SerialName("voided_at") val voidedAt: String?,
+  @SerialName("created_at") val createdAt: String,
+  @SerialName("source_id") val sourceId: String? = null,
+  @SerialName("note") val note: String? = null
+)
+
+@Serializable
+enum class TravelTripResultDtoVisitsEntryVisibility(val wireValue: String) {
+  @SerialName("shared") Shared("shared"),
+  @SerialName("private") Private("private")
+}
+
+@Serializable
+data class TravelTripResultDtoVisitsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("trip_id") val tripId: String,
+  @SerialName("place_name") val placeName: String,
+  @SerialName("latitude") val latitude: String?,
+  @SerialName("longitude") val longitude: String?,
+  @SerialName("occurred_on") val occurredOn: String,
+  @SerialName("occurred_at") val occurredAt: String?,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("visibility") val visibility: TravelTripResultDtoVisitsEntryVisibility,
+  @SerialName("revision") val revision: Long,
+  @SerialName("created_at") val createdAt: String,
+  @SerialName("source_id") val sourceId: String? = null,
+  @SerialName("note") val note: String? = null
+)
+
+@Serializable
+data class TravelTripResultDtoDayPlansEntryItemsEntry(
+  @SerialName("stop_id") val stopId: String,
+  @SerialName("title") val title: String,
+  @SerialName("starts_at") val startsAt: String? = null,
+  @SerialName("place_id") val placeId: String? = null,
+  @SerialName("note") val note: String? = null
+)
+
+@Serializable
+data class TravelTripResultDtoDayPlansEntry(
+  @SerialName("id") val id: String,
+  @SerialName("trip_id") val tripId: String,
+  @SerialName("plan_date") val planDate: String,
+  @SerialName("items") val items: List<TravelTripResultDtoDayPlansEntryItemsEntry>,
+  @SerialName("revision") val revision: Long,
+  @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+enum class TravelTripResultDtoMembersEntryRole(val wireValue: String) {
+  @SerialName("owner") Owner("owner"),
+  @SerialName("editor") Editor("editor"),
+  @SerialName("viewer") Viewer("viewer")
+}
+
+@Serializable
+enum class TravelTripResultDtoMembersEntryVisibility(val wireValue: String) {
+  @SerialName("shared") Shared("shared"),
+  @SerialName("private") Private("private")
+}
+
+@Serializable
+data class TravelTripResultDtoMembersEntry(
+  @SerialName("member_id") val memberId: String,
+  @SerialName("role") val role: TravelTripResultDtoMembersEntryRole,
+  @SerialName("visibility") val visibility: TravelTripResultDtoMembersEntryVisibility,
+  @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+data class TravelTripResultDtoPlanVersionsEntrySnapshotDaysEntryItemsEntry(
+  @SerialName("stop_id") val stopId: String,
+  @SerialName("title") val title: String,
+  @SerialName("starts_at") val startsAt: String? = null,
+  @SerialName("place_id") val placeId: String? = null,
+  @SerialName("note") val note: String? = null
+)
+
+@Serializable
+data class TravelTripResultDtoPlanVersionsEntrySnapshotDaysEntry(
+  @SerialName("plan_date") val planDate: String,
+  @SerialName("items") val items: List<TravelTripResultDtoPlanVersionsEntrySnapshotDaysEntryItemsEntry>
+)
+
+@Serializable
+data class TravelTripResultDtoPlanVersionsEntrySnapshot(
+  @SerialName("days") val days: List<TravelTripResultDtoPlanVersionsEntrySnapshotDaysEntry>,
+  @SerialName("stop_count") val stopCount: Long
+)
+
+@Serializable
+data class TravelTripResultDtoPlanVersionsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("trip_id") val tripId: String,
+  @SerialName("version") val version: Long,
+  @SerialName("label") val label: String?,
+  @SerialName("note") val note: String?,
+  @SerialName("snapshot") val snapshot: TravelTripResultDtoPlanVersionsEntrySnapshot,
+  @SerialName("content_hash") val contentHash: String,
+  @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+enum class TravelTripResultDtoMyRunsEntryState(val wireValue: String) {
+  @SerialName("active") Active("active"),
+  @SerialName("completed") Completed("completed"),
+  @SerialName("abandoned") Abandoned("abandoned")
+}
+
+@Serializable
+enum class TravelTripResultDtoMyRunsEntryOutcomesEntryState(val wireValue: String) {
+  @SerialName("arrived") Arrived("arrived"),
+  @SerialName("skipped") Skipped("skipped")
+}
+
+@Serializable
+data class TravelTripResultDtoMyRunsEntryOutcomesEntry(
+  @SerialName("stop_id") val stopId: String,
+  @SerialName("state") val state: TravelTripResultDtoMyRunsEntryOutcomesEntryState,
+  @SerialName("occurred_at") val occurredAt: String?,
+  @SerialName("note") val note: String?,
+  @SerialName("revision") val revision: Long,
+  @SerialName("updated_at") val updatedAt: String
+)
+
+@Serializable
+data class TravelTripResultDtoMyRunsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("trip_id") val tripId: String,
+  @SerialName("plan_version_id") val planVersionId: String,
+  @SerialName("state") val state: TravelTripResultDtoMyRunsEntryState,
+  @SerialName("started_at") val startedAt: String,
+  @SerialName("completed_at") val completedAt: String?,
+  @SerialName("outcomes") val outcomes: List<TravelTripResultDtoMyRunsEntryOutcomesEntry>
+)
+
+@Serializable
+data class TravelTripResultDtoRevisionsEntrySnapshot(
+  @SerialName("id") val id: String,
+  @SerialName("title") val title: String,
+  @SerialName("starts_on") val startsOn: String,
+  @SerialName("ends_on") val endsOn: String,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("note") val note: String?,
+  @SerialName("revision") val revision: Long,
+  @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+data class TravelTripResultDtoRevisionsEntry(
+  @SerialName("trip_id") val tripId: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("snapshot") val snapshot: TravelTripResultDtoRevisionsEntrySnapshot,
+  @SerialName("reason") val reason: String,
+  @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+data class TravelTripResultDto(
+  @SerialName("trip") val trip: TravelTripResultDtoTrip,
+  @SerialName("reservations") val reservations: List<TravelTripResultDtoReservationsEntry>,
+  @SerialName("segments") val segments: List<TravelTripResultDtoSegmentsEntry>,
+  @SerialName("visits") val visits: List<TravelTripResultDtoVisitsEntry>,
+  @SerialName("day_plans") val dayPlans: List<TravelTripResultDtoDayPlansEntry>,
+  @SerialName("members") val members: List<TravelTripResultDtoMembersEntry>,
+  @SerialName("plan_versions") val planVersions: List<TravelTripResultDtoPlanVersionsEntry>,
+  @SerialName("my_runs") val myRuns: List<TravelTripResultDtoMyRunsEntry>,
+  @SerialName("revisions") val revisions: List<TravelTripResultDtoRevisionsEntry>,
+  @SerialName("as_of") val asOf: String
+)

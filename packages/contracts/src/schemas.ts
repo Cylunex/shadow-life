@@ -272,6 +272,19 @@ export const travelWorkspaceResultSchema=z.object({
   segments:z.array(z.object({id:stableId,trip_id:stableId,mode:z.enum(["walk","bike","taxi","car","bus","metro","rail","flight","ferry","other"]),origin:z.string(),destination:z.string(),starts_at:instant.nullable(),ends_at:instant.nullable(),distance_km:canonicalDecimal.nullable(),note:z.string().nullable(),visibility:z.enum(["shared","private"]),revision:z.number().int().positive()}).strict()).max(1_000),
   as_of:instant
 }).strict();
+const tripDetailTripSchema=z.object({id:stableId,title:z.string(),starts_on:localDate,ends_on:localDate,time_zone:ianaTimeZone,note:z.string().nullable(),revision:z.number().int().positive(),created_at:instant}).strict();
+export const travelTripResultSchema=z.object({
+  trip:tripDetailTripSchema,
+  reservations:z.array(portableReservationSchema).max(500),
+  segments:z.array(portableSegmentSchema).max(1_000),
+  visits:z.array(portableVisitSchema).max(1_000),
+  day_plans:z.array(portableDayPlanSchema).max(366),
+  members:z.array(z.object({member_id:stableId,role:z.enum(["owner","editor","viewer"]),visibility:z.enum(["shared","private"]),created_at:instant}).strict()).max(100),
+  plan_versions:z.array(z.object({id:stableId,trip_id:stableId,version:z.number().int().positive(),label:z.string().nullable(),note:z.string().nullable(),snapshot:publishedTripPlanSchema,content_hash:z.string().regex(/^[0-9a-f]{64}$/u),created_at:instant}).strict()).max(100),
+  my_runs:z.array(z.object({id:stableId,trip_id:stableId,plan_version_id:stableId,state:z.enum(["active","completed","abandoned"]),started_at:instant,completed_at:instant.nullable(),outcomes:z.array(z.object({stop_id:stableId,state:z.enum(["arrived","skipped"]),occurred_at:instant.nullable(),note:z.string().nullable(),revision:z.number().int().positive(),updated_at:instant}).strict()).max(1_000)}).strict()).max(100),
+  revisions:z.array(z.object({trip_id:stableId,revision:z.number().int().positive(),snapshot:tripDetailTripSchema,reason:z.string(),created_at:instant}).strict()).max(1_000),
+  as_of:instant
+}).strict();
 export const travelBundleSchema=z.object({format:z.literal("shadow-life.travel-bundle.v1"),exported_trip:z.object({trip:z.object({id:stableId,title:z.string().trim().min(1).max(200),starts_on:localDate,ends_on:localDate,time_zone:ianaTimeZone,note:z.string().nullable().optional(),revision:z.number().int().positive()}).strict(),places:z.array(portablePlaceSchema).max(200).default([]),maps:z.array(portableMapSchema).max(100).default([]),reservations:z.array(portableReservationSchema).max(500),segments:z.array(portableSegmentSchema).max(1_000),visits:z.array(portableVisitSchema).max(1_000),day_plans:z.array(portableDayPlanSchema).max(366),plan_versions:z.array(portablePlanVersionSchema).max(100),tracks:z.array(portableTrackSchema).max(100)}).strict()}).strict();
 export const previewTravelPortableInputSchema=z.object({format:z.enum(["gpx","bundle"]),content:z.string().min(1).max(900_000)}).strict();
 export const previewTravelPortableResultSchema=z.discriminatedUnion("format",[

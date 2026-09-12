@@ -238,6 +238,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   suspend fun detail(domain:LifeDomain,id:String):RecordDetail {
     val path=when(domain){LifeDomain.Meals->"/api/life/records/$id";LifeDomain.Health->"/api/health/records/$id";LifeDomain.Travel->"/api/travel/trips/$id";LifeDomain.Library->"/api/library/items/$id";LifeDomain.Money->"/api/life/records/$id?sections=money"}
     if(domain==LifeDomain.Library)return libraryDetail(wireJson.decodeFromString(getText(path)))
+    if(domain==LifeDomain.Travel)return travelDetail(wireJson.decodeFromString(getText(path)))
     return detailFrom(domain,get(path))
   }
 
@@ -311,6 +312,34 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     if(value.processingJobs.isNotEmpty())sections+=DetailSection("处理任务",value.processingJobs.take(20).flatMap{job->listOfNotNull(DetailFact(job.kind.wireValue,"${job.state.wireValue} · 尝试 ${job.attempts}"),job.lastError?.let{DetailFact("失败原因",it)})},value.processingJobs.size)
     if(value.derivations.isNotEmpty()||value.proofs.isNotEmpty()||value.legacyLinks.isNotEmpty())sections+=DetailSection("来源与完整性",listOf(DetailFact("派生产物","${value.derivations.size} 项"),DetailFact("内容证明","${value.proofs.size} 项"),DetailFact("旧链接","${value.legacyLinks.size} 项")))
     return RecordDetail(item.title,item.state.wireValue,item.currentRevision.toInt(),sections,latest?.let{EditSeed.Library(item.id,item.currentRevision.toInt(),item.title,it.text,it.url,it.tags)})
+  }
+
+  private fun travelDetail(value:TravelTripResultDto):RecordDetail{
+    val trip=value.trip
+    val sections=mutableListOf(
+      DetailSection("概要",listOfNotNull(DetailFact("开始日期",trip.startsOn),DetailFact("结束日期",trip.endsOn),DetailFact("时区",trip.timeZone),trip.note?.let{DetailFact("备注",it)},DetailFact("创建时间",trip.createdAt)))
+    )
+    if(value.reservations.isNotEmpty())sections+=DetailSection("预订",value.reservations.take(30).flatMap{reservation->listOfNotNull(
+      DetailFact(reservation.title,"${reservation.reservationType.wireValue} · ${reservation.state.wireValue}"),
+      reservation.startsAt?.let{DetailFact("开始",it)},reservation.endsAt?.let{DetailFact("结束",it)},
+      listOfNotNull(reservation.origin,reservation.destination).takeIf{it.isNotEmpty()}?.let{DetailFact("路线",it.joinToString(" → "))},
+      reservation.serviceNumber?.let{DetailFact("班次",it)},reservation.seat?.let{DetailFact("座位",it)}
+    )},value.reservations.size)
+    if(value.segments.isNotEmpty())sections+=DetailSection("行程段",value.segments.take(30).flatMap{segment->listOfNotNull(
+      DetailFact("${segment.origin} → ${segment.destination}",segment.mode.wireValue),segment.startsAt?.let{DetailFact("出发",it)},segment.endsAt?.let{DetailFact("到达",it)},segment.distanceKm?.let{DetailFact("距离","$it km")},segment.note?.let{DetailFact("备注",it)}
+    )},value.segments.size)
+    if(value.visits.isNotEmpty())sections+=DetailSection("到访",value.visits.take(30).flatMap{visit->listOfNotNull(
+      DetailFact(visit.placeName,visit.occurredAt?:visit.occurredOn),visit.latitude?.let{latitude->visit.longitude?.let{longitude->DetailFact("坐标","$latitude, $longitude")}},visit.note?.let{DetailFact("备注",it)}
+    )},value.visits.size)
+    if(value.dayPlans.isNotEmpty())sections+=DetailSection("日程",value.dayPlans.take(30).flatMap{plan->listOf(DetailFact(plan.planDate,"${plan.items.size} 个停靠点"))+plan.items.take(20).map{item->DetailFact(item.startsAt?:"停靠",item.title)}},value.dayPlans.size)
+    if(value.planVersions.isNotEmpty())sections+=DetailSection("已发布计划",value.planVersions.take(20).map{version->DetailFact("版本 ${version.version}",listOfNotNull(version.label,"${version.snapshot.stopCount} 个停靠点",version.createdAt).joinToString(" · "))},value.planVersions.size)
+    if(value.myRuns.isNotEmpty())sections+=DetailSection("我的执行",value.myRuns.take(20).flatMap{run->listOf(DetailFact(run.state.wireValue,"${run.outcomes.size} 个结果 · ${run.startedAt}"))+run.outcomes.take(30).map{outcome->DetailFact(outcome.state.wireValue,outcome.note?:outcome.occurredAt?:outcome.stopId)}},value.myRuns.size)
+    if(value.members.isNotEmpty())sections+=DetailSection("成员",value.members.take(30).map{member->DetailFact(member.role.wireValue,member.visibility.wireValue)},value.members.size)
+    if(value.revisions.isNotEmpty())sections+=DetailSection("更正历史",value.revisions.take(20).map{revision->DetailFact("版本 ${revision.revision}","${revision.reason} · ${revision.createdAt}")},value.revisions.size)
+    return RecordDetail(
+      trip.title,value.myRuns.firstOrNull()?.state?.wireValue,trip.revision.toInt(),sections,
+      EditSeed.Trip(trip.id,trip.revision.toInt(),trip.title,trip.startsOn,trip.endsOn,trip.timeZone,trip.note)
+    )
   }
 
   private fun detailFrom(domain:LifeDomain,json:JSONObject):RecordDetail {
