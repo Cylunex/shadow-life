@@ -458,7 +458,7 @@ function storeFor(database: Database | Transaction): TransactionStore {
     async listDomain(subjectId,domain,options){
       const asOf=options.asOf??(await database.execute<{as_of:string}>(sql`select to_char(clock_timestamp() at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as as_of`)).rows[0]!.as_of;
       const pattern=`%${options.query??""}%`,before=options.before?sql`and (page_at,kind,id)<(${options.before.at}::timestamptz,${options.before.kind},${options.before.id})`:sql``;
-      const finish=(rows:{kind:string;id:string;page_at:string;value:Record<string,unknown>}[])=>({items:rows.slice(0,options.limit).map(row=>({kind:row.kind,...camelizeRecord(row.value),_page_at:row.page_at})),hasMore:rows.length>options.limit,asOf});
+      const finish=(rows:{kind:string;id:string;page_at:string;value:Record<string,unknown>}[])=>({items:rows.slice(0,options.limit).map(row=>({kind:row.kind,...row.value,_page_at:row.page_at})),hasMore:rows.length>options.limit,asOf});
       if(domain==="money"){const result=await database.execute<{kind:string;id:string;page_at:string;value:Record<string,unknown>}>(sql`select kind,id,to_char(page_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') page_at,value from (select 'money_entry'::text kind,entry.id,record.created_at page_at,to_jsonb(entry)||jsonb_build_object('amount',entry.amount::text,'recordId',record.id,'state',record.state,'revision',record.revision) value from money_entries entry join consumption_records record on record.id=entry.record_id where entry.subject_id=${subjectId}) page where page_at<=${asOf}::timestamptz ${before} and (${options.query??null}::text is null or lower(value::text) like ${pattern}) order by page_at desc,kind desc,id desc limit ${options.limit+1}`);return finish(result.rows);}
       if(domain==="health"){const result=await database.execute<{kind:string;id:string;page_at:string;value:Record<string,unknown>}>(sql`select kind,id,to_char(page_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') page_at,value from (
         select 'measurement'::text kind,id,created_at page_at,to_jsonb(value.*) value from health_measurements value where subject_id=${subjectId}
@@ -660,8 +660,6 @@ function recurrenceFor(input:{cadence:"daily"|"weekly"|"monthly"|"yearly"|"inter
   if(input.cadence==="interval"&&parsed.interval!==input.interval_days)throw conflict("recurrence_rule interval does not match interval_days");
   return{anchorOn,rule};
 }
-
-function camelizeRecord(value:Record<string,unknown>):Record<string,unknown>{return Object.fromEntries(Object.entries(value).map(([key,item])=>[key.replace(/_([a-z])/gu,(_,letter:string)=>letter.toUpperCase()),item]));}
 
 function projectLifeRecord(value:Record<string,unknown>,sections:readonly ("meal"|"purchase"|"money"|"sources")[],kind:"record"|"meal"):Record<string,unknown>{
   const visible=new Set(sections),result={...value};
