@@ -40,6 +40,14 @@ test("missing resources are returned as 404 errors",async()=>{
   assert.equal(response.status,404);assert.equal((await response.json() as {code:string}).code,"not_found");
 });
 
+test("thread history exposes exact stable pages and rejects malformed cursors",async()=>{
+  let pageOptions:unknown;const dependencies={unitOfWork:{ensurePrincipal:async()=>undefined,pool:{query:async()=>({rows:[]})}},executor:{execute:async()=>({}),getOperation:async()=>({})},queries:{},developmentAuth:true,agent:{repository:{listThreads:async()=>[{id:"thread_00000001",title:"晚餐记录",created_at:"2026-09-10T00:00:00Z",updated_at:"2026-09-10T00:02:00Z",last_message:"已记录"}],assertThread:async()=>undefined,conversationPage:async(_subject:string,_thread:string,options:unknown)=>{pageOptions=options;return{items:[{id:"message_00000001",role:"assistant",content:"已记录",created_at:"2026-09-10T00:02:00Z"}],hasMore:true,asOf:"2026-09-10T00:03:00Z"};}},runtime:{},nextId:()=>"unused"}} as unknown as Parameters<typeof createApp>[0];
+  const app=createApp(dependencies),headers={authorization:"Bearer dev:subject_test"};const threads=await app.request("/api/threads",{headers});assert.equal(threads.status,200);assert.equal(((await threads.json()) as {items:unknown[]}).items.length,1);
+  const first=await app.request("/api/threads/thread_00000001/messages?limit=1",{headers}),body=await first.json() as {items:unknown[];next_cursor:string;as_of:string};assert.equal(first.status,200);assert.equal(body.items.length,1);assert.equal(body.as_of,"2026-09-10T00:03:00Z");assert.deepEqual(pageOptions,{limit:1});
+  const second=await app.request(`/api/threads/thread_00000001/messages?limit=1&cursor=${encodeURIComponent(body.next_cursor)}`,{headers});assert.equal(second.status,200);assert.deepEqual(pageOptions,{limit:1,asOf:"2026-09-10T00:03:00Z",before:{at:"2026-09-10T00:02:00Z",id:"message_00000001"}});
+  const invalid=await app.request("/api/threads/thread_00000001/messages?cursor=broken",{headers});assert.equal(invalid.status,422);
+});
+
 test("overview routes parse typed filters before calling query services",async()=>{
   let todayInput:unknown,timelineInput:unknown,searchInput:unknown,importBatchId="",healthRecordId="",travelWorkspaceInput:unknown,travelExportInput:unknown,travelPreviewInput:unknown,ownedItemsInput:unknown,reviewsInput:unknown,projectsInput:unknown,mealPlanningInput:unknown,foreignEntriesInput:unknown;
   const dependencies={

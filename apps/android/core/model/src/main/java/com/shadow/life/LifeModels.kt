@@ -36,6 +36,9 @@ data class OperationReceipt(
   val queued:Boolean=false
 )
 data class AssistantReply(val text:String,val threadId:String,val runId:String?,val state:String,val prompt:String?=null,val receipts:List<OperationReceipt> = emptyList())
+data class AssistantThreadSummary(val id:String,val title:String,val updatedAt:String,val lastMessage:String?)
+data class AssistantMessage(val id:String,val role:String,val content:String,val createdAt:String)
+data class AssistantConversation(val threadId:String,val items:List<AssistantMessage>,val nextCursor:String?,val asOf:String)
 data class SharePayload(val ingressId:String,val text:String?,val uris:List<String>)
 data class ProjectLinkItem(val id:String,val title:String,val subtitle:String,val icon:String,val state:String,val launchMode:String?,val appLinkUrl:String?,val webFallbackUrl:String?,val androidPackage:String?,val authHint:String,val order:Int)
 data class QueueSummary(val waiting:Int,val reconciling:Int,val failed:Int,val completed:Int,val attachments:Int){val terminal:Int get()=failed+completed}

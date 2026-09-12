@@ -14,24 +14,30 @@ import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun LifeComposerHost(open:Boolean,submitState:SubmitState,assistantState:LoadState<AssistantReply>?,onDismiss:()->Unit,onSubmit:(CaptureDraft)->Unit,onAsk:(String)->Unit,onReset:()->Unit){
+@Composable fun LifeComposerHost(open:Boolean,submitState:SubmitState,assistantState:LoadState<AssistantReply>?,historyState:LoadState<AssistantConversation>?,onLoadOlder:()->Unit,onDismiss:()->Unit,onSubmit:(CaptureDraft)->Unit,onAsk:(String)->Unit,onReset:()->Unit){
   if(!open)return
   var mode by rememberSaveable{mutableStateOf<CaptureKind?>(null)}
   ModalBottomSheet(onDismissRequest=onDismiss,containerColor=MaterialTheme.colorScheme.surface,dragHandle={BottomSheetDefaults.DragHandle()}){
     Column(Modifier.fillMaxWidth().imePadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(start=20.dp,end=20.dp,bottom=20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)){
       Text(if(mode==null)"Life" else "记录${mode?.label}",style=MaterialTheme.typography.headlineMedium)
-      if(mode==null)ComposerStart(assistantState,onAsk,onChoose={mode=it}) else CaptureForm(mode!!,submitState,onSubmit,onBack={onReset();mode=null},onDone={onDismiss();onReset();mode=null})
+      if(mode==null)ComposerStart(assistantState,historyState,onLoadOlder,onAsk,onChoose={mode=it}) else CaptureForm(mode!!,submitState,onSubmit,onBack={onReset();mode=null},onDone={onDismiss();onReset();mode=null})
     }
   }
 }
 
-@Composable private fun ComposerStart(assistantState:LoadState<AssistantReply>?,onAsk:(String)->Unit,onChoose:(CaptureKind)->Unit){
+@Composable private fun ComposerStart(assistantState:LoadState<AssistantReply>?,historyState:LoadState<AssistantConversation>?,onLoadOlder:()->Unit,onAsk:(String)->Unit,onChoose:(CaptureKind)->Unit){
   var message by rememberSaveable{mutableStateOf("")}
   Text("直接告诉 Life 你要记录、查找或安排什么；也可以选择完整表单。",color=MaterialTheme.colorScheme.onSurfaceVariant)
+  when(historyState){
+    is LoadState.Ready->{if(historyState.value.nextCursor!=null)TextButton(onClick=onLoadOlder){Text("加载更早消息")};historyState.value.items.forEach{item->Surface(Modifier.fillMaxWidth(),shape=MaterialTheme.shapes.large,color=if(item.role=="user")MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant){Column(Modifier.padding(14.dp)){Text(if(item.role=="user")"你" else "Life",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(item.content)}}}}
+    is LoadState.Failed->Text(historyState.message,color=MaterialTheme.colorScheme.error)
+    LoadState.Loading->LinearProgressIndicator(Modifier.fillMaxWidth())
+    else->Unit
+  }
   OutlinedTextField(message,{message=it},Modifier.fillMaxWidth(),label={Text("对 Life 说")},minLines=2,maxLines=5,enabled=assistantState !is LoadState.Loading)
   Button(onClick={val outgoing=message;message="";onAsk(outgoing)},enabled=message.isNotBlank()&&assistantState !is LoadState.Loading,modifier=Modifier.fillMaxWidth().heightIn(min=56.dp)){Text(if(assistantState is LoadState.Loading)"Life 正在处理…" else if((assistantState as? LoadState.Ready)?.value?.state=="awaiting_input")"补充并继续" else "发送")}
   when(assistantState){
-    is LoadState.Ready->LifeCard{Text(assistantState.value.text.ifBlank{assistantState.value.prompt?:"任务已处理"});assistantState.value.prompt?.let{Text(it,color=MaterialTheme.colorScheme.tertiary)};assistantState.value.receipts.forEach{Text("已提交 ${it.capability}",color=MaterialTheme.colorScheme.primary)};assistantState.value.runId?.let{Text("运行 $it",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
+    is LoadState.Ready->if(assistantState.value.receipts.isNotEmpty()||assistantState.value.prompt!=null)LifeCard{assistantState.value.prompt?.let{Text(it,color=MaterialTheme.colorScheme.tertiary)};assistantState.value.receipts.forEach{Text("已提交 ${it.capability}",color=MaterialTheme.colorScheme.primary)};assistantState.value.runId?.let{Text("运行 $it",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
     is LoadState.Failed->Text(assistantState.message,color=MaterialTheme.colorScheme.error)
     else->Unit
   }

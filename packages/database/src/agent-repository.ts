@@ -4,6 +4,7 @@ import { conflict } from "@shadow/kernel";
 
 export interface StoredRunEvent { sequence:number;event_type:string;payload:unknown;created_at:string; }
 export interface StoredMessage { id:string;role:"user"|"assistant";content:string;createdAt:string; }
+export interface StoredMessagePage { items:Array<{id:string;role:"user"|"assistant";content:string;created_at:string}>;hasMore:boolean;asOf:string; }
 export interface StoredRun { id:string;thread_id:string;status:"running"|"awaiting_input"|"completed"|"interrupted"|"failed";error:string|null;started_at:string;finished_at:string|null;last_sequence:number; }
 type Terminal=Exclude<StoredRun["status"],"running">;
 
@@ -14,6 +15,12 @@ export class AgentRepository {
   async assertThread(subjectId:string,threadId:string){if(!(await this.pool.query("select 1 from threads where id=$1 and subject_id=$2",[threadId,subjectId])).rowCount)throw new Error("thread_not_found");}
   async addMessage(threadId:string,id:string,role:"user"|"assistant",content:string){await this.pool.query("insert into messages(id,thread_id,role,content) values($1,$2,$3,$4)",[id,threadId,role,content]);await this.pool.query("update threads set updated_at=now() where id=$1",[threadId]);}
   async conversation(subjectId:string,threadId:string,limit=50):Promise<StoredMessage[]>{const result=await this.pool.query<{id:string;role:"user"|"assistant";content:string;created_at:string}>("select message.id,message.role,message.content,message.created_at::text from messages message join threads thread on thread.id=message.thread_id where message.thread_id=$1 and thread.subject_id=$2 order by message.created_at desc,message.id desc limit $3",[threadId,subjectId,limit]);return result.rows.reverse().map(row=>({id:row.id,role:row.role,content:row.content,createdAt:row.created_at}));}
+  async conversationPage(subjectId:string,threadId:string,options:{limit:number;asOf?:string;before?:{at:string;id:string}}):Promise<StoredMessagePage>{
+    const snapshot=options.asOf??String((await this.pool.query<{as_of:string}>("select to_char(clock_timestamp() at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') as_of")).rows[0]!.as_of);
+    const beforeAt=options.before?.at??null,beforeId=options.before?.id??null;
+    const result=await this.pool.query<{id:string;role:"user"|"assistant";content:string;created_at:string}>("select message.id,message.role,message.content,to_char(message.created_at at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') created_at from messages message join threads thread on thread.id=message.thread_id where message.thread_id=$1 and thread.subject_id=$2 and message.created_at<=$3::timestamptz and ($4::timestamptz is null or (message.created_at,message.id)<($4::timestamptz,$5::text)) order by message.created_at desc,message.id desc limit $6",[threadId,subjectId,snapshot,beforeAt,beforeId,options.limit+1]);
+    const hasMore=result.rows.length>options.limit,items=result.rows.slice(0,options.limit).reverse();return{items,hasMore,asOf:snapshot};
+  }
   private async transaction<T>(work:(client:PoolClient)=>Promise<T>):Promise<T>{const c=await this.pool.connect();try{await c.query("begin");const result=await work(c);await c.query("commit");return result;}catch(error){await c.query("rollback");throw error;}finally{c.release();}}
   private async insertEvent(c:PoolClient,runId:string,eventType:string,payload:unknown){const next=await c.query<{sequence:number}>("select coalesce(max(sequence),0)+1 as sequence from run_events where run_id=$1",[runId]);const sequence=next.rows[0]!.sequence;await c.query("insert into run_events(run_id,sequence,event_type,payload) values($1,$2,$3,$4)",[runId,sequence,eventType,payload]);return sequence;}
   // A receipt is associated with its run in the same transaction as the business write. Recovery
@@ -69,5 +76,5 @@ export class AgentRepository {
     });
   }
   async events(subjectId:string,runId:string,after=0):Promise<StoredRunEvent[]>{const result=await this.pool.query<StoredRunEvent>("select e.sequence,e.event_type,e.payload,e.created_at::text from run_events e join runs r on r.id=e.run_id join threads t on t.id=r.thread_id where e.run_id=$1 and t.subject_id=$2 and e.sequence>$3 order by e.sequence",[runId,subjectId,after]);return result.rows;}
-  async listThreads(subjectId:string):Promise<unknown[]>{return(await this.pool.query("select t.id,t.title,t.created_at,t.updated_at,(select content from messages where thread_id=t.id order by created_at desc limit 1) last_message from threads t where subject_id=$1 order by updated_at desc limit 100",[subjectId])).rows;}
+  async listThreads(subjectId:string):Promise<unknown[]>{return(await this.pool.query("select t.id,t.title,to_char(t.created_at at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') created_at,to_char(t.updated_at at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') updated_at,(select content from messages where thread_id=t.id order by created_at desc,id desc limit 1) last_message from threads t where subject_id=$1 order by updated_at desc,t.id desc limit 100",[subjectId])).rows;}
 }

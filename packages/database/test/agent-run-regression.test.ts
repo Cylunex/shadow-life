@@ -40,3 +40,11 @@ test("F09: cross-instance stop is persistent and pre-lease legacy runs end deter
   assert.equal(await other.requestStop(context.subjectId,"run_before_leases"),"interrupted");
   await other.createRun("thread_stop_recovery","run_after_legacy");await other.finishRun("run_after_legacy","completed");
 });
+
+test("agent messages use a database snapshot and stable older-page cursor",pgOnly,async t=>{
+  const {pool,context}=await reviewFixture(t),repository=new AgentRepository(pool),thread="thread_message_page";await repository.createThread(context.subjectId,thread,"分页测试");
+  for(let index=1;index<=4;index++){await repository.addMessage(thread,`message_page_000${index}`,index%2?"user":"assistant",`消息 ${index}`);await pool.query("update messages set created_at=$2::timestamptz where id=$1",[`message_page_000${index}`,`2026-09-10T00:0${index}:00Z`]);}
+  const first=await repository.conversationPage(context.subjectId,thread,{limit:2,asOf:"2026-09-10T00:05:00Z"});assert.equal(first.hasMore,true);assert.deepEqual(first.items.map(item=>item.id),["message_page_0003","message_page_0004"]);
+  await repository.addMessage(thread,"message_page_0005","user","快照后的消息");await pool.query("update messages set created_at='2026-09-10T00:06:00Z' where id='message_page_0005'");
+  const oldest=first.items[0]!,second=await repository.conversationPage(context.subjectId,thread,{limit:2,asOf:first.asOf,before:{at:oldest.created_at,id:oldest.id}});assert.equal(second.hasMore,false);assert.deepEqual(second.items.map(item=>item.id),["message_page_0001","message_page_0002"]);assert.equal(new Set([...first.items,...second.items].map(item=>item.id)).size,4);
+});

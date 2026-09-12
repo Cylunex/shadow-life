@@ -587,3 +587,38 @@ data class LifeReviewsResultDto(
   @SerialName("items") val items: List<LifeReviewsResultDtoItemsEntry>,
   @SerialName("as_of") val asOf: String
 )
+
+@Serializable
+data class AgentThreadsResultDtoItemsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("title") val title: String,
+  @SerialName("created_at") val createdAt: String,
+  @SerialName("updated_at") val updatedAt: String,
+  @SerialName("last_message") val lastMessage: String?
+)
+
+@Serializable
+data class AgentThreadsResultDto(
+  @SerialName("items") val items: List<AgentThreadsResultDtoItemsEntry>
+)
+
+@Serializable
+enum class AgentThreadMessagesResultDtoItemsEntryRole(val wireValue: String) {
+  @SerialName("user") User("user"),
+  @SerialName("assistant") Assistant("assistant")
+}
+
+@Serializable
+data class AgentThreadMessagesResultDtoItemsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("role") val role: AgentThreadMessagesResultDtoItemsEntryRole,
+  @SerialName("content") val content: String,
+  @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+data class AgentThreadMessagesResultDto(
+  @SerialName("items") val items: List<AgentThreadMessagesResultDtoItemsEntry>,
+  @SerialName("next_cursor") val nextCursor: String?,
+  @SerialName("as_of") val asOf: String
+)

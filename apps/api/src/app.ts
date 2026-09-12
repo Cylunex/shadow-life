@@ -3,7 +3,7 @@ import { bodyLimit } from "hono/body-limit";
 import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 import { createHash } from "node:crypto";
-import { capabilityRegistry, executionResultSchema, healthTrendInputSchema, lifeMeResultSchema, lifeRecordInputSchema, lifeSearchInputSchema, lifeTimelineInputSchema, lifeTodayInputSchema, planningAgendaInputSchema, projectDirectoryResultSchema, writeCapabilityNameSchema, type ProjectDirectoryResult } from "@shadow/contracts";
+import { agentThreadMessagesInputSchema, agentThreadMessagesResultSchema, agentThreadsResultSchema, capabilityRegistry, executionResultSchema, healthTrendInputSchema, lifeMeResultSchema, lifeRecordInputSchema, lifeSearchInputSchema, lifeTimelineInputSchema, lifeTodayInputSchema, planningAgendaInputSchema, projectDirectoryResultSchema, writeCapabilityNameSchema, type ProjectDirectoryResult } from "@shadow/contracts";
 import { AssetService, type PostgresUnitOfWork } from "@shadow/database";
 import type { AgentRepository } from "@shadow/database";
 import { hostRunEventSchema, runtimeEventSchema, type AgentRuntimeAdapter, type HostRunEvent, type RuntimeEvent, type RunState } from "@shadow/agent-adapter";
@@ -88,11 +88,18 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.get("/api/life/purchase-items",async context=>context.json(await dependencies.queries.purchaseItems(context.get("requestContext"),context.req.query("q"),Number(context.req.query("limit")??"50"))));
   app.get("/api/money/foreign",async context=>context.json(await dependencies.queries.foreignEntries(context.get("requestContext"),{...(context.req.query("trip_id")?{trip_id:context.req.query("trip_id")}:{}),limit:Number(context.req.query("limit")??"50")})));
   app.get("/api/:domain{money|health|travel|library}", async (context) => {const query=context.req.query("q"),cursor=context.req.query("cursor");return context.json(await dependencies.queries.listDomain(context.get("requestContext"), context.req.param("domain") as "money" | "health" | "travel" | "library", {limit:Number(context.req.query("limit")??"50"),...(query?{query}:{}),...(cursor?{cursor}:{})}));});
-  app.get("/api/threads", async (context) => context.json({ items: dependencies.agent ? await dependencies.agent.repository.listThreads(context.get("requestContext").subjectId) : [] }));
-  app.get("/api/threads/:threadId/messages",async context=>{if(!dependencies.agent)return context.json({items:[]});const requestContext=context.get("requestContext"),threadId=context.req.param("threadId");await dependencies.agent.repository.assertThread(requestContext.subjectId,threadId);return context.json({items:await dependencies.agent.repository.conversation(requestContext.subjectId,threadId,100)});});
+  app.get("/api/threads", async (context) => context.json(agentThreadsResultSchema.parse({ items: dependencies.agent ? await dependencies.agent.repository.listThreads(context.get("requestContext").subjectId) : [] })));
+  app.get("/api/threads/:threadId/messages",async context=>{
+    const input=agentThreadMessagesInputSchema.parse({limit:Number(context.req.query("limit")??"50"),...(context.req.query("cursor")?{cursor:context.req.query("cursor")}:{})});
+    if(!dependencies.agent)return context.json(agentThreadMessagesResultSchema.parse({items:[],next_cursor:null,as_of:new Date().toISOString()}));
+    const requestContext=context.get("requestContext"),threadId=context.req.param("threadId");await dependencies.agent.repository.assertThread(requestContext.subjectId,threadId);
+    const before=input.cursor?decodeMessageCursor(input.cursor):undefined,page=await dependencies.agent.repository.conversationPage(requestContext.subjectId,threadId,{limit:input.limit,...(before?{asOf:before.as_of,before:{at:before.at,id:before.id}}:{})});
+    const first=page.items[0],next=page.hasMore&&first?Buffer.from(JSON.stringify({at:first.created_at,id:first.id,as_of:page.asOf} satisfies MessageCursor)).toString("base64url"):null;
+    return context.json(agentThreadMessagesResultSchema.parse({items:page.items,next_cursor:next,as_of:page.asOf}));
+  });
   app.post("/api/threads", async (context) => {
     if (!dependencies.agent) return context.json({ protocol:"shadow.error",code:"retryable_not_applied",message:"Agent runtime is unavailable." },503);
-    const requestContext=context.get("requestContext"); await dependencies.unitOfWork.ensurePrincipal(requestContext.subjectId); const body=await context.req.json<{title?:string}>(); const id=dependencies.agent.nextId("thread"); await dependencies.agent.repository.createThread(requestContext.subjectId,id,body.title?.trim()||"新对话"); return context.json({id},201);
+    const requestContext=context.get("requestContext"); await dependencies.unitOfWork.ensurePrincipal(requestContext.subjectId); const body=z.object({title:z.string().trim().min(1).max(500).optional()}).strict().parse(await context.req.json()); const id=dependencies.agent.nextId("thread"); await dependencies.agent.repository.createThread(requestContext.subjectId,id,body.title??"新对话"); return context.json({id},201);
   });
   app.post("/api/threads/:threadId/runs", async (context) => {
     if (!dependencies.agent) return context.json({ protocol:"shadow.error",code:"retryable_not_applied",message:"Agent runtime is unavailable." },503);
@@ -235,6 +242,8 @@ function valueAt(value:unknown,path:readonly PropertyKey[]):unknown{let current=
 function serializedSize(value:unknown):number{try{return Buffer.byteLength(JSON.stringify(value));}catch{return Number.POSITIVE_INFINITY;}}
 function isRuntimeToolError(value:unknown):boolean{return value!==null&&typeof value==="object"&&(value as {protocol?:unknown}).protocol==="shadow.runtime-tool-error";}
 function abortReason(signal:AbortSignal):string{if(signal.reason==="stopped_by_user")return"Run stopped by the user.";if(signal.reason==="deadline_exceeded")return"Runtime deadline exceeded.";return"Run was cancelled.";}
+type MessageCursor={at:string;id:string;as_of:string};
+function decodeMessageCursor(cursor:string):MessageCursor{let value:unknown;try{value=JSON.parse(Buffer.from(cursor,"base64url").toString("utf8"));}catch{throw new KernelError(422,{protocol:"shadow.error",code:"validation",message:"Message cursor is invalid.",fields:["cursor"]});}const parsed=z.object({at:z.iso.datetime({offset:true}),id:z.string().min(8),as_of:z.iso.datetime({offset:true})}).strict().safeParse(value);if(!parsed.success)throw new KernelError(422,{protocol:"shadow.error",code:"validation",message:"Message cursor is invalid.",fields:["cursor"]});return parsed.data;}
 const safePreviewMediaTypes=new Set(["image/jpeg","image/png","image/gif","image/webp","image/avif","audio/mpeg","audio/mp4","audio/ogg","video/mp4","video/webm","text/plain"]);
 function secureAssetHeaders(extra:Record<string,string>={}):Record<string,string>{return{"cache-control":"private, no-store","x-content-type-options":"nosniff","cross-origin-resource-policy":"same-origin","referrer-policy":"no-referrer","content-security-policy":"default-src 'none'; sandbox",...extra};}
 function assetFileName(versionId:string,mediaType:string):string{const safe=versionId.replace(/[^A-Za-z0-9._-]/gu,"_").slice(0,128)||"asset",extensions:Record<string,string>={"image/jpeg":"jpg","image/png":"png","image/gif":"gif","image/webp":"webp","image/avif":"avif","audio/mpeg":"mp3","audio/mp4":"m4a","audio/ogg":"ogg","video/mp4":"mp4","video/webm":"webm","text/plain":"txt","application/pdf":"pdf","image/svg+xml":"svg","text/html":"html"};return`${safe}.${extensions[mediaType]??"bin"}`;}

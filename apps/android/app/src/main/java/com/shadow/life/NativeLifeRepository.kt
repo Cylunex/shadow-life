@@ -64,6 +64,16 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     },result.nextCursor,result.asOf)
   }
 
+  suspend fun recentThreads():List<AssistantThreadSummary>{
+    val result=wireJson.decodeFromString<AgentThreadsResultDto>(getText("/api/threads"))
+    return result.items.map{AssistantThreadSummary(it.id,it.title,it.updatedAt,it.lastMessage)}
+  }
+
+  suspend fun assistantMessages(threadId:String,cursor:String?=null):AssistantConversation{
+    val result=wireJson.decodeFromString<AgentThreadMessagesResultDto>(getText("/api/threads/${encode(threadId)}/messages?limit=50${cursor?.let{"&cursor=${encode(it)}"}.orEmpty()}"))
+    return AssistantConversation(threadId,result.items.map{AssistantMessage(it.id,it.role.wireValue,it.content,it.createdAt)},result.nextCursor,result.asOf)
+  }
+
   suspend fun assist(message:String,existingThreadId:String?=null):AssistantReply=withContext(Dispatchers.IO){
     val session=app.sessions.active()?:error("请先登录 Shadow Life")
     val fresh=when(val value=app.sessions.fresh(session.accountId,context)){SessionRefresh.ReauthRequired->error("会话已失效，请重新登录");SessionRefresh.Retryable->error("暂时无法刷新会话，请稍后重试");is SessionRefresh.Ready->value.value}
