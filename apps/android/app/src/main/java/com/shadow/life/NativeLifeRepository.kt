@@ -106,11 +106,10 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   suspend fun records(domain:LifeDomain,query:String="",cursor:String?=null):RecordPage {
     val apiDomain=when(domain){LifeDomain.Meals->"life";else->domain.name.lowercase()}
     if(domain==LifeDomain.Meals){
-      val json=get("/api/meals?limit=50")
-      return RecordPage(json.getJSONArray("items").objects().map{item->
-        val names=item.optJSONArray("items").objects().map{it.optString("name")}.filter(String::isNotBlank)
-        RecordSummary(domain,"meal",item.getString("id"),names.joinToString("、").ifBlank{mealTypeLabel(item.optString("meal_type"))},item.optString("occurred_on"),item.optJSONArray("payments").objects().joinToString(" + "){"${it.optString("currency")} ${it.optString("amount")}"}.ifBlank{null},item.optInt("revision").takeIf{it>0})
-      },null,java.time.Instant.now().toString())
+      val result=wireJson.decodeFromString<ListMealsResultDto>(getText("/api/meals?limit=50${cursor?.let{"&cursor=${encode(it)}"}.orEmpty()}"))
+      return RecordPage(result.items.map{item->
+        RecordSummary(domain,"meal",item.id,item.items.map{it.name}.filter(String::isNotBlank).joinToString("、").ifBlank{mealTypeLabel(item.mealType.wireValue)},item.occurredOn,item.payments.joinToString(" + "){"${it.currency} ${it.amount}"}.ifBlank{null},item.revision.toInt())
+      },result.nextCursor,result.asOf)
     }
     val params=buildList{add("limit=50");if(query.isNotBlank())add("q=${encode(query)}");if(cursor!=null)add("cursor=${encode(cursor)}")}.joinToString("&")
     val result=wireJson.decodeFromString<DomainRecordsResultDto>(getText("/api/$apiDomain?$params"))

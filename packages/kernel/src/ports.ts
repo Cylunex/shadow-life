@@ -42,7 +42,7 @@ export interface TransactionStore {
   insertOperation(value: StoredOperation): Promise<void>;
   insertOutbox(value: { id: string; subjectId: string; eventType: string; aggregateId: string; payload: unknown }): Promise<void>;
   getOperationByExecutionId(subjectId: string, executionId: string): Promise<StoredOperation | undefined>;
-  listMeals(subjectId: string, limit: number, includeMoney: boolean): Promise<readonly MealView[]>;
+  listMeals(subjectId:string,options:{limit:number;includeMoney:boolean;asOf?:string;before?:{on:string;at:string;id:string}}):Promise<{items:readonly (MealView&{_page_at:string})[];hasMore:boolean;asOf:string}>;
   foodCatalog(subjectId:string,query:string|undefined,limit:number):Promise<unknown>;
   summarizeMoney(subjectId: string): Promise<MoneySummary>;
   executeDomainWrite(value: { subjectId: string; command: UniversalCommandEnvelope; nextId(type: string): string }): Promise<{ resources: ExecutionResult["resources"]; actualValues: ExecutionResult["actual_values"]; warnings?: string[] }>;

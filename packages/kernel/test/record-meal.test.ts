@@ -21,7 +21,7 @@ class MemoryUnitOfWork implements UnitOfWork {
       insertOperation: async (value) => { if (this.failAt === "operations") throw new Error("injected operations"); draft.operations.push(value); },
       insertOutbox: async ({ id }) => touch("outbox", id),
       getOperationByExecutionId: async (subjectId, executionId) => draft.operations.find((item) => item.subjectId === subjectId && item.executionId === executionId),
-      listMeals: async () => [],
+      listMeals: async () => ({items:[],hasMore:false,asOf:new Date().toISOString()}),
       foodCatalog:async()=>({foods:[],recipes:[],as_of:new Date().toISOString()}),
       summarizeMoney: async () => ({ currency: "CNY", expense_total: "0.00", entries: 0, as_of:"2026-09-08T00:00:00Z",totals:[] }),
       executeDomainWrite: async () => { throw new Error("not used"); },

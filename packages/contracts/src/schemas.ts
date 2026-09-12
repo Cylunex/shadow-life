@@ -515,8 +515,8 @@ export const moneySummarySchema = z.object({
   totals: z.array(z.object({currency:currencyCode,gross_expense:storedAmount,refund:storedAmount,net_spending:signedStoredAmount,income:storedAmount,net_cashflow:signedStoredAmount,entries:z.number().int().nonnegative()}).strict())
 }).strict();
 
-export const listMealsInputSchema = z.object({ limit: z.number().int().min(1).max(100).default(20) }).strict();
-export const listMealsResultSchema = z.object({ items: z.array(mealViewSchema) }).strict();
+export const listMealsInputSchema = z.object({ limit: z.number().int().min(1).max(100).default(20),cursor:z.string().max(1_000).optional() }).strict();
+export const listMealsResultSchema = z.object({ items: z.array(mealViewSchema),next_cursor:z.string().nullable(),as_of:instant }).strict();
 export const moneySummaryInputSchema = z.object({}).strict();
 export const domainRecordsInputSchema=z.object({query:z.string().trim().min(1).max(200).optional(),limit:z.number().int().min(1).max(100).default(50),cursor:z.string().max(1_000).optional()}).strict();
 export const domainRecordSummarySchema=z.object({

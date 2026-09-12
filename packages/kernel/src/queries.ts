@@ -1,4 +1,4 @@
-import { domainRecordsResultSchema, foodCatalogInputSchema, foodCatalogResultSchema, healthSourcesResultSchema, healthTrendResultSchema, lifeSearchInputSchema, lifeSearchResultSchema, lifeTimelineInputSchema, lifeTimelineResultSchema, lifeTodayInputSchema, lifeTodayResultSchema, mealViewSchema, moneyImportReviewResultSchema, moneySummarySchema, travelExportInputSchema, travelExportResultSchema, travelWorkspaceInputSchema, type DomainRecordSummary, type LifeOverviewDomain, type MealView, type MoneySummary } from "@shadow/contracts";
+import { domainRecordsResultSchema, foodCatalogInputSchema, foodCatalogResultSchema, healthSourcesResultSchema, healthTrendResultSchema, lifeSearchInputSchema, lifeSearchResultSchema, lifeTimelineInputSchema, lifeTimelineResultSchema, lifeTodayInputSchema, lifeTodayResultSchema, listMealsInputSchema, listMealsResultSchema, moneyImportReviewResultSchema, moneySummarySchema, travelExportInputSchema, travelExportResultSchema, travelWorkspaceInputSchema, type DomainRecordSummary, type LifeOverviewDomain, type MoneySummary } from "@shadow/contracts";
 import { previewTravelPortableInputSchema, travelBundleSchema } from "@shadow/contracts";
 import { libraryProcessingQueueInputSchema } from "@shadow/contracts";
 import { agentContextPackInputSchema, agentMemoriesInputSchema, notificationsInputSchema, notificationsResultSchema } from "@shadow/contracts";
@@ -15,12 +15,18 @@ type LifeRecordSection="meal"|"purchase"|"money"|"sources";
 type TimelineCursor={domains:string;at:string;domain:LifeOverviewDomain;kind:string;id:string;as_of:string};
 type SearchCursor={signature:string;on:string;domain:LifeOverviewDomain;kind:string;id:string;as_of:string};
 type NotificationCursor={at:string;id:string;as_of:string};
+type MealCursor={on:string;at:string;id:string;as_of:string};
 const overviewEffects:Record<LifeOverviewDomain,string>={meals:"life.meal.read",money:"money.entry.read",health:"health.measurement.read",travel:"travel.trip.read",library:"library.item.read"};
 function objectEffect(kind:string):string{return kind==="meal"||kind==="purchase"?"life.meal.read":kind==="money_entry"?"money.entry.read":kind==="health_measurement"||kind==="health_workout"?"health.measurement.read":kind==="trip"?"travel.trip.read":"library.item.read";}
 
 export class QueryService {
   constructor(private readonly unitOfWork:UnitOfWork) {}
-  async listMeals(context:RequestContext,limit=20):Promise<readonly MealView[]>{if(!context.effects.has("life.meal.read"))throw permissionDenied("life.meal.read");if(!Number.isInteger(limit)||limit<1||limit>100)throw invalidInput("limit must be between 1 and 100",["limit"]);return mealViewSchema.array().parse(await this.unitOfWork.read(store=>store.listMeals(context.subjectId,limit,context.effects.has("money.entry.read"))));}
+  async listMeals(context:RequestContext,input:unknown={}){
+    if(!context.effects.has("life.meal.read"))throw permissionDenied("life.meal.read");const parsed=listMealsInputSchema.safeParse(input);if(!parsed.success)throw invalidInput("meal list query is invalid",parsed.error.issues.map(issue=>issue.path.join(".")));let before:MealCursor|undefined;
+    if(parsed.data.cursor){try{before=JSON.parse(Buffer.from(parsed.data.cursor,"base64url").toString("utf8")) as MealCursor;}catch{throw invalidInput("meal cursor is invalid",["cursor"]);}if(!before.on||!before.at||!before.id||!before.as_of)throw invalidInput("meal cursor is invalid",["cursor"]);}
+    const page=await this.unitOfWork.read(store=>store.listMeals(context.subjectId,{limit:parsed.data.limit,includeMoney:context.effects.has("money.entry.read"),...(before?{asOf:before.as_of,before:{on:before.on,at:before.at,id:before.id}}:{})})),last=page.items.at(-1),next=page.hasMore&&last?Buffer.from(JSON.stringify({on:last.occurred_on,at:last._page_at,id:last.id,as_of:page.asOf} satisfies MealCursor)).toString("base64url"):null,items=page.items.map(({_page_at,...item})=>item);
+    return listMealsResultSchema.parse({items,next_cursor:next,as_of:page.asOf});
+  }
   async foodCatalog(context:RequestContext,input:unknown){if(!context.effects.has("life.meal.read"))throw permissionDenied("life.meal.read");const parsed=foodCatalogInputSchema.safeParse(input);if(!parsed.success)throw invalidInput("food catalog query is invalid",parsed.error.issues.map(issue=>issue.path.join(".")));return foodCatalogResultSchema.parse(await this.unitOfWork.read(store=>store.foodCatalog(context.subjectId,parsed.data.query,parsed.data.limit)));}
   async summarizeMoney(context:RequestContext):Promise<MoneySummary>{if(!context.effects.has("money.summary.read"))throw permissionDenied("money.summary.read");return moneySummarySchema.parse(await this.unitOfWork.read(store=>store.summarizeMoney(context.subjectId)));}
   async listDomain(context:RequestContext,domain:Domain,options:{query?:string|undefined;limit?:number|undefined;cursor?:string|undefined}={}):Promise<{items:readonly DomainRecordSummary[];next_cursor:string|null;as_of:string}>{

@@ -350,6 +350,81 @@ data class LifeSearchResultDto(
 )
 
 @Serializable
+enum class ListMealsResultDtoItemsEntryMealType(val wireValue: String) {
+  @SerialName("breakfast") Breakfast("breakfast"),
+  @SerialName("lunch") Lunch("lunch"),
+  @SerialName("dinner") Dinner("dinner"),
+  @SerialName("snack") Snack("snack"),
+  @SerialName("other") Other("other")
+}
+
+@Serializable
+data class ListMealsResultDtoItemsEntryItemsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("name") val name: String,
+  @SerialName("food_ref_id") val foodRefId: String?,
+  @SerialName("free_text") val freeText: String?,
+  @SerialName("quantity") val quantity: String?,
+  @SerialName("unit") val unit: String?,
+  @SerialName("amount_g") val amountG: String?,
+  @SerialName("energy_kcal") val energyKcal: String?,
+  @SerialName("protein_g") val proteinG: String?,
+  @SerialName("fat_g") val fatG: String?,
+  @SerialName("carb_g") val carbG: String?,
+  @SerialName("fiber_g") val fiberG: String?,
+  @SerialName("sodium_mg") val sodiumMg: String?,
+  @SerialName("consumed_fraction") val consumedFraction: String?,
+  @SerialName("provenance") val provenance: String?,
+  @SerialName("grouping_origin") val groupingOrigin: String?,
+  @SerialName("estimate") val estimate: Boolean,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+enum class ListMealsResultDtoItemsEntryPaymentsEntryPaymentMethod(val wireValue: String) {
+  @SerialName("alipay") Alipay("alipay"),
+  @SerialName("wechat") Wechat("wechat"),
+  @SerialName("jd_pay") JdPay("jd_pay"),
+  @SerialName("jd_baitiao") JdBaitiao("jd_baitiao"),
+  @SerialName("huabei") Huabei("huabei"),
+  @SerialName("gift_card") GiftCard("gift_card"),
+  @SerialName("cash") Cash("cash"),
+  @SerialName("bank_card") BankCard("bank_card"),
+  @SerialName("bank_transfer") BankTransfer("bank_transfer"),
+  @SerialName("mixed") Mixed("mixed"),
+  @SerialName("other") Other("other")
+}
+
+@Serializable
+data class ListMealsResultDtoItemsEntryPaymentsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("amount") val amount: String,
+  @SerialName("currency") val currency: String,
+  @SerialName("payment_method") val paymentMethod: ListMealsResultDtoItemsEntryPaymentsEntryPaymentMethod?
+)
+
+@Serializable
+data class ListMealsResultDtoItemsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("occurred_on") val occurredOn: String,
+  @SerialName("occurred_at") val occurredAt: String?,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("meal_type") val mealType: ListMealsResultDtoItemsEntryMealType,
+  @SerialName("note") val note: String?,
+  @SerialName("revision") val revision: Long,
+  @SerialName("items") val items: List<ListMealsResultDtoItemsEntryItemsEntry>,
+  @SerialName("payments") val payments: List<ListMealsResultDtoItemsEntryPaymentsEntry>,
+  @SerialName("source_ids") val sourceIds: List<String>
+)
+
+@Serializable
+data class ListMealsResultDto(
+  @SerialName("items") val items: List<ListMealsResultDtoItemsEntry>,
+  @SerialName("next_cursor") val nextCursor: String?,
+  @SerialName("as_of") val asOf: String
+)
+
+@Serializable
 data class HealthSourcesResultDtoItemsEntryCursorsEntry(
   @SerialName("device_id") val deviceId: String,
   @SerialName("record_type") val recordType: String,
