@@ -1,7 +1,9 @@
 package com.shadow.life
 
 import android.content.Context
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -52,11 +54,27 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     val fresh=when(val value=app.sessions.fresh(session.accountId,context)){SessionRefresh.ReauthRequired->error("会话已失效，请重新登录");SessionRefresh.Retryable->error("暂时无法刷新会话，请稍后重试");is SessionRefresh.Ready->value.value}
     val threadId=existingThreadId?:JSONObject(request(fresh,"/api/threads","POST",JSONObject().put("title",message.trim().take(60)).toString(),"application/json")).getString("id")
     val connection=(URL(fresh.session.apiBase+"/api/threads/${encode(threadId)}/runs").openConnection() as HttpURLConnection).apply{requestMethod="POST";connectTimeout=10_000;readTimeout=150_000;doOutput=true;setRequestProperty("Authorization","Bearer ${fresh.accessToken}");setRequestProperty("Accept","text/event-stream");setRequestProperty("Content-Type","application/json");outputStream.bufferedWriter().use{it.write(JSONObject().put("text",message.trim()).toString())}}
-    var runId:String?=null;var state="started";var prompt:String?=null;val answer=StringBuilder();val receipts=mutableListOf<OperationReceipt>()
+    var runId:String?=null;var state="started";var prompt:String?=null;var lastSequence=0;val answer=StringBuilder();val receipts=mutableListOf<OperationReceipt>();val receiptKeys=mutableSetOf<String>()
+    fun applyEvent(event:JSONObject){runId=event.optNullableString("run_id")?:runId;when(event.optString("type")){"message.delta"->answer.append(event.optString("text"));"run.state"->{state=event.optString("state",state);prompt=event.optNullableString("prompt")?:prompt};"operation.committed"->{val result=event.optJSONObject("result");val key=event.optNullableString("execution_id")?:event.optString("command_id");if(receiptKeys.add(key))receipts+=OperationReceipt(event.optString("capability"),event.optString("command_id"),event.optNullableString("execution_id"),result?.optJSONArray("resources").objects().map{ResourceRef(it.optString("type"),it.optString("id"),it.optInt("revision",1))})}}}
+    var streamFailure:Throwable?=null
     try{
       val code=connection.responseCode;if(code !in 200..299){val body=connection.errorStream?.bufferedReader()?.use{it.readText()}.orEmpty();error(runCatching{JSONObject(body).optString("message")}.getOrNull().orEmpty().ifBlank{"Life 请求失败（HTTP $code）"})}
-      connection.inputStream.bufferedReader().useLines{lines->lines.forEach{line->if(line.startsWith("data:")){val event=runCatching{JSONObject(line.removePrefix("data:").trim())}.getOrNull()?:return@forEach;runId=event.optNullableString("run_id")?:runId;when(event.optString("type")){"message.delta"->answer.append(event.optString("text"));"run.state"->{state=event.optString("state",state);prompt=event.optNullableString("prompt")?:prompt};"operation.committed"->{val result=event.optJSONObject("result");receipts+=OperationReceipt(event.optString("capability"),event.optString("command_id"),event.optNullableString("execution_id"),result?.optJSONArray("resources").objects().map{ResourceRef(it.optString("type"),it.optString("id"),it.optInt("revision",1))})}}}}}
+      var eventSequence=0;connection.inputStream.bufferedReader().useLines{lines->lines.forEach{line->when{line.startsWith("id:")->eventSequence=line.removePrefix("id:").trim().toIntOrNull()?.takeIf{it>=0}?:eventSequence;line.startsWith("data:")->runCatching{JSONObject(line.removePrefix("data:").trim())}.getOrNull()?.let{applyEvent(it);lastSequence=maxOf(lastSequence,eventSequence)}}}}
+    }catch(error:CancellationException){throw error
+    }catch(error:Throwable){streamFailure=error
     }finally{connection.disconnect()}
+    val durableRunId=runId
+    if(durableRunId!=null&&state !in setOf("awaiting_input","completed","interrupted")){
+      var failures=0
+      repeat(125){
+        val recovered=runCatching{JSONObject(request(fresh,"/api/runs/${encode(durableRunId)}?after=$lastSequence","GET",null,"application/json"))}.getOrElse{error->if(error is CancellationException||++failures>=4)throw error;delay(1_000);return@repeat}
+        failures=0;recovered.optJSONArray("events").objects().forEach{stored->stored.optJSONObject("payload")?.let(::applyEvent);lastSequence=maxOf(lastSequence,stored.optInt("sequence",lastSequence))}
+        when(recovered.getJSONObject("run").getString("status")){"completed"->{state="completed";return@withContext AssistantReply(answer.toString(),threadId,durableRunId,state,prompt,receipts)};"awaiting_input"->{state="awaiting_input";return@withContext AssistantReply(answer.toString(),threadId,durableRunId,state,prompt,receipts)};"interrupted","failed"->{state="interrupted";return@withContext AssistantReply(answer.toString(),threadId,durableRunId,state,prompt,receipts)}}
+        delay(1_000)
+      }
+      error("Life 运行仍在后台处理中，请稍后重试")
+    }
+    if(durableRunId==null)streamFailure?.let{throw it}
     AssistantReply(answer.toString(),threadId,runId,state,prompt,receipts)
   }
 

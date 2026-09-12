@@ -8,6 +8,9 @@ preserving the selected root and its back stack. Manual forms for expense, meal,
 capture remain available without an Agent. The same composer can start and continue a native Agent conversation;
 only Executor-authenticated operation events are presented as committed results. Records use the paginated
 server-side `life.search` capability, and detail pages render explicit domain sections instead of recursive JSON.
+If the mobile SSE subscription drops, Android resumes the durable Agent run from its last persisted sequence,
+deduplicates Executor receipts, and waits for a terminal or input-required state instead of presenting a partial
+transport response as complete.
 Timeline, search, and domain lists retain server cursors for incremental loading. Editable meal, money, manual
 health, trip, and library details submit version-checked correction commands through the same encrypted queue.
 Reads use typed presentation models backed by the Life API, while
