@@ -13,10 +13,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 object LifeColors {
-  val BackgroundDark=Color(0xFF080A0D);val SurfaceDark=Color(0xFF14171B);val RaisedDark=Color(0xFF20252B);val InputDark=Color(0xFF0F1216)
-  val TextDark=Color(0xFFF2F3F5);val SecondaryDark=Color(0xFFA5ABB4);val MutedDark=Color(0xFF9198A2);val OutlineDark=Color(0xFF2D333C)
-  val AccentDark=Color(0xFF86D9B4);val OnAccentDark=Color(0xFF0A2B1E);val AccentContainerDark=Color(0xFF19342B)
-  val InformationDark=Color(0xFF8DBCF2);val WarmDark=Color(0xFFE8C38B);val ReflectionDark=Color(0xFFBDACEB);val ErrorDark=Color(0xFFEFAA9E)
+  val BackgroundDark=Color(0xFF030405);val SurfaceDark=Color(0xFF0C0F12);val RaisedDark=Color(0xFF151A20);val InputDark=Color(0xFF07090C)
+  val TextDark=Color(0xFFF4F6F8);val SecondaryDark=Color(0xFFA6AEB7);val MutedDark=Color(0xFF929BA5);val OutlineDark=Color(0xFF292E34)
+  val AccentDark=Color(0xFF65E6A9);val OnAccentDark=Color(0xFF04130C);val AccentContainerDark=Color(0xFF112B20)
+  val InformationDark=Color(0xFF65B9F2);val WarmDark=Color(0xFFF0BB70);val ReflectionDark=Color(0xFFC1A6FF);val ErrorDark=Color(0xFFFF9E9E)
   val BackgroundLight=Color(0xFFF4F5F7);val SurfaceLight=Color(0xFFFFFFFF);val RaisedLight=Color(0xFFE9EDF0);val InputLight=Color(0xFFF6F7F9)
   val TextLight=Color(0xFF192129);val SecondaryLight=Color(0xFF58636F);val MutedLight=Color(0xFF626D79);val OutlineLight=Color(0xFFD4DBE2)
   val AccentLight=Color(0xFF17694C);val OnAccentLight=Color.White;val AccentContainerLight=Color(0xFFDCEEE5)

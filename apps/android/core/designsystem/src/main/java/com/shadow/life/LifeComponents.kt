@@ -23,8 +23,8 @@ import androidx.compose.ui.unit.dp
 }
 
 @Composable fun LifeCard(modifier:Modifier=Modifier,onClick:(()->Unit)?=null,content:@Composable ColumnScope.()->Unit){
-  val shape=RoundedCornerShape(22.dp)
-  Surface(modifier=modifier.fillMaxWidth().then(if(onClick!=null)Modifier.clickable(role=Role.Button,onClick=onClick) else Modifier),shape=shape,color=MaterialTheme.colorScheme.surface,tonalElevation=0.dp,border=BorderStroke(1.dp,MaterialTheme.colorScheme.outline.copy(alpha=.45f))){Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(8.dp),content=content)}
+  val shape=RoundedCornerShape(20.dp)
+  Surface(modifier=modifier.fillMaxWidth().then(if(onClick!=null)Modifier.clickable(role=Role.Button,onClick=onClick) else Modifier),shape=shape,color=MaterialTheme.colorScheme.surface,tonalElevation=0.dp,shadowElevation=0.dp,border=BorderStroke(1.dp,MaterialTheme.colorScheme.outline.copy(alpha=.72f))){Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(8.dp),content=content)}
 }
 
 @Composable fun RecordRow(item:RecordSummary,onClick:()->Unit){
