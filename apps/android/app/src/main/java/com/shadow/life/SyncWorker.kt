@@ -74,7 +74,7 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
         if(!valid){if(attachment.attempts>=7)dao.markAttachment(attachment.id,"failed")else{dao.markAttachment(attachment.id,"unknown");needsRetry=true};continue}
         val capturedOn=attachment.capturedOn.ifBlank{Instant.ofEpochMilli(attachment.createdAt).atZone(ZoneOffset.UTC).toLocalDate().toString()}
         val isImage=attachment.mediaType.startsWith("image/")
-        val input=JSONObject().put("title",if(isImage)"来自 Android 的图片" else "来自 Android 的文件").put("item_type",if(isImage)"image" else "document").put("tags",JSONArray()).put("source",JSONObject().put("kind",if(isImage)"image" else "import").put("captured_on",capturedOn).put("asset_version_id",assetVersionId))
+        val input=JSONObject().put("title",attachment.displayName.ifBlank{if(isImage)"来自 Android 的图片" else "来自 Android 的文件"}).put("item_type",if(isImage)"image" else "document").put("tags",JSONArray()).put("source",JSONObject().put("kind",if(isImage)"image" else "import").put("captured_on",capturedOn).put("asset_version_id",assetVersionId))
         val body=JSONObject().put("protocol","shadow.command").put("capability","library.capture").put("command_id",attachment.commandId).put("input",input).toString()
         app.queue.enqueueCommand(session,attachment.commandId,"library.capture",body)
         dao.markAttachment(attachment.id,"committed")

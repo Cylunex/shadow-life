@@ -13,6 +13,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.util.UUID
 import android.net.Uri
+import android.provider.OpenableColumns
 
 class NativeLifeRepository(private val context:Context,private val app:ShadowApp) {
   suspend fun today(date:LocalDate=LocalDate.now()):TodaySnapshot {
@@ -135,9 +136,11 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   suspend fun enqueueShare(payload:SharePayload):Int=withContext(Dispatchers.IO){
     val session=app.sessions.active()?:error("请先登录 Shadow Life");var accepted=0
     payload.text?.trim()?.takeIf(String::isNotBlank)?.let{text->val title=text.lineSequence().firstOrNull()?.take(120)?.ifBlank{"分享的文字"}?:"分享的文字";enqueueCommand("library.capture",JSONObject().put("title",title).put("item_type",if(text.startsWith("http://")||text.startsWith("https://"))"link" else "note").put(if(text.startsWith("http://")||text.startsWith("https://"))"url" else "text",text).put("tags",JSONArray()),"cmd_android_share_${payload.ingressId.take(48)}_text");accepted++}
-    for((index,uriText) in payload.uris.withIndex()){val uri=Uri.parse(uriText);val mediaType=context.contentResolver.getType(uri)?:"application/octet-stream";val input=context.contentResolver.openInputStream(uri)?:error("无法读取分享附件");val attachmentId="attachment_${payload.ingressId.take(48)}_${index}";val commandId="cmd_android_share_${payload.ingressId.take(48)}_$index";val target=java.io.File(context.filesDir,"pending-attachments/$attachmentId.bin");input.use{app.queue.enqueueAttachment(session,attachmentId,commandId,mediaType,LocalDate.now().toString(),it,target)};accepted++}
+    for((index,uriText) in payload.uris.withIndex()){val uri=Uri.parse(uriText);val mediaType=context.contentResolver.getType(uri)?:"application/octet-stream";val input=context.contentResolver.openInputStream(uri)?:error("无法读取分享附件");val attachmentId="attachment_${payload.ingressId.take(48)}_${index}";val commandId="cmd_android_share_${payload.ingressId.take(48)}_$index";val target=java.io.File(context.filesDir,"pending-attachments/$attachmentId.bin");input.use{app.queue.enqueueAttachment(session,attachmentId,commandId,mediaType,LocalDate.now().toString(),displayName(uri),it,target)};accepted++}
     if(accepted==0)error("分享内容为空");SyncScheduler.schedule(context,session.accountId);accepted
   }
+
+  private fun displayName(uri:Uri):String=runCatching{context.contentResolver.query(uri,arrayOf(OpenableColumns.DISPLAY_NAME),null,null,null)?.use{cursor->if(cursor.moveToFirst())cursor.getString(0) else null}}.getOrNull()?.trim()?.take(300)?.takeIf(String::isNotBlank)?:""
 
   private suspend fun get(path:String):JSONObject=withContext(Dispatchers.IO){
     val session=app.sessions.active()?:error("请先登录 Shadow Life")

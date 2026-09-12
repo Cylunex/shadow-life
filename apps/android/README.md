@@ -21,6 +21,8 @@ Android `ACTION_SEND` and `ACTION_SEND_MULTIPLE` enter an account-assignment con
 write. Shared text is captured with a stable command identity. Every shared attachment is copied immediately
 from its temporary content URI into an app-private encrypted file, receives its own stable upload/command
 identity, and is later uploaded and captured by the recoverable sync worker.
+The share ingress identity survives activity/process recreation, while an explicit discard remains discarded.
+Original display names are retained in the encrypted attachment workflow and become the default library title.
 
 ## Local configuration
 

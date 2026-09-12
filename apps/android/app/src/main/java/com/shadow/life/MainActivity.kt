@@ -39,7 +39,7 @@ class MainActivity:ComponentActivity(){
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
     val app=application as ShadowApp
-    pendingShare=intent.sharePayload()
+    pendingShare=if(savedInstanceState!=null)savedInstanceState.savedSharePayload() else intent.sharePayload()
     oidc=OidcSessions(this,app.sessions)
     session=app.sessions.active()
     val appearances=AppearanceStore(this)
@@ -47,6 +47,7 @@ class MainActivity:ComponentActivity(){
     setContent{LifeTheme(appearance){val model:NativeLifeViewModel=viewModel();LifeApp(session,model,appearance,loginError,pendingShare,{payload->model.importShare(payload){pendingShare=null}},{pendingShare=null},{loginError=null},{appearance=it;appearances.save(it)},::login,::logout,::syncHealth)}}
   }
   override fun onDestroy(){oidc.close();super.onDestroy()}
+  override fun onSaveInstanceState(outState:Bundle){super.onSaveInstanceState(outState);outState.putBoolean(SHARE_PRESENT,pendingShare!=null);pendingShare?.let{payload->outState.putString(SHARE_ID,payload.ingressId);outState.putString(SHARE_TEXT,payload.text);outState.putStringArrayList(SHARE_URIS,ArrayList(payload.uris))}}
   override fun onNewIntent(intent:Intent){super.onNewIntent(intent);setIntent(intent);intent.sharePayload()?.let{pendingShare=it}}
 
   private fun login(){loginError=null;oidc.loginIntent{intent->runOnUiThread{if(intent==null)loginError="登录配置不可用" else loginResult.launch(intent)}}}
@@ -70,5 +71,12 @@ private fun Intent.sharePayload():SharePayload?{
   val values=mutableListOf<Uri>();clipData?.let{clip->repeat(clip.itemCount){values+=clip.getItemAt(it).uri?:return@repeat}}
   if(Build.VERSION.SDK_INT>=33){getParcelableExtra(Intent.EXTRA_STREAM,Uri::class.java)?.let(values::add);getParcelableArrayListExtra(Intent.EXTRA_STREAM,Uri::class.java)?.let(values::addAll)}else{@Suppress("DEPRECATION")(getParcelableExtra<Uri>(Intent.EXTRA_STREAM))?.let(values::add);@Suppress("DEPRECATION")(getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM))?.let(values::addAll)}
   val text=getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()?.takeIf(String::isNotBlank)
-  return SharePayload(UUID.randomUUID().toString().replace("-",""),text,values.map(Uri::toString).distinct()).takeIf{it.text!=null||it.uris.isNotEmpty()}
+  val ingressId=getStringExtra(SHARE_ID)?:UUID.randomUUID().toString().replace("-","").also{putExtra(SHARE_ID,it)}
+  return SharePayload(ingressId,text,values.map(Uri::toString).distinct()).takeIf{it.text!=null||it.uris.isNotEmpty()}
 }
+
+private fun Bundle.savedSharePayload():SharePayload?=if(!getBoolean(SHARE_PRESENT,false))null else getString(SHARE_ID)?.let{SharePayload(it,getString(SHARE_TEXT),getStringArrayList(SHARE_URIS)?.toList().orEmpty())}
+private const val SHARE_PRESENT="com.shadow.life.share.PRESENT"
+private const val SHARE_ID="com.shadow.life.share.INGRESS_ID"
+private const val SHARE_TEXT="com.shadow.life.share.TEXT"
+private const val SHARE_URIS="com.shadow.life.share.URIS"
