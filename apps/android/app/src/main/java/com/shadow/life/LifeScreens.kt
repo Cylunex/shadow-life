@@ -79,7 +79,7 @@ import java.util.Locale
 @Composable private fun DomainChips(onWorkspace:(LifeDomain)->Unit){Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Text("生活空间",style=MaterialTheme.typography.titleLarge);FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){LifeDomain.entries.forEach{domain->AssistChip(onClick={onWorkspace(domain)},label={Text(domain.label())})}}}}
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun PlansScreen(state:LoadState<PlanningWorkspace>,message:String?,onRetry:()->Unit,onDetail:(PlanSummary)->Unit,onAgenda:(AgendaItem)->Unit,onAgendaAction:(AgendaItem,String)->Unit,onProjects:()->Unit,onSettings:()->Unit){
+@Composable fun PlansScreen(state:LoadState<PlanningWorkspace>,message:String?,onRetry:()->Unit,onProject:(PlanSummary)->Unit,onOwnedItem:(OwnedItemSummary)->Unit,onReview:(ReviewSummary)->Unit,onAgenda:(AgendaItem)->Unit,onAgendaAction:(AgendaItem,String)->Unit,onProjects:()->Unit,onSettings:()->Unit){
   var selected by rememberSaveable{mutableIntStateOf(0)}
   RootPage("计划",onProjects,onSettings){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp,8.dp,20.dp,112.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
     item{SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()){listOf("今天","本周","项目").forEachIndexed{index,label->SegmentedButton(selected=index==selected,onClick={selected=index},shape=SegmentedButtonDefaults.itemShape(index,3)){Text(label)}}}}
@@ -87,11 +87,11 @@ import java.util.Locale
     item{StateContent(state,onRetry){}}
     if(state is LoadState.Ready){val today=LocalDate.now();val value=state.value;if(selected<2){val agenda=value.agenda.filter{selected==1||it.dueOn==today.toString()};if(agenda.isEmpty())item{EmptyState(if(selected==0)"今天没有待处理安排" else "本周没有待处理安排")} else{item{Text(if(selected==0)"今天" else "未来七天",style=MaterialTheme.typography.titleLarge)};items(agenda,key={it.sourceKey}){action->LifeCard(onClick={onAgenda(action)}){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(action.title,Modifier.weight(1f),style=MaterialTheme.typography.titleLarge);StatusLabel(action.state)};Text("${agendaKindLabel(action.sourceKind)} · ${action.dueOn}",color=MaterialTheme.colorScheme.onSurfaceVariant);if(action.primaryAction!=null&&action.state in setOf("open","pending","reminded","snoozed"))AgendaActions(action,onAgendaAction)}};if(value.truncated)item{Text("还有更多安排，请缩短日期范围查看。",color=MaterialTheme.colorScheme.onSurfaceVariant)}}}else{
       item{Text("生活项目",style=MaterialTheme.typography.titleLarge)}
-      if(value.projects.isEmpty())item{EmptyState("还没有生活项目")} else items(value.projects,key={"project:${it.id}"}){plan->LifeCard(onClick={onDetail(plan)}){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(plan.title,Modifier.weight(1f),style=MaterialTheme.typography.titleLarge);StatusLabel(plan.state)};plan.goal?.let{Text(it,color=MaterialTheme.colorScheme.onSurfaceVariant)};Text("${plan.actions} 项行动${plan.dueOn?.let{" · 截止 $it"}.orEmpty()}",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
+      if(value.projects.isEmpty())item{EmptyState("还没有生活项目")} else items(value.projects,key={"project:${it.id}"}){plan->LifeCard(onClick={onProject(plan)}){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(plan.title,Modifier.weight(1f),style=MaterialTheme.typography.titleLarge);StatusLabel(plan.state)};plan.goal?.let{Text(it,color=MaterialTheme.colorScheme.onSurfaceVariant)};Text("${plan.actions} 项行动${plan.dueOn?.let{" · 截止 $it"}.orEmpty()}",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
       item{Text("我的物品",style=MaterialTheme.typography.titleLarge,modifier=Modifier.padding(top=10.dp))}
-      if(value.ownedItems.isEmpty())item{Text("还没有显式加入管理的物品。",color=MaterialTheme.colorScheme.onSurfaceVariant)} else items(value.ownedItems,key={"item:${it.id}"}){owned->LifeCard{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(owned.name,Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);StatusLabel(owned.state)};Text(listOfNotNull(owned.location,owned.returnBy?.let{"退货截至 $it"},owned.warrantyEndsOn?.let{"保修截至 $it"}).joinToString(" · ").ifBlank{"${owned.documents} 份资料 · ${owned.events} 条事件"},color=MaterialTheme.colorScheme.onSurfaceVariant)}}
+      if(value.ownedItems.isEmpty())item{Text("还没有显式加入管理的物品。",color=MaterialTheme.colorScheme.onSurfaceVariant)} else items(value.ownedItems,key={"item:${it.id}"}){owned->LifeCard(onClick={onOwnedItem(owned)}){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(owned.name,Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);StatusLabel(owned.state)};Text(listOfNotNull(owned.location,owned.returnBy?.let{"退货截至 $it"},owned.warrantyEndsOn?.let{"保修截至 $it"}).joinToString(" · ").ifBlank{"${owned.documents} 份资料 · ${owned.events} 条事件"},color=MaterialTheme.colorScheme.onSurfaceVariant)}}
       item{Text("生活回顾",style=MaterialTheme.typography.titleLarge,modifier=Modifier.padding(top=10.dp))}
-      if(value.reviews.isEmpty())item{Text("还没有生成可追溯回顾。",color=MaterialTheme.colorScheme.onSurfaceVariant)} else items(value.reviews,key={"review:${it.id}"}){review->LifeCard{Text("${review.fromOn} — ${review.toOn}",style=MaterialTheme.typography.titleMedium);Text("${review.metrics} 组指标 · ${review.limitations} 条覆盖说明 · 修订 ${review.revision}",color=MaterialTheme.colorScheme.onSurfaceVariant)}}
+      if(value.reviews.isEmpty())item{Text("还没有生成可追溯回顾。",color=MaterialTheme.colorScheme.onSurfaceVariant)} else items(value.reviews,key={"review:${it.id}"}){review->LifeCard(onClick={onReview(review)}){Text("${review.fromOn} — ${review.toOn}",style=MaterialTheme.typography.titleMedium);Text("${review.metrics} 组指标 · ${review.limitations} 条覆盖说明 · 修订 ${review.revision}",color=MaterialTheme.colorScheme.onSurfaceVariant)}}
     }}
   }}
 }
@@ -179,7 +179,62 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
 private fun primaryValid(seed:EditSeed,primary:String,secondary:String)=when(seed){is EditSeed.Meal->true;is EditSeed.Library->primary.isNotBlank()&&secondary.isNotBlank();is EditSeed.Health,is EditSeed.Trip->primary.isNotBlank()&&secondary.isNotBlank();is EditSeed.Money->primary.isNotBlank()}
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun PlanDetailScreen(plan:PlanSummary?,onBack:()->Unit){Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text(plan?.title?:"计划详情")},navigationIcon={IconButton(onClick=onBack){Text("‹",style=MaterialTheme.typography.headlineLarge)}})}){padding->Column(Modifier.fillMaxSize().padding(padding).padding(20.dp),verticalArrangement=Arrangement.spacedBy(18.dp)){if(plan==null)EmptyState("计划已更新，请返回刷新") else{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text("当前状态",Modifier.weight(1f),color=MaterialTheme.colorScheme.onSurfaceVariant);StatusLabel(plan.state)};plan.goal?.let{LifeSection("目标"){LifeCard{Text(it)}}};LifeSection("行动"){LifeCard{Text("${plan.actions} 项行动",style=MaterialTheme.typography.titleLarge);Text(plan.dueOn?.let{"截止 $it"}?:"未设置截止日期",color=MaterialTheme.colorScheme.onSurfaceVariant)}};Text("修订 ${plan.revision}",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}}
+@Composable fun PlanDetailScreen(plan:PlanSummary?,onRelated:(String,String)->Unit,onBack:()->Unit){
+  PlanningDetailScaffold(plan?.title?:"项目详情",onBack){
+    if(plan==null)item{EmptyState("项目已更新，请返回刷新")} else{
+      item{DetailStatus(plan.state,plan.revision)}
+      plan.goal?.let{goal->item{LifeSection("目标"){LifeCard{Text(goal)}}}}
+      item{LifeSection("时间"){LifeCard{PlanningFact("开始",plan.startsOn?:"未设置");PlanningFact("截止",plan.dueOn?:"未设置");plan.updatedAt?.let{PlanningFact("最近更新",it)}}}}
+      item{Text("下一步与行动",style=MaterialTheme.typography.titleLarge)}
+      if(plan.actionItems.isEmpty())item{EmptyState("还没有项目行动")} else items(plan.actionItems,key={"action:${it.id}"}){action->LifeCard{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(action.title,Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);StatusLabel(action.state)};Text(action.dueOn?.let{"计划 $it"}?:"未设置日期",color=MaterialTheme.colorScheme.onSurfaceVariant);action.sourceState?.let{Text("来源状态：$it",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
+      item{Text("里程碑",style=MaterialTheme.typography.titleLarge,modifier=Modifier.padding(top=8.dp))}
+      if(plan.milestones.isEmpty())item{EmptyState("还没有里程碑")} else items(plan.milestones,key={"milestone:${it.id}"}){milestone->LifeCard{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(milestone.title,Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);StatusLabel(milestone.state)};Text(milestone.dueOn?.let{"目标 $it"}?:"未设置日期",color=MaterialTheme.colorScheme.onSurfaceVariant)}}
+      item{Text("相关内容",style=MaterialTheme.typography.titleLarge,modifier=Modifier.padding(top=8.dp))}
+      if(plan.links.isEmpty())item{EmptyState("还没有关联内容")} else items(plan.links,key={"link:${it.kind}:${it.id}"}){link->RelatedPlanningLink(link,onRelated)}
+    }
+  }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable fun OwnedItemDetailScreen(owned:OwnedItemSummary?,onRelated:(String,String)->Unit,onBack:()->Unit){
+  PlanningDetailScaffold(owned?.name?:"物品详情",onBack){
+    if(owned==null)item{EmptyState("物品已更新，请返回刷新")} else{
+      item{DetailStatus(owned.state,owned.revision)}
+      item{LifeSection("物品信息"){LifeCard{PlanningFact("位置",owned.location?:"未设置");PlanningFact("开始持有",owned.startedOn?:"未设置");PlanningFact("退货截至",owned.returnBy?:"不适用");PlanningFact("保修截至",owned.warrantyEndsOn?:"未设置");owned.updatedAt?.let{PlanningFact("最近更新",it)}}}}
+      owned.purchase?.let{purchase->item{LifeSection("购买来源"){LifeCard(onClick={onRelated("money_entry",purchase.recordId)}){Text(purchase.rawName,style=MaterialTheme.typography.titleMedium);Text(listOfNotNull(purchase.quantity,purchase.unit).joinToString(" ").ifBlank{"数量未记录"},color=MaterialTheme.colorScheme.onSurfaceVariant);purchase.lineAmount?.let{Text("金额 $it")};Text("查看关联交易",color=MaterialTheme.colorScheme.primary)}}}}
+      item{Text("资料",style=MaterialTheme.typography.titleLarge)}
+      if(owned.documentItems.isEmpty())item{EmptyState("还没有票据、说明书或保修资料")} else items(owned.documentItems,key={"document:${it.id}:${it.revision}"}){document->RelatedPlanningLink(document,onRelated)}
+      item{Text("售后与使用事件",style=MaterialTheme.typography.titleLarge,modifier=Modifier.padding(top=8.dp))}
+      if(owned.eventItems.isEmpty())item{EmptyState("还没有维护、维修或处置事件")} else items(owned.eventItems,key={"event:${it.id}"}){event->LifeCard{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(ownedEventLabel(event.kind),Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);Text(event.occurredOn,color=MaterialTheme.colorScheme.onSurfaceVariant)};if(event.note.isNotBlank())Text(event.note);event.cost?.let{Text("费用 $it",color=MaterialTheme.colorScheme.onSurfaceVariant)};event.documentTitle?.let{Text("资料 $it",color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
+    }
+  }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable fun ReviewDetailScreen(review:ReviewSummary?,onBack:()->Unit){
+  PlanningDetailScaffold("生活回顾",onBack){
+    if(review==null)item{EmptyState("回顾已更新，请返回刷新")} else{
+      item{DetailStatus("generated",review.revision)}
+      item{LifeSection("回顾范围"){LifeCard{PlanningFact("期间","${review.fromOn} — ${review.toOn}");PlanningFact("时区",review.timeZone);PlanningFact("领域",review.domains.joinToString("、",transform=::planningDomainLabel).ifBlank{"未记录"});PlanningFact("算法版本",review.algorithmVersion);PlanningFact("生成时间",review.generatedAt)}}}
+      item{LifeSection("指标与覆盖"){LifeCard{PlanningFact("指标",review.metricKeys.joinToString("、",transform=::reviewKeyLabel).ifBlank{"没有可用指标"});PlanningFact("覆盖",review.coverageKeys.joinToString("、",transform=::reviewKeyLabel).ifBlank{"没有覆盖信息"});PlanningFact("证据","${review.evidence.size} 项可追溯对象")}}}
+      item{Text("覆盖说明",style=MaterialTheme.typography.titleLarge)}
+      if(review.limitationItems.isEmpty())item{LifeCard{Text("本期没有额外覆盖限制",color=MaterialTheme.colorScheme.onSurfaceVariant)}} else items(review.limitationItems,key={it}){limitation->LifeCard{Text(limitation)}}
+      item{Text("证据索引",style=MaterialTheme.typography.titleLarge,modifier=Modifier.padding(top=8.dp))}
+      if(review.evidence.isEmpty())item{EmptyState("没有可显示的证据引用")} else items(review.evidence.take(20),key={"evidence:${it.kind}:${it.id}:${it.revision}"}){evidence->LifeCard{Text(planningKindLabel(evidence.kind),style=MaterialTheme.typography.titleMedium);Text("修订 ${evidence.revision}",color=MaterialTheme.colorScheme.onSurfaceVariant)}}
+    }
+  }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable private fun PlanningDetailScaffold(title:String,onBack:()->Unit,content:androidx.compose.foundation.lazy.LazyListScope.()->Unit){Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text(title)},navigationIcon={IconButton(onClick=onBack){Text("‹",style=MaterialTheme.typography.headlineLarge)}})}){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(14.dp),content=content)}}
+
+@Composable private fun DetailStatus(state:String,revision:Int){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text("当前状态",Modifier.weight(1f),color=MaterialTheme.colorScheme.onSurfaceVariant);StatusLabel(state)};Text("修订 $revision",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+@Composable private fun PlanningFact(label:String,value:String){Column(Modifier.fillMaxWidth().padding(vertical=5.dp)){Text(label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(value,style=MaterialTheme.typography.bodyLarge)}}
+@Composable private fun RelatedPlanningLink(link:PlanningLink,onRelated:(String,String)->Unit){LifeCard(onClick={onRelated(link.kind,link.id)}){Text(link.title?:planningKindLabel(link.kind),style=MaterialTheme.typography.titleMedium);Text("${link.role} · 修订 ${link.revision}",color=MaterialTheme.colorScheme.onSurfaceVariant)}}
+private fun planningKindLabel(kind:String)=when(kind){"trip"->"旅程";"health_plan"->"健康计划";"recurring_plan"->"周期计划";"owned_item"->"物品";"library_item"->"资料";"money_entry"->"交易";"meal"->"餐次";"recipe"->"食谱";else->kind}
+private fun planningDomainLabel(domain:String)=when(domain){"money"->"消费";"meals"->"饮食";"health"->"健康";"items"->"物品";"library"->"资料";else->domain}
+private fun reviewKeyLabel(key:String)=key.replace('_',' ')
+private fun ownedEventLabel(kind:String)=when(kind){"maintenance"->"维护";"repair"->"维修";"return"->"退货";"dispose"->"处置";"gift"->"赠出";"lost"->"遗失";"restore"->"恢复持有";"note"->"记录";else->kind}
 
 @Composable private fun StatusLabel(state:String){Surface(shape=RoundedCornerShape(999.dp),color=MaterialTheme.colorScheme.primaryContainer){Text(stateLabel(state),Modifier.padding(horizontal=10.dp,vertical=5.dp),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onPrimaryContainer)}}
 private fun stateLabel(state:String)=mapOf("active" to "进行中","paused" to "已暂停","completed" to "已完成","archived" to "已归档")[state]?:state

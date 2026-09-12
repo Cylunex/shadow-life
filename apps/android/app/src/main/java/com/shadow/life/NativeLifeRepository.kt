@@ -175,9 +175,26 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     val agenda=agendaRequest.await();val projects=projectsRequest.await();val items=itemsRequest.await();val reviews=reviewsRequest.await()
     PlanningWorkspace(
       agenda=agenda.items.map{item->AgendaItem(item.sourceKind.wireValue,item.sourceId,item.sourceKey,item.title,item.state.wireValue,item.dueOn,item.dueAt,item.target.kind.wireValue,item.target.id,item.target.projectId,item.primaryAction?.let{AgendaAction(it.capability.wireValue,it.targetId,it.expectedRevision.toInt())})},
-      projects=projects?.items?.map{item->PlanSummary(item.id,item.title,item.goal,item.state.wireValue,item.endsOn,item.revision.toInt(),item.actions.size)}.orEmpty(),
-      ownedItems=items?.items?.map{item->OwnedItemSummary(item.id,item.name,item.ownershipState.wireValue,item.location,item.warrantyEndsOn,item.returnBy,item.revision.toInt(),item.documents.size,item.events.size)}.orEmpty(),
-      reviews=reviews?.items?.map{item->ReviewSummary(item.id,item.fromOn,item.toOn,item.algorithmVersion,item.revision.toInt(),item.generatedAt,item.metrics.size,item.limitations.size)}.orEmpty(),
+      projects=projects?.items?.map{item->PlanSummary(
+        id=item.id,title=item.title,goal=item.goal,state=item.state.wireValue,dueOn=item.endsOn,revision=item.revision.toInt(),actions=item.actions.size,
+        startsOn=item.startsOn,updatedAt=item.updatedAt,
+        milestones=item.milestones.sortedBy{it.position}.map{milestone->ProjectMilestone(milestone.id,milestone.title,milestone.dueOn,milestone.state.wireValue,milestone.position.toInt())},
+        links=item.links.map{link->PlanningLink(link.refKind.wireValue,link.refId,link.refRevision.toInt(),link.role)},
+        actionItems=item.actions.map{action->ProjectAction(action.id,action.title,action.dueOn,action.state.wireValue,action.revision.toInt(),action.sourceState)}
+      )}.orEmpty(),
+      ownedItems=items?.items?.map{item->OwnedItemSummary(
+        id=item.id,name=item.name,state=item.ownershipState.wireValue,location=item.location,warrantyEndsOn=item.warrantyEndsOn,returnBy=item.returnBy,
+        revision=item.revision.toInt(),documents=item.documents.size,events=item.events.size,startedOn=item.startedOn,updatedAt=item.updatedAt,
+        purchase=item.purchase?.let{purchase->OwnedItemPurchase(purchase.purchaseItemId,purchase.purchaseId,purchase.recordId,purchase.rawName,purchase.quantity,purchase.unit,purchase.lineAmount)},
+        documentItems=item.documents.map{document->PlanningLink("library_item",document.libraryItemId,document.libraryRevision.toInt(),document.role.wireValue,document.title)},
+        eventItems=item.events.map{event->OwnedItemEvent(event.id,event.eventKind.wireValue,event.occurredOn,event.note,event.revision.toInt(),event.costAmount?.let{amount->listOfNotNull(event.costCurrency,amount).joinToString(" ")},event.documentTitle)}
+      )}.orEmpty(),
+      reviews=reviews?.items?.map{item->ReviewSummary(
+        id=item.id,fromOn=item.fromOn,toOn=item.toOn,algorithmVersion=item.algorithmVersion,revision=item.revision.toInt(),generatedAt=item.generatedAt,
+        metrics=item.metrics.size,limitations=item.limitations.size,timeZone=item.timeZone,domains=item.domains.map{it.wireValue},
+        metricKeys=item.metrics.keys.sorted(),coverageKeys=item.coverage.keys.sorted(),
+        evidence=item.evidence.map{evidence->ReviewEvidence(evidence.type,evidence.id,evidence.revision.toInt())},limitationItems=item.limitations
+      )}.orEmpty(),
       truncated=agenda.truncated,asOf=agenda.asOf
     )
   }

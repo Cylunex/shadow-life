@@ -72,11 +72,29 @@ sealed interface WorkspaceOverview { val asOf:String
   data class Library(val visibleItems:Int,override val asOf:String):WorkspaceOverview
 }
 data class BudgetProgress(val title:String,val amount:String,val currency:String,val spent:String)
-data class PlanSummary(val id:String,val title:String,val goal:String?,val state:String,val dueOn:String?,val revision:Int,val actions:Int)
+data class ProjectMilestone(val id:String,val title:String,val dueOn:String?,val state:String,val position:Int)
+data class ProjectAction(val id:String,val title:String,val dueOn:String?,val state:String,val revision:Int,val sourceState:String?)
+data class PlanningLink(val kind:String,val id:String,val revision:Int,val role:String,val title:String?=null)
+data class PlanSummary(
+  val id:String,val title:String,val goal:String?,val state:String,val dueOn:String?,val revision:Int,val actions:Int,
+  val startsOn:String?=null,val updatedAt:String?=null,
+  val milestones:List<ProjectMilestone> = emptyList(),val links:List<PlanningLink> = emptyList(),val actionItems:List<ProjectAction> = emptyList()
+)
 data class AgendaAction(val capability:String,val targetId:String,val expectedRevision:Int)
 data class AgendaItem(val sourceKind:String,val sourceId:String,val sourceKey:String,val title:String,val state:String,val dueOn:String,val dueAt:String?,val targetKind:String,val targetId:String,val projectId:String?,val primaryAction:AgendaAction?)
-data class OwnedItemSummary(val id:String,val name:String,val state:String,val location:String?,val warrantyEndsOn:String?,val returnBy:String?,val revision:Int,val documents:Int,val events:Int)
-data class ReviewSummary(val id:String,val fromOn:String,val toOn:String,val algorithmVersion:String,val revision:Int,val generatedAt:String,val metrics:Int,val limitations:Int)
+data class OwnedItemPurchase(val purchaseItemId:String,val purchaseId:String,val recordId:String,val rawName:String,val quantity:String?,val unit:String?,val lineAmount:String?)
+data class OwnedItemEvent(val id:String,val kind:String,val occurredOn:String,val note:String,val revision:Int,val cost:String?,val documentTitle:String?)
+data class OwnedItemSummary(
+  val id:String,val name:String,val state:String,val location:String?,val warrantyEndsOn:String?,val returnBy:String?,val revision:Int,val documents:Int,val events:Int,
+  val startedOn:String?=null,val updatedAt:String?=null,val purchase:OwnedItemPurchase?=null,
+  val documentItems:List<PlanningLink> = emptyList(),val eventItems:List<OwnedItemEvent> = emptyList()
+)
+data class ReviewEvidence(val kind:String,val id:String,val revision:Int)
+data class ReviewSummary(
+  val id:String,val fromOn:String,val toOn:String,val algorithmVersion:String,val revision:Int,val generatedAt:String,val metrics:Int,val limitations:Int,
+  val timeZone:String="",val domains:List<String> = emptyList(),val metricKeys:List<String> = emptyList(),val coverageKeys:List<String> = emptyList(),
+  val evidence:List<ReviewEvidence> = emptyList(),val limitationItems:List<String> = emptyList()
+)
 data class PlanningWorkspace(val agenda:List<AgendaItem>,val projects:List<PlanSummary>,val ownedItems:List<OwnedItemSummary>,val reviews:List<ReviewSummary>,val truncated:Boolean,val asOf:String)
 data class LibrarySummary(val id:String,val title:String,val itemType:String,val state:String?,val revision:Int?)
 data class DetailFact(val label:String,val value:String)
@@ -98,6 +116,8 @@ data class RecordDetail(val title:String,val state:String?,val revision:Int?,val
 @Serializable data class WorkspaceRoute(val domain:String)
 @Serializable data class DetailRoute(val domain:String,val id:String,val title:String="")
 @Serializable data class PlanDetailRoute(val id:String)
+@Serializable data class OwnedItemDetailRoute(val id:String)
+@Serializable data class ReviewDetailRoute(val id:String)
 @Serializable data object SettingsRoute
 @Serializable data object ConnectionsRoute
 @Serializable data object InboxRoute

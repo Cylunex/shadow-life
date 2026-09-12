@@ -46,11 +46,18 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
     NavHost(navController=nav,startDestination=TodayRoute){
       composable<TodayRoute>{TodayScreen(viewModel.today,viewModel::refreshToday,{domain->viewModel.loadWorkspace(domain);nav.navigate(WorkspaceRoute(domain.name))},{domain,id,title->viewModel.loadDetail(domain,id);nav.navigate(DetailRoute(domain.name,id,title))},{nav.navigate(RecordsRoute)},{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)})}
       composable<RecordsRoute>{RecordsScreen(viewModel.timeline,viewModel.searchResults,viewModel::refreshTimeline,viewModel::loadMoreTimeline,viewModel::search,viewModel::loadMoreSearch,viewModel::clearSearch,{domain->viewModel.loadWorkspace(domain);nav.navigate(WorkspaceRoute(domain.name))},{domain,id,title->viewModel.loadDetail(domain,id);nav.navigate(DetailRoute(domain.name,id,title))},{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)})}
-      composable<PlansRoute>{PlansScreen(viewModel.plans,viewModel.planningMessage,viewModel::refreshPlans,{plan->nav.navigate(PlanDetailRoute(plan.id))},{agenda->when(agenda.targetKind){"project"->nav.navigate(PlanDetailRoute(agenda.targetId));"money_occurrence"->{viewModel.loadWorkspace(LifeDomain.Money);nav.navigate(WorkspaceRoute(LifeDomain.Money.name))};"health_habit"->{viewModel.loadWorkspace(LifeDomain.Health);nav.navigate(WorkspaceRoute(LifeDomain.Health.name))}}},viewModel::updateAgenda,{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)})}
+      composable<PlansRoute>{PlansScreen(
+        viewModel.plans,viewModel.planningMessage,viewModel::refreshPlans,
+        {plan->nav.navigate(PlanDetailRoute(plan.id))},{item->nav.navigate(OwnedItemDetailRoute(item.id))},{review->nav.navigate(ReviewDetailRoute(review.id))},
+        {agenda->when(agenda.targetKind){"project"->nav.navigate(PlanDetailRoute(agenda.targetId));"money_occurrence"->{viewModel.loadWorkspace(LifeDomain.Money);nav.navigate(WorkspaceRoute(LifeDomain.Money.name))};"health_habit"->{viewModel.loadWorkspace(LifeDomain.Health);nav.navigate(WorkspaceRoute(LifeDomain.Health.name))}}},
+        viewModel::updateAgenda,{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)}
+      )}
       composable<LibraryRoute>{LibraryScreen(viewModel.library,viewModel::refreshLibrary,{domain,id,title->viewModel.loadDetail(domain,id);nav.navigate(DetailRoute(domain.name,id,title))},{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)})}
       composable<WorkspaceRoute>{backStack->val route=backStack.toRoute<WorkspaceRoute>();val domain=LifeDomain.valueOf(route.domain);LaunchedEffect(domain){if(viewModel.workspaceDomain!=domain)viewModel.loadWorkspace(domain)};WorkspaceScreen(domain,viewModel.workspaceOverview,viewModel.workspace,{viewModel.loadWorkspace(domain,it)},{viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},{d,id,title->viewModel.loadDetail(d,id);nav.navigate(DetailRoute(d.name,id,title))})}
       composable<DetailRoute>{backStack->val route=backStack.toRoute<DetailRoute>();val domain=LifeDomain.valueOf(route.domain);LaunchedEffect(route.id){viewModel.loadDetail(domain,route.id)};DetailScreen(route.title,viewModel.detail,viewModel.submit,{viewModel.loadDetail(domain,route.id)},{nav.popBackStack()},viewModel::correct,viewModel::editAgain)}
-      composable<PlanDetailRoute>{backStack->val route=backStack.toRoute<PlanDetailRoute>();val plan=(viewModel.plans as? LoadState.Ready)?.value?.projects?.firstOrNull{it.id==route.id};PlanDetailScreen(plan,{nav.popBackStack()})}
+      composable<PlanDetailRoute>{backStack->val route=backStack.toRoute<PlanDetailRoute>();val plan=(viewModel.plans as? LoadState.Ready)?.value?.projects?.firstOrNull{it.id==route.id};PlanDetailScreen(plan,{kind,id->openPlanningRelated(nav,viewModel,kind,id)},{nav.popBackStack()})}
+      composable<OwnedItemDetailRoute>{backStack->val route=backStack.toRoute<OwnedItemDetailRoute>();val item=(viewModel.plans as? LoadState.Ready)?.value?.ownedItems?.firstOrNull{it.id==route.id};OwnedItemDetailScreen(item,{kind,id->openPlanningRelated(nav,viewModel,kind,id)},{nav.popBackStack()})}
+      composable<ReviewDetailRoute>{backStack->val route=backStack.toRoute<ReviewDetailRoute>();val review=(viewModel.plans as? LoadState.Ready)?.value?.reviews?.firstOrNull{it.id==route.id};ReviewDetailScreen(review,{nav.popBackStack()})}
       composable<SettingsRoute>{SettingsScreen(session,appearance,viewModel.queueStatus,onAppearance,onHealthSync,viewModel::retryQueue,viewModel::clearTerminalQueue,onLogout,{nav.popBackStack()},{nav.navigate(ConnectionsRoute)},{viewModel.refreshInbox();nav.navigate(InboxRoute)})}
       composable<ConnectionsRoute>{ProjectDirectoryScreen(viewModel.projectLinks,viewModel::refreshProjectLinks){nav.popBackStack()}}
       composable<InboxRoute>{InboxScreen(viewModel.inbox,viewModel::refreshInbox,viewModel::loadMoreInbox,viewModel::updateNotification,viewModel::setNotificationPreferences,onNotificationPermission){nav.popBackStack()}}
@@ -59,6 +66,19 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
   statusMessage?.let{message->AlertDialog(onDismissRequest=onDismissStatus,confirmButton={TextButton(onClick=onDismissStatus){Text("知道了")}},text={Text(message)})}
   if(pendingShare!=null)ShareIngressDialog(pendingShare,viewModel.shareImport,{onAcceptShare(pendingShare)},onDiscardShare)
   LifeComposerHost(composerOpen,viewModel.submit,viewModel.assistant,viewModel.assistantHistory,viewModel::loadOlderAssistantMessages,{composerOpen=false;viewModel.editAgain();viewModel.clearAssistant()},{viewModel.submit(it)},viewModel::askLife,viewModel::editAgain)
+}
+
+private fun openPlanningRelated(nav:androidx.navigation.NavHostController,viewModel:NativeLifeViewModel,kind:String,id:String){
+  when(kind){
+    "trip"->{viewModel.loadDetail(LifeDomain.Travel,id);nav.navigate(DetailRoute(LifeDomain.Travel.name,id,"旅程详情"))}
+    "library_item"->{viewModel.loadDetail(LifeDomain.Library,id);nav.navigate(DetailRoute(LifeDomain.Library.name,id,"资料详情"))}
+    "money_entry"->{viewModel.loadDetail(LifeDomain.Money,id);nav.navigate(DetailRoute(LifeDomain.Money.name,id,"交易详情"))}
+    "meal"->{viewModel.loadDetail(LifeDomain.Meals,id);nav.navigate(DetailRoute(LifeDomain.Meals.name,id,"餐次详情"))}
+    "owned_item"->nav.navigate(OwnedItemDetailRoute(id))
+    "health_plan"->{viewModel.loadWorkspace(LifeDomain.Health);nav.navigate(WorkspaceRoute(LifeDomain.Health.name))}
+    "recurring_plan"->{viewModel.loadWorkspace(LifeDomain.Money);nav.navigate(WorkspaceRoute(LifeDomain.Money.name))}
+    "recipe"->{viewModel.loadWorkspace(LifeDomain.Meals);nav.navigate(WorkspaceRoute(LifeDomain.Meals.name))}
+  }
 }
 
 @Composable private fun ShareIngressDialog(payload:SharePayload,state:LoadState<Int>?,onAccept:()->Unit,onDiscard:()->Unit){AlertDialog(onDismissRequest={},title={Text("收存到资料库")},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Text("这份分享将归属当前登录账号。") ;payload.text?.let{Text(it.take(180),maxLines=4,color=MaterialTheme.colorScheme.onSurfaceVariant)};if(payload.uris.isNotEmpty())Text("${payload.uris.size} 个附件会复制到加密队列");if(state is LoadState.Failed)Text(state.message,color=MaterialTheme.colorScheme.error)}},dismissButton={TextButton(onClick=onDiscard,enabled=state !is LoadState.Loading){Text("放弃")}},confirmButton={Button(onClick=onAccept,enabled=state !is LoadState.Loading){Text(if(state is LoadState.Loading)"正在收存…" else "确认收存")}})}
