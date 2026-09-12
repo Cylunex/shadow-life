@@ -2055,3 +2055,688 @@ data class LifeRecordResultDtoMeal(
   @SerialName("payments") val payments: List<LifeRecordResultDtoMealPaymentsEntry>? = null,
   @SerialName("sources") val sources: List<LifeRecordResultDtoMealSourcesEntry>? = null
 ): LifeRecordResultDto
+
+@Serializable
+@JsonClassDiscriminator("kind")
+sealed interface HealthRecordResultDto
+
+@Serializable
+enum class HealthRecordResultDtoMeasurementFactMetric(val wireValue: String) {
+  @SerialName("weight") Weight("weight"),
+  @SerialName("body_fat") BodyFat("body_fat"),
+  @SerialName("heart_rate") HeartRate("heart_rate"),
+  @SerialName("blood_pressure_systolic") BloodPressureSystolic("blood_pressure_systolic"),
+  @SerialName("blood_pressure_diastolic") BloodPressureDiastolic("blood_pressure_diastolic"),
+  @SerialName("temperature") Temperature("temperature"),
+  @SerialName("sleep_duration") SleepDuration("sleep_duration"),
+  @SerialName("steps") Steps("steps"),
+  @SerialName("custom") Custom("custom")
+}
+
+@Serializable
+data class HealthRecordResultDtoMeasurementFact(
+  @SerialName("id") val id: String,
+  @SerialName("metric") val metric: HealthRecordResultDtoMeasurementFactMetric,
+  @SerialName("value") val value: String,
+  @SerialName("unit") val unit: String,
+  @SerialName("label") val label: String?,
+  @SerialName("occurred_on") val occurredOn: String,
+  @SerialName("occurred_at") val occurredAt: String?,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("note") val note: String?,
+  @SerialName("source_id") val sourceId: String?,
+  @SerialName("raw_id") val rawId: String?,
+  @SerialName("group_id") val groupId: String?,
+  @SerialName("autofilled") val autofilled: Boolean,
+  @SerialName("effective") val effective: Boolean,
+  @SerialName("revision") val revision: Long,
+  @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+data class HealthRecordResultDtoMeasurementSource(
+  @SerialName("id") val id: String,
+  @SerialName("kind") val kind: String,
+  @SerialName("external_id") val externalId: String?,
+  @SerialName("captured_on") val capturedOn: String?,
+  @SerialName("captured_at") val capturedAt: String?,
+  @SerialName("time_zone") val timeZone: String?,
+  @SerialName("original_text") val originalText: String?,
+  @SerialName("asset_version_id") val assetVersionId: String?,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+enum class HealthRecordResultDtoMeasurementRawRecordType(val wireValue: String) {
+  @SerialName("body") Body("body"),
+  @SerialName("wellbeing") Wellbeing("wellbeing"),
+  @SerialName("sleep") Sleep("sleep"),
+  @SerialName("workout") Workout("workout"),
+  @SerialName("daily_activity") DailyActivity("daily_activity"),
+  @SerialName("steps_interval") StepsInterval("steps_interval"),
+  @SerialName("habit") Habit("habit"),
+  @SerialName("lab") Lab("lab"),
+  @SerialName("fitness_test") FitnessTest("fitness_test")
+}
+
+@Serializable
+enum class HealthRecordResultDtoMeasurementRawState(val wireValue: String) {
+  @SerialName("pending") Pending("pending"),
+  @SerialName("normalized") Normalized("normalized"),
+  @SerialName("failed") Failed("failed"),
+  @SerialName("deleted") Deleted("deleted"),
+  @SerialName("quarantined") Quarantined("quarantined")
+}
+
+@Serializable
+data class HealthRecordResultDtoMeasurementRaw(
+  @SerialName("id") val id: String,
+  @SerialName("record_type") val recordType: HealthRecordResultDtoMeasurementRawRecordType,
+  @SerialName("client_record_id") val clientRecordId: String,
+  @SerialName("current_version") val currentVersion: Long,
+  @SerialName("state") val state: HealthRecordResultDtoMeasurementRawState,
+  @SerialName("parse_version") val parseVersion: String?,
+  @SerialName("source_instance_id") val sourceInstanceId: String
+)
+
+@Serializable
+@SerialName("measurement")
+data class HealthRecordResultDtoMeasurement(
+  @SerialName("fact") val fact: HealthRecordResultDtoMeasurementFact,
+  @SerialName("source") val source: HealthRecordResultDtoMeasurementSource?,
+  @SerialName("raw") val raw: HealthRecordResultDtoMeasurementRaw?
+): HealthRecordResultDto
+
+@Serializable
+enum class HealthRecordResultDtoObservationFactMetricKey(val wireValue: String) {
+  @SerialName("weight") Weight("weight"),
+  @SerialName("body_fat") BodyFat("body_fat"),
+  @SerialName("waist") Waist("waist"),
+  @SerialName("chest") Chest("chest"),
+  @SerialName("hip") Hip("hip"),
+  @SerialName("heart_rate") HeartRate("heart_rate"),
+  @SerialName("blood_pressure_systolic") BloodPressureSystolic("blood_pressure_systolic"),
+  @SerialName("blood_pressure_diastolic") BloodPressureDiastolic("blood_pressure_diastolic"),
+  @SerialName("temperature") Temperature("temperature"),
+  @SerialName("spo2") Spo2("spo2"),
+  @SerialName("blood_glucose") BloodGlucose("blood_glucose"),
+  @SerialName("lab_value") LabValue("lab_value"),
+  @SerialName("fitness_value") FitnessValue("fitness_value")
+}
+
+@Serializable
+enum class HealthRecordResultDtoObservationFactGroupKind(val wireValue: String) {
+  @SerialName("measurement") Measurement("measurement"),
+  @SerialName("legacy_daily_form") LegacyDailyForm("legacy_daily_form"),
+  @SerialName("lab_report") LabReport("lab_report"),
+  @SerialName("fitness_test") FitnessTest("fitness_test")
+}
+
+@Serializable
+data class HealthRecordResultDtoObservationFact(
+  @SerialName("id") val id: String,
+  @SerialName("raw_id") val rawId: String,
+  @SerialName("raw_version") val rawVersion: Long,
+  @SerialName("metric_key") val metricKey: HealthRecordResultDtoObservationFactMetricKey,
+  @SerialName("position") val position: Long,
+  @SerialName("value") val value: String,
+  @SerialName("unit") val unit: String,
+  @SerialName("occurred_on") val occurredOn: String,
+  @SerialName("occurred_at") val occurredAt: String?,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("group_id") val groupId: String,
+  @SerialName("group_kind") val groupKind: HealthRecordResultDtoObservationFactGroupKind,
+  @SerialName("original_field") val originalField: String?,
+  @SerialName("autofilled") val autofilled: Boolean,
+  @SerialName("effective") val effective: Boolean,
+  @SerialName("revision") val revision: Long,
+  @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+data class HealthRecordResultDtoObservationSource(
+  @SerialName("id") val id: String,
+  @SerialName("kind") val kind: String,
+  @SerialName("external_id") val externalId: String?,
+  @SerialName("captured_on") val capturedOn: String?,
+  @SerialName("captured_at") val capturedAt: String?,
+  @SerialName("time_zone") val timeZone: String?,
+  @SerialName("original_text") val originalText: String?,
+  @SerialName("asset_version_id") val assetVersionId: String?,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+enum class HealthRecordResultDtoObservationRawRecordType(val wireValue: String) {
+  @SerialName("body") Body("body"),
+  @SerialName("wellbeing") Wellbeing("wellbeing"),
+  @SerialName("sleep") Sleep("sleep"),
+  @SerialName("workout") Workout("workout"),
+  @SerialName("daily_activity") DailyActivity("daily_activity"),
+  @SerialName("steps_interval") StepsInterval("steps_interval"),
+  @SerialName("habit") Habit("habit"),
+  @SerialName("lab") Lab("lab"),
+  @SerialName("fitness_test") FitnessTest("fitness_test")
+}
+
+@Serializable
+enum class HealthRecordResultDtoObservationRawState(val wireValue: String) {
+  @SerialName("pending") Pending("pending"),
+  @SerialName("normalized") Normalized("normalized"),
+  @SerialName("failed") Failed("failed"),
+  @SerialName("deleted") Deleted("deleted"),
+  @SerialName("quarantined") Quarantined("quarantined")
+}
+
+@Serializable
+data class HealthRecordResultDtoObservationRaw(
+  @SerialName("id") val id: String,
+  @SerialName("record_type") val recordType: HealthRecordResultDtoObservationRawRecordType,
+  @SerialName("client_record_id") val clientRecordId: String,
+  @SerialName("current_version") val currentVersion: Long,
+  @SerialName("state") val state: HealthRecordResultDtoObservationRawState,
+  @SerialName("parse_version") val parseVersion: String?,
+  @SerialName("source_instance_id") val sourceInstanceId: String
+)
+
+@Serializable
+@SerialName("observation")
+data class HealthRecordResultDtoObservation(
+  @SerialName("fact") val fact: HealthRecordResultDtoObservationFact,
+  @SerialName("source") val source: HealthRecordResultDtoObservationSource?,
+  @SerialName("raw") val raw: HealthRecordResultDtoObservationRaw?
+): HealthRecordResultDto
+
+@Serializable
+data class HealthRecordResultDtoDailyWellbeingFact(
+  @SerialName("id") val id: String,
+  @SerialName("raw_id") val rawId: String,
+  @SerialName("raw_version") val rawVersion: Long,
+  @SerialName("occurred_on") val occurredOn: String,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("mood_score") val moodScore: Long?,
+  @SerialName("energy_level") val energyLevel: Long?,
+  @SerialName("sleep_quality") val sleepQuality: Long?,
+  @SerialName("morning_erection") val morningErection: Boolean?,
+  @SerialName("notes") val notes: String?,
+  @SerialName("effective") val effective: Boolean,
+  @SerialName("revision") val revision: Long,
+  @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+data class HealthRecordResultDtoDailyWellbeingSource(
+  @SerialName("id") val id: String,
+  @SerialName("kind") val kind: String,
+  @SerialName("external_id") val externalId: String?,
+  @SerialName("captured_on") val capturedOn: String?,
+  @SerialName("captured_at") val capturedAt: String?,
+  @SerialName("time_zone") val timeZone: String?,
+  @SerialName("original_text") val originalText: String?,
+  @SerialName("asset_version_id") val assetVersionId: String?,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+enum class HealthRecordResultDtoDailyWellbeingRawRecordType(val wireValue: String) {
+  @SerialName("body") Body("body"),
+  @SerialName("wellbeing") Wellbeing("wellbeing"),
+  @SerialName("sleep") Sleep("sleep"),
+  @SerialName("workout") Workout("workout"),
+  @SerialName("daily_activity") DailyActivity("daily_activity"),
+  @SerialName("steps_interval") StepsInterval("steps_interval"),
+  @SerialName("habit") Habit("habit"),
+  @SerialName("lab") Lab("lab"),
+  @SerialName("fitness_test") FitnessTest("fitness_test")
+}
+
+@Serializable
+enum class HealthRecordResultDtoDailyWellbeingRawState(val wireValue: String) {
+  @SerialName("pending") Pending("pending"),
+  @SerialName("normalized") Normalized("normalized"),
+  @SerialName("failed") Failed("failed"),
+  @SerialName("deleted") Deleted("deleted"),
+  @SerialName("quarantined") Quarantined("quarantined")
+}
+
+@Serializable
+data class HealthRecordResultDtoDailyWellbeingRaw(
+  @SerialName("id") val id: String,
+  @SerialName("record_type") val recordType: HealthRecordResultDtoDailyWellbeingRawRecordType,
+  @SerialName("client_record_id") val clientRecordId: String,
+  @SerialName("current_version") val currentVersion: Long,
+  @SerialName("state") val state: HealthRecordResultDtoDailyWellbeingRawState,
+  @SerialName("parse_version") val parseVersion: String?,
+  @SerialName("source_instance_id") val sourceInstanceId: String
+)
+
+@Serializable
+@SerialName("daily_wellbeing")
+data class HealthRecordResultDtoDailyWellbeing(
+  @SerialName("fact") val fact: HealthRecordResultDtoDailyWellbeingFact,
+  @SerialName("source") val source: HealthRecordResultDtoDailyWellbeingSource?,
+  @SerialName("raw") val raw: HealthRecordResultDtoDailyWellbeingRaw?
+): HealthRecordResultDto
+
+@Serializable
+data class HealthRecordResultDtoSleepSessionFact(
+  @SerialName("id") val id: String,
+  @SerialName("raw_id") val rawId: String,
+  @SerialName("raw_version") val rawVersion: Long,
+  @SerialName("wake_date") val wakeDate: String,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("started_at") val startedAt: String?,
+  @SerialName("ended_at") val endedAt: String?,
+  @SerialName("total_minutes") val totalMinutes: Long,
+  @SerialName("deep_minutes") val deepMinutes: Long?,
+  @SerialName("light_minutes") val lightMinutes: Long?,
+  @SerialName("rem_minutes") val remMinutes: Long?,
+  @SerialName("awake_minutes") val awakeMinutes: Long?,
+  @SerialName("effective") val effective: Boolean,
+  @SerialName("revision") val revision: Long,
+  @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+data class HealthRecordResultDtoSleepSessionSource(
+  @SerialName("id") val id: String,
+  @SerialName("kind") val kind: String,
+  @SerialName("external_id") val externalId: String?,
+  @SerialName("captured_on") val capturedOn: String?,
+  @SerialName("captured_at") val capturedAt: String?,
+  @SerialName("time_zone") val timeZone: String?,
+  @SerialName("original_text") val originalText: String?,
+  @SerialName("asset_version_id") val assetVersionId: String?,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+enum class HealthRecordResultDtoSleepSessionRawRecordType(val wireValue: String) {
+  @SerialName("body") Body("body"),
+  @SerialName("wellbeing") Wellbeing("wellbeing"),
+  @SerialName("sleep") Sleep("sleep"),
+  @SerialName("workout") Workout("workout"),
+  @SerialName("daily_activity") DailyActivity("daily_activity"),
+  @SerialName("steps_interval") StepsInterval("steps_interval"),
+  @SerialName("habit") Habit("habit"),
+  @SerialName("lab") Lab("lab"),
+  @SerialName("fitness_test") FitnessTest("fitness_test")
+}
+
+@Serializable
+enum class HealthRecordResultDtoSleepSessionRawState(val wireValue: String) {
+  @SerialName("pending") Pending("pending"),
+  @SerialName("normalized") Normalized("normalized"),
+  @SerialName("failed") Failed("failed"),
+  @SerialName("deleted") Deleted("deleted"),
+  @SerialName("quarantined") Quarantined("quarantined")
+}
+
+@Serializable
+data class HealthRecordResultDtoSleepSessionRaw(
+  @SerialName("id") val id: String,
+  @SerialName("record_type") val recordType: HealthRecordResultDtoSleepSessionRawRecordType,
+  @SerialName("client_record_id") val clientRecordId: String,
+  @SerialName("current_version") val currentVersion: Long,
+  @SerialName("state") val state: HealthRecordResultDtoSleepSessionRawState,
+  @SerialName("parse_version") val parseVersion: String?,
+  @SerialName("source_instance_id") val sourceInstanceId: String
+)
+
+@Serializable
+@SerialName("sleep_session")
+data class HealthRecordResultDtoSleepSession(
+  @SerialName("fact") val fact: HealthRecordResultDtoSleepSessionFact,
+  @SerialName("source") val source: HealthRecordResultDtoSleepSessionSource?,
+  @SerialName("raw") val raw: HealthRecordResultDtoSleepSessionRaw?
+): HealthRecordResultDto
+
+@Serializable
+data class HealthRecordResultDtoWorkoutSessionFact(
+  @SerialName("id") val id: String,
+  @SerialName("raw_id") val rawId: String?,
+  @SerialName("raw_version") val rawVersion: Long?,
+  @SerialName("plan_id") val planId: String?,
+  @SerialName("occurred_on") val occurredOn: String,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("session_type") val sessionType: String,
+  @SerialName("started_at") val startedAt: String?,
+  @SerialName("duration_minutes") val durationMinutes: Long?,
+  @SerialName("distance_km") val distanceKm: String?,
+  @SerialName("calories_kcal") val caloriesKcal: String?,
+  @SerialName("rpe") val rpe: Long?,
+  @SerialName("heart_rate_avg") val heartRateAvg: Long?,
+  @SerialName("detail") val detail: JsonElement?,
+  @SerialName("effective") val effective: Boolean,
+  @SerialName("revision") val revision: Long,
+  @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+data class HealthRecordResultDtoWorkoutSessionSource(
+  @SerialName("id") val id: String,
+  @SerialName("kind") val kind: String,
+  @SerialName("external_id") val externalId: String?,
+  @SerialName("captured_on") val capturedOn: String?,
+  @SerialName("captured_at") val capturedAt: String?,
+  @SerialName("time_zone") val timeZone: String?,
+  @SerialName("original_text") val originalText: String?,
+  @SerialName("asset_version_id") val assetVersionId: String?,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+enum class HealthRecordResultDtoWorkoutSessionRawRecordType(val wireValue: String) {
+  @SerialName("body") Body("body"),
+  @SerialName("wellbeing") Wellbeing("wellbeing"),
+  @SerialName("sleep") Sleep("sleep"),
+  @SerialName("workout") Workout("workout"),
+  @SerialName("daily_activity") DailyActivity("daily_activity"),
+  @SerialName("steps_interval") StepsInterval("steps_interval"),
+  @SerialName("habit") Habit("habit"),
+  @SerialName("lab") Lab("lab"),
+  @SerialName("fitness_test") FitnessTest("fitness_test")
+}
+
+@Serializable
+enum class HealthRecordResultDtoWorkoutSessionRawState(val wireValue: String) {
+  @SerialName("pending") Pending("pending"),
+  @SerialName("normalized") Normalized("normalized"),
+  @SerialName("failed") Failed("failed"),
+  @SerialName("deleted") Deleted("deleted"),
+  @SerialName("quarantined") Quarantined("quarantined")
+}
+
+@Serializable
+data class HealthRecordResultDtoWorkoutSessionRaw(
+  @SerialName("id") val id: String,
+  @SerialName("record_type") val recordType: HealthRecordResultDtoWorkoutSessionRawRecordType,
+  @SerialName("client_record_id") val clientRecordId: String,
+  @SerialName("current_version") val currentVersion: Long,
+  @SerialName("state") val state: HealthRecordResultDtoWorkoutSessionRawState,
+  @SerialName("parse_version") val parseVersion: String?,
+  @SerialName("source_instance_id") val sourceInstanceId: String
+)
+
+@Serializable
+@SerialName("workout_session")
+data class HealthRecordResultDtoWorkoutSession(
+  @SerialName("fact") val fact: HealthRecordResultDtoWorkoutSessionFact,
+  @SerialName("source") val source: HealthRecordResultDtoWorkoutSessionSource?,
+  @SerialName("raw") val raw: HealthRecordResultDtoWorkoutSessionRaw?
+): HealthRecordResultDto
+
+@Serializable
+data class HealthRecordResultDtoDailyActivityFact(
+  @SerialName("id") val id: String,
+  @SerialName("raw_id") val rawId: String,
+  @SerialName("raw_version") val rawVersion: Long,
+  @SerialName("occurred_on") val occurredOn: String,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("steps") val steps: Long?,
+  @SerialName("active_minutes") val activeMinutes: Long?,
+  @SerialName("device_calories_kcal") val deviceCaloriesKcal: String?,
+  @SerialName("workout_calories_kcal") val workoutCaloriesKcal: String?,
+  @SerialName("effective_calories_kcal") val effectiveCaloriesKcal: String?,
+  @SerialName("field_sources") val fieldSources: JsonObject,
+  @SerialName("effective") val effective: Boolean,
+  @SerialName("revision") val revision: Long,
+  @SerialName("created_at") val createdAt: String,
+  @SerialName("steps_started_at") val stepsStartedAt: String?,
+  @SerialName("steps_ended_at") val stepsEndedAt: String?,
+  @SerialName("steps_origin") val stepsOrigin: String?
+)
+
+@Serializable
+data class HealthRecordResultDtoDailyActivitySource(
+  @SerialName("id") val id: String,
+  @SerialName("kind") val kind: String,
+  @SerialName("external_id") val externalId: String?,
+  @SerialName("captured_on") val capturedOn: String?,
+  @SerialName("captured_at") val capturedAt: String?,
+  @SerialName("time_zone") val timeZone: String?,
+  @SerialName("original_text") val originalText: String?,
+  @SerialName("asset_version_id") val assetVersionId: String?,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+enum class HealthRecordResultDtoDailyActivityRawRecordType(val wireValue: String) {
+  @SerialName("body") Body("body"),
+  @SerialName("wellbeing") Wellbeing("wellbeing"),
+  @SerialName("sleep") Sleep("sleep"),
+  @SerialName("workout") Workout("workout"),
+  @SerialName("daily_activity") DailyActivity("daily_activity"),
+  @SerialName("steps_interval") StepsInterval("steps_interval"),
+  @SerialName("habit") Habit("habit"),
+  @SerialName("lab") Lab("lab"),
+  @SerialName("fitness_test") FitnessTest("fitness_test")
+}
+
+@Serializable
+enum class HealthRecordResultDtoDailyActivityRawState(val wireValue: String) {
+  @SerialName("pending") Pending("pending"),
+  @SerialName("normalized") Normalized("normalized"),
+  @SerialName("failed") Failed("failed"),
+  @SerialName("deleted") Deleted("deleted"),
+  @SerialName("quarantined") Quarantined("quarantined")
+}
+
+@Serializable
+data class HealthRecordResultDtoDailyActivityRaw(
+  @SerialName("id") val id: String,
+  @SerialName("record_type") val recordType: HealthRecordResultDtoDailyActivityRawRecordType,
+  @SerialName("client_record_id") val clientRecordId: String,
+  @SerialName("current_version") val currentVersion: Long,
+  @SerialName("state") val state: HealthRecordResultDtoDailyActivityRawState,
+  @SerialName("parse_version") val parseVersion: String?,
+  @SerialName("source_instance_id") val sourceInstanceId: String
+)
+
+@Serializable
+@SerialName("daily_activity")
+data class HealthRecordResultDtoDailyActivity(
+  @SerialName("fact") val fact: HealthRecordResultDtoDailyActivityFact,
+  @SerialName("source") val source: HealthRecordResultDtoDailyActivitySource?,
+  @SerialName("raw") val raw: HealthRecordResultDtoDailyActivityRaw?
+): HealthRecordResultDto
+
+@Serializable
+data class HealthRecordResultDtoHabitLogFact(
+  @SerialName("id") val id: String,
+  @SerialName("raw_id") val rawId: String,
+  @SerialName("raw_version") val rawVersion: Long,
+  @SerialName("occurred_on") val occurredOn: String,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("habit_key") val habitKey: String,
+  @SerialName("done_count") val doneCount: Long,
+  @SerialName("explicit_denial") val explicitDenial: Boolean,
+  @SerialName("note") val note: String?,
+  @SerialName("effective") val effective: Boolean,
+  @SerialName("revision") val revision: Long,
+  @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+data class HealthRecordResultDtoHabitLogSource(
+  @SerialName("id") val id: String,
+  @SerialName("kind") val kind: String,
+  @SerialName("external_id") val externalId: String?,
+  @SerialName("captured_on") val capturedOn: String?,
+  @SerialName("captured_at") val capturedAt: String?,
+  @SerialName("time_zone") val timeZone: String?,
+  @SerialName("original_text") val originalText: String?,
+  @SerialName("asset_version_id") val assetVersionId: String?,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+enum class HealthRecordResultDtoHabitLogRawRecordType(val wireValue: String) {
+  @SerialName("body") Body("body"),
+  @SerialName("wellbeing") Wellbeing("wellbeing"),
+  @SerialName("sleep") Sleep("sleep"),
+  @SerialName("workout") Workout("workout"),
+  @SerialName("daily_activity") DailyActivity("daily_activity"),
+  @SerialName("steps_interval") StepsInterval("steps_interval"),
+  @SerialName("habit") Habit("habit"),
+  @SerialName("lab") Lab("lab"),
+  @SerialName("fitness_test") FitnessTest("fitness_test")
+}
+
+@Serializable
+enum class HealthRecordResultDtoHabitLogRawState(val wireValue: String) {
+  @SerialName("pending") Pending("pending"),
+  @SerialName("normalized") Normalized("normalized"),
+  @SerialName("failed") Failed("failed"),
+  @SerialName("deleted") Deleted("deleted"),
+  @SerialName("quarantined") Quarantined("quarantined")
+}
+
+@Serializable
+data class HealthRecordResultDtoHabitLogRaw(
+  @SerialName("id") val id: String,
+  @SerialName("record_type") val recordType: HealthRecordResultDtoHabitLogRawRecordType,
+  @SerialName("client_record_id") val clientRecordId: String,
+  @SerialName("current_version") val currentVersion: Long,
+  @SerialName("state") val state: HealthRecordResultDtoHabitLogRawState,
+  @SerialName("parse_version") val parseVersion: String?,
+  @SerialName("source_instance_id") val sourceInstanceId: String
+)
+
+@Serializable
+@SerialName("habit_log")
+data class HealthRecordResultDtoHabitLog(
+  @SerialName("fact") val fact: HealthRecordResultDtoHabitLogFact,
+  @SerialName("source") val source: HealthRecordResultDtoHabitLogSource?,
+  @SerialName("raw") val raw: HealthRecordResultDtoHabitLogRaw?
+): HealthRecordResultDto
+
+@Serializable
+enum class HealthDailyResultDtoResultFactsEntryKind(val wireValue: String) {
+  @SerialName("observation") Observation("observation"),
+  @SerialName("measurement") Measurement("measurement")
+}
+
+@Serializable
+data class HealthDailyResultDtoResultFactsEntry(
+  @SerialName("kind") val kind: HealthDailyResultDtoResultFactsEntryKind,
+  @SerialName("id") val id: String,
+  @SerialName("key") val key: String,
+  @SerialName("value") val value: String,
+  @SerialName("unit") val unit: String
+)
+
+@Serializable
+data class HealthDailyResultDtoResultActivityStepsReconciliation(
+  @SerialName("steps") val steps: Long?,
+  @SerialName("selected_origin") val selectedOrigin: String?,
+  @SerialName("policy") val policy: String,
+  @SerialName("day_attribution") val dayAttribution: String
+)
+
+@Serializable
+enum class HealthDailyResultDtoResultActivityCaloriesSource(val wireValue: String) {
+  @SerialName("device_summary") DeviceSummary("device_summary"),
+  @SerialName("workout_sum") WorkoutSum("workout_sum"),
+  @SerialName("equal") Equal("equal")
+}
+
+@Serializable
+data class HealthDailyResultDtoResultActivity(
+  @SerialName("steps") val steps: Long?,
+  @SerialName("steps_reconciliation") val stepsReconciliation: HealthDailyResultDtoResultActivityStepsReconciliation,
+  @SerialName("active_minutes") val activeMinutes: Long?,
+  @SerialName("device_summary_calories_kcal") val deviceSummaryCaloriesKcal: String?,
+  @SerialName("workout_sum_calories_kcal") val workoutSumCaloriesKcal: String?,
+  @SerialName("calories_kcal") val caloriesKcal: String?,
+  @SerialName("calories_source") val caloriesSource: HealthDailyResultDtoResultActivityCaloriesSource?
+)
+
+@Serializable
+data class HealthDailyResultDtoResultSleepNapsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("total_minutes") val totalMinutes: Long,
+  @SerialName("deep_minutes") val deepMinutes: Long?,
+  @SerialName("light_minutes") val lightMinutes: Long?,
+  @SerialName("rem_minutes") val remMinutes: Long?,
+  @SerialName("awake_minutes") val awakeMinutes: Long?,
+  @SerialName("source_type") val sourceType: String,
+  @SerialName("instance_key") val instanceKey: String?,
+  @SerialName("raw_id") val rawId: String?
+)
+
+@Serializable
+data class HealthDailyResultDtoResultSleepSourcesEntry(
+  @SerialName("session_id") val sessionId: String,
+  @SerialName("source_type") val sourceType: String,
+  @SerialName("instance_key") val instanceKey: String?,
+  @SerialName("raw_id") val rawId: String?
+)
+
+@Serializable
+data class HealthDailyResultDtoResultSleep(
+  @SerialName("id") val id: String,
+  @SerialName("total_minutes") val totalMinutes: Long,
+  @SerialName("deep_minutes") val deepMinutes: Long?,
+  @SerialName("light_minutes") val lightMinutes: Long?,
+  @SerialName("rem_minutes") val remMinutes: Long?,
+  @SerialName("awake_minutes") val awakeMinutes: Long?,
+  @SerialName("source_type") val sourceType: String,
+  @SerialName("instance_key") val instanceKey: String?,
+  @SerialName("raw_id") val rawId: String?,
+  @SerialName("selection_policy") val selectionPolicy: String,
+  @SerialName("total_day_minutes") val totalDayMinutes: Long,
+  @SerialName("naps") val naps: List<HealthDailyResultDtoResultSleepNapsEntry>,
+  @SerialName("sources") val sources: List<HealthDailyResultDtoResultSleepSourcesEntry>
+)
+
+@Serializable
+data class HealthDailyResultDtoResultWellbeingEntry(
+  @SerialName("mood_score") val moodScore: Long?,
+  @SerialName("energy_level") val energyLevel: Long?,
+  @SerialName("sleep_quality") val sleepQuality: Long?,
+  @SerialName("morning_erection") val morningErection: Boolean?,
+  @SerialName("notes") val notes: String?
+)
+
+@Serializable
+data class HealthDailyResultDtoResultWorkoutsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("session_type") val sessionType: String,
+  @SerialName("started_at") val startedAt: String?,
+  @SerialName("duration_minutes") val durationMinutes: Long?,
+  @SerialName("distance_km") val distanceKm: String?,
+  @SerialName("calories_kcal") val caloriesKcal: String?,
+  @SerialName("rpe") val rpe: Long?,
+  @SerialName("heart_rate_avg") val heartRateAvg: Long?,
+  @SerialName("detail") val detail: JsonElement?
+)
+
+@Serializable
+data class HealthDailyResultDtoResultHabitsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("habit_key") val habitKey: String,
+  @SerialName("done_count") val doneCount: Long,
+  @SerialName("explicit_denial") val explicitDenial: Boolean,
+  @SerialName("note") val note: String?
+)
+
+@Serializable
+data class HealthDailyResultDtoResult(
+  @SerialName("facts") val facts: List<HealthDailyResultDtoResultFactsEntry>,
+  @SerialName("activity") val activity: HealthDailyResultDtoResultActivity?,
+  @SerialName("sleep") val sleep: HealthDailyResultDtoResultSleep?,
+  @SerialName("wellbeing") val wellbeing: List<HealthDailyResultDtoResultWellbeingEntry>,
+  @SerialName("workouts") val workouts: List<HealthDailyResultDtoResultWorkoutsEntry>,
+  @SerialName("habits") val habits: List<HealthDailyResultDtoResultHabitsEntry>
+)
+
+@Serializable
+data class HealthDailyResultDto(
+  @SerialName("occurred_on") val occurredOn: String,
+  @SerialName("algorithm_version") val algorithmVersion: String,
+  @SerialName("result") val result: HealthDailyResultDtoResult,
+  @SerialName("source_set_hash") val sourceSetHash: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("updated_at") val updatedAt: String
+)

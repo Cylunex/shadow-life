@@ -240,7 +240,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     if(domain==LifeDomain.Library)return libraryDetail(wireJson.decodeFromString(getText(path)))
     if(domain==LifeDomain.Travel)return travelDetail(wireJson.decodeFromString(getText(path)))
     if(domain==LifeDomain.Meals||domain==LifeDomain.Money)return lifeRecordDetail(domain,wireJson.decodeFromString(getText(path)))
-    return detailFrom(domain,get(path))
+    return healthDetail(wireJson.decodeFromString(getText(path)))
   }
 
   suspend fun enqueue(draft:CaptureDraft):OperationReceipt=withContext(Dispatchers.IO){
@@ -280,8 +280,6 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   }
 
   private fun displayName(uri:Uri):String=runCatching{context.contentResolver.query(uri,arrayOf(OpenableColumns.DISPLAY_NAME),null,null,null)?.use{cursor->if(cursor.moveToFirst())cursor.getString(0) else null}}.getOrNull()?.trim()?.take(300)?.takeIf(String::isNotBlank)?:""
-
-  private suspend fun get(path:String):JSONObject=JSONObject(getText(path))
 
   private suspend fun getText(path:String):String=withContext(Dispatchers.IO){
     val session=app.sessions.active()?:error("请先登录 Shadow Life")
@@ -371,41 +369,22 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     }
   }
 
-  private fun detailFrom(domain:LifeDomain,json:JSONObject):RecordDetail {
-    val root=when(domain){LifeDomain.Health->json.optJSONObject("fact")?:json;LifeDomain.Travel->json.optJSONObject("trip")?:json;LifeDomain.Library->json.optJSONObject("item")?:json;else->json}
-    val title=when(domain){
-      LifeDomain.Meals->root.optJSONArray("items").objects().mapNotNull{it.optNullableString("name")}.joinToString("、").ifBlank{mealTypeLabel(root.optString("meal_type"))}
-      LifeDomain.Money->root.optJSONObject("money_entry")?.let{listOfNotNull(it.optNullableString("counterparty"),it.optNullableString("category")).firstOrNull()}?:"收支详情"
-      LifeDomain.Health->root.optNullableString("label")?:root.optNullableString("metric")?.let(::kindLabel)?:"健康详情"
-      LifeDomain.Travel->root.optNullableString("title")?:"旅程详情"
-      LifeDomain.Library->root.optNullableString("title")?:"资料详情"
+  private fun healthDetail(value:HealthRecordResultDto):RecordDetail{
+    fun build(title:String,revision:Long,overview:List<DetailFact>,sourceKind:String?,sourceAt:String?,rawType:String?,rawState:String?,seed:EditSeed?=null):RecordDetail{
+      val sections=mutableListOf(DetailSection("概要",overview))
+      if(sourceKind!=null)sections+=DetailSection("来源",listOfNotNull(DetailFact("类型",sourceKind),sourceAt?.let{DetailFact("采集时间",it)}))
+      if(rawType!=null)sections+=DetailSection("原始记录",listOfNotNull(DetailFact("类型",rawType),rawState?.let{DetailFact("状态",it)}))
+      return RecordDetail(title,null,revision.toInt(),sections,seed)
     }
-    val mainKeys=when(domain){
-      LifeDomain.Meals->listOf("meal_type" to "餐次","occurred_on" to "日期","time_zone" to "时区","note" to "备注")
-      LifeDomain.Money->listOf("state" to "状态","occurred_on" to "日期","time_zone" to "时区","note" to "备注")
-      LifeDomain.Health->listOf("metric" to "指标","value" to "数值","unit" to "单位","occurred_on" to "日期","label" to "标签","note" to "备注")
-      LifeDomain.Travel->listOf("starts_on" to "开始日期","ends_on" to "结束日期","time_zone" to "时区","note" to "备注")
-      LifeDomain.Library->listOf("item_type" to "类型","state" to "状态","created_at" to "收存时间","updated_at" to "更新时间","text" to "正文")
+    return when(value){
+      is HealthRecordResultDtoMeasurement->{val fact=value.fact;build(fact.label?:kindLabel(fact.metric.wireValue),fact.revision,listOfNotNull(DetailFact("指标",fact.metric.wireValue),DetailFact("数值","${fact.value} ${fact.unit}"),DetailFact("日期",fact.occurredOn),DetailFact("时区",fact.timeZone),fact.note?.let{DetailFact("备注",it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue,if(value.raw==null)EditSeed.Health(fact.id,fact.revision.toInt(),fact.metric.wireValue,fact.value,fact.unit,fact.occurredOn,fact.timeZone,fact.label,fact.note) else null)}
+      is HealthRecordResultDtoObservation->{val fact=value.fact;build(kindLabel(fact.metricKey.wireValue),fact.revision,listOfNotNull(DetailFact("指标",fact.metricKey.wireValue),DetailFact("数值","${fact.value} ${fact.unit}"),DetailFact("日期",fact.occurredOn),DetailFact("分组",fact.groupKind.wireValue),fact.originalField?.let{DetailFact("原字段",it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue)}
+      is HealthRecordResultDtoDailyWellbeing->{val fact=value.fact;build("每日感受",fact.revision,listOfNotNull(DetailFact("日期",fact.occurredOn),fact.moodScore?.let{DetailFact("心情","$it/10")},fact.energyLevel?.let{DetailFact("精力","$it/10")},fact.sleepQuality?.let{DetailFact("睡眠质量","$it/10")},fact.morningErection?.let{DetailFact("晨间状态",if(it)"是" else "否")},fact.notes?.let{DetailFact("备注",it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue)}
+      is HealthRecordResultDtoSleepSession->{val fact=value.fact;build("睡眠",fact.revision,listOfNotNull(DetailFact("醒来日期",fact.wakeDate),DetailFact("总时长","${fact.totalMinutes} 分钟"),fact.deepMinutes?.let{DetailFact("深睡","$it 分钟")},fact.lightMinutes?.let{DetailFact("浅睡","$it 分钟")},fact.remMinutes?.let{DetailFact("REM","$it 分钟")},fact.awakeMinutes?.let{DetailFact("清醒","$it 分钟")},fact.startedAt?.let{DetailFact("开始",it)},fact.endedAt?.let{DetailFact("结束",it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue)}
+      is HealthRecordResultDtoWorkoutSession->{val fact=value.fact;build(fact.sessionType,fact.revision,listOfNotNull(DetailFact("日期",fact.occurredOn),fact.startedAt?.let{DetailFact("开始",it)},fact.durationMinutes?.let{DetailFact("时长","$it 分钟")},fact.distanceKm?.let{DetailFact("距离","$it km")},fact.caloriesKcal?.let{DetailFact("热量","$it kcal")},fact.rpe?.let{DetailFact("RPE","$it/10")},fact.heartRateAvg?.let{DetailFact("平均心率","$it bpm")}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue)}
+      is HealthRecordResultDtoDailyActivity->{val fact=value.fact;build("每日活动",fact.revision,listOfNotNull(DetailFact("日期",fact.occurredOn),fact.steps?.let{DetailFact("步数","$it")},fact.activeMinutes?.let{DetailFact("活跃时长","$it 分钟")},fact.effectiveCaloriesKcal?.let{DetailFact("活动热量","$it kcal")},fact.stepsOrigin?.let{DetailFact("步数来源",it)},fact.stepsStartedAt?.let{DetailFact("区间开始",it)},fact.stepsEndedAt?.let{DetailFact("区间结束",it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue)}
+      is HealthRecordResultDtoHabitLog->{val fact=value.fact;build(kindLabel(fact.habitKey),fact.revision,listOfNotNull(DetailFact("日期",fact.occurredOn),DetailFact("完成次数","${fact.doneCount}"),DetailFact("明确未完成",if(fact.explicitDenial)"是" else "否"),fact.note?.let{DetailFact("备注",it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue)}
     }
-    val sections=mutableListOf(DetailSection("概要",mainKeys.mapNotNull{(key,label)->root.optNullableString(key)?.let{DetailFact(label,it)}}))
-    if(domain==LifeDomain.Library)json.optJSONArray("revisions")?.optJSONObject(0)?.let{revision->sections+=DetailSection("当前内容",listOfNotNull(revision.optNullableString("text")?.let{DetailFact("正文",it)},revision.optNullableString("url")?.let{DetailFact("链接",it)},revision.optJSONArray("tags")?.let{tags->(0 until tags.length()).mapNotNull{index->tags.optString(index).takeIf(String::isNotBlank)}.takeIf{it.isNotEmpty()}?.joinToString("、")?.let{DetailFact("标签",it)}}))}
-    if(domain==LifeDomain.Money)json.optJSONObject("money_entry")?.let{entry->sections+=DetailSection("金额",listOfNotNull(entry.optNullableString("amount")?.let{DetailFact("金额",listOfNotNull(entry.optNullableString("currency"),it).joinToString(" "))},entry.optNullableString("counterparty")?.let{DetailFact("交易方",it)},entry.optNullableString("category")?.let{DetailFact("分类",it)},entry.optNullableString("payment_method")?.let{DetailFact("支付方式",it)}))}
-    val collectionLabels=when(domain){
-      LifeDomain.Meals->listOf("items" to "食物","payments" to "关联付款","sources" to "来源")
-      LifeDomain.Money->listOf("meals" to "关联餐次","purchase_items" to "购买明细","sources" to "来源")
-      LifeDomain.Health->listOf("source" to "来源")
-      LifeDomain.Travel->listOf("reservations" to "预订","segments" to "行程段","visits" to "到访","day_plans" to "日程","members" to "成员","tracks" to "轨迹")
-      LifeDomain.Library->listOf("sources" to "原件","annotations" to "批注","derivations" to "派生内容","processing_jobs" to "处理任务","snippets" to "可检索片段")
-    }
-    collectionLabels.forEach{(key,label)->when(val value=json.opt(key)){is JSONArray->if(value.length()>0)sections+=DetailSection(label,itemCount=value.length());is JSONObject->sections+=DetailSection(label,listOfNotNull(value.optNullableString("kind")?.let{DetailFact("类型",it)},value.optNullableString("state")?.let{DetailFact("状态",it)}));}}
-    val editSeed=when(domain){
-      LifeDomain.Meals->root.optNullableString("meal_id")?.let{id->root.optInt("revision").takeIf{it>0}?.let{EditSeed.Meal(id,it,root.optString("occurred_on"),root.optString("time_zone"),root.optString("meal_type","other"),root.optNullableString("note"))}}
-      LifeDomain.Money->json.optJSONObject("money_entry")?.let{entry->root.optInt("revision").takeIf{it>0}?.let{revision->EditSeed.Money(root.optString("record_id"),revision,entry.optString("amount"),entry.optString("currency","CNY"),entry.optString("occurred_on",root.optString("occurred_on")),entry.optString("time_zone",root.optString("time_zone")),entry.optNullableString("category"),entry.optNullableString("counterparty"),entry.optNullableString("note")?:root.optNullableString("note"))}}
-      LifeDomain.Health->root.optNullableString("id")?.let{id->root.optInt("revision").takeIf{it>0}?.let{EditSeed.Health(id,it,root.optString("metric"),root.optString("value"),root.optString("unit"),root.optString("occurred_on"),root.optString("time_zone"),root.optNullableString("label"),root.optNullableString("note"))}}
-      LifeDomain.Travel->root.optNullableString("id")?.let{id->root.optInt("revision").takeIf{it>0}?.let{EditSeed.Trip(id,it,root.optString("title"),root.optString("starts_on"),root.optString("ends_on"),root.optString("time_zone"),root.optNullableString("note"))}}
-      LifeDomain.Library->{val latest=json.optJSONArray("revisions")?.optJSONObject(0);root.optNullableString("id")?.let{id->root.optInt("current_revision").takeIf{it>0}?.let{EditSeed.Library(id,it,root.optString("title"),latest?.optNullableString("text"),latest?.optNullableString("url"),latest?.optJSONArray("tags")?.let{tags->(0 until tags.length()).mapNotNull{index->tags.optString(index).takeIf(String::isNotBlank)}}?:emptyList())}}}
-    }
-    return RecordDetail(title,root.optNullableString("state"),root.optInt("revision").takeIf{it>0}?:root.optInt("current_revision").takeIf{it>0},sections.filter{it.facts.isNotEmpty()||it.itemCount!=null},editSeed)
   }
 
   private suspend fun enqueueCommand(capability:String,input:JSONObject,stableCommandId:String?=null):OperationReceipt{
