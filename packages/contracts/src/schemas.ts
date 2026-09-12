@@ -444,6 +444,23 @@ export const lifeMeResultSchema=z.object({
   issuer:z.string().min(1),oidc_sub:z.string().min(1),life_subject_id:stableId,environment_id:z.string().min(1),display_name:z.string().nullable(),effects:z.array(z.string()),authorization_revision:z.number().int().positive()
 }).strict();
 
+const projectHttpsUrl=z.url().max(2_000).refine(value=>new URL(value).protocol==="https:","project links must use HTTPS");
+export const projectDirectoryItemSchema=z.object({
+  id:z.string().regex(/^[a-z][a-z0-9_-]{1,63}$/u),
+  title:z.string().trim().min(1).max(80),
+  subtitle:z.string().trim().min(1).max(160),
+  launch_mode:z.enum(["app_link","browser"]),
+  app_link_url:projectHttpsUrl.nullable(),
+  web_fallback_url:projectHttpsUrl.nullable(),
+  android_package:z.string().regex(/^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$/u).nullable(),
+  state:z.enum(["configured","disabled","missing_configuration"])
+}).strict().superRefine((value,context)=>{
+  if(value.state==="configured"&&value.launch_mode==="app_link"&&value.app_link_url===null)context.addIssue({code:"custom",path:["app_link_url"],message:"configured app links need app_link_url"});
+  if(value.state==="configured"&&value.launch_mode==="browser"&&value.web_fallback_url===null)context.addIssue({code:"custom",path:["web_fallback_url"],message:"configured browser links need web_fallback_url"});
+});
+export const projectDirectoryResultSchema=z.object({items:z.array(projectDirectoryItemSchema).max(20)}).strict();
+export type ProjectDirectoryResult=z.infer<typeof projectDirectoryResultSchema>;
+
 export const mealViewSchema = z.object({
   id: stableId,
   occurred_on: localDate,

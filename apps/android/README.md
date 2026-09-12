@@ -31,8 +31,6 @@ SHADOW_OIDC_CLIENT_ID=REPLACE_PUBLIC_CLIENT_ID
 SHADOW_OIDC_REDIRECT_URI=com.shadow.life:/oauth2redirect
 SHADOW_OIDC_REDIRECT_SCHEME=com.shadow.life
 SHADOW_OIDC_RESOURCE=https://api.example.com
-SHADOW_FOLIANT_URL=https://foliant.example.com
-SHADOW_GARDEN_URL=https://garden.example.com
 ```
 
 The OIDC client is public and uses Authorization Code + PKCE/S256. The authorization request asks for the exact
@@ -41,6 +39,9 @@ Life API resource. Android treats the access token as an opaque bearer and activ
 callbacks after logout or account switching.
 Local logout increments the session generation first, cancels account-specific sync work, clears usable local
 tokens, and then makes a best-effort refresh-token revocation when the provider advertises that endpoint.
+The authenticated `/api/project-links` directory is supplied by the server's local `SHADOW_PROJECT_LINKS`
+configuration. App Links first target an installed Android package and then fall back to an HTTPS Custom Tab;
+browser links open directly in a Custom Tab. Life credentials are never appended to either URL.
 
 ## Verification
 

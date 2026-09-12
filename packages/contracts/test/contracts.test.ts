@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { capabilityRegistry, commandEnvelopeSchema, healthSourcesResultSchema, lifeTimelineInputSchema, lifeTodayInputSchema, lifeTodayResultSchema, moneyPlanningInputSchema, publishTripPlanInputSchema, recordDiningInputSchema, recordMealInputSchema, setHealthPlanInputSchema, setHealthSourceStateInputSchema, setRecurringPlanInputSchema, setTripDayPlanInputSchema, setTripStopOutcomeInputSchema, universalCommandEnvelopeSchema } from "../src/index.js";
+import { capabilityRegistry, commandEnvelopeSchema, healthSourcesResultSchema, lifeTimelineInputSchema, lifeTodayInputSchema, lifeTodayResultSchema, moneyPlanningInputSchema, projectDirectoryResultSchema, publishTripPlanInputSchema, recordDiningInputSchema, recordMealInputSchema, setHealthPlanInputSchema, setHealthSourceStateInputSchema, setRecurringPlanInputSchema, setTripDayPlanInputSchema, setTripStopOutcomeInputSchema, universalCommandEnvelopeSchema } from "../src/index.js";
 
 const meal = {
   occurred_on: "2026-09-08",
@@ -130,6 +130,14 @@ test("overview contracts bound domains, dates and page sizes",()=>{
   assert.equal(lifeTodayInputSchema.safeParse({date:"2026-09-10",time_zone:"Invalid/Zone"}).success,false);
   assert.equal(lifeTimelineInputSchema.safeParse({limit:100,domains:["meals"]}).success,true);
   assert.equal(lifeTimelineInputSchema.safeParse({limit:101}).success,false);
+});
+
+test("project directory accepts only bounded HTTPS launch targets",()=>{
+  const item={id:"foliant",title:"Shadow Foliant",subtitle:"股票研究",launch_mode:"app_link",app_link_url:"https://foliant.example.com",web_fallback_url:"https://foliant.example.com",android_package:"com.shadow.foliant",state:"configured"} as const;
+  assert.equal(projectDirectoryResultSchema.safeParse({items:[item]}).success,true);
+  assert.equal(projectDirectoryResultSchema.safeParse({items:[{...item,app_link_url:"shadow-foliant://open"}]}).success,false);
+  assert.equal(projectDirectoryResultSchema.safeParse({items:[{...item,app_link_url:null}]}).success,false);
+  assert.equal(projectDirectoryResultSchema.safeParse({items:[{...item,launch_mode:"browser",app_link_url:null,web_fallback_url:null,android_package:null}]}).success,false);
 });
 
 test("health source status exposes the committed opaque cursor needed for device recovery",()=>{

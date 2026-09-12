@@ -79,6 +79,11 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     return json.getJSONArray("items").objects().map{item->PlanSummary(item.getString("id"),item.getString("title"),item.optNullableString("goal"),item.optString("state","active"),item.optNullableString("ends_on"),item.optInt("revision",1),item.optJSONArray("actions")?.length()?:0)}
   }
 
+  suspend fun projectLinks():List<ProjectLinkItem>{
+    val json=get("/api/project-links")
+    return json.getJSONArray("items").objects().map{item->ProjectLinkItem(item.getString("id"),item.getString("title"),item.getString("subtitle"),item.getString("launch_mode"),item.optNullableString("app_link_url"),item.optNullableString("web_fallback_url"),item.optNullableString("android_package"),item.getString("state"))}
+  }
+
   suspend fun library(query:String=""):List<LibrarySummary> = records(LifeDomain.Library,query).items.map{LibrarySummary(it.id,it.title,it.kind,it.supporting,it.revision)}
 
   suspend fun detail(domain:LifeDomain,id:String):RecordDetail {
