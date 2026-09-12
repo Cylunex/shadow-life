@@ -3,7 +3,7 @@ import { bodyLimit } from "hono/body-limit";
 import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 import { createHash } from "node:crypto";
-import { capabilityRegistry, executionResultSchema, healthTrendInputSchema, lifeMeResultSchema, lifeRecordInputSchema, lifeSearchInputSchema, lifeTimelineInputSchema, lifeTodayInputSchema, projectDirectoryResultSchema, writeCapabilityNameSchema, type ProjectDirectoryResult } from "@shadow/contracts";
+import { capabilityRegistry, executionResultSchema, healthTrendInputSchema, lifeMeResultSchema, lifeRecordInputSchema, lifeSearchInputSchema, lifeTimelineInputSchema, lifeTodayInputSchema, planningAgendaInputSchema, projectDirectoryResultSchema, writeCapabilityNameSchema, type ProjectDirectoryResult } from "@shadow/contracts";
 import { AssetService, type PostgresUnitOfWork } from "@shadow/database";
 import type { AgentRepository } from "@shadow/database";
 import { hostRunEventSchema, runtimeEventSchema, type AgentRuntimeAdapter, type HostRunEvent, type RuntimeEvent, type RunState } from "@shadow/agent-adapter";
@@ -83,6 +83,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.get("/api/life/owned-items",async context=>context.json(await dependencies.queries.ownedItems(context.get("requestContext"),{...(context.req.query("state")?{state:context.req.query("state")}:{}),limit:Number(context.req.query("limit")??"50")})));
   app.get("/api/life/reviews",async context=>context.json(await dependencies.queries.lifeReviews(context.get("requestContext"),{limit:Number(context.req.query("limit")??"20")})));
   app.get("/api/life/projects",async context=>context.json(await dependencies.queries.lifeProjects(context.get("requestContext"),{...(context.req.query("state")?{state:context.req.query("state")}:{}),limit:Number(context.req.query("limit")??"20")})));
+  app.get("/api/planning/agenda",async context=>context.json(await dependencies.queries.planningAgenda(context.get("requestContext"),planningAgendaInputSchema.parse({from_on:context.req.query("from_on"),to_on_exclusive:context.req.query("to_on_exclusive"),time_zone:context.req.query("time_zone"),limit:Number(context.req.query("limit")??"100")}))));
   app.get("/api/life/meal-planning",async context=>context.json(await dependencies.queries.mealPlanning(context.get("requestContext"),{limit:Number(context.req.query("limit")??"20")})));
   app.get("/api/life/purchase-items",async context=>context.json(await dependencies.queries.purchaseItems(context.get("requestContext"),context.req.query("q"),Number(context.req.query("limit")??"50"))));
   app.get("/api/money/foreign",async context=>context.json(await dependencies.queries.foreignEntries(context.get("requestContext"),{...(context.req.query("trip_id")?{trip_id:context.req.query("trip_id")}:{}),limit:Number(context.req.query("limit")??"50")})));
@@ -150,6 +151,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         if(capabilityName==="life.owned_items")return dependencies.queries.ownedItems(requestContext,parsed);
         if(capabilityName==="life.reviews")return dependencies.queries.lifeReviews(requestContext,parsed);
         if(capabilityName==="life.projects")return dependencies.queries.lifeProjects(requestContext,parsed);
+        if(capabilityName==="life.planning_agenda")return dependencies.queries.planningAgenda(requestContext,parsed);
         if(capabilityName==="life.meal_planning")return dependencies.queries.mealPlanning(requestContext,parsed);
         if(capabilityName==="money.foreign_entries")return dependencies.queries.foreignEntries(requestContext,parsed);
         if(capabilityName==="operations.get")return dependencies.executor.getOperation(requestContext,(parsed as {execution_id:string}).execution_id);

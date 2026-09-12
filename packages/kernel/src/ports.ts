@@ -1,4 +1,4 @@
-import type { DomainRecordSummary, ExecutionResult, LifeOverviewDomain, LifeTimelineItem, MealView, MoneySummary, RecordMealInput, UniversalCommandEnvelope } from "@shadow/contracts";
+import type { DomainRecordSummary, ExecutionResult, LifeOverviewDomain, LifeTimelineItem, MealView, MoneySummary, PlanningAgendaItem, RecordMealInput, UniversalCommandEnvelope } from "@shadow/contracts";
 
 export type DomainRecordPageItem=DomainRecordSummary&{readonly _page_at:string};
 
@@ -68,6 +68,7 @@ export interface TransactionStore {
   ownedItems(subjectId:string,state:string|undefined,limit:number,visibility:{purchase:boolean;library:boolean;money:boolean}):Promise<unknown>;
   lifeReviews(subjectId:string,limit:number,authorizedDomains:readonly string[]):Promise<unknown>;
   lifeProjects(subjectId:string,state:string|undefined,limit:number,authorizedKinds:readonly string[]):Promise<unknown>;
+  planningAgenda(subjectId:string,input:{fromOn:string;toOnExclusive:string;timeZone:string;limit:number;includeProjects:boolean;includeMoney:boolean;includeHealth:boolean}):Promise<{items:readonly PlanningAgendaItem[];truncated:boolean;asOf:string}>;
   mealPlanning(subjectId:string,limit:number):Promise<unknown>;
   purchaseItems(subjectId:string,query:string|undefined,limit:number):Promise<unknown>;
   foreignEntries(subjectId:string,tripId:string|undefined,limit:number,includeTrip:boolean):Promise<unknown>;

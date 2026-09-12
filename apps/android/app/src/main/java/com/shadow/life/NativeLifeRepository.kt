@@ -5,6 +5,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -157,9 +159,18 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     }
   }
 
-  suspend fun projects():List<PlanSummary>{
-    val json=get("/api/life/projects?limit=50")
-    return json.getJSONArray("items").objects().map{item->PlanSummary(item.getString("id"),item.getString("title"),item.optNullableString("goal"),item.optString("state","active"),item.optNullableString("ends_on"),item.optInt("revision",1),item.optJSONArray("actions")?.length()?:0)}
+  suspend fun planning():PlanningWorkspace=coroutineScope{
+    val today=LocalDate.now();val zone=ZoneId.systemDefault().id
+    val agendaRequest=async{get("/api/planning/agenda?from_on=$today&to_on_exclusive=${today.plusDays(7)}&time_zone=${encode(zone)}&limit=100")}
+    val projectsRequest=async{runCatching{get("/api/life/projects?limit=50")}.getOrNull()};val itemsRequest=async{runCatching{get("/api/life/owned-items?limit=50")}.getOrNull()};val reviewsRequest=async{runCatching{get("/api/life/reviews?limit=20")}.getOrNull()}
+    val agenda=agendaRequest.await();val projects=projectsRequest.await();val items=itemsRequest.await();val reviews=reviewsRequest.await()
+    PlanningWorkspace(
+      agenda=agenda.getJSONArray("items").objects().map{item->val target=item.getJSONObject("target");AgendaItem(item.getString("source_kind"),item.getString("source_id"),item.getString("source_key"),item.getString("title"),item.getString("state"),item.getString("due_on"),item.optNullableString("due_at"),target.getString("kind"),target.getString("id"),target.optNullableString("project_id"))},
+      projects=projects?.optJSONArray("items").objects().map{item->PlanSummary(item.getString("id"),item.getString("title"),item.optNullableString("goal"),item.optString("state","active"),item.optNullableString("ends_on"),item.optInt("revision",1),item.optJSONArray("actions")?.length()?:0)},
+      ownedItems=items?.optJSONArray("items").objects().map{item->OwnedItemSummary(item.getString("id"),item.getString("name"),item.getString("ownership_state"),item.optNullableString("location"),item.optNullableString("warranty_ends_on"),item.optNullableString("return_by"),item.optInt("revision",1),item.optJSONArray("documents")?.length()?:0,item.optJSONArray("events")?.length()?:0)},
+      reviews=reviews?.optJSONArray("items").objects().map{item->ReviewSummary(item.getString("id"),item.getString("from_on"),item.getString("to_on"),item.optString("algorithm_version"),item.optInt("revision",1),item.optString("generated_at"),item.optJSONObject("metrics")?.length()?:0,item.optJSONArray("limitations")?.length()?:0)},
+      truncated=agenda.optBoolean("truncated"),asOf=agenda.getString("as_of")
+    )
   }
 
   suspend fun projectLinks():List<ProjectLinkItem>{

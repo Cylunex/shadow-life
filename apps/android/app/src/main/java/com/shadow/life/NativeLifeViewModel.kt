@@ -15,7 +15,7 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
   var today:LoadState<TodaySnapshot> by androidx.compose.runtime.mutableStateOf(LoadState.Loading);private set
   var timeline:LoadState<TimelinePage> by androidx.compose.runtime.mutableStateOf(LoadState.Loading);private set
   var searchResults:LoadState<RecordPage>? by androidx.compose.runtime.mutableStateOf(null);private set
-  var plans:LoadState<List<PlanSummary>> by androidx.compose.runtime.mutableStateOf(LoadState.Loading);private set
+  var plans:LoadState<PlanningWorkspace> by androidx.compose.runtime.mutableStateOf(LoadState.Loading);private set
   var library:LoadState<List<LibrarySummary>> by androidx.compose.runtime.mutableStateOf(LoadState.Loading);private set
   var workspace:LoadState<RecordPage> by androidx.compose.runtime.mutableStateOf(LoadState.Loading);private set
   var workspaceOverview:LoadState<WorkspaceOverview> by androidx.compose.runtime.mutableStateOf(LoadState.Loading);private set
@@ -43,7 +43,7 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
   fun refreshToday(date:LocalDate=LocalDate.now()){today=LoadState.Loading;viewModelScope.launch{today=load("今天还没有记录"){repository.today(date)}}}
   fun refreshTimeline(){timeline=LoadState.Loading;viewModelScope.launch{timeline=load("还没有生活记录"){repository.timeline()}}}
   fun loadMoreTimeline(){val current=(timeline as? LoadState.Ready)?.value?:return;val cursor=current.nextCursor?:return;viewModelScope.launch{when(val next=load("没有更多记录"){repository.timeline(cursor)}){is LoadState.Ready->timeline=LoadState.Ready(current.copy(items=current.items+next.value.items,nextCursor=next.value.nextCursor,asOf=current.asOf));is LoadState.Failed->timeline=next;else->Unit}}}
-  fun refreshPlans(){plans=LoadState.Loading;viewModelScope.launch{plans=loadList("还没有计划"){repository.projects()}}}
+  fun refreshPlans(){plans=LoadState.Loading;viewModelScope.launch{plans=load("还没有计划"){repository.planning()}}}
   fun refreshLibrary(query:String=""){library=LoadState.Loading;viewModelScope.launch{library=loadList(if(query.isBlank())"资料库还是空的" else "没有符合条件的资料"){repository.library(query)}}}
   fun refreshProjectLinks(){projectLinks=LoadState.Loading;viewModelScope.launch{projectLinks=loadList("还没有配置其他项目"){repository.projectLinks()}}}
   fun refreshInbox(){inbox=LoadState.Loading;viewModelScope.launch{inbox=try{repository.notifications().let{if(it.items.isEmpty())LoadState.Empty("没有待处理提醒") else LoadState.Ready(it)}}catch(error:CancellationException){throw error}catch(error:Exception){LoadState.Failed(error.message?:"无法读取提醒")}}}

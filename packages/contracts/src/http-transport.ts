@@ -37,6 +37,7 @@ export const queryTransportRegistry:Readonly<Record<string,ReadRoute>>={
   "life.owned_items":input=>get(`/api/life/owned-items${search({state:input.state,limit:input.limit})}`),
   "life.reviews":input=>get(`/api/life/reviews${search({limit:input.limit})}`),
   "life.projects":input=>get(`/api/life/projects${search({state:input.state,limit:input.limit})}`),
+  "life.planning_agenda":input=>get(`/api/planning/agenda${search({from_on:input.from_on,to_on_exclusive:input.to_on_exclusive,time_zone:input.time_zone,limit:input.limit})}`),
   "life.meal_planning":input=>get(`/api/life/meal-planning${search({limit:input.limit})}`),
   "money.foreign_entries":input=>get(`/api/money/foreign${search({trip_id:input.trip_id,limit:input.limit})}`),
   "operations.get":input=>get(`/api/operations/${encodeURIComponent(input.execution_id)}`)
