@@ -989,3 +989,83 @@ data class MealPlanningResultDto(
   @SerialName("shopping_lists") val shoppingLists: List<MealPlanningResultDtoShoppingListsEntry>,
   @SerialName("as_of") val asOf: String
 )
+
+@Serializable
+enum class ForeignEntriesResultDtoItemsEntryEntryType(val wireValue: String) {
+  @SerialName("expense") Expense("expense"),
+  @SerialName("income") Income("income")
+}
+
+@Serializable
+enum class ForeignEntriesResultDtoItemsEntryPaymentMethod(val wireValue: String) {
+  @SerialName("alipay") Alipay("alipay"),
+  @SerialName("wechat") Wechat("wechat"),
+  @SerialName("jd_pay") JdPay("jd_pay"),
+  @SerialName("jd_baitiao") JdBaitiao("jd_baitiao"),
+  @SerialName("huabei") Huabei("huabei"),
+  @SerialName("gift_card") GiftCard("gift_card"),
+  @SerialName("cash") Cash("cash"),
+  @SerialName("bank_card") BankCard("bank_card"),
+  @SerialName("bank_transfer") BankTransfer("bank_transfer"),
+  @SerialName("mixed") Mixed("mixed"),
+  @SerialName("other") Other("other")
+}
+
+@Serializable
+enum class ForeignEntriesResultDtoItemsEntrySourceKind(val wireValue: String) {
+  @SerialName("manual") Manual("manual"),
+  @SerialName("provider") Provider("provider"),
+  @SerialName("import") Import("import")
+}
+
+@Serializable
+enum class ForeignEntriesResultDtoItemsEntryAllocationsEntryState(val wireValue: String) {
+  @SerialName("unsettled") Unsettled("unsettled"),
+  @SerialName("settled") Settled("settled"),
+  @SerialName("waived") Waived("waived")
+}
+
+@Serializable
+data class ForeignEntriesResultDtoItemsEntryAllocationsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("participant_label") val participantLabel: String,
+  @SerialName("original_amount") val originalAmount: String,
+  @SerialName("state") val state: ForeignEntriesResultDtoItemsEntryAllocationsEntryState,
+  @SerialName("settled_on") val settledOn: String?,
+  @SerialName("revision") val revision: Long,
+  @SerialName("updated_at") val updatedAt: String
+)
+
+@Serializable
+data class ForeignEntriesResultDtoItemsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("record_id") val recordId: String,
+  @SerialName("entry_type") val entryType: ForeignEntriesResultDtoItemsEntryEntryType,
+  @SerialName("amount") val amount: String,
+  @SerialName("currency") val currency: String,
+  @SerialName("source_scale") val sourceScale: Long,
+  @SerialName("occurred_on") val occurredOn: String,
+  @SerialName("occurred_at") val occurredAt: String?,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("counterparty") val counterparty: String?,
+  @SerialName("category") val category: String?,
+  @SerialName("payment_method") val paymentMethod: ForeignEntriesResultDtoItemsEntryPaymentMethod?,
+  @SerialName("note") val note: String?,
+  @SerialName("revision") val revision: Long,
+  @SerialName("fx_snapshot_id") val fxSnapshotId: String,
+  @SerialName("base_amount") val baseAmount: String,
+  @SerialName("base_currency") val baseCurrency: String,
+  @SerialName("rate") val rate: String,
+  @SerialName("quote_convention") val quoteConvention: String,
+  @SerialName("quoted_at") val quotedAt: String,
+  @SerialName("source_kind") val sourceKind: ForeignEntriesResultDtoItemsEntrySourceKind,
+  @SerialName("source_ref") val sourceRef: String?,
+  @SerialName("trip_id") val tripId: String?,
+  @SerialName("allocations") val allocations: List<ForeignEntriesResultDtoItemsEntryAllocationsEntry>
+)
+
+@Serializable
+data class ForeignEntriesResultDto(
+  @SerialName("items") val items: List<ForeignEntriesResultDtoItemsEntry>,
+  @SerialName("as_of") val asOf: String
+)
