@@ -4,6 +4,12 @@ import kotlinx.serialization.Serializable
 
 enum class Appearance { Dark, Light, System }
 enum class LifeDomain { Meals, Money, Health, Travel, Library }
+data class ProductSession(
+  val accountId:String,val subjectId:String,val apiBase:String,val authStateJson:String,
+  val oidcSub:String=subjectId,val issuer:String="",val environmentId:String="default",
+  val generation:Long=0,val tokenRevision:Long=1,val displayName:String?=null
+)
+data class AuthAttempt(val state:String,val nonce:String,val generation:Long,val createdAt:Long)
 
 sealed interface LoadState<out T> {
   data object Loading : LoadState<Nothing>

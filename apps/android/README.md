@@ -3,6 +3,11 @@
 Android is the primary daily client. It is a native Kotlin/Jetpack Compose application with package ID
 `com.shadow.life`; it does not host the product Web UI or a Basic Auth prompt.
 
+The Android build is split into the five planned Gradle groups: `app`, `core:model`, `core:data`,
+`core:designsystem`, and `devices`. Neutral presentation and session models live in model; encrypted Room/session
+storage lives in data; reusable Compose tokens/components live in designsystem; deterministic device protocol
+and sync-round logic live in devices. App owns navigation, feature UI, dependency assembly and workers.
+
 The root navigation is Today / Records / Plans / Library. The centered Life action opens one composer while
 preserving the selected root and its back stack. Manual forms for expense, meal, health, visit and library
 capture remain available without an Agent. The same composer can start and continue a native Agent conversation;

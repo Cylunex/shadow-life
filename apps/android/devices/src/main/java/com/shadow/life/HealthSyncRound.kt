@@ -3,16 +3,6 @@ package com.shadow.life
 val healthRecordTypes=listOf("body","steps_interval","sleep","workout")
 const val HEALTH_ROUND_TABLE_SQL="CREATE TABLE IF NOT EXISTS health_sync_rounds (accountId TEXT NOT NULL, subjectId TEXT NOT NULL, requestId TEXT NOT NULL, typeIndex INTEGER NOT NULL, waitingCommandId TEXT, afterReceiptType INTEGER NOT NULL, PRIMARY KEY(accountId,subjectId))"
 
-// Only local progress is stored here; opaque tokens and health payloads stay in the encrypted queue.
-data class HealthRoundState(
-  val requestId:String,val typeIndex:Int=0,val waitingCommandId:String?=null,val afterReceiptType:Int=0
-) {
-  val complete:Boolean get()=typeIndex>=healthRecordTypes.size
-  val ready:Boolean get()=!complete&&waitingCommandId==null
-  fun confirmed(commandId:String):HealthRoundState = if(waitingCommandId==commandId)
-    copy(typeIndex=afterReceiptType,waitingCommandId=null) else this
-}
-
 interface HealthRoundStore {
   suspend fun current():HealthRoundState?
   suspend fun save(state:HealthRoundState)

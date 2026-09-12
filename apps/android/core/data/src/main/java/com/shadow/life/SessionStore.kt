@@ -6,19 +6,12 @@ import androidx.security.crypto.MasterKey
 import kotlinx.coroutines.sync.Mutex
 import org.json.JSONObject
 
-data class ProductSession(
-  val accountId:String,val subjectId:String,val apiBase:String,val authStateJson:String,
-  val oidcSub:String=subjectId,val issuer:String=BuildConfig.SHADOW_OIDC_ISSUER,val environmentId:String="default",
-  val generation:Long=0,val tokenRevision:Long=1,val displayName:String?=null
-)
-data class AuthAttempt(val state:String,val nonce:String,val generation:Long,val createdAt:Long)
-
 class SessionStore(context:Context) {
   private val preferences=EncryptedSharedPreferences.create(context,"shadow_life_sessions",MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
-  internal val refreshMutex=Mutex()
+  val refreshMutex=Mutex()
 
   @Synchronized fun save(value:ProductSession){preferences.edit().putString(sessionKey(value.accountId),JSONObject().put("account",value.accountId).put("subject",value.subjectId).put("oidc_sub",value.oidcSub).put("issuer",value.issuer).put("environment",value.environmentId).put("api",value.apiBase.trimEnd('/')).put("auth_state",value.authStateJson).put("generation",value.generation).put("token_revision",value.tokenRevision).putOpt("display_name",value.displayName).toString()).apply()}
-  fun load(accountId:String):ProductSession?=preferences.getString(sessionKey(accountId),null)?.let{runCatching{val json=JSONObject(it);ProductSession(json.getString("account"),json.getString("subject"),json.getString("api"),json.getString("auth_state"),json.optString("oidc_sub",json.getString("subject")),json.optString("issuer",BuildConfig.SHADOW_OIDC_ISSUER),json.optString("environment","default"),json.optLong("generation"),json.optLong("token_revision",1),json.optString("display_name").takeIf(String::isNotBlank))}.getOrNull()}
+  fun load(accountId:String):ProductSession?=preferences.getString(sessionKey(accountId),null)?.let{runCatching{val json=JSONObject(it);ProductSession(json.getString("account"),json.getString("subject"),json.getString("api"),json.getString("auth_state"),json.optString("oidc_sub",json.getString("subject")),json.optString("issuer",""),json.optString("environment","default"),json.optLong("generation"),json.optLong("token_revision",1),json.optString("display_name").takeIf(String::isNotBlank))}.getOrNull()}
   fun active():ProductSession?=preferences.getString("active_account",null)?.let(::load)
   @Synchronized fun activate(accountId:String){check(load(accountId)!=null);preferences.edit().putString("active_account",accountId).apply()}
 
