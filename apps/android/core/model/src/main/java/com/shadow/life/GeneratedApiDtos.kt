@@ -175,3 +175,202 @@ data class NotificationsResultDto(
   @SerialName("preferences") val preferences: NotificationsResultDtoPreferences,
   @SerialName("as_of") val asOf: String
 )
+
+@Serializable
+data class LifeTodayResultDtoDomainsMeals(
+  @SerialName("count") val count: Long,
+  @SerialName("freshness") val freshness: String?
+)
+
+@Serializable
+data class LifeTodayResultDtoDomainsMoneyTotalsEntry(
+  @SerialName("currency") val currency: String,
+  @SerialName("gross_expense") val grossExpense: String,
+  @SerialName("refund") val refund: String,
+  @SerialName("income") val income: String,
+  @SerialName("net_spending") val netSpending: String,
+  @SerialName("net_cashflow") val netCashflow: String
+)
+
+@Serializable
+enum class LifeTodayResultDtoDomainsMoneyDueItemsEntryState(val wireValue: String) {
+  @SerialName("pending") Pending("pending"),
+  @SerialName("reminded") Reminded("reminded"),
+  @SerialName("snoozed") Snoozed("snoozed")
+}
+
+@Serializable
+data class LifeTodayResultDtoDomainsMoneyDueItemsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("due_on") val dueOn: String,
+  @SerialName("state") val state: LifeTodayResultDtoDomainsMoneyDueItemsEntryState,
+  @SerialName("title") val title: String,
+  @SerialName("amount") val amount: String?,
+  @SerialName("currency") val currency: String?
+)
+
+@Serializable
+data class LifeTodayResultDtoDomainsMoney(
+  @SerialName("entries") val entries: Long,
+  @SerialName("totals") val totals: List<LifeTodayResultDtoDomainsMoneyTotalsEntry>,
+  @SerialName("due_items") val dueItems: List<LifeTodayResultDtoDomainsMoneyDueItemsEntry>,
+  @SerialName("freshness") val freshness: String?
+)
+
+@Serializable
+data class LifeTodayResultDtoDomainsHealthSyncIssuesEntry(
+  @SerialName("id") val id: String,
+  @SerialName("source_type") val sourceType: String,
+  @SerialName("instance_key") val instanceKey: String,
+  @SerialName("permission_state") val permissionState: String,
+  @SerialName("sync_epoch") val syncEpoch: Long,
+  @SerialName("cursor_states") val cursorStates: List<String>,
+  @SerialName("last_sync_at") val lastSyncAt: String?
+)
+
+@Serializable
+data class LifeTodayResultDtoDomainsHealth(
+  @SerialName("facts") val facts: Long,
+  @SerialName("sync_issues") val syncIssues: List<LifeTodayResultDtoDomainsHealthSyncIssuesEntry>,
+  @SerialName("freshness") val freshness: String?
+)
+
+@Serializable
+data class LifeTodayResultDtoDomainsTravelCurrentTripsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("title") val title: String,
+  @SerialName("starts_on") val startsOn: String,
+  @SerialName("ends_on") val endsOn: String,
+  @SerialName("time_zone") val timeZone: String
+)
+
+@Serializable
+data class LifeTodayResultDtoDomainsTravel(
+  @SerialName("visits") val visits: Long,
+  @SerialName("current_trips") val currentTrips: List<LifeTodayResultDtoDomainsTravelCurrentTripsEntry>,
+  @SerialName("freshness") val freshness: String?
+)
+
+@Serializable
+data class LifeTodayResultDtoDomainsLibrary(
+  @SerialName("captured") val captured: Long,
+  @SerialName("freshness") val freshness: String?
+)
+
+@Serializable
+data class LifeTodayResultDtoDomains(
+  @SerialName("meals") val meals: LifeTodayResultDtoDomainsMeals? = null,
+  @SerialName("money") val money: LifeTodayResultDtoDomainsMoney? = null,
+  @SerialName("health") val health: LifeTodayResultDtoDomainsHealth? = null,
+  @SerialName("travel") val travel: LifeTodayResultDtoDomainsTravel? = null,
+  @SerialName("library") val library: LifeTodayResultDtoDomainsLibrary? = null
+)
+
+@Serializable
+data class LifeTodayResultDto(
+  @SerialName("date") val date: String,
+  @SerialName("domains") val domains: LifeTodayResultDtoDomains,
+  @SerialName("as_of") val asOf: String
+)
+
+@Serializable
+enum class LifeTimelineResultDtoItemsEntryDomain(val wireValue: String) {
+  @SerialName("meals") Meals("meals"),
+  @SerialName("money") Money("money"),
+  @SerialName("health") Health("health"),
+  @SerialName("travel") Travel("travel"),
+  @SerialName("library") Library("library")
+}
+
+@Serializable
+data class LifeTimelineResultDtoItemsEntry(
+  @SerialName("domain") val domain: LifeTimelineResultDtoItemsEntryDomain,
+  @SerialName("kind") val kind: String,
+  @SerialName("id") val id: String,
+  @SerialName("happened_at") val happenedAt: String,
+  @SerialName("title") val title: String,
+  @SerialName("amount") val amount: String? = null,
+  @SerialName("currency") val currency: String? = null,
+  @SerialName("record_id") val recordId: String? = null
+)
+
+@Serializable
+data class LifeTimelineResultDto(
+  @SerialName("items") val items: List<LifeTimelineResultDtoItemsEntry>,
+  @SerialName("next_cursor") val nextCursor: String?,
+  @SerialName("as_of") val asOf: String
+)
+
+@Serializable
+enum class LifeSearchResultDtoItemsEntryDomain(val wireValue: String) {
+  @SerialName("meals") Meals("meals"),
+  @SerialName("money") Money("money"),
+  @SerialName("health") Health("health"),
+  @SerialName("travel") Travel("travel"),
+  @SerialName("library") Library("library")
+}
+
+@Serializable
+data class LifeSearchResultDtoItemsEntry(
+  @SerialName("domain") val domain: LifeSearchResultDtoItemsEntryDomain,
+  @SerialName("kind") val kind: String,
+  @SerialName("id") val id: String,
+  @SerialName("title") val title: String,
+  @SerialName("supporting") val supporting: String?,
+  @SerialName("happened_on") val happenedOn: String,
+  @SerialName("amount") val amount: String? = null,
+  @SerialName("currency") val currency: String? = null,
+  @SerialName("record_id") val recordId: String? = null
+)
+
+@Serializable
+enum class LifeSearchResultDtoAppliedFiltersTypesEntry(val wireValue: String) {
+  @SerialName("meals") Meals("meals"),
+  @SerialName("money") Money("money"),
+  @SerialName("health") Health("health"),
+  @SerialName("travel") Travel("travel"),
+  @SerialName("library") Library("library")
+}
+
+@Serializable
+data class LifeSearchResultDtoAppliedFilters(
+  @SerialName("q") val q: String,
+  @SerialName("types") val types: List<LifeSearchResultDtoAppliedFiltersTypesEntry>,
+  @SerialName("from_on") val fromOn: String?,
+  @SerialName("to_on_exclusive") val toOnExclusive: String?
+)
+
+@Serializable
+data class LifeSearchResultDto(
+  @SerialName("items") val items: List<LifeSearchResultDtoItemsEntry>,
+  @SerialName("next_cursor") val nextCursor: String?,
+  @SerialName("as_of") val asOf: String,
+  @SerialName("applied_filters") val appliedFilters: LifeSearchResultDtoAppliedFilters
+)
+
+@Serializable
+data class HealthSourcesResultDtoItemsEntryCursorsEntry(
+  @SerialName("device_id") val deviceId: String,
+  @SerialName("record_type") val recordType: String,
+  @SerialName("cursor") val cursor: String?,
+  @SerialName("state") val state: String,
+  @SerialName("sync_epoch") val syncEpoch: Long,
+  @SerialName("updated_at") val updatedAt: String
+)
+
+@Serializable
+data class HealthSourcesResultDtoItemsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("source_type") val sourceType: String,
+  @SerialName("instance_key") val instanceKey: String,
+  @SerialName("permission_state") val permissionState: String,
+  @SerialName("sync_epoch") val syncEpoch: Long,
+  @SerialName("fingerprint") val fingerprint: String?,
+  @SerialName("cursors") val cursors: List<HealthSourcesResultDtoItemsEntryCursorsEntry>
+)
+
+@Serializable
+data class HealthSourcesResultDto(
+  @SerialName("items") val items: List<HealthSourcesResultDtoItemsEntry>,
+  @SerialName("as_of") val asOf: String
+)

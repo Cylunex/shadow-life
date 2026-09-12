@@ -38,36 +38,30 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   suspend fun registerNotificationDevice(authorizationState:String):OperationReceipt=withContext(Dispatchers.IO){val installationId=app.sessions.installationId();val receipt=enqueueCommand("notifications.register_device",JSONObject().put("installation_id",installationId).put("platform","android").put("authorization_state",authorizationState),"cmd_android_notification_installation_${installationId.removePrefix("installation_").take(48)}_${System.currentTimeMillis()}");if(authorizationState=="enabled")app.sessions.active()?.accountId?.let{NotificationSyncScheduler.schedule(context,it)};receipt}
   suspend fun today(date:LocalDate=LocalDate.now()):TodaySnapshot {
     val zone=ZoneId.systemDefault().id
-    val json=get("/api/today?date=$date&time_zone=${encode(zone)}")
-    val domains=json.getJSONObject("domains")
-    val meals=domains.optJSONObject("meals")
-    val money=domains.optJSONObject("money")
-    val health=domains.optJSONObject("health")
-    val travel=domains.optJSONObject("travel")
-    val library=domains.optJSONObject("library")
+    val result=wireJson.decodeFromString<LifeTodayResultDto>(getText("/api/today?date=$date&time_zone=${encode(zone)}"))
+    val domains=result.domains
     return TodaySnapshot(
-      date=json.getString("date"),mealCount=meals?.optInt("count"),healthFacts=health?.optInt("facts"),
-      moneyTotals=money?.optJSONArray("totals").objects().map{MoneyTotal(it.getString("currency"),it.getString("net_spending"),it.getString("income"))},
-      dueItems=money?.optJSONArray("due_items").objects().map{DueItem(it.getString("id"),it.getString("title"),it.getString("due_on"),it.optNullableString("amount"),it.optNullableString("currency"))},
-      currentTrips=travel?.optJSONArray("current_trips").objects().map{CurrentTrip(it.getString("id"),it.getString("title"),it.getString("starts_on"),it.getString("ends_on"))},
-      libraryCaptured=library?.optInt("captured"),syncIssueCount=health?.optJSONArray("sync_issues")?.length()?:0,asOf=json.getString("as_of")
+      date=result.date,mealCount=domains.meals?.count?.toInt(),healthFacts=domains.health?.facts?.toInt(),
+      moneyTotals=domains.money?.totals?.map{MoneyTotal(it.currency,it.netSpending,it.income)}.orEmpty(),
+      dueItems=domains.money?.dueItems?.map{DueItem(it.id,it.title,it.dueOn,it.amount,it.currency)}.orEmpty(),
+      currentTrips=domains.travel?.currentTrips?.map{CurrentTrip(it.id,it.title,it.startsOn,it.endsOn)}.orEmpty(),
+      libraryCaptured=domains.library?.captured?.toInt(),syncIssueCount=domains.health?.syncIssues?.size?:0,asOf=result.asOf
     )
   }
 
   suspend fun timeline(cursor:String?=null,domains:Set<LifeDomain> = LifeDomain.entries.toSet()):TimelinePage {
     val query=buildList { add("limit=30");add("domains="+domains.joinToString(","){it.name.lowercase()});if(cursor!=null)add("cursor=${encode(cursor)}") }.joinToString("&")
-    val json=get("/api/timeline?$query")
-    return TimelinePage(json.getJSONArray("items").objects().map{
-      TimelineItem(LifeDomain.valueOf(it.getString("domain").replaceFirstChar(Char::uppercase)),it.getString("kind"),it.getString("id"),it.getString("happened_at"),it.getString("title"),it.optNullableString("amount"),it.optNullableString("currency"),it.optNullableString("record_id"))
-    },json.optNullableString("next_cursor"),json.getString("as_of"))
+    val result=wireJson.decodeFromString<LifeTimelineResultDto>(getText("/api/timeline?$query"))
+    return TimelinePage(result.items.map{
+      TimelineItem(domainFromWire(it.domain.wireValue),it.kind,it.id,it.happenedAt,it.title,it.amount,it.currency,it.recordId)
+    },result.nextCursor,result.asOf)
   }
 
   suspend fun search(query:String,cursor:String?=null):RecordPage {
-    val json=get("/api/search?q=${encode(query)}&limit=50${cursor?.let{"&cursor=${encode(it)}"}.orEmpty()}")
-    return RecordPage(json.getJSONArray("items").objects().map{item->
-      val domain=LifeDomain.valueOf(item.getString("domain").replaceFirstChar(Char::uppercase))
-      RecordSummary(domain,item.getString("kind"),item.getString("id"),item.getString("title"),item.optNullableString("supporting")?:item.optNullableString("happened_on"),item.optNullableString("amount")?.let{listOfNotNull(item.optNullableString("currency"),it).joinToString(" ")},null,item.optNullableString("record_id"))
-    },json.optNullableString("next_cursor"),json.getString("as_of"))
+    val result=wireJson.decodeFromString<LifeSearchResultDto>(getText("/api/search?q=${encode(query)}&limit=50${cursor?.let{"&cursor=${encode(it)}"}.orEmpty()}"))
+    return RecordPage(result.items.map{item->
+      RecordSummary(domainFromWire(item.domain.wireValue),item.kind,item.id,item.title,item.supporting?:item.happenedOn,item.amount?.let{listOfNotNull(item.currency,it).joinToString(" ")},null,item.recordId)
+    },result.nextCursor,result.asOf)
   }
 
   suspend fun assist(message:String,existingThreadId:String?=null):AssistantReply=withContext(Dispatchers.IO){
@@ -140,13 +134,13 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       )
     }
     LifeDomain.Health->{
-      val json=get("/api/health/sources")
-      val items=json.optJSONArray("items").objects()
+      val result=wireJson.decodeFromString<HealthSourcesResultDto>(getText("/api/health/sources"))
+      val items=result.items
       WorkspaceOverview.Health(
         sources=items.size,
-        sourcesNeedingAttention=items.count{it.optString("permission_state")!="granted"||it.optJSONArray("cursors").objects().any{cursor->cursor.optString("state")!="active"}},
-        streams=items.sumOf{it.optJSONArray("cursors")?.length()?:0},
-        asOf=json.optString("as_of")
+        sourcesNeedingAttention=items.count{it.permissionState!="granted"||it.cursors.any{cursor->cursor.state!="active"}},
+        streams=items.sumOf{it.cursors.size},
+        asOf=result.asOf
       )
     }
     LifeDomain.Travel->{
@@ -311,4 +305,5 @@ private fun encode(value:String)=java.net.URLEncoder.encode(value,Charsets.UTF_8
 private fun decimal(value:String):String { val normalized=value.trim().removePrefix("+");require(Regex("^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$").matches(normalized)){"请输入有效数值，最多 6 位小数"};return normalized }
 private fun money(value:String):String { val normalized=value.trim();require(Regex("^(?:0|[1-9]\\d*)(?:\\.\\d{1,2})?$").matches(normalized)){"请输入有效金额，最多 2 位小数"};return normalized.toBigDecimal().setScale(2).toPlainString().also{require(it!="0.00"){"金额必须大于 0"}} }
 private fun mealTypeLabel(value:String)=mapOf("breakfast" to "早餐","lunch" to "午餐","dinner" to "晚餐","snack" to "加餐","other" to "一餐")[value]?:"一餐"
+private fun domainFromWire(value:String)=LifeDomain.entries.first{it.name.equals(value,true)}
 internal fun kindLabel(value:String)=mapOf("money_entry" to "收支记录","health_measurement" to "健康记录","trip" to "旅程","visit" to "到访","library_item" to "资料","meal" to "餐次","purchase" to "购买")[value]?:value.replace('_',' ')
