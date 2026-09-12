@@ -1793,3 +1793,265 @@ data class TravelTripResultDto(
   @SerialName("revisions") val revisions: List<TravelTripResultDtoRevisionsEntry>,
   @SerialName("as_of") val asOf: String
 )
+
+@Serializable
+@JsonClassDiscriminator("kind")
+sealed interface LifeRecordResultDto
+
+@Serializable
+enum class LifeRecordResultDtoRecordState(val wireValue: String) {
+  @SerialName("draft") Draft("draft"),
+  @SerialName("confirmed") Confirmed("confirmed"),
+  @SerialName("voided") Voided("voided")
+}
+
+@Serializable
+data class LifeRecordResultDtoRecordPurchase(
+  @SerialName("id") val id: String,
+  @SerialName("record_id") val recordId: String,
+  @SerialName("merchant") val merchant: String?,
+  @SerialName("amount") val amount: String?,
+  @SerialName("currency") val currency: String,
+  @SerialName("category") val category: String?,
+  @SerialName("occurred_on") val occurredOn: String,
+  @SerialName("occurred_at") val occurredAt: String?,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("note") val note: String?,
+  @SerialName("source_id") val sourceId: String? = null,
+  @SerialName("scene") val scene: String?,
+  @SerialName("channel_name_raw") val channelNameRaw: String?,
+  @SerialName("place_ref") val placeRef: String?,
+  @SerialName("rating") val rating: Long?,
+  @SerialName("would_repeat") val wouldRepeat: Boolean?,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+data class LifeRecordResultDtoRecordPurchaseItemsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("purchase_id") val purchaseId: String,
+  @SerialName("position") val position: Long,
+  @SerialName("raw_name") val rawName: String,
+  @SerialName("quantity") val quantity: String?,
+  @SerialName("unit_price") val unitPrice: String?,
+  @SerialName("unit") val unit: String?,
+  @SerialName("line_amount") val lineAmount: String?,
+  @SerialName("category_key") val categoryKey: String?
+)
+
+@Serializable
+enum class LifeRecordResultDtoRecordMoneyEntryEntryType(val wireValue: String) {
+  @SerialName("expense") Expense("expense"),
+  @SerialName("income") Income("income"),
+  @SerialName("refund") Refund("refund")
+}
+
+@Serializable
+enum class LifeRecordResultDtoRecordMoneyEntryPaymentMethod(val wireValue: String) {
+  @SerialName("alipay") Alipay("alipay"),
+  @SerialName("wechat") Wechat("wechat"),
+  @SerialName("jd_pay") JdPay("jd_pay"),
+  @SerialName("jd_baitiao") JdBaitiao("jd_baitiao"),
+  @SerialName("huabei") Huabei("huabei"),
+  @SerialName("gift_card") GiftCard("gift_card"),
+  @SerialName("cash") Cash("cash"),
+  @SerialName("bank_card") BankCard("bank_card"),
+  @SerialName("bank_transfer") BankTransfer("bank_transfer"),
+  @SerialName("mixed") Mixed("mixed"),
+  @SerialName("other") Other("other")
+}
+
+@Serializable
+data class LifeRecordResultDtoRecordMoneyEntry(
+  @SerialName("id") val id: String,
+  @SerialName("record_id") val recordId: String,
+  @SerialName("entry_type") val entryType: LifeRecordResultDtoRecordMoneyEntryEntryType,
+  @SerialName("amount") val amount: String,
+  @SerialName("currency") val currency: String,
+  @SerialName("occurred_on") val occurredOn: String,
+  @SerialName("occurred_at") val occurredAt: String?,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("note") val note: String?,
+  @SerialName("category") val category: String?,
+  @SerialName("counterparty") val counterparty: String?,
+  @SerialName("source_id") val sourceId: String? = null,
+  @SerialName("payment_method") val paymentMethod: LifeRecordResultDtoRecordMoneyEntryPaymentMethod?,
+  @SerialName("source_scale") val sourceScale: Long,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+enum class LifeRecordResultDtoRecordMealsEntryMealType(val wireValue: String) {
+  @SerialName("breakfast") Breakfast("breakfast"),
+  @SerialName("lunch") Lunch("lunch"),
+  @SerialName("dinner") Dinner("dinner"),
+  @SerialName("snack") Snack("snack"),
+  @SerialName("other") Other("other")
+}
+
+@Serializable
+data class LifeRecordResultDtoRecordMealsEntryItemsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("meal_id") val mealId: String,
+  @SerialName("position") val position: Long,
+  @SerialName("name") val name: String,
+  @SerialName("food_ref_id") val foodRefId: String?,
+  @SerialName("free_text") val freeText: String?,
+  @SerialName("quantity") val quantity: String?,
+  @SerialName("unit") val unit: String?,
+  @SerialName("amount_g") val amountG: String?,
+  @SerialName("energy_kcal") val energyKcal: String?,
+  @SerialName("protein_g") val proteinG: String?,
+  @SerialName("fat_g") val fatG: String?,
+  @SerialName("carb_g") val carbG: String?,
+  @SerialName("fiber_g") val fiberG: String?,
+  @SerialName("sodium_mg") val sodiumMg: String?,
+  @SerialName("consumed_fraction") val consumedFraction: String?,
+  @SerialName("provenance") val provenance: String?,
+  @SerialName("grouping_origin") val groupingOrigin: String?,
+  @SerialName("estimate") val estimate: Boolean,
+  @SerialName("evidence_note") val evidenceNote: String?,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+data class LifeRecordResultDtoRecordMealsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("occurred_on") val occurredOn: String,
+  @SerialName("meal_type") val mealType: LifeRecordResultDtoRecordMealsEntryMealType,
+  @SerialName("revision") val revision: Long,
+  @SerialName("items") val items: List<LifeRecordResultDtoRecordMealsEntryItemsEntry>
+)
+
+@Serializable
+data class LifeRecordResultDtoRecordSourcesEntry(
+  @SerialName("id") val id: String,
+  @SerialName("kind") val kind: String,
+  @SerialName("external_id") val externalId: String?,
+  @SerialName("captured_on") val capturedOn: String?,
+  @SerialName("captured_at") val capturedAt: String?,
+  @SerialName("time_zone") val timeZone: String?,
+  @SerialName("original_text") val originalText: String?,
+  @SerialName("asset_version_id") val assetVersionId: String?,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+@SerialName("record")
+data class LifeRecordResultDtoRecord(
+  @SerialName("record_id") val recordId: String,
+  @SerialName("state") val state: LifeRecordResultDtoRecordState,
+  @SerialName("occurred_on") val occurredOn: String,
+  @SerialName("occurred_at") val occurredAt: String?,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("note") val note: String?,
+  @SerialName("revision") val revision: Long,
+  @SerialName("purchase") val purchase: LifeRecordResultDtoRecordPurchase? = null,
+  @SerialName("purchase_items") val purchaseItems: List<LifeRecordResultDtoRecordPurchaseItemsEntry>? = null,
+  @SerialName("money_entry") val moneyEntry: LifeRecordResultDtoRecordMoneyEntry? = null,
+  @SerialName("meals") val meals: List<LifeRecordResultDtoRecordMealsEntry>? = null,
+  @SerialName("sources") val sources: List<LifeRecordResultDtoRecordSourcesEntry>? = null
+): LifeRecordResultDto
+
+@Serializable
+enum class LifeRecordResultDtoMealMealType(val wireValue: String) {
+  @SerialName("breakfast") Breakfast("breakfast"),
+  @SerialName("lunch") Lunch("lunch"),
+  @SerialName("dinner") Dinner("dinner"),
+  @SerialName("snack") Snack("snack"),
+  @SerialName("other") Other("other")
+}
+
+@Serializable
+data class LifeRecordResultDtoMealItemsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("meal_id") val mealId: String,
+  @SerialName("position") val position: Long,
+  @SerialName("name") val name: String,
+  @SerialName("food_ref_id") val foodRefId: String?,
+  @SerialName("free_text") val freeText: String?,
+  @SerialName("quantity") val quantity: String?,
+  @SerialName("unit") val unit: String?,
+  @SerialName("amount_g") val amountG: String?,
+  @SerialName("energy_kcal") val energyKcal: String?,
+  @SerialName("protein_g") val proteinG: String?,
+  @SerialName("fat_g") val fatG: String?,
+  @SerialName("carb_g") val carbG: String?,
+  @SerialName("fiber_g") val fiberG: String?,
+  @SerialName("sodium_mg") val sodiumMg: String?,
+  @SerialName("consumed_fraction") val consumedFraction: String?,
+  @SerialName("provenance") val provenance: String?,
+  @SerialName("grouping_origin") val groupingOrigin: String?,
+  @SerialName("estimate") val estimate: Boolean,
+  @SerialName("evidence_note") val evidenceNote: String?,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+enum class LifeRecordResultDtoMealPaymentsEntryEntryType(val wireValue: String) {
+  @SerialName("expense") Expense("expense"),
+  @SerialName("income") Income("income"),
+  @SerialName("refund") Refund("refund")
+}
+
+@Serializable
+enum class LifeRecordResultDtoMealPaymentsEntryPaymentMethod(val wireValue: String) {
+  @SerialName("alipay") Alipay("alipay"),
+  @SerialName("wechat") Wechat("wechat"),
+  @SerialName("jd_pay") JdPay("jd_pay"),
+  @SerialName("jd_baitiao") JdBaitiao("jd_baitiao"),
+  @SerialName("huabei") Huabei("huabei"),
+  @SerialName("gift_card") GiftCard("gift_card"),
+  @SerialName("cash") Cash("cash"),
+  @SerialName("bank_card") BankCard("bank_card"),
+  @SerialName("bank_transfer") BankTransfer("bank_transfer"),
+  @SerialName("mixed") Mixed("mixed"),
+  @SerialName("other") Other("other")
+}
+
+@Serializable
+data class LifeRecordResultDtoMealPaymentsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("record_id") val recordId: String,
+  @SerialName("entry_type") val entryType: LifeRecordResultDtoMealPaymentsEntryEntryType,
+  @SerialName("amount") val amount: String,
+  @SerialName("currency") val currency: String,
+  @SerialName("occurred_on") val occurredOn: String,
+  @SerialName("occurred_at") val occurredAt: String?,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("note") val note: String?,
+  @SerialName("category") val category: String?,
+  @SerialName("counterparty") val counterparty: String?,
+  @SerialName("source_id") val sourceId: String? = null,
+  @SerialName("payment_method") val paymentMethod: LifeRecordResultDtoMealPaymentsEntryPaymentMethod?,
+  @SerialName("source_scale") val sourceScale: Long,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+data class LifeRecordResultDtoMealSourcesEntry(
+  @SerialName("id") val id: String,
+  @SerialName("kind") val kind: String,
+  @SerialName("external_id") val externalId: String?,
+  @SerialName("captured_on") val capturedOn: String?,
+  @SerialName("captured_at") val capturedAt: String?,
+  @SerialName("time_zone") val timeZone: String?,
+  @SerialName("original_text") val originalText: String?,
+  @SerialName("asset_version_id") val assetVersionId: String?,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+@SerialName("meal")
+data class LifeRecordResultDtoMeal(
+  @SerialName("meal_id") val mealId: String,
+  @SerialName("occurred_on") val occurredOn: String? = null,
+  @SerialName("occurred_at") val occurredAt: String? = null,
+  @SerialName("time_zone") val timeZone: String? = null,
+  @SerialName("meal_type") val mealType: LifeRecordResultDtoMealMealType? = null,
+  @SerialName("note") val note: String? = null,
+  @SerialName("revision") val revision: Long? = null,
+  @SerialName("items") val items: List<LifeRecordResultDtoMealItemsEntry>? = null,
+  @SerialName("payments") val payments: List<LifeRecordResultDtoMealPaymentsEntry>? = null,
+  @SerialName("sources") val sources: List<LifeRecordResultDtoMealSourcesEntry>? = null
+): LifeRecordResultDto

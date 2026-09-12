@@ -239,6 +239,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     val path=when(domain){LifeDomain.Meals->"/api/life/records/$id";LifeDomain.Health->"/api/health/records/$id";LifeDomain.Travel->"/api/travel/trips/$id";LifeDomain.Library->"/api/library/items/$id";LifeDomain.Money->"/api/life/records/$id?sections=money"}
     if(domain==LifeDomain.Library)return libraryDetail(wireJson.decodeFromString(getText(path)))
     if(domain==LifeDomain.Travel)return travelDetail(wireJson.decodeFromString(getText(path)))
+    if(domain==LifeDomain.Meals||domain==LifeDomain.Money)return lifeRecordDetail(domain,wireJson.decodeFromString(getText(path)))
     return detailFrom(domain,get(path))
   }
 
@@ -340,6 +341,34 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       trip.title,value.myRuns.firstOrNull()?.state?.wireValue,trip.revision.toInt(),sections,
       EditSeed.Trip(trip.id,trip.revision.toInt(),trip.title,trip.startsOn,trip.endsOn,trip.timeZone,trip.note)
     )
+  }
+
+  private fun lifeRecordDetail(domain:LifeDomain,value:LifeRecordResultDto):RecordDetail=when(value){
+    is LifeRecordResultDtoMeal->{
+      val items=value.items.orEmpty();val payments=value.payments.orEmpty();val sources=value.sources.orEmpty()
+      val title=items.map{it.name}.filter(String::isNotBlank).joinToString("、").ifBlank{mealTypeLabel(value.mealType?.wireValue?:"other")}
+      val sections=mutableListOf(
+        DetailSection("概要",listOfNotNull(value.mealType?.let{DetailFact("餐次",mealTypeLabel(it.wireValue))},value.occurredOn?.let{DetailFact("日期",it)},value.timeZone?.let{DetailFact("时区",it)},value.note?.let{DetailFact("备注",it)}))
+      )
+      if(items.isNotEmpty())sections+=DetailSection("食物",items.take(50).flatMap{item->listOfNotNull(DetailFact(item.name,listOfNotNull(item.quantity?.let{amount->listOfNotNull(amount,item.unit).joinToString(" ")},item.energyKcal?.let{"$it kcal"}).joinToString(" · ").ifBlank{"已记录"}),item.evidenceNote?.let{DetailFact("依据",it)})},items.size)
+      if(payments.isNotEmpty())sections+=DetailSection("关联付款",payments.take(20).map{payment->DetailFact(payment.counterparty?:payment.category?:payment.entryType.wireValue,"${payment.currency} ${payment.amount}")},payments.size)
+      if(sources.isNotEmpty())sections+=DetailSection("来源",sources.take(20).map{source->DetailFact(source.kind,source.capturedAt?:source.capturedOn?:source.externalId?:"已收存")},sources.size)
+      val revision=value.revision;val occurredOn=value.occurredOn;val timeZone=value.timeZone;val mealType=value.mealType
+      val seed=if(revision!=null&&occurredOn!=null&&timeZone!=null&&mealType!=null)EditSeed.Meal(value.mealId,revision.toInt(),occurredOn,timeZone,mealType.wireValue,value.note) else null
+      RecordDetail(title,null,value.revision?.toInt(),sections,seed)
+    }
+    is LifeRecordResultDtoRecord->{
+      val entry=value.moneyEntry;val purchase=value.purchase;val meals=value.meals.orEmpty();val items=value.purchaseItems.orEmpty();val sources=value.sources.orEmpty()
+      val title=when(domain){LifeDomain.Money->entry?.counterparty?:entry?.category?:"收支详情";else->purchase?.merchant?:meals.firstOrNull()?.items?.joinToString("、"){it.name}?.takeIf(String::isNotBlank)?:"消费详情"}
+      val sections=mutableListOf(DetailSection("概要",listOfNotNull(DetailFact("状态",value.state.wireValue),DetailFact("日期",value.occurredOn),DetailFact("时区",value.timeZone),value.note?.let{DetailFact("备注",it)})))
+      entry?.let{sections+=DetailSection("金额",listOfNotNull(DetailFact("金额","${it.currency} ${it.amount}"),DetailFact("类型",it.entryType.wireValue),it.counterparty?.let{item->DetailFact("交易方",item)},it.category?.let{item->DetailFact("分类",item)},it.paymentMethod?.let{item->DetailFact("支付方式",item.wireValue)}))}
+      purchase?.let{sections+=DetailSection("消费",listOfNotNull(it.merchant?.let{item->DetailFact("商家",item)},it.amount?.let{amount->DetailFact("金额","${it.currency} $amount")},it.scene?.let{item->DetailFact("场景",item)},it.channelNameRaw?.let{item->DetailFact("渠道",item)},it.rating?.let{item->DetailFact("评分","$item/5")}))}
+      if(items.isNotEmpty())sections+=DetailSection("购买明细",items.take(50).map{item->DetailFact(item.rawName,listOfNotNull(item.quantity?.let{amount->listOfNotNull(amount,item.unit).joinToString(" ")},item.lineAmount?.let{"金额 $it"}).joinToString(" · ").ifBlank{"已记录"})},items.size)
+      if(meals.isNotEmpty())sections+=DetailSection("关联餐次",meals.take(20).map{meal->DetailFact(mealTypeLabel(meal.mealType.wireValue),"${meal.occurredOn} · ${meal.items.joinToString("、"){it.name}}")},meals.size)
+      if(sources.isNotEmpty())sections+=DetailSection("来源",sources.take(20).map{source->DetailFact(source.kind,source.capturedAt?:source.capturedOn?:source.externalId?:"已收存")},sources.size)
+      val seed=entry?.let{EditSeed.Money(value.recordId,value.revision.toInt(),it.amount,it.currency,it.occurredOn,it.timeZone,it.category,it.counterparty,it.note?:value.note)}
+      RecordDetail(title,value.state.wireValue,value.revision.toInt(),sections,seed)
+    }
   }
 
   private fun detailFrom(domain:LifeDomain,json:JSONObject):RecordDetail {

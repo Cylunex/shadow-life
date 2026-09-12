@@ -1,4 +1,4 @@
-import { domainRecordsResultSchema, foodCatalogInputSchema, foodCatalogResultSchema, healthSourcesResultSchema, healthTrendResultSchema, lifeSearchInputSchema, lifeSearchResultSchema, lifeTimelineInputSchema, lifeTimelineResultSchema, lifeTodayInputSchema, lifeTodayResultSchema, listMealsInputSchema, listMealsResultSchema, moneyImportReviewResultSchema, moneySummarySchema, travelExportInputSchema, travelExportResultSchema, travelTripResultSchema, travelWorkspaceInputSchema, travelWorkspaceResultSchema, type DomainRecordSummary, type LifeOverviewDomain, type MoneySummary } from "@shadow/contracts";
+import { domainRecordsResultSchema, foodCatalogInputSchema, foodCatalogResultSchema, healthSourcesResultSchema, healthTrendResultSchema, lifeRecordResultSchema, lifeSearchInputSchema, lifeSearchResultSchema, lifeTimelineInputSchema, lifeTimelineResultSchema, lifeTodayInputSchema, lifeTodayResultSchema, listMealsInputSchema, listMealsResultSchema, moneyImportReviewResultSchema, moneySummarySchema, travelExportInputSchema, travelExportResultSchema, travelTripResultSchema, travelWorkspaceInputSchema, travelWorkspaceResultSchema, type DomainRecordSummary, type LifeOverviewDomain, type MoneySummary } from "@shadow/contracts";
 import { previewTravelPortableInputSchema, previewTravelPortableResultSchema, travelBundleSchema } from "@shadow/contracts";
 import { libraryItemResultSchema, libraryProcessingQueueInputSchema, libraryProcessingQueueResultSchema } from "@shadow/contracts";
 import { agentContextPackInputSchema, agentContextPackResultSchema, agentMemoriesInputSchema, agentMemoriesResultSchema, notificationsInputSchema, notificationsResultSchema } from "@shadow/contracts";
@@ -18,6 +18,33 @@ type NotificationCursor={at:string;id:string;as_of:string};
 type MealCursor={on:string;at:string;id:string;as_of:string};
 const overviewEffects:Record<LifeOverviewDomain,string>={meals:"life.meal.read",money:"money.entry.read",health:"health.measurement.read",travel:"travel.trip.read",library:"library.item.read"};
 function objectEffect(kind:string):string{return kind==="meal"||kind==="purchase"?"life.meal.read":kind==="money_entry"?"money.entry.read":kind==="health_measurement"||kind==="health_workout"?"health.measurement.read":kind==="trip"?"travel.trip.read":"library.item.read";}
+function lifeRecordWire(raw:unknown):unknown{
+  const value=JSON.parse(JSON.stringify(raw)) as Record<string,unknown>;
+  const object=(item:unknown):Record<string,unknown>=>item!==null&&typeof item==="object"&&!Array.isArray(item)?item as Record<string,unknown>:{};
+  const rows=(item:unknown):Record<string,unknown>[]=>Array.isArray(item)?item.map(object):[];
+  const pick=(item:Record<string,unknown>,keys:readonly string[])=>Object.fromEntries(keys.filter(key=>key in item).map(key=>[key,item[key]]));
+  const times=(item:Record<string,unknown>,keys:readonly string[])=>{const result={...item};for(const key of keys)if(result[key]!==null&&result[key]!==undefined)result[key]=new Date(String(result[key])).toISOString();return result;};
+  const intakeKeys=["id","meal_id","position","name","food_ref_id","free_text","quantity","unit","amount_g","energy_kcal","protein_g","fat_g","carb_g","fiber_g","sodium_mg","consumed_fraction","provenance","grouping_origin","estimate","evidence_note","revision"] as const;
+  const moneyKeys=["id","record_id","entry_type","amount","currency","occurred_on","occurred_at","time_zone","note","category","counterparty","source_id","payment_method","source_scale","revision"] as const;
+  const sourceKeys=["id","kind","external_id","captured_on","captured_at","time_zone","original_text","asset_version_id","revision"] as const;
+  const money=(item:Record<string,unknown>)=>times(pick(item,moneyKeys),["occurred_at"]);
+  const sources=(item:unknown)=>rows(item).map(row=>times(pick(row,sourceKeys),["captured_at"]));
+  const intakes=(item:unknown)=>rows(item).map(row=>pick(row,intakeKeys));
+  if("meal_id" in value){
+    const result:Record<string,unknown>={kind:"meal",...times(pick(value,["meal_id","occurred_on","occurred_at","time_zone","meal_type","note","revision"]),["occurred_at"])};
+    if("items" in value)result.items=intakes(value.items);
+    if("payments" in value)result.payments=rows(value.payments).map(money);
+    if("sources" in value)result.sources=sources(value.sources);
+    return result;
+  }
+  const result:Record<string,unknown>={kind:"record",...times(pick(value,["record_id","state","occurred_on","occurred_at","time_zone","note","revision"]),["occurred_at"])};
+  if("purchase" in value)result.purchase=value.purchase===null?null:times(pick(object(value.purchase),["id","record_id","merchant","amount","currency","category","occurred_on","occurred_at","time_zone","note","source_id","scene","channel_name_raw","place_ref","rating","would_repeat","revision"]),["occurred_at"]);
+  if("purchase_items" in value)result.purchase_items=rows(value.purchase_items).map(row=>pick(row,["id","purchase_id","position","raw_name","quantity","unit_price","unit","line_amount","category_key"]));
+  if("money_entry" in value)result.money_entry=value.money_entry===null?null:money(object(value.money_entry));
+  if("meals" in value)result.meals=rows(value.meals).map(row=>({...pick(row,["id","occurred_on","meal_type","revision"]),items:intakes(row.items)}));
+  if("sources" in value)result.sources=sources(value.sources);
+  return result;
+}
 function travelTripWire(raw:unknown):unknown{
   const value=JSON.parse(JSON.stringify(raw)) as Record<string,unknown>;
   const object=(item:unknown):Record<string,unknown>=>item!==null&&typeof item==="object"&&!Array.isArray(item)?item as Record<string,unknown>:{};
@@ -82,7 +109,7 @@ export class QueryService {
     if(!sections.length)throw permissionDenied("life.meal.read");
     if(sections.some(section=>section!=="money")&&!context.effects.has("life.meal.read"))throw permissionDenied("life.meal.read");
     if(sections.includes("money")&&!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");
-    const value=await this.unitOfWork.read(store=>store.lifeRecord(context.subjectId,id,sections));if(value===undefined)throw notFound("life record was not found");return value;
+    const value=await this.unitOfWork.read(store=>store.lifeRecord(context.subjectId,id,sections));if(value===undefined)throw notFound("life record was not found");return lifeRecordResultSchema.parse(lifeRecordWire(value));
   }
   async moneyPlanning(context:RequestContext,period:string){if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");if(!/^(?:0{3}[1-9]|0{2}[1-9]\d|0[1-9]\d{2}|[1-9]\d{3})-(0[1-9]|1[0-2])$/u.test(period))throw invalidInput("period must be a valid YYYY-MM",["period"]);return moneyPlanningResultSchema.parse(await this.unitOfWork.read(store=>store.moneyPlanning(context.subjectId,period)));}
   async moneyImportReview(context:RequestContext,batchId:string){if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");const value=await this.unitOfWork.read(store=>store.moneyImportReview(context.subjectId,batchId));if(value===undefined)throw notFound("money import batch was not found");return moneyImportReviewResultSchema.parse(value);}
