@@ -96,6 +96,55 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     return RecordPage(json.getJSONArray("items").objects().map{toSummary(domain,it)},json.optNullableString("next_cursor"),json.getString("as_of"))
   }
 
+  suspend fun workspaceOverview(domain:LifeDomain):WorkspaceOverview=when(domain){
+    LifeDomain.Meals->{
+      val json=get("/api/life/meal-planning?limit=20")
+      val lists=json.optJSONArray("shopping_lists").objects()
+      WorkspaceOverview.Meals(
+        mealPlans=json.optJSONArray("meal_plans")?.length()?:0,
+        shoppingLists=lists.size,
+        openShoppingItems=lists.sumOf{list->list.optJSONArray("items").objects().count{it.optString("state") !in setOf("purchased","completed","removed")}},
+        asOf=json.optString("as_of")
+      )
+    }
+    LifeDomain.Money->{
+      val period=LocalDate.now().toString().take(7)
+      val json=get("/api/money/planning?period=$period")
+      WorkspaceOverview.Money(
+        period=period,
+        budgets=json.optJSONArray("budgets").objects().map{BudgetProgress(it.optNullableString("category")?:"全部消费",it.optString("amount"),it.optString("currency"),it.optString("spent","0"))},
+        recurringPlans=json.optJSONArray("recurring_plans")?.length()?:0,
+        openOccurrences=json.optJSONArray("occurrences").objects().count{it.optString("state") in setOf("pending","reminded","snoozed","open")},
+        spendingIntents=json.optJSONArray("spending_intents").objects().count{it.optString("state")=="planned"},
+        asOf=json.optString("as_of")
+      )
+    }
+    LifeDomain.Health->{
+      val json=get("/api/health/sources")
+      val items=json.optJSONArray("items").objects()
+      WorkspaceOverview.Health(
+        sources=items.size,
+        sourcesNeedingAttention=items.count{it.optString("permission_state")!="granted"||it.optJSONArray("cursors").objects().any{cursor->cursor.optString("state")!="active"}},
+        streams=items.sumOf{it.optJSONArray("cursors")?.length()?:0},
+        asOf=json.optString("as_of")
+      )
+    }
+    LifeDomain.Travel->{
+      val json=get("/api/travel/workspace")
+      WorkspaceOverview.Travel(
+        trips=json.optJSONArray("trips")?.length()?:0,
+        places=json.optJSONArray("places")?.length()?:0,
+        maps=json.optJSONArray("maps")?.length()?:0,
+        activeRun=json.has("active_run")&&!json.isNull("active_run"),
+        asOf=json.optString("as_of")
+      )
+    }
+    LifeDomain.Library->{
+      val json=get("/api/library?limit=30")
+      WorkspaceOverview.Library(json.optJSONArray("items")?.length()?:0,json.optString("as_of"))
+    }
+  }
+
   suspend fun projects():List<PlanSummary>{
     val json=get("/api/life/projects?limit=50")
     return json.getJSONArray("items").objects().map{item->PlanSummary(item.getString("id"),item.getString("title"),item.optNullableString("goal"),item.optString("state","active"),item.optNullableString("ends_on"),item.optInt("revision",1),item.optJSONArray("actions")?.length()?:0)}

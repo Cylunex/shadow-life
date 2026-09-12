@@ -58,6 +58,14 @@ data class TimelineItem(val domain:LifeDomain,val kind:String,val id:String,val 
 data class TimelinePage(val items:List<TimelineItem>,val nextCursor:String?,val asOf:String)
 data class RecordSummary(val domain:LifeDomain,val kind:String,val id:String,val title:String,val supporting:String?,val trailing:String?,val revision:Int?,val detailId:String?=null)
 data class RecordPage(val items:List<RecordSummary>,val nextCursor:String?,val asOf:String)
+sealed interface WorkspaceOverview { val asOf:String
+  data class Meals(val mealPlans:Int,val shoppingLists:Int,val openShoppingItems:Int,override val asOf:String):WorkspaceOverview
+  data class Money(val period:String,val budgets:List<BudgetProgress>,val recurringPlans:Int,val openOccurrences:Int,val spendingIntents:Int,override val asOf:String):WorkspaceOverview
+  data class Health(val sources:Int,val sourcesNeedingAttention:Int,val streams:Int,override val asOf:String):WorkspaceOverview
+  data class Travel(val trips:Int,val places:Int,val maps:Int,val activeRun:Boolean,override val asOf:String):WorkspaceOverview
+  data class Library(val visibleItems:Int,override val asOf:String):WorkspaceOverview
+}
+data class BudgetProgress(val title:String,val amount:String,val currency:String,val spent:String)
 data class PlanSummary(val id:String,val title:String,val goal:String?,val state:String,val dueOn:String?,val revision:Int,val actions:Int)
 data class LibrarySummary(val id:String,val title:String,val itemType:String,val state:String?,val revision:Int?)
 data class DetailFact(val label:String,val value:String)

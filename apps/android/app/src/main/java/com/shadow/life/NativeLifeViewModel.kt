@@ -18,6 +18,7 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
   var plans:LoadState<List<PlanSummary>> by androidx.compose.runtime.mutableStateOf(LoadState.Loading);private set
   var library:LoadState<List<LibrarySummary>> by androidx.compose.runtime.mutableStateOf(LoadState.Loading);private set
   var workspace:LoadState<RecordPage> by androidx.compose.runtime.mutableStateOf(LoadState.Loading);private set
+  var workspaceOverview:LoadState<WorkspaceOverview> by androidx.compose.runtime.mutableStateOf(LoadState.Loading);private set
   var detail:LoadState<RecordDetail> by androidx.compose.runtime.mutableStateOf(LoadState.Loading);private set
   var workspaceDomain:LifeDomain?=null;private set
   var submit:SubmitState by androidx.compose.runtime.mutableStateOf(SubmitState.Editing);private set
@@ -30,12 +31,14 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
   private var activeSearchQuery:String=""
   private var workspaceQuery:String=""
   private var queueJob:Job?=null
+  private var workspaceJob:Job?=null
+  private var workspaceOverviewJob:Job?=null
 
   fun refreshAll(){
     refreshToday();refreshTimeline();refreshPlans();refreshLibrary()
   }
-  fun activateAccount(accountId:String){if(activeAccountId==accountId)return;activeAccountId=accountId;assistantThreadId=null;assistant=null;searchResults=null;workspaceDomain=null;workspace=LoadState.Loading;detail=LoadState.Loading;submit=SubmitState.Editing;observeQueue();refreshAll();refreshProjectLinks()}
-  fun deactivateAccount(){queueJob?.cancel();queueJob=null;activeAccountId=null;assistantThreadId=null;assistant=null;searchResults=null;workspaceDomain=null;today=LoadState.Loading;timeline=LoadState.Loading;plans=LoadState.Loading;library=LoadState.Loading;workspace=LoadState.Loading;detail=LoadState.Loading;projectLinks=LoadState.Loading;queueStatus=LoadState.Loading;submit=SubmitState.Editing}
+  fun activateAccount(accountId:String){if(activeAccountId==accountId)return;activeAccountId=accountId;assistantThreadId=null;assistant=null;searchResults=null;workspaceDomain=null;workspace=LoadState.Loading;workspaceOverview=LoadState.Loading;detail=LoadState.Loading;submit=SubmitState.Editing;observeQueue();refreshAll();refreshProjectLinks()}
+  fun deactivateAccount(){queueJob?.cancel();workspaceJob?.cancel();workspaceOverviewJob?.cancel();queueJob=null;workspaceJob=null;workspaceOverviewJob=null;activeAccountId=null;assistantThreadId=null;assistant=null;searchResults=null;workspaceDomain=null;today=LoadState.Loading;timeline=LoadState.Loading;plans=LoadState.Loading;library=LoadState.Loading;workspace=LoadState.Loading;workspaceOverview=LoadState.Loading;detail=LoadState.Loading;projectLinks=LoadState.Loading;queueStatus=LoadState.Loading;submit=SubmitState.Editing}
   fun refreshToday(date:LocalDate=LocalDate.now()){today=LoadState.Loading;viewModelScope.launch{today=load("今天还没有记录"){repository.today(date)}}}
   fun refreshTimeline(){timeline=LoadState.Loading;viewModelScope.launch{timeline=load("还没有生活记录"){repository.timeline()}}}
   fun loadMoreTimeline(){val current=(timeline as? LoadState.Ready)?.value?:return;val cursor=current.nextCursor?:return;viewModelScope.launch{when(val next=load("没有更多记录"){repository.timeline(cursor)}){is LoadState.Ready->timeline=LoadState.Ready(current.copy(items=current.items+next.value.items,nextCursor=next.value.nextCursor,asOf=current.asOf));is LoadState.Failed->timeline=next;else->Unit}}}
@@ -48,7 +51,7 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
   fun askLife(message:String){if(message.isBlank())return;assistant=LoadState.Loading;viewModelScope.launch{assistant=load("Life 没有返回内容"){repository.assist(message,assistantThreadId).also{assistantThreadId=it.threadId}}}}
   fun clearAssistant(){assistant=null}
   fun importShare(payload:SharePayload,onAccepted:()->Unit){if(shareImport is LoadState.Loading)return;shareImport=LoadState.Loading;viewModelScope.launch{try{val count=repository.enqueueShare(payload);shareImport=LoadState.Ready(count);onAccepted();refreshLibrary()}catch(error:CancellationException){throw error}catch(error:Exception){shareImport=LoadState.Failed(error.message?:"无法收存分享")}}}
-  fun loadWorkspace(domain:LifeDomain,query:String=""){workspaceDomain=domain;workspaceQuery=query.trim();workspace=LoadState.Loading;viewModelScope.launch{workspace=load("没有符合条件的记录"){repository.records(domain,query=workspaceQuery)}}}
+  fun loadWorkspace(domain:LifeDomain,query:String=""){workspaceDomain=domain;workspaceQuery=query.trim();workspace=LoadState.Loading;workspaceJob?.cancel();workspaceJob=viewModelScope.launch{val result=load("没有符合条件的记录"){repository.records(domain,query=workspaceQuery)};if(workspaceDomain==domain)workspace=result};if(query.isBlank()){workspaceOverview=LoadState.Loading;workspaceOverviewJob?.cancel();workspaceOverviewJob=viewModelScope.launch{val result=load("暂无工作台摘要"){repository.workspaceOverview(domain)};if(workspaceDomain==domain)workspaceOverview=result}}}
   fun loadMoreWorkspace(){val domain=workspaceDomain?:return;val current=(workspace as? LoadState.Ready)?.value?:return;val cursor=current.nextCursor?:return;viewModelScope.launch{when(val next=load("没有更多记录"){repository.records(domain,workspaceQuery,cursor)}){is LoadState.Ready->workspace=LoadState.Ready(current.copy(items=current.items+next.value.items,nextCursor=next.value.nextCursor,asOf=current.asOf));is LoadState.Failed->workspace=next;else->Unit}}}
   fun loadDetail(domain:LifeDomain,id:String){detail=LoadState.Loading;viewModelScope.launch{detail=load("对象不可用"){repository.detail(domain,id)}}}
   fun submit(draft:CaptureDraft,onSaved:(OperationReceipt)->Unit={}){

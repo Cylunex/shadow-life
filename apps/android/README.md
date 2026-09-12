@@ -26,6 +26,8 @@ receipt is known.
 Settings exposes account-scoped pending, reconciling, failed, completed and encrypted-attachment counts. Retry
 keeps the original command identities; clearing terminal rows requires an inline destructive confirmation and
 never removes pending or unknown-outcome work.
+Health, money, travel, meal and library entries open native domain workspaces with their own source, planning,
+trip, shopping or content summary while retaining server-side search, pagination and typed detail navigation.
 
 Android `ACTION_SEND` and `ACTION_SEND_MULTIPLE` enter an account-assignment confirmation before any business
 write. Shared text is captured with a stable command identity. Every shared attachment is copied immediately

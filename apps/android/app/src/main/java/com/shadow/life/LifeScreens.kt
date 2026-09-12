@@ -98,14 +98,29 @@ import java.util.Locale
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun WorkspaceScreen(domain:LifeDomain,state:LoadState<RecordPage>,onSearch:(String)->Unit,onRetry:()->Unit,onLoadMore:()->Unit,onBack:()->Unit,onDetail:(LifeDomain,String,String)->Unit){
+@Composable fun WorkspaceScreen(domain:LifeDomain,overviewState:LoadState<WorkspaceOverview>,state:LoadState<RecordPage>,onSearch:(String)->Unit,onRetry:()->Unit,onLoadMore:()->Unit,onBack:()->Unit,onDetail:(LifeDomain,String,String)->Unit){
   var query by rememberSaveable{mutableStateOf("")}
   Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text(domain.label())},navigationIcon={IconButton(onClick=onBack){Text("‹",style=MaterialTheme.typography.headlineLarge)}})}){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(horizontal=20.dp,vertical=12.dp)){
-    item{OutlinedTextField(query,{query=it},Modifier.fillMaxWidth(),singleLine=true,label={Text("在${domain.label()}中搜索")},trailingIcon={IconButton(onClick={onSearch(query)}){Icon(Icons.Default.Search,"搜索")}});Spacer(Modifier.height(12.dp))}
+    item{WorkspaceOverviewContent(overviewState,onRetry);Spacer(Modifier.height(18.dp));OutlinedTextField(query,{query=it},Modifier.fillMaxWidth(),singleLine=true,label={Text("在${domain.label()}中搜索")},trailingIcon={IconButton(onClick={onSearch(query)}){Icon(Icons.Default.Search,"搜索")}});Spacer(Modifier.height(12.dp))}
     item{StateContent(state,onRetry){}}
     if(state is LoadState.Ready)items(state.value.items,key={it.id}){item->RecordRow(item){onDetail(domain,item.detailId?:item.id,item.title)};HorizontalDivider(color=MaterialTheme.colorScheme.outline.copy(alpha=.45f))}
     if(state is LoadState.Ready&&state.value.nextCursor!=null)item{TextButton(onClick=onLoadMore,Modifier.fillMaxWidth()){Text("加载更多")}}
   }}
+}
+
+@Composable private fun WorkspaceOverviewContent(state:LoadState<WorkspaceOverview>,onRetry:()->Unit){
+  when(state){
+    LoadState.Loading->LinearProgressIndicator(Modifier.fillMaxWidth())
+    is LoadState.Empty->Text(state.reason,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    is LoadState.Failed->SectionError(state.message,onRetry)
+    is LoadState.Ready->when(val value=state.value){
+      is WorkspaceOverview.Health->LifeSection("来源状态"){LifeCard{Text("${value.sources} 个来源 · ${value.streams} 条同步流",style=MaterialTheme.typography.titleLarge);Text(if(value.sourcesNeedingAttention==0)"来源与游标状态正常" else "${value.sourcesNeedingAttention} 个来源需要处理",color=if(value.sourcesNeedingAttention==0)MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error)}}
+      is WorkspaceOverview.Money->LifeSection("${value.period} 规划"){LifeCard{Text("${value.budgets.size} 项预算 · ${value.openOccurrences} 个待办",style=MaterialTheme.typography.titleLarge);Text("${value.recurringPlans} 个周期计划 · ${value.spendingIntents} 个消费意向",color=MaterialTheme.colorScheme.onSurfaceVariant);value.budgets.take(3).forEach{budget->Row(Modifier.fillMaxWidth()){Text(budget.title,Modifier.weight(1f));Text("${budget.currency} ${budget.spent} / ${budget.amount}")}}}}
+      is WorkspaceOverview.Travel->LifeSection("旅行空间"){LifeCard{Text("${value.trips} 段旅程 · ${value.places} 个地点",style=MaterialTheme.typography.titleLarge);Text("${value.maps} 张主题地图${if(value.activeRun)" · 正在旅途中" else ""}",color=if(value.activeRun)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)}}
+      is WorkspaceOverview.Meals->LifeSection("餐单与采购"){LifeCard{Text("${value.mealPlans} 份餐单 · ${value.shoppingLists} 张购物清单",style=MaterialTheme.typography.titleLarge);Text(if(value.openShoppingItems==0)"没有待采购食材" else "${value.openShoppingItems} 项待采购",color=MaterialTheme.colorScheme.onSurfaceVariant)}}
+      is WorkspaceOverview.Library->LifeSection("资料概览"){LifeCard{Text("当前载入 ${value.visibleItems} 份资料",style=MaterialTheme.typography.titleLarge);Text("原件、正文与处理状态在详情中分别呈现",color=MaterialTheme.colorScheme.onSurfaceVariant)}}
+    }
+  }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
