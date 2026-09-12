@@ -152,13 +152,13 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       )
     }
     LifeDomain.Travel->{
-      val json=get("/api/travel/workspace")
+      val result=wireJson.decodeFromString<TravelWorkspaceResultDto>(getText("/api/travel/workspace"))
       WorkspaceOverview.Travel(
-        trips=json.optJSONArray("trips")?.length()?:0,
-        places=json.optJSONArray("places")?.length()?:0,
-        maps=json.optJSONArray("maps")?.length()?:0,
-        activeRun=json.has("active_run")&&!json.isNull("active_run"),
-        asOf=json.optString("as_of")
+        trips=result.trips.size,
+        places=result.places.size,
+        maps=result.maps.size,
+        activeRun=result.activeRun!=null,
+        asOf=result.asOf
       )
     }
     LifeDomain.Library->{

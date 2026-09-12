@@ -1069,3 +1069,211 @@ data class ForeignEntriesResultDto(
   @SerialName("items") val items: List<ForeignEntriesResultDtoItemsEntry>,
   @SerialName("as_of") val asOf: String
 )
+
+@Serializable
+data class TravelWorkspaceResultDtoPlacesEntry(
+  @SerialName("id") val id: String,
+  @SerialName("name") val name: String,
+  @SerialName("address") val address: String?,
+  @SerialName("latitude") val latitude: String?,
+  @SerialName("longitude") val longitude: String?,
+  @SerialName("tags") val tags: List<String>,
+  @SerialName("favorite") val favorite: Boolean,
+  @SerialName("revision") val revision: Long,
+  @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+enum class TravelWorkspaceResultDtoMapsEntryState(val wireValue: String) {
+  @SerialName("active") Active("active"),
+  @SerialName("archived") Archived("archived")
+}
+
+@Serializable
+enum class TravelWorkspaceResultDtoMapsEntryItemsEntryStatus(val wireValue: String) {
+  @SerialName("candidate") Candidate("candidate"),
+  @SerialName("anchor") Anchor("anchor"),
+  @SerialName("planned") Planned("planned"),
+  @SerialName("visited") Visited("visited")
+}
+
+@Serializable
+data class TravelWorkspaceResultDtoMapsEntryItemsEntry(
+  @SerialName("place_id") val placeId: String,
+  @SerialName("position") val position: Long,
+  @SerialName("status") val status: TravelWorkspaceResultDtoMapsEntryItemsEntryStatus,
+  @SerialName("note") val note: String?
+)
+
+@Serializable
+data class TravelWorkspaceResultDtoMapsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("title") val title: String,
+  @SerialName("description") val description: String?,
+  @SerialName("state") val state: TravelWorkspaceResultDtoMapsEntryState,
+  @SerialName("revision") val revision: Long,
+  @SerialName("updated_at") val updatedAt: String,
+  @SerialName("items") val items: List<TravelWorkspaceResultDtoMapsEntryItemsEntry>
+)
+
+@Serializable
+enum class TravelWorkspaceResultDtoTripsEntryRole(val wireValue: String) {
+  @SerialName("owner") Owner("owner"),
+  @SerialName("editor") Editor("editor"),
+  @SerialName("viewer") Viewer("viewer")
+}
+
+@Serializable
+enum class TravelWorkspaceResultDtoTripsEntryVisibility(val wireValue: String) {
+  @SerialName("shared") Shared("shared"),
+  @SerialName("private") Private("private")
+}
+
+@Serializable
+data class TravelWorkspaceResultDtoTripsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("title") val title: String,
+  @SerialName("starts_on") val startsOn: String,
+  @SerialName("ends_on") val endsOn: String,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("is_owner") val isOwner: Boolean,
+  @SerialName("role") val role: TravelWorkspaceResultDtoTripsEntryRole?,
+  @SerialName("visibility") val visibility: TravelWorkspaceResultDtoTripsEntryVisibility?,
+  @SerialName("latest_plan_version_id") val latestPlanVersionId: String?
+)
+
+@Serializable
+data class TravelWorkspaceResultDtoActiveRunPlanSnapshotDaysEntryItemsEntry(
+  @SerialName("stop_id") val stopId: String,
+  @SerialName("title") val title: String,
+  @SerialName("starts_at") val startsAt: String? = null,
+  @SerialName("place_id") val placeId: String? = null,
+  @SerialName("note") val note: String? = null
+)
+
+@Serializable
+data class TravelWorkspaceResultDtoActiveRunPlanSnapshotDaysEntry(
+  @SerialName("plan_date") val planDate: String,
+  @SerialName("items") val items: List<TravelWorkspaceResultDtoActiveRunPlanSnapshotDaysEntryItemsEntry>
+)
+
+@Serializable
+data class TravelWorkspaceResultDtoActiveRunPlanSnapshot(
+  @SerialName("days") val days: List<TravelWorkspaceResultDtoActiveRunPlanSnapshotDaysEntry>,
+  @SerialName("stop_count") val stopCount: Long
+)
+
+@Serializable
+enum class TravelWorkspaceResultDtoActiveRunOutcomesEntryState(val wireValue: String) {
+  @SerialName("arrived") Arrived("arrived"),
+  @SerialName("skipped") Skipped("skipped")
+}
+
+@Serializable
+data class TravelWorkspaceResultDtoActiveRunOutcomesEntry(
+  @SerialName("stop_id") val stopId: String,
+  @SerialName("state") val state: TravelWorkspaceResultDtoActiveRunOutcomesEntryState,
+  @SerialName("occurred_at") val occurredAt: String?,
+  @SerialName("note") val note: String?,
+  @SerialName("revision") val revision: Long,
+  @SerialName("updated_at") val updatedAt: String
+)
+
+@Serializable
+data class TravelWorkspaceResultDtoActiveRun(
+  @SerialName("id") val id: String,
+  @SerialName("trip_id") val tripId: String,
+  @SerialName("plan_version_id") val planVersionId: String,
+  @SerialName("state") val state: String,
+  @SerialName("started_at") val startedAt: String,
+  @SerialName("completed_at") val completedAt: String?,
+  @SerialName("plan_snapshot") val planSnapshot: TravelWorkspaceResultDtoActiveRunPlanSnapshot,
+  @SerialName("plan_version") val planVersion: Long,
+  @SerialName("outcomes") val outcomes: List<TravelWorkspaceResultDtoActiveRunOutcomesEntry>
+)
+
+@Serializable
+data class TravelWorkspaceResultDtoTracksEntryPointsEntry(
+  @SerialName("latitude") val latitude: Double,
+  @SerialName("longitude") val longitude: Double,
+  @SerialName("elevation_m") val elevationM: Double? = null,
+  @SerialName("recorded_at") val recordedAt: String? = null
+)
+
+@Serializable
+data class TravelWorkspaceResultDtoTracksEntry(
+  @SerialName("id") val id: String,
+  @SerialName("trip_id") val tripId: String,
+  @SerialName("name") val name: String,
+  @SerialName("points") val points: List<TravelWorkspaceResultDtoTracksEntryPointsEntry>,
+  @SerialName("original_sha256") val originalSha256: String,
+  @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+data class TravelWorkspaceResultDtoDayPlansEntryItemsEntry(
+  @SerialName("stop_id") val stopId: String,
+  @SerialName("title") val title: String,
+  @SerialName("starts_at") val startsAt: String? = null,
+  @SerialName("place_id") val placeId: String? = null,
+  @SerialName("note") val note: String? = null
+)
+
+@Serializable
+data class TravelWorkspaceResultDtoDayPlansEntry(
+  @SerialName("id") val id: String,
+  @SerialName("trip_id") val tripId: String,
+  @SerialName("plan_date") val planDate: String,
+  @SerialName("items") val items: List<TravelWorkspaceResultDtoDayPlansEntryItemsEntry>,
+  @SerialName("revision") val revision: Long,
+  @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+enum class TravelWorkspaceResultDtoSegmentsEntryMode(val wireValue: String) {
+  @SerialName("walk") Walk("walk"),
+  @SerialName("bike") Bike("bike"),
+  @SerialName("taxi") Taxi("taxi"),
+  @SerialName("car") Car("car"),
+  @SerialName("bus") Bus("bus"),
+  @SerialName("metro") Metro("metro"),
+  @SerialName("rail") Rail("rail"),
+  @SerialName("flight") Flight("flight"),
+  @SerialName("ferry") Ferry("ferry"),
+  @SerialName("other") Other("other")
+}
+
+@Serializable
+enum class TravelWorkspaceResultDtoSegmentsEntryVisibility(val wireValue: String) {
+  @SerialName("shared") Shared("shared"),
+  @SerialName("private") Private("private")
+}
+
+@Serializable
+data class TravelWorkspaceResultDtoSegmentsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("trip_id") val tripId: String,
+  @SerialName("mode") val mode: TravelWorkspaceResultDtoSegmentsEntryMode,
+  @SerialName("origin") val origin: String,
+  @SerialName("destination") val destination: String,
+  @SerialName("starts_at") val startsAt: String?,
+  @SerialName("ends_at") val endsAt: String?,
+  @SerialName("distance_km") val distanceKm: String?,
+  @SerialName("note") val note: String?,
+  @SerialName("visibility") val visibility: TravelWorkspaceResultDtoSegmentsEntryVisibility,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+data class TravelWorkspaceResultDto(
+  @SerialName("places") val places: List<TravelWorkspaceResultDtoPlacesEntry>,
+  @SerialName("maps") val maps: List<TravelWorkspaceResultDtoMapsEntry>,
+  @SerialName("trips") val trips: List<TravelWorkspaceResultDtoTripsEntry>,
+  @SerialName("selected_trip_id") val selectedTripId: String?,
+  @SerialName("active_run") val activeRun: TravelWorkspaceResultDtoActiveRun?,
+  @SerialName("tracks") val tracks: List<TravelWorkspaceResultDtoTracksEntry>,
+  @SerialName("day_plans") val dayPlans: List<TravelWorkspaceResultDtoDayPlansEntry>,
+  @SerialName("segments") val segments: List<TravelWorkspaceResultDtoSegmentsEntry>,
+  @SerialName("as_of") val asOf: String
+)
