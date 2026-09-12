@@ -622,3 +622,295 @@ data class AgentThreadMessagesResultDto(
   @SerialName("next_cursor") val nextCursor: String?,
   @SerialName("as_of") val asOf: String
 )
+
+@Serializable
+data class MoneyPlanningResultDtoWindow(
+  @SerialName("start_on") val startOn: String,
+  @SerialName("end_on_exclusive") val endOnExclusive: String
+)
+
+@Serializable
+data class MoneyPlanningResultDtoBudgetsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("category") val category: String?,
+  @SerialName("amount") val amount: String,
+  @SerialName("currency") val currency: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("spent_basis") val spentBasis: String,
+  @SerialName("spent") val spent: String
+)
+
+@Serializable
+enum class MoneyPlanningResultDtoRecurringPlansEntryCadence(val wireValue: String) {
+  @SerialName("daily") Daily("daily"),
+  @SerialName("weekly") Weekly("weekly"),
+  @SerialName("monthly") Monthly("monthly"),
+  @SerialName("yearly") Yearly("yearly"),
+  @SerialName("interval") Interval("interval")
+}
+
+@Serializable
+enum class MoneyPlanningResultDtoRecurringPlansEntryState(val wireValue: String) {
+  @SerialName("active") Active("active"),
+  @SerialName("paused") Paused("paused"),
+  @SerialName("ended") Ended("ended")
+}
+
+@Serializable
+enum class MoneyPlanningResultDtoRecurringPlansEntryMissingDatePolicy(val wireValue: String) {
+  @SerialName("skip") Skip("skip"),
+  @SerialName("last_day") LastDay("last_day")
+}
+
+@Serializable
+data class MoneyPlanningResultDtoRecurringPlansEntry(
+  @SerialName("id") val id: String,
+  @SerialName("title") val title: String,
+  @SerialName("amount") val amount: String?,
+  @SerialName("currency") val currency: String,
+  @SerialName("cadence") val cadence: MoneyPlanningResultDtoRecurringPlansEntryCadence,
+  @SerialName("next_due_on") val nextDueOn: String,
+  @SerialName("category") val category: String?,
+  @SerialName("active") val active: Boolean,
+  @SerialName("revision") val revision: Long,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("interval_days") val intervalDays: Long?,
+  @SerialName("state") val state: MoneyPlanningResultDtoRecurringPlansEntryState,
+  @SerialName("ended_on") val endedOn: String?,
+  @SerialName("anchor_on") val anchorOn: String,
+  @SerialName("local_time") val localTime: String?,
+  @SerialName("missing_date_policy") val missingDatePolicy: MoneyPlanningResultDtoRecurringPlansEntryMissingDatePolicy,
+  @SerialName("recurrence_rule") val recurrenceRule: String
+)
+
+@Serializable
+enum class MoneyPlanningResultDtoOccurrencesEntryState(val wireValue: String) {
+  @SerialName("pending") Pending("pending"),
+  @SerialName("reminded") Reminded("reminded"),
+  @SerialName("handled") Handled("handled"),
+  @SerialName("dismissed") Dismissed("dismissed"),
+  @SerialName("snoozed") Snoozed("snoozed")
+}
+
+@Serializable
+data class MoneyPlanningResultDtoOccurrencesEntry(
+  @SerialName("id") val id: String,
+  @SerialName("plan_id") val planId: String,
+  @SerialName("due_on") val dueOn: String,
+  @SerialName("original_due_on") val originalDueOn: String,
+  @SerialName("effective_due_on") val effectiveDueOn: String,
+  @SerialName("state") val state: MoneyPlanningResultDtoOccurrencesEntryState,
+  @SerialName("linked_record_id") val linkedRecordId: String?,
+  @SerialName("feedback") val feedback: JsonObject,
+  @SerialName("snoozed_until") val snoozedUntil: String?,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+enum class MoneyPlanningResultDtoSpendingIntentsEntryState(val wireValue: String) {
+  @SerialName("planned") Planned("planned"),
+  @SerialName("purchased") Purchased("purchased"),
+  @SerialName("cancelled") Cancelled("cancelled")
+}
+
+@Serializable
+data class MoneyPlanningResultDtoSpendingIntentsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("title") val title: String,
+  @SerialName("expected_amount") val expectedAmount: String?,
+  @SerialName("currency") val currency: String?,
+  @SerialName("intended_on") val intendedOn: String?,
+  @SerialName("state") val state: MoneyPlanningResultDtoSpendingIntentsEntryState,
+  @SerialName("linked_record_id") val linkedRecordId: String?,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+enum class MoneyPlanningResultDtoUseCyclesEntryState(val wireValue: String) {
+  @SerialName("active") Active("active"),
+  @SerialName("completed") Completed("completed"),
+  @SerialName("discarded") Discarded("discarded")
+}
+
+@Serializable
+data class MoneyPlanningResultDtoUseCyclesEntry(
+  @SerialName("id") val id: String,
+  @SerialName("purchase_record_id") val purchaseRecordId: String?,
+  @SerialName("item_name") val itemName: String,
+  @SerialName("started_on") val startedOn: String,
+  @SerialName("ended_on") val endedOn: String?,
+  @SerialName("state") val state: MoneyPlanningResultDtoUseCyclesEntryState,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+data class MoneyPlanningResultDtoLimits(
+  @SerialName("budgets") val budgets: Long,
+  @SerialName("recurring_plans") val recurringPlans: Long,
+  @SerialName("occurrences") val occurrences: Long,
+  @SerialName("spending_intents") val spendingIntents: Long,
+  @SerialName("use_cycles") val useCycles: Long
+)
+
+@Serializable
+data class MoneyPlanningResultDtoTruncated(
+  @SerialName("budgets") val budgets: Boolean,
+  @SerialName("recurring_plans") val recurringPlans: Boolean,
+  @SerialName("occurrences") val occurrences: Boolean,
+  @SerialName("spending_intents") val spendingIntents: Boolean,
+  @SerialName("use_cycles") val useCycles: Boolean
+)
+
+@Serializable
+data class MoneyPlanningResultDto(
+  @SerialName("period") val period: String,
+  @SerialName("window") val window: MoneyPlanningResultDtoWindow,
+  @SerialName("budgets") val budgets: List<MoneyPlanningResultDtoBudgetsEntry>,
+  @SerialName("recurring_plans") val recurringPlans: List<MoneyPlanningResultDtoRecurringPlansEntry>,
+  @SerialName("occurrences") val occurrences: List<MoneyPlanningResultDtoOccurrencesEntry>,
+  @SerialName("spending_intents") val spendingIntents: List<MoneyPlanningResultDtoSpendingIntentsEntry>,
+  @SerialName("use_cycles") val useCycles: List<MoneyPlanningResultDtoUseCyclesEntry>,
+  @SerialName("limits") val limits: MoneyPlanningResultDtoLimits,
+  @SerialName("truncated") val truncated: MoneyPlanningResultDtoTruncated,
+  @SerialName("as_of") val asOf: String
+)
+
+@Serializable
+enum class MealPlanningResultDtoMealPlansEntryState(val wireValue: String) {
+  @SerialName("draft") Draft("draft"),
+  @SerialName("active") Active("active"),
+  @SerialName("completed") Completed("completed"),
+  @SerialName("cancelled") Cancelled("cancelled")
+}
+
+@Serializable
+enum class MealPlanningResultDtoMealPlansEntryEntriesEntryMealType(val wireValue: String) {
+  @SerialName("breakfast") Breakfast("breakfast"),
+  @SerialName("lunch") Lunch("lunch"),
+  @SerialName("dinner") Dinner("dinner"),
+  @SerialName("snack") Snack("snack"),
+  @SerialName("other") Other("other")
+}
+
+@Serializable
+data class MealPlanningResultDtoMealPlansEntryEntriesEntryRecipeSnapshotRecipe(
+  @SerialName("id") val id: String,
+  @SerialName("title") val title: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("servings") val servings: String
+)
+
+@Serializable
+enum class MealPlanningResultDtoMealPlansEntryEntriesEntryRecipeSnapshotItemsEntryProvenance(val wireValue: String) {
+  @SerialName("manual") Manual("manual"),
+  @SerialName("estimated") Estimated("estimated"),
+  @SerialName("reference_snapshot") ReferenceSnapshot("reference_snapshot"),
+  @SerialName("legacy") Legacy("legacy")
+}
+
+@Serializable
+enum class MealPlanningResultDtoMealPlansEntryEntriesEntryRecipeSnapshotItemsEntryGroupingOrigin(val wireValue: String) {
+  @SerialName("actual_meal") ActualMeal("actual_meal"),
+  @SerialName("legacy_meal_bucket") LegacyMealBucket("legacy_meal_bucket")
+}
+
+@Serializable
+data class MealPlanningResultDtoMealPlansEntryEntriesEntryRecipeSnapshotItemsEntry(
+  @SerialName("name") val name: String,
+  @SerialName("food_ref_id") val foodRefId: String? = null,
+  @SerialName("free_text") val freeText: String? = null,
+  @SerialName("quantity") val quantity: String? = null,
+  @SerialName("unit") val unit: String? = null,
+  @SerialName("amount_g") val amountG: String? = null,
+  @SerialName("energy_kcal") val energyKcal: String? = null,
+  @SerialName("protein_g") val proteinG: String? = null,
+  @SerialName("fat_g") val fatG: String? = null,
+  @SerialName("carb_g") val carbG: String? = null,
+  @SerialName("fiber_g") val fiberG: String? = null,
+  @SerialName("sodium_mg") val sodiumMg: String? = null,
+  @SerialName("consumed_fraction") val consumedFraction: String? = null,
+  @SerialName("provenance") val provenance: MealPlanningResultDtoMealPlansEntryEntriesEntryRecipeSnapshotItemsEntryProvenance? = null,
+  @SerialName("grouping_origin") val groupingOrigin: MealPlanningResultDtoMealPlansEntryEntriesEntryRecipeSnapshotItemsEntryGroupingOrigin? = null,
+  @SerialName("estimate") val estimate: Boolean,
+  @SerialName("evidence_note") val evidenceNote: String? = null,
+  @SerialName("planned_quantity") val plannedQuantity: String? = null
+)
+
+@Serializable
+data class MealPlanningResultDtoMealPlansEntryEntriesEntryRecipeSnapshot(
+  @SerialName("recipe") val recipe: MealPlanningResultDtoMealPlansEntryEntriesEntryRecipeSnapshotRecipe,
+  @SerialName("items") val items: List<MealPlanningResultDtoMealPlansEntryEntriesEntryRecipeSnapshotItemsEntry>
+)
+
+@Serializable
+data class MealPlanningResultDtoMealPlansEntryEntriesEntry(
+  @SerialName("id") val id: String,
+  @SerialName("plan_date") val planDate: String,
+  @SerialName("meal_type") val mealType: MealPlanningResultDtoMealPlansEntryEntriesEntryMealType,
+  @SerialName("title") val title: String,
+  @SerialName("servings") val servings: String,
+  @SerialName("recipe_id") val recipeId: String?,
+  @SerialName("recipe_revision") val recipeRevision: Long?,
+  @SerialName("recipe_snapshot") val recipeSnapshot: MealPlanningResultDtoMealPlansEntryEntriesEntryRecipeSnapshot?,
+  @SerialName("position") val position: Long
+)
+
+@Serializable
+data class MealPlanningResultDtoMealPlansEntry(
+  @SerialName("id") val id: String,
+  @SerialName("title") val title: String,
+  @SerialName("starts_on") val startsOn: String,
+  @SerialName("ends_on") val endsOn: String,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("state") val state: MealPlanningResultDtoMealPlansEntryState,
+  @SerialName("revision") val revision: Long,
+  @SerialName("created_at") val createdAt: String,
+  @SerialName("updated_at") val updatedAt: String,
+  @SerialName("entries") val entries: List<MealPlanningResultDtoMealPlansEntryEntriesEntry>
+)
+
+@Serializable
+enum class MealPlanningResultDtoShoppingListsEntryState(val wireValue: String) {
+  @SerialName("open") Open("open"),
+  @SerialName("completed") Completed("completed"),
+  @SerialName("cancelled") Cancelled("cancelled")
+}
+
+@Serializable
+enum class MealPlanningResultDtoShoppingListsEntryItemsEntryState(val wireValue: String) {
+  @SerialName("needed") Needed("needed"),
+  @SerialName("bought") Bought("bought"),
+  @SerialName("skipped") Skipped("skipped")
+}
+
+@Serializable
+data class MealPlanningResultDtoShoppingListsEntryItemsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("name") val name: String,
+  @SerialName("quantity") val quantity: String?,
+  @SerialName("unit") val unit: String?,
+  @SerialName("source_entry_ids") val sourceEntryIds: List<String>,
+  @SerialName("state") val state: MealPlanningResultDtoShoppingListsEntryItemsEntryState,
+  @SerialName("purchase_item_id") val purchaseItemId: String?,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+data class MealPlanningResultDtoShoppingListsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("meal_plan_id") val mealPlanId: String,
+  @SerialName("meal_plan_revision") val mealPlanRevision: Long,
+  @SerialName("title") val title: String,
+  @SerialName("state") val state: MealPlanningResultDtoShoppingListsEntryState,
+  @SerialName("revision") val revision: Long,
+  @SerialName("created_at") val createdAt: String,
+  @SerialName("updated_at") val updatedAt: String,
+  @SerialName("items") val items: List<MealPlanningResultDtoShoppingListsEntryItemsEntry>
+)
+
+@Serializable
+data class MealPlanningResultDto(
+  @SerialName("meal_plans") val mealPlans: List<MealPlanningResultDtoMealPlansEntry>,
+  @SerialName("shopping_lists") val shoppingLists: List<MealPlanningResultDtoShoppingListsEntry>,
+  @SerialName("as_of") val asOf: String
+)

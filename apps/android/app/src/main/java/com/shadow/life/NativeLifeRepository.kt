@@ -122,25 +122,24 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
 
   suspend fun workspaceOverview(domain:LifeDomain):WorkspaceOverview=when(domain){
     LifeDomain.Meals->{
-      val json=get("/api/life/meal-planning?limit=20")
-      val lists=json.optJSONArray("shopping_lists").objects()
+      val result=wireJson.decodeFromString<MealPlanningResultDto>(getText("/api/life/meal-planning?limit=20"))
       WorkspaceOverview.Meals(
-        mealPlans=json.optJSONArray("meal_plans")?.length()?:0,
-        shoppingLists=lists.size,
-        openShoppingItems=lists.sumOf{list->list.optJSONArray("items").objects().count{it.optString("state") !in setOf("purchased","completed","removed")}},
-        asOf=json.optString("as_of")
+        mealPlans=result.mealPlans.size,
+        shoppingLists=result.shoppingLists.size,
+        openShoppingItems=result.shoppingLists.sumOf{list->list.items.count{it.state.wireValue=="needed"}},
+        asOf=result.asOf
       )
     }
     LifeDomain.Money->{
       val period=LocalDate.now().toString().take(7)
-      val json=get("/api/money/planning?period=$period")
+      val result=wireJson.decodeFromString<MoneyPlanningResultDto>(getText("/api/money/planning?period=$period"))
       WorkspaceOverview.Money(
         period=period,
-        budgets=json.optJSONArray("budgets").objects().map{BudgetProgress(it.optNullableString("category")?:"全部消费",it.optString("amount"),it.optString("currency"),it.optString("spent","0"))},
-        recurringPlans=json.optJSONArray("recurring_plans")?.length()?:0,
-        openOccurrences=json.optJSONArray("occurrences").objects().count{it.optString("state") in setOf("pending","reminded","snoozed","open")},
-        spendingIntents=json.optJSONArray("spending_intents").objects().count{it.optString("state")=="planned"},
-        asOf=json.optString("as_of")
+        budgets=result.budgets.map{BudgetProgress(it.category?:"全部消费",it.amount,it.currency,it.spent)},
+        recurringPlans=result.recurringPlans.size,
+        openOccurrences=result.occurrences.count{it.state.wireValue in setOf("pending","reminded","snoozed")},
+        spendingIntents=result.spendingIntents.count{it.state.wireValue=="planned"},
+        asOf=result.asOf
       )
     }
     LifeDomain.Health->{
