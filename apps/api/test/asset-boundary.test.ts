@@ -22,7 +22,7 @@ test("passive preview keeps its exact decoder type and protected caching",async(
 });
 
 test("project directory is authenticated and returns server-owned safe configuration",async()=>{
-  const projectLinks={items:[{id:"garden",title:"Shadow Garden",subtitle:"博客创作",launch_mode:"browser" as const,app_link_url:null,web_fallback_url:"https://garden.example.com",android_package:null,state:"configured" as const}]};
+  const projectLinks={schema_version:1 as const,catalog_revision:"test-1",items:[{id:"shadow-garden",title:"博客创作",subtitle:"Shadow Garden · 独立应用",icon:"notebook-pen" as const,state:"configured" as const,target:{kind:"browser" as const,url:"https://garden.example.com"},auth_hint:"shadow_identity" as const,order:20}]};
   const dependencies={unitOfWork:{pool:{query:async()=>({rows:[]})}},executor:{},queries:{},developmentAuth:true,projectLinks} as unknown as Parameters<typeof createApp>[0];
   const app=createApp(dependencies);
   assert.equal((await app.request("/api/project-links")).status,401);

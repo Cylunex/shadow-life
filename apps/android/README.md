@@ -42,8 +42,8 @@ Life API resource. Android treats the access token as an opaque bearer and activ
 callbacks after logout or account switching.
 Local logout increments the session generation first, cancels account-specific sync work, clears usable local
 tokens, and then makes a best-effort refresh-token revocation when the provider advertises that endpoint.
-The authenticated `/api/project-links` directory is supplied by the server's local `SHADOW_PROJECT_LINKS`
-configuration. App Links first target an installed Android package and then fall back to an HTTPS Custom Tab;
+The versioned authenticated `/api/project-links` directory is supplied by the server's local
+`SHADOW_PROJECT_LINKS_FILE` (preferred) or inline `SHADOW_PROJECT_LINKS` configuration. App Links first target an installed Android package and then fall back to an HTTPS Custom Tab;
 browser links open directly in a Custom Tab. Life credentials are never appended to either URL.
 
 ## Verification

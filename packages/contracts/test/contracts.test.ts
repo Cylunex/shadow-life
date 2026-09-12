@@ -133,11 +133,14 @@ test("overview contracts bound domains, dates and page sizes",()=>{
 });
 
 test("project directory accepts only bounded HTTPS launch targets",()=>{
-  const item={id:"foliant",title:"Shadow Foliant",subtitle:"股票研究",launch_mode:"app_link",app_link_url:"https://foliant.example.com",web_fallback_url:"https://foliant.example.com",android_package:"com.shadow.foliant",state:"configured"} as const;
-  assert.equal(projectDirectoryResultSchema.safeParse({items:[item]}).success,true);
-  assert.equal(projectDirectoryResultSchema.safeParse({items:[{...item,app_link_url:"shadow-foliant://open"}]}).success,false);
-  assert.equal(projectDirectoryResultSchema.safeParse({items:[{...item,app_link_url:null}]}).success,false);
-  assert.equal(projectDirectoryResultSchema.safeParse({items:[{...item,launch_mode:"browser",app_link_url:null,web_fallback_url:null,android_package:null}]}).success,false);
+  const item={id:"shadow-foliant",title:"股票研究",subtitle:"Shadow Foliant · 独立应用",icon:"chart-line",state:"configured",target:{kind:"app_link",url:"https://foliant.example.com",package_name:"com.shadow.foliant",web_fallback_url:"https://foliant.example.com"},auth_hint:"project_managed",order:10} as const;
+  const catalog={schema_version:1,catalog_revision:"test-1",items:[item]} as const;
+  assert.equal(projectDirectoryResultSchema.safeParse(catalog).success,true);
+  assert.equal(projectDirectoryResultSchema.safeParse({...catalog,items:[{...item,target:{...item.target,url:"shadow-foliant://open"}}]}).success,false);
+  assert.equal(projectDirectoryResultSchema.safeParse({...catalog,items:[{...item,target:{...item.target,url:"https://user:password@foliant.example.com"}}]}).success,false);
+  assert.equal(projectDirectoryResultSchema.safeParse({...catalog,items:[{...item,target:undefined}]}).success,false);
+  assert.equal(projectDirectoryResultSchema.safeParse({...catalog,items:[{...item,state:"disabled"}]}).success,false);
+  assert.equal(projectDirectoryResultSchema.safeParse({...catalog,items:[item,item]}).success,false);
 });
 
 test("health source status exposes the committed opaque cursor needed for device recovery",()=>{

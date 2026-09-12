@@ -444,21 +444,25 @@ export const lifeMeResultSchema=z.object({
   issuer:z.string().min(1),oidc_sub:z.string().min(1),life_subject_id:stableId,environment_id:z.string().min(1),display_name:z.string().nullable(),effects:z.array(z.string()),authorization_revision:z.number().int().positive()
 }).strict();
 
-const projectHttpsUrl=z.url().max(2_000).refine(value=>new URL(value).protocol==="https:","project links must use HTTPS");
+const projectHttpsUrl=z.url().max(2_000).refine(value=>{const parsed=new URL(value);return parsed.protocol==="https:"&&!parsed.username&&!parsed.password;},"project links must use HTTPS without userinfo");
+const projectTargetSchema=z.discriminatedUnion("kind",[
+  z.object({kind:z.literal("browser"),url:projectHttpsUrl}).strict(),
+  z.object({kind:z.literal("app_link"),url:projectHttpsUrl,package_name:z.string().regex(/^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$/u),web_fallback_url:projectHttpsUrl}).strict()
+]);
 export const projectDirectoryItemSchema=z.object({
-  id:z.string().regex(/^[a-z][a-z0-9_-]{1,63}$/u),
+  id:z.string().regex(/^[a-z][a-z0-9-]{1,63}$/u),
   title:z.string().trim().min(1).max(80),
   subtitle:z.string().trim().min(1).max(160),
-  launch_mode:z.enum(["app_link","browser"]),
-  app_link_url:projectHttpsUrl.nullable(),
-  web_fallback_url:projectHttpsUrl.nullable(),
-  android_package:z.string().regex(/^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$/u).nullable(),
-  state:z.enum(["configured","disabled","missing_configuration"])
+  icon:z.enum(["chart-line","notebook-pen","library","app-window"]),
+  state:z.enum(["configured","not_configured","disabled"]),
+  target:projectTargetSchema.optional(),
+  auth_hint:z.enum(["shadow_identity","project_managed","public"]),
+  order:z.number().int().min(0).max(10_000)
 }).strict().superRefine((value,context)=>{
-  if(value.state==="configured"&&value.launch_mode==="app_link"&&value.app_link_url===null)context.addIssue({code:"custom",path:["app_link_url"],message:"configured app links need app_link_url"});
-  if(value.state==="configured"&&value.launch_mode==="browser"&&value.web_fallback_url===null)context.addIssue({code:"custom",path:["web_fallback_url"],message:"configured browser links need web_fallback_url"});
+  if(value.state==="configured"&&value.target===undefined)context.addIssue({code:"custom",path:["target"],message:"configured projects need a target"});
+  if(value.state!=="configured"&&value.target!==undefined)context.addIssue({code:"custom",path:["target"],message:"unavailable projects cannot expose a target"});
 });
-export const projectDirectoryResultSchema=z.object({items:z.array(projectDirectoryItemSchema).max(20)}).strict();
+export const projectDirectoryResultSchema=z.object({schema_version:z.literal(1),catalog_revision:z.string().trim().min(1).max(128),items:z.array(projectDirectoryItemSchema).max(20)}).strict().superRefine((value,context)=>{const ids=new Set<string>();for(const [index,item] of value.items.entries())if(ids.has(item.id))context.addIssue({code:"custom",path:["items",index,"id"],message:"project ids must be unique"});else ids.add(item.id);});
 export type ProjectDirectoryResult=z.infer<typeof projectDirectoryResultSchema>;
 
 export const mealViewSchema = z.object({

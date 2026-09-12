@@ -31,7 +31,7 @@ data class OperationReceipt(
 )
 data class AssistantReply(val text:String,val threadId:String,val runId:String?,val state:String,val prompt:String?=null,val receipts:List<OperationReceipt> = emptyList())
 data class SharePayload(val ingressId:String,val text:String?,val uris:List<String>)
-data class ProjectLinkItem(val id:String,val title:String,val subtitle:String,val launchMode:String,val appLinkUrl:String?,val webFallbackUrl:String?,val androidPackage:String?,val state:String)
+data class ProjectLinkItem(val id:String,val title:String,val subtitle:String,val icon:String,val state:String,val launchMode:String?,val appLinkUrl:String?,val webFallbackUrl:String?,val androidPackage:String?,val authHint:String,val order:Int)
 
 data class DueItem(val id:String,val title:String,val dueOn:String,val amount:String?=null,val currency:String?=null)
 data class CurrentTrip(val id:String,val title:String,val startsOn:String,val endsOn:String)
