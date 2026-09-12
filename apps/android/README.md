@@ -13,6 +13,8 @@ deduplicates Executor receipts, and waits for a terminal or input-required state
 transport response as complete.
 Timeline, search, and domain lists retain server cursors for incremental loading. Editable meal, money, manual
 health, trip, and library details submit version-checked correction commands through the same encrypted queue.
+Manual capture keeps the local fact date editable. Expense capture preserves optional category and payment
+method; library capture accepts content without forcing a title and derives a bounded default from its first line.
 Reads use typed presentation models backed by the Life API, while
 writes first enter the account-bound encrypted command queue and retain their command ID until the authoritative
 receipt is known.

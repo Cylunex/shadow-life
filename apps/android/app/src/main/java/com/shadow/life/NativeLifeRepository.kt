@@ -112,11 +112,11 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
 
   suspend fun enqueue(draft:CaptureDraft):OperationReceipt=withContext(Dispatchers.IO){
     val input=when(draft.kind){
-      CaptureKind.Expense->JSONObject().put("entry_type",if(draft.option=="income")"income" else "expense").put("amount",money(draft.primary)).put("currency","CNY").put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).apply{draft.secondary.trim().takeIf(String::isNotBlank)?.let{put("counterparty",it)};draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
+      CaptureKind.Expense->JSONObject().put("entry_type",if(draft.option=="income")"income" else "expense").put("amount",money(draft.primary)).put("currency","CNY").put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).apply{draft.secondary.trim().takeIf(String::isNotBlank)?.let{put("counterparty",it)};draft.category.trim().takeIf(String::isNotBlank)?.let{put("category",it)};draft.paymentMethod.takeIf(String::isNotBlank)?.let{put("payment_method",it)};draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
       CaptureKind.Meal->JSONObject().put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).put("meal_type",draft.option.ifBlank{"other"}).put("items",JSONArray().put(JSONObject().put("name",draft.primary.trim()).put("free_text",draft.primary.trim()).put("estimate",false))).apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
       CaptureKind.Health->JSONObject().put("metric",draft.option.ifBlank{"weight"}).put("value",decimal(draft.primary)).put("unit",draft.secondary.trim()).put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
       CaptureKind.Visit->JSONObject().put("place_name",draft.primary.trim()).put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).put("visibility","private").apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
-      CaptureKind.Library->JSONObject().put("title",draft.primary.trim().take(300)).put("item_type",draft.option.ifBlank{"note"}).put("text",draft.secondary.ifBlank{draft.note}.ifBlank{draft.primary}).put("tags",JSONArray())
+      CaptureKind.Library->{val content=draft.secondary.ifBlank{draft.note}.trim();val title=draft.primary.trim().ifBlank{content.lineSequence().firstOrNull()?.trim().orEmpty()}.take(300).ifBlank{"未命名资料"};JSONObject().put("title",title).put("item_type",draft.option.ifBlank{"note"}).put(if(content.startsWith("https://")||content.startsWith("http://"))"url" else "text",content).put("tags",JSONArray())}
     }
     enqueueCommand(draft.kind.capability,input)
   }

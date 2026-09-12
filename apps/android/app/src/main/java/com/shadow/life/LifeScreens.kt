@@ -24,14 +24,14 @@ import java.time.format.FormatStyle
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun RootPage(title:String,onProjects:()->Unit,onSettings:()->Unit,content:@Composable (PaddingValues)->Unit){
-  Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text(title,style=MaterialTheme.typography.headlineLarge)},colors=TopAppBarDefaults.topAppBarColors(containerColor=MaterialTheme.colorScheme.background),actions={IconButton(onClick=onProjects){ProjectGridIcon()};IconButton(onClick=onSettings){Icon(Icons.Default.AccountCircle,"账号与设置")}})},content=content)
+@Composable fun RootPage(title:String,onProjects:()->Unit,onSettings:()->Unit,onSearch:(()->Unit)?=null,content:@Composable (PaddingValues)->Unit){
+  Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text(title,style=MaterialTheme.typography.headlineLarge)},colors=TopAppBarDefaults.topAppBarColors(containerColor=MaterialTheme.colorScheme.background),actions={IconButton(onClick=onProjects){ProjectGridIcon()};onSearch?.let{search->IconButton(onClick=search){Icon(Icons.Default.Search,"搜索生活记录")}};IconButton(onClick=onSettings){Icon(Icons.Default.AccountCircle,"账号与设置")}})},content=content)
 }
 
 @Composable private fun ProjectGridIcon(){Box(Modifier.size(20.dp).semantics{contentDescription="其他项目"}){listOf(Alignment.TopStart,Alignment.TopEnd,Alignment.BottomStart,Alignment.BottomEnd).forEach{alignment->Box(Modifier.size(7.dp).align(alignment).background(MaterialTheme.colorScheme.onSurface,RoundedCornerShape(2.dp)))}}}
 
-@Composable fun TodayScreen(state:LoadState<TodaySnapshot>,onRetry:()->Unit,onWorkspace:(LifeDomain)->Unit,onDetail:(LifeDomain,String,String)->Unit,onProjects:()->Unit,onSettings:()->Unit){
-  RootPage(LocalDate.now().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.CHINA)),onProjects,onSettings){padding->
+@Composable fun TodayScreen(state:LoadState<TodaySnapshot>,onRetry:()->Unit,onWorkspace:(LifeDomain)->Unit,onDetail:(LifeDomain,String,String)->Unit,onSearch:()->Unit,onProjects:()->Unit,onSettings:()->Unit){
+  RootPage(LocalDate.now().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.CHINA)),onProjects,onSettings,onSearch){padding->
     LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(start=20.dp,end=20.dp,top=8.dp,bottom=112.dp),verticalArrangement=Arrangement.spacedBy(24.dp)){
       item{StateContent(state,onRetry){today->TodayContent(today,onWorkspace,onDetail)}}
     }

@@ -89,5 +89,7 @@ data class CaptureDraft(
   val secondary:String="",
   val note:String="",
   val date:String,
-  val option:String=""
+  val option:String="",
+  val category:String="",
+  val paymentMethod:String=""
 )
