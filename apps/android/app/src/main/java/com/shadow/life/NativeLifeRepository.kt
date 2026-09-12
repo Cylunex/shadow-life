@@ -237,6 +237,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
 
   suspend fun detail(domain:LifeDomain,id:String):RecordDetail {
     val path=when(domain){LifeDomain.Meals->"/api/life/records/$id";LifeDomain.Health->"/api/health/records/$id";LifeDomain.Travel->"/api/travel/trips/$id";LifeDomain.Library->"/api/library/items/$id";LifeDomain.Money->"/api/life/records/$id?sections=money"}
+    if(domain==LifeDomain.Library)return libraryDetail(wireJson.decodeFromString(getText(path)))
     return detailFrom(domain,get(path))
   }
 
@@ -295,6 +296,21 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   private fun request(fresh:FreshSession,path:String,method:String,body:String?,accept:String):String{
     val connection=(URL(fresh.session.apiBase+path).openConnection() as HttpURLConnection).apply{requestMethod=method;connectTimeout=10_000;readTimeout=30_000;setRequestProperty("Authorization","Bearer ${fresh.accessToken}");setRequestProperty("Accept",accept);if(body!=null){doOutput=true;setRequestProperty("Content-Type","application/json");outputStream.bufferedWriter().use{it.write(body)}}}
     try{val code=connection.responseCode;val text=(if(code in 200..299)connection.inputStream else connection.errorStream)?.bufferedReader()?.use{it.readText()}.orEmpty();if(code !in 200..299)error(runCatching{JSONObject(text).optString("message")}.getOrNull().orEmpty().ifBlank{"请求失败（HTTP $code）"});return text}finally{connection.disconnect()}
+  }
+
+  private fun libraryDetail(value:LibraryItemResultDto):RecordDetail{
+    val item=value.item;val latest=value.revisions.firstOrNull()
+    val sections=mutableListOf(
+      DetailSection("概要",listOf(DetailFact("类型",item.itemType),DetailFact("状态",item.state.wireValue),DetailFact("收存时间",item.createdAt))),
+      DetailSection("当前内容",listOfNotNull(latest?.text?.let{DetailFact("正文",it)},latest?.url?.let{DetailFact("链接",it)},latest?.tags?.takeIf{it.isNotEmpty()}?.let{DetailFact("标签",it.joinToString("、"))}))
+    )
+    if(value.sources.isNotEmpty())sections+=DetailSection("固定原件",value.sources.flatMap{entry->listOfNotNull(DetailFact("来源",entry.source.kind),entry.source.capturedOn?.let{DetailFact("收存日期",it)},entry.asset?.let{DetailFact("文件","${it.mediaType} · ${it.byteSize} 字节 · SHA-256 ${it.sha256.take(12)}…")})})
+    value.readingState?.let{reading->sections+=DetailSection("阅读进度",listOf(DetailFact("状态",reading.state.wireValue),DetailFact("进度","${(reading.progress*100).toInt()}%"),DetailFact("最近阅读",reading.updatedAt)))}
+    if(value.annotations.isNotEmpty())sections+=DetailSection("批注",value.annotations.take(20).flatMap{annotation->listOf(DetailFact("批注",annotation.note),DetailFact("时间",annotation.createdAt))},value.annotations.size)
+    if(value.snippets.isNotEmpty())sections+=DetailSection("可检索内容",value.snippets.take(10).mapIndexed{index,snippet->DetailFact("片段 ${index+1}",snippet.text)},value.snippets.size)
+    if(value.processingJobs.isNotEmpty())sections+=DetailSection("处理任务",value.processingJobs.take(20).flatMap{job->listOfNotNull(DetailFact(job.kind.wireValue,"${job.state.wireValue} · 尝试 ${job.attempts}"),job.lastError?.let{DetailFact("失败原因",it)})},value.processingJobs.size)
+    if(value.derivations.isNotEmpty()||value.proofs.isNotEmpty()||value.legacyLinks.isNotEmpty())sections+=DetailSection("来源与完整性",listOf(DetailFact("派生产物","${value.derivations.size} 项"),DetailFact("内容证明","${value.proofs.size} 项"),DetailFact("旧链接","${value.legacyLinks.size} 项")))
+    return RecordDetail(item.title,item.state.wireValue,item.currentRevision.toInt(),sections,latest?.let{EditSeed.Library(item.id,item.currentRevision.toInt(),item.title,it.text,it.url,it.tags)})
   }
 
   private fun detailFrom(domain:LifeDomain,json:JSONObject):RecordDetail {

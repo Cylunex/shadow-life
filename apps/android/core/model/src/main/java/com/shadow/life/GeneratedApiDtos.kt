@@ -1339,3 +1339,195 @@ data class ProjectDirectoryResultDto(
   @SerialName("catalog_revision") val catalogRevision: String,
   @SerialName("items") val items: List<ProjectDirectoryResultDtoItemsEntry>
 )
+
+@Serializable
+enum class LibraryItemResultDtoItemState(val wireValue: String) {
+  @SerialName("active") Active("active"),
+  @SerialName("deleted") Deleted("deleted")
+}
+
+@Serializable
+data class LibraryItemResultDtoItem(
+  @SerialName("id") val id: String,
+  @SerialName("title") val title: String,
+  @SerialName("item_type") val itemType: String,
+  @SerialName("current_revision") val currentRevision: Long,
+  @SerialName("source_id") val sourceId: String?,
+  @SerialName("state") val state: LibraryItemResultDtoItemState,
+  @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+data class LibraryItemResultDtoRevisionsEntry(
+  @SerialName("item_id") val itemId: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("text") val text: String?,
+  @SerialName("url") val url: String?,
+  @SerialName("tags") val tags: List<String>,
+  @SerialName("reason") val reason: String?,
+  @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+data class LibraryItemResultDtoSourcesEntrySource(
+  @SerialName("id") val id: String,
+  @SerialName("kind") val kind: String,
+  @SerialName("external_id") val externalId: String?,
+  @SerialName("captured_on") val capturedOn: String?,
+  @SerialName("captured_at") val capturedAt: String?,
+  @SerialName("time_zone") val timeZone: String?,
+  @SerialName("original_text") val originalText: String?,
+  @SerialName("asset_version_id") val assetVersionId: String?,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+data class LibraryItemResultDtoSourcesEntryAsset(
+  @SerialName("id") val id: String,
+  @SerialName("asset_id") val assetId: String,
+  @SerialName("media_type") val mediaType: String,
+  @SerialName("sha256") val sha256: String,
+  @SerialName("byte_size") val byteSize: String,
+  @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+data class LibraryItemResultDtoSourcesEntry(
+  @SerialName("source") val source: LibraryItemResultDtoSourcesEntrySource,
+  @SerialName("asset") val asset: LibraryItemResultDtoSourcesEntryAsset?
+)
+
+@Serializable
+data class LibraryItemResultDtoAnnotationsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("item_id") val itemId: String,
+  @SerialName("anchor") val anchor: JsonElement,
+  @SerialName("note") val note: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+data class LibraryItemResultDtoDerivationsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("item_id") val itemId: String,
+  @SerialName("source_asset_version_id") val sourceAssetVersionId: String,
+  @SerialName("derived_asset_version_id") val derivedAssetVersionId: String,
+  @SerialName("kind") val kind: String,
+  @SerialName("processor_version") val processorVersion: String,
+  @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+data class LibraryItemResultDtoProofsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("item_id") val itemId: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("content_hash") val contentHash: String,
+  @SerialName("asset_hashes") val assetHashes: List<String>,
+  @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+enum class LibraryItemResultDtoProcessingJobsEntryKind(val wireValue: String) {
+  @SerialName("text_extract") TextExtract("text_extract"),
+  @SerialName("ocr") Ocr("ocr"),
+  @SerialName("transcript") Transcript("transcript")
+}
+
+@Serializable
+enum class LibraryItemResultDtoProcessingJobsEntryState(val wireValue: String) {
+  @SerialName("queued") Queued("queued"),
+  @SerialName("running") Running("running"),
+  @SerialName("completed") Completed("completed"),
+  @SerialName("failed") Failed("failed")
+}
+
+@Serializable
+data class LibraryItemResultDtoProcessingJobsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("item_id") val itemId: String,
+  @SerialName("source_asset_version_id") val sourceAssetVersionId: String,
+  @SerialName("kind") val kind: LibraryItemResultDtoProcessingJobsEntryKind,
+  @SerialName("requested_processor") val requestedProcessor: String,
+  @SerialName("state") val state: LibraryItemResultDtoProcessingJobsEntryState,
+  @SerialName("attempts") val attempts: Long,
+  @SerialName("derived_asset_version_id") val derivedAssetVersionId: String?,
+  @SerialName("processor_version") val processorVersion: String?,
+  @SerialName("last_error") val lastError: String?,
+  @SerialName("started_at") val startedAt: String?,
+  @SerialName("finished_at") val finishedAt: String?,
+  @SerialName("lease_expires_at") val leaseExpiresAt: String?,
+  @SerialName("created_at") val createdAt: String,
+  @SerialName("updated_at") val updatedAt: String
+)
+
+@Serializable
+data class LibraryItemResultDtoSnippetsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("item_id") val itemId: String,
+  @SerialName("job_id") val jobId: String,
+  @SerialName("item_revision") val itemRevision: Long,
+  @SerialName("ordinal") val ordinal: Long,
+  @SerialName("text") val text: String,
+  @SerialName("locator") val locator: JsonElement,
+  @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+enum class LibraryItemResultDtoReadingStateState(val wireValue: String) {
+  @SerialName("active") Active("active"),
+  @SerialName("completed") Completed("completed")
+}
+
+@Serializable
+data class LibraryItemResultDtoReadingState(
+  @SerialName("item_id") val itemId: String,
+  @SerialName("item_revision") val itemRevision: Long,
+  @SerialName("locator") val locator: JsonElement,
+  @SerialName("progress") val progress: Double,
+  @SerialName("state") val state: LibraryItemResultDtoReadingStateState,
+  @SerialName("updated_at") val updatedAt: String
+)
+
+@Serializable
+enum class LibraryItemResultDtoLegacyLinksEntryAlgorithm(val wireValue: String) {
+  @SerialName("ed25519-sha256-ascii-v1") Ed25519Sha256AsciiV1("ed25519-sha256-ascii-v1"),
+  @SerialName("legacy-unverified") LegacyUnverified("legacy-unverified")
+}
+
+@Serializable
+enum class LibraryItemResultDtoLegacyLinksEntryVerificationState(val wireValue: String) {
+  @SerialName("verified") Verified("verified"),
+  @SerialName("invalid") Invalid("invalid"),
+  @SerialName("unverified") Unverified("unverified")
+}
+
+@Serializable
+data class LibraryItemResultDtoLegacyLinksEntry(
+  @SerialName("id") val id: String,
+  @SerialName("item_id") val itemId: String,
+  @SerialName("legacy_uri") val legacyUri: String,
+  @SerialName("algorithm") val algorithm: LibraryItemResultDtoLegacyLinksEntryAlgorithm,
+  @SerialName("source_asset_version_id") val sourceAssetVersionId: String?,
+  @SerialName("signed_content_sha256") val signedContentSha256: String?,
+  @SerialName("verification_state") val verificationState: LibraryItemResultDtoLegacyLinksEntryVerificationState,
+  @SerialName("verification_error") val verificationError: String?,
+  @SerialName("checked_at") val checkedAt: String?,
+  @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+data class LibraryItemResultDto(
+  @SerialName("item") val item: LibraryItemResultDtoItem,
+  @SerialName("revisions") val revisions: List<LibraryItemResultDtoRevisionsEntry>,
+  @SerialName("sources") val sources: List<LibraryItemResultDtoSourcesEntry>,
+  @SerialName("annotations") val annotations: List<LibraryItemResultDtoAnnotationsEntry>,
+  @SerialName("derivations") val derivations: List<LibraryItemResultDtoDerivationsEntry>,
+  @SerialName("proofs") val proofs: List<LibraryItemResultDtoProofsEntry>,
+  @SerialName("processing_jobs") val processingJobs: List<LibraryItemResultDtoProcessingJobsEntry>,
+  @SerialName("snippets") val snippets: List<LibraryItemResultDtoSnippetsEntry>,
+  @SerialName("reading_state") val readingState: LibraryItemResultDtoReadingState?,
+  @SerialName("legacy_links") val legacyLinks: List<LibraryItemResultDtoLegacyLinksEntry>,
+  @SerialName("as_of") val asOf: String
+)
