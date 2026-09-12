@@ -162,13 +162,13 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   suspend fun planning():PlanningWorkspace=coroutineScope{
     val today=LocalDate.now();val zone=ZoneId.systemDefault().id
     val agendaRequest=async{wireJson.decodeFromString<PlanningAgendaResultDto>(getText("/api/planning/agenda?from_on=$today&to_on_exclusive=${today.plusDays(7)}&time_zone=${encode(zone)}&limit=100"))}
-    val projectsRequest=async{runCatching{get("/api/life/projects?limit=50")}.getOrNull()};val itemsRequest=async{runCatching{get("/api/life/owned-items?limit=50")}.getOrNull()};val reviewsRequest=async{runCatching{get("/api/life/reviews?limit=20")}.getOrNull()}
+    val projectsRequest=async{runCatching{wireJson.decodeFromString<LifeProjectsResultDto>(getText("/api/life/projects?limit=50"))}.getOrNull()};val itemsRequest=async{runCatching{wireJson.decodeFromString<OwnedItemsResultDto>(getText("/api/life/owned-items?limit=50"))}.getOrNull()};val reviewsRequest=async{runCatching{wireJson.decodeFromString<LifeReviewsResultDto>(getText("/api/life/reviews?limit=20"))}.getOrNull()}
     val agenda=agendaRequest.await();val projects=projectsRequest.await();val items=itemsRequest.await();val reviews=reviewsRequest.await()
     PlanningWorkspace(
       agenda=agenda.items.map{item->AgendaItem(item.sourceKind.wireValue,item.sourceId,item.sourceKey,item.title,item.state.wireValue,item.dueOn,item.dueAt,item.target.kind.wireValue,item.target.id,item.target.projectId,item.primaryAction?.let{AgendaAction(it.capability.wireValue,it.targetId,it.expectedRevision.toInt())})},
-      projects=projects?.optJSONArray("items").objects().map{item->PlanSummary(item.getString("id"),item.getString("title"),item.optNullableString("goal"),item.optString("state","active"),item.optNullableString("ends_on"),item.optInt("revision",1),item.optJSONArray("actions")?.length()?:0)},
-      ownedItems=items?.optJSONArray("items").objects().map{item->OwnedItemSummary(item.getString("id"),item.getString("name"),item.getString("ownership_state"),item.optNullableString("location"),item.optNullableString("warranty_ends_on"),item.optNullableString("return_by"),item.optInt("revision",1),item.optJSONArray("documents")?.length()?:0,item.optJSONArray("events")?.length()?:0)},
-      reviews=reviews?.optJSONArray("items").objects().map{item->ReviewSummary(item.getString("id"),item.getString("from_on"),item.getString("to_on"),item.optString("algorithm_version"),item.optInt("revision",1),item.optString("generated_at"),item.optJSONObject("metrics")?.length()?:0,item.optJSONArray("limitations")?.length()?:0)},
+      projects=projects?.items?.map{item->PlanSummary(item.id,item.title,item.goal,item.state.wireValue,item.endsOn,item.revision.toInt(),item.actions.size)}.orEmpty(),
+      ownedItems=items?.items?.map{item->OwnedItemSummary(item.id,item.name,item.ownershipState.wireValue,item.location,item.warrantyEndsOn,item.returnBy,item.revision.toInt(),item.documents.size,item.events.size)}.orEmpty(),
+      reviews=reviews?.items?.map{item->ReviewSummary(item.id,item.fromOn,item.toOn,item.algorithmVersion,item.revision.toInt(),item.generatedAt,item.metrics.size,item.limitations.size)}.orEmpty(),
       truncated=agenda.truncated,asOf=agenda.asOf
     )
   }

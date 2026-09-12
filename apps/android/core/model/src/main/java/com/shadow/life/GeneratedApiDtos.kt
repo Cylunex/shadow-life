@@ -4,6 +4,7 @@ package com.shadow.life
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 
 @Serializable
 data class DomainRecordsResultDtoItemsEntry(
@@ -372,5 +373,217 @@ data class HealthSourcesResultDtoItemsEntry(
 @Serializable
 data class HealthSourcesResultDto(
   @SerialName("items") val items: List<HealthSourcesResultDtoItemsEntry>,
+  @SerialName("as_of") val asOf: String
+)
+
+@Serializable
+enum class LifeProjectsResultDtoItemsEntryState(val wireValue: String) {
+  @SerialName("active") Active("active"),
+  @SerialName("completed") Completed("completed"),
+  @SerialName("paused") Paused("paused"),
+  @SerialName("cancelled") Cancelled("cancelled")
+}
+
+@Serializable
+enum class LifeProjectsResultDtoItemsEntryMilestonesEntryState(val wireValue: String) {
+  @SerialName("planned") Planned("planned"),
+  @SerialName("completed") Completed("completed"),
+  @SerialName("cancelled") Cancelled("cancelled")
+}
+
+@Serializable
+data class LifeProjectsResultDtoItemsEntryMilestonesEntry(
+  @SerialName("id") val id: String,
+  @SerialName("title") val title: String,
+  @SerialName("due_on") val dueOn: String?,
+  @SerialName("state") val state: LifeProjectsResultDtoItemsEntryMilestonesEntryState,
+  @SerialName("position") val position: Long
+)
+
+@Serializable
+enum class LifeProjectsResultDtoItemsEntryLinksEntryRefKind(val wireValue: String) {
+  @SerialName("trip") Trip("trip"),
+  @SerialName("health_plan") HealthPlan("health_plan"),
+  @SerialName("recurring_plan") RecurringPlan("recurring_plan"),
+  @SerialName("owned_item") OwnedItem("owned_item"),
+  @SerialName("library_item") LibraryItem("library_item"),
+  @SerialName("money_entry") MoneyEntry("money_entry"),
+  @SerialName("meal") Meal("meal"),
+  @SerialName("recipe") Recipe("recipe")
+}
+
+@Serializable
+data class LifeProjectsResultDtoItemsEntryLinksEntry(
+  @SerialName("ref_kind") val refKind: LifeProjectsResultDtoItemsEntryLinksEntryRefKind,
+  @SerialName("ref_id") val refId: String,
+  @SerialName("ref_revision") val refRevision: Long,
+  @SerialName("role") val role: String
+)
+
+@Serializable
+enum class LifeProjectsResultDtoItemsEntryActionsEntryState(val wireValue: String) {
+  @SerialName("open") Open("open"),
+  @SerialName("completed") Completed("completed"),
+  @SerialName("cancelled") Cancelled("cancelled")
+}
+
+@Serializable
+data class LifeProjectsResultDtoItemsEntryActionsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("title") val title: String,
+  @SerialName("due_on") val dueOn: String?,
+  @SerialName("state") val state: LifeProjectsResultDtoItemsEntryActionsEntryState,
+  @SerialName("recurring_occurrence_id") val recurringOccurrenceId: String? = null,
+  @SerialName("health_habit_id") val healthHabitId: String? = null,
+  @SerialName("revision") val revision: Long,
+  @SerialName("updated_at") val updatedAt: String,
+  @SerialName("source_state") val sourceState: String? = null
+)
+
+@Serializable
+data class LifeProjectsResultDtoItemsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("title") val title: String,
+  @SerialName("goal") val goal: String,
+  @SerialName("starts_on") val startsOn: String?,
+  @SerialName("ends_on") val endsOn: String?,
+  @SerialName("state") val state: LifeProjectsResultDtoItemsEntryState,
+  @SerialName("revision") val revision: Long,
+  @SerialName("created_at") val createdAt: String,
+  @SerialName("updated_at") val updatedAt: String,
+  @SerialName("milestones") val milestones: List<LifeProjectsResultDtoItemsEntryMilestonesEntry>,
+  @SerialName("links") val links: List<LifeProjectsResultDtoItemsEntryLinksEntry>,
+  @SerialName("actions") val actions: List<LifeProjectsResultDtoItemsEntryActionsEntry>
+)
+
+@Serializable
+data class LifeProjectsResultDto(
+  @SerialName("items") val items: List<LifeProjectsResultDtoItemsEntry>,
+  @SerialName("as_of") val asOf: String
+)
+
+@Serializable
+enum class OwnedItemsResultDtoItemsEntryOwnershipState(val wireValue: String) {
+  @SerialName("owned") Owned("owned"),
+  @SerialName("gifted") Gifted("gifted"),
+  @SerialName("returned") Returned("returned"),
+  @SerialName("disposed") Disposed("disposed"),
+  @SerialName("lost") Lost("lost")
+}
+
+@Serializable
+data class OwnedItemsResultDtoItemsEntryPurchase(
+  @SerialName("purchase_item_id") val purchaseItemId: String,
+  @SerialName("purchase_id") val purchaseId: String,
+  @SerialName("record_id") val recordId: String,
+  @SerialName("raw_name") val rawName: String,
+  @SerialName("quantity") val quantity: String?,
+  @SerialName("unit") val unit: String?,
+  @SerialName("line_amount") val lineAmount: String?
+)
+
+@Serializable
+enum class OwnedItemsResultDtoItemsEntryDocumentsEntryRole(val wireValue: String) {
+  @SerialName("receipt") Receipt("receipt"),
+  @SerialName("manual") Manual("manual"),
+  @SerialName("warranty") Warranty("warranty"),
+  @SerialName("repair") Repair("repair")
+}
+
+@Serializable
+data class OwnedItemsResultDtoItemsEntryDocumentsEntry(
+  @SerialName("library_item_id") val libraryItemId: String,
+  @SerialName("library_revision") val libraryRevision: Long,
+  @SerialName("role") val role: OwnedItemsResultDtoItemsEntryDocumentsEntryRole,
+  @SerialName("title") val title: String? = null
+)
+
+@Serializable
+enum class OwnedItemsResultDtoItemsEntryEventsEntryEventKind(val wireValue: String) {
+  @SerialName("maintenance") Maintenance("maintenance"),
+  @SerialName("repair") Repair("repair"),
+  @SerialName("return") Return("return"),
+  @SerialName("dispose") Dispose("dispose"),
+  @SerialName("gift") Gift("gift"),
+  @SerialName("lost") Lost("lost"),
+  @SerialName("restore") Restore("restore"),
+  @SerialName("note") Note("note")
+}
+
+@Serializable
+data class OwnedItemsResultDtoItemsEntryEventsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("event_kind") val eventKind: OwnedItemsResultDtoItemsEntryEventsEntryEventKind,
+  @SerialName("occurred_on") val occurredOn: String,
+  @SerialName("note") val note: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("created_at") val createdAt: String,
+  @SerialName("document_library_item_id") val documentLibraryItemId: String?,
+  @SerialName("document_library_revision") val documentLibraryRevision: Long?,
+  @SerialName("cost_entry_id") val costEntryId: String? = null,
+  @SerialName("cost_amount") val costAmount: String? = null,
+  @SerialName("cost_currency") val costCurrency: String? = null,
+  @SerialName("document_title") val documentTitle: String? = null
+)
+
+@Serializable
+data class OwnedItemsResultDtoItemsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("name") val name: String,
+  @SerialName("ownership_state") val ownershipState: OwnedItemsResultDtoItemsEntryOwnershipState,
+  @SerialName("location") val location: String?,
+  @SerialName("started_on") val startedOn: String?,
+  @SerialName("warranty_ends_on") val warrantyEndsOn: String?,
+  @SerialName("return_by") val returnBy: String?,
+  @SerialName("purchase_item_id") val purchaseItemId: String?,
+  @SerialName("revision") val revision: Long,
+  @SerialName("created_at") val createdAt: String,
+  @SerialName("updated_at") val updatedAt: String,
+  @SerialName("purchase") val purchase: OwnedItemsResultDtoItemsEntryPurchase?,
+  @SerialName("documents") val documents: List<OwnedItemsResultDtoItemsEntryDocumentsEntry>,
+  @SerialName("events") val events: List<OwnedItemsResultDtoItemsEntryEventsEntry>
+)
+
+@Serializable
+data class OwnedItemsResultDto(
+  @SerialName("items") val items: List<OwnedItemsResultDtoItemsEntry>,
+  @SerialName("as_of") val asOf: String
+)
+
+@Serializable
+enum class LifeReviewsResultDtoItemsEntryDomainsEntry(val wireValue: String) {
+  @SerialName("money") Money("money"),
+  @SerialName("meals") Meals("meals"),
+  @SerialName("health") Health("health"),
+  @SerialName("items") Items("items"),
+  @SerialName("library") Library("library")
+}
+
+@Serializable
+data class LifeReviewsResultDtoItemsEntryEvidenceEntry(
+  @SerialName("type") val type: String,
+  @SerialName("id") val id: String,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+data class LifeReviewsResultDtoItemsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("from_on") val fromOn: String,
+  @SerialName("to_on") val toOn: String,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("domains") val domains: List<LifeReviewsResultDtoItemsEntryDomainsEntry>,
+  @SerialName("algorithm_version") val algorithmVersion: String,
+  @SerialName("metrics") val metrics: JsonObject,
+  @SerialName("coverage") val coverage: JsonObject,
+  @SerialName("evidence") val evidence: List<LifeReviewsResultDtoItemsEntryEvidenceEntry>,
+  @SerialName("limitations") val limitations: List<String>,
+  @SerialName("revision") val revision: Long,
+  @SerialName("generated_at") val generatedAt: String
+)
+
+@Serializable
+data class LifeReviewsResultDto(
+  @SerialName("items") val items: List<LifeReviewsResultDtoItemsEntry>,
   @SerialName("as_of") val asOf: String
 )
