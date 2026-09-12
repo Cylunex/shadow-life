@@ -7,6 +7,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.serialization.json.Json
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -18,6 +19,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 
 class NativeLifeRepository(private val context:Context,private val app:ShadowApp) {
+  private val wireJson=Json { ignoreUnknownKeys=false }
   fun queueStatus(session:ProductSession)=app.queue.observeStatus(session)
   suspend fun retryQueue(session:ProductSession):Int=app.queue.retry(session).also{SyncScheduler.schedule(context,session.accountId,true)}
   suspend fun clearTerminalQueue(session:ProductSession):Int=app.queue.clearTerminal(session)
@@ -106,8 +108,11 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       },null,java.time.Instant.now().toString())
     }
     val params=buildList{add("limit=50");if(query.isNotBlank())add("q=${encode(query)}");if(cursor!=null)add("cursor=${encode(cursor)}")}.joinToString("&")
-    val json=get("/api/$apiDomain?$params")
-    return RecordPage(json.getJSONArray("items").objects().map{toSummary(domain,it)},json.optNullableString("next_cursor"),json.getString("as_of"))
+    val result=wireJson.decodeFromString<DomainRecordsResultDto>(getText("/api/$apiDomain?$params"))
+    return RecordPage(result.items.map{item->
+      val trailing=item.amount?.let{value->listOfNotNull(item.currency,value).joinToString(" ")}
+      RecordSummary(domain,item.kind,item.id,item.title,item.supporting,trailing,item.revision?.toInt(),item.recordId)
+    },result.nextCursor,result.asOf)
   }
 
   suspend fun workspaceOverview(domain:LifeDomain):WorkspaceOverview=when(domain){
@@ -161,15 +166,15 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
 
   suspend fun planning():PlanningWorkspace=coroutineScope{
     val today=LocalDate.now();val zone=ZoneId.systemDefault().id
-    val agendaRequest=async{get("/api/planning/agenda?from_on=$today&to_on_exclusive=${today.plusDays(7)}&time_zone=${encode(zone)}&limit=100")}
+    val agendaRequest=async{wireJson.decodeFromString<PlanningAgendaResultDto>(getText("/api/planning/agenda?from_on=$today&to_on_exclusive=${today.plusDays(7)}&time_zone=${encode(zone)}&limit=100"))}
     val projectsRequest=async{runCatching{get("/api/life/projects?limit=50")}.getOrNull()};val itemsRequest=async{runCatching{get("/api/life/owned-items?limit=50")}.getOrNull()};val reviewsRequest=async{runCatching{get("/api/life/reviews?limit=20")}.getOrNull()}
     val agenda=agendaRequest.await();val projects=projectsRequest.await();val items=itemsRequest.await();val reviews=reviewsRequest.await()
     PlanningWorkspace(
-      agenda=agenda.getJSONArray("items").objects().map{item->val target=item.getJSONObject("target");AgendaItem(item.getString("source_kind"),item.getString("source_id"),item.getString("source_key"),item.getString("title"),item.getString("state"),item.getString("due_on"),item.optNullableString("due_at"),target.getString("kind"),target.getString("id"),target.optNullableString("project_id"))},
+      agenda=agenda.items.map{item->AgendaItem(item.sourceKind.wireValue,item.sourceId,item.sourceKey,item.title,item.state.wireValue,item.dueOn,item.dueAt,item.target.kind.wireValue,item.target.id,item.target.projectId)},
       projects=projects?.optJSONArray("items").objects().map{item->PlanSummary(item.getString("id"),item.getString("title"),item.optNullableString("goal"),item.optString("state","active"),item.optNullableString("ends_on"),item.optInt("revision",1),item.optJSONArray("actions")?.length()?:0)},
       ownedItems=items?.optJSONArray("items").objects().map{item->OwnedItemSummary(item.getString("id"),item.getString("name"),item.getString("ownership_state"),item.optNullableString("location"),item.optNullableString("warranty_ends_on"),item.optNullableString("return_by"),item.optInt("revision",1),item.optJSONArray("documents")?.length()?:0,item.optJSONArray("events")?.length()?:0)},
       reviews=reviews?.optJSONArray("items").objects().map{item->ReviewSummary(item.getString("id"),item.getString("from_on"),item.getString("to_on"),item.optString("algorithm_version"),item.optInt("revision",1),item.optString("generated_at"),item.optJSONObject("metrics")?.length()?:0,item.optJSONArray("limitations")?.length()?:0)},
-      truncated=agenda.optBoolean("truncated"),asOf=agenda.getString("as_of")
+      truncated=agenda.truncated,asOf=agenda.asOf
     )
   }
 
@@ -217,14 +222,16 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
 
   private fun displayName(uri:Uri):String=runCatching{context.contentResolver.query(uri,arrayOf(OpenableColumns.DISPLAY_NAME),null,null,null)?.use{cursor->if(cursor.moveToFirst())cursor.getString(0) else null}}.getOrNull()?.trim()?.take(300)?.takeIf(String::isNotBlank)?:""
 
-  private suspend fun get(path:String):JSONObject=withContext(Dispatchers.IO){
+  private suspend fun get(path:String):JSONObject=JSONObject(getText(path))
+
+  private suspend fun getText(path:String):String=withContext(Dispatchers.IO){
     val session=app.sessions.active()?:error("请先登录 Shadow Life")
     when(val fresh=app.sessions.fresh(session.accountId,context)){
       SessionRefresh.ReauthRequired->error("会话已失效，请重新登录")
       SessionRefresh.Retryable->error("暂时无法刷新会话，请稍后重试")
       is SessionRefresh.Ready->{
         val connection=(URL(fresh.value.session.apiBase+path).openConnection() as HttpURLConnection).apply{requestMethod="GET";connectTimeout=10_000;readTimeout=20_000;setRequestProperty("Authorization","Bearer ${fresh.value.accessToken}");setRequestProperty("Accept","application/json")}
-        try{val code=connection.responseCode;val text=(if(code in 200..299)connection.inputStream else connection.errorStream)?.bufferedReader()?.use{it.readText()}.orEmpty();if(code !in 200..299){val message=runCatching{JSONObject(text).optString("message")}.getOrNull().orEmpty();error(message.ifBlank{"请求失败（HTTP $code）"})};JSONObject(text)}finally{connection.disconnect()}
+        try{val code=connection.responseCode;val text=(if(code in 200..299)connection.inputStream else connection.errorStream)?.bufferedReader()?.use{it.readText()}.orEmpty();if(code !in 200..299){val message=runCatching{JSONObject(text).optString("message")}.getOrNull().orEmpty();error(message.ifBlank{"请求失败（HTTP $code）"})};text}finally{connection.disconnect()}
       }
     }
   }
@@ -232,15 +239,6 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   private fun request(fresh:FreshSession,path:String,method:String,body:String?,accept:String):String{
     val connection=(URL(fresh.session.apiBase+path).openConnection() as HttpURLConnection).apply{requestMethod=method;connectTimeout=10_000;readTimeout=30_000;setRequestProperty("Authorization","Bearer ${fresh.accessToken}");setRequestProperty("Accept",accept);if(body!=null){doOutput=true;setRequestProperty("Content-Type","application/json");outputStream.bufferedWriter().use{it.write(body)}}}
     try{val code=connection.responseCode;val text=(if(code in 200..299)connection.inputStream else connection.errorStream)?.bufferedReader()?.use{it.readText()}.orEmpty();if(code !in 200..299)error(runCatching{JSONObject(text).optString("message")}.getOrNull().orEmpty().ifBlank{"请求失败（HTTP $code）"});return text}finally{connection.disconnect()}
-  }
-
-  private fun toSummary(domain:LifeDomain,item:JSONObject):RecordSummary {
-    val kind=item.optString("kind",when(domain){LifeDomain.Money->"money_entry";LifeDomain.Health->"health_measurement";LifeDomain.Travel->"trip";LifeDomain.Library->"library_item";else->"meal"})
-    val title=item.getString("title")
-    val supporting=item.optNullableString("supporting")
-    val amount=item.optNullableString("amount")?.let{value->listOfNotNull(item.optNullableString("currency"),value).joinToString(" ")}
-    val detailId=item.optNullableString("record_id")
-    return RecordSummary(domain,kind,item.getString("id"),title,supporting,amount,item.optInt("revision").takeIf{it>0},detailId)
   }
 
   private fun detailFrom(domain:LifeDomain,json:JSONObject):RecordDetail {
