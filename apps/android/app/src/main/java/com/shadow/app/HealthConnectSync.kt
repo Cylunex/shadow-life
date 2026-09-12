@@ -244,7 +244,7 @@ private object HealthConnectEncoder{
     return ZoneId.getAvailableZoneIds().asSequence().sorted().map(ZoneId::of).firstOrNull{it.rules.getOffset(instant)==offset}?:ZoneId.of("UTC")
   }
   private fun decimal(value:Double)=BigDecimal.valueOf(value).stripTrailingZeros().toPlainString()
-  fun weight(record:WeightRecord):JSONObject{val zone=zone(record.zoneOffset,record.time);return JSONObject().put("occurred_on",record.time.atZone(zone).toLocalDate().toString()).put("occurred_at",record.time.toString()).put("time_zone",zone.id).put("observations",JSONArray().put(JSONObject().put("metric_key","weight").put("value",decimal(record.weight.inKilograms)).put("unit","kg")))}
+  fun weight(record:WeightRecord):JSONObject{val zone=zone(record.zoneOffset,record.time);return JSONObject().put("occurred_on",record.time.atZone(zone).toLocalDate().toString()).put("occurred_at",record.time.toString()).put("time_zone",zone.id).put("observations",JSONArray().put(JSONObject().put("metric_key","weight").put("value",decimal(record.weight.inKilograms)).put("unit","kg").put("original_field","health_connect:${record.metadata.dataOrigin.packageName}")))}
   fun steps(record:StepsRecord):JSONObject{
     val zone=zone(record.startZoneOffset,record.startTime)
     val value=HealthSyncPolicy.steps(record.startTime,record.endTime,record.metadata.dataOrigin.packageName,record.count,zone)

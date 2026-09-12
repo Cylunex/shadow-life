@@ -69,7 +69,7 @@ class MainActivity:ComponentActivity(){
         NavigationBarItem(selected=destination=="life",onClick={destination="life"},icon={Text("●")},label={Text("生活")})
         NavigationBarItem(selected=destination=="capture",onClick={destination="capture"},icon={Text("＋")},label={Text("采集")})
       }}){padding->Box(Modifier.padding(padding)){
-        if(destination=="life")LifeWebScreen(BuildConfig.SHADOW_WEB_BASE)
+        if(destination=="life")LifeWebScreen(BuildConfig.SHADOW_WEB_BASE,onHealthSync=::syncHealthConnect)
         else Capture(shared,activeSession,oidc.configured,HealthConnectSync.available(this@MainActivity),loginMessage,healthSyncMessage,recoverableCommands,queueStates,lastReceipt,saving,onLogin=::login,onSave=::enqueue,onHealthSync=::syncHealthConnect,onRecover=::recoverLegacyCommands,onRetry=::retryQueue,onClear=::clearQueue)
       }}
       }

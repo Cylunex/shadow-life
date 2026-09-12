@@ -75,17 +75,18 @@ private data class Credentials(val username:String,val password:String)
 private data class AuthPrompt(val host:String,val realm:String)
 private data class PendingExport(val filename:String,val mimeType:String,val bytes:ByteArray)
 
-private class LifeHostBridge(private val deliver:(String,String,ByteArray)->Unit){
+private class LifeHostBridge(private val deliver:(String,String,ByteArray)->Unit,private val syncHealth:()->Unit){
   @JavascriptInterface fun saveExport(filename:String,mimeType:String,base64:String){
     if(base64.length>MAX_HOST_EXPORT_BYTES*2)return
     val bytes=runCatching{Base64.decode(base64,Base64.DEFAULT)}.getOrNull()?:return
     if(bytes.isEmpty()||bytes.size>MAX_HOST_EXPORT_BYTES)return
     deliver(safeExportName(filename),mimeType.take(120),bytes)
   }
+  @JavascriptInterface fun syncHealth()=syncHealth.invoke()
 }
 
 @Composable
-fun LifeWebScreen(url:String){
+fun LifeWebScreen(url:String,onHealthSync:()->Unit){
   val context=LocalContext.current
   val scope=rememberCoroutineScope()
   var webView by remember{mutableStateOf<WebView?>(null)}
@@ -145,7 +146,7 @@ fun LifeWebScreen(url:String){
         settings.javaScriptCanOpenWindowsAutomatically=false
         settings.setSupportMultipleWindows(false)
         settings.mixedContentMode=WebSettings.MIXED_CONTENT_NEVER_ALLOW
-        addJavascriptInterface(LifeHostBridge(::requestExport),"ShadowLifeHost")
+        addJavascriptInterface(LifeHostBridge(::requestExport){webView?.post{onHealthSync()}},"ShadowLifeHost")
         webChromeClient=object:WebChromeClient(){
           override fun onProgressChanged(view:WebView,newProgress:Int){loading=newProgress<100&&loadError==null}
           override fun onShowFileChooser(view:WebView,callback:ValueCallback<Array<Uri>>,params:WebChromeClient.FileChooserParams):Boolean{

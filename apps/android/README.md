@@ -11,6 +11,8 @@ Connect 位于“采集”入口，仍以独立 OIDC public client 为正式启�
 
 Health Connect 权限已在 manifest 声明。客户端显式授权后为体重、步数、睡眠和训练分别申请并维护 Changes token，首次只回填最近 30 天且超过 1000 条时拒绝截断；后续将 upsert/delete 分页写入账号加密队列。服务端使用 `health.ingest_batch` 原子接收一页变更并在全部记录持久化后推进按设备/类型 cursor，客户端每次从服务端已提交游标继续，因此响应丢失或重装不会盲目跳页。权限撤销和 token 过期会写入来源状态并进入受控重扫。
 
+Samsung Health 与支持 Health Connect 的体重秤统一从系统 Health Connect 读取。体重记录会保留原始 `dataOrigin.packageName`，网页端据此区分 Samsung Health、体重秤或其他提供方；网页里的“同步设备数据”只在 Android WebView 桥接可用时出现，并触发原生权限检查和增量同步。仓库不模拟厂商云端直连，未接入 Health Connect 的蓝牙秤仍需要其厂商应用先把数据写入 Health Connect。
+
 这条源码链路通过 `compileDebugKotlin`，但正式启用仍须在签名候选安装包上逐项验证权限撤销、token 过期、多页、删除、断网/进程死亡和三星设备提供的数据类型。仓库不包含真实 API 地址、会话、签名材料或生产数据。
 
 本地源码编译使用 JDK 17 与已安装的 Android SDK：`gradle :app:compileDebugKotlin`。Room v5 schema 会输出到 `app/schemas/`，迁移变更应与 schema 一并评审。
