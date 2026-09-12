@@ -435,10 +435,14 @@ export const executionResultSchema = z.object({
 
 export const operationErrorSchema = z.object({
   protocol: z.literal("shadow.error"),
-  code: z.enum(["missing_fact", "validation", "conflict", "permission_denied", "confirmation_required", "retryable_not_applied", "outcome_unknown", "not_found"]),
+  code: z.enum(["missing_fact", "validation", "conflict", "permission_denied", "confirmation_required", "retryable_not_applied", "outcome_unknown", "not_found", "invalid_token", "identity_not_linked", "identity_temporarily_unavailable", "unsupported_contract"]),
   message: z.string(),
   fields: z.array(z.string()).optional(),
   execution_id: stableId.optional()
+}).strict();
+
+export const lifeMeResultSchema=z.object({
+  issuer:z.string().min(1),oidc_sub:z.string().min(1),life_subject_id:stableId,environment_id:z.string().min(1),display_name:z.string().nullable(),effects:z.array(z.string()),authorization_revision:z.number().int().positive()
 }).strict();
 
 export const mealViewSchema = z.object({

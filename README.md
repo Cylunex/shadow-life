@@ -24,7 +24,10 @@ DATABASE_URL=postgresql://localhost/shadow_life SHADOW_DEV_AUTH=true pnpm dev
 The Runtime/Host trust split and resumable run states are defined in
 [ADR 0002](docs/decisions/0002-agent-event-trust-boundary.md).
 Run `SHADOW_ACCESS_TOKEN=... pnpm mcp` to expose the same write capabilities to an MCP client.
-Production startup requires the OIDC verification and browser PKCE settings shown in `.env.example`; Web uses a protected same-origin session cookie and does not ask the user to paste a token.
+Production startup requires the OIDC verification, accepted-client list, explicit opaque-subject mapping and
+browser PKCE settings shown in `.env.example`; Web uses a protected same-origin session cookie and does not ask
+the user to paste a token. Android uses the separate `com.shadow.life` public client, requests the Life API
+resource and admits the account through `/api/me`.
 Migration tooling and the cutover sequence are documented in [docs/migration/health-ledger-inventory.md](docs/migration/health-ledger-inventory.md)
 and [docs/migration/cutover-runbook.md](docs/migration/cutover-runbook.md).
 No development command deploys, reaches production, calls a paid model or builds a signed Android package.

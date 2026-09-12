@@ -1,4 +1,4 @@
-package com.shadow.app
+package com.shadow.life
 
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties

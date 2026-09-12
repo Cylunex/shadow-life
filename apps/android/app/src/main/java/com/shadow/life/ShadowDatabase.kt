@@ -1,4 +1,4 @@
-package com.shadow.app
+package com.shadow.life
 import androidx.room.*
 import kotlinx.coroutines.flow.Flow
 @Entity(tableName="pending_commands",indices=[Index(value=["accountId","subjectId","commandId"],unique=true)]) data class PendingCommand(@PrimaryKey val commandId:String,val accountId:String,val subjectId:String,val capability:String,val body:String,val state:String="pending",val attempts:Int=0,val createdAt:Long=System.currentTimeMillis(),@ColumnInfo(defaultValue="0")val encryptionVersion:Int=0,@ColumnInfo(defaultValue="''")val receiptBody:String="")

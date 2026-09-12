@@ -3,7 +3,7 @@ import { bodyLimit } from "hono/body-limit";
 import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 import { createHash } from "node:crypto";
-import { capabilityRegistry, executionResultSchema, healthTrendInputSchema, lifeRecordInputSchema, lifeTimelineInputSchema, lifeTodayInputSchema, writeCapabilityNameSchema } from "@shadow/contracts";
+import { capabilityRegistry, executionResultSchema, healthTrendInputSchema, lifeMeResultSchema, lifeRecordInputSchema, lifeTimelineInputSchema, lifeTodayInputSchema, writeCapabilityNameSchema } from "@shadow/contracts";
 import { AssetService, type PostgresUnitOfWork } from "@shadow/database";
 import type { AgentRepository } from "@shadow/database";
 import { hostRunEventSchema, runtimeEventSchema, type AgentRuntimeAdapter, type HostRunEvent, type RuntimeEvent, type RunState } from "@shadow/agent-adapter";
@@ -27,6 +27,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.use("/api/commands/*", bodyLimit({ maxSize: 1024 * 1024, onError: (context) => context.json({ protocol: "shadow.error", code: "validation", message: "Command body is too large." }, 413) }));
   app.use("/api/travel/portable/preview",bodyLimit({maxSize:1024*1024,onError:context=>context.json({protocol:"shadow.error",code:"validation",message:"Portable travel input is too large."},413)}));
   app.use("/api/assets",bodyLimit({maxSize:20*1024*1024,onError:context=>context.json({protocol:"shadow.error",code:"validation",message:"Asset is too large."},413)}));
+  app.get("/api/me",context=>{const value=context.get("requestContext");context.header("Cache-Control","no-store");return context.json(lifeMeResultSchema.parse({issuer:value.issuer??"shadow:unknown",oidc_sub:value.oidcSubject??value.actorId,life_subject_id:value.subjectId,environment_id:value.environmentId??"default",display_name:value.displayName??null,effects:[...value.effects].sort(),authorization_revision:value.authorizationRevision??1}));});
   app.get("/api/capabilities", (context) => {
     const requestContext=context.get("requestContext");
     return context.json({
@@ -110,7 +111,9 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
       const heartbeat=setInterval(()=>{void repository.heartbeat(runId).then(valid=>{if(!valid&&!controller.signal.aborted)controller.abort("lease_lost_or_stop_requested");}).catch(()=>controller.abort("lease_heartbeat_failed"));},5_000);
       heartbeat.unref();
       activeRuns.set(runId,{subjectId:requestContext.subjectId,controller});
-      stream.onAbort(()=>{if(!controller.signal.aborted)controller.abort("client_disconnected");});
+      // The HTTP stream is only a subscription. A dropped mobile connection must not cancel
+      // the durable run; clients resume from the persisted sequence through /api/runs/:id.
+      stream.onAbort(()=>{/* keep the leased run alive */});
       const emit=async(event:HostRunEvent):Promise<number>=>{const parsed=hostRunEventSchema.parse(event),sequence=await repository.appendEvent(runId,parsed.type,parsed);try{await stream.writeSSE({id:String(sequence),event:parsed.type,data:JSON.stringify(parsed)});}catch{/* persistence remains authoritative when the client disconnects */}return sequence;};
       const hostId=()=>`${runId}:host:${++hostEventCount}`;
       const state=async(next:RunState,detail?:{reason?:string;fields?:string[];prompt?:string})=>{currentState=next;await emit({id:hostId(),run_id:runId,type:"run.state",state:next,...detail});};
@@ -226,7 +229,7 @@ function toolFailure(error:unknown,input?:unknown):Record<string,unknown>{
 function valueAt(value:unknown,path:readonly PropertyKey[]):unknown{let current=value;for(const key of path){if(current===null||typeof current!=="object")return undefined;current=(current as Record<PropertyKey,unknown>)[key];}return current;}
 function serializedSize(value:unknown):number{try{return Buffer.byteLength(JSON.stringify(value));}catch{return Number.POSITIVE_INFINITY;}}
 function isRuntimeToolError(value:unknown):boolean{return value!==null&&typeof value==="object"&&(value as {protocol?:unknown}).protocol==="shadow.runtime-tool-error";}
-function abortReason(signal:AbortSignal):string{if(signal.reason==="stopped_by_user")return"Run stopped by the user.";if(signal.reason==="deadline_exceeded")return"Runtime deadline exceeded.";if(signal.reason==="client_disconnected")return"Client disconnected before the run completed.";return"Run was cancelled.";}
+function abortReason(signal:AbortSignal):string{if(signal.reason==="stopped_by_user")return"Run stopped by the user.";if(signal.reason==="deadline_exceeded")return"Runtime deadline exceeded.";return"Run was cancelled.";}
 const safePreviewMediaTypes=new Set(["image/jpeg","image/png","image/gif","image/webp","image/avif","audio/mpeg","audio/mp4","audio/ogg","video/mp4","video/webm","text/plain"]);
 function secureAssetHeaders(extra:Record<string,string>={}):Record<string,string>{return{"cache-control":"private, no-store","x-content-type-options":"nosniff","cross-origin-resource-policy":"same-origin","referrer-policy":"no-referrer","content-security-policy":"default-src 'none'; sandbox",...extra};}
 function assetFileName(versionId:string,mediaType:string):string{const safe=versionId.replace(/[^A-Za-z0-9._-]/gu,"_").slice(0,128)||"asset",extensions:Record<string,string>={"image/jpeg":"jpg","image/png":"png","image/gif":"gif","image/webp":"webp","image/avif":"avif","audio/mpeg":"mp3","audio/mp4":"m4a","audio/ogg":"ogg","video/mp4":"mp4","video/webm":"webm","text/plain":"txt","application/pdf":"pdf","image/svg+xml":"svg","text/html":"html"};return`${safe}.${extensions[mediaType]??"bin"}`;}

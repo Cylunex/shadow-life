@@ -13,13 +13,13 @@ function run(args){const result=spawnSync(java,args,{cwd:root,stdio:"inherit"});
 const runtime=[dir,stdlib,json,coroutines].join(":");
 try{
   run(["-cp",compiler,"org.jetbrains.kotlin.cli.jvm.K2JVMCompiler","-no-stdlib","-no-reflect","-classpath",[stdlib,json,coroutines,jar("org.jetbrains","annotations","13.0")].join(":"),"-d",dir,
-    "apps/android/app/src/main/java/com/shadow/app/HealthSyncPolicy.kt",
-    "apps/android/app/src/main/java/com/shadow/app/HealthBatchCommand.kt",
-    "apps/android/app/src/main/java/com/shadow/app/HealthSyncRound.kt",
+    "apps/android/app/src/main/java/com/shadow/life/HealthSyncPolicy.kt",
+    "apps/android/app/src/main/java/com/shadow/life/HealthBatchCommand.kt",
+    "apps/android/app/src/main/java/com/shadow/life/HealthSyncRound.kt",
     "apps/android/tests/HealthSyncPolicyTest.kt","apps/android/tests/HealthSyncRoundTest.kt"]);
-  run(["-cp",runtime,"com.shadow.app.HealthSyncPolicyTestKt"]);
+  run(["-cp",runtime,"com.shadow.life.HealthSyncPolicyTestKt"]);
   const fixtures=join(dir,"production-commands.json");
-  run(["-cp",runtime,"com.shadow.app.HealthSyncRoundTestKt",fixtures]);
+  run(["-cp",runtime,"com.shadow.life.HealthSyncRoundTestKt",fixtures]);
   const contracts=spawnSync(process.execPath,["--import","tsx","scripts/verify-health-commands.ts",fixtures],{cwd:root,stdio:"inherit"});
   if(contracts.status!==0)throw Error(`Production command contract check exited ${contracts.status}`);
   const migration=spawnSync("python3",["scripts/test-health-round-migration.py",fixtures],{cwd:root,stdio:"inherit"});

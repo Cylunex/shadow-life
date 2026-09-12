@@ -1,4 +1,4 @@
-package com.shadow.app
+package com.shadow.life
 
 val healthRecordTypes=listOf("body","steps_interval","sleep","workout")
 const val HEALTH_ROUND_TABLE_SQL="CREATE TABLE IF NOT EXISTS health_sync_rounds (accountId TEXT NOT NULL, subjectId TEXT NOT NULL, requestId TEXT NOT NULL, typeIndex INTEGER NOT NULL, waitingCommandId TEXT, afterReceiptType INTEGER NOT NULL, PRIMARY KEY(accountId,subjectId))"

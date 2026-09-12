@@ -3,8 +3,12 @@ import type { ExecutionResult, LifeOverviewDomain, LifeTimelineItem, MealView, M
 export interface RequestContext {
   readonly actorId: string;
   readonly subjectId: string;
+  readonly oidcSubject?: string;
   readonly clientId: string;
   readonly issuer?: string;
+  readonly environmentId?: string;
+  readonly displayName?: string;
+  readonly authorizationRevision?: number;
   readonly effects: ReadonlySet<string>;
   readonly traceId: string;
   readonly agentRun?:{readonly runId:string;readonly ownerId:string;readonly toolCallId:string};

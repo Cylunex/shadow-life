@@ -1,4 +1,4 @@
-package com.shadow.app
+package com.shadow.life
 
 import org.json.JSONArray
 import org.json.JSONObject

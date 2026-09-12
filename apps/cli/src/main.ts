@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { buildCapabilityHttpRequest, capabilityRegistry, parseCapabilityResult, type CapabilityName } from "@shadow/contracts";
 
 const [group, action, argument, option] = process.argv.slice(2);
 const baseUrl = (process.env.SHADOW_API_URL ?? "http://127.0.0.1:8787").replace(/\/$/u, "");
@@ -7,7 +8,14 @@ if (token === undefined) throw new Error("SHADOW_ACCESS_TOKEN is required");
 const headers = { authorization: `Bearer ${token}`, "content-type": "application/json" };
 
 let response: Response;
-if (group === "capabilities" && action === "search") {
+let invokedCapability:CapabilityName|undefined;
+if(group==="query"&&action&&action in capabilityRegistry){
+  invokedCapability=action as CapabilityName;
+  if(capabilityRegistry[invokedCapability].idempotency!=="not-applicable")throw new Error(`${action} is a write capability; use command with an explicit command envelope`);
+  const input=argument?JSON.parse(await readFile(argument,"utf8")):{};
+  const request=buildCapabilityHttpRequest(baseUrl,invokedCapability,input);
+  response=await fetch(request.url,{method:request.method,headers,...(request.body?{body:request.body}:{})});
+} else if (group === "capabilities" && action === "search") {
   response = await fetch(`${baseUrl}/api/capabilities`, { headers });
 } else if (group === "schema" && action !== undefined) {
   response = await fetch(`${baseUrl}/api/capabilities/${encodeURIComponent(action)}`, { headers });
@@ -30,9 +38,10 @@ if (group === "capabilities" && action === "search") {
 } else if(group==="travel"&&action==="get"&&argument){response=await fetch(`${baseUrl}/api/travel/trips/${encodeURIComponent(argument)}`,{headers});
 } else if(group==="library"&&action==="get"&&argument){response=await fetch(`${baseUrl}/api/library/items/${encodeURIComponent(argument)}`,{headers});
 } else {
-  console.error("Usage: shadow capabilities search | schema <name> | command <capability> <json> | life record-meal <json> | life meals | life get <id> [meal,purchase,money,sources] | money summary | money planning [YYYY-MM] | health daily <date> | travel get <trip-id> | library get <item-id> | operation get <execution-id> | operation find <command-id>");
+  console.error("Usage: shadow capabilities search | schema <name> | query <read-capability> [input.json] | command <capability> <json> | life record-meal <json> | life meals | life get <id> [meal,purchase,money,sources] | money summary | money planning [YYYY-MM] | health daily <date> | travel get <trip-id> | library get <item-id> | operation get <execution-id> | operation find <command-id>");
   process.exit(64);
 }
-const body = await response.text();
+let body = await response.text();
+if(response.ok&&invokedCapability)body=JSON.stringify(parseCapabilityResult(invokedCapability,JSON.parse(body)));
 process.stdout.write(body.endsWith("\n") ? body : `${body}\n`);
 if (!response.ok) process.exit(response.status === 401 || response.status === 403 ? 77 : response.status === 409 ? 75 : 65);

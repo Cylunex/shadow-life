@@ -1,4 +1,4 @@
-package com.shadow.app
+package com.shadow.life
 import android.app.Application
 import androidx.room.Room
 import androidx.room.migration.Migration

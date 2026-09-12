@@ -1,4 +1,4 @@
-package com.shadow.app
+package com.shadow.life
 
 import java.io.File
 import kotlinx.coroutines.runBlocking

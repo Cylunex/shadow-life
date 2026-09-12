@@ -1,4 +1,4 @@
-package com.shadow.app
+package com.shadow.life
 
 import android.content.Context
 import android.provider.Settings
