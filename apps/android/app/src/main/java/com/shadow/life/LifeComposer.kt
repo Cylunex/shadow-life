@@ -14,21 +14,30 @@ import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun LifeComposerHost(open:Boolean,submitState:SubmitState,onDismiss:()->Unit,onSubmit:(CaptureDraft)->Unit,onReset:()->Unit){
+@Composable fun LifeComposerHost(open:Boolean,submitState:SubmitState,assistantState:LoadState<AssistantReply>?,onDismiss:()->Unit,onSubmit:(CaptureDraft)->Unit,onAsk:(String)->Unit,onReset:()->Unit){
   if(!open)return
   var mode by rememberSaveable{mutableStateOf<CaptureKind?>(null)}
   ModalBottomSheet(onDismissRequest=onDismiss,containerColor=MaterialTheme.colorScheme.surface,dragHandle={BottomSheetDefaults.DragHandle()}){
     Column(Modifier.fillMaxWidth().imePadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(start=20.dp,end=20.dp,bottom=20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)){
       Text(if(mode==null)"Life" else "记录${mode?.label}",style=MaterialTheme.typography.headlineMedium)
-      if(mode==null)ComposerStart(onChoose={mode=it}) else CaptureForm(mode!!,submitState,onSubmit,onBack={onReset();mode=null},onDone={onDismiss();onReset();mode=null})
+      if(mode==null)ComposerStart(assistantState,onAsk,onChoose={mode=it}) else CaptureForm(mode!!,submitState,onSubmit,onBack={onReset();mode=null},onDone={onDismiss();onReset();mode=null})
     }
   }
 }
 
-@Composable private fun ComposerStart(onChoose:(CaptureKind)->Unit){
-  Text("记录事实，或选择一种完整表单。保存后可在相应详情中更正。",color=MaterialTheme.colorScheme.onSurfaceVariant)
+@Composable private fun ComposerStart(assistantState:LoadState<AssistantReply>?,onAsk:(String)->Unit,onChoose:(CaptureKind)->Unit){
+  var message by rememberSaveable{mutableStateOf("")}
+  Text("直接告诉 Life 你要记录、查找或安排什么；也可以选择完整表单。",color=MaterialTheme.colorScheme.onSurfaceVariant)
+  OutlinedTextField(message,{message=it},Modifier.fillMaxWidth(),label={Text("对 Life 说")},minLines=2,maxLines=5,enabled=assistantState !is LoadState.Loading)
+  Button(onClick={onAsk(message)},enabled=message.isNotBlank()&&assistantState !is LoadState.Loading,modifier=Modifier.fillMaxWidth().heightIn(min=56.dp)){Text(if(assistantState is LoadState.Loading)"Life 正在处理…" else "发送")}
+  when(assistantState){
+    is LoadState.Ready->LifeCard{Text(assistantState.value.text.ifBlank{assistantState.value.prompt?:"任务已处理"});assistantState.value.prompt?.let{Text(it,color=MaterialTheme.colorScheme.tertiary)};assistantState.value.receipts.forEach{Text("已提交 ${it.capability}",color=MaterialTheme.colorScheme.primary)};assistantState.value.runId?.let{Text("运行 $it",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
+    is LoadState.Failed->Text(assistantState.message,color=MaterialTheme.colorScheme.error)
+    else->Unit
+  }
+  HorizontalDivider()
   CaptureKind.entries.forEach{kind->OutlinedButton(onClick={onChoose(kind)},Modifier.fillMaxWidth().heightIn(min=56.dp)){Text("记录${kind.label}")}}
-  Text("自然语言助手将在建立受信 Agent 会话后显示；手动表单始终可用，不依赖模型。",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+  Text("手动表单始终可用，不依赖模型；Life 只有收到 Executor 的真实回执才会显示已提交。",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @Composable private fun CaptureForm(kind:CaptureKind,state:SubmitState,onSubmit:(CaptureDraft)->Unit,onBack:()->Unit,onDone:()->Unit){

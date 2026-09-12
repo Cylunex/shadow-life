@@ -385,7 +385,6 @@ export const writeCommandSchemas = {
   "library.fail_processing":failLibraryProcessingInputSchema,
   "library.complete_processing":completeLibraryProcessingInputSchema,
   "library.set_reading_state":setLibraryReadingStateInputSchema,
-  "library.register_legacy_link":registerLibraryLegacyLinkInputSchema,
   "agent.create_context_pack":createAgentContextPackInputSchema,
   "agent.revoke_context_pack":revokeAgentContextPackInputSchema,
   "agent.set_memory":setAgentMemoryInputSchema,
@@ -483,6 +482,9 @@ export const lifeTodayResultSchema=z.object({date:localDate,domains:z.object({
 export const lifeTimelineInputSchema=z.object({domains:z.array(lifeOverviewDomainSchema).min(1).max(5).optional(),limit:z.number().int().min(1).max(100).default(30),cursor:z.string().max(1_000).optional()}).strict();
 export const lifeTimelineItemSchema=z.object({domain:lifeOverviewDomainSchema,kind:z.string(),id:stableId,happened_at:instant,title:z.string(),amount:storedAmount.optional(),currency:currencyCode.optional(),record_id:stableId.optional()}).strict();
 export const lifeTimelineResultSchema=z.object({items:z.array(lifeTimelineItemSchema),next_cursor:z.string().nullable(),as_of:instant}).strict();
+export const lifeSearchInputSchema=z.object({q:z.string().trim().min(1).max(200),types:z.array(lifeOverviewDomainSchema).min(1).max(5).optional(),from_on:localDate.optional(),to_on_exclusive:localDate.optional(),limit:z.number().int().min(1).max(100).default(30),cursor:z.string().max(1_000).optional()}).strict().refine(value=>!value.from_on||!value.to_on_exclusive||value.to_on_exclusive>value.from_on,{path:["to_on_exclusive"],message:"to_on_exclusive must be after from_on"});
+export const lifeSearchItemSchema=z.object({domain:lifeOverviewDomainSchema,kind:z.string(),id:stableId,title:z.string(),supporting:z.string().nullable(),happened_on:localDate,amount:storedAmount.optional(),currency:currencyCode.optional(),record_id:stableId.optional()}).strict();
+export const lifeSearchResultSchema=z.object({items:z.array(lifeSearchItemSchema),next_cursor:z.string().nullable(),as_of:instant,applied_filters:z.object({q:z.string(),types:z.array(lifeOverviewDomainSchema),from_on:localDate.nullable(),to_on_exclusive:localDate.nullable()}).strict()}).strict();
 export const lifeRecordSectionSchema=z.enum(["meal","purchase","money","sources"]);
 export const lifeRecordInputSchema=z.object({id:stableId,sections:z.array(lifeRecordSectionSchema).min(1).max(4).optional()}).strict();
 export const resourceDetailInputSchema=z.object({id:stableId}).strict();
@@ -503,6 +505,7 @@ export const getOperationInputSchema = z.object({ execution_id: stableId }).stri
 export type RecordMealInput = z.infer<typeof recordMealInputSchema>;
 export type LifeOverviewDomain = z.infer<typeof lifeOverviewDomainSchema>;
 export type LifeTimelineItem = z.infer<typeof lifeTimelineItemSchema>;
+export type LifeSearchItem = z.infer<typeof lifeSearchItemSchema>;
 export type RecordMealCommand = z.infer<typeof recordMealCommandEnvelopeSchema>;
 export type WriteCapabilityName = z.infer<typeof writeCapabilityNameSchema>;
 export type UniversalCommandEnvelope = z.infer<typeof universalCommandEnvelopeSchema>;

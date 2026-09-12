@@ -38,6 +38,27 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     },json.optNullableString("next_cursor"),json.getString("as_of"))
   }
 
+  suspend fun search(query:String,cursor:String?=null):RecordPage {
+    val json=get("/api/search?q=${encode(query)}&limit=50${cursor?.let{"&cursor=${encode(it)}"}.orEmpty()}")
+    return RecordPage(json.getJSONArray("items").objects().map{item->
+      val domain=LifeDomain.valueOf(item.getString("domain").replaceFirstChar(Char::uppercase))
+      RecordSummary(domain,item.getString("kind"),item.getString("id"),item.getString("title"),item.optNullableString("supporting")?:item.optNullableString("happened_on"),item.optNullableString("amount")?.let{listOfNotNull(item.optNullableString("currency"),it).joinToString(" ")},null,item.optNullableString("record_id"))
+    },json.optNullableString("next_cursor"),json.getString("as_of"))
+  }
+
+  suspend fun assist(message:String,existingThreadId:String?=null):AssistantReply=withContext(Dispatchers.IO){
+    val session=app.sessions.active()?:error("请先登录 Shadow Life")
+    val fresh=when(val value=app.sessions.fresh(session.accountId,context)){SessionRefresh.ReauthRequired->error("会话已失效，请重新登录");SessionRefresh.Retryable->error("暂时无法刷新会话，请稍后重试");is SessionRefresh.Ready->value.value}
+    val threadId=existingThreadId?:JSONObject(request(fresh,"/api/threads","POST",JSONObject().put("title",message.trim().take(60)).toString(),"application/json")).getString("id")
+    val connection=(URL(fresh.session.apiBase+"/api/threads/${encode(threadId)}/runs").openConnection() as HttpURLConnection).apply{requestMethod="POST";connectTimeout=10_000;readTimeout=150_000;doOutput=true;setRequestProperty("Authorization","Bearer ${fresh.accessToken}");setRequestProperty("Accept","text/event-stream");setRequestProperty("Content-Type","application/json");outputStream.bufferedWriter().use{it.write(JSONObject().put("text",message.trim()).toString())}}
+    var runId:String?=null;var state="started";var prompt:String?=null;val answer=StringBuilder();val receipts=mutableListOf<OperationReceipt>()
+    try{
+      val code=connection.responseCode;if(code !in 200..299){val body=connection.errorStream?.bufferedReader()?.use{it.readText()}.orEmpty();error(runCatching{JSONObject(body).optString("message")}.getOrNull().orEmpty().ifBlank{"Life 请求失败（HTTP $code）"})}
+      connection.inputStream.bufferedReader().useLines{lines->lines.forEach{line->if(line.startsWith("data:")){val event=runCatching{JSONObject(line.removePrefix("data:").trim())}.getOrNull()?:return@forEach;runId=event.optNullableString("run_id")?:runId;when(event.optString("type")){"message.delta"->answer.append(event.optString("text"));"run.state"->{state=event.optString("state",state);prompt=event.optNullableString("prompt")?:prompt};"operation.committed"->{val result=event.optJSONObject("result");receipts+=OperationReceipt(event.optString("capability"),event.optString("command_id"),event.optNullableString("execution_id"),result?.optJSONArray("resources").objects().map{ResourceRef(it.optString("type"),it.optString("id"),it.optInt("revision",1))})}}}}}
+    }finally{connection.disconnect()}
+    AssistantReply(answer.toString(),threadId,runId,state,prompt,receipts)
+  }
+
   suspend fun records(domain:LifeDomain,query:String="",cursor:String?=null):RecordPage {
     val apiDomain=when(domain){LifeDomain.Meals->"life";else->domain.name.lowercase()}
     if(domain==LifeDomain.Meals){
@@ -57,7 +78,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     return json.getJSONArray("items").objects().map{item->PlanSummary(item.getString("id"),item.getString("title"),item.optNullableString("goal"),item.optString("state","active"),item.optNullableString("ends_on"),item.optInt("revision",1),item.optJSONArray("actions")?.length()?:0)}
   }
 
-  suspend fun library():List<LibrarySummary> = records(LifeDomain.Library).items.map{LibrarySummary(it.id,it.title,it.kind,it.supporting,it.revision)}
+  suspend fun library(query:String=""):List<LibrarySummary> = records(LifeDomain.Library,query).items.map{LibrarySummary(it.id,it.title,it.kind,it.supporting,it.revision)}
 
   suspend fun detail(domain:LifeDomain,id:String):RecordDetail {
     val path=when(domain){LifeDomain.Meals->"/api/life/records/$id";LifeDomain.Health->"/api/health/records/$id";LifeDomain.Travel->"/api/travel/trips/$id";LifeDomain.Library->"/api/library/items/$id";LifeDomain.Money->"/api/life/records/$id?sections=money"}
@@ -65,8 +86,6 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   }
 
   suspend fun enqueue(draft:CaptureDraft):OperationReceipt=withContext(Dispatchers.IO){
-    val session=app.sessions.active()?:error("请先登录 Shadow Life")
-    val commandId="cmd_android_${UUID.randomUUID().toString().replace("-","")}";
     val input=when(draft.kind){
       CaptureKind.Expense->JSONObject().put("entry_type",if(draft.option=="income")"income" else "expense").put("amount",money(draft.primary)).put("currency","CNY").put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).apply{draft.secondary.trim().takeIf(String::isNotBlank)?.let{put("counterparty",it)};draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
       CaptureKind.Meal->JSONObject().put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).put("meal_type",draft.option.ifBlank{"other"}).put("items",JSONArray().put(JSONObject().put("name",draft.primary.trim()).put("free_text",draft.primary.trim()).put("estimate",false))).apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
@@ -74,10 +93,19 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       CaptureKind.Visit->JSONObject().put("place_name",draft.primary.trim()).put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).put("visibility","private").apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
       CaptureKind.Library->JSONObject().put("title",draft.primary.trim().take(300)).put("item_type",draft.option.ifBlank{"note"}).put("text",draft.secondary.ifBlank{draft.note}.ifBlank{draft.primary}).put("tags",JSONArray())
     }
-    val body=JSONObject().put("protocol","shadow.command").put("capability",draft.kind.capability).put("command_id",commandId).put("input",input).toString()
-    app.queue.enqueueCommand(session,commandId,draft.kind.capability,body)
-    SyncScheduler.schedule(context,session.accountId)
-    OperationReceipt(draft.kind.capability,commandId,queued=true)
+    enqueueCommand(draft.kind.capability,input)
+  }
+
+  suspend fun enqueueCorrection(seed:EditSeed,draft:CorrectionDraft):OperationReceipt=withContext(Dispatchers.IO){
+    val input=when(seed){
+      is EditSeed.Meal->JSONObject().put("meal_id",seed.detailId).put("expected_revision",seed.revision).put("occurred_on",draft.date).put("time_zone",seed.timeZone).put("meal_type",draft.option).put("reason",draft.reason.trim()).apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
+      is EditSeed.Money->JSONObject().put("record_id",seed.detailId).put("expected_revision",seed.revision).put("amount",decimal(draft.primary)).put("currency",seed.currency).put("occurred_on",draft.date).put("time_zone",seed.timeZone).put("reason",draft.reason.trim()).apply{draft.secondary.trim().takeIf(String::isNotBlank)?.let{put("category",it)};draft.option.trim().takeIf(String::isNotBlank)?.let{put("counterparty",it)};draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
+      is EditSeed.Health->JSONObject().put("measurement_id",seed.detailId).put("expected_revision",seed.revision).put("metric",seed.metric).put("value",decimal(draft.primary)).put("unit",draft.secondary.trim()).put("occurred_on",draft.date).put("time_zone",seed.timeZone).put("reason",draft.reason.trim()).apply{draft.option.trim().takeIf(String::isNotBlank)?.let{put("label",it)};draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
+      is EditSeed.Trip->JSONObject().put("trip_id",seed.detailId).put("expected_revision",seed.revision).put("title",draft.primary.trim()).put("starts_on",draft.date).put("ends_on",draft.secondary.trim()).put("time_zone",seed.timeZone).put("reason",draft.reason.trim()).apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
+      is EditSeed.Library->JSONObject().put("item_id",seed.detailId).put("expected_revision",seed.revision).put("title",draft.primary.trim()).put("tags",JSONArray(seed.tags)).put("reason",draft.reason.trim()).apply{val content=draft.secondary.trim();if(content.startsWith("http://")||content.startsWith("https://"))put("url",content) else put("text",content)}
+    }
+    val capability=when(seed){is EditSeed.Meal->"life.correct_meal";is EditSeed.Money->"money.correct_entry";is EditSeed.Health->"health.correct_measurement";is EditSeed.Trip->"travel.correct_trip";is EditSeed.Library->"library.revise"}
+    enqueueCommand(capability,input)
   }
 
   private suspend fun get(path:String):JSONObject=withContext(Dispatchers.IO){
@@ -92,12 +120,18 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     }
   }
 
+  private fun request(fresh:FreshSession,path:String,method:String,body:String?,accept:String):String{
+    val connection=(URL(fresh.session.apiBase+path).openConnection() as HttpURLConnection).apply{requestMethod=method;connectTimeout=10_000;readTimeout=30_000;setRequestProperty("Authorization","Bearer ${fresh.accessToken}");setRequestProperty("Accept",accept);if(body!=null){doOutput=true;setRequestProperty("Content-Type","application/json");outputStream.bufferedWriter().use{it.write(body)}}}
+    try{val code=connection.responseCode;val text=(if(code in 200..299)connection.inputStream else connection.errorStream)?.bufferedReader()?.use{it.readText()}.orEmpty();if(code !in 200..299)error(runCatching{JSONObject(text).optString("message")}.getOrNull().orEmpty().ifBlank{"请求失败（HTTP $code）"});return text}finally{connection.disconnect()}
+  }
+
   private fun toSummary(domain:LifeDomain,item:JSONObject):RecordSummary {
     val kind=item.optString("kind",when(domain){LifeDomain.Money->"money_entry";LifeDomain.Health->"health_measurement";LifeDomain.Travel->"trip";LifeDomain.Library->"library_item";else->"meal"})
     val title=listOf("title","name","counterparty","place_name","metric","item_type").firstNotNullOfOrNull{key->item.optNullableString(key)}?:kindLabel(kind)
     val supporting=listOf("occurred_on","starts_on","created_at","updated_at","state").firstNotNullOfOrNull{key->item.optNullableString(key)}
     val amount=item.optNullableString("amount")?.let{value->listOfNotNull(item.optNullableString("currency"),value).joinToString(" ")}
-    return RecordSummary(domain,kind,item.getString("id"),title,supporting,amount,item.optInt("revision").takeIf{it>0})
+    val detailId=when(domain){LifeDomain.Money->item.optNullableString("record_id");LifeDomain.Travel->item.optNullableString("trip_id");else->null}
+    return RecordSummary(domain,kind,item.getString("id"),title,supporting,amount,item.optInt("revision").takeIf{it>0},detailId)
   }
 
   private fun detailFrom(domain:LifeDomain,json:JSONObject):RecordDetail {
@@ -117,6 +151,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       LifeDomain.Library->listOf("item_type" to "类型","state" to "状态","created_at" to "收存时间","updated_at" to "更新时间","text" to "正文")
     }
     val sections=mutableListOf(DetailSection("概要",mainKeys.mapNotNull{(key,label)->root.optNullableString(key)?.let{DetailFact(label,it)}}))
+    if(domain==LifeDomain.Library)json.optJSONArray("revisions")?.optJSONObject(0)?.let{revision->sections+=DetailSection("当前内容",listOfNotNull(revision.optNullableString("text")?.let{DetailFact("正文",it)},revision.optNullableString("url")?.let{DetailFact("链接",it)},revision.optJSONArray("tags")?.let{tags->(0 until tags.length()).mapNotNull{index->tags.optString(index).takeIf(String::isNotBlank)}.takeIf{it.isNotEmpty()}?.joinToString("、")?.let{DetailFact("标签",it)}}))}
     if(domain==LifeDomain.Money)json.optJSONObject("money_entry")?.let{entry->sections+=DetailSection("金额",listOfNotNull(entry.optNullableString("amount")?.let{DetailFact("金额",listOfNotNull(entry.optNullableString("currency"),it).joinToString(" "))},entry.optNullableString("counterparty")?.let{DetailFact("交易方",it)},entry.optNullableString("category")?.let{DetailFact("分类",it)},entry.optNullableString("payment_method")?.let{DetailFact("支付方式",it)}))}
     val collectionLabels=when(domain){
       LifeDomain.Meals->listOf("items" to "食物","payments" to "关联付款","sources" to "来源")
@@ -126,7 +161,18 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       LifeDomain.Library->listOf("sources" to "原件","annotations" to "批注","derivations" to "派生内容","processing_jobs" to "处理任务","snippets" to "可检索片段")
     }
     collectionLabels.forEach{(key,label)->when(val value=json.opt(key)){is JSONArray->if(value.length()>0)sections+=DetailSection(label,itemCount=value.length());is JSONObject->sections+=DetailSection(label,listOfNotNull(value.optNullableString("kind")?.let{DetailFact("类型",it)},value.optNullableString("state")?.let{DetailFact("状态",it)}));}}
-    return RecordDetail(title,root.optNullableString("state"),root.optInt("revision").takeIf{it>0},sections.filter{it.facts.isNotEmpty()||it.itemCount!=null})
+    val editSeed=when(domain){
+      LifeDomain.Meals->root.optNullableString("meal_id")?.let{id->root.optInt("revision").takeIf{it>0}?.let{EditSeed.Meal(id,it,root.optString("occurred_on"),root.optString("time_zone"),root.optString("meal_type","other"),root.optNullableString("note"))}}
+      LifeDomain.Money->json.optJSONObject("money_entry")?.let{entry->root.optInt("revision").takeIf{it>0}?.let{revision->EditSeed.Money(root.optString("record_id"),revision,entry.optString("amount"),entry.optString("currency","CNY"),entry.optString("occurred_on",root.optString("occurred_on")),entry.optString("time_zone",root.optString("time_zone")),entry.optNullableString("category"),entry.optNullableString("counterparty"),entry.optNullableString("note")?:root.optNullableString("note"))}}
+      LifeDomain.Health->root.optNullableString("id")?.let{id->root.optInt("revision").takeIf{it>0}?.let{EditSeed.Health(id,it,root.optString("metric"),root.optString("value"),root.optString("unit"),root.optString("occurred_on"),root.optString("time_zone"),root.optNullableString("label"),root.optNullableString("note"))}}
+      LifeDomain.Travel->root.optNullableString("id")?.let{id->root.optInt("revision").takeIf{it>0}?.let{EditSeed.Trip(id,it,root.optString("title"),root.optString("starts_on"),root.optString("ends_on"),root.optString("time_zone"),root.optNullableString("note"))}}
+      LifeDomain.Library->{val latest=json.optJSONArray("revisions")?.optJSONObject(0);root.optNullableString("id")?.let{id->root.optInt("current_revision").takeIf{it>0}?.let{EditSeed.Library(id,it,root.optString("title"),latest?.optNullableString("text"),latest?.optNullableString("url"),latest?.optJSONArray("tags")?.let{tags->(0 until tags.length()).mapNotNull{index->tags.optString(index).takeIf(String::isNotBlank)}}?:emptyList())}}}
+    }
+    return RecordDetail(title,root.optNullableString("state"),root.optInt("revision").takeIf{it>0}?:root.optInt("current_revision").takeIf{it>0},sections.filter{it.facts.isNotEmpty()||it.itemCount!=null},editSeed)
+  }
+
+  private suspend fun enqueueCommand(capability:String,input:JSONObject):OperationReceipt{
+    val session=app.sessions.active()?:error("请先登录 Shadow Life");val commandId="cmd_android_${UUID.randomUUID().toString().replace("-","")}";val body=JSONObject().put("protocol","shadow.command").put("capability",capability).put("command_id",commandId).put("input",input).toString();app.queue.enqueueCommand(session,commandId,capability,body);SyncScheduler.schedule(context,session.accountId);return OperationReceipt(capability,commandId,queued=true)
   }
 }
 

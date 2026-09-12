@@ -5,7 +5,12 @@ Android is the primary daily client. It is a native Kotlin/Jetpack Compose appli
 
 The root navigation is Today / Records / Plans / Library. The centered Life action opens one composer while
 preserving the selected root and its back stack. Manual forms for expense, meal, health, visit and library
-capture remain available without an Agent. Reads use typed presentation models backed by the Life API, while
+capture remain available without an Agent. The same composer can start and continue a native Agent conversation;
+only Executor-authenticated operation events are presented as committed results. Records use the paginated
+server-side `life.search` capability, and detail pages render explicit domain sections instead of recursive JSON.
+Timeline, search, and domain lists retain server cursors for incremental loading. Editable meal, money, manual
+health, trip, and library details submit version-checked correction commands through the same encrypted queue.
+Reads use typed presentation models backed by the Life API, while
 writes first enter the account-bound encrypted command queue and retain their command ID until the authoritative
 receipt is known.
 
@@ -29,6 +34,8 @@ The OIDC client is public and uses Authorization Code + PKCE/S256. The authoriza
 Life API resource. Android treats the access token as an opaque bearer and activates an account only after
 `GET /api/me` returns the server-owned Life subject mapping. Session generation fences late login and refresh
 callbacks after logout or account switching.
+Local logout increments the session generation first, cancels account-specific sync work, clears usable local
+tokens, and then makes a best-effort refresh-token revocation when the provider advertises that endpoint.
 
 ## Verification
 

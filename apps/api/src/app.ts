@@ -3,7 +3,7 @@ import { bodyLimit } from "hono/body-limit";
 import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 import { createHash } from "node:crypto";
-import { capabilityRegistry, executionResultSchema, healthTrendInputSchema, lifeMeResultSchema, lifeRecordInputSchema, lifeTimelineInputSchema, lifeTodayInputSchema, writeCapabilityNameSchema } from "@shadow/contracts";
+import { capabilityRegistry, executionResultSchema, healthTrendInputSchema, lifeMeResultSchema, lifeRecordInputSchema, lifeSearchInputSchema, lifeTimelineInputSchema, lifeTodayInputSchema, writeCapabilityNameSchema } from "@shadow/contracts";
 import { AssetService, type PostgresUnitOfWork } from "@shadow/database";
 import type { AgentRepository } from "@shadow/database";
 import { hostRunEventSchema, runtimeEventSchema, type AgentRuntimeAdapter, type HostRunEvent, type RuntimeEvent, type RunState } from "@shadow/agent-adapter";
@@ -28,6 +28,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.use("/api/travel/portable/preview",bodyLimit({maxSize:1024*1024,onError:context=>context.json({protocol:"shadow.error",code:"validation",message:"Portable travel input is too large."},413)}));
   app.use("/api/assets",bodyLimit({maxSize:20*1024*1024,onError:context=>context.json({protocol:"shadow.error",code:"validation",message:"Asset is too large."},413)}));
   app.get("/api/me",context=>{const value=context.get("requestContext");context.header("Cache-Control","no-store");return context.json(lifeMeResultSchema.parse({issuer:value.issuer??"shadow:unknown",oidc_sub:value.oidcSubject??value.actorId,life_subject_id:value.subjectId,environment_id:value.environmentId??"default",display_name:value.displayName??null,effects:[...value.effects].sort(),authorization_revision:value.authorizationRevision??1}));});
+  app.get("/api/search",async context=>context.json(await dependencies.queries.lifeSearch(context.get("requestContext"),lifeSearchInputSchema.parse({q:context.req.query("q"),...(context.req.query("types")?{types:context.req.query("types")!.split(",").filter(Boolean)}:{}),...(context.req.query("from_on")?{from_on:context.req.query("from_on")} :{}),...(context.req.query("to_on_exclusive")?{to_on_exclusive:context.req.query("to_on_exclusive")} :{}),limit:Number(context.req.query("limit")??"30"),...(context.req.query("cursor")?{cursor:context.req.query("cursor")} :{})}))));
   app.get("/api/capabilities", (context) => {
     const requestContext=context.get("requestContext");
     return context.json({
@@ -126,6 +127,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         if(capabilityName==="life.food_catalog")return dependencies.queries.foodCatalog(requestContext,parsed);
         if(capabilityName==="life.today")return dependencies.queries.lifeToday(requestContext,parsed);
         if(capabilityName==="life.timeline")return dependencies.queries.lifeTimeline(requestContext,parsed);
+        if(capabilityName==="life.search")return dependencies.queries.lifeSearch(requestContext,parsed);
         if(capabilityName==="money.summarize")return dependencies.queries.summarizeMoney(requestContext);
         if(capabilityName==="money.records"||capabilityName==="health.records"||capabilityName==="travel.records"||capabilityName==="library.records")return dependencies.queries.listDomain(requestContext,capabilityName.split(".")[0] as "money"|"health"|"travel"|"library",parsed as {query?:string|undefined;limit?:number|undefined;cursor?:string|undefined});
         if(capabilityName==="health.trend")return dependencies.queries.healthTrend(requestContext,parsed as {metric_key:string;from?:string|undefined;to?:string|undefined;limit:number});

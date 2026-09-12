@@ -29,6 +29,7 @@ data class OperationReceipt(
   val warnings:List<String> = emptyList(),
   val queued:Boolean=false
 )
+data class AssistantReply(val text:String,val threadId:String,val runId:String?,val state:String,val prompt:String?=null,val receipts:List<OperationReceipt> = emptyList())
 
 data class DueItem(val id:String,val title:String,val dueOn:String,val amount:String?=null,val currency:String?=null)
 data class CurrentTrip(val id:String,val title:String,val startsOn:String,val endsOn:String)
@@ -46,13 +47,21 @@ data class TodaySnapshot(
 data class MoneyTotal(val currency:String,val netSpending:String,val income:String)
 data class TimelineItem(val domain:LifeDomain,val kind:String,val id:String,val happenedAt:String,val title:String,val amount:String?=null,val currency:String?=null,val recordId:String?=null)
 data class TimelinePage(val items:List<TimelineItem>,val nextCursor:String?,val asOf:String)
-data class RecordSummary(val domain:LifeDomain,val kind:String,val id:String,val title:String,val supporting:String?,val trailing:String?,val revision:Int?)
+data class RecordSummary(val domain:LifeDomain,val kind:String,val id:String,val title:String,val supporting:String?,val trailing:String?,val revision:Int?,val detailId:String?=null)
 data class RecordPage(val items:List<RecordSummary>,val nextCursor:String?,val asOf:String)
 data class PlanSummary(val id:String,val title:String,val goal:String?,val state:String,val dueOn:String?,val revision:Int,val actions:Int)
 data class LibrarySummary(val id:String,val title:String,val itemType:String,val state:String?,val revision:Int?)
 data class DetailFact(val label:String,val value:String)
 data class DetailSection(val title:String,val facts:List<DetailFact> = emptyList(),val itemCount:Int?=null)
-data class RecordDetail(val title:String,val state:String?,val revision:Int?,val sections:List<DetailSection>)
+sealed interface EditSeed { val domain:LifeDomain;val detailId:String
+  data class Meal(override val detailId:String,val revision:Int,val occurredOn:String,val timeZone:String,val mealType:String,val note:String?):EditSeed{override val domain=LifeDomain.Meals}
+  data class Money(override val detailId:String,val revision:Int,val amount:String,val currency:String,val occurredOn:String,val timeZone:String,val category:String?,val counterparty:String?,val note:String?):EditSeed{override val domain=LifeDomain.Money}
+  data class Health(override val detailId:String,val revision:Int,val metric:String,val value:String,val unit:String,val occurredOn:String,val timeZone:String,val label:String?,val note:String?):EditSeed{override val domain=LifeDomain.Health}
+  data class Trip(override val detailId:String,val revision:Int,val title:String,val startsOn:String,val endsOn:String,val timeZone:String,val note:String?):EditSeed{override val domain=LifeDomain.Travel}
+  data class Library(override val detailId:String,val revision:Int,val title:String,val text:String?,val url:String?,val tags:List<String>):EditSeed{override val domain=LifeDomain.Library}
+}
+data class CorrectionDraft(val primary:String,val secondary:String,val note:String,val date:String,val option:String,val reason:String)
+data class RecordDetail(val title:String,val state:String?,val revision:Int?,val sections:List<DetailSection>,val editSeed:EditSeed?=null)
 
 @Serializable data object TodayRoute
 @Serializable data object RecordsRoute

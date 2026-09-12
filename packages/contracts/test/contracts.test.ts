@@ -72,8 +72,7 @@ test("library processing and legacy proof inputs fail closed",()=>{
   assert.equal(capabilityRegistry["library.queue_processing"].inputSchema.safeParse({item_id:"library_12345678",source_asset_version_id:"assetv_12345678",kind:"text_extract",requested_processor:"builtin-text-v1"}).success,true);
   assert.equal(capabilityRegistry["library.complete_processing"].inputSchema.safeParse({job_id:"library_job_12345678",derived_asset_version_id:"assetv_12345678",processor_version:"v1",snippets:[]}).success,false);
   assert.equal(capabilityRegistry["library.set_reading_state"].inputSchema.safeParse({item_id:"library_12345678",item_revision:1,locator:{page:3},progress:.5,state:"completed"}).success,false);
-  assert.equal(capabilityRegistry["library.register_legacy_link"].inputSchema.safeParse({item_id:"library_12345678",legacy_uri:"shadow://old/1",algorithm:"legacy-unverified"}).success,true);
-  assert.equal(capabilityRegistry["library.register_legacy_link"].inputSchema.safeParse({item_id:"library_12345678",legacy_uri:"shadow://old/1",algorithm:"ed25519-sha256-ascii-v1"}).success,false);
+  assert.equal("library.register_legacy_link" in capabilityRegistry,false);
 });
 
 test("agent context and durable memory keep permission and inference boundaries",()=>{

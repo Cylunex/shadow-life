@@ -10,6 +10,7 @@ const post=(path:string,input:unknown):ReturnType<ReadRoute>=>({method:"POST",pa
 export const queryTransportRegistry:Readonly<Record<string,ReadRoute>>={
   "life.today":input=>get(`/api/today${search({date:input.date,time_zone:input.time_zone,domains:input.domains})}`),
   "life.timeline":input=>get(`/api/timeline${search({domains:input.domains,limit:input.limit,cursor:input.cursor})}`),
+  "life.search":input=>get(`/api/search${search({q:input.q,types:input.types,from_on:input.from_on,to_on_exclusive:input.to_on_exclusive,limit:input.limit,cursor:input.cursor})}`),
   "life.list_meals":input=>get(`/api/meals${search({limit:input.limit})}`),
   "life.food_catalog":input=>get(`/api/life/foods${search({q:input.query,limit:input.limit})}`),
   "money.summarize":()=>get("/api/money/summary"),

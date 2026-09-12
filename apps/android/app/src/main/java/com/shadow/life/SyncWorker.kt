@@ -23,12 +23,13 @@ import java.time.Instant
 import java.time.ZoneOffset
 
 object SyncScheduler {
+  fun workName(accountId:String)="shadow-sync-$accountId"
   fun schedule(context:Context,accountId:String,ensureNext:Boolean=false){
     val request=OneTimeWorkRequestBuilder<SyncWorker>()
       .setInputData(workDataOf("account_id" to accountId))
       .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
       .build()
-    WorkManager.getInstance(context).enqueueUniqueWork("shadow-sync-$accountId",if(ensureNext)ExistingWorkPolicy.APPEND_OR_REPLACE else ExistingWorkPolicy.KEEP,request)
+    WorkManager.getInstance(context).enqueueUniqueWork(workName(accountId),if(ensureNext)ExistingWorkPolicy.APPEND_OR_REPLACE else ExistingWorkPolicy.KEEP,request)
   }
 }
 

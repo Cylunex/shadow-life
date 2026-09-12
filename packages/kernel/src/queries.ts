@@ -1,4 +1,4 @@
-import { foodCatalogInputSchema, foodCatalogResultSchema, healthSourcesResultSchema, healthTrendResultSchema, lifeTimelineInputSchema, lifeTimelineResultSchema, lifeTodayInputSchema, lifeTodayResultSchema, mealViewSchema, moneyImportReviewResultSchema, moneySummarySchema, travelExportInputSchema, travelExportResultSchema, travelWorkspaceInputSchema, type LifeOverviewDomain, type MealView, type MoneySummary } from "@shadow/contracts";
+import { foodCatalogInputSchema, foodCatalogResultSchema, healthSourcesResultSchema, healthTrendResultSchema, lifeSearchInputSchema, lifeSearchResultSchema, lifeTimelineInputSchema, lifeTimelineResultSchema, lifeTodayInputSchema, lifeTodayResultSchema, mealViewSchema, moneyImportReviewResultSchema, moneySummarySchema, travelExportInputSchema, travelExportResultSchema, travelWorkspaceInputSchema, type LifeOverviewDomain, type MealView, type MoneySummary } from "@shadow/contracts";
 import { previewTravelPortableInputSchema, travelBundleSchema } from "@shadow/contracts";
 import { libraryProcessingQueueInputSchema } from "@shadow/contracts";
 import { agentContextPackInputSchema, agentMemoriesInputSchema, notificationsInputSchema } from "@shadow/contracts";
@@ -12,6 +12,7 @@ type Domain="money"|"health"|"travel"|"library";
 type Cursor={domain:Domain;query:string;at:string;kind:string;id:string;as_of:string};
 type LifeRecordSection="meal"|"purchase"|"money"|"sources";
 type TimelineCursor={domains:string;at:string;domain:LifeOverviewDomain;kind:string;id:string;as_of:string};
+type SearchCursor={signature:string;on:string;domain:LifeOverviewDomain;kind:string;id:string;as_of:string};
 const overviewEffects:Record<LifeOverviewDomain,string>={meals:"life.meal.read",money:"money.entry.read",health:"health.measurement.read",travel:"travel.trip.read",library:"library.item.read"};
 function objectEffect(kind:string):string{return kind==="meal"||kind==="purchase"?"life.meal.read":kind==="money_entry"?"money.entry.read":kind==="health_measurement"||kind==="health_workout"?"health.measurement.read":kind==="trip"?"travel.trip.read":"library.item.read";}
 
@@ -34,6 +35,13 @@ export class QueryService {
     if(parsed.data.cursor){try{before=JSON.parse(Buffer.from(parsed.data.cursor,"base64url").toString("utf8")) as TimelineCursor;}catch{throw invalidInput("timeline cursor is invalid",["cursor"]);}if(before.domains!==signature||!before.at||!before.domain||!before.kind||!before.id||!before.as_of)throw invalidInput("timeline cursor does not match this query",["cursor"]);}
     const page=await this.unitOfWork.read(store=>store.lifeTimeline(context.subjectId,domains,{limit:parsed.data.limit,...(before?{asOf:before.as_of,before:{at:before.at,domain:before.domain,kind:before.kind,id:before.id}}:{})})),last=page.items.at(-1),next=page.hasMore&&last?Buffer.from(JSON.stringify({domains:signature,at:last.happened_at,domain:last.domain,kind:last.kind,id:last.id,as_of:page.asOf} satisfies TimelineCursor)).toString("base64url"):null;
     return lifeTimelineResultSchema.parse({items:page.items,next_cursor:next,as_of:page.asOf});
+  }
+  async lifeSearch(context:RequestContext,input:unknown){
+    const parsed=lifeSearchInputSchema.safeParse(input);if(!parsed.success)throw invalidInput("search query is invalid",parsed.error.issues.map(issue=>issue.path.join(".")));
+    const domains=this.overviewDomains(context,parsed.data.types),signature=JSON.stringify({q:parsed.data.q.toLocaleLowerCase(),types:domains,from_on:parsed.data.from_on??null,to_on_exclusive:parsed.data.to_on_exclusive??null});let before:SearchCursor|undefined;
+    if(parsed.data.cursor){try{before=JSON.parse(Buffer.from(parsed.data.cursor,"base64url").toString("utf8")) as SearchCursor;}catch{throw invalidInput("search cursor is invalid",["cursor"]);}if(before.signature!==signature||!before.on||!before.domain||!before.kind||!before.id||!before.as_of)throw invalidInput("search cursor does not match this query",["cursor"]);}
+    const page=await this.unitOfWork.read(store=>store.lifeSearch(context.subjectId,domains,{query:parsed.data.q.toLocaleLowerCase(),...(parsed.data.from_on?{fromOn:parsed.data.from_on}:{}),...(parsed.data.to_on_exclusive?{toOnExclusive:parsed.data.to_on_exclusive}:{}),limit:parsed.data.limit,...(before?{asOf:before.as_of,before:{on:before.on,domain:before.domain,kind:before.kind,id:before.id}}:{})})),last=page.items.at(-1),next=page.hasMore&&last?Buffer.from(JSON.stringify({signature,on:last.happened_on,domain:last.domain,kind:last.kind,id:last.id,as_of:page.asOf} satisfies SearchCursor)).toString("base64url"):null;
+    return lifeSearchResultSchema.parse({items:page.items,next_cursor:next,as_of:page.asOf,applied_filters:{q:parsed.data.q,types:domains,from_on:parsed.data.from_on??null,to_on_exclusive:parsed.data.to_on_exclusive??null}});
   }
   async lifeRecord(context:RequestContext,id:string,requested?:readonly LifeRecordSection[]){
     const sections=[...new Set(requested??[...(context.effects.has("life.meal.read")?["meal","purchase","sources"] as const:[]),...(context.effects.has("money.entry.read")?["money"] as const:[])])];

@@ -57,6 +57,18 @@ class OidcSessions(private val activity:Activity,private val store:SessionStore)
   }
 
   fun close(){service.dispose();executor.shutdownNow()}
+  fun logout(value:ProductSession){
+    store.revoke(value.accountId)
+    executor.execute{
+      runCatching{
+        val state=AuthState.jsonDeserialize(value.authStateJson);val token=state.refreshToken?:return@runCatching
+        val endpoint=state.authorizationServiceConfiguration?.discoveryDoc?.docJson?.optString("revocation_endpoint")?.takeIf(String::isNotBlank)?:return@runCatching
+        val payload="token=${form(token)}&token_type_hint=refresh_token&client_id=${form(BuildConfig.SHADOW_OIDC_CLIENT_ID)}"
+        val connection=(URL(endpoint).openConnection() as HttpURLConnection).apply{requestMethod="POST";connectTimeout=8_000;readTimeout=8_000;doOutput=true;setRequestProperty("Content-Type","application/x-www-form-urlencoded");outputStream.bufferedWriter().use{it.write(payload)}}
+        try{connection.responseCode}finally{connection.disconnect()}
+      }
+    }
+  }
   private fun loadIdentity(token:String):IdentityView { val connection=(URL(BuildConfig.SHADOW_API_BASE.trimEnd('/')+"/api/me").openConnection() as HttpURLConnection).apply{connectTimeout=10_000;readTimeout=15_000;setRequestProperty("Authorization","Bearer $token");setRequestProperty("Accept","application/json")};try{if(connection.responseCode!=200)error("Identity admission failed");val json=JSONObject(connection.inputStream.bufferedReader().use{it.readText()});return IdentityView(json.getString("issuer"),json.getString("oidc_sub"),json.getString("life_subject_id"),json.getString("environment_id"),json.optString("display_name").takeIf(String::isNotBlank))}finally{connection.disconnect()} }
 }
 private data class IdentityView(val issuer:String,val oidcSub:String,val subjectId:String,val environmentId:String,val displayName:String?)
@@ -77,3 +89,4 @@ suspend fun SessionStore.fresh(accountId:String,context:Context):SessionRefresh=
 }
 
 private fun randomToken():String{val bytes=ByteArray(32);SecureRandom().nextBytes(bytes);return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)}
+private fun form(value:String)=java.net.URLEncoder.encode(value,Charsets.UTF_8.name())

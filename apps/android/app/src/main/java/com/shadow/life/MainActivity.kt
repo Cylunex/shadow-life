@@ -12,6 +12,7 @@ import androidx.compose.runtime.setValue
 import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.work.WorkManager
 import kotlinx.coroutines.launch
 
 class MainActivity:ComponentActivity(){
@@ -44,7 +45,7 @@ class MainActivity:ComponentActivity(){
   override fun onNewIntent(intent:Intent){super.onNewIntent(intent);setIntent(intent)}
 
   private fun login(){loginError=null;oidc.loginIntent{intent->runOnUiThread{if(intent==null)loginError="登录配置不可用" else loginResult.launch(intent)}}}
-  private fun logout(){session?.let{(application as ShadowApp).sessions.revoke(it.accountId)};session=null}
+  private fun logout(){session?.let{current->WorkManager.getInstance(this).cancelUniqueWork(SyncScheduler.workName(current.accountId));WorkManager.getInstance(this).cancelUniqueWork(HealthConnectScheduler.workName(current.accountId));oidc.logout(current)};session=null}
   private fun syncHealth(){
     val current=session?:return
     if(!HealthConnectSync.available(this)){loginError="此设备未提供 Health Connect";return}
