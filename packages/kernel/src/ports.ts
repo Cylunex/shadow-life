@@ -64,7 +64,7 @@ export interface TransactionStore {
   libraryProcessingQueue(subjectId:string,kind:string|undefined,limit:number):Promise<unknown>;
   agentContextPack(subjectId:string,id:string,threadId?:string):Promise<unknown|undefined>;
   agentMemories(subjectId:string,category:string|undefined,limit:number):Promise<readonly Record<string,unknown>[]>;
-  notifications(subjectId:string,limit:number):Promise<unknown>;
+  notifications(subjectId:string,options:{limit:number;asOf:string;before?:{at:string;id:string}|undefined}):Promise<unknown>;
   ownedItems(subjectId:string,state:string|undefined,limit:number,visibility:{purchase:boolean;library:boolean;money:boolean}):Promise<unknown>;
   lifeReviews(subjectId:string,limit:number,authorizedDomains:readonly string[]):Promise<unknown>;
   lifeProjects(subjectId:string,state:string|undefined,limit:number,authorizedKinds:readonly string[]):Promise<unknown>;

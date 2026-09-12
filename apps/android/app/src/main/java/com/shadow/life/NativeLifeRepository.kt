@@ -23,13 +23,14 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   fun queueStatus(session:ProductSession)=app.queue.observeStatus(session)
   suspend fun retryQueue(session:ProductSession):Int=app.queue.retry(session).also{SyncScheduler.schedule(context,session.accountId,true)}
   suspend fun clearTerminalQueue(session:ProductSession):Int=app.queue.clearTerminal(session)
-  suspend fun notifications():InboxSnapshot{
-    val json=get("/api/notifications?limit=100")
-    val preferences=json.optJSONObject("preferences")?:JSONObject()
+  suspend fun notifications(cursor:String?=null):InboxSnapshot{
+    val result=wireJson.decodeFromString<NotificationsResultDto>(getText("/api/notifications?limit=50${cursor?.let{"&cursor=${encode(it)}"}.orEmpty()}"))
+    val preferences=result.preferences
     return InboxSnapshot(
-      items=json.optJSONArray("items").objects().map{NotificationItem(it.getString("id"),it.optString("title","生活提醒"),it.optString("body"),it.optString("scheduled_at"),it.optString("state"),it.optString("read_state","unread"),it.optString("delivery_state"))},
-      preferences=NotificationPreferences(preferences.optBoolean("enabled",true),preferences.optNullableString("quiet_start"),preferences.optNullableString("quiet_end"),preferences.optString("time_zone",ZoneId.systemDefault().id),preferences.optInt("revision")),
-      asOf=json.optString("as_of")
+      items=result.items.map{NotificationItem(it.id,it.title,it.body,it.scheduledAt,it.state.wireValue,it.readState.wireValue,it.deliveryState.wireValue)},
+      nextCursor=result.nextCursor,
+      preferences=NotificationPreferences(preferences.enabled,preferences.quietStart,preferences.quietEnd,preferences.timeZone,preferences.revision.toInt()),
+      asOf=result.asOf
     )
   }
   suspend fun updateNotification(id:String,action:String,snoozedUntil:String?=null):OperationReceipt=withContext(Dispatchers.IO){enqueueCommand("notifications.update",JSONObject().put("notification_id",id).put("action",action).apply{snoozedUntil?.let{put("snoozed_until",it)}})}

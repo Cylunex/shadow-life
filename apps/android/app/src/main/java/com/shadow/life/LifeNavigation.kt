@@ -53,7 +53,7 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
       composable<PlanDetailRoute>{backStack->val route=backStack.toRoute<PlanDetailRoute>();val plan=(viewModel.plans as? LoadState.Ready)?.value?.projects?.firstOrNull{it.id==route.id};PlanDetailScreen(plan,{nav.popBackStack()})}
       composable<SettingsRoute>{SettingsScreen(session,appearance,viewModel.queueStatus,onAppearance,onHealthSync,viewModel::retryQueue,viewModel::clearTerminalQueue,onLogout,{nav.popBackStack()},{nav.navigate(ConnectionsRoute)},{viewModel.refreshInbox();nav.navigate(InboxRoute)})}
       composable<ConnectionsRoute>{ProjectDirectoryScreen(viewModel.projectLinks,viewModel::refreshProjectLinks){nav.popBackStack()}}
-      composable<InboxRoute>{InboxScreen(viewModel.inbox,viewModel::refreshInbox,viewModel::updateNotification,viewModel::setNotificationPreferences,onNotificationPermission){nav.popBackStack()}}
+      composable<InboxRoute>{InboxScreen(viewModel.inbox,viewModel::refreshInbox,viewModel::loadMoreInbox,viewModel::updateNotification,viewModel::setNotificationPreferences,onNotificationPermission){nav.popBackStack()}}
     }
   }}
   statusMessage?.let{message->AlertDialog(onDismissRequest=onDismissStatus,confirmButton={TextButton(onClick=onDismissStatus){Text("知道了")}},text={Text(message)})}
@@ -158,7 +158,7 @@ private fun SettingsScreen(
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable private fun InboxScreen(state:LoadState<InboxSnapshot>,onRetry:()->Unit,onUpdate:(String,String)->Unit,onPreferences:(Boolean)->Unit,onPermission:()->Unit,onBack:()->Unit){
+@Composable private fun InboxScreen(state:LoadState<InboxSnapshot>,onRetry:()->Unit,onLoadMore:()->Unit,onUpdate:(String,String)->Unit,onPreferences:(Boolean)->Unit,onPermission:()->Unit,onBack:()->Unit){
   Scaffold(topBar={TopAppBar(title={Text("提醒与收件箱")},navigationIcon={IconButton(onClick=onBack){Text("‹",style=MaterialTheme.typography.headlineLarge)}})}){padding->
     LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
       item{when(state){is LoadState.Ready->{val preferences=state.value.preferences;LifeCard{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("生活提醒",style=MaterialTheme.typography.titleLarge);Text(if(preferences.enabled)"已启用 · ${preferences.timeZone}" else "已关闭；事项仍保留在收件箱",color=MaterialTheme.colorScheme.onSurfaceVariant)};Switch(preferences.enabled,{enabled->onPreferences(enabled);if(enabled)onPermission()})};preferences.quietStart?.let{Text("静默时段 $it — ${preferences.quietEnd}",style=MaterialTheme.typography.bodySmall)};if(preferences.enabled)TextButton(onClick=onPermission){Text("检查系统通知权限")}}};else->Unit}}
@@ -166,6 +166,7 @@ private fun SettingsScreen(
       if(state is LoadState.Ready){
         items(state.value.items,key={it.id}){item->LifeCard{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(item.title,style=MaterialTheme.typography.titleMedium,fontWeight=if(item.readState=="unread")androidx.compose.ui.text.font.FontWeight.SemiBold else androidx.compose.ui.text.font.FontWeight.Normal);Text(item.body,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(notificationStateLabel(item),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};if(item.readState=="unread")TextButton(onClick={onUpdate(item.id,"mark_read")}){Text("已读")}};Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){TextButton(onClick={onUpdate(item.id,"snooze")},enabled=item.state!="snoozed"){Text("稍后 1 小时")};TextButton(onClick={onUpdate(item.id,"dismiss")}){Text("关闭")}}}
         }
+        if(state.value.nextCursor!=null)item{TextButton(onClick=onLoadMore,Modifier.fillMaxWidth()){Text("加载更多提醒")}}
       }
     }
   }

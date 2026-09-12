@@ -41,7 +41,7 @@ data class ProjectLinkItem(val id:String,val title:String,val subtitle:String,va
 data class QueueSummary(val waiting:Int,val reconciling:Int,val failed:Int,val completed:Int,val attachments:Int){val terminal:Int get()=failed+completed}
 data class NotificationItem(val id:String,val title:String,val body:String,val scheduledAt:String,val state:String,val readState:String,val deliveryState:String)
 data class NotificationPreferences(val enabled:Boolean,val quietStart:String?,val quietEnd:String?,val timeZone:String,val revision:Int)
-data class InboxSnapshot(val items:List<NotificationItem>,val preferences:NotificationPreferences,val asOf:String)
+data class InboxSnapshot(val items:List<NotificationItem>,val nextCursor:String?,val preferences:NotificationPreferences,val asOf:String)
 
 data class DueItem(val id:String,val title:String,val dueOn:String,val amount:String?=null,val currency:String?=null)
 data class CurrentTrip(val id:String,val title:String,val startsOn:String,val endsOn:String)

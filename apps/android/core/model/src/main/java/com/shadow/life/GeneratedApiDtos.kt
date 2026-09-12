@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
 @Serializable
-data class DomainRecordsResultDtoItem(
+data class DomainRecordsResultDtoItemsEntry(
   @SerialName("kind") val kind: String,
   @SerialName("id") val id: String,
   @SerialName("title") val title: String,
@@ -21,20 +21,20 @@ data class DomainRecordsResultDtoItem(
 
 @Serializable
 data class DomainRecordsResultDto(
-  @SerialName("items") val items: List<DomainRecordsResultDtoItem>,
+  @SerialName("items") val items: List<DomainRecordsResultDtoItemsEntry>,
   @SerialName("next_cursor") val nextCursor: String?,
   @SerialName("as_of") val asOf: String
 )
 
 @Serializable
-enum class PlanningAgendaResultDtoItemSourceKind(val wireValue: String) {
+enum class PlanningAgendaResultDtoItemsEntrySourceKind(val wireValue: String) {
   @SerialName("project_action") ProjectAction("project_action"),
   @SerialName("recurring_occurrence") RecurringOccurrence("recurring_occurrence"),
   @SerialName("health_habit") HealthHabit("health_habit")
 }
 
 @Serializable
-enum class PlanningAgendaResultDtoItemState(val wireValue: String) {
+enum class PlanningAgendaResultDtoItemsEntryState(val wireValue: String) {
   @SerialName("open") Open("open"),
   @SerialName("pending") Pending("pending"),
   @SerialName("reminded") Reminded("reminded"),
@@ -47,43 +47,43 @@ enum class PlanningAgendaResultDtoItemState(val wireValue: String) {
 }
 
 @Serializable
-enum class PlanningAgendaResultDtoItemTargetKind(val wireValue: String) {
+enum class PlanningAgendaResultDtoItemsEntryTargetKind(val wireValue: String) {
   @SerialName("project") Project("project"),
   @SerialName("money_occurrence") MoneyOccurrence("money_occurrence"),
   @SerialName("health_habit") HealthHabit("health_habit")
 }
 
 @Serializable
-data class PlanningAgendaResultDtoItemTarget(
-  @SerialName("kind") val kind: PlanningAgendaResultDtoItemTargetKind,
+data class PlanningAgendaResultDtoItemsEntryTarget(
+  @SerialName("kind") val kind: PlanningAgendaResultDtoItemsEntryTargetKind,
   @SerialName("id") val id: String,
   @SerialName("project_id") val projectId: String?
 )
 
 @Serializable
-enum class PlanningAgendaResultDtoItemPrimaryActionCapability(val wireValue: String) {
+enum class PlanningAgendaResultDtoItemsEntryPrimaryActionCapability(val wireValue: String) {
   @SerialName("life.save_action_item") LifeSaveActionItem("life.save_action_item"),
   @SerialName("money.set_occurrence_state") MoneySetOccurrenceState("money.set_occurrence_state")
 }
 
 @Serializable
-data class PlanningAgendaResultDtoItemPrimaryAction(
-  @SerialName("capability") val capability: PlanningAgendaResultDtoItemPrimaryActionCapability,
+data class PlanningAgendaResultDtoItemsEntryPrimaryAction(
+  @SerialName("capability") val capability: PlanningAgendaResultDtoItemsEntryPrimaryActionCapability,
   @SerialName("target_id") val targetId: String,
   @SerialName("expected_revision") val expectedRevision: Long
 )
 
 @Serializable
-data class PlanningAgendaResultDtoItem(
-  @SerialName("source_kind") val sourceKind: PlanningAgendaResultDtoItemSourceKind,
+data class PlanningAgendaResultDtoItemsEntry(
+  @SerialName("source_kind") val sourceKind: PlanningAgendaResultDtoItemsEntrySourceKind,
   @SerialName("source_id") val sourceId: String,
   @SerialName("source_key") val sourceKey: String,
   @SerialName("title") val title: String,
-  @SerialName("state") val state: PlanningAgendaResultDtoItemState,
+  @SerialName("state") val state: PlanningAgendaResultDtoItemsEntryState,
   @SerialName("due_on") val dueOn: String,
   @SerialName("due_at") val dueAt: String?,
-  @SerialName("target") val target: PlanningAgendaResultDtoItemTarget,
-  @SerialName("primary_action") val primaryAction: PlanningAgendaResultDtoItemPrimaryAction?
+  @SerialName("target") val target: PlanningAgendaResultDtoItemsEntryTarget,
+  @SerialName("primary_action") val primaryAction: PlanningAgendaResultDtoItemsEntryPrimaryAction?
 )
 
 @Serializable
@@ -91,7 +91,87 @@ data class PlanningAgendaResultDto(
   @SerialName("from_on") val fromOn: String,
   @SerialName("to_on_exclusive") val toOnExclusive: String,
   @SerialName("time_zone") val timeZone: String,
-  @SerialName("items") val items: List<PlanningAgendaResultDtoItem>,
+  @SerialName("items") val items: List<PlanningAgendaResultDtoItemsEntry>,
   @SerialName("truncated") val truncated: Boolean,
+  @SerialName("as_of") val asOf: String
+)
+
+@Serializable
+enum class NotificationsResultDtoItemsEntryKind(val wireValue: String) {
+  @SerialName("due") Due("due"),
+  @SerialName("processing_failed") ProcessingFailed("processing_failed"),
+  @SerialName("reminder") Reminder("reminder")
+}
+
+@Serializable
+enum class NotificationsResultDtoItemsEntryState(val wireValue: String) {
+  @SerialName("pending") Pending("pending"),
+  @SerialName("snoozed") Snoozed("snoozed"),
+  @SerialName("dismissed") Dismissed("dismissed"),
+  @SerialName("delivered") Delivered("delivered")
+}
+
+@Serializable
+enum class NotificationsResultDtoItemsEntryReadState(val wireValue: String) {
+  @SerialName("unread") Unread("unread"),
+  @SerialName("read") Read("read")
+}
+
+@Serializable
+enum class NotificationsResultDtoItemsEntryDeliveryState(val wireValue: String) {
+  @SerialName("disabled") Disabled("disabled"),
+  @SerialName("quiet") Quiet("quiet"),
+  @SerialName("snoozed") Snoozed("snoozed"),
+  @SerialName("scheduled") Scheduled("scheduled"),
+  @SerialName("ready") Ready("ready")
+}
+
+@Serializable
+enum class NotificationsResultDtoItemsEntryDeliveriesEntryState(val wireValue: String) {
+  @SerialName("scheduled") Scheduled("scheduled"),
+  @SerialName("delivered") Delivered("delivered"),
+  @SerialName("failed") Failed("failed"),
+  @SerialName("cancelled") Cancelled("cancelled"),
+  @SerialName("unknown") Unknown("unknown")
+}
+
+@Serializable
+data class NotificationsResultDtoItemsEntryDeliveriesEntry(
+  @SerialName("installation_id") val installationId: String,
+  @SerialName("state") val state: NotificationsResultDtoItemsEntryDeliveriesEntryState,
+  @SerialName("attempt") val attempt: Long,
+  @SerialName("revision") val revision: Long,
+  @SerialName("updated_at") val updatedAt: String
+)
+
+@Serializable
+data class NotificationsResultDtoItemsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("kind") val kind: NotificationsResultDtoItemsEntryKind,
+  @SerialName("title") val title: String,
+  @SerialName("body") val body: String,
+  @SerialName("scheduled_at") val scheduledAt: String,
+  @SerialName("state") val state: NotificationsResultDtoItemsEntryState,
+  @SerialName("snoozed_until") val snoozedUntil: String?,
+  @SerialName("read_state") val readState: NotificationsResultDtoItemsEntryReadState,
+  @SerialName("delivery_state") val deliveryState: NotificationsResultDtoItemsEntryDeliveryState,
+  @SerialName("deliveries") val deliveries: List<NotificationsResultDtoItemsEntryDeliveriesEntry>
+)
+
+@Serializable
+data class NotificationsResultDtoPreferences(
+  @SerialName("enabled") val enabled: Boolean,
+  @SerialName("quiet_start") val quietStart: String?,
+  @SerialName("quiet_end") val quietEnd: String?,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("updated_at") val updatedAt: String?
+)
+
+@Serializable
+data class NotificationsResultDto(
+  @SerialName("items") val items: List<NotificationsResultDtoItemsEntry>,
+  @SerialName("next_cursor") val nextCursor: String?,
+  @SerialName("preferences") val preferences: NotificationsResultDtoPreferences,
   @SerialName("as_of") val asOf: String
 )
