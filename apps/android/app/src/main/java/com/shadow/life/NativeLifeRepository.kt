@@ -19,6 +19,18 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   fun queueStatus(session:ProductSession)=app.queue.observeStatus(session)
   suspend fun retryQueue(session:ProductSession):Int=app.queue.retry(session).also{SyncScheduler.schedule(context,session.accountId,true)}
   suspend fun clearTerminalQueue(session:ProductSession):Int=app.queue.clearTerminal(session)
+  suspend fun notifications():InboxSnapshot{
+    val json=get("/api/notifications?limit=100")
+    val preferences=json.optJSONObject("preferences")?:JSONObject()
+    return InboxSnapshot(
+      items=json.optJSONArray("items").objects().map{NotificationItem(it.getString("id"),it.optString("title","生活提醒"),it.optString("body"),it.optString("scheduled_at"),it.optString("state"),it.optString("read_state","unread"),it.optString("delivery_state"))},
+      preferences=NotificationPreferences(preferences.optBoolean("enabled",true),preferences.optNullableString("quiet_start"),preferences.optNullableString("quiet_end"),preferences.optString("time_zone",ZoneId.systemDefault().id),preferences.optInt("revision")),
+      asOf=json.optString("as_of")
+    )
+  }
+  suspend fun updateNotification(id:String,action:String,snoozedUntil:String?=null):OperationReceipt=withContext(Dispatchers.IO){enqueueCommand("notifications.update",JSONObject().put("notification_id",id).put("action",action).apply{snoozedUntil?.let{put("snoozed_until",it)}})}
+  suspend fun setNotificationPreferences(enabled:Boolean,quietStart:String?,quietEnd:String?):OperationReceipt=withContext(Dispatchers.IO){enqueueCommand("notifications.set_preferences",JSONObject().put("enabled",enabled).put("time_zone",ZoneId.systemDefault().id).apply{if(quietStart!=null&&quietEnd!=null){put("quiet_start",quietStart);put("quiet_end",quietEnd)}})}
+  suspend fun registerNotificationDevice(authorizationState:String):OperationReceipt=withContext(Dispatchers.IO){val installationId=app.sessions.installationId();val receipt=enqueueCommand("notifications.register_device",JSONObject().put("installation_id",installationId).put("platform","android").put("authorization_state",authorizationState),"cmd_android_notification_installation_${installationId.removePrefix("installation_").take(48)}_${System.currentTimeMillis()}");if(authorizationState=="enabled")app.sessions.active()?.accountId?.let{NotificationSyncScheduler.schedule(context,it)};receipt}
   suspend fun today(date:LocalDate=LocalDate.now()):TodaySnapshot {
     val zone=ZoneId.systemDefault().id
     val json=get("/api/today?date=$date&time_zone=${encode(zone)}")

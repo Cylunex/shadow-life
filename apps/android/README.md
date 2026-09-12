@@ -26,6 +26,9 @@ receipt is known.
 Settings exposes account-scoped pending, reconciling, failed, completed and encrypted-attachment counts. Retry
 keeps the original command identities; clearing terminal rows requires an inline destructive confirmation and
 never removes pending or unknown-outcome work.
+The settings flow includes a native reminder inbox. Business notification state, inbox read state and per-device
+delivery state are independent; Android requests notification permission only when reminders are enabled and
+keeps generic reminder content in the in-app inbox when permission is denied.
 Health, money, travel, meal and library entries open native domain workspaces with their own source, planning,
 trip, shopping or content summary while retaining server-side search, pagination and typed detail navigation.
 

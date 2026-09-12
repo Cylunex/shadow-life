@@ -82,6 +82,9 @@ test("agent context and durable memory keep permission and inference boundaries"
   assert.equal(capabilityRegistry["agent.set_memory"].inputSchema.safeParse({category:"model_inference",memory_key:"guess",value:true,evidence_refs:[],state:"active"}).success,false);
   assert.equal(capabilityRegistry["agent.set_memory"].inputSchema.safeParse({category:"deterministic_aggregate",memory_key:"count",value:{count:2},evidence_refs:refs,algorithm_version:"count-v1",state:"active"}).success,true);
   assert.equal(capabilityRegistry["notifications.update"].inputSchema.safeParse({notification_id:"notification_12345678",action:"snooze"}).success,false);
+  assert.equal(capabilityRegistry["notifications.update"].inputSchema.safeParse({notification_id:"notification_12345678",action:"mark_read"}).success,true);
+  assert.equal(capabilityRegistry["notifications.register_device"].inputSchema.safeParse({installation_id:"installation_12345678",platform:"android",authorization_state:"enabled"}).success,true);
+  assert.equal(capabilityRegistry["notifications.set_delivery_state"].inputSchema.safeParse({notification_id:"notification_12345678",installation_id:"installation_12345678",state:"delivered",attempt:1}).success,true);
 });
 
 test("owned items stay explicit and life reviews are bounded deterministic inputs",()=>{

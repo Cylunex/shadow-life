@@ -6,6 +6,8 @@ import android.net.Uri
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -29,9 +31,11 @@ import androidx.navigation.toRoute
 
 private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
 
-@Composable fun LifeApp(session:ProductSession?,viewModel:NativeLifeViewModel,appearance:Appearance,statusMessage:String?,pendingShare:SharePayload?,onAcceptShare:(SharePayload)->Unit,onDiscardShare:()->Unit,onDismissStatus:()->Unit,onAppearance:(Appearance)->Unit,onLogin:()->Unit,onLogout:()->Unit,onHealthSync:()->Unit){
+@Composable fun LifeApp(session:ProductSession?,viewModel:NativeLifeViewModel,appearance:Appearance,statusMessage:String?,pendingShare:SharePayload?,notificationAuthorization:String?,openInboxNonce:Long,onAcceptShare:(SharePayload)->Unit,onDiscardShare:()->Unit,onDismissStatus:()->Unit,onAppearance:(Appearance)->Unit,onLogin:()->Unit,onLogout:()->Unit,onHealthSync:()->Unit,onNotificationPermission:()->Unit){
   val nav=rememberNavController();var composerOpen by rememberSaveable{mutableStateOf(false)}
   LaunchedEffect(session?.accountId){if(session==null)viewModel.deactivateAccount() else viewModel.activateAccount(session.accountId)}
+  LaunchedEffect(session?.accountId,notificationAuthorization){if(session!=null&&notificationAuthorization!=null)viewModel.registerNotificationDevice(notificationAuthorization)}
+  LaunchedEffect(session?.accountId,openInboxNonce){if(session!=null&&openInboxNonce>0){viewModel.refreshInbox();nav.navigate(InboxRoute){launchSingleTop=true}}}
   if(session==null){SignInScreen(statusMessage,onLogin);return}
   val entry by nav.currentBackStackEntryAsState();val destination=entry?.destination
   val root=destination?.hasRoute<TodayRoute>()==true||destination?.hasRoute<RecordsRoute>()==true||destination?.hasRoute<PlansRoute>()==true||destination?.hasRoute<LibraryRoute>()==true
@@ -47,8 +51,9 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
       composable<WorkspaceRoute>{backStack->val route=backStack.toRoute<WorkspaceRoute>();val domain=LifeDomain.valueOf(route.domain);LaunchedEffect(domain){if(viewModel.workspaceDomain!=domain)viewModel.loadWorkspace(domain)};WorkspaceScreen(domain,viewModel.workspaceOverview,viewModel.workspace,{viewModel.loadWorkspace(domain,it)},{viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},{d,id,title->viewModel.loadDetail(d,id);nav.navigate(DetailRoute(d.name,id,title))})}
       composable<DetailRoute>{backStack->val route=backStack.toRoute<DetailRoute>();val domain=LifeDomain.valueOf(route.domain);LaunchedEffect(route.id){viewModel.loadDetail(domain,route.id)};DetailScreen(route.title,viewModel.detail,viewModel.submit,{viewModel.loadDetail(domain,route.id)},{nav.popBackStack()},viewModel::correct,viewModel::editAgain)}
       composable<PlanDetailRoute>{backStack->val route=backStack.toRoute<PlanDetailRoute>();val plan=(viewModel.plans as? LoadState.Ready)?.value?.firstOrNull{it.id==route.id};PlanDetailScreen(plan,{nav.popBackStack()})}
-      composable<SettingsRoute>{SettingsScreen(session,appearance,viewModel.queueStatus,onAppearance,onHealthSync,viewModel::retryQueue,viewModel::clearTerminalQueue,onLogout,{nav.popBackStack()},{nav.navigate(ConnectionsRoute)})}
+      composable<SettingsRoute>{SettingsScreen(session,appearance,viewModel.queueStatus,onAppearance,onHealthSync,viewModel::retryQueue,viewModel::clearTerminalQueue,onLogout,{nav.popBackStack()},{nav.navigate(ConnectionsRoute)},{viewModel.refreshInbox();nav.navigate(InboxRoute)})}
       composable<ConnectionsRoute>{ProjectDirectoryScreen(viewModel.projectLinks,viewModel::refreshProjectLinks){nav.popBackStack()}}
+      composable<InboxRoute>{InboxScreen(viewModel.inbox,viewModel::refreshInbox,viewModel::updateNotification,viewModel::setNotificationPreferences,onNotificationPermission){nav.popBackStack()}}
     }
   }}
   statusMessage?.let{message->AlertDialog(onDismissRequest=onDismissStatus,confirmButton={TextButton(onClick=onDismissStatus){Text("知道了")}},text={Text(message)})}
@@ -81,7 +86,8 @@ private fun SettingsScreen(
   onClearQueue:()->Unit,
   onLogout:()->Unit,
   onBack:()->Unit,
-  onProjects:()->Unit
+  onProjects:()->Unit,
+  onInbox:()->Unit
 ){
   var confirmClear by remember{mutableStateOf(false)}
   Scaffold(
@@ -132,6 +138,7 @@ private fun SettingsScreen(
         }
       }
       LifeSection("连接"){
+        OutlinedButton(onClick=onInbox,Modifier.fillMaxWidth().heightIn(min=52.dp)){Text("提醒与收件箱")}
         OutlinedButton(onClick=onHealthSync,Modifier.fillMaxWidth().heightIn(min=52.dp)){Text("同步 Health Connect")}
         OutlinedButton(onClick=onProjects,Modifier.fillMaxWidth().heightIn(min=52.dp)){Text("其他项目与连接")}
       }
@@ -149,6 +156,22 @@ private fun SettingsScreen(
     )
   }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable private fun InboxScreen(state:LoadState<InboxSnapshot>,onRetry:()->Unit,onUpdate:(String,String)->Unit,onPreferences:(Boolean)->Unit,onPermission:()->Unit,onBack:()->Unit){
+  Scaffold(topBar={TopAppBar(title={Text("提醒与收件箱")},navigationIcon={IconButton(onClick=onBack){Text("‹",style=MaterialTheme.typography.headlineLarge)}})}){padding->
+    LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
+      item{when(state){is LoadState.Ready->{val preferences=state.value.preferences;LifeCard{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("生活提醒",style=MaterialTheme.typography.titleLarge);Text(if(preferences.enabled)"已启用 · ${preferences.timeZone}" else "已关闭；事项仍保留在收件箱",color=MaterialTheme.colorScheme.onSurfaceVariant)};Switch(preferences.enabled,{enabled->onPreferences(enabled);if(enabled)onPermission()})};preferences.quietStart?.let{Text("静默时段 $it — ${preferences.quietEnd}",style=MaterialTheme.typography.bodySmall)};if(preferences.enabled)TextButton(onClick=onPermission){Text("检查系统通知权限")}}};else->Unit}}
+      item{StateContent(state,onRetry){}}
+      if(state is LoadState.Ready){
+        items(state.value.items,key={it.id}){item->LifeCard{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(item.title,style=MaterialTheme.typography.titleMedium,fontWeight=if(item.readState=="unread")androidx.compose.ui.text.font.FontWeight.SemiBold else androidx.compose.ui.text.font.FontWeight.Normal);Text(item.body,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(notificationStateLabel(item),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};if(item.readState=="unread")TextButton(onClick={onUpdate(item.id,"mark_read")}){Text("已读")}};Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){TextButton(onClick={onUpdate(item.id,"snooze")},enabled=item.state!="snoozed"){Text("稍后 1 小时")};TextButton(onClick={onUpdate(item.id,"dismiss")}){Text("关闭")}}}
+        }
+      }
+    }
+  }
+}
+
+private fun notificationStateLabel(item:NotificationItem)=when(item.deliveryState){"ready"->"现在可处理";"scheduled"->"计划于 ${item.scheduledAt}";"quiet"->"静默时段后提醒";"disabled"->"仅保留在收件箱";"snoozed"->"已稍后提醒";else->item.deliveryState}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable private fun ProjectDirectoryScreen(state:LoadState<List<ProjectLinkItem>>,onRetry:()->Unit,onBack:()->Unit){val context=LocalContext.current;var launchError by remember{mutableStateOf<String?>(null)};LaunchedEffect(Unit){onRetry()};Scaffold(topBar={TopAppBar(title={Text("其他项目")},navigationIcon={IconButton(onClick=onBack){Text("‹",style=MaterialTheme.typography.headlineLarge)}})}){padding->Column(Modifier.fillMaxSize().padding(padding).padding(20.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){Text("目录只负责到达独立项目；各项目自行登录和授权。Life 不会把会话令牌放进链接。",color=MaterialTheme.colorScheme.onSurfaceVariant);launchError?.let{Text(it,color=MaterialTheme.colorScheme.error)};when(state){LoadState.Loading->CircularProgressIndicator();is LoadState.Empty->Text(state.reason,color=MaterialTheme.colorScheme.onSurfaceVariant);is LoadState.Failed->LifeCard{Text(state.message,color=MaterialTheme.colorScheme.error);TextButton(onClick=onRetry){Text("重试")}};is LoadState.Ready->state.value.forEach{item->ProjectLink(item){launchError=if(launchProject(context,item))null else "没有可用的应用或浏览器，请检查配置后重试。"}}}}}}

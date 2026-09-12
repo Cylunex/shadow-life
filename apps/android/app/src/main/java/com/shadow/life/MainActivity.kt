@@ -15,6 +15,7 @@ import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.work.WorkManager
+import android.Manifest
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -24,6 +25,8 @@ class MainActivity:ComponentActivity(){
   private var appearance by mutableStateOf(Appearance.Dark)
   private var loginError by mutableStateOf<String?>(null)
   private var pendingShare by mutableStateOf<SharePayload?>(null)
+  private var notificationAuthorization by mutableStateOf<String?>(null)
+  private var openInboxNonce by mutableStateOf(0L)
 
   private val loginResult=registerForActivityResult(ActivityResultContracts.StartActivityForResult()){result->
     val data=result.data
@@ -34,24 +37,26 @@ class MainActivity:ComponentActivity(){
     session?.let{HealthConnectScheduler.schedule(this,it.accountId)}
     if(granted.isEmpty())loginError="未获得 Health Connect 权限，其他功能仍可使用"
   }
+  private val notificationPermission=registerForActivityResult(ActivityResultContracts.RequestPermission()){granted->notificationAuthorization=if(granted)"enabled" else "denied";if(!granted)loginError="系统通知未开启，提醒仍会保留在 Life 收件箱"}
 
   override fun onCreate(savedInstanceState:Bundle?){
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
     val app=application as ShadowApp
     pendingShare=if(savedInstanceState!=null)savedInstanceState.savedSharePayload() else intent.sharePayload()
+    if(intent.getBooleanExtra(OPEN_INBOX_EXTRA,false))openInboxNonce++
     oidc=OidcSessions(this,app.sessions)
     session=app.sessions.active()
     val appearances=AppearanceStore(this)
     appearance=appearances.current()
-    setContent{LifeTheme(appearance){val model:NativeLifeViewModel=viewModel();LifeApp(session,model,appearance,loginError,pendingShare,{payload->model.importShare(payload){pendingShare=null}},{pendingShare=null},{loginError=null},{appearance=it;appearances.save(it)},::login,::logout,::syncHealth)}}
+    setContent{LifeTheme(appearance){val model:NativeLifeViewModel=viewModel();LifeApp(session,model,appearance,loginError,pendingShare,notificationAuthorization,openInboxNonce,{payload->model.importShare(payload){pendingShare=null}},{pendingShare=null},{loginError=null},{appearance=it;appearances.save(it)},::login,::logout,::syncHealth,::requestNotifications)}}
   }
   override fun onDestroy(){oidc.close();super.onDestroy()}
   override fun onSaveInstanceState(outState:Bundle){super.onSaveInstanceState(outState);outState.putBoolean(SHARE_PRESENT,pendingShare!=null);pendingShare?.let{payload->outState.putString(SHARE_ID,payload.ingressId);outState.putString(SHARE_TEXT,payload.text);outState.putStringArrayList(SHARE_URIS,ArrayList(payload.uris))}}
-  override fun onNewIntent(intent:Intent){super.onNewIntent(intent);setIntent(intent);intent.sharePayload()?.let{pendingShare=it}}
+  override fun onNewIntent(intent:Intent){super.onNewIntent(intent);setIntent(intent);intent.sharePayload()?.let{pendingShare=it};if(intent.getBooleanExtra(OPEN_INBOX_EXTRA,false))openInboxNonce++}
 
   private fun login(){loginError=null;oidc.loginIntent{intent->runOnUiThread{if(intent==null)loginError="登录配置不可用" else loginResult.launch(intent)}}}
-  private fun logout(){session?.let{current->WorkManager.getInstance(this).cancelUniqueWork(SyncScheduler.workName(current.accountId));WorkManager.getInstance(this).cancelUniqueWork(HealthConnectScheduler.workName(current.accountId));oidc.logout(current)};session=null}
+  private fun logout(){session?.let{current->WorkManager.getInstance(this).cancelUniqueWork(SyncScheduler.workName(current.accountId));WorkManager.getInstance(this).cancelUniqueWork(HealthConnectScheduler.workName(current.accountId));NotificationSyncScheduler.cancel(this,current.accountId);oidc.logout(current)};session=null}
   private fun syncHealth(){
     val current=session?:return
     if(!HealthConnectSync.available(this)){loginError="此设备未提供 Health Connect";return}
@@ -64,6 +69,7 @@ class MainActivity:ComponentActivity(){
       }else healthPermissions.launch(HealthConnectSync.permissions)
     }
   }
+  private fun requestNotifications(){if(Build.VERSION.SDK_INT>=33)notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) else notificationAuthorization="enabled"}
 }
 
 private fun Intent.sharePayload():SharePayload?{

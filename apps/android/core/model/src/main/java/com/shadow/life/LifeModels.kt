@@ -39,6 +39,9 @@ data class AssistantReply(val text:String,val threadId:String,val runId:String?,
 data class SharePayload(val ingressId:String,val text:String?,val uris:List<String>)
 data class ProjectLinkItem(val id:String,val title:String,val subtitle:String,val icon:String,val state:String,val launchMode:String?,val appLinkUrl:String?,val webFallbackUrl:String?,val androidPackage:String?,val authHint:String,val order:Int)
 data class QueueSummary(val waiting:Int,val reconciling:Int,val failed:Int,val completed:Int,val attachments:Int){val terminal:Int get()=failed+completed}
+data class NotificationItem(val id:String,val title:String,val body:String,val scheduledAt:String,val state:String,val readState:String,val deliveryState:String)
+data class NotificationPreferences(val enabled:Boolean,val quietStart:String?,val quietEnd:String?,val timeZone:String,val revision:Int)
+data class InboxSnapshot(val items:List<NotificationItem>,val preferences:NotificationPreferences,val asOf:String)
 
 data class DueItem(val id:String,val title:String,val dueOn:String,val amount:String?=null,val currency:String?=null)
 data class CurrentTrip(val id:String,val title:String,val startsOn:String,val endsOn:String)
@@ -89,6 +92,7 @@ data class RecordDetail(val title:String,val state:String?,val revision:Int?,val
 @Serializable data class PlanDetailRoute(val id:String)
 @Serializable data object SettingsRoute
 @Serializable data object ConnectionsRoute
+@Serializable data object InboxRoute
 
 enum class CaptureKind(val label:String,val capability:String) {
   Expense("消费","money.record_entry"),
