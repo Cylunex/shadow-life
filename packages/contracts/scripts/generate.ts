@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { z } from "zod";
 import { capabilityRegistry } from "../src/registry.js";
-import { agentThreadMessagesResultSchema, agentThreadsResultSchema, domainRecordsResultSchema, foreignEntriesResultSchema, healthSourcesResultSchema, lifeProjectsResultSchema, lifeReviewsResultSchema, lifeSearchResultSchema, lifeTimelineResultSchema, lifeTodayResultSchema, listMealsResultSchema, mealPlanningResultSchema, moneyPlanningResultSchema, notificationsResultSchema, ownedItemsResultSchema, planningAgendaResultSchema, travelWorkspaceResultSchema } from "../src/schemas.js";
+import { agentThreadMessagesResultSchema, agentThreadsResultSchema, domainRecordsResultSchema, foreignEntriesResultSchema, healthSourcesResultSchema, lifeProjectsResultSchema, lifeReviewsResultSchema, lifeSearchResultSchema, lifeTimelineResultSchema, lifeTodayResultSchema, listMealsResultSchema, mealPlanningResultSchema, moneyPlanningResultSchema, notificationsResultSchema, ownedItemsResultSchema, planningAgendaResultSchema, projectDirectoryResultSchema, travelWorkspaceResultSchema } from "../src/schemas.js";
 
 const output = resolve(import.meta.dirname, "../generated");
 await mkdir(output, { recursive: true });
@@ -21,6 +21,8 @@ const content = `${JSON.stringify({ capabilities: registry }, null, 2)}\n`;
 type JsonSchema = {
   type?: string | string[];
   anyOf?: JsonSchema[];
+  oneOf?: JsonSchema[];
+  const?: string | number | boolean;
   enum?: string[];
   properties?: Record<string, JsonSchema>;
   required?: string[];
@@ -40,6 +42,7 @@ function kotlinType(schema: JsonSchema, name: string): string {
     const concrete = schema.type.filter((type) => type !== "null");
     if (concrete.length === 1 && concrete.length !== schema.type.length) return `${kotlinType({ ...schema, type: concrete[0]! }, name)}?`;
   }
+  if (schema.oneOf) return defineUnion(schema.oneOf, name);
   if (schema.enum) {
     if (!defined.has(name)) {
       defined.add(name);
@@ -54,14 +57,30 @@ function kotlinType(schema: JsonSchema, name: string): string {
   if (schema.type === "number") return "Double";
   if (schema.type === "boolean") return "Boolean";
   if (schema.type === "string") return "String";
+  if (typeof schema.const === "string") return "String";
+  if (typeof schema.const === "number") return Number.isInteger(schema.const) ? "Long" : "Double";
+  if (typeof schema.const === "boolean") return "Boolean";
   return "JsonElement";
 }
-function defineObject(schema: JsonSchema, name: string): void {
+function defineUnion(branches: JsonSchema[], name: string): string {
+  if (defined.has(name)) return name;
+  const candidates=Object.keys(branches[0]?.properties??{}).filter(key=>branches.every(branch=>typeof branch.properties?.[key]?.const==="string"));
+  const discriminator=candidates[0];
+  if(!discriminator)return "JsonElement";
+  defined.add(name);
+  kotlinDefinitions.push(`@Serializable\n@JsonClassDiscriminator(${JSON.stringify(discriminator)})\nsealed interface ${name}`);
+  for(const branch of branches){
+    const serialName=String(branch.properties?.[discriminator]?.const),variantName=`${name}${pascal(serialName)}`;
+    defineObject(branch,variantName,{exclude:new Set([discriminator]),extends:name,serialName});
+  }
+  return name;
+}
+function defineObject(schema: JsonSchema, name: string,options?:{exclude?:ReadonlySet<string>;extends?:string;serialName?:string}): void {
   if (defined.has(name)) return;
   defined.add(name);
   const properties = schema.properties ?? {};
   const required = new Set(schema.required ?? []);
-  const fields = Object.entries(properties).map(([wire, value]) => {
+  const fields = Object.entries(properties).filter(([wire])=>!options?.exclude?.has(wire)).map(([wire, value]) => {
     const local = camel(wire);
     const child = value.type === "array" ? `${name}${pascal(wire)}Entry` : `${name}${pascal(wire)}`;
     const type = kotlinType(value, child);
@@ -69,7 +88,8 @@ function defineObject(schema: JsonSchema, name: string): void {
     const propertyType = optional && !type.endsWith("?") ? `${type}?` : type;
     return `  @SerialName(${JSON.stringify(wire)}) val ${local}: ${propertyType}${optional ? " = null" : ""}`;
   });
-  kotlinDefinitions.push(`@Serializable\ndata class ${name}(\n${fields.join(",\n")}\n)`);
+  const serialName=options?.serialName?`@SerialName(${JSON.stringify(options.serialName)})\n`:"";
+  kotlinDefinitions.push(`@Serializable\n${serialName}data class ${name}(\n${fields.join(",\n")}\n)${options?.extends?`: ${options.extends}`:""}`);
 }
 defineObject(z.toJSONSchema(domainRecordsResultSchema) as JsonSchema, "DomainRecordsResultDto");
 defineObject(z.toJSONSchema(planningAgendaResultSchema) as JsonSchema, "PlanningAgendaResultDto");
@@ -88,8 +108,9 @@ defineObject(z.toJSONSchema(moneyPlanningResultSchema) as JsonSchema, "MoneyPlan
 defineObject(z.toJSONSchema(mealPlanningResultSchema) as JsonSchema, "MealPlanningResultDto");
 defineObject(z.toJSONSchema(foreignEntriesResultSchema) as JsonSchema, "ForeignEntriesResultDto");
 defineObject(z.toJSONSchema(travelWorkspaceResultSchema) as JsonSchema, "TravelWorkspaceResultDto");
+defineObject(z.toJSONSchema(projectDirectoryResultSchema) as JsonSchema, "ProjectDirectoryResultDto");
 const kotlinTarget = resolve(import.meta.dirname, "../../../apps/android/core/model/src/main/java/com/shadow/life/GeneratedApiDtos.kt");
-const kotlinContent = `// Generated by @shadow/contracts. Do not edit.\npackage com.shadow.life\n\nimport kotlinx.serialization.SerialName\nimport kotlinx.serialization.Serializable\nimport kotlinx.serialization.json.JsonElement\nimport kotlinx.serialization.json.JsonObject\n\n${kotlinDefinitions.join("\n\n")}\n`;
+const kotlinContent = `// Generated by @shadow/contracts. Do not edit.\n@file:OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)\n\npackage com.shadow.life\n\nimport kotlinx.serialization.SerialName\nimport kotlinx.serialization.Serializable\nimport kotlinx.serialization.json.JsonClassDiscriminator\nimport kotlinx.serialization.json.JsonElement\nimport kotlinx.serialization.json.JsonObject\n\n${kotlinDefinitions.join("\n\n")}\n`;
 if (process.argv.includes("--check")) {
   const current = await readFile(target, "utf8").catch(() => "");
   const kotlinCurrent = await readFile(kotlinTarget, "utf8").catch(() => "");

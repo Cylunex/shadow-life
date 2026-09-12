@@ -162,8 +162,8 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       )
     }
     LifeDomain.Library->{
-      val json=get("/api/library?limit=30")
-      WorkspaceOverview.Library(json.optJSONArray("items")?.length()?:0,json.optString("as_of"))
+      val result=wireJson.decodeFromString<DomainRecordsResultDto>(getText("/api/library?limit=30"))
+      WorkspaceOverview.Library(result.items.size,result.asOf)
     }
   }
 
@@ -199,8 +199,17 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   }
 
   suspend fun projectLinks():List<ProjectLinkItem>{
-    val json=get("/api/project-links")
-    return json.getJSONArray("items").objects().map{item->val target=item.optJSONObject("target");ProjectLinkItem(item.getString("id"),item.getString("title"),item.getString("subtitle"),item.getString("icon"),item.getString("state"),target?.optNullableString("kind"),target?.optNullableString("url"),target?.optNullableString("web_fallback_url")?:target?.optNullableString("url"),target?.optNullableString("package_name"),item.getString("auth_hint"),item.getInt("order"))}.sortedBy(ProjectLinkItem::order)
+    val result=wireJson.decodeFromString<ProjectDirectoryResultDto>(getText("/api/project-links"))
+    return result.items.map{item->
+      val target=item.target
+      ProjectLinkItem(
+        item.id,item.title,item.subtitle,item.icon.wireValue,item.state.wireValue,
+        when(target){is ProjectDirectoryResultDtoItemsEntryTargetBrowser->"browser";is ProjectDirectoryResultDtoItemsEntryTargetAppLink->"app_link";null->null},
+        when(target){is ProjectDirectoryResultDtoItemsEntryTargetBrowser->target.url;is ProjectDirectoryResultDtoItemsEntryTargetAppLink->target.url;null->null},
+        when(target){is ProjectDirectoryResultDtoItemsEntryTargetBrowser->target.url;is ProjectDirectoryResultDtoItemsEntryTargetAppLink->target.webFallbackUrl;null->null},
+        (target as? ProjectDirectoryResultDtoItemsEntryTargetAppLink)?.packageName,item.authHint.wireValue,item.order.toInt()
+      )
+    }.sortedBy(ProjectLinkItem::order)
   }
 
   suspend fun enqueueAgendaAction(item:AgendaItem,action:String):OperationReceipt=withContext(Dispatchers.IO){
