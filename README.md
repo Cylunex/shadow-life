@@ -15,6 +15,7 @@ Use Node 24 and pnpm 11. PostgreSQL is required for the integration journey.
 ```bash
 pnpm setup
 pnpm check
+TEST_DATABASE_URL=postgresql://localhost/shadow_life_test pnpm test:full
 TEST_DATABASE_URL=postgresql://localhost/shadow_life_test pnpm test:journey -- meal
 DATABASE_URL=postgresql://localhost/shadow_life pnpm db:migrate
 DATABASE_URL=postgresql://localhost/shadow_life SHADOW_DEV_AUTH=true pnpm dev
@@ -28,6 +29,6 @@ Production startup requires the OIDC verification, accepted-client list, explici
 browser PKCE settings shown in `.env.example`; Web uses a protected same-origin session cookie and does not ask
 the user to paste a token. Android uses the separate `com.shadow.life` public client, requests the Life API
 resource and admits the account through `/api/me`.
-Migration tooling and the cutover sequence are documented in [docs/migration/health-ledger-inventory.md](docs/migration/health-ledger-inventory.md)
-and [docs/migration/cutover-runbook.md](docs/migration/cutover-runbook.md).
+Migration tooling and the cutover sequence are documented in [the legacy project migration plan](docs/migration/legacy-project-migration-plan.md),
+[the Health/Ledger inventory](docs/migration/health-ledger-inventory.md) and [the cutover runbook](docs/migration/cutover-runbook.md).
 No development command deploys, reaches production, calls a paid model or builds a signed Android package.

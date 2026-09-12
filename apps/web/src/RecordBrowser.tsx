@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "re
 import type { DashboardDomain, TimelineItem } from "./dashboard.js";
 import { canCorrectDetail, correctionCommand, detailEditKind, initialEditableFields, loadRecordDetail, selectionHref, type EditableRecordFields, type RecordSelection } from "./record-detail.js";
 import type { Execute } from "./command-controller.js";
+import { formatMoneyAmount } from "./money-display.js";
 
 const labels:Record<DashboardDomain,string>={meals:"饮食",money:"账目",health:"健康",travel:"旅行",library:"资料"};
 export function RecordBrowser({timeline,nextCursor,selection,capabilities,headers,execute,onChanged}:{timeline:TimelineItem[];nextCursor:string|null;selection:RecordSelection|undefined;capabilities:ReadonlySet<string>;headers:HeadersInit;execute:Execute;onChanged:()=>Promise<void>}){
   const [filter,setFilter]=useState<DashboardDomain|"all">("all"),[items,setItems]=useState(timeline),[cursor,setCursor]=useState(nextCursor),[detail,setDetail]=useState<Record<string,unknown>>(),[error,setError]=useState<string>(),[pending,setPending]=useState(false),[fields,setFields]=useState<EditableRecordFields>();
-  const rows=useMemo(()=>filter==="all"?items:items.filter(item=>item.domain===filter),[items,filter]);
+  const rows=useMemo(()=>(filter==="all"?items:items.filter(item=>item.domain===filter)).map(item=>item.amount?{...item,amount:formatMoneyAmount(item.amount,item.currency)}:item),[items,filter]);
   useEffect(()=>{setItems(timeline);setCursor(nextCursor);},[timeline,nextCursor]);
   useEffect(()=>{let active=true;setDetail(undefined);setFields(undefined);setError(undefined);if(!selection)return()=>{active=false};void loadRecordDetail(fetch,headers,selection).then(value=>{if(active){setDetail(value);setFields(initialEditableFields(value));}}).catch(caught=>{if(active)setError(caught instanceof Error?caught.message:"读取详情失败");});return()=>{active=false};},[selection?.domain,selection?.kind,selection?.id,selection?.recordId]);
   async function correct(event:FormEvent){event.preventDefault();if(!detail||!fields||!selection)return;setPending(true);setError(undefined);try{const built=correctionCommand(detail,fields);await execute(built.capability,built.input,`record:correct:${selection.domain}:${selection.id}`);const refreshed=await loadRecordDetail(fetch,headers,selection);setDetail(refreshed);setFields(initialEditableFields(refreshed));await onChanged();}catch(caught){setError(caught instanceof Error?caught.message:"修正失败");}finally{setPending(false);}}

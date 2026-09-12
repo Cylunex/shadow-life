@@ -30,7 +30,8 @@ The checked-in synthetic bundle only exercises exact-scale money and a legacy me
 Run snapshots only into an isolated operations directory:
 
 ```bash
-LEGACY_DATABASE_URL=... pnpm --filter @shadow/legacy-importer export:postgres health-prod /isolated/health-snapshot.json
+LEGACY_DATABASE_URL=... pnpm --filter @shadow/legacy-importer export:postgres health-prod /isolated/health-snapshot.json health,public
+pnpm migration:mapping inspect /isolated/health-snapshot.json /isolated/health-snapshot-inspection.json
 pnpm migration:mapping skeleton /isolated/health-snapshot.json /isolated/health-mapping-review.json health-800af69-v1
 pnpm migration:mapping audit /isolated/health-snapshot.json /isolated/health-mapping-review.json /isolated/health-mapping-audit.json
 pnpm migration validate fixtures/migration-bundle.json
@@ -38,6 +39,8 @@ DATABASE_URL=... pnpm migration apply fixtures/migration-bundle.json
 DATABASE_URL=... pnpm migration reconcile fixtures/migration-bundle.json
 DATABASE_URL=... pnpm migration cutover-check fixtures/migration-bundle.json
 ```
+
+The optional exporter schema argument is a comma-separated allowlist. Health must include `health`; using the old default-only invocation would inspect only `public` and could omit every Health business table. Including `public` as well keeps any public authentication/session catalog entries visible to the exclusion audit. Ledger, Travel and Archive currently use `public`. `mapping inspect` emits only catalog identities, hashes and counts—not row payloads—so it can be retained with the migration evidence.
 
 The generated mapping skeleton is deliberately blocked. It becomes ready only when every included table and every discovered field has a native or historical-archive disposition, every mapped table names its reviewed mapper, and session/identity exclusions exactly match exporter exclusions. The audit is bound to the snapshot content ID and refuses missing, duplicate or invented tables/columns. This coverage gate does not prove that production rows reconcile; the mapped bundle still needs isolated apply, replay and target readback.
 

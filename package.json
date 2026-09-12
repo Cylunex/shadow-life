@@ -18,6 +18,7 @@
     "check:android-boundaries": "node scripts/check-android-modules.mjs",
     "test:journey": "node scripts/test-journey.mjs",
     "test:health-ledger": "node scripts/test-journey.mjs health-ledger",
+    "test:full": "node scripts/test-full.mjs",
     "test:android-health": "node scripts/test-health-policy.mjs",
     "eval:agent": "node scripts/eval-agent.mjs",
     "mcp": "pnpm --filter @shadow/mcp start",

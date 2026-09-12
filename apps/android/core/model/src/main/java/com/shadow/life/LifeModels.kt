@@ -95,7 +95,7 @@ data class ReviewSummary(
   val timeZone:String="",val domains:List<String> = emptyList(),val metricKeys:List<String> = emptyList(),val coverageKeys:List<String> = emptyList(),
   val evidence:List<ReviewEvidence> = emptyList(),val limitationItems:List<String> = emptyList()
 )
-data class PlanningWorkspace(val agenda:List<AgendaItem>,val projects:List<PlanSummary>,val ownedItems:List<OwnedItemSummary>,val reviews:List<ReviewSummary>,val truncated:Boolean,val asOf:String)
+data class PlanningWorkspace(val agenda:List<AgendaItem>,val projects:List<PlanSummary>,val ownedItems:List<OwnedItemSummary>,val reviews:List<ReviewSummary>,val truncated:Boolean,val asOf:String,val partialFailures:List<String> = emptyList())
 data class LibrarySummary(val id:String,val title:String,val itemType:String,val state:String?,val revision:Int?)
 data class DetailFact(val label:String,val value:String)
 data class DetailSection(val title:String,val facts:List<DetailFact> = emptyList(),val itemCount:Int?=null)

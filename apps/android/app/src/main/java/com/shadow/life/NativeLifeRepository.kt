@@ -170,8 +170,8 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   suspend fun planning():PlanningWorkspace=coroutineScope{
     val today=LocalDate.now();val zone=ZoneId.systemDefault().id
     val agendaRequest=async{wireJson.decodeFromString<PlanningAgendaResultDto>(getText("/api/planning/agenda?from_on=$today&to_on_exclusive=${today.plusDays(7)}&time_zone=${encode(zone)}&limit=100"))}
-    val projectsRequest=async{runCatching{wireJson.decodeFromString<LifeProjectsResultDto>(getText("/api/life/projects?limit=50"))}.getOrNull()};val itemsRequest=async{runCatching{wireJson.decodeFromString<OwnedItemsResultDto>(getText("/api/life/owned-items?limit=50"))}.getOrNull()};val reviewsRequest=async{runCatching{wireJson.decodeFromString<LifeReviewsResultDto>(getText("/api/life/reviews?limit=20"))}.getOrNull()}
-    val agenda=agendaRequest.await();val projects=projectsRequest.await();val items=itemsRequest.await();val reviews=reviewsRequest.await()
+    val projectsRequest=async{partialRequest{wireJson.decodeFromString<LifeProjectsResultDto>(getText("/api/life/projects?limit=50"))}};val itemsRequest=async{partialRequest{wireJson.decodeFromString<OwnedItemsResultDto>(getText("/api/life/owned-items?limit=50"))}};val reviewsRequest=async{partialRequest{wireJson.decodeFromString<LifeReviewsResultDto>(getText("/api/life/reviews?limit=20"))}}
+    val agenda=agendaRequest.await();val projectsResult=projectsRequest.await();val itemsResult=itemsRequest.await();val reviewsResult=reviewsRequest.await();val projects=projectsResult.getOrNull();val items=itemsResult.getOrNull();val reviews=reviewsResult.getOrNull()
     PlanningWorkspace(
       agenda=agenda.items.map{item->AgendaItem(item.sourceKind.wireValue,item.sourceId,item.sourceKey,item.title,item.state.wireValue,item.dueOn,item.dueAt,item.target.kind.wireValue,item.target.id,item.target.projectId,item.primaryAction?.let{AgendaAction(it.capability.wireValue,it.targetId,it.expectedRevision.toInt())})},
       projects=projects?.items?.map{item->PlanSummary(
@@ -194,7 +194,12 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         metricKeys=item.metrics.keys.sorted(),coverageKeys=item.coverage.keys.sorted(),
         evidence=item.evidence.map{evidence->ReviewEvidence(evidence.type,evidence.id,evidence.revision.toInt())},limitationItems=item.limitations
       )}.orEmpty(),
-      truncated=agenda.truncated,asOf=agenda.asOf
+      truncated=agenda.truncated,asOf=agenda.asOf,
+      partialFailures=listOfNotNull(
+        projectsResult.exceptionOrNull()?.let{"生活项目读取失败，可重试后恢复"},
+        itemsResult.exceptionOrNull()?.let{"物品读取失败，可重试后恢复"},
+        reviewsResult.exceptionOrNull()?.let{"生活回顾读取失败，可重试后恢复"}
+      )
     )
   }
 
@@ -390,6 +395,8 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   private suspend fun enqueueCommand(capability:String,input:JSONObject,stableCommandId:String?=null):OperationReceipt{
     val session=app.sessions.active()?:error("请先登录 Shadow Life");val commandId=stableCommandId?:"cmd_android_${UUID.randomUUID().toString().replace("-","")}";val body=JSONObject().put("protocol","shadow.command").put("capability",capability).put("command_id",commandId).put("input",input).toString();app.queue.enqueueCommand(session,commandId,capability,body);SyncScheduler.schedule(context,session.accountId);return OperationReceipt(capability,commandId,queued=true)
   }
+
+  private suspend fun <T> partialRequest(block:suspend()->T):Result<T> = try{Result.success(block())}catch(error:CancellationException){throw error}catch(error:Exception){Result.failure(error)}
 }
 
 private fun JSONArray?.objects():List<JSONObject>{if(this==null)return emptyList();return (0 until length()).mapNotNull{optJSONObject(it)}}
