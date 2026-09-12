@@ -104,9 +104,15 @@ data class RecordDetail(val title:String,val state:String?,val revision:Int?,val
 
 enum class CaptureKind(val label:String,val capability:String) {
   Expense("消费","money.record_entry"),
+  Purchase("购买","life.record_purchase"),
+  Refund("退款","money.record_refund"),
   Meal("一餐","life.record_meal"),
   Health("健康","health.record_measurement"),
+  Workout("训练","health.record_workout"),
   Visit("到访","travel.record_visit"),
+  Trip("旅程","travel.create_trip"),
+  OwnedItem("物品","life.save_owned_item"),
+  Project("项目","life.save_project"),
   Library("资料","library.capture")
 }
 
