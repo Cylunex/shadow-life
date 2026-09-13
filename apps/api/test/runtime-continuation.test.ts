@@ -79,14 +79,14 @@ test("overview routes parse typed filters before calling query services",async()
   const travelWorkspace=await app.request("/api/travel/workspace?trip_id=trip_12345678",{headers});
   const travelExport=await app.request("/api/travel/trips/trip_12345678/export?format=ics",{headers});
   const travelPreview=await app.request("/api/travel/portable/preview",{method:"POST",headers:{...headers,"content-type":"application/json"},body:JSON.stringify({format:"gpx",content:'<gpx><trkpt lat="1" lon="2"></trkpt></gpx>'})});
-  const ownedItems=await app.request("/api/life/owned-items?state=owned&limit=12",{headers});const reviews=await app.request("/api/life/reviews?limit=7",{headers});
-  const projects=await app.request("/api/life/projects?state=active&limit=5",{headers});const mealPlanning=await app.request("/api/life/meal-planning?limit=6",{headers});const foreignEntries=await app.request("/api/money/foreign?trip_id=trip_12345678&limit=7",{headers});
+  const ownedItems=await app.request("/api/life/owned-items?id=owned_item_12345678&state=owned&limit=12",{headers});const reviews=await app.request("/api/life/reviews?id=life_review_12345678&limit=7",{headers});
+  const projects=await app.request("/api/life/projects?id=life_project_12345678&state=active&limit=5",{headers});const mealPlanning=await app.request("/api/life/meal-planning?limit=6",{headers});const foreignEntries=await app.request("/api/money/foreign?trip_id=trip_12345678&limit=7",{headers});
   assert.equal(today.status,200);assert.equal(timeline.status,200);assert.equal(search.status,200);assert.equal(importReview.status,200);assert.equal(healthRecord.status,200);assert.equal(travelWorkspace.status,200);assert.equal(travelExport.status,200);assert.equal(travelPreview.status,200);assert.equal(ownedItems.status,200);assert.equal(reviews.status,200);assert.equal(projects.status,200);assert.equal(mealPlanning.status,200);assert.equal(foreignEntries.status,200);assert.equal(importBatchId,"import_batch_12345678");assert.equal(healthRecordId,"health_12345678");
   assert.deepEqual(todayInput,{date:"2026-09-10",time_zone:"Asia/Shanghai",domains:["money","health"]});
   assert.deepEqual(timelineInput,{domains:["money"],limit:2});
   assert.deepEqual(searchInput,{q:"午餐",types:["meals","money"],from_on:"2026-09-01",to_on_exclusive:"2026-10-01",limit:12});
   assert.deepEqual(travelWorkspaceInput,{trip_id:"trip_12345678"});assert.deepEqual(travelExportInput,{trip_id:"trip_12345678",format:"ics"});assert.deepEqual(travelPreviewInput,{format:"gpx",content:'<gpx><trkpt lat="1" lon="2"></trkpt></gpx>'});
-  assert.deepEqual(ownedItemsInput,{state:"owned",limit:12});assert.deepEqual(reviewsInput,{limit:7});assert.deepEqual(projectsInput,{state:"active",limit:5});assert.deepEqual(mealPlanningInput,{limit:6});assert.deepEqual(foreignEntriesInput,{trip_id:"trip_12345678",limit:7});
+  assert.deepEqual(ownedItemsInput,{id:"owned_item_12345678",state:"owned",limit:12});assert.deepEqual(reviewsInput,{id:"life_review_12345678",limit:7});assert.deepEqual(projectsInput,{id:"life_project_12345678",state:"active",limit:5});assert.deepEqual(mealPlanningInput,{limit:6});assert.deepEqual(foreignEntriesInput,{trip_id:"trip_12345678",limit:7});
 });
 
 test("runtime-forged commit events are rejected before tool dispatch",async()=>{

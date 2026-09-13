@@ -33,7 +33,8 @@ import androidx.navigation.toRoute
 private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
 
 @Composable fun LifeApp(session:ProductSession?,viewModel:NativeLifeViewModel,appearance:Appearance,statusMessage:String?,pendingShare:SharePayload?,notificationAuthorization:String?,openInboxNonce:Long,scaleSettings:ScaleProfileSettings,onAcceptShare:(SharePayload)->Unit,onDiscardShare:()->Unit,onDismissStatus:()->Unit,onAppearance:(Appearance)->Unit,onLogin:()->Unit,onLogout:()->Unit,onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onSaveScale:(ScaleProfileSettings)->Unit,onNotificationPermission:()->Unit){
-  val nav=rememberNavController();var composerOpen by rememberSaveable{mutableStateOf(false)}
+  val nav=rememberNavController();var composerOpen by rememberSaveable{mutableStateOf(false)};var composerSeed by remember{mutableStateOf<CaptureSeed?>(null)}
+  fun openComposer(seed:CaptureSeed?=null){composerSeed=seed;composerOpen=true;if(seed?.kind==CaptureKind.Refund)viewModel.loadRefundCandidates("")}
   LaunchedEffect(session?.accountId){if(session==null)viewModel.deactivateAccount() else viewModel.activateAccount(session.accountId)}
   LaunchedEffect(session?.accountId,notificationAuthorization){if(session!=null&&notificationAuthorization!=null)viewModel.registerNotificationDevice(notificationAuthorization)}
   LaunchedEffect(session?.accountId,openInboxNonce){if(session!=null&&openInboxNonce>0){viewModel.refreshInbox();nav.navigate(InboxRoute){launchSingleTop=true}}}
@@ -42,10 +43,10 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
   val root=destination?.hasRoute<TodayRoute>()==true||destination?.hasRoute<RecordsRoute>()==true||destination?.hasRoute<PlansRoute>()==true||destination?.hasRoute<LibraryRoute>()==true
   Scaffold(containerColor=MaterialTheme.colorScheme.background,bottomBar={if(root)LifeDock(
     selected=when{destination?.hasRoute<RecordsRoute>()==true->"记录";destination?.hasRoute<PlansRoute>()==true->"计划";destination?.hasRoute<LibraryRoute>()==true->"资料库";else->"今日"},
-    onRoute={route->nav.navigate(route){popUpTo(nav.graph.findStartDestination().id){saveState=true};launchSingleTop=true;restoreState=true}},onLife={composerOpen=true;viewModel.openAssistant()})
+    onRoute={route->nav.navigate(route){popUpTo(nav.graph.findStartDestination().id){saveState=true};launchSingleTop=true;restoreState=true}},onLife={openComposer();viewModel.openAssistant()})
   }){outer->Box(Modifier.fillMaxSize().padding(bottom=if(root)outer.calculateBottomPadding() else 0.dp)){
     NavHost(navController=nav,startDestination=TodayRoute){
-      composable<TodayRoute>{TodayScreen(viewModel.today,viewModel.deviceSyncStatus,viewModel.queueStatus,SamsungHealthBridge.available(),viewModel::refreshToday,{domain->viewModel.loadWorkspace(domain);nav.navigate(WorkspaceRoute(domain.name))},{domain,id,title->viewModel.loadDetail(domain,id);nav.navigate(DetailRoute(domain.name,id,title))},{nav.navigate(RecordsRoute)},onHealthSync,onSamsungSync,onScale,{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)})}
+      composable<TodayRoute>{TodayScreen(viewModel.today,viewModel.deviceSyncStatus,viewModel.queueStatus,SamsungHealthBridge.available(),viewModel::refreshToday,{domain->viewModel.loadWorkspace(domain);nav.navigate(WorkspaceRoute(domain.name))},{domain,id,title->viewModel.loadDetail(domain,id);nav.navigate(DetailRoute(domain.name,id,title))},{nav.navigate(RecordsRoute)},{nav.navigate(FeaturesRoute)},onHealthSync,onSamsungSync,onScale,{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)})}
       composable<RecordsRoute>{RecordsScreen(viewModel.timeline,viewModel.searchResults,viewModel::refreshTimeline,viewModel::loadMoreTimeline,viewModel::search,viewModel::loadMoreSearch,viewModel::clearSearch,{domain->viewModel.loadWorkspace(domain);nav.navigate(WorkspaceRoute(domain.name))},{domain,id,title->viewModel.loadDetail(domain,id);nav.navigate(DetailRoute(domain.name,id,title))},{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)})}
       composable<PlansRoute>{PlansScreen(
         viewModel.plans,viewModel.planningMessage,viewModel::refreshPlans,
@@ -54,11 +55,12 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
         viewModel::updateAgenda,{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)}
       )}
       composable<LibraryRoute>{LibraryScreen(viewModel.library,viewModel::refreshLibrary,viewModel::loadMoreLibrary,{domain,id,title->viewModel.loadDetail(domain,id);nav.navigate(DetailRoute(domain.name,id,title))},{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)})}
-      composable<WorkspaceRoute>{backStack->val route=backStack.toRoute<WorkspaceRoute>();val domain=LifeDomain.valueOf(route.domain);LaunchedEffect(domain){if(viewModel.workspaceDomain!=domain)viewModel.loadWorkspace(domain)};WorkspaceScreen(domain,viewModel.workspaceOverview,viewModel.workspace,viewModel.deviceSyncStatus,viewModel.queueStatus,SamsungHealthBridge.available(),{viewModel.loadWorkspace(domain,it)},{viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},{d,id,title->viewModel.loadDetail(d,id);nav.navigate(DetailRoute(d.name,id,title))},onHealthSync,onSamsungSync,onScale,{nav.navigate(SettingsRoute)})}
-      composable<DetailRoute>{backStack->val route=backStack.toRoute<DetailRoute>();val domain=LifeDomain.valueOf(route.domain);LaunchedEffect(route.id){viewModel.loadDetail(domain,route.id)};DetailScreen(route.title,viewModel.detail,viewModel.submit,{viewModel.loadDetail(domain,route.id)},{nav.popBackStack()},viewModel::correct,viewModel::editAgain)}
-      composable<PlanDetailRoute>{backStack->val route=backStack.toRoute<PlanDetailRoute>();val plan=(viewModel.plans as? LoadState.Ready)?.value?.projects?.firstOrNull{it.id==route.id};PlanDetailScreen(plan,{kind,id->openPlanningRelated(nav,viewModel,kind,id)},{nav.popBackStack()})}
-      composable<OwnedItemDetailRoute>{backStack->val route=backStack.toRoute<OwnedItemDetailRoute>();val item=(viewModel.plans as? LoadState.Ready)?.value?.ownedItems?.firstOrNull{it.id==route.id};OwnedItemDetailScreen(item,{kind,id->openPlanningRelated(nav,viewModel,kind,id)},{nav.popBackStack()})}
-      composable<ReviewDetailRoute>{backStack->val route=backStack.toRoute<ReviewDetailRoute>();val review=(viewModel.plans as? LoadState.Ready)?.value?.reviews?.firstOrNull{it.id==route.id};ReviewDetailScreen(review,{evidence->openReviewEvidence(nav,viewModel,evidence)},{nav.popBackStack()})}
+      composable<WorkspaceRoute>{backStack->val route=backStack.toRoute<WorkspaceRoute>();val domain=LifeDomain.valueOf(route.domain);LaunchedEffect(domain){if(viewModel.workspaceDomain!=domain)viewModel.loadWorkspace(domain)};WorkspaceScreen(domain,viewModel.workspaceOverview,viewModel.workspace,viewModel.deviceSyncStatus,viewModel.queueStatus,SamsungHealthBridge.available(),{viewModel.loadWorkspace(domain,it)},{viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},{d,id,title->viewModel.loadDetail(d,id);nav.navigate(DetailRoute(d.name,id,title))},{kind->openComposer(defaultCaptureSeed(kind))},onHealthSync,onSamsungSync,onScale,{nav.navigate(SettingsRoute)})}
+      composable<DetailRoute>{backStack->val route=backStack.toRoute<DetailRoute>();val domain=LifeDomain.valueOf(route.domain);LaunchedEffect(route.id){viewModel.loadDetail(domain,route.id)};DetailScreen(route.title,viewModel.detail,viewModel.submit,{viewModel.loadDetail(domain,route.id)},{nav.popBackStack()},{link->openPlanningRelated(nav,viewModel,link.kind,link.id)},{action->openComposer(action.seed)},viewModel::correct,viewModel::editAgain)}
+      composable<PlanDetailRoute>{backStack->val route=backStack.toRoute<PlanDetailRoute>();LaunchedEffect(route.id){viewModel.loadPlanDetail(route.id)};PlanDetailScreen(viewModel.planDetail,{viewModel.loadPlanDetail(route.id)},{kind,id->openPlanningRelated(nav,viewModel,kind,id)},{nav.popBackStack()})}
+      composable<OwnedItemDetailRoute>{backStack->val route=backStack.toRoute<OwnedItemDetailRoute>();LaunchedEffect(route.id){viewModel.loadOwnedItemDetail(route.id)};OwnedItemDetailScreen(viewModel.ownedItemDetail,{viewModel.loadOwnedItemDetail(route.id)},{kind,id->openPlanningRelated(nav,viewModel,kind,id)},{nav.popBackStack()})}
+      composable<ReviewDetailRoute>{backStack->val route=backStack.toRoute<ReviewDetailRoute>();LaunchedEffect(route.id){viewModel.loadReviewDetail(route.id)};ReviewDetailScreen(viewModel.reviewDetail,{viewModel.loadReviewDetail(route.id)},{evidence->openReviewEvidence(nav,viewModel,evidence)},{nav.popBackStack()})}
+      composable<FeaturesRoute>{FeaturesScreen({kind->openComposer(defaultCaptureSeed(kind))},{domain->viewModel.loadWorkspace(domain);nav.navigate(WorkspaceRoute(domain.name))},{nav.navigate(PlansRoute)},onHealthSync,onSamsungSync,onScale,{nav.popBackStack()})}
       composable<SettingsRoute>{SettingsScreen(session,appearance,viewModel.queueStatus,viewModel.deviceSyncStatus,scaleSettings,onAppearance,onHealthSync,onSamsungSync,onScale,onSaveScale,viewModel::retryQueue,viewModel::clearTerminalQueue,onLogout,{nav.popBackStack()},{nav.navigate(ConnectionsRoute)},{viewModel.refreshInbox();nav.navigate(InboxRoute)})}
       composable<ConnectionsRoute>{ProjectDirectoryScreen(viewModel.projectLinks,viewModel::refreshProjectLinks){nav.popBackStack()}}
       composable<InboxRoute>{InboxScreen(viewModel.inbox,viewModel::refreshInbox,viewModel::loadMoreInbox,viewModel::updateNotification,viewModel::setNotificationPreferences,onNotificationPermission){nav.popBackStack()}}
@@ -66,8 +68,10 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
   }}
   statusMessage?.let{message->AlertDialog(onDismissRequest=onDismissStatus,confirmButton={TextButton(onClick=onDismissStatus){Text("知道了")}},text={Text(message)})}
   if(pendingShare!=null)ShareIngressDialog(pendingShare,viewModel.shareImport,{onAcceptShare(pendingShare)},onDiscardShare)
-  LifeComposerHost(composerOpen,viewModel.submit,viewModel.assistant,viewModel.assistantHistory,viewModel.refundCandidates,viewModel::loadOlderAssistantMessages,viewModel::loadRefundCandidates,{composerOpen=false;viewModel.editAgain();viewModel.clearAssistant()},{viewModel.submit(it)},viewModel::askLife,viewModel::editAgain)
+  LifeComposerHost(composerOpen,composerSeed,viewModel.submit,viewModel.assistant,viewModel.assistantHistory,viewModel.refundCandidates,viewModel::loadOlderAssistantMessages,viewModel::loadRefundCandidates,{composerOpen=false;composerSeed=null;viewModel.editAgain();viewModel.clearAssistant()},{viewModel.submit(it)},viewModel::askLife,viewModel::editAgain)
 }
+
+private fun defaultCaptureSeed(kind:CaptureKind)=CaptureSeed(kind=kind,date=java.time.LocalDate.now().toString(),option=when(kind){CaptureKind.Expense->"expense";CaptureKind.Purchase->"offline_purchase";CaptureKind.Meal->"other";CaptureKind.Health->"weight";CaptureKind.OwnedItem->"owned";CaptureKind.Project->"active";CaptureKind.Library->"note";else->""})
 
 private fun openPlanningRelated(nav:androidx.navigation.NavHostController,viewModel:NativeLifeViewModel,kind:String,id:String){
   when(kind){
@@ -76,9 +80,6 @@ private fun openPlanningRelated(nav:androidx.navigation.NavHostController,viewMo
     "money_entry"->{viewModel.loadDetail(LifeDomain.Money,id);nav.navigate(DetailRoute(LifeDomain.Money.name,id,"交易详情"))}
     "meal"->{viewModel.loadDetail(LifeDomain.Meals,id);nav.navigate(DetailRoute(LifeDomain.Meals.name,id,"餐次详情"))}
     "owned_item"->nav.navigate(OwnedItemDetailRoute(id))
-    "health_plan"->{viewModel.loadWorkspace(LifeDomain.Health);nav.navigate(WorkspaceRoute(LifeDomain.Health.name))}
-    "recurring_plan"->{viewModel.loadWorkspace(LifeDomain.Money);nav.navigate(WorkspaceRoute(LifeDomain.Money.name))}
-    "recipe"->{viewModel.loadWorkspace(LifeDomain.Meals);nav.navigate(WorkspaceRoute(LifeDomain.Meals.name))}
   }
 }
 

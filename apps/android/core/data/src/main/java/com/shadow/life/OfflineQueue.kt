@@ -8,6 +8,7 @@ import java.nio.file.StandardCopyOption
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import org.json.JSONObject
 
 class OfflineQueue(private val database:ShadowDatabase,private val crypto:QueueCrypto=QueueCrypto()) {
   fun observeStatus(session:ProductSession):Flow<QueueSummary> = combine(
@@ -16,6 +17,7 @@ class OfflineQueue(private val database:ShadowDatabase,private val crypto:QueueC
   ){commands,attachments->
     val scale=commands.filter{it.commandId.startsWith("cmd_scale_")}
     val samsung=commands.filter{it.commandId.startsWith("cmd_samsung_")}
+    val committedReceipts=commands.asSequence().filter{it.state=="committed"}.sortedBy{it.createdAt}.mapNotNull(::verifiedReceipt).toList()
     QueueSummary(
     waiting=commands.count{it.state in setOf("pending","uploading")},
     reconciling=commands.count{it.state=="unknown"}+attachments.count{it.state=="unknown"},
@@ -25,7 +27,8 @@ class OfflineQueue(private val database:ShadowDatabase,private val crypto:QueueC
     latestScaleState=sourceState(scale),
     latestScaleAt=scale.maxOfOrNull{it.createdAt},
     latestSamsungState=sourceState(samsung),
-    latestSamsungAt=samsung.maxOfOrNull{it.createdAt}
+    latestSamsungAt=samsung.maxOfOrNull{it.createdAt},
+    committedReceipts=committedReceipts
   )}
   suspend fun enqueueCommand(session:ProductSession,commandId:String,capability:String,plainBody:String):Long{
     val encrypted=crypto.encryptCommand(session.accountId,session.subjectId,commandId,plainBody)
@@ -104,4 +107,9 @@ class OfflineQueue(private val database:ShadowDatabase,private val crypto:QueueC
     commands.all{it.state=="committed"}->"committed"
     else->commands.first().state
   }
+  private fun verifiedReceipt(command:PendingCommand):OperationReceipt?=runCatching{
+    val value=JSONObject(receiptBody(command));if(value.optString("protocol")!="shadow.execution-result"||value.optString("status")!="committed"||value.optString("command_id")!=command.commandId)return@runCatching null
+    val resources=value.optJSONArray("resources");val warnings=value.optJSONArray("warnings")
+    OperationReceipt(command.capability,command.commandId,value.optString("execution_id").takeIf(String::isNotBlank),(0 until (resources?.length()?:0)).mapNotNull{index->resources?.optJSONObject(index)?.let{ResourceRef(it.optString("type"),it.optString("id"),it.optInt("revision",1))}},(0 until (warnings?.length()?:0)).mapNotNull{index->warnings?.optString(index)?.takeIf(String::isNotBlank)},queued=false)
+  }.getOrNull()
 }

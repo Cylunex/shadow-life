@@ -391,3 +391,23 @@ and [delivery/validation record](library-processing-recovery-delivery-2026-09-11
   still require installation on the target phone. Historical Health business-row migration also remains a separate
   guarded operation: it needs a restored source snapshot, verified owner→Life subject map and reviewed real-row
   reconciliation; provider cursors, sessions and keys are deliberately not migrated.
+
+## Connected native experience follow-up (2026-09-13)
+
+- Android `2.1.3` adds a searchable all-functions directory and domain-local creation actions, including first-level
+  Samsung, Health Connect and Xiaomi scale operations. Empty workspaces keep their task entry points instead of
+  becoming dead ends.
+- Project, owned-item and review details now have owner-scoped exact-ID reads and independent loading, retry and
+  unavailable states. Meal/payment and purchase/owned-item relations retain typed identifiers, render as navigable
+  links and offer context-prefilled refund or owned-item actions instead of requiring users to copy internal IDs.
+- The daily meal editor now uses removable food rows with explicit quantity and common-unit controls while retaining
+  multiline paste as an advanced option. Correction reasons are optional in the UI and receive an explicit audit
+  default at the repository boundary.
+- Queued writes no longer trigger a knowingly stale immediate reload. The encrypted queue exposes verified committed
+  receipts; the ViewModel detects every newly committed command even when reconciliation finishes out of order,
+  replaces the provisional receipt and invalidates Today, Timeline, the active
+  workspace, Planning or Library according to the committed capability. Assistant receipts use the same refresh path.
+- The current delivery does not label every aggregate summary as a complete feature. Dedicated recipe, health-plan,
+  recurring-plan, shopping-list/map/budget management screens, multi-destination sharing, attachment previews and
+  object-scoped assistant conversations remain explicit product increments requiring their own read/write contracts
+  and scenario acceptance; their current summaries continue to be read-only.

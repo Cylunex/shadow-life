@@ -65,9 +65,9 @@ export interface TransactionStore {
   agentContextPack(subjectId:string,id:string,threadId?:string):Promise<unknown|undefined>;
   agentMemories(subjectId:string,category:string|undefined,limit:number):Promise<{items:readonly Record<string,unknown>[];asOf:string}>;
   notifications(subjectId:string,options:{limit:number;asOf?:string|undefined;before?:{at:string;id:string}|undefined}):Promise<unknown>;
-  ownedItems(subjectId:string,state:string|undefined,limit:number,visibility:{purchase:boolean;library:boolean;money:boolean}):Promise<unknown>;
-  lifeReviews(subjectId:string,limit:number,authorizedDomains:readonly string[]):Promise<unknown>;
-  lifeProjects(subjectId:string,state:string|undefined,limit:number,authorizedKinds:readonly string[]):Promise<unknown>;
+  ownedItems(subjectId:string,state:string|undefined,limit:number,visibility:{purchase:boolean;library:boolean;money:boolean},id?:string):Promise<unknown>;
+  lifeReviews(subjectId:string,limit:number,authorizedDomains:readonly string[],id?:string):Promise<unknown>;
+  lifeProjects(subjectId:string,state:string|undefined,limit:number,authorizedKinds:readonly string[],id?:string):Promise<unknown>;
   planningAgenda(subjectId:string,input:{fromOn:string;toOnExclusive:string;timeZone:string;limit:number;includeProjects:boolean;includeMoney:boolean;includeHealth:boolean}):Promise<{items:readonly PlanningAgendaItem[];truncated:boolean;asOf:string}>;
   mealPlanning(subjectId:string,limit:number):Promise<unknown>;
   purchaseItems(subjectId:string,query:string|undefined,limit:number):Promise<unknown>;

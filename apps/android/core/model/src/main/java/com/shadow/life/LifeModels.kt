@@ -41,7 +41,12 @@ data class AssistantMessage(val id:String,val role:String,val content:String,val
 data class AssistantConversation(val threadId:String,val items:List<AssistantMessage>,val nextCursor:String?,val asOf:String)
 data class SharePayload(val ingressId:String,val text:String?,val uris:List<String>)
 data class ProjectLinkItem(val id:String,val title:String,val subtitle:String,val icon:String,val state:String,val launchMode:String?,val appLinkUrl:String?,val webFallbackUrl:String?,val androidPackage:String?,val authHint:String,val order:Int)
-data class QueueSummary(val waiting:Int,val reconciling:Int,val failed:Int,val completed:Int,val attachments:Int,val latestScaleState:String?=null,val latestScaleAt:Long?=null,val latestSamsungState:String?=null,val latestSamsungAt:Long?=null){val terminal:Int get()=failed+completed}
+data class QueueSummary(
+  val waiting:Int,val reconciling:Int,val failed:Int,val completed:Int,val attachments:Int,
+  val latestScaleState:String?=null,val latestScaleAt:Long?=null,
+  val latestSamsungState:String?=null,val latestSamsungAt:Long?=null,
+  val committedReceipts:List<OperationReceipt> = emptyList()
+){val terminal:Int get()=failed+completed}
 data class NotificationItem(val id:String,val title:String,val body:String,val scheduledAt:String,val state:String,val readState:String,val deliveryState:String)
 data class NotificationPreferences(val enabled:Boolean,val quietStart:String?,val quietEnd:String?,val timeZone:String,val revision:Int)
 data class InboxSnapshot(val items:List<NotificationItem>,val nextCursor:String?,val preferences:NotificationPreferences,val asOf:String)
@@ -108,7 +113,14 @@ data class PlanningWorkspace(val agenda:List<AgendaItem>,val projects:List<PlanS
 data class LibrarySummary(val id:String,val title:String,val itemType:String,val state:String?,val revision:Int?)
 data class LibraryPage(val items:List<LibrarySummary>,val nextCursor:String?,val asOf:String)
 data class DetailFact(val label:String,val value:String)
-data class DetailSection(val title:String,val facts:List<DetailFact> = emptyList(),val itemCount:Int?=null)
+data class DetailLink(val kind:String,val id:String,val title:String,val supporting:String?=null)
+data class CaptureSeed(
+  val kind:CaptureKind,val primary:String="",val secondary:String="",val note:String="",
+  val date:String,val option:String="",val category:String="",val paymentMethod:String="",
+  val contextKind:String?=null,val contextId:String?=null,val contextLabel:String?=null
+)
+data class DetailAction(val label:String,val seed:CaptureSeed)
+data class DetailSection(val title:String,val facts:List<DetailFact> = emptyList(),val itemCount:Int?=null,val links:List<DetailLink> = emptyList())
 sealed interface EditSeed { val domain:LifeDomain;val detailId:String
   data class Meal(override val detailId:String,val revision:Int,val occurredOn:String,val timeZone:String,val mealType:String,val note:String?):EditSeed{override val domain=LifeDomain.Meals}
   data class Money(override val detailId:String,val revision:Int,val amount:String,val currency:String,val occurredOn:String,val timeZone:String,val category:String?,val counterparty:String?,val note:String?):EditSeed{override val domain=LifeDomain.Money}
@@ -117,7 +129,7 @@ sealed interface EditSeed { val domain:LifeDomain;val detailId:String
   data class Library(override val detailId:String,val revision:Int,val title:String,val text:String?,val url:String?,val tags:List<String>):EditSeed{override val domain=LifeDomain.Library}
 }
 data class CorrectionDraft(val primary:String,val secondary:String,val note:String,val date:String,val option:String,val reason:String)
-data class RecordDetail(val title:String,val state:String?,val revision:Int?,val sections:List<DetailSection>,val editSeed:EditSeed?=null)
+data class RecordDetail(val title:String,val state:String?,val revision:Int?,val sections:List<DetailSection>,val editSeed:EditSeed?=null,val actions:List<DetailAction> = emptyList())
 
 @Serializable data object TodayRoute
 @Serializable data object RecordsRoute
@@ -128,6 +140,7 @@ data class RecordDetail(val title:String,val state:String?,val revision:Int?,val
 @Serializable data class PlanDetailRoute(val id:String)
 @Serializable data class OwnedItemDetailRoute(val id:String)
 @Serializable data class ReviewDetailRoute(val id:String)
+@Serializable data object FeaturesRoute
 @Serializable data object SettingsRoute
 @Serializable data object ConnectionsRoute
 @Serializable data object InboxRoute
@@ -154,5 +167,9 @@ data class CaptureDraft(
   val date:String,
   val option:String="",
   val category:String="",
-  val paymentMethod:String=""
+  val paymentMethod:String="",
+  val mealItems:List<MealDraftItem> = emptyList(),
+  val contextKind:String?=null,
+  val contextId:String?=null
 )
+data class MealDraftItem(val name:String="",val quantity:String="",val unit:String="")

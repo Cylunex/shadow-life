@@ -187,26 +187,9 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     val agenda=agendaRequest.await();val projectsResult=projectsRequest.await();val itemsResult=itemsRequest.await();val reviewsResult=reviewsRequest.await();val projects=projectsResult.getOrNull();val items=itemsResult.getOrNull();val reviews=reviewsResult.getOrNull()
     PlanningWorkspace(
       agenda=agenda.items.map{item->AgendaItem(item.sourceKind.wireValue,item.sourceId,item.sourceKey,item.title,item.state.wireValue,item.dueOn,item.dueAt,item.target.kind.wireValue,item.target.id,item.target.projectId,item.primaryAction?.let{AgendaAction(it.capability.wireValue,it.targetId,it.expectedRevision.toInt())})},
-      projects=projects?.items?.map{item->PlanSummary(
-        id=item.id,title=item.title,goal=item.goal,state=item.state.wireValue,dueOn=item.endsOn,revision=item.revision.toInt(),actions=item.actions.size,
-        startsOn=item.startsOn,updatedAt=item.updatedAt,
-        milestones=item.milestones.sortedBy{it.position}.map{milestone->ProjectMilestone(milestone.id,milestone.title,milestone.dueOn,milestone.state.wireValue,milestone.position.toInt())},
-        links=item.links.map{link->PlanningLink(link.refKind.wireValue,link.refId,link.refRevision.toInt(),link.role)},
-        actionItems=item.actions.map{action->ProjectAction(action.id,action.title,action.dueOn,action.state.wireValue,action.revision.toInt(),action.sourceState)}
-      )}.orEmpty(),
-      ownedItems=items?.items?.map{item->OwnedItemSummary(
-        id=item.id,name=item.name,state=item.ownershipState.wireValue,location=item.location,warrantyEndsOn=item.warrantyEndsOn,returnBy=item.returnBy,
-        revision=item.revision.toInt(),documents=item.documents.size,events=item.events.size,startedOn=item.startedOn,updatedAt=item.updatedAt,
-        purchase=item.purchase?.let{purchase->OwnedItemPurchase(purchase.purchaseItemId,purchase.purchaseId,purchase.recordId,purchase.rawName,purchase.quantity,purchase.unit,purchase.lineAmount)},
-        documentItems=item.documents.map{document->PlanningLink("library_item",document.libraryItemId,document.libraryRevision.toInt(),document.role.wireValue,document.title)},
-        eventItems=item.events.map{event->OwnedItemEvent(event.id,event.eventKind.wireValue,event.occurredOn,event.note,event.revision.toInt(),event.costAmount?.let{amount->listOfNotNull(event.costCurrency,amount).joinToString(" ")},event.documentTitle)}
-      )}.orEmpty(),
-      reviews=reviews?.items?.map{item->ReviewSummary(
-        id=item.id,fromOn=item.fromOn,toOn=item.toOn,algorithmVersion=item.algorithmVersion,revision=item.revision.toInt(),generatedAt=item.generatedAt,
-        metrics=item.metrics.size,limitations=item.limitations.size,timeZone=item.timeZone,domains=item.domains.map{it.wireValue},
-        metricGroups=reviewGroups(item.metrics),coverageGroups=reviewGroups(item.coverage),
-        evidence=item.evidence.map{evidence->ReviewEvidence(evidence.type,evidence.id,evidence.revision.toInt())},limitationItems=item.limitations
-      )}.orEmpty(),
+      projects=projects?.items?.map(::projectSummary).orEmpty(),
+      ownedItems=items?.items?.map(::ownedItemSummary).orEmpty(),
+      reviews=reviews?.items?.map(::reviewSummary).orEmpty(),
       truncated=agenda.truncated,asOf=agenda.asOf,
       partialFailures=listOfNotNull(
         projectsResult.exceptionOrNull()?.let{"生活项目读取失败，可重试后恢复"},
@@ -215,6 +198,44 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       )
     )
   }
+
+  suspend fun project(id:String):PlanSummary{
+    val result=wireJson.decodeFromString<LifeProjectsResultDto>(getText("/api/life/projects?id=${encode(id)}&limit=1"))
+    return result.items.singleOrNull()?.let(::projectSummary)?:error("项目不存在或当前无权查看")
+  }
+
+  suspend fun ownedItem(id:String):OwnedItemSummary{
+    val result=wireJson.decodeFromString<OwnedItemsResultDto>(getText("/api/life/owned-items?id=${encode(id)}&limit=1"))
+    return result.items.singleOrNull()?.let(::ownedItemSummary)?:error("物品不存在或当前无权查看")
+  }
+
+  suspend fun review(id:String):ReviewSummary{
+    val result=wireJson.decodeFromString<LifeReviewsResultDto>(getText("/api/life/reviews?id=${encode(id)}&limit=1"))
+    return result.items.singleOrNull()?.let(::reviewSummary)?:error("回顾不存在或当前无权查看")
+  }
+
+  private fun projectSummary(item:LifeProjectsResultDtoItemsEntry)=PlanSummary(
+    id=item.id,title=item.title,goal=item.goal,state=item.state.wireValue,dueOn=item.endsOn,revision=item.revision.toInt(),actions=item.actions.size,
+    startsOn=item.startsOn,updatedAt=item.updatedAt,
+    milestones=item.milestones.sortedBy{it.position}.map{milestone->ProjectMilestone(milestone.id,milestone.title,milestone.dueOn,milestone.state.wireValue,milestone.position.toInt())},
+    links=item.links.map{link->PlanningLink(link.refKind.wireValue,link.refId,link.refRevision.toInt(),link.role)},
+    actionItems=item.actions.map{action->ProjectAction(action.id,action.title,action.dueOn,action.state.wireValue,action.revision.toInt(),action.sourceState)}
+  )
+
+  private fun ownedItemSummary(item:OwnedItemsResultDtoItemsEntry)=OwnedItemSummary(
+    id=item.id,name=item.name,state=item.ownershipState.wireValue,location=item.location,warrantyEndsOn=item.warrantyEndsOn,returnBy=item.returnBy,
+    revision=item.revision.toInt(),documents=item.documents.size,events=item.events.size,startedOn=item.startedOn,updatedAt=item.updatedAt,
+    purchase=item.purchase?.let{purchase->OwnedItemPurchase(purchase.purchaseItemId,purchase.purchaseId,purchase.recordId,purchase.rawName,purchase.quantity,purchase.unit,purchase.lineAmount)},
+    documentItems=item.documents.map{document->PlanningLink("library_item",document.libraryItemId,document.libraryRevision.toInt(),document.role.wireValue,document.title)},
+    eventItems=item.events.map{event->OwnedItemEvent(event.id,event.eventKind.wireValue,event.occurredOn,event.note,event.revision.toInt(),event.costAmount?.let{amount->listOfNotNull(event.costCurrency,amount).joinToString(" ")},event.documentTitle)}
+  )
+
+  private fun reviewSummary(item:LifeReviewsResultDtoItemsEntry)=ReviewSummary(
+    id=item.id,fromOn=item.fromOn,toOn=item.toOn,algorithmVersion=item.algorithmVersion,revision=item.revision.toInt(),generatedAt=item.generatedAt,
+    metrics=item.metrics.size,limitations=item.limitations.size,timeZone=item.timeZone,domains=item.domains.map{it.wireValue},
+    metricGroups=reviewGroups(item.metrics),coverageGroups=reviewGroups(item.coverage),
+    evidence=item.evidence.map{evidence->ReviewEvidence(evidence.type,evidence.id,evidence.revision.toInt())},limitationItems=item.limitations
+  )
 
   suspend fun projectLinks():List<ProjectLinkItem>{
     val result=wireJson.decodeFromString<ProjectDirectoryResultDto>(getText("/api/project-links"))
@@ -269,12 +290,12 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       CaptureKind.Expense->JSONObject().put("entry_type",if(draft.option=="income")"income" else "expense").put("amount",money(draft.primary)).put("currency","CNY").put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).apply{draft.secondary.trim().takeIf(String::isNotBlank)?.let{put("counterparty",it)};draft.category.trim().takeIf(String::isNotBlank)?.let{put("category",it)};draft.paymentMethod.takeIf(String::isNotBlank)?.let{put("payment_method",it)};draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
       CaptureKind.Purchase->JSONObject().put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).put("scene",draft.option.ifBlank{"other"}).put("merchant_name_raw",draft.primary.trim()).put("items",JSONArray().put(JSONObject().put("raw_name",draft.primary.trim()).apply{draft.secondary.trim().takeIf(String::isNotBlank)?.let{put("line_amount",money(it))}})).apply{draft.category.trim().takeIf(String::isNotBlank)?.let{put("channel_name_raw",it)};draft.secondary.trim().takeIf(String::isNotBlank)?.let{put("payment",JSONObject().put("amount",money(it)).put("currency","CNY").put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).apply{draft.paymentMethod.takeIf(String::isNotBlank)?.let{method->put("payment_method",method)}})};draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
       CaptureKind.Refund->JSONObject().put("original_entry_id",draft.secondary.trim()).put("amount",money(draft.primary)).put("currency","CNY").put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
-      CaptureKind.Meal->JSONObject().put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).put("meal_type",draft.option.ifBlank{"other"}).put("items",mealItems(draft.primary)).apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
+      CaptureKind.Meal->JSONObject().put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).put("meal_type",draft.option.ifBlank{"other"}).put("items",mealItems(draft.mealItems,draft.primary)).apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
       CaptureKind.Health->JSONObject().put("metric",draft.option.ifBlank{"weight"}).put("value",decimal(draft.primary)).put("unit",draft.secondary.trim()).put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
       CaptureKind.Workout->JSONObject().put("session_type",draft.primary.trim()).put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).apply{draft.secondary.trim().takeIf(String::isNotBlank)?.let{put("duration_minutes",it.toIntOrNull()?:error("训练时长必须是整数分钟"))};draft.note.trim().takeIf(String::isNotBlank)?.let{put("detail",JSONObject().put("note",it))}}
       CaptureKind.Visit->JSONObject().put("place_name",draft.primary.trim()).put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).put("visibility","private").apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
       CaptureKind.Trip->JSONObject().put("title",draft.primary.trim()).put("starts_on",draft.date).put("ends_on",draft.secondary.trim()).put("time_zone",ZoneId.systemDefault().id).apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
-      CaptureKind.OwnedItem->JSONObject().put("name",draft.primary.trim()).put("ownership_state",draft.option.ifBlank{"owned"}).put("started_on",draft.date).put("documents",JSONArray()).apply{draft.secondary.trim().takeIf(String::isNotBlank)?.let{put("location",it)}}
+      CaptureKind.OwnedItem->JSONObject().put("name",draft.primary.trim()).put("ownership_state",draft.option.ifBlank{"owned"}).put("started_on",draft.date).put("documents",JSONArray()).apply{draft.secondary.trim().takeIf(String::isNotBlank)?.let{put("location",it)};if(draft.contextKind=="purchase_item")draft.contextId?.let{put("purchase_item_id",it)}}
       CaptureKind.Project->JSONObject().put("title",draft.primary.trim()).put("goal",draft.secondary.trim()).put("starts_on",draft.date).put("state",draft.option.ifBlank{"active"}).put("milestones",JSONArray()).put("links",JSONArray())
       CaptureKind.Library->{val content=draft.secondary.ifBlank{draft.note}.trim();val title=draft.primary.trim().ifBlank{content.lineSequence().firstOrNull()?.trim().orEmpty()}.take(300).ifBlank{"未命名资料"};JSONObject().put("title",title).put("item_type",draft.option.ifBlank{"note"}).put(if(content.startsWith("https://")||content.startsWith("http://"))"url" else "text",content).put("tags",JSONArray())}
     }
@@ -283,11 +304,11 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
 
   suspend fun enqueueCorrection(seed:EditSeed,draft:CorrectionDraft):OperationReceipt=withContext(Dispatchers.IO){
     val input=when(seed){
-      is EditSeed.Meal->JSONObject().put("meal_id",seed.detailId).put("expected_revision",seed.revision).put("occurred_on",draft.date).put("time_zone",seed.timeZone).put("meal_type",draft.option).put("reason",draft.reason.trim()).apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
-      is EditSeed.Money->JSONObject().put("record_id",seed.detailId).put("expected_revision",seed.revision).put("amount",decimal(draft.primary)).put("currency",seed.currency).put("occurred_on",draft.date).put("time_zone",seed.timeZone).put("reason",draft.reason.trim()).apply{draft.secondary.trim().takeIf(String::isNotBlank)?.let{put("category",it)};draft.option.trim().takeIf(String::isNotBlank)?.let{put("counterparty",it)};draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
-      is EditSeed.Health->JSONObject().put("measurement_id",seed.detailId).put("expected_revision",seed.revision).put("metric",seed.metric).put("value",decimal(draft.primary)).put("unit",draft.secondary.trim()).put("occurred_on",draft.date).put("time_zone",seed.timeZone).put("reason",draft.reason.trim()).apply{draft.option.trim().takeIf(String::isNotBlank)?.let{put("label",it)};draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
-      is EditSeed.Trip->JSONObject().put("trip_id",seed.detailId).put("expected_revision",seed.revision).put("title",draft.primary.trim()).put("starts_on",draft.date).put("ends_on",draft.secondary.trim()).put("time_zone",seed.timeZone).put("reason",draft.reason.trim()).apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
-      is EditSeed.Library->JSONObject().put("item_id",seed.detailId).put("expected_revision",seed.revision).put("title",draft.primary.trim()).put("tags",JSONArray(seed.tags)).put("reason",draft.reason.trim()).apply{val content=draft.secondary.trim();if(content.startsWith("http://")||content.startsWith("https://"))put("url",content) else put("text",content)}
+      is EditSeed.Meal->JSONObject().put("meal_id",seed.detailId).put("expected_revision",seed.revision).put("occurred_on",draft.date).put("time_zone",seed.timeZone).put("meal_type",draft.option).put("reason",correctionReason(draft.reason)).apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
+      is EditSeed.Money->JSONObject().put("record_id",seed.detailId).put("expected_revision",seed.revision).put("amount",decimal(draft.primary)).put("currency",seed.currency).put("occurred_on",draft.date).put("time_zone",seed.timeZone).put("reason",correctionReason(draft.reason)).apply{draft.secondary.trim().takeIf(String::isNotBlank)?.let{put("category",it)};draft.option.trim().takeIf(String::isNotBlank)?.let{put("counterparty",it)};draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
+      is EditSeed.Health->JSONObject().put("measurement_id",seed.detailId).put("expected_revision",seed.revision).put("metric",seed.metric).put("value",decimal(draft.primary)).put("unit",draft.secondary.trim()).put("occurred_on",draft.date).put("time_zone",seed.timeZone).put("reason",correctionReason(draft.reason)).apply{draft.option.trim().takeIf(String::isNotBlank)?.let{put("label",it)};draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
+      is EditSeed.Trip->JSONObject().put("trip_id",seed.detailId).put("expected_revision",seed.revision).put("title",draft.primary.trim()).put("starts_on",draft.date).put("ends_on",draft.secondary.trim()).put("time_zone",seed.timeZone).put("reason",correctionReason(draft.reason)).apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
+      is EditSeed.Library->JSONObject().put("item_id",seed.detailId).put("expected_revision",seed.revision).put("title",draft.primary.trim()).put("tags",JSONArray(seed.tags)).put("reason",correctionReason(draft.reason)).apply{val content=draft.secondary.trim();if(content.startsWith("http://")||content.startsWith("https://"))put("url",content) else put("text",content)}
     }
     val capability=when(seed){is EditSeed.Meal->"life.correct_meal";is EditSeed.Money->"money.correct_entry";is EditSeed.Health->"health.correct_measurement";is EditSeed.Trip->"travel.correct_trip";is EditSeed.Library->"library.revise"}
     enqueueCommand(capability,input)
@@ -312,6 +333,20 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       result.put(item)
     }
     if(result.length()==0)error("请至少填写一种食物")
+    return result
+  }
+
+  private fun mealItems(rows:List<MealDraftItem>,advanced:String):JSONArray{
+    if(rows.isEmpty())return mealItems(advanced)
+    val result=JSONArray()
+    rows.forEachIndexed{index,row->
+      val name=row.name.trim();if(name.isBlank())error("第 ${index+1} 种食物缺少名称")
+      val quantity=row.quantity.trim();val unit=row.unit.trim()
+      if(quantity.isBlank()!=unit.isBlank())error("第 ${index+1} 种食物的份量和单位需要同时填写")
+      val item=JSONObject().put("name",name).put("free_text",name).put("estimate",false)
+      if(quantity.isNotBlank()){val normalized=runCatching{java.math.BigDecimal(quantity).stripTrailingZeros()}.getOrNull()?.takeIf{it>java.math.BigDecimal.ZERO}?:error("第 ${index+1} 种食物份量必须是正数");item.put("quantity",normalized.toPlainString()).put("unit",unit)}
+      result.put(item)
+    }
     return result
   }
 
@@ -425,7 +460,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         DetailSection("概要",listOfNotNull(value.mealType?.let{DetailFact("餐次",mealTypeLabel(it.wireValue))},value.occurredOn?.let{DetailFact("日期",it)},value.timeZone?.let{DetailFact("时区",it)},value.note?.let{DetailFact("备注",it)}))
       )
       if(items.isNotEmpty())sections+=DetailSection("食物",items.take(50).flatMap{item->listOfNotNull(DetailFact(item.name,listOfNotNull(item.quantity?.let{amount->listOfNotNull(amount,item.unit).joinToString(" ")},item.energyKcal?.let{"$it kcal"}).joinToString(" · ").ifBlank{"已记录"}),item.evidenceNote?.let{DetailFact("依据",it)})},items.size)
-      if(payments.isNotEmpty())sections+=DetailSection("关联付款",payments.take(20).map{payment->DetailFact(payment.counterparty?:payment.category?:payment.entryType.wireValue,"${payment.currency} ${payment.amount}")},payments.size)
+      if(payments.isNotEmpty())sections+=DetailSection("关联付款",itemCount=payments.size,links=payments.take(20).map{payment->DetailLink("money_entry",payment.recordId,payment.counterparty?:payment.category?:"交易","${payment.currency} ${payment.amount}")})
       if(sources.isNotEmpty())sections+=DetailSection("来源",sources.take(20).map{source->DetailFact(source.kind,source.capturedAt?:source.capturedOn?:source.externalId?:"已收存")},sources.size)
       val revision=value.revision;val occurredOn=value.occurredOn;val timeZone=value.timeZone;val mealType=value.mealType
       val seed=if(revision!=null&&occurredOn!=null&&timeZone!=null&&mealType!=null)EditSeed.Meal(value.mealId,revision.toInt(),occurredOn,timeZone,mealType.wireValue,value.note) else null
@@ -438,10 +473,14 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       entry?.let{sections+=DetailSection("金额",listOfNotNull(DetailFact("金额","${it.currency} ${it.amount}"),DetailFact("类型",it.entryType.wireValue),it.counterparty?.let{item->DetailFact("交易方",item)},it.category?.let{item->DetailFact("分类",item)},it.paymentMethod?.let{item->DetailFact("支付方式",item.wireValue)}))}
       purchase?.let{sections+=DetailSection("消费",listOfNotNull(it.merchant?.let{item->DetailFact("商家",item)},it.amount?.let{amount->DetailFact("金额","${it.currency} $amount")},it.scene?.let{item->DetailFact("场景",item)},it.channelNameRaw?.let{item->DetailFact("渠道",item)},it.rating?.let{item->DetailFact("评分","$item/5")}))}
       if(items.isNotEmpty())sections+=DetailSection("购买明细",items.take(50).map{item->DetailFact(item.rawName,listOfNotNull(item.quantity?.let{amount->listOfNotNull(amount,item.unit).joinToString(" ")},item.lineAmount?.let{"金额 $it"}).joinToString(" · ").ifBlank{"已记录"})},items.size)
-      if(meals.isNotEmpty())sections+=DetailSection("关联餐次",meals.take(20).map{meal->DetailFact(mealTypeLabel(meal.mealType.wireValue),"${meal.occurredOn} · ${meal.items.joinToString("、"){it.name}}")},meals.size)
+      if(meals.isNotEmpty())sections+=DetailSection("关联餐次",itemCount=meals.size,links=meals.take(20).map{meal->DetailLink("meal",meal.id,mealTypeLabel(meal.mealType.wireValue),"${meal.occurredOn} · ${meal.items.joinToString("、"){it.name}}")})
       if(sources.isNotEmpty())sections+=DetailSection("来源",sources.take(20).map{source->DetailFact(source.kind,source.capturedAt?:source.capturedOn?:source.externalId?:"已收存")},sources.size)
       val seed=entry?.let{EditSeed.Money(value.recordId,value.revision.toInt(),it.amount,it.currency,it.occurredOn,it.timeZone,it.category,it.counterparty,it.note?:value.note)}
-      RecordDetail(title,value.state.wireValue,value.revision.toInt(),sections,seed)
+      val actions=buildList{
+        if(entry?.entryType?.wireValue=="expense"&&entry.currency=="CNY")add(DetailAction("记录这笔交易的退款",CaptureSeed(CaptureKind.Refund,date=LocalDate.now().toString(),secondary=entry.id,contextKind="money_entry",contextId=entry.id,contextLabel=listOfNotNull(entry.counterparty,entry.category,"CNY ${entry.amount}").joinToString(" · "))))
+        items.take(10).forEach{item->add(DetailAction("将“${item.rawName}”加入我的物品",CaptureSeed(CaptureKind.OwnedItem,primary=item.rawName,date=value.occurredOn,option="owned",contextKind="purchase_item",contextId=item.id,contextLabel="来自本次购买")))}
+      }
+      RecordDetail(title,value.state.wireValue,value.revision.toInt(),sections,seed,actions)
     }
   }
 
@@ -475,6 +514,7 @@ private fun JSONObject.optNullableString(key:String):String?=if(!has(key)||isNul
 private fun encode(value:String)=java.net.URLEncoder.encode(value,Charsets.UTF_8.name())
 private fun decimal(value:String):String { val normalized=value.trim().removePrefix("+");require(Regex("^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$").matches(normalized)){"请输入有效数值，最多 6 位小数"};return normalized }
 private fun money(value:String):String { val normalized=value.trim();require(Regex("^(?:0|[1-9]\\d*)(?:\\.\\d{1,2})?$").matches(normalized)){"请输入有效金额，最多 2 位小数"};return normalized.toBigDecimal().setScale(2).toPlainString().also{require(it!="0.00"){"金额必须大于 0"}} }
+private fun correctionReason(value:String)=value.trim().ifBlank{"用户在详情中更正"}
 private fun mealTypeLabel(value:String)=mapOf("breakfast" to "早餐","lunch" to "午餐","dinner" to "晚餐","snack" to "加餐","other" to "一餐")[value]?:"一餐"
 private fun domainFromWire(value:String)=LifeDomain.entries.first{it.name.equals(value,true)}
 internal fun kindLabel(value:String)=mapOf("money_entry" to "收支记录","health_measurement" to "健康记录","trip" to "旅程","visit" to "到访","library_item" to "资料","meal" to "餐次","purchase" to "购买")[value]?:value.replace('_',' ')
