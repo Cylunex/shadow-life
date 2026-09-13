@@ -13,6 +13,7 @@ import { installWebSessionRoutes, type WebSessionOptions } from "./web-session.j
 
 export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; executor: CommandExecutor; queries: QueryService; developmentAuth: boolean; projectLinks?:ProjectDirectoryResult; auth?:{issuer?:string;audience?:string;jwksUrl?:string;webOrigin?:string;proxyAuth?:{secret:string;subjectId:string}}; webSession?:WebSessionOptions; agent?: { repository: AgentRepository; runtime: AgentRuntimeAdapter; nextId(type: "thread"|"message"|"run"): string } }) {
   const app = new Hono();
+  app.use("*",async(context,next)=>{const started=Date.now(),requestId=safeRequestId(context.req.header("x-request-id"));try{await next();}finally{context.header("X-Request-Id",requestId);const path=new URL(context.req.url).pathname;if(path.startsWith("/api/")||path.startsWith("/auth/"))console.log(JSON.stringify({event:"http.request",request_id:requestId,method:context.req.method,route:requestLogRoute(path),status:context.res.status,duration_ms:Date.now()-started}));}});
   const assets=new AssetService(dependencies.unitOfWork.pool);
   const activeRuns=new Map<string,{subjectId:string;controller:AbortController}>();
   const visibleCapabilities=(effects:ReadonlySet<string>)=>Object.values(capabilityRegistry).filter(item=>item.possibleEffects.some(effect=>effects.has(effect)));
@@ -241,6 +242,16 @@ function toolFailure(error:unknown,input?:unknown):Record<string,unknown>{
 function valueAt(value:unknown,path:readonly PropertyKey[]):unknown{let current=value;for(const key of path){if(current===null||typeof current!=="object")return undefined;current=(current as Record<PropertyKey,unknown>)[key];}return current;}
 function serializedSize(value:unknown):number{try{return Buffer.byteLength(JSON.stringify(value));}catch{return Number.POSITIVE_INFINITY;}}
 function isRuntimeToolError(value:unknown):boolean{return value!==null&&typeof value==="object"&&(value as {protocol?:unknown}).protocol==="shadow.runtime-tool-error";}
+function safeRequestId(value:string|undefined):string{return value&&/^[A-Za-z0-9._:-]{8,128}$/u.test(value)?value:crypto.randomUUID();}
+export function requestLogRoute(path:string):string{
+  if(/^\/api\/operations\/by-command\/[^/]+$/u.test(path))return"/api/operations/by-command/:commandId";
+  if(/^\/api\/operations\/[^/]+$/u.test(path))return"/api/operations/:executionId";
+  if(/^\/api\/assets\/[^/]+(?:\/preview)?$/u.test(path))return path.endsWith("/preview")?"/api/assets/:versionId/preview":"/api/assets/:versionId";
+  if(/^\/api\/commands\/[^/]+$/u.test(path))return"/api/commands/:capability";
+  if(/^\/api\/health\/records\/[^/]+$/u.test(path))return"/api/health/records/:id";
+  if(/^\/api\/life\/records\/[^/]+$/u.test(path))return"/api/life/records/:id";
+  return path.length<=160?path:"/:long-path";
+}
 function abortReason(signal:AbortSignal):string{if(signal.reason==="stopped_by_user")return"Run stopped by the user.";if(signal.reason==="deadline_exceeded")return"Runtime deadline exceeded.";return"Run was cancelled.";}
 type MessageCursor={at:string;id:string;as_of:string};
 function decodeMessageCursor(cursor:string):MessageCursor{let value:unknown;try{value=JSON.parse(Buffer.from(cursor,"base64url").toString("utf8"));}catch{throw new KernelError(422,{protocol:"shadow.error",code:"validation",message:"Message cursor is invalid.",fields:["cursor"]});}const parsed=z.object({at:z.iso.datetime({offset:true}),id:z.string().min(8),as_of:z.iso.datetime({offset:true})}).strict().safeParse(value);if(!parsed.success)throw new KernelError(422,{protocol:"shadow.error",code:"validation",message:"Message cursor is invalid.",fields:["cursor"]});return parsed.data;}

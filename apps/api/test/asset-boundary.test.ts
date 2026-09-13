@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createApp } from "../src/app.js";
+import { createApp,requestLogRoute } from "../src/app.js";
 
 function appFor(mediaType:string,bytes:Buffer=Buffer.from("asset")){
   const dependencies={unitOfWork:{pool:{query:async()=>({rows:[{bytes,media_type:mediaType,sha256:"abc123"}]})}},executor:{},queries:{},developmentAuth:true} as unknown as Parameters<typeof createApp>[0];return createApp(dependencies);
@@ -28,4 +28,11 @@ test("project directory is authenticated and returns server-owned safe configura
   assert.equal((await app.request("/api/project-links")).status,401);
   const response=await app.request("/api/project-links",{headers:{authorization:"Bearer dev:subject_test"}});
   assert.equal(response.status,200);assert.equal(response.headers.get("cache-control"),"private, max-age=300");assert.deepEqual(await response.json(),projectLinks);
+});
+
+test("request diagnostics return a correlation id and redact resource identifiers",async()=>{
+  const response=await appFor("image/png").request("/api/assets/private-version/preview",{headers:{authorization:"Bearer dev:subject_test","x-request-id":"mobile-sync-123"}});
+  assert.equal(response.headers.get("x-request-id"),"mobile-sync-123");
+  assert.equal(requestLogRoute("/api/operations/by-command/cmd_private_health_record"),"/api/operations/by-command/:commandId");
+  assert.equal(requestLogRoute("/api/assets/private-version/preview"),"/api/assets/:versionId/preview");
 });
