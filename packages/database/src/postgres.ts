@@ -121,7 +121,7 @@ function storeFor(database: Database | Transaction): TransactionStore {
       const [itemRows,paymentRows,sourceRows]=await Promise.all([
         database.select({mealId:schema.intakeItems.mealId,item:schema.intakeItems}).from(schema.intakeItems).where(and(inArray(schema.intakeItems.mealId,mealIds),eq(schema.intakeItems.effective,true))).orderBy(schema.intakeItems.mealId,schema.intakeItems.position),
         options.includeMoney?database.select({mealId:schema.mealMoneyLinks.mealId,id:schema.moneyEntries.id,amount:schema.moneyEntries.amount,currency:schema.moneyEntries.currency,paymentMethod:schema.moneyEntries.paymentMethod}).from(schema.mealMoneyLinks).innerJoin(schema.moneyEntries,eq(schema.mealMoneyLinks.moneyEntryId,schema.moneyEntries.id)).where(inArray(schema.mealMoneyLinks.mealId,mealIds)).orderBy(schema.mealMoneyLinks.mealId,schema.moneyEntries.id):Promise.resolve([]),
-        database.select({mealId:schema.mealSourceLinks.mealId,id:schema.mealSourceLinks.sourceId}).from(schema.mealSourceLinks).where(inArray(schema.mealSourceLinks.mealId,mealIds)).orderBy(schema.mealSourceLinks.mealId,schema.mealSourceLinks.sourceId)
+        database.select({mealId:schema.mealSourceLinks.mealId,id:schema.mealSourceLinks.sourceId,role:schema.mealSourceLinks.role,kind:schema.sources.kind,assetVersionId:schema.sources.assetVersionId}).from(schema.mealSourceLinks).innerJoin(schema.sources,eq(schema.mealSourceLinks.sourceId,schema.sources.id)).where(and(inArray(schema.mealSourceLinks.mealId,mealIds),eq(schema.sources.subjectId,subjectId))).orderBy(schema.mealSourceLinks.mealId,schema.mealSourceLinks.sourceId)
       ]);
       const itemsByMeal=rowsBy(itemRows,row=>row.mealId),paymentsByMeal=rowsBy(paymentRows,row=>row.mealId),sourcesByMeal=rowsBy(sourceRows,row=>row.mealId);
       return {items:mealRows.map((meal) => {
@@ -131,7 +131,9 @@ function storeFor(database: Database | Transaction): TransactionStore {
           time_zone: meal.timeZone, meal_type: meal.mealType as "breakfast" | "lunch" | "dinner" | "snack" | "other", note: meal.note, revision: meal.revision,
           items: items.map((item) => ({ id: item.id, name: item.name,food_ref_id:item.foodRefId,free_text:item.freeText, quantity: trimNumeric(item.quantity), unit: item.unit,amount_g:trimNumeric(item.amountG), energy_kcal: trimNumeric(item.energyKcal),protein_g:trimNumeric(item.proteinG),fat_g:trimNumeric(item.fatG),carb_g:trimNumeric(item.carbG),fiber_g:trimNumeric(item.fiberG),sodium_mg:trimNumeric(item.sodiumMg),consumed_fraction:trimNumeric(item.consumedFraction),provenance:item.provenance,grouping_origin:item.groupingOrigin, estimate: item.estimate, revision: item.revision })),
           payments: payments.map((payment) => ({ id: payment.id, amount: moneyNumeric(payment.amount), currency: payment.currency as "CNY",payment_method:payment.paymentMethod as "alipay"|"wechat"|"jd_pay"|"jd_baitiao"|"huabei"|"gift_card"|"cash"|"bank_card"|"bank_transfer"|"mixed"|"other"|null })),
-          source_ids: sourceLinks.map((source) => source.id),_page_at:meal.pageAt
+          source_ids: sourceLinks.map((source) => source.id),
+          sources:sourceLinks.map(source=>({id:source.id,kind:source.kind,role:source.role as "evidence"|"meal_photo"|"order_screenshot"|"replacement",asset_version_id:source.assetVersionId})),
+          _page_at:meal.pageAt
         };
       }),hasMore,asOf};
     },

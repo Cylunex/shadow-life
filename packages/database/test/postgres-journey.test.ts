@@ -96,6 +96,7 @@ test("complete Life journey uses PostgreSQL transactions and survives replay", {
   const restrictedMealRead=await countPoolStatements(pool,()=>queries.listMeals({ ...context, effects: new Set([...context.effects, "life.meal.read"]) }));assert.equal(restrictedMealRead.statements,4);const restrictedMealView=restrictedMealRead.value.items;
   const fullMealRead=await countPoolStatements(pool,()=>queries.listMeals({ ...context, effects: new Set([...context.effects, "life.meal.read","money.entry.read"]) }));assert.equal(fullMealRead.statements,5);const mealView=fullMealRead.value.items;
   assert.equal(restrictedMealView.every(meal=>meal.payments.length===0),true);
+  assert.deepEqual(restrictedMealView[0]?.sources??[],[{id:restrictedMealView[0]?.source_ids[0],kind:"text",role:"evidence",asset_version_id:null}]);
   const moneyView = await queries.summarizeMoney({ ...context, effects: new Set([...context.effects, "money.summary.read"]) });
   assert.equal(mealView.length, 2);
   assert.equal(mealView[0]?.payments[0]?.amount, "35.00");

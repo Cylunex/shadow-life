@@ -36745,6 +36745,48 @@
                     "type": "string",
                     "pattern": "^[a-z][a-z0-9_]{7,127}$"
                   }
+                },
+                "sources": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                      },
+                      "kind": {
+                        "type": "string"
+                      },
+                      "role": {
+                        "type": "string",
+                        "enum": [
+                          "evidence",
+                          "meal_photo",
+                          "order_screenshot",
+                          "replacement"
+                        ]
+                      },
+                      "asset_version_id": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "kind",
+                      "role",
+                      "asset_version_id"
+                    ],
+                    "additionalProperties": false
+                  }
                 }
               },
               "required": [

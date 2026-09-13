@@ -55,7 +55,24 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
         viewModel::updateAgenda,{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)}
       )}
       composable<LibraryRoute>{LibraryScreen(viewModel.library,viewModel::refreshLibrary,viewModel::loadMoreLibrary,{domain,id,title->viewModel.loadDetail(domain,id);nav.navigate(DetailRoute(domain.name,id,title))},{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)})}
-      composable<WorkspaceRoute>{backStack->val route=backStack.toRoute<WorkspaceRoute>();val domain=LifeDomain.valueOf(route.domain);LaunchedEffect(domain){if(viewModel.workspaceDomain!=domain)viewModel.loadWorkspace(domain)};WorkspaceScreen(domain,viewModel.workspaceOverview,viewModel.workspace,viewModel.deviceSyncStatus,viewModel.queueStatus,SamsungHealthBridge.available(),{viewModel.loadWorkspace(domain,it)},{viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},{d,id,title->viewModel.loadDetail(d,id);nav.navigate(DetailRoute(d.name,id,title))},{kind->openComposer(defaultCaptureSeed(kind))},onHealthSync,onSamsungSync,onScale,{nav.navigate(SettingsRoute)})}
+      composable<WorkspaceRoute>{backStack->
+        val route=backStack.toRoute<WorkspaceRoute>();val domain=LifeDomain.valueOf(route.domain)
+        LaunchedEffect(domain){if(viewModel.workspaceDomain!=domain)viewModel.loadWorkspace(domain)}
+        val detail:(LifeDomain,String,String)->Unit={d,id,title->viewModel.loadDetail(d,id);nav.navigate(DetailRoute(d.name,id,title))}
+        val capture:(CaptureKind)->Unit={kind->openComposer(defaultCaptureSeed(kind))}
+        when(domain){
+          LifeDomain.Health->HealthWorkspaceScreen(
+            viewModel.workspaceOverview,viewModel.workspace,viewModel.deviceSyncStatus,viewModel.queueStatus,SamsungHealthBridge.available(),
+            {viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,capture,onHealthSync,onSamsungSync,onScale,
+            {nav.navigate(SettingsRoute)},{viewModel.loadWorkspace(LifeDomain.Meals);nav.navigate(WorkspaceRoute(LifeDomain.Meals.name))}
+          )
+          LifeDomain.Meals->MealsWorkspaceScreen(
+            viewModel.workspaceOverview,viewModel.workspace,viewModel.assetPreviews,viewModel::loadAssetPreview,
+            {viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,capture
+          )
+          else->WorkspaceScreen(domain,viewModel.workspaceOverview,viewModel.workspace,viewModel.deviceSyncStatus,viewModel.queueStatus,SamsungHealthBridge.available(),{viewModel.loadWorkspace(domain,it)},{viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,capture,onHealthSync,onSamsungSync,onScale,{nav.navigate(SettingsRoute)})
+        }
+      }
       composable<DetailRoute>{backStack->val route=backStack.toRoute<DetailRoute>();val domain=LifeDomain.valueOf(route.domain);LaunchedEffect(route.id){viewModel.loadDetail(domain,route.id)};DetailScreen(route.title,viewModel.detail,viewModel.submit,{viewModel.loadDetail(domain,route.id)},{nav.popBackStack()},{link->openPlanningRelated(nav,viewModel,link.kind,link.id)},{action->openComposer(action.seed)},viewModel::correct,viewModel::editAgain)}
       composable<PlanDetailRoute>{backStack->val route=backStack.toRoute<PlanDetailRoute>();LaunchedEffect(route.id){viewModel.loadPlanDetail(route.id)};PlanDetailScreen(viewModel.planDetail,{viewModel.loadPlanDetail(route.id)},{kind,id->openPlanningRelated(nav,viewModel,kind,id)},{nav.popBackStack()})}
       composable<OwnedItemDetailRoute>{backStack->val route=backStack.toRoute<OwnedItemDetailRoute>();LaunchedEffect(route.id){viewModel.loadOwnedItemDetail(route.id)};OwnedItemDetailScreen(viewModel.ownedItemDetail,{viewModel.loadOwnedItemDetail(route.id)},{kind,id->openPlanningRelated(nav,viewModel,kind,id)},{nav.popBackStack()})}

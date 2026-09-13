@@ -415,6 +415,22 @@ data class ListMealsResultDtoItemsEntryPaymentsEntry(
 )
 
 @Serializable
+enum class ListMealsResultDtoItemsEntrySourcesEntryRole(val wireValue: String) {
+  @SerialName("evidence") Evidence("evidence"),
+  @SerialName("meal_photo") MealPhoto("meal_photo"),
+  @SerialName("order_screenshot") OrderScreenshot("order_screenshot"),
+  @SerialName("replacement") Replacement("replacement")
+}
+
+@Serializable
+data class ListMealsResultDtoItemsEntrySourcesEntry(
+  @SerialName("id") val id: String,
+  @SerialName("kind") val kind: String,
+  @SerialName("role") val role: ListMealsResultDtoItemsEntrySourcesEntryRole,
+  @SerialName("asset_version_id") val assetVersionId: String?
+)
+
+@Serializable
 data class ListMealsResultDtoItemsEntry(
   @SerialName("id") val id: String,
   @SerialName("occurred_on") val occurredOn: String,
@@ -425,7 +441,8 @@ data class ListMealsResultDtoItemsEntry(
   @SerialName("revision") val revision: Long,
   @SerialName("items") val items: List<ListMealsResultDtoItemsEntryItemsEntry>,
   @SerialName("payments") val payments: List<ListMealsResultDtoItemsEntryPaymentsEntry>,
-  @SerialName("source_ids") val sourceIds: List<String>
+  @SerialName("source_ids") val sourceIds: List<String>,
+  @SerialName("sources") val sources: List<ListMealsResultDtoItemsEntrySourcesEntry>? = null
 )
 
 @Serializable

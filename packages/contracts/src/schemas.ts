@@ -553,7 +553,13 @@ export const mealViewSchema = z.object({
   revision: z.number().int().positive(),
   items: z.array(z.object({ id: stableId, name: z.string(), food_ref_id:stableId.nullable(),free_text:z.string().nullable(),quantity: canonicalDecimal.nullable(), unit: z.string().nullable(),amount_g:canonicalDecimal.nullable(), energy_kcal: canonicalDecimal.nullable(),protein_g:canonicalDecimal.nullable(),fat_g:canonicalDecimal.nullable(),carb_g:canonicalDecimal.nullable(),fiber_g:canonicalDecimal.nullable(),sodium_mg:canonicalDecimal.nullable(),consumed_fraction:canonicalDecimal.nullable(),provenance:z.string().nullable(),grouping_origin:z.string().nullable(), estimate: z.boolean(), revision: z.number().int().positive() }).strict()),
   payments: z.array(z.object({ id: stableId, amount: cnyAmount, currency: z.literal("CNY"),payment_method:paymentMethodSchema.nullable() }).strict()),
-  source_ids: z.array(stableId)
+  source_ids: z.array(stableId),
+  sources: z.array(z.object({
+    id:stableId,
+    kind:z.string(),
+    role:z.enum(["evidence","meal_photo","order_screenshot","replacement"]),
+    asset_version_id:stableId.nullable()
+  }).strict()).optional()
 }).strict();
 
 export const moneySummarySchema = z.object({

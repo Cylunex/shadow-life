@@ -120,7 +120,13 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       if(query.isNotBlank())return search(query,cursor,setOf(LifeDomain.Meals))
       val result=wireJson.decodeFromString<ListMealsResultDto>(getText("/api/meals?limit=50${cursor?.let{"&cursor=${encode(it)}"}.orEmpty()}"))
       return RecordPage(result.items.map{item->
-        RecordSummary(domain,"meal",item.id,item.items.map{it.name}.filter(String::isNotBlank).joinToString("、").ifBlank{mealTypeLabel(item.mealType.wireValue)},item.occurredOn,item.payments.joinToString(" + "){"${it.currency} ${it.amount}"}.ifBlank{null},item.revision.toInt())
+        val foods=item.items.map{food->MealFoodSummary(food.name,food.quantity,food.unit,food.energyKcal,food.proteinG,food.fatG,food.carbG,food.estimate)}
+        val photo=item.sources.orEmpty().firstOrNull{source->source.assetVersionId!=null&&(source.role.wireValue=="meal_photo"||source.kind=="image"||source.kind.contains("meal_photo"))}?.assetVersionId
+        RecordSummary(
+          domain,"meal",item.id,foods.map{it.name}.filter(String::isNotBlank).joinToString("、").ifBlank{mealTypeLabel(item.mealType.wireValue)},item.occurredOn,
+          item.payments.joinToString(" + "){"${it.currency} ${it.amount}"}.ifBlank{null},item.revision.toInt(),
+          meal=MealCardSummary(item.mealType.wireValue,item.occurredOn,item.occurredAt,item.note,foods,photo)
+        )
       },result.nextCursor,result.asOf)
     }
     val params=buildList{add("limit=50");if(query.isNotBlank())add("q=${encode(query)}");if(cursor!=null)add("cursor=${encode(cursor)}")}.joinToString("&")
@@ -153,17 +159,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         asOf=result.asOf
       )
     }
-    LifeDomain.Health->{
-      val result=wireJson.decodeFromString<HealthSourcesResultDto>(getText("/api/health/sources"));val summary=healthSummary(LocalDate.now())
-      val items=result.items
-      WorkspaceOverview.Health(
-        sources=items.size,
-        sourcesNeedingAttention=items.count{it.permissionState!="granted"||it.cursors.any{cursor->cursor.state!="active"}},
-        streams=items.sumOf{it.cursors.size},
-        summary=summary,
-        asOf=result.asOf
-      )
-    }
+    LifeDomain.Health->healthOverview()
     LifeDomain.Travel->{
       val result=wireJson.decodeFromString<TravelWorkspaceResultDto>(getText("/api/travel/workspace"))
       WorkspaceOverview.Travel(
@@ -360,6 +356,63 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         try{val code=connection.responseCode;val text=(if(code in 200..299)connection.inputStream else connection.errorStream)?.bufferedReader()?.use{it.readText()}.orEmpty();if(code !in 200..299){val message=runCatching{JSONObject(text).optString("message")}.getOrNull().orEmpty();error(message.ifBlank{"请求失败（HTTP $code）"})};text}finally{connection.disconnect()}
       }
     }
+  }
+
+  suspend fun assetPreview(versionId:String):ByteArray=withContext(Dispatchers.IO){
+    val session=app.sessions.active()?:error("请先登录 Shadow Life")
+    val fresh=when(val value=app.sessions.fresh(session.accountId,context)){
+      SessionRefresh.ReauthRequired->error("会话已失效，请重新登录")
+      SessionRefresh.Retryable->error("暂时无法刷新会话，请稍后重试")
+      is SessionRefresh.Ready->value.value
+    }
+    val connection=(URL("${fresh.session.apiBase}/api/assets/${encode(versionId)}/preview").openConnection() as HttpURLConnection).apply{
+      requestMethod="GET";connectTimeout=10_000;readTimeout=20_000
+      setRequestProperty("Authorization","Bearer ${fresh.accessToken}");setRequestProperty("Accept","image/*")
+    }
+    try{
+      val code=connection.responseCode
+      if(code !in 200..299){val message=connection.errorStream?.bufferedReader()?.use{it.readText()}.orEmpty();error(runCatching{JSONObject(message).optString("message")}.getOrNull().orEmpty().ifBlank{"餐照读取失败（HTTP $code）"})}
+      val declared=connection.contentLengthLong
+      if(declared>12L*1024*1024)error("餐照尺寸过大")
+      connection.inputStream.use{input->input.readBytes().also{require(it.size<=12*1024*1024){"餐照尺寸过大"}}}
+    }finally{connection.disconnect()}
+  }
+
+  private suspend fun healthOverview():WorkspaceOverview.Health=coroutineScope{
+    val today=LocalDate.now();val from=today.minusDays(89)
+    val sourcesRequest=async{wireJson.decodeFromString<HealthSourcesResultDto>(getText("/api/health/sources"))}
+    val dailyRequest=async{partialRequest{wireJson.decodeFromString<HealthDailyResultDto>(getText("/api/health/daily/$today"))}}
+    val metricKeys=listOf("weight" to "体重","body_fat" to "体脂","muscle_mass" to "肌肉量","body_water" to "身体水分","visceral_fat" to "内脏脂肪","bmr" to "基础代谢")
+    val trendRequests=metricKeys.map{(key,label)->async{
+      partialRequest{
+        val value=JSONObject(getText("/api/health/trend?metric_key=${encode(key)}&from=$from&to=$today&limit=1000"))
+        val points=value.optJSONArray("points").objects().mapNotNull{point->
+          val text=point.optString("value").takeIf(String::isNotBlank)?:return@mapNotNull null
+          val number=text.toDoubleOrNull()?:return@mapNotNull null
+          HealthTrendPoint(point.optString("id"),point.optString("occurred_on"),number,text,point.optString("unit"),point.optString("source_kind"),point.optInt("revision",1))
+        }
+        val coverage=value.optJSONObject("coverage")
+        HealthMetricTrend(key,label,points,coverage?.optInt("points",points.size)?:points.size,coverage?.optBoolean("truncated",false)?:false)
+      }.getOrElse{HealthMetricTrend(key,label,emptyList(),0,false,unavailable=true)}
+    }}
+    val sources=sourcesRequest.await();val daily=dailyRequest.await().getOrNull();val metrics=trendRequests.map{it.await()}
+    val weight=metrics.first().points.lastOrNull()
+    val summary=TodayHealthSummary(
+      state=when{daily!=null||weight!=null->HealthSummaryState.Ready;metrics.all{it.unavailable}->HealthSummaryState.Failed;else->HealthSummaryState.Empty},
+      weight=weight?.valueText,weightUnit=weight?.unit,weightOn=weight?.occurredOn,
+      steps=daily?.result?.activity?.steps,sleepMinutes=daily?.result?.sleep?.totalMinutes,
+      updatedAt=daily?.updatedAt?:sources.asOf
+    )
+    val dailyOverview=daily?.let{value->HealthDailyOverview(
+      value.occurredOn,value.result.activity?.steps,value.result.activity?.activeMinutes,value.result.activity?.caloriesKcal,
+      value.result.sleep?.totalMinutes,value.result.sleep?.deepMinutes,value.result.sleep?.remMinutes,
+      value.result.workouts.size,value.result.habits.sumOf{it.doneCount.toInt()},value.updatedAt
+    )}
+    WorkspaceOverview.Health(
+      sources=sources.items.size,
+      sourcesNeedingAttention=sources.items.count{it.permissionState!="granted"||it.cursors.any{cursor->cursor.state!="active"}},
+      streams=sources.items.sumOf{it.cursors.size},summary=summary,metrics=metrics,daily=dailyOverview,asOf=sources.asOf
+    )
   }
 
   private suspend fun healthSummary(date:LocalDate):TodayHealthSummary=coroutineScope{

@@ -74,12 +74,28 @@ data class TodayHealthSummary(
 data class MoneyTotal(val currency:String,val netSpending:String,val income:String)
 data class TimelineItem(val domain:LifeDomain,val kind:String,val id:String,val happenedAt:String,val title:String,val amount:String?=null,val currency:String?=null,val recordId:String?=null)
 data class TimelinePage(val items:List<TimelineItem>,val nextCursor:String?,val asOf:String)
-data class RecordSummary(val domain:LifeDomain,val kind:String,val id:String,val title:String,val supporting:String?,val trailing:String?,val revision:Int?,val detailId:String?=null,val subtype:String?=null)
+data class MealFoodSummary(
+  val name:String,val quantity:String?=null,val unit:String?=null,
+  val energyKcal:String?=null,val proteinG:String?=null,val fatG:String?=null,val carbG:String?=null,
+  val estimated:Boolean=false
+)
+data class MealCardSummary(
+  val mealType:String,val occurredOn:String,val occurredAt:String?,val note:String?,
+  val foods:List<MealFoodSummary>,val photoAssetVersionId:String?=null
+)
+data class RecordSummary(val domain:LifeDomain,val kind:String,val id:String,val title:String,val supporting:String?,val trailing:String?,val revision:Int?,val detailId:String?=null,val subtype:String?=null,val meal:MealCardSummary?=null)
 data class RecordPage(val items:List<RecordSummary>,val nextCursor:String?,val asOf:String)
+data class HealthTrendPoint(val id:String,val occurredOn:String,val value:Double,val valueText:String,val unit:String,val sourceKind:String,val revision:Int)
+data class HealthMetricTrend(val key:String,val label:String,val points:List<HealthTrendPoint>,val coveragePoints:Int,val truncated:Boolean,val unavailable:Boolean=false)
+data class HealthDailyOverview(
+  val occurredOn:String,val steps:Long?,val activeMinutes:Long?,val caloriesKcal:String?,
+  val sleepMinutes:Long?,val deepMinutes:Long?,val remMinutes:Long?,
+  val workouts:Int,val habitsDone:Int,val updatedAt:String
+)
 sealed interface WorkspaceOverview { val asOf:String
   data class Meals(val mealPlans:Int,val shoppingLists:Int,val openShoppingItems:Int,override val asOf:String):WorkspaceOverview
   data class Money(val period:String,val budgets:List<BudgetProgress>,val recurringPlans:Int,val openOccurrences:Int,val spendingIntents:Int,override val asOf:String):WorkspaceOverview
-  data class Health(val sources:Int,val sourcesNeedingAttention:Int,val streams:Int,val summary:TodayHealthSummary,override val asOf:String):WorkspaceOverview
+  data class Health(val sources:Int,val sourcesNeedingAttention:Int,val streams:Int,val summary:TodayHealthSummary,val metrics:List<HealthMetricTrend> = emptyList(),val daily:HealthDailyOverview?=null,override val asOf:String):WorkspaceOverview
   data class Travel(val trips:Int,val places:Int,val maps:Int,val activeRun:Boolean,override val asOf:String):WorkspaceOverview
   data class Library(val visibleItems:Int,override val asOf:String):WorkspaceOverview
 }

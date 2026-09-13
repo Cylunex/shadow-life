@@ -411,3 +411,18 @@ and [delivery/validation record](library-processing-recovery-delivery-2026-09-11
   recurring-plan, shopping-list/map/budget management screens, multi-destination sharing, attachment previews and
   object-scoped assistant conversations remain explicit product increments requiring their own read/write contracts
   and scenario acceptance; their current summaries continue to be read-only.
+
+## Native Health and Meals visual workspace follow-up (2026-09-13)
+
+- Android Health is no longer a generic record list. Its native workspace now presents a real 90-day weight chart,
+  selectable body-composition trends, period deltas, source-labelled measurement history, activity and sleep cards,
+  fixed module navigation, and compact Samsung/Health Connect/Xiaomi status. Missing values remain visibly missing;
+  the UI does not invent a health score, nutrition target, sleep stage or causal conclusion.
+- Android Meals now groups the selected day by meal, totals only food rows with recorded nutrition, labels incomplete
+  coverage and estimates, exposes meal-plan/shopping context, and shows authenticated protected meal-photo previews.
+  The bounded meal read adds optional source preview metadata without exposing bytes publicly or breaking older API
+  responses. Migrated `legacy_health_photo` assets and new `meal_photo` sources share the same protected preview path.
+- Generated contracts, relevant TypeScript projects, 139 non-PostgreSQL tests (23 database-gated skips), the isolated
+  full PostgreSQL Life journey, 130 Android Health policy/round assertions, four production envelope checks, Room
+  migration checks and Android `:app:compileDebugKotlin` pass. No APK, deployment, production write or physical-device
+  claim is implied by this UI increment.

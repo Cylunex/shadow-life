@@ -1,5 +1,7 @@
 package com.shadow.life
 
+import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -16,9 +18,12 @@ import android.content.Intent
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.Build
 import android.os.ParcelUuid
+import android.content.pm.PackageManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -53,7 +58,8 @@ class ScaleScanService:Service(){
   }
   override fun onDestroy(){handler.removeCallbacksAndMessages(null);stopScan();scope.cancel();super.onDestroy()}
 
-  private fun restartScan(){stopScan();val manager=getSystemService(BluetoothManager::class.java);val adapter=manager?.adapter;if(adapter==null||!adapter.isEnabled){update("蓝牙未开启");updateStatus("error","蓝牙未开启");return};scanner=adapter.bluetoothLeScanner;if(scanner==null){update("蓝牙不可用");updateStatus("error","蓝牙扫描不可用");return}
+  @SuppressLint("MissingPermission")
+  private fun restartScan(){stopScan();if(!hasBluetoothScanPermission()){update("没有蓝牙扫描权限");updateStatus("needs_permission","请授权附近设备后重试");return};val manager=getSystemService(BluetoothManager::class.java);val adapter=manager?.adapter;if(adapter==null||!adapter.isEnabled){update("蓝牙未开启");updateStatus("error","蓝牙未开启");return};scanner=adapter.bluetoothLeScanner;if(scanner==null){update("蓝牙不可用");updateStatus("error","蓝牙扫描不可用");return}
     val active=object:ScanCallback(){
       override fun onScanResult(callbackType:Int,result:ScanResult){val record=result.scanRecord?:return;val address=result.device?.address?:"unknown";record.getServiceData(bodyUuid)?.let{data->handler.post{advertisement("体脂秤 2");XiaomiScaleParser.parseScale2(data)?.let{accept(address,it)}}};record.getServiceData(miBeaconUuid)?.let{data->handler.post{advertisement("S400");acceptS400(address,data)}}}
       override fun onScanFailed(errorCode:Int){Log.w(TAG,"BLE scan failed code=$errorCode");update("扫描失败（$errorCode），请重试");updateStatus("error","扫描失败（$errorCode）");callback=null;scanner=null}
@@ -62,7 +68,12 @@ class ScaleScanService:Service(){
     val filters=listOf(ScanFilter.Builder().setServiceData(bodyUuid,byteArrayOf()).build(),ScanFilter.Builder().setServiceData(miBeaconUuid,byteArrayOf()).build())
     try{scanner?.startScan(filters,settings,active);Log.i(TAG,"BLE scan started")}catch(_:Exception){try{scanner?.startScan(null,settings,active);Log.i(TAG,"BLE fallback scan started")}catch(_:Exception){callback=null;scanner=null;update("没有蓝牙扫描权限");updateStatus("error","没有蓝牙扫描权限")}}
   }
-  private fun stopScan(){val active=callback;if(active!=null)runCatching{scanner?.stopScan(active)};callback=null;scanner=null}
+  @SuppressLint("MissingPermission")
+  private fun stopScan(){val active=callback;if(active!=null&&hasBluetoothScanPermission())runCatching{scanner?.stopScan(active)};callback=null;scanner=null}
+
+  private fun hasBluetoothScanPermission():Boolean=if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.S){
+    ContextCompat.checkSelfPermission(this,Manifest.permission.BLUETOOTH_SCAN)==PackageManager.PERMISSION_GRANTED&&ContextCompat.checkSelfPermission(this,Manifest.permission.BLUETOOTH_CONNECT)==PackageManager.PERMISSION_GRANTED
+  }else ContextCompat.checkSelfPermission(this,Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED
 
   private fun acceptS400(address:String,data:ByteArray){val prefs=runCatching{ScalePreferences(this).current()}.getOrNull();val frame=XiaomiScaleParser.parseS400(data,address,prefs?.s400Bindkey)
     if(frame==null){val now=System.currentTimeMillis();if(XiaomiScaleParser.isS400(data)&&now-lastBindkeyWarningMs>30_000){lastBindkeyWarningMs=now;update("检测到 S400，请先配置正确的 bindkey");updateStatus("needs_config","检测到 S400，请配置正确的 bindkey")};return}
