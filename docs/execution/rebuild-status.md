@@ -426,3 +426,20 @@ and [delivery/validation record](library-processing-recovery-delivery-2026-09-11
   full PostgreSQL Life journey, 130 Android Health policy/round assertions, four production envelope checks, Room
   migration checks and Android `:app:compileDebugKotlin` pass. No APK, deployment, production write or physical-device
   claim is implied by this UI increment.
+
+## Native visual workspace completion follow-up (2026-09-13)
+
+- The Android root experience now follows the fixed `Today / Records / Assistant / Plans / Library` information
+  architecture. Today presents one primary context, four stable Health/Money/Travel/Items entrances, truthful lightweight
+  state, quick capture, upcoming work and compact device status instead of leading with an undifferentiated function list.
+- Records now has domain and time filters, grouped visual timeline cards, global result cards and a capture entry that opens
+  the complete recorder. Plans now includes a seven-day strip, real agenda actions, project progress, items and traceable
+  reviews. Library exposes stable type filters and visually differentiated file, image, link, note and ticket cards.
+- Money now has an actual month workspace with currency-scoped bars, entry composition, server-calculated budget progress,
+  recurring plans, due occurrences, spending intents and a dedicated details view. It never sums different currencies or
+  relabels merchants as authoritative categories.
+- Travel now consumes the existing bounded workspace payload instead of reducing it to counts: current/upcoming trips,
+  saved places, theme maps, day plans, segments and uploaded tracks are visible. The native map plots only persisted
+  coordinates and track points, supports theme-map filtering, and explicitly stays empty when coordinates are absent.
+- Items has a dedicated discoverable workspace for owned state, warranty/return attention, events and documents while its
+  detail remains the single source of truth. Unsupported facts are not manufactured merely to fill a card or chart.

@@ -156,6 +156,9 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         recurringPlans=result.recurringPlans.size,
         openOccurrences=result.occurrences.count{it.state.wireValue in setOf("pending","reminded","snoozed")},
         spendingIntents=result.spendingIntents.count{it.state.wireValue=="planned"},
+        recurring=result.recurringPlans.map{MoneyRecurringSummary(it.id,it.title,it.amount,it.currency,it.cadence.wireValue,it.nextDueOn,it.state.wireValue)},
+        occurrences=result.occurrences.map{occurrence->val plan=result.recurringPlans.firstOrNull{it.id==occurrence.planId};MoneyOccurrenceSummary(occurrence.id,plan?.title?:"周期事项",occurrence.effectiveDueOn,occurrence.state.wireValue,plan?.amount,plan?.currency)},
+        intents=result.spendingIntents.map{MoneyIntentSummary(it.id,it.title,it.expectedAmount,it.currency,it.intendedOn,it.state.wireValue)},
         asOf=result.asOf
       )
     }
@@ -167,6 +170,13 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         places=result.places.size,
         maps=result.maps.size,
         activeRun=result.activeRun!=null,
+        tripItems=result.trips.map{trip->TravelTripSummary(trip.id,trip.title,trip.startsOn,trip.endsOn,trip.timeZone,trip.visibility?.wireValue,result.activeRun?.tripId==trip.id)},
+        placeItems=result.places.map{place->TravelPlaceSummary(place.id,place.name,place.address,place.latitude?.toDoubleOrNull(),place.longitude?.toDoubleOrNull(),place.tags,place.favorite)},
+        mapItems=result.maps.map{map->TravelMapSummary(map.id,map.title,map.description,map.state.wireValue,map.items.map{TravelMapItemSummary(it.placeId,it.status.wireValue,it.note)})},
+        days=result.dayPlans.map{day->TravelDaySummary(day.id,day.tripId,day.planDate,day.items.map{TravelStopSummary(it.stopId,it.title,it.startsAt,it.placeId,it.note)})},
+        tracks=result.tracks.map{track->TravelTrackSummary(track.id,track.tripId,track.name,track.points.map{TravelTrackPoint(it.latitude,it.longitude)})},
+        segments=result.segments.map{segment->TravelSegmentSummary(segment.id,segment.tripId,segment.mode.wireValue,segment.origin,segment.destination,segment.startsAt,segment.distanceKm)},
+        selectedTripId=result.selectedTripId,
         asOf=result.asOf
       )
     }

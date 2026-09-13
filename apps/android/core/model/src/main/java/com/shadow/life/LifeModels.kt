@@ -92,11 +92,32 @@ data class HealthDailyOverview(
   val sleepMinutes:Long?,val deepMinutes:Long?,val remMinutes:Long?,
   val workouts:Int,val habitsDone:Int,val updatedAt:String
 )
+data class MoneyRecurringSummary(val id:String,val title:String,val amount:String?,val currency:String,val cadence:String,val nextDueOn:String,val state:String)
+data class MoneyOccurrenceSummary(val id:String,val title:String,val dueOn:String,val state:String,val amount:String?,val currency:String?)
+data class MoneyIntentSummary(val id:String,val title:String,val expectedAmount:String?,val currency:String?,val intendedOn:String?,val state:String)
+data class TravelPlaceSummary(val id:String,val name:String,val address:String?,val latitude:Double?,val longitude:Double?,val tags:List<String>,val favorite:Boolean)
+data class TravelMapItemSummary(val placeId:String,val status:String,val note:String?)
+data class TravelMapSummary(val id:String,val title:String,val description:String?,val state:String,val items:List<TravelMapItemSummary>)
+data class TravelTripSummary(val id:String,val title:String,val startsOn:String,val endsOn:String,val timeZone:String,val visibility:String?,val active:Boolean)
+data class TravelStopSummary(val id:String,val title:String,val startsAt:String?,val placeId:String?,val note:String?)
+data class TravelDaySummary(val id:String,val tripId:String,val date:String,val stops:List<TravelStopSummary>)
+data class TravelTrackPoint(val latitude:Double,val longitude:Double)
+data class TravelTrackSummary(val id:String,val tripId:String,val name:String,val points:List<TravelTrackPoint>)
+data class TravelSegmentSummary(val id:String,val tripId:String,val mode:String,val origin:String,val destination:String,val startsAt:String?,val distanceKm:String?)
 sealed interface WorkspaceOverview { val asOf:String
   data class Meals(val mealPlans:Int,val shoppingLists:Int,val openShoppingItems:Int,override val asOf:String):WorkspaceOverview
-  data class Money(val period:String,val budgets:List<BudgetProgress>,val recurringPlans:Int,val openOccurrences:Int,val spendingIntents:Int,override val asOf:String):WorkspaceOverview
+  data class Money(
+    val period:String,val budgets:List<BudgetProgress>,val recurringPlans:Int,val openOccurrences:Int,val spendingIntents:Int,
+    val recurring:List<MoneyRecurringSummary> = emptyList(),val occurrences:List<MoneyOccurrenceSummary> = emptyList(),val intents:List<MoneyIntentSummary> = emptyList(),
+    override val asOf:String
+  ):WorkspaceOverview
   data class Health(val sources:Int,val sourcesNeedingAttention:Int,val streams:Int,val summary:TodayHealthSummary,val metrics:List<HealthMetricTrend> = emptyList(),val daily:HealthDailyOverview?=null,override val asOf:String):WorkspaceOverview
-  data class Travel(val trips:Int,val places:Int,val maps:Int,val activeRun:Boolean,override val asOf:String):WorkspaceOverview
+  data class Travel(
+    val trips:Int,val places:Int,val maps:Int,val activeRun:Boolean,
+    val tripItems:List<TravelTripSummary> = emptyList(),val placeItems:List<TravelPlaceSummary> = emptyList(),val mapItems:List<TravelMapSummary> = emptyList(),
+    val days:List<TravelDaySummary> = emptyList(),val tracks:List<TravelTrackSummary> = emptyList(),val segments:List<TravelSegmentSummary> = emptyList(),
+    val selectedTripId:String?=null,override val asOf:String
+  ):WorkspaceOverview
   data class Library(val visibleItems:Int,override val asOf:String):WorkspaceOverview
 }
 data class BudgetProgress(val title:String,val amount:String,val currency:String,val spent:String)
@@ -160,6 +181,7 @@ data class RecordDetail(val title:String,val state:String?,val revision:Int?,val
 @Serializable data object SettingsRoute
 @Serializable data object ConnectionsRoute
 @Serializable data object InboxRoute
+@Serializable data object ItemsRoute
 
 enum class CaptureKind(val label:String,val capability:String) {
   Expense("消费","money.record_entry"),

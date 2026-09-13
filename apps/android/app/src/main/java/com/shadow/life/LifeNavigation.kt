@@ -42,19 +42,19 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
   val entry by nav.currentBackStackEntryAsState();val destination=entry?.destination
   val root=destination?.hasRoute<TodayRoute>()==true||destination?.hasRoute<RecordsRoute>()==true||destination?.hasRoute<PlansRoute>()==true||destination?.hasRoute<LibraryRoute>()==true
   Scaffold(containerColor=MaterialTheme.colorScheme.background,bottomBar={if(root)LifeDock(
-    selected=when{destination?.hasRoute<RecordsRoute>()==true->"记录";destination?.hasRoute<PlansRoute>()==true->"计划";destination?.hasRoute<LibraryRoute>()==true->"资料库";else->"今日"},
+    selected=when{destination?.hasRoute<RecordsRoute>()==true->"记录";destination?.hasRoute<PlansRoute>()==true->"计划";destination?.hasRoute<LibraryRoute>()==true->"资料";else->"今天"},
     onRoute={route->nav.navigate(route){popUpTo(nav.graph.findStartDestination().id){saveState=true};launchSingleTop=true;restoreState=true}},onLife={openComposer();viewModel.openAssistant()})
   }){outer->Box(Modifier.fillMaxSize().padding(bottom=if(root)outer.calculateBottomPadding() else 0.dp)){
     NavHost(navController=nav,startDestination=TodayRoute){
-      composable<TodayRoute>{TodayScreen(viewModel.today,viewModel.deviceSyncStatus,viewModel.queueStatus,SamsungHealthBridge.available(),viewModel::refreshToday,{domain->viewModel.loadWorkspace(domain);nav.navigate(WorkspaceRoute(domain.name))},{domain,id,title->viewModel.loadDetail(domain,id);nav.navigate(DetailRoute(domain.name,id,title))},{nav.navigate(RecordsRoute)},{nav.navigate(FeaturesRoute)},onHealthSync,onSamsungSync,onScale,{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)})}
-      composable<RecordsRoute>{RecordsScreen(viewModel.timeline,viewModel.searchResults,viewModel::refreshTimeline,viewModel::loadMoreTimeline,viewModel::search,viewModel::loadMoreSearch,viewModel::clearSearch,{domain->viewModel.loadWorkspace(domain);nav.navigate(WorkspaceRoute(domain.name))},{domain,id,title->viewModel.loadDetail(domain,id);nav.navigate(DetailRoute(domain.name,id,title))},{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)})}
-      composable<PlansRoute>{PlansScreen(
+      composable<TodayRoute>{TodayVisualScreen(viewModel.today,viewModel.deviceSyncStatus,viewModel.queueStatus,SamsungHealthBridge.available(),viewModel::refreshToday,{domain->if(domain==LifeDomain.Library)nav.navigate(LibraryRoute) else{viewModel.loadWorkspace(domain);nav.navigate(WorkspaceRoute(domain.name))}},{viewModel.refreshPlans();nav.navigate(ItemsRoute)},{domain,id,title->viewModel.loadDetail(domain,id);nav.navigate(DetailRoute(domain.name,id,title))},{nav.navigate(RecordsRoute)},{viewModel.refreshInbox();nav.navigate(InboxRoute)},{nav.navigate(FeaturesRoute)},{kind->openComposer(defaultCaptureSeed(kind))},onHealthSync,onSamsungSync,onScale,{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)})}
+      composable<RecordsRoute>{RecordsVisualScreen(viewModel.timeline,viewModel.searchResults,viewModel::refreshTimeline,viewModel::loadMoreTimeline,viewModel::search,viewModel::loadMoreSearch,viewModel::clearSearch,{domain,id,title->viewModel.loadDetail(domain,id);nav.navigate(DetailRoute(domain.name,id,title))},{openComposer()},{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)})}
+      composable<PlansRoute>{PlansVisualScreen(
         viewModel.plans,viewModel.planningMessage,viewModel::refreshPlans,
         {plan->nav.navigate(PlanDetailRoute(plan.id))},{item->nav.navigate(OwnedItemDetailRoute(item.id))},{review->nav.navigate(ReviewDetailRoute(review.id))},
         {agenda->when(agenda.targetKind){"project"->nav.navigate(PlanDetailRoute(agenda.targetId));"money_occurrence"->{viewModel.loadWorkspace(LifeDomain.Money);nav.navigate(WorkspaceRoute(LifeDomain.Money.name))};"health_habit"->{viewModel.loadWorkspace(LifeDomain.Health);nav.navigate(WorkspaceRoute(LifeDomain.Health.name))}}},
-        viewModel::updateAgenda,{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)}
+        viewModel::updateAgenda,{kind->openComposer(defaultCaptureSeed(kind))},{viewModel.refreshPlans();nav.navigate(ItemsRoute)},{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)}
       )}
-      composable<LibraryRoute>{LibraryScreen(viewModel.library,viewModel::refreshLibrary,viewModel::loadMoreLibrary,{domain,id,title->viewModel.loadDetail(domain,id);nav.navigate(DetailRoute(domain.name,id,title))},{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)})}
+      composable<LibraryRoute>{LibraryVisualScreen(viewModel.library,viewModel::refreshLibrary,viewModel::loadMoreLibrary,{domain,id,title->viewModel.loadDetail(domain,id);nav.navigate(DetailRoute(domain.name,id,title))},{kind->openComposer(defaultCaptureSeed(kind))},{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)})}
       composable<WorkspaceRoute>{backStack->
         val route=backStack.toRoute<WorkspaceRoute>();val domain=LifeDomain.valueOf(route.domain)
         LaunchedEffect(domain){if(viewModel.workspaceDomain!=domain)viewModel.loadWorkspace(domain)}
@@ -70,6 +70,13 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
             viewModel.workspaceOverview,viewModel.workspace,viewModel.assetPreviews,viewModel::loadAssetPreview,
             {viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,capture
           )
+          LifeDomain.Money->MoneyWorkspaceScreen(
+            viewModel.workspaceOverview,viewModel.workspace,{viewModel.loadWorkspace(domain,it)},{viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,
+            {nav.popBackStack()},detail,capture
+          )
+          LifeDomain.Travel->TravelWorkspaceScreen(
+            viewModel.workspaceOverview,viewModel.workspace,{viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,capture
+          )
           else->WorkspaceScreen(domain,viewModel.workspaceOverview,viewModel.workspace,viewModel.deviceSyncStatus,viewModel.queueStatus,SamsungHealthBridge.available(),{viewModel.loadWorkspace(domain,it)},{viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,capture,onHealthSync,onSamsungSync,onScale,{nav.navigate(SettingsRoute)})
         }
       }
@@ -77,10 +84,11 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
       composable<PlanDetailRoute>{backStack->val route=backStack.toRoute<PlanDetailRoute>();LaunchedEffect(route.id){viewModel.loadPlanDetail(route.id)};PlanDetailScreen(viewModel.planDetail,{viewModel.loadPlanDetail(route.id)},{kind,id->openPlanningRelated(nav,viewModel,kind,id)},{nav.popBackStack()})}
       composable<OwnedItemDetailRoute>{backStack->val route=backStack.toRoute<OwnedItemDetailRoute>();LaunchedEffect(route.id){viewModel.loadOwnedItemDetail(route.id)};OwnedItemDetailScreen(viewModel.ownedItemDetail,{viewModel.loadOwnedItemDetail(route.id)},{kind,id->openPlanningRelated(nav,viewModel,kind,id)},{nav.popBackStack()})}
       composable<ReviewDetailRoute>{backStack->val route=backStack.toRoute<ReviewDetailRoute>();LaunchedEffect(route.id){viewModel.loadReviewDetail(route.id)};ReviewDetailScreen(viewModel.reviewDetail,{viewModel.loadReviewDetail(route.id)},{evidence->openReviewEvidence(nav,viewModel,evidence)},{nav.popBackStack()})}
-      composable<FeaturesRoute>{FeaturesScreen({kind->openComposer(defaultCaptureSeed(kind))},{domain->viewModel.loadWorkspace(domain);nav.navigate(WorkspaceRoute(domain.name))},{nav.navigate(PlansRoute)},onHealthSync,onSamsungSync,onScale,{nav.popBackStack()})}
+      composable<FeaturesRoute>{FeaturesScreen({kind->openComposer(defaultCaptureSeed(kind))},{domain->if(domain==LifeDomain.Library)nav.navigate(LibraryRoute) else{viewModel.loadWorkspace(domain);nav.navigate(WorkspaceRoute(domain.name))}},{nav.navigate(PlansRoute)},onHealthSync,onSamsungSync,onScale,{nav.popBackStack()})}
       composable<SettingsRoute>{SettingsScreen(session,appearance,viewModel.queueStatus,viewModel.deviceSyncStatus,scaleSettings,onAppearance,onHealthSync,onSamsungSync,onScale,onSaveScale,viewModel::retryQueue,viewModel::clearTerminalQueue,onLogout,{nav.popBackStack()},{nav.navigate(ConnectionsRoute)},{viewModel.refreshInbox();nav.navigate(InboxRoute)})}
       composable<ConnectionsRoute>{ProjectDirectoryScreen(viewModel.projectLinks,viewModel::refreshProjectLinks){nav.popBackStack()}}
       composable<InboxRoute>{InboxScreen(viewModel.inbox,viewModel::refreshInbox,viewModel::loadMoreInbox,viewModel::updateNotification,viewModel::setNotificationPreferences,onNotificationPermission){nav.popBackStack()}}
+      composable<ItemsRoute>{LaunchedEffect(Unit){viewModel.refreshPlans()};ItemsWorkspaceScreen(viewModel.plans,viewModel::refreshPlans,{nav.popBackStack()},{item->nav.navigate(OwnedItemDetailRoute(item.id))},{kind->openComposer(defaultCaptureSeed(kind))})}
     }
   }}
   statusMessage?.let{message->AlertDialog(onDismissRequest=onDismissStatus,confirmButton={TextButton(onClick=onDismissStatus){Text("知道了")}},text={Text(message)})}
@@ -109,10 +117,10 @@ private fun openReviewEvidence(nav:androidx.navigation.NavHostController,viewMod
 @Composable private fun ShareIngressDialog(payload:SharePayload,state:LoadState<Int>?,onAccept:()->Unit,onDiscard:()->Unit){AlertDialog(onDismissRequest={},title={Text("收存到资料库")},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Text("这份分享将归属当前登录账号。") ;payload.text?.let{Text(it.take(180),maxLines=4,color=MaterialTheme.colorScheme.onSurfaceVariant)};if(payload.uris.isNotEmpty())Text("${payload.uris.size} 个附件会复制到加密队列");if(state is LoadState.Failed)Text(state.message,color=MaterialTheme.colorScheme.error)}},dismissButton={TextButton(onClick=onDiscard,enabled=state !is LoadState.Loading){Text("放弃")}},confirmButton={Button(onClick=onAccept,enabled=state !is LoadState.Loading){Text(if(state is LoadState.Loading)"正在收存…" else "确认收存")}})}
 
 @Composable private fun LifeDock(selected:String,onRoute:(Any)->Unit,onLife:()->Unit){
-  val items=listOf(DockItem("今日",TodayRoute,Icons.Default.Home),DockItem("记录",RecordsRoute,Icons.AutoMirrored.Filled.List),DockItem("计划",PlansRoute,Icons.Default.DateRange),DockItem("资料库",LibraryRoute,Icons.Default.Menu))
+  val items=listOf(DockItem("今天",TodayRoute,Icons.Default.Home),DockItem("记录",RecordsRoute,Icons.AutoMirrored.Filled.List),DockItem("计划",PlansRoute,Icons.Default.DateRange),DockItem("资料",LibraryRoute,Icons.Default.Menu))
   Surface(tonalElevation=0.dp,shadowElevation=0.dp,shape=RoundedCornerShape(topStart=24.dp,topEnd=24.dp),color=MaterialTheme.colorScheme.surface,border=BorderStroke(1.dp,MaterialTheme.colorScheme.outline.copy(alpha=.7f))){NavigationBar(containerColor=MaterialTheme.colorScheme.surface,tonalElevation=0.dp,modifier=Modifier.navigationBarsPadding().heightIn(min=76.dp)){
     items.take(2).forEach{item->NavigationBarItem(selected=selected==item.label,onClick={onRoute(item.route)},icon={Icon(item.icon,item.label)},label={Text(item.label)})}
-    NavigationBarItem(selected=false,onClick=onLife,icon={Surface(shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.primary,modifier=Modifier.size(50.dp)){Box(contentAlignment=Alignment.Center){Icon(Icons.Default.Add,"打开 Life，记录或提问",tint=MaterialTheme.colorScheme.onPrimary)}}},label={Text("Life")})
+    NavigationBarItem(selected=false,onClick=onLife,icon={Surface(shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.primary,modifier=Modifier.size(50.dp)){Box(contentAlignment=Alignment.Center){Icon(Icons.Default.Add,"打开助手，记录或提问",tint=MaterialTheme.colorScheme.onPrimary)}}},label={Text("助手")})
     items.drop(2).forEach{item->NavigationBarItem(selected=selected==item.label,onClick={onRoute(item.route)},icon={Icon(item.icon,item.label)},label={Text(item.label)})}
   }}
 }
