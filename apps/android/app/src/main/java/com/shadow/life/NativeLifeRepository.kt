@@ -26,7 +26,7 @@ import android.provider.OpenableColumns
 class NativeLifeRepository(private val context:Context,private val app:ShadowApp) {
   private val wireJson=Json { ignoreUnknownKeys=true }
   fun queueStatus(session:ProductSession)=app.queue.observeStatus(session)
-  suspend fun retryQueue(session:ProductSession):Int=app.queue.retry(session).also{SyncScheduler.schedule(context,session.accountId,true)}
+  suspend fun retryQueue(session:ProductSession):Int=app.queue.retry(session).also{SyncScheduler.retryNow(context,session.accountId)}
   suspend fun clearTerminalQueue(session:ProductSession):Int=app.queue.clearTerminal(session)
   suspend fun notifications(cursor:String?=null):InboxSnapshot{
     val result=wireJson.decodeFromString<NotificationsResultDto>(getText("/api/notifications?limit=50${cursor?.let{"&cursor=${encode(it)}"}.orEmpty()}"))

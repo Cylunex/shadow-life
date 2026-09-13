@@ -1,6 +1,7 @@
 package com.shadow.life
 
 import android.content.Context
+import android.util.Log
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
@@ -30,6 +31,10 @@ object SyncScheduler {
       .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
       .build()
     WorkManager.getInstance(context).enqueueUniqueWork(workName(accountId),if(ensureNext)ExistingWorkPolicy.APPEND_OR_REPLACE else ExistingWorkPolicy.KEEP,request)
+  }
+  fun retryNow(context:Context,accountId:String){
+    val request=OneTimeWorkRequestBuilder<SyncWorker>().setInputData(workDataOf("account_id" to accountId)).setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()).build()
+    WorkManager.getInstance(context).enqueueUniqueWork(workName(accountId),ExistingWorkPolicy.REPLACE,request)
   }
 }
 
@@ -109,6 +114,10 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
           if(verified!=null){commitVerified(app,command,verified);continue}
           if(command.attempts>=7)dao.setCommandState(command.commandId,"failed")else{dao.setCommandState(command.commandId,"unknown");needsRetry=true};continue
         }
+        val errorBody=activeConnection.errorStream?.bufferedReader()?.use{it.readText()}.orEmpty()
+        if(code==503&&retryableNotApplied(errorBody)){
+          dao.setCommandState(command.commandId,"pending");showWriteFence(app,command);Log.w("SyncWorker","server kept ${command.capability} behind a migration write fence");needsRetry=true;continue
+        }
         val recovered=lookupReceipt(session,accessToken,command)
         if(recovered!=null){commitVerified(app,command,recovered);continue}
         if(code==429||code>=500){if(command.attempts>=7)dao.setCommandState(command.commandId,"failed")else{dao.setCommandState(command.commandId,"unknown");needsRetry=true};continue}
@@ -145,4 +154,6 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
     val receipt=JSONObject(text)
     receipt.optString("protocol")=="shadow.execution-result"&&receipt.optString("status")=="committed"&&receipt.optString("command_id")==command.commandId&&receipt.optString("capability")==command.capability&&receipt.optString("execution_id").isNotBlank()
   }.getOrDefault(false)
+  private fun retryableNotApplied(text:String)=runCatching{JSONObject(text).optString("code")=="retryable_not_applied"}.getOrDefault(false)
+  private fun showWriteFence(app:ShadowApp,command:PendingCommand){when{command.commandId.startsWith("cmd_scale_")->app.deviceSync.updateScale(command.accountId,"error","Life 健康写入正在迁移保护中，读数已安全保留");command.commandId.startsWith("cmd_samsung_")->app.deviceSync.updateSamsung(command.accountId,"error","Life 健康写入正在迁移保护中，数据已安全保留")}}
 }
