@@ -316,3 +316,28 @@ and [delivery/validation record](library-processing-recovery-delivery-2026-09-11
   navigation, blocks file/content/mixed-content access and non-Web schemes, refuses authentication challenges from
   other hosts, and keeps NAS Basic Auth input out of source and APK configuration. Kotlin source compilation passes;
   no APK was packaged and no deployment, production data, Runtime or physical device was touched.
+
+## Native production delivery follow-up (2026-09-13)
+
+- The Android daily experience is now fully native rather than a Web destination. Today, Records, Plans, Library,
+  domain workspaces, detail views, assistant, settings and recovery surfaces use typed Compose routes and generated
+  API DTOs. The default dark design system was refined against the reviewed local Life references.
+- The production API now accepts the dedicated public Android OIDC client through Authorization Code + PKCE. It
+  verifies RFC 9068 access tokens, issuer, audience, signature and client allowlist, then applies an explicit
+  server-owned single-user subject binding and effect ceiling. Browser Basic/proxy access and native Bearer access
+  are separated at the reverse proxy; Bearer requests never receive the trusted proxy secret.
+- A signed Android `2.0.0` package with version code 21 was built. Its production API/resource, issuer, custom-scheme
+  callback and HTTPS App Link host were inspected from the generated build and manifest. Signature v2/v3, artifact
+  SHA-256 and the public Digital Asset Links package/certificate binding were verified.
+- The complete non-database test run has 174 cases: 151 pass, 23 PostgreSQL-dependent cases skip without an explicit
+  test database, and none fail. The legacy importer typecheck and all 15 focused tests pass. Production API/Worker
+  readiness, OIDC client recognition, browser/native auth routing and App Links all pass deployment smoke checks.
+- A catalog-only production migration inventory completed without exporting row payloads. Health and Ledger remain
+  unchanged. The first full Health snapshot correctly refused an opaque provider cursor credential; the exporter
+  now supports only a code-reviewed `excluded_runtime_state` allowlist and carries that exclusion through mapping
+  review and audit. Exporting sensitive business rows still requires explicit operational authorization, followed
+  by reviewed owner mappings, full source mappers, an isolated restore drill and final reconciliation.
+- Remaining acceptance depends on external systems rather than hidden source completion: an installed Android device
+  must complete browser callback, Keystore/process-death, Health Connect, Samsung and BLE runs; a verified NDJSON
+  Agent Runtime, OCR/transcript processor and route provider must be selected and configured before those optional
+  integrations can be claimed as production-available.
