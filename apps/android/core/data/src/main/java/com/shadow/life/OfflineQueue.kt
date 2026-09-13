@@ -13,12 +13,19 @@ class OfflineQueue(private val database:ShadowDatabase,private val crypto:QueueC
   fun observeStatus(session:ProductSession):Flow<QueueSummary> = combine(
     database.commands().observe(session.accountId,session.subjectId),
     database.commands().observeAttachments(session.accountId,session.subjectId)
-  ){commands,attachments->QueueSummary(
+  ){commands,attachments->
+    val scale=commands.filter{it.commandId.startsWith("cmd_scale_")}
+    val samsung=commands.filter{it.commandId.startsWith("cmd_samsung_")}
+    QueueSummary(
     waiting=commands.count{it.state in setOf("pending","uploading")},
     reconciling=commands.count{it.state=="unknown"}+attachments.count{it.state=="unknown"},
     failed=commands.count{it.state in setOf("blocked","failed")}+attachments.count{it.state in setOf("blocked","failed")},
     completed=commands.count{it.state=="committed"}+attachments.count{it.state=="committed"},
-    attachments=attachments.count{it.state in setOf("pending","uploading","unknown")}
+    attachments=attachments.count{it.state in setOf("pending","uploading","unknown")},
+    latestScaleState=sourceState(scale),
+    latestScaleAt=scale.maxOfOrNull{it.createdAt},
+    latestSamsungState=sourceState(samsung),
+    latestSamsungAt=samsung.maxOfOrNull{it.createdAt}
   )}
   suspend fun enqueueCommand(session:ProductSession,commandId:String,capability:String,plainBody:String):Long{
     val encrypted=crypto.encryptCommand(session.accountId,session.subjectId,commandId,plainBody)
@@ -88,5 +95,13 @@ class OfflineQueue(private val database:ShadowDatabase,private val crypto:QueueC
       }
     }
     return secured
+  }
+  private fun sourceState(commands:List<PendingCommand>):String?=when{
+    commands.isEmpty()->null
+    commands.any{it.state in setOf("blocked","failed")}->"failed"
+    commands.any{it.state=="unknown"}->"reconciling"
+    commands.any{it.state in setOf("pending","uploading")}->"pending"
+    commands.all{it.state=="committed"}->"committed"
+    else->commands.first().state
   }
 }

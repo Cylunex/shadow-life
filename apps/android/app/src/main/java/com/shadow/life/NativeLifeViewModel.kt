@@ -28,6 +28,7 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
   var shareImport:LoadState<Int>? by androidx.compose.runtime.mutableStateOf(null);private set
   var projectLinks:LoadState<List<ProjectLinkItem>> by androidx.compose.runtime.mutableStateOf(LoadState.Loading);private set
   var queueStatus:LoadState<QueueSummary> by androidx.compose.runtime.mutableStateOf(LoadState.Loading);private set
+  var deviceSyncStatus:DeviceSyncStatus by androidx.compose.runtime.mutableStateOf(DeviceSyncStatus());private set
   var inbox:LoadState<InboxSnapshot> by androidx.compose.runtime.mutableStateOf(LoadState.Loading);private set
   var planningMessage:String? by androidx.compose.runtime.mutableStateOf(null);private set
   private var assistantThreadId:String?=null
@@ -36,6 +37,7 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
   private var activeLibraryQuery:String=""
   private var workspaceQuery:String=""
   private var queueJob:Job?=null
+  private var deviceSyncJob:Job?=null
   private var workspaceJob:Job?=null
   private var workspaceOverviewJob:Job?=null
   private var readSequence=0L
@@ -48,8 +50,8 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
   fun refreshAll(){
     refreshToday();refreshTimeline();refreshPlans();refreshLibrary()
   }
-  fun activateAccount(accountId:String){if(activeAccountId==accountId)return;invalidateReads();activeAccountId=accountId;assistantThreadId=null;assistant=null;assistantHistory=null;searchResults=null;workspaceDomain=null;workspace=LoadState.Loading;workspaceOverview=LoadState.Loading;detail=LoadState.Loading;submit=SubmitState.Editing;observeQueue();refreshAll();refreshProjectLinks();refreshInbox()}
-  fun deactivateAccount(){invalidateReads();queueJob?.cancel();workspaceJob?.cancel();workspaceOverviewJob?.cancel();queueJob=null;workspaceJob=null;workspaceOverviewJob=null;activeAccountId=null;assistantThreadId=null;assistant=null;assistantHistory=null;searchResults=null;workspaceDomain=null;today=LoadState.Loading;timeline=LoadState.Loading;plans=LoadState.Loading;library=LoadState.Loading;workspace=LoadState.Loading;workspaceOverview=LoadState.Loading;refundCandidates=LoadState.Loading;detail=LoadState.Loading;projectLinks=LoadState.Loading;queueStatus=LoadState.Loading;inbox=LoadState.Loading;submit=SubmitState.Editing}
+  fun activateAccount(accountId:String){if(activeAccountId==accountId)return;invalidateReads();activeAccountId=accountId;assistantThreadId=null;assistant=null;assistantHistory=null;searchResults=null;workspaceDomain=null;workspace=LoadState.Loading;workspaceOverview=LoadState.Loading;detail=LoadState.Loading;submit=SubmitState.Editing;observeQueue();observeDeviceSync(accountId);refreshAll();refreshProjectLinks();refreshInbox()}
+  fun deactivateAccount(){invalidateReads();queueJob?.cancel();deviceSyncJob?.cancel();workspaceJob?.cancel();workspaceOverviewJob?.cancel();queueJob=null;deviceSyncJob=null;workspaceJob=null;workspaceOverviewJob=null;activeAccountId=null;assistantThreadId=null;assistant=null;assistantHistory=null;searchResults=null;workspaceDomain=null;today=LoadState.Loading;timeline=LoadState.Loading;plans=LoadState.Loading;library=LoadState.Loading;workspace=LoadState.Loading;workspaceOverview=LoadState.Loading;refundCandidates=LoadState.Loading;detail=LoadState.Loading;projectLinks=LoadState.Loading;queueStatus=LoadState.Loading;deviceSyncStatus=DeviceSyncStatus();inbox=LoadState.Loading;submit=SubmitState.Editing}
   fun refreshToday(date:LocalDate=LocalDate.now()){val token=beginRead("today");today=LoadState.Loading;viewModelScope.launch{val result=load("今天还没有记录"){repository.today(date)};if(isCurrentRead("today",token))today=result}}
   fun refreshTimeline(){val token=beginRead("timeline");timeline=LoadState.Loading;viewModelScope.launch{val result=load("还没有生活记录"){repository.timeline()};if(isCurrentRead("timeline",token))timeline=result}}
   fun loadMoreTimeline(){val current=(timeline as? LoadState.Ready)?.value?:return;val cursor=current.nextCursor?:return;val token=beginRead("timeline");viewModelScope.launch{when(val next=load("没有更多记录"){repository.timeline(cursor)}){is LoadState.Ready->if(isCurrentRead("timeline",token))timeline=LoadState.Ready(current.copy(items=(current.items+next.value.items).distinctBy{"${it.domain}:${it.id}"},nextCursor=next.value.nextCursor,asOf=current.asOf));is LoadState.Failed->if(isCurrentRead("timeline",token))timeline=LoadState.Ready(current);else->Unit}}}
@@ -84,7 +86,19 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
   fun updateAgenda(item:AgendaItem,action:String){viewModelScope.launch{try{repository.enqueueAgendaAction(item,action);val current=(plans as? LoadState.Ready)?.value?:return@launch;val nextState=when(action){"complete"->if(item.sourceKind=="recurring_occurrence")"handled" else "completed";"dismiss"->"dismissed";"cancel"->"cancelled";"snooze"->"snoozed";else->item.state};plans=LoadState.Ready(current.copy(agenda=current.agenda.map{agenda->if(agenda.sourceKey==item.sourceKey)agenda.copy(state=nextState,primaryAction=agenda.primaryAction?.let{it.copy(expectedRevision=it.expectedRevision+1)}) else agenda}));planningMessage="操作已安全保存，等待同步"}catch(error:CancellationException){throw error}catch(error:Exception){planningMessage=error.message?:"无法更新安排"}}}
   fun setNotificationPreferences(enabled:Boolean){viewModelScope.launch{try{repository.setNotificationPreferences(enabled,null,null);val current=(inbox as? LoadState.Ready)?.value?:return@launch;inbox=LoadState.Ready(current.copy(preferences=current.preferences.copy(enabled=enabled)))}catch(error:CancellationException){throw error}catch(error:Exception){inbox=LoadState.Failed(error.message?:"无法更新提醒设置")}}}
   fun registerNotificationDevice(authorizationState:String){viewModelScope.launch{try{repository.registerNotificationDevice(authorizationState)}catch(error:CancellationException){throw error}catch(error:Exception){queueStatus=LoadState.Failed(error.message?:"无法登记通知权限")}}}
-  private fun observeQueue(){queueJob?.cancel();val session=getApplication<ShadowApp>().sessions.active()?:return;queueJob=viewModelScope.launch{repository.queueStatus(session).collect{queueStatus=LoadState.Ready(it)}}}
+  private fun observeQueue(){
+    queueJob?.cancel();val session=getApplication<ShadowApp>().sessions.active()?:return
+    queueJob=viewModelScope.launch{
+      var previousScale:String?=null;var previousSamsung:String?=null
+      repository.queueStatus(session).collect{next->
+        queueStatus=LoadState.Ready(next)
+        val deviceUploadCompleted=(previousScale!=null&&previousScale!="committed"&&next.latestScaleState=="committed")||(previousSamsung!=null&&previousSamsung!="committed"&&next.latestSamsungState=="committed")
+        previousScale=next.latestScaleState;previousSamsung=next.latestSamsungState
+        if(deviceUploadCompleted){refreshToday();if(workspaceDomain==LifeDomain.Health)loadWorkspace(LifeDomain.Health,workspaceQuery)}
+      }
+    }
+  }
+  private fun observeDeviceSync(accountId:String){deviceSyncJob?.cancel();deviceSyncJob=viewModelScope.launch{getApplication<ShadowApp>().deviceSync.observe(accountId).collect{deviceSyncStatus=it}}}
 
   private suspend fun <T> load(emptyMessage:String,block:suspend()->T):LoadState<T> = try{val value=block();when(value){is Collection<*>->if(value.isEmpty())LoadState.Empty(emptyMessage) else LoadState.Ready(value);else->LoadState.Ready(value)}}catch(error:CancellationException){throw error}catch(error:Exception){LoadState.Failed(error.message?:"读取失败")}
   private suspend fun <T> loadList(emptyMessage:String,block:suspend()->List<T>):LoadState<List<T>> = try{block().let{if(it.isEmpty())LoadState.Empty(emptyMessage) else LoadState.Ready(it)}}catch(error:CancellationException){throw error}catch(error:Exception){LoadState.Failed(error.message?:"读取失败")}

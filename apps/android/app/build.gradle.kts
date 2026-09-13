@@ -2,7 +2,7 @@ plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id(
 val samsungHealthAar=providers.gradleProperty("SAMSUNG_HEALTH_DATA_AAR").orNull?.let(::file)?.takeIf{it.isFile}
 android { namespace="com.shadow.life"; compileSdk=36
   defaultConfig {
-    applicationId="com.shadow.life"; minSdk=29; targetSdk=36; versionCode=22; versionName="2.1.0"
+    applicationId="com.shadow.life"; minSdk=29; targetSdk=36; versionCode=23; versionName="2.1.1"
     fun configured(name:String,fallback:String)=providers.gradleProperty(name).orElse(fallback).get()
     fun quoted(value:String)="\"${value.replace("\\","\\\\").replace("\"","\\\"")}\""
     buildConfigField("String","SHADOW_API_BASE",quoted(configured("SHADOW_API_BASE","https://api.example.com")))

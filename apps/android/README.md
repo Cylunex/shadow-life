@@ -46,6 +46,11 @@ command queue before upload. S400 bindkeys and the optional sex/birth-date/heigh
 Android Keystore and never embedded in source or server configuration. Samsung Health Data SDK reads steps,
 heart-rate bounds, sleep, exercise and body composition. When the matching Health Connect permission is already
 granted, Samsung steps/sleep/exercise and weight are treated as fallback rather than duplicated into both paths.
+After Samsung permission has been granted, returning to Life starts an immediate unique sync and keeps the hourly
+background schedule. Today, Health and Settings show the live read state, record count, queue state and committed
+result. Xiaomi Scale 2/S400 scanning reports scan start, first matching advertisement, stable measurement, local
+queueing and server commit in the same visible panel; the latest accepted weight remains visible after the service
+notification closes.
 
 Android `ACTION_SEND` and `ACTION_SEND_MULTIPLE` enter an account-assignment confirmation before any business
 write. Shared text is captured with a stable command identity. Every shared attachment is copied immediately

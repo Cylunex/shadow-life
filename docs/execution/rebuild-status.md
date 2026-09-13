@@ -377,6 +377,11 @@ and [delivery/validation record](library-processing-recovery-delivery-2026-09-11
   permissions take precedence for steps, sleep, exercise and weight to avoid double counting; Samsung-only body
   composition and heart-rate facts remain available. Builds without the AAR compile and expose an honest unavailable
   state instead of shipping a broken button.
+- Device synchronization is now a first-level surface on Today and Health rather than a Settings-only action.
+  Samsung automatically schedules an immediate unique read whenever an authorized user returns to Life. Samsung and
+  Xiaomi status persists per account and exposes authorization/scanning, first BLE advertisement, stable reading,
+  queued count, upload state, committed result, last weight and timestamp. A completed upload also refreshes the
+  visible Health summary instead of requiring the user to find a manual reload path.
 - The full Node/PostgreSQL run passes `176/176` with all 34 migrations on a fresh isolated database. Generated
   contracts, dependency boundaries, every TypeScript project, the Web production build, 13 Health policy assertions,
   117 Android round-state assertions, four production envelope validations, Room 5→6 and 6→7 migrations, five

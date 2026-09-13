@@ -45,7 +45,7 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
     onRoute={route->nav.navigate(route){popUpTo(nav.graph.findStartDestination().id){saveState=true};launchSingleTop=true;restoreState=true}},onLife={composerOpen=true;viewModel.openAssistant()})
   }){outer->Box(Modifier.fillMaxSize().padding(bottom=if(root)outer.calculateBottomPadding() else 0.dp)){
     NavHost(navController=nav,startDestination=TodayRoute){
-      composable<TodayRoute>{TodayScreen(viewModel.today,viewModel::refreshToday,{domain->viewModel.loadWorkspace(domain);nav.navigate(WorkspaceRoute(domain.name))},{domain,id,title->viewModel.loadDetail(domain,id);nav.navigate(DetailRoute(domain.name,id,title))},{nav.navigate(RecordsRoute)},{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)})}
+      composable<TodayRoute>{TodayScreen(viewModel.today,viewModel.deviceSyncStatus,viewModel.queueStatus,SamsungHealthBridge.available(),viewModel::refreshToday,{domain->viewModel.loadWorkspace(domain);nav.navigate(WorkspaceRoute(domain.name))},{domain,id,title->viewModel.loadDetail(domain,id);nav.navigate(DetailRoute(domain.name,id,title))},{nav.navigate(RecordsRoute)},onHealthSync,onSamsungSync,onScale,{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)})}
       composable<RecordsRoute>{RecordsScreen(viewModel.timeline,viewModel.searchResults,viewModel::refreshTimeline,viewModel::loadMoreTimeline,viewModel::search,viewModel::loadMoreSearch,viewModel::clearSearch,{domain->viewModel.loadWorkspace(domain);nav.navigate(WorkspaceRoute(domain.name))},{domain,id,title->viewModel.loadDetail(domain,id);nav.navigate(DetailRoute(domain.name,id,title))},{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)})}
       composable<PlansRoute>{PlansScreen(
         viewModel.plans,viewModel.planningMessage,viewModel::refreshPlans,
@@ -54,12 +54,12 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
         viewModel::updateAgenda,{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)}
       )}
       composable<LibraryRoute>{LibraryScreen(viewModel.library,viewModel::refreshLibrary,viewModel::loadMoreLibrary,{domain,id,title->viewModel.loadDetail(domain,id);nav.navigate(DetailRoute(domain.name,id,title))},{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)})}
-      composable<WorkspaceRoute>{backStack->val route=backStack.toRoute<WorkspaceRoute>();val domain=LifeDomain.valueOf(route.domain);LaunchedEffect(domain){if(viewModel.workspaceDomain!=domain)viewModel.loadWorkspace(domain)};WorkspaceScreen(domain,viewModel.workspaceOverview,viewModel.workspace,{viewModel.loadWorkspace(domain,it)},{viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},{d,id,title->viewModel.loadDetail(d,id);nav.navigate(DetailRoute(d.name,id,title))})}
+      composable<WorkspaceRoute>{backStack->val route=backStack.toRoute<WorkspaceRoute>();val domain=LifeDomain.valueOf(route.domain);LaunchedEffect(domain){if(viewModel.workspaceDomain!=domain)viewModel.loadWorkspace(domain)};WorkspaceScreen(domain,viewModel.workspaceOverview,viewModel.workspace,viewModel.deviceSyncStatus,viewModel.queueStatus,SamsungHealthBridge.available(),{viewModel.loadWorkspace(domain,it)},{viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},{d,id,title->viewModel.loadDetail(d,id);nav.navigate(DetailRoute(d.name,id,title))},onHealthSync,onSamsungSync,onScale,{nav.navigate(SettingsRoute)})}
       composable<DetailRoute>{backStack->val route=backStack.toRoute<DetailRoute>();val domain=LifeDomain.valueOf(route.domain);LaunchedEffect(route.id){viewModel.loadDetail(domain,route.id)};DetailScreen(route.title,viewModel.detail,viewModel.submit,{viewModel.loadDetail(domain,route.id)},{nav.popBackStack()},viewModel::correct,viewModel::editAgain)}
       composable<PlanDetailRoute>{backStack->val route=backStack.toRoute<PlanDetailRoute>();val plan=(viewModel.plans as? LoadState.Ready)?.value?.projects?.firstOrNull{it.id==route.id};PlanDetailScreen(plan,{kind,id->openPlanningRelated(nav,viewModel,kind,id)},{nav.popBackStack()})}
       composable<OwnedItemDetailRoute>{backStack->val route=backStack.toRoute<OwnedItemDetailRoute>();val item=(viewModel.plans as? LoadState.Ready)?.value?.ownedItems?.firstOrNull{it.id==route.id};OwnedItemDetailScreen(item,{kind,id->openPlanningRelated(nav,viewModel,kind,id)},{nav.popBackStack()})}
       composable<ReviewDetailRoute>{backStack->val route=backStack.toRoute<ReviewDetailRoute>();val review=(viewModel.plans as? LoadState.Ready)?.value?.reviews?.firstOrNull{it.id==route.id};ReviewDetailScreen(review,{evidence->openReviewEvidence(nav,viewModel,evidence)},{nav.popBackStack()})}
-      composable<SettingsRoute>{SettingsScreen(session,appearance,viewModel.queueStatus,scaleSettings,onAppearance,onHealthSync,onSamsungSync,onScale,onSaveScale,viewModel::retryQueue,viewModel::clearTerminalQueue,onLogout,{nav.popBackStack()},{nav.navigate(ConnectionsRoute)},{viewModel.refreshInbox();nav.navigate(InboxRoute)})}
+      composable<SettingsRoute>{SettingsScreen(session,appearance,viewModel.queueStatus,viewModel.deviceSyncStatus,scaleSettings,onAppearance,onHealthSync,onSamsungSync,onScale,onSaveScale,viewModel::retryQueue,viewModel::clearTerminalQueue,onLogout,{nav.popBackStack()},{nav.navigate(ConnectionsRoute)},{viewModel.refreshInbox();nav.navigate(InboxRoute)})}
       composable<ConnectionsRoute>{ProjectDirectoryScreen(viewModel.projectLinks,viewModel::refreshProjectLinks){nav.popBackStack()}}
       composable<InboxRoute>{InboxScreen(viewModel.inbox,viewModel::refreshInbox,viewModel::loadMoreInbox,viewModel::updateNotification,viewModel::setNotificationPreferences,onNotificationPermission){nav.popBackStack()}}
     }
@@ -107,6 +107,7 @@ private fun SettingsScreen(
   session:ProductSession,
   appearance:Appearance,
   queueState:LoadState<QueueSummary>,
+  deviceStatus:DeviceSyncStatus,
   scaleSettings:ScaleProfileSettings,
   onAppearance:(Appearance)->Unit,
   onHealthSync:()->Unit,
@@ -168,12 +169,9 @@ private fun SettingsScreen(
           }
         }
       }
+      DeviceSyncPanel(deviceStatus,queueState,SamsungHealthBridge.available(),onHealthSync,onSamsungSync,onScale,{editScale=true})
       LifeSection("连接"){
         OutlinedButton(onClick=onInbox,Modifier.fillMaxWidth().heightIn(min=52.dp)){Text("提醒与收件箱")}
-        OutlinedButton(onClick=onHealthSync,Modifier.fillMaxWidth().heightIn(min=52.dp)){Text("同步 Health Connect")}
-        OutlinedButton(onClick=onSamsungSync,enabled=SamsungHealthBridge.available(),modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)){Text(if(SamsungHealthBridge.available())"同步 Samsung Health" else "Samsung SDK 未包含在此构建")}
-        Button(onClick=onScale,Modifier.fillMaxWidth().heightIn(min=52.dp)){Text("小米体脂秤称重")}
-        OutlinedButton(onClick={editScale=true},Modifier.fillMaxWidth().heightIn(min=52.dp)){Text("体脂秤档案与 S400")}
         Text(if(scaleSettings.profile()!=null)"体成分档案已配置${if(scaleSettings.hasS400Key)" · S400 bindkey 已配置" else ""}" else "未配置完整档案时仍保存体重与阻抗，不推测体脂",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         OutlinedButton(onClick=onProjects,Modifier.fillMaxWidth().heightIn(min=52.dp)){Text("其他项目与连接")}
       }

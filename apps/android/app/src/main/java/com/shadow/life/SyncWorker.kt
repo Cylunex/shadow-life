@@ -127,6 +127,7 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
 
   private suspend fun commitVerified(app:ShadowApp,command:PendingCommand,receipt:String){
     try{app.queue.commit(command,receipt)}catch(_:QueueKeyUnavailableException){app.database.commands().commitWithHealthRound(command,"")}
+    when{command.commandId.startsWith("cmd_scale_")->app.deviceSync.updateScale(command.accountId,"committed","称重数据已同步到 Life");command.commandId.startsWith("cmd_samsung_")->app.deviceSync.updateSamsung(command.accountId,"committed","Samsung Health 数据已同步到 Life")}
   }
 
   private fun lookupReceipt(session:ProductSession,accessToken:String,command:PendingCommand):String?=runCatching{

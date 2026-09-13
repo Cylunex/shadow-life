@@ -19,6 +19,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
+import java.time.Instant
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
@@ -30,9 +32,11 @@ import java.util.Locale
 
 @Composable private fun ProjectGridIcon(){Box(Modifier.size(20.dp).semantics{contentDescription="其他项目"}){listOf(Alignment.TopStart,Alignment.TopEnd,Alignment.BottomStart,Alignment.BottomEnd).forEach{alignment->Box(Modifier.size(7.dp).align(alignment).background(MaterialTheme.colorScheme.onSurface,RoundedCornerShape(2.dp)))}}}
 
-@Composable fun TodayScreen(state:LoadState<TodaySnapshot>,onRetry:()->Unit,onWorkspace:(LifeDomain)->Unit,onDetail:(LifeDomain,String,String)->Unit,onSearch:()->Unit,onProjects:()->Unit,onSettings:()->Unit){
+@Composable fun TodayScreen(state:LoadState<TodaySnapshot>,deviceStatus:DeviceSyncStatus,queueState:LoadState<QueueSummary>,samsungAvailable:Boolean,onRetry:()->Unit,onWorkspace:(LifeDomain)->Unit,onDetail:(LifeDomain,String,String)->Unit,onSearch:()->Unit,onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onProjects:()->Unit,onSettings:()->Unit){
   RootPage(LocalDate.now().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.CHINA)),onProjects,onSettings,onSearch){padding->
     LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(start=20.dp,end=20.dp,top=8.dp,bottom=112.dp),verticalArrangement=Arrangement.spacedBy(24.dp)){
+      item{AllFeatures(onWorkspace,onSettings)}
+      item{DeviceSyncPanel(deviceStatus,queueState,samsungAvailable,onHealthSync,onSamsungSync,onScale,onSettings)}
       item{StateContent(state,onRetry){today->TodayContent(today,onWorkspace,onDetail)}}
     }
   }
@@ -65,6 +69,58 @@ import java.util.Locale
     Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){AssistChip(onClick={onWorkspace(LifeDomain.Meals)},label={Text("${today.mealCount?:0} 餐")});AssistChip(onClick={onWorkspace(LifeDomain.Library)},label={Text("${today.libraryCaptured?:0} 份资料")})}
   }
 }
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable private fun AllFeatures(onWorkspace:(LifeDomain)->Unit,onSettings:()->Unit){
+  LifeSection("全部功能"){
+    FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
+      LifeDomain.entries.forEach{domain->AssistChip(onClick={onWorkspace(domain)},label={Text(domain.label())})}
+      AssistChip(onClick=onSettings,label={Text("设备与设置")})
+    }
+  }
+}
+
+@Composable fun DeviceSyncPanel(status:DeviceSyncStatus,queueState:LoadState<QueueSummary>,samsungAvailable:Boolean,onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onSettings:()->Unit){
+  val queue=(queueState as? LoadState.Ready)?.value
+  LifeSection("健康设备",action={TextButton(onClick=onSettings){Text("设备设置")}}){
+    LifeCard{
+      Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+        Column(Modifier.weight(1f)){
+          Text("Samsung Health",style=MaterialTheme.typography.titleLarge)
+          Text(status.samsungMessage,color=deviceStatusColor(status.samsungState))
+          val details=listOfNotNull(status.samsungRecords.takeIf{it>0}?.let{"最近读取 $it 条"},deviceTime(status.samsungUpdatedAt),queue?.latestSamsungState?.let{"上传${queueStateLabel(it)}"})
+          if(details.isNotEmpty())Text(details.joinToString(" · "),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+      }
+      Button(onClick=onSamsungSync,enabled=samsungAvailable&&status.samsungState!="syncing",modifier=Modifier.fillMaxWidth().heightIn(min=50.dp)){
+        Text(when{!samsungAvailable->"当前版本未包含 Samsung SDK";status.samsungState in setOf("idle","needs_permission")->"连接 Samsung Health";status.samsungState=="syncing"->"正在同步…";else->"立即同步 Samsung Health"})
+      }
+      Text("授权后，每次打开 Life 都会自动检查新数据，并每小时后台同步。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    LifeCard{
+      Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+        Column(Modifier.weight(1f)){
+          Text("小米体脂秤",style=MaterialTheme.typography.titleLarge)
+          status.scaleLastWeight?.let{Text("$it kg",style=MaterialTheme.typography.displaySmall,fontWeight=FontWeight.SemiBold)}
+          Text(status.scaleMessage,color=deviceStatusColor(status.scaleState))
+          val details=listOfNotNull(status.scaleLastModel,deviceTime(status.scaleMeasuredAt),queue?.latestScaleState?.let{"上传${queueStateLabel(it)}"})
+          if(details.isNotEmpty())Text(details.joinToString(" · "),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+      }
+      Button(onClick=onScale,enabled=status.scaleState!="scanning",modifier=Modifier.fillMaxWidth().heightIn(min=50.dp)){Text(if(status.scaleState=="scanning")"正在等待上秤…" else "开始称重（3 分钟）")}
+      Text("开始后再上秤。收到广播、稳定读数和上传结果会实时显示在这里。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    OutlinedButton(onClick=onHealthSync,Modifier.fillMaxWidth().heightIn(min=50.dp)){Text("同步 Health Connect")}
+  }
+}
+
+@Composable private fun deviceStatusColor(state:String)=when(state){
+  "error","timeout","needs_permission","needs_config"->MaterialTheme.colorScheme.error
+  "complete","committed","queued","detected"->MaterialTheme.colorScheme.primary
+  else->MaterialTheme.colorScheme.onSurfaceVariant
+}
+private fun deviceTime(value:Long):String?=value.takeIf{it>0}?.let{Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("MM-dd HH:mm"))}
+private fun queueStateLabel(value:String)=when(value){"pending"->"待发送";"sending"->"中";"reconciling"->"核对中";"committed"->"完成";"failed"->"失败";"blocked"->"已阻止";else->value}
 
 @Composable fun RecordsScreen(state:LoadState<TimelinePage>,searchState:LoadState<RecordPage>?,onRetry:()->Unit,onLoadMore:()->Unit,onSearch:(String)->Unit,onLoadMoreSearch:()->Unit,onClearSearch:()->Unit,onWorkspace:(LifeDomain)->Unit,onDetail:(LifeDomain,String,String)->Unit,onProjects:()->Unit,onSettings:()->Unit){
   var query by rememberSaveable{mutableStateOf("")}
@@ -118,9 +174,10 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun WorkspaceScreen(domain:LifeDomain,overviewState:LoadState<WorkspaceOverview>,state:LoadState<RecordPage>,onSearch:(String)->Unit,onRetry:()->Unit,onLoadMore:()->Unit,onBack:()->Unit,onDetail:(LifeDomain,String,String)->Unit){
+@Composable fun WorkspaceScreen(domain:LifeDomain,overviewState:LoadState<WorkspaceOverview>,state:LoadState<RecordPage>,deviceStatus:DeviceSyncStatus,queueState:LoadState<QueueSummary>,samsungAvailable:Boolean,onSearch:(String)->Unit,onRetry:()->Unit,onLoadMore:()->Unit,onBack:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onSettings:()->Unit){
   var query by rememberSaveable{mutableStateOf("")}
   Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text(domain.label())},navigationIcon={IconButton(onClick=onBack){Text("‹",style=MaterialTheme.typography.headlineLarge)}})}){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(horizontal=20.dp,vertical=12.dp)){
+    if(domain==LifeDomain.Health)item{DeviceSyncPanel(deviceStatus,queueState,samsungAvailable,onHealthSync,onSamsungSync,onScale,onSettings);Spacer(Modifier.height(18.dp))}
     item{WorkspaceOverviewContent(overviewState,onRetry);Spacer(Modifier.height(18.dp));OutlinedTextField(query,{query=it},Modifier.fillMaxWidth(),singleLine=true,label={Text("在${domain.label()}中搜索")},trailingIcon={IconButton(onClick={onSearch(query)}){Icon(Icons.Default.Search,"搜索")}});Spacer(Modifier.height(12.dp))}
     item{StateContent(state,onRetry){}}
     if(state is LoadState.Ready)items(state.value.items,key={it.id}){item->RecordRow(item){onDetail(domain,item.detailId?:item.id,item.title)};HorizontalDivider(color=MaterialTheme.colorScheme.outline.copy(alpha=.45f))}
