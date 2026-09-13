@@ -8,10 +8,11 @@ declare module "hono" {
   interface ContextVariableMap { requestContext: RequestContext; }
 }
 
-const developmentEffects = new Set(["life.meal.write", "life.meal.read", "life.purchase.write", "life.item.write", "life.item.read", "life.review.write", "life.review.read", "life.project.write", "life.project.read", "life.meal_plan.write", "life.meal_plan.read", "money.entry.write", "money.refund.write", "money.budget.write", "money.plan.write", "money.summary.read", "money.entry.read", "health.measurement.write", "health.raw.ingest", "health.measurement.read", "travel.trip.write", "travel.reservation.write", "travel.visit.write", "travel.trip.read", "library.source.link", "library.item.write", "library.processor.write", "library.item.read", "library.asset.read", "notifications.read", "notifications.write", "operations.read", "agent.run"]);
+export const supportedLifeEffects = new Set(["life.meal.write", "life.meal.read", "life.purchase.write", "life.item.write", "life.item.read", "life.review.write", "life.review.read", "life.project.write", "life.project.read", "life.meal_plan.write", "life.meal_plan.read", "money.entry.write", "money.refund.write", "money.budget.write", "money.plan.write", "money.summary.read", "money.entry.read", "health.measurement.write", "health.raw.ingest", "health.measurement.read", "travel.trip.write", "travel.reservation.write", "travel.visit.write", "travel.trip.read", "library.source.link", "library.item.write", "library.processor.write", "library.item.read", "library.asset.read", "notifications.read", "notifications.write", "operations.read", "agent.run"]);
+const developmentEffects = supportedLifeEffects;
 
 const knownEffects = developmentEffects;
-export type AuthOptions={development:boolean;issuer?:string;audience?:string;jwksUrl?:string;webOrigin?:string;environmentId?:string;allowedClients?:readonly string[];identitySubjects?:Readonly<Record<string,string>>;proxyAuth?:{secret:string;subjectId:string}};
+export type AuthOptions={development:boolean;issuer?:string;audience?:string;jwksUrl?:string;webOrigin?:string;environmentId?:string;allowedClients?:readonly string[];identitySubjects?:Readonly<Record<string,string>>;clientSubjects?:Readonly<Record<string,string>>;clientEffects?:Readonly<Record<string,ReadonlySet<string>>>;proxyAuth?:{secret:string;subjectId:string}};
 const jwksCache=new Map<string,ReturnType<typeof createRemoteJWKSet>>();
 function claimString(payload:JWTPayload,key:string):string|undefined{const value=payload[key];return typeof value==="string"?value:undefined;}
 function effectsFrom(payload:JWTPayload):ReadonlySet<string>{
@@ -21,15 +22,16 @@ function effectsFrom(payload:JWTPayload):ReadonlySet<string>{
 function writeEpochs(value:string|undefined):Readonly<Partial<Record<"health"|"ledger",number>>>|undefined{if(!value)return undefined;const result:Partial<Record<"health"|"ledger",number>>={};for(const part of value.split(",")){const [domain,raw]=part.split("=");const epoch=Number(raw);if((domain!=="health"&&domain!=="ledger")||!Number.isSafeInteger(epoch)||epoch<1)throw new Error("invalid write epoch");result[domain]=epoch;}return result;}
 function sameSecret(actual:string|undefined,expected:string):boolean{if(!actual)return false;return timingSafeEqual(createHash("sha256").update(actual).digest(),createHash("sha256").update(expected).digest());}
 
-export function verifiedIdentityContext(payload:JWTPayload,header:JWSHeaderParameters,options:Pick<AuthOptions,"issuer"|"environmentId"|"allowedClients"|"identitySubjects">):RequestContext{
+export function verifiedIdentityContext(payload:JWTPayload,header:JWSHeaderParameters,options:Pick<AuthOptions,"issuer"|"environmentId"|"allowedClients"|"identitySubjects"|"clientSubjects"|"clientEffects">):RequestContext{
   const oidcSubject=payload.sub,clientId=claimString(payload,"client_id"),jti=payload.jti,issuedAt=payload.iat,expiresAt=payload.exp;
   if(!options.issuer||!oidcSubject||!clientId||!jti||typeof issuedAt!=="number"||typeof expiresAt!=="number")throw new Error("required access token claims are missing");
   if(header.typ!=="at+jwt"&&header.typ!=="application/at+jwt")throw new Error("token is not an RFC 9068 access token");
   if(issuedAt>Date.now()/1000+60||expiresAt<=issuedAt)throw new Error("access token timestamps are invalid");
   if(options.allowedClients?.length&&!options.allowedClients.includes(clientId))throw new Error("client is not allowed");
-  const subjectId=options.identitySubjects?.[oidcSubject];
+  const subjectId=options.identitySubjects?.[oidcSubject]??options.clientSubjects?.[clientId];
   if(!subjectId||!/^[a-z][a-z0-9_]{7,127}$/u.test(subjectId))throw new IdentityNotLinkedError();
-  const effects=effectsFrom(payload);if(effects.size===0)throw new Error("token has no supported Life effects");
+  const claimedEffects=effectsFrom(payload),clientEffects=options.clientEffects?.[clientId],hasEffectClaim=Array.isArray(payload.effects)||typeof payload.scope==="string"&&payload.scope.split(" ").some(effect=>knownEffects.has(effect));
+  const effects=clientEffects?new Set(hasEffectClaim?[...claimedEffects].filter(effect=>clientEffects.has(effect)):clientEffects):claimedEffects;if(effects.size===0)throw new Error("token has no supported Life effects");
   const displayName=claimString(payload,"name")??claimString(payload,"preferred_username");
   return{actorId:oidcSubject,oidcSubject,subjectId,clientId,issuer:options.issuer,environmentId:options.environmentId??"default",...(displayName?{displayName}:{}),authorizationRevision:1,effects,traceId:crypto.randomUUID()};
 }
