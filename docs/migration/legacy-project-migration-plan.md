@@ -28,7 +28,7 @@ The importer currently writes `money_entry`, `meal`, `health_raw` and basic `arc
 
 ```bash
 # Health business tables are not in public.
-LEGACY_DATABASE_URL=... pnpm --filter @shadow/legacy-importer export:postgres health-prod /isolated/health.json health,public
+LEGACY_RUNTIME_EXCLUDED_TABLES=health.sync_cursors LEGACY_DATABASE_URL=... pnpm --filter @shadow/legacy-importer export:postgres health-prod /isolated/health.json health,public
 
 # Ledger / Travel / Archive currently use public.
 LEGACY_DATABASE_URL=... pnpm --filter @shadow/legacy-importer export:postgres ledger-prod /isolated/ledger.json public

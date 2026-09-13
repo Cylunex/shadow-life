@@ -30,7 +30,7 @@ The checked-in synthetic bundle only exercises exact-scale money and a legacy me
 Run snapshots only into an isolated operations directory:
 
 ```bash
-LEGACY_DATABASE_URL=... pnpm --filter @shadow/legacy-importer export:postgres health-prod /isolated/health-snapshot.json health,public
+LEGACY_RUNTIME_EXCLUDED_TABLES=health.sync_cursors LEGACY_DATABASE_URL=... pnpm --filter @shadow/legacy-importer export:postgres health-prod /isolated/health-snapshot.json health,public
 pnpm migration:mapping inspect /isolated/health-snapshot.json /isolated/health-snapshot-inspection.json
 pnpm migration:mapping skeleton /isolated/health-snapshot.json /isolated/health-mapping-review.json health-800af69-v1
 pnpm migration:mapping audit /isolated/health-snapshot.json /isolated/health-mapping-review.json /isolated/health-mapping-audit.json
@@ -41,6 +41,8 @@ DATABASE_URL=... pnpm migration cutover-check fixtures/migration-bundle.json
 ```
 
 The optional exporter schema argument is a comma-separated allowlist. Health must include `health`; using the old default-only invocation would inspect only `public` and could omit every Health business table. Including `public` as well keeps any public authentication/session catalog entries visible to the exclusion audit. Ledger, Travel and Archive currently use `public`. `mapping inspect` emits only catalog identities, hashes and counts—not row payloads—so it can be retained with the migration evidence.
+
+`health.sync_cursors` is source-installation runtime state and may contain opaque provider cursor credentials. It is not a portable health fact and must be re-established by the native client. Production export therefore names it explicitly through `LEGACY_RUNTIME_EXCLUDED_TABLES`; the exporter verifies that every named schema-qualified table exists, restricts the setting to a code-reviewed allowlist, records its complete catalog with zero exported rows and makes the mapping audit retain the `excluded_runtime_state` disposition. This mechanism must not be used to omit an active business table or to bypass a secret-field refusal.
 
 The generated mapping skeleton is deliberately blocked. It becomes ready only when every included table and every discovered field has a native or historical-archive disposition, every mapped table names its reviewed mapper, and session/identity exclusions exactly match exporter exclusions. The audit is bound to the snapshot content ID and refuses missing, duplicate or invented tables/columns. This coverage gate does not prove that production rows reconcile; the mapped bundle still needs isolated apply, replay and target readback.
 
