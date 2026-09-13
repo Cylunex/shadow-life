@@ -33,6 +33,7 @@ import com.samsung.android.sdk.health.data.request.LocalTimeFilter
 import com.samsung.android.sdk.health.data.request.LocalTimeGroup
 import com.samsung.android.sdk.health.data.request.LocalTimeGroupUnit
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.security.MessageDigest
 import java.time.Duration
 import java.time.Instant
@@ -75,6 +76,6 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
   }
   private fun bodyPayload(date:LocalDate,instant:Instant?,zone:ZoneId,observations:JSONArray)=JSONObject().put("occurred_on",date.toString()).apply{if(instant!=null)put("occurred_at",instant.toString())}.put("time_zone",zone.id).put("group_kind","measurement").put("observations",observations)
   private fun observation(metric:String,value:String,unit:String,source:String)=JSONObject().put("metric_key",metric).put("value",value).put("unit",unit).put("original_field",source).put("autofilled",false)
-  private fun decimal(value:Double)=BigDecimal.valueOf(value).stripTrailingZeros().toPlainString()
+  private fun decimal(value:Double)=BigDecimal.valueOf(value).setScale(6,RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()
   private fun sha256(value:String)=MessageDigest.getInstance("SHA-256").digest(value.toByteArray()).joinToString(""){"%02x".format(it)}
 }

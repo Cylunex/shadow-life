@@ -30,6 +30,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
@@ -246,7 +247,7 @@ private object HealthConnectEncoder{
     if(offset==null||system.rules.getOffset(instant)==offset)return system
     return ZoneId.getAvailableZoneIds().asSequence().sorted().map(ZoneId::of).firstOrNull{it.rules.getOffset(instant)==offset}?:ZoneId.of("UTC")
   }
-  private fun decimal(value:Double)=BigDecimal.valueOf(value).stripTrailingZeros().toPlainString()
+  private fun decimal(value:Double)=BigDecimal.valueOf(value).setScale(6,RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()
   fun weight(record:WeightRecord):JSONObject{val zone=zone(record.zoneOffset,record.time);return JSONObject().put("occurred_on",record.time.atZone(zone).toLocalDate().toString()).put("occurred_at",record.time.toString()).put("time_zone",zone.id).put("observations",JSONArray().put(JSONObject().put("metric_key","weight").put("value",decimal(record.weight.inKilograms)).put("unit","kg").put("original_field","health_connect:${record.metadata.dataOrigin.packageName}")))}
   fun steps(record:StepsRecord):JSONObject{
     val zone=zone(record.startZoneOffset,record.startTime)

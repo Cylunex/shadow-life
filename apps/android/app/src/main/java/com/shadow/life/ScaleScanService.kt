@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.security.MessageDigest
 import java.time.Duration
 import java.time.Instant
@@ -86,7 +87,7 @@ class ScaleScanService:Service(){
     }
   }
   private fun observation(metric:String,value:String,unit:String,source:String)=JSONObject().put("metric_key",metric).put("value",value).put("unit",unit).put("original_field",source).put("autofilled",false)
-  private fun decimal(value:Double)=BigDecimal.valueOf(value).stripTrailingZeros().toPlainString()
+  private fun decimal(value:Double)=BigDecimal.valueOf(value).setScale(6,RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()
   private fun sha256(value:String)=MessageDigest.getInstance("SHA-256").digest(value.toByteArray()).joinToString(""){"%02x".format(it)}
   private fun notification(text:String):Notification{val open=PendingIntent.getActivity(this,0,Intent(this,MainActivity::class.java),PendingIntent.FLAG_IMMUTABLE);return NotificationCompat.Builder(this,CHANNEL).setSmallIcon(R.mipmap.ic_launcher).setContentTitle("Shadow Life 体脂秤").setContentText(text).setContentIntent(open).setOngoing(true).build()}
   private fun update(text:String){handler.post{getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID,notification(text))}}
