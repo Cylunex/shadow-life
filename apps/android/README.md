@@ -39,6 +39,14 @@ separate from the unfiltered list. Review details retain metric values, original
 openable evidence instead of reducing a review to JSON keys. Health cards distinguish missing permission, no
 record, partial read failure and real values; unavailable measurements are never rendered as zero.
 
+The device layer also carries the verified Shadow Health integrations. Xiaomi Body Composition Scale 2
+(`XMTZC05HM`) and S400 (`MJTZC01YM`) advertisements are parsed locally in an on-demand foreground BLE session;
+stable weight, impedance, optional heart rate and profile-derived body composition enter the encrypted Life
+command queue before upload. S400 bindkeys and the optional sex/birth-date/height profile are stored with the
+Android Keystore and never embedded in source or server configuration. Samsung Health Data SDK reads steps,
+heart-rate bounds, sleep, exercise and body composition. When the matching Health Connect permission is already
+granted, Samsung steps/sleep/exercise and weight are treated as fallback rather than duplicated into both paths.
+
 Android `ACTION_SEND` and `ACTION_SEND_MULTIPLE` enter an account-assignment confirmation before any business
 write. Shared text is captured with a stable command identity. Every shared attachment is copied immediately
 from its temporary content URI into an app-private encrypted file, receives its own stable upload/command
@@ -58,7 +66,13 @@ SHADOW_OIDC_CLIENT_ID=REPLACE_PUBLIC_CLIENT_ID
 SHADOW_OIDC_REDIRECT_URI=com.shadow.life:/oauth2redirect
 SHADOW_OIDC_REDIRECT_SCHEME=com.shadow.life
 SHADOW_OIDC_RESOURCE=https://api.example.com
+SAMSUNG_HEALTH_DATA_AAR=/absolute/local/path/samsung-health-data-api-1.1.0.aar
 ```
+
+The Samsung AAR is vendor-distributed and intentionally ignored by Git. Builds without the property remain
+valid but expose Samsung direct sync as unavailable. Release builds must point at the reviewed local AAR. Samsung
+Health Data SDK 1.1.0 requires Android 10, so the unified app uses `minSdk 29`. Xiaomi Scale 2 needs no key; S400
+requires its 32-hex-character BLE bindkey in the in-app encrypted scale settings.
 
 The OIDC client is public and uses Authorization Code + PKCE/S256. The authorization request asks for the exact
 Life API resource. Android treats the access token as an opaque bearer and activates an account only after
@@ -80,5 +94,6 @@ gradle :app:compileDebugKotlin
 
 Health Connect requests the background-read permission only when the installed provider advertises that feature;
 otherwise foreground manual sync remains available. Production request construction and round-state regressions remain available through
-`pnpm test:android-health`. Compilation is not an APK/package or physical-device acceptance. Signed builds,
-installation, Samsung registration, BLE hardware validation and deployment require separate explicit work.
+`pnpm test:android-health`; `:devices:testDebugUnitTest` covers the retained Scale 2/S400 frames and Xiaomi body
+composition formula. Compilation is not physical-device acceptance. Signed builds, Samsung registration and BLE
+hardware validation remain release gates.

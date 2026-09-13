@@ -1,7 +1,8 @@
-plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id("org.jetbrains.kotlin.plugin.compose"); id("org.jetbrains.kotlin.plugin.serialization") }
+plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id("org.jetbrains.kotlin.plugin.compose"); id("org.jetbrains.kotlin.plugin.serialization"); id("kotlin-parcelize") }
+val samsungHealthAar=providers.gradleProperty("SAMSUNG_HEALTH_DATA_AAR").orNull?.let(::file)?.takeIf{it.isFile}
 android { namespace="com.shadow.life"; compileSdk=36
   defaultConfig {
-    applicationId="com.shadow.life"; minSdk=26; targetSdk=36; versionCode=21; versionName="2.0.0"
+    applicationId="com.shadow.life"; minSdk=29; targetSdk=36; versionCode=22; versionName="2.1.0"
     fun configured(name:String,fallback:String)=providers.gradleProperty(name).orElse(fallback).get()
     fun quoted(value:String)="\"${value.replace("\\","\\\\").replace("\"","\\\"")}\""
     buildConfigField("String","SHADOW_API_BASE",quoted(configured("SHADOW_API_BASE","https://api.example.com")))
@@ -9,11 +10,13 @@ android { namespace="com.shadow.life"; compileSdk=36
     buildConfigField("String","SHADOW_OIDC_CLIENT_ID",quoted(configured("SHADOW_OIDC_CLIENT_ID","shadow-life-android")))
     buildConfigField("String","SHADOW_OIDC_REDIRECT_URI",quoted(configured("SHADOW_OIDC_REDIRECT_URI","com.shadow.life:/oauth2redirect")))
     buildConfigField("String","SHADOW_OIDC_RESOURCE",quoted(configured("SHADOW_OIDC_RESOURCE","https://api.example.com")))
+    buildConfigField("boolean","SAMSUNG_HEALTH_DATA_AVAILABLE",(samsungHealthAar!=null).toString())
     manifestPlaceholders["appAuthRedirectScheme"]=configured("SHADOW_OIDC_REDIRECT_SCHEME","com.shadow.life")
     manifestPlaceholders["shadowLifeAppLinkHost"]=configured("SHADOW_APP_LINK_HOST","life.example.com")
   }
   compileOptions { sourceCompatibility=JavaVersion.VERSION_17; targetCompatibility=JavaVersion.VERSION_17 }
   buildFeatures { compose=true; buildConfig=true }
+  if(samsungHealthAar!=null)sourceSets.getByName("main").java.srcDir("src/samsung/kotlin")
 }
 kotlin { jvmToolchain(17) }
 dependencies {
@@ -23,4 +26,6 @@ dependencies {
   implementation(libs.browser)
   implementation(libs.health.connect)
   implementation(libs.appauth)
+  implementation(libs.security.crypto)
+  if(samsungHealthAar!=null){implementation(files(samsungHealthAar));implementation(libs.gson)}
 }

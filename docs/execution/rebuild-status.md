@@ -361,3 +361,28 @@ and [delivery/validation record](library-processing-recovery-delivery-2026-09-11
   (`151` pass, `23` database-gated skips, `0` failures). Android production-policy checks pass (`13` policy and `117`
   round-state assertions plus command/schema migration checks), and `:app:compileDebugKotlin` passes under JDK 17.
   No signed APK, deployment, production data export or physical-device claim is implied by this source-level audit.
+
+## Samsung Health and Xiaomi scale integration (2026-09-13)
+
+- The Android device layer now ports the reviewed Shadow Health `800af69` protocol baseline into the native Life
+  client. Scale 2 `0x181B` stable frames and encrypted S400 MiBeacon frames retain the old AES-CCM decoder,
+  low/high-frequency impedance merge, RTC correction, duplicate suppression and compatible body-composition trend
+  formula. Android 10/11 location permission and Android 12+ nearby-device permissions are handled explicitly.
+- Scale readings are no longer posted directly from a transient Bluetooth callback. Weight, impedance, heart rate
+  and optional profile-derived composition are encoded as typed `health.ingest_raw` records and first committed to
+  the account-bound encrypted Room queue. The S400 bindkey and optional calculation profile are stored through the
+  Android Keystore and do not enter source, server configuration or logs.
+- The vendor Samsung Health Data SDK 1.1.0 is compiled from an ignored, reviewed local AAR. Granted SDK permissions
+  independently gate steps, heart rate, sleep, exercise and body-composition reads. Equivalent Health Connect
+  permissions take precedence for steps, sleep, exercise and weight to avoid double counting; Samsung-only body
+  composition and heart-rate facts remain available. Builds without the AAR compile and expose an honest unavailable
+  state instead of shipping a broken button.
+- The full Node/PostgreSQL run passes `176/176` with all 34 migrations on a fresh isolated database. Generated
+  contracts, dependency boundaries, every TypeScript project, the Web production build, 13 Health policy assertions,
+  117 Android round-state assertions, four production envelope validations, Room 5→6 and 6→7 migrations, five
+  Xiaomi parser/formula fixtures, Samsung-AAR Kotlin compilation and the no-AAR fallback compilation all pass.
+- This closes the source/build/package implementation, not physical-device evidence. No Android device is currently
+  attached, so Samsung app authorization/registration, locked-screen scheduling and actual Scale 2/S400 radio capture
+  still require installation on the target phone. Historical Health business-row migration also remains a separate
+  guarded operation: it needs a restored source snapshot, verified owner→Life subject map and reviewed real-row
+  reconciliation; provider cursors, sessions and keys are deliberately not migrated.

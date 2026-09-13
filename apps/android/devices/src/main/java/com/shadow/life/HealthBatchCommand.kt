@@ -16,6 +16,23 @@ data class HealthBatchContext(
 
 data class HealthQueuedCommand(val commandId:String,val capability:String,val body:String)
 
+fun healthDeviceRecordCommand(
+  accountId:String,subjectId:String,sourceType:String,instanceKey:String,fingerprint:String,
+  recordType:String,clientRecordId:String,recordVersion:Long,payload:JSONObject,parseVersion:String
+):HealthQueuedCommand {
+  require(sourceType in setOf("scale","samsung"))
+  require(recordVersion in 0..9_007_199_254_740_991L)
+  val input=JSONObject().put("source_type",sourceType).put("source_instance_key",instanceKey)
+    .put("source_fingerprint",fingerprint).put("record_type",recordType)
+    .put("client_record_id",clientRecordId).put("provider_record_id",clientRecordId)
+    .put("record_version",recordVersion).put("sync_epoch",1).put("change_kind","upsert")
+    .put("payload",payload).put("parse_version",parseVersion)
+  val identity=JSONArray(listOf(accountId,subjectId,sourceType,instanceKey,recordType,clientRecordId,recordVersion)).toString()
+  val commandId="cmd_${sourceType}_${MessageDigest.getInstance("SHA-256").digest(identity.toByteArray()).joinToString(""){"%02x".format(it)}.take(32)}"
+  val capability="health.ingest_raw"
+  return HealthQueuedCommand(commandId,capability,JSONObject().put("protocol","shadow.command").put("capability",capability).put("command_id",commandId).put("input",input).toString())
+}
+
 // This is the request builder used by the Android Worker and the JVM contract checks.
 fun healthBatchCommand(context:HealthBatchContext,page:HealthPage):HealthQueuedCommand {
   require(!page.expired)

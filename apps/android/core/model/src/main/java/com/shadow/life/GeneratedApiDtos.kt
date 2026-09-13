@@ -2159,6 +2159,13 @@ data class HealthRecordResultDtoMeasurement(
 enum class HealthRecordResultDtoObservationFactMetricKey(val wireValue: String) {
   @SerialName("weight") Weight("weight"),
   @SerialName("body_fat") BodyFat("body_fat"),
+  @SerialName("muscle_mass") MuscleMass("muscle_mass"),
+  @SerialName("skeletal_muscle") SkeletalMuscle("skeletal_muscle"),
+  @SerialName("body_water") BodyWater("body_water"),
+  @SerialName("visceral_fat") VisceralFat("visceral_fat"),
+  @SerialName("bmr") Bmr("bmr"),
+  @SerialName("impedance_low") ImpedanceLow("impedance_low"),
+  @SerialName("impedance_high") ImpedanceHigh("impedance_high"),
   @SerialName("waist") Waist("waist"),
   @SerialName("chest") Chest("chest"),
   @SerialName("hip") Hip("hip"),

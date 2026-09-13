@@ -32,7 +32,7 @@ import androidx.navigation.toRoute
 
 private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
 
-@Composable fun LifeApp(session:ProductSession?,viewModel:NativeLifeViewModel,appearance:Appearance,statusMessage:String?,pendingShare:SharePayload?,notificationAuthorization:String?,openInboxNonce:Long,onAcceptShare:(SharePayload)->Unit,onDiscardShare:()->Unit,onDismissStatus:()->Unit,onAppearance:(Appearance)->Unit,onLogin:()->Unit,onLogout:()->Unit,onHealthSync:()->Unit,onNotificationPermission:()->Unit){
+@Composable fun LifeApp(session:ProductSession?,viewModel:NativeLifeViewModel,appearance:Appearance,statusMessage:String?,pendingShare:SharePayload?,notificationAuthorization:String?,openInboxNonce:Long,scaleSettings:ScaleProfileSettings,onAcceptShare:(SharePayload)->Unit,onDiscardShare:()->Unit,onDismissStatus:()->Unit,onAppearance:(Appearance)->Unit,onLogin:()->Unit,onLogout:()->Unit,onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onSaveScale:(ScaleProfileSettings)->Unit,onNotificationPermission:()->Unit){
   val nav=rememberNavController();var composerOpen by rememberSaveable{mutableStateOf(false)}
   LaunchedEffect(session?.accountId){if(session==null)viewModel.deactivateAccount() else viewModel.activateAccount(session.accountId)}
   LaunchedEffect(session?.accountId,notificationAuthorization){if(session!=null&&notificationAuthorization!=null)viewModel.registerNotificationDevice(notificationAuthorization)}
@@ -59,7 +59,7 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
       composable<PlanDetailRoute>{backStack->val route=backStack.toRoute<PlanDetailRoute>();val plan=(viewModel.plans as? LoadState.Ready)?.value?.projects?.firstOrNull{it.id==route.id};PlanDetailScreen(plan,{kind,id->openPlanningRelated(nav,viewModel,kind,id)},{nav.popBackStack()})}
       composable<OwnedItemDetailRoute>{backStack->val route=backStack.toRoute<OwnedItemDetailRoute>();val item=(viewModel.plans as? LoadState.Ready)?.value?.ownedItems?.firstOrNull{it.id==route.id};OwnedItemDetailScreen(item,{kind,id->openPlanningRelated(nav,viewModel,kind,id)},{nav.popBackStack()})}
       composable<ReviewDetailRoute>{backStack->val route=backStack.toRoute<ReviewDetailRoute>();val review=(viewModel.plans as? LoadState.Ready)?.value?.reviews?.firstOrNull{it.id==route.id};ReviewDetailScreen(review,{evidence->openReviewEvidence(nav,viewModel,evidence)},{nav.popBackStack()})}
-      composable<SettingsRoute>{SettingsScreen(session,appearance,viewModel.queueStatus,onAppearance,onHealthSync,viewModel::retryQueue,viewModel::clearTerminalQueue,onLogout,{nav.popBackStack()},{nav.navigate(ConnectionsRoute)},{viewModel.refreshInbox();nav.navigate(InboxRoute)})}
+      composable<SettingsRoute>{SettingsScreen(session,appearance,viewModel.queueStatus,scaleSettings,onAppearance,onHealthSync,onSamsungSync,onScale,onSaveScale,viewModel::retryQueue,viewModel::clearTerminalQueue,onLogout,{nav.popBackStack()},{nav.navigate(ConnectionsRoute)},{viewModel.refreshInbox();nav.navigate(InboxRoute)})}
       composable<ConnectionsRoute>{ProjectDirectoryScreen(viewModel.projectLinks,viewModel::refreshProjectLinks){nav.popBackStack()}}
       composable<InboxRoute>{InboxScreen(viewModel.inbox,viewModel::refreshInbox,viewModel::loadMoreInbox,viewModel::updateNotification,viewModel::setNotificationPreferences,onNotificationPermission){nav.popBackStack()}}
     }
@@ -107,8 +107,12 @@ private fun SettingsScreen(
   session:ProductSession,
   appearance:Appearance,
   queueState:LoadState<QueueSummary>,
+  scaleSettings:ScaleProfileSettings,
   onAppearance:(Appearance)->Unit,
   onHealthSync:()->Unit,
+  onSamsungSync:()->Unit,
+  onScale:()->Unit,
+  onSaveScale:(ScaleProfileSettings)->Unit,
   onRetryQueue:()->Unit,
   onClearQueue:()->Unit,
   onLogout:()->Unit,
@@ -116,7 +120,7 @@ private fun SettingsScreen(
   onProjects:()->Unit,
   onInbox:()->Unit
 ){
-  var confirmClear by remember{mutableStateOf(false)}
+  var confirmClear by remember{mutableStateOf(false)};var editScale by remember{mutableStateOf(false)}
   Scaffold(
     topBar={TopAppBar(title={Text("设置")},navigationIcon={IconButton(onClick=onBack){Text("‹",style=MaterialTheme.typography.headlineLarge)}})}
   ){padding->
@@ -167,6 +171,10 @@ private fun SettingsScreen(
       LifeSection("连接"){
         OutlinedButton(onClick=onInbox,Modifier.fillMaxWidth().heightIn(min=52.dp)){Text("提醒与收件箱")}
         OutlinedButton(onClick=onHealthSync,Modifier.fillMaxWidth().heightIn(min=52.dp)){Text("同步 Health Connect")}
+        OutlinedButton(onClick=onSamsungSync,enabled=SamsungHealthBridge.available(),modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)){Text(if(SamsungHealthBridge.available())"同步 Samsung Health" else "Samsung SDK 未包含在此构建")}
+        Button(onClick=onScale,Modifier.fillMaxWidth().heightIn(min=52.dp)){Text("小米体脂秤称重")}
+        OutlinedButton(onClick={editScale=true},Modifier.fillMaxWidth().heightIn(min=52.dp)){Text("体脂秤档案与 S400")}
+        Text(if(scaleSettings.profile()!=null)"体成分档案已配置${if(scaleSettings.hasS400Key)" · S400 bindkey 已配置" else ""}" else "未配置完整档案时仍保存体重与阻抗，不推测体脂",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         OutlinedButton(onClick=onProjects,Modifier.fillMaxWidth().heightIn(min=52.dp)){Text("其他项目与连接")}
       }
       Text("退出后待上传内容仍按当前账号加密保留。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
@@ -182,6 +190,12 @@ private fun SettingsScreen(
       confirmButton={TextButton(onClick={confirmClear=false;onClearQueue()}){Text("确认清理",color=MaterialTheme.colorScheme.error)}}
     )
   }
+  if(editScale)ScaleSettingsDialog(scaleSettings,{editScale=false;onSaveScale(it)},{editScale=false})
+}
+
+@Composable private fun ScaleSettingsDialog(current:ScaleProfileSettings,onSave:(ScaleProfileSettings)->Unit,onDismiss:()->Unit){
+  var sex by remember(current){mutableStateOf(current.sex)};var birth by remember(current){mutableStateOf(current.birthDate)};var height by remember(current){mutableStateOf(current.heightCm)};var key by remember(current){mutableStateOf(current.s400Bindkey)}
+  AlertDialog(onDismissRequest=onDismiss,title={Text("体脂秤设置")},text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)){Text("档案仅用于兼容旧 Health 的小米 BIA 趋势公式；bindkey 使用系统 Keystore 加密保存。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant);Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){FilterChip(sex=="male",{sex="male"},{Text("男")});FilterChip(sex=="female",{sex="female"},{Text("女")})};OutlinedTextField(birth,{birth=it},label={Text("生日 YYYY-MM-DD")},singleLine=true);OutlinedTextField(height,{height=it},label={Text("身高 cm")},singleLine=true);OutlinedTextField(key,{key=it.trim()},label={Text("S400 bindkey（体脂秤 2 留空）")},singleLine=true,visualTransformation=androidx.compose.ui.text.input.PasswordVisualTransformation())}},dismissButton={TextButton(onClick=onDismiss){Text("取消")}},confirmButton={Button(onClick={onSave(ScaleProfileSettings(sex,birth,height,key))}){Text("保存")}})
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

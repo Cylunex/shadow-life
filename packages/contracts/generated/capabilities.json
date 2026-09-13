@@ -37967,6 +37967,13 @@
                     "enum": [
                       "weight",
                       "body_fat",
+                      "muscle_mass",
+                      "skeletal_muscle",
+                      "body_water",
+                      "visceral_fat",
+                      "bmr",
+                      "impedance_low",
+                      "impedance_high",
                       "waist",
                       "chest",
                       "hip",
