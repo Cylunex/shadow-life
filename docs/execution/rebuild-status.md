@@ -341,3 +341,23 @@ and [delivery/validation record](library-processing-recovery-delivery-2026-09-11
   must complete browser callback, Keystore/process-death, Health Connect, Samsung and BLE runs; a verified NDJSON
   Agent Runtime, OCR/transcript processor and route provider must be selected and configured before those optional
   integrations can be claimed as production-available.
+
+## Fixed-SHA audit plan follow-up (2026-09-13)
+
+- The independent `10933ce` audit was rechecked against the later native delivery source rather than accepted as a
+  current-state checklist. Confirmed defects were fixed: meal workspace queries now use the bounded, domain-filtered
+  `life.search` contract and its cursor; the Library root retains and appends its cursor; review metrics and coverage
+  preserve actual values and link supported evidence back to records; Today and Health show real weight/steps/sleep
+  states instead of a fact count or fabricated zero.
+- Refund capture now selects a visible transaction and leaves currency validation to the existing exact CNY refund
+  contract; foreign refunds remain explicitly unavailable instead of being converted silently. A manual meal accepts
+  multiple food rows with optional positive decimal quantity/unit pairs and omits unknown nutrition. Single-file PDF
+  shares have an explicit MIME entry.
+- Travel initialization now honors `?trip=…`, treats a later blank selection as the user's location-collection choice,
+  and fences late workspace responses by request sequence. Android read DTOs ignore additive unknown response fields
+  while command inputs remain strict. Health Connect declares background read and requests it only when the provider
+  reports the feature; denial keeps foreground manual sync available.
+- Generated contracts, dependency boundaries, every TypeScript typecheck and the complete non-PostgreSQL suite pass
+  (`151` pass, `23` database-gated skips, `0` failures). Android production-policy checks pass (`13` policy and `117`
+  round-state assertions plus command/schema migration checks), and `:app:compileDebugKotlin` passes under JDK 17.
+  No signed APK, deployment, production data export or physical-device claim is implied by this source-level audit.

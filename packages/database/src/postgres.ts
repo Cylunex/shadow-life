@@ -32,7 +32,8 @@ function domainRecordSummary(row:{kind:string;id:string;page_at:string;value:Rec
   const happenedOn=text("occurred_on","wake_date","starts_on","plan_date");
   const recordId=text("record_id")??(row.kind==="trip"?row.id:text("trip_id"));
   const revision=typeof value.revision==="number"&&Number.isSafeInteger(value.revision)&&value.revision>0?value.revision:null;
-  return{kind:row.kind,id:row.id,title,supporting:text("occurred_on","wake_date","starts_on","plan_date","ends_on","state"),happened_on:happenedOn,state:text("state","ownership_state"),revision,record_id:recordId,amount:text("amount"),currency:text("currency"),_page_at:row.page_at};
+  const entryType=text("entry_type") as "expense"|"income"|"refund"|null;
+  return{kind:row.kind,id:row.id,title,supporting:text("occurred_on","wake_date","starts_on","plan_date","ends_on","state"),happened_on:happenedOn,state:text("state","ownership_state"),revision,record_id:recordId,amount:text("amount"),currency:text("currency"),...(entryType?{entry_type:entryType}:{}),_page_at:row.page_at};
 }
 function remapPlanSnapshot(value:unknown,places:ReadonlyMap<string,string>):unknown{
   if(!value||typeof value!=="object"||!Array.isArray((value as {days?:unknown}).days))throw new Error("Travel Bundle plan snapshot is invalid");

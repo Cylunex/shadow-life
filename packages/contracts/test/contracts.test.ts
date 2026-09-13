@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { capabilityRegistry, commandEnvelopeSchema, healthSourcesResultSchema, lifeTimelineInputSchema, lifeTodayInputSchema, lifeTodayResultSchema, moneyPlanningInputSchema, projectDirectoryResultSchema, publishTripPlanInputSchema, recordDiningInputSchema, recordMealInputSchema, setHealthPlanInputSchema, setHealthSourceStateInputSchema, setRecurringPlanInputSchema, setTripDayPlanInputSchema, setTripStopOutcomeInputSchema, universalCommandEnvelopeSchema } from "../src/index.js";
+import { capabilityRegistry, commandEnvelopeSchema, domainRecordsResultSchema, healthSourcesResultSchema, lifeTimelineInputSchema, lifeTodayInputSchema, lifeTodayResultSchema, moneyPlanningInputSchema, projectDirectoryResultSchema, publishTripPlanInputSchema, recordDiningInputSchema, recordMealInputSchema, setHealthPlanInputSchema, setHealthSourceStateInputSchema, setRecurringPlanInputSchema, setTripDayPlanInputSchema, setTripStopOutcomeInputSchema, universalCommandEnvelopeSchema } from "../src/index.js";
 
 const meal = {
   occurred_on: "2026-09-08",
@@ -54,6 +54,12 @@ test("today attention remains bounded and defaults safely for older read rows",(
 });
 
 test("money import is staged separately from candidate accounting decisions",()=>{assert.deepEqual(capabilityRegistry["money.stage_import"].resolveEffects(),["money.entry.write"]);assert.equal(capabilityRegistry["money.resolve_import_candidate"].inputSchema.safeParse({candidate_id:"import_candidate_12345678",expected_revision:1,decision:"ignore",corrections:{amount:"1.00"},reason:"忽略重复交易"}).success,false);assert.equal(capabilityRegistry["money.resolve_import_candidate"].inputSchema.safeParse({candidate_id:"import_candidate_12345678",expected_revision:1,decision:"confirm",corrections:{entry_type:"expense",amount:"18.00",currency:"CNY",occurred_on:"2026-09-10",time_zone:"Asia/Shanghai"},reason:"核对原始账单"}).success,true);assert.equal(capabilityRegistry["money.set_import_rule"].inputSchema.safeParse({match_value:"退款平台",replacements:{entry_type:"refund"},state:"active"}).success,false);assert.equal(capabilityRegistry["money.set_import_rule"].inputSchema.safeParse({match_value:"社区超市",replacements:{category:"日用"},state:"active"}).success,true);});
+
+test("domain money summaries expose only canonical entry types",()=>{
+  const result={items:[{kind:"money_entry",id:"money_12345678",title:"午餐",supporting:"2026-09-10",happened_on:"2026-09-10",state:null,revision:1,record_id:"record_12345678",amount:"35.00",currency:"CNY",entry_type:"expense"}],next_cursor:null,as_of:"2026-09-10T00:00:00Z"};
+  assert.equal(domainRecordsResultSchema.safeParse(result).success,true);
+  assert.equal(domainRecordsResultSchema.safeParse({...result,items:[{...result.items[0],entry_type:"transfer"}]}).success,false);
+});
 
 test("dining keeps purchased goods, consumed nutrition and source roles distinct",()=>{
   const base={occurred_on:"2026-09-09",time_zone:"Asia/Shanghai",meal_type:"lunch",consumed_items:[{name:"牛肉丸",consumed_fraction:"0.5",estimate:false}],purchased_items:[{raw_name:"牛肉丸套餐",quantity:"1",line_amount:"18.00"}],sources:[{kind:"image",role:"order_screenshot",captured_on:"2026-09-09",asset_version_id:"asset_version_12345678"}]} as const;

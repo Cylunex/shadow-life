@@ -10,6 +10,13 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 
 @Serializable
+enum class DomainRecordsResultDtoItemsEntryEntryType(val wireValue: String) {
+  @SerialName("expense") Expense("expense"),
+  @SerialName("income") Income("income"),
+  @SerialName("refund") Refund("refund")
+}
+
+@Serializable
 data class DomainRecordsResultDtoItemsEntry(
   @SerialName("kind") val kind: String,
   @SerialName("id") val id: String,
@@ -20,7 +27,8 @@ data class DomainRecordsResultDtoItemsEntry(
   @SerialName("revision") val revision: Long?,
   @SerialName("record_id") val recordId: String?,
   @SerialName("amount") val amount: String?,
-  @SerialName("currency") val currency: String?
+  @SerialName("currency") val currency: String?,
+  @SerialName("entry_type") val entryType: DomainRecordsResultDtoItemsEntryEntryType? = null
 )
 
 @Serializable

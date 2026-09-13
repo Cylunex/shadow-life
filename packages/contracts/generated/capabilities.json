@@ -37340,6 +37340,14 @@
                       "type": "null"
                     }
                   ]
+                },
+                "entry_type": {
+                  "type": "string",
+                  "enum": [
+                    "expense",
+                    "income",
+                    "refund"
+                  ]
                 }
               },
               "required": [
@@ -37535,6 +37543,14 @@
                     {
                       "type": "null"
                     }
+                  ]
+                },
+                "entry_type": {
+                  "type": "string",
+                  "enum": [
+                    "expense",
+                    "income",
+                    "refund"
                   ]
                 }
               },
@@ -43244,6 +43260,14 @@
                       "type": "null"
                     }
                   ]
+                },
+                "entry_type": {
+                  "type": "string",
+                  "enum": [
+                    "expense",
+                    "income",
+                    "refund"
+                  ]
                 }
               },
               "required": [
@@ -45484,6 +45508,14 @@
                     {
                       "type": "null"
                     }
+                  ]
+                },
+                "entry_type": {
+                  "type": "string",
+                  "enum": [
+                    "expense",
+                    "income",
+                    "refund"
                   ]
                 }
               },

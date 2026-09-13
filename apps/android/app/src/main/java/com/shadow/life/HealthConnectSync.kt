@@ -3,6 +3,7 @@ package com.shadow.life
 import android.content.Context
 import android.provider.Settings
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.HealthConnectFeatures
 import androidx.health.connect.client.changes.DeletionChange
 import androidx.health.connect.client.changes.UpsertionChange
 import androidx.health.connect.client.permission.HealthPermission
@@ -43,6 +44,8 @@ import kotlin.reflect.KClass
 object HealthConnectSync {
   private val recordTypes=setOf(WeightRecord::class,StepsRecord::class,SleepSessionRecord::class,ExerciseSessionRecord::class)
   val permissions:Set<String> = recordTypes.map(HealthPermission::getReadPermission).toSet()
+  fun backgroundPermission(client:HealthConnectClient):String?=HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND.takeIf{client.features.getFeatureStatus(HealthConnectFeatures.FEATURE_READ_HEALTH_DATA_IN_BACKGROUND)==HealthConnectFeatures.FEATURE_STATUS_AVAILABLE}
+  fun requestedPermissions(client:HealthConnectClient):Set<String> = permissions+listOfNotNull(backgroundPermission(client))
   fun hasAnySupportedPermission(granted:Set<String>)=granted.any{it in permissions}
   fun available(context:Context)=HealthConnectClient.getSdkStatus(context)==HealthConnectClient.SDK_AVAILABLE
 }

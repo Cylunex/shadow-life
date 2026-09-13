@@ -19,7 +19,10 @@ transport response as complete.
 Timeline, search, and domain lists retain server cursors for incremental loading. Editable meal, money, manual
 health, trip, and library details submit version-checked correction commands through the same encrypted queue.
 Manual capture keeps the local fact date editable. Expense capture preserves optional category and payment
-method; library capture accepts content without forcing a title and derives a bounded default from its first line.
+method. Refund capture selects a visible CNY transaction instead of asking for an internal ID, while foreign
+refunds remain explicitly outside that contract. Meal capture accepts multiple food lines and optional decimal
+quantity/unit pairs without fabricating nutrition values. Library capture accepts content without forcing a title
+and derives a bounded default from its first line.
 Reads use typed presentation models backed by the Life API, while
 writes first enter the account-bound encrypted command queue and retain their command ID until the authoritative
 receipt is known.
@@ -31,6 +34,10 @@ delivery state are independent; Android requests notification permission only wh
 keeps generic reminder content in the in-app inbox when permission is denied.
 Health, money, travel, meal and library entries open native domain workspaces with their own source, planning,
 trip, shopping or content summary while retaining server-side search, pagination and typed detail navigation.
+The dedicated Library root also retains its server cursor, deduplicates appended pages and keeps search paging
+separate from the unfiltered list. Review details retain metric values, original currency labels, coverage and
+openable evidence instead of reducing a review to JSON keys. Health cards distinguish missing permission, no
+record, partial read failure and real values; unavailable measurements are never rendered as zero.
 
 Android `ACTION_SEND` and `ACTION_SEND_MULTIPLE` enter an account-assignment confirmation before any business
 write. Shared text is captured with a stable command identity. Every shared attachment is copied immediately
@@ -71,6 +78,7 @@ Use JDK 17 and an Android 36 SDK:
 gradle :app:compileDebugKotlin
 ```
 
-Health Connect production request construction and round-state regressions remain available through
+Health Connect requests the background-read permission only when the installed provider advertises that feature;
+otherwise foreground manual sync remains available. Production request construction and round-state regressions remain available through
 `pnpm test:android-health`. Compilation is not an APK/package or physical-device acceptance. Signed builds,
 installation, Samsung registration, BLE hardware validation and deployment require separate explicit work.

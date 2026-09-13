@@ -57,17 +57,24 @@ data class TodaySnapshot(
   val currentTrips:List<CurrentTrip> = emptyList(),
   val libraryCaptured:Int?=null,
   val syncIssueCount:Int=0,
+  val health:TodayHealthSummary=TodayHealthSummary(HealthSummaryState.NotAuthorized),
   val asOf:String
+)
+enum class HealthSummaryState { NotAuthorized, Empty, Ready, Failed }
+data class TodayHealthSummary(
+  val state:HealthSummaryState,
+  val weight:String?=null,val weightUnit:String?=null,val weightOn:String?=null,
+  val steps:Long?=null,val sleepMinutes:Long?=null,val updatedAt:String?=null
 )
 data class MoneyTotal(val currency:String,val netSpending:String,val income:String)
 data class TimelineItem(val domain:LifeDomain,val kind:String,val id:String,val happenedAt:String,val title:String,val amount:String?=null,val currency:String?=null,val recordId:String?=null)
 data class TimelinePage(val items:List<TimelineItem>,val nextCursor:String?,val asOf:String)
-data class RecordSummary(val domain:LifeDomain,val kind:String,val id:String,val title:String,val supporting:String?,val trailing:String?,val revision:Int?,val detailId:String?=null)
+data class RecordSummary(val domain:LifeDomain,val kind:String,val id:String,val title:String,val supporting:String?,val trailing:String?,val revision:Int?,val detailId:String?=null,val subtype:String?=null)
 data class RecordPage(val items:List<RecordSummary>,val nextCursor:String?,val asOf:String)
 sealed interface WorkspaceOverview { val asOf:String
   data class Meals(val mealPlans:Int,val shoppingLists:Int,val openShoppingItems:Int,override val asOf:String):WorkspaceOverview
   data class Money(val period:String,val budgets:List<BudgetProgress>,val recurringPlans:Int,val openOccurrences:Int,val spendingIntents:Int,override val asOf:String):WorkspaceOverview
-  data class Health(val sources:Int,val sourcesNeedingAttention:Int,val streams:Int,override val asOf:String):WorkspaceOverview
+  data class Health(val sources:Int,val sourcesNeedingAttention:Int,val streams:Int,val summary:TodayHealthSummary,override val asOf:String):WorkspaceOverview
   data class Travel(val trips:Int,val places:Int,val maps:Int,val activeRun:Boolean,override val asOf:String):WorkspaceOverview
   data class Library(val visibleItems:Int,override val asOf:String):WorkspaceOverview
 }
@@ -90,13 +97,16 @@ data class OwnedItemSummary(
   val documentItems:List<PlanningLink> = emptyList(),val eventItems:List<OwnedItemEvent> = emptyList()
 )
 data class ReviewEvidence(val kind:String,val id:String,val revision:Int)
+data class ReviewMetric(val label:String,val value:String)
+data class ReviewMetricGroup(val title:String,val values:List<ReviewMetric>)
 data class ReviewSummary(
   val id:String,val fromOn:String,val toOn:String,val algorithmVersion:String,val revision:Int,val generatedAt:String,val metrics:Int,val limitations:Int,
-  val timeZone:String="",val domains:List<String> = emptyList(),val metricKeys:List<String> = emptyList(),val coverageKeys:List<String> = emptyList(),
+  val timeZone:String="",val domains:List<String> = emptyList(),val metricGroups:List<ReviewMetricGroup> = emptyList(),val coverageGroups:List<ReviewMetricGroup> = emptyList(),
   val evidence:List<ReviewEvidence> = emptyList(),val limitationItems:List<String> = emptyList()
 )
 data class PlanningWorkspace(val agenda:List<AgendaItem>,val projects:List<PlanSummary>,val ownedItems:List<OwnedItemSummary>,val reviews:List<ReviewSummary>,val truncated:Boolean,val asOf:String,val partialFailures:List<String> = emptyList())
 data class LibrarySummary(val id:String,val title:String,val itemType:String,val state:String?,val revision:Int?)
+data class LibraryPage(val items:List<LibrarySummary>,val nextCursor:String?,val asOf:String)
 data class DetailFact(val label:String,val value:String)
 data class DetailSection(val title:String,val facts:List<DetailFact> = emptyList(),val itemCount:Int?=null)
 sealed interface EditSeed { val domain:LifeDomain;val detailId:String

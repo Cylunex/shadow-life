@@ -8,6 +8,11 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -19,7 +24,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 
 class NativeLifeRepository(private val context:Context,private val app:ShadowApp) {
-  private val wireJson=Json { ignoreUnknownKeys=false }
+  private val wireJson=Json { ignoreUnknownKeys=true }
   fun queueStatus(session:ProductSession)=app.queue.observeStatus(session)
   suspend fun retryQueue(session:ProductSession):Int=app.queue.retry(session).also{SyncScheduler.schedule(context,session.accountId,true)}
   suspend fun clearTerminalQueue(session:ProductSession):Int=app.queue.clearTerminal(session)
@@ -40,12 +45,13 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     val zone=ZoneId.systemDefault().id
     val result=wireJson.decodeFromString<LifeTodayResultDto>(getText("/api/today?date=$date&time_zone=${encode(zone)}"))
     val domains=result.domains
+    val health=if(domains.health==null)TodayHealthSummary(HealthSummaryState.NotAuthorized) else healthSummary(date)
     return TodaySnapshot(
       date=result.date,mealCount=domains.meals?.count?.toInt(),healthFacts=domains.health?.facts?.toInt(),
       moneyTotals=domains.money?.totals?.map{MoneyTotal(it.currency,it.netSpending,it.income)}.orEmpty(),
       dueItems=domains.money?.dueItems?.map{DueItem(it.id,it.title,it.dueOn,it.amount,it.currency)}.orEmpty(),
       currentTrips=domains.travel?.currentTrips?.map{CurrentTrip(it.id,it.title,it.startsOn,it.endsOn)}.orEmpty(),
-      libraryCaptured=domains.library?.captured?.toInt(),syncIssueCount=domains.health?.syncIssues?.size?:0,asOf=result.asOf
+      libraryCaptured=domains.library?.captured?.toInt(),syncIssueCount=domains.health?.syncIssues?.size?:0,health=health,asOf=result.asOf
     )
   }
 
@@ -58,7 +64,12 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   }
 
   suspend fun search(query:String,cursor:String?=null):RecordPage {
-    val result=wireJson.decodeFromString<LifeSearchResultDto>(getText("/api/search?q=${encode(query)}&limit=50${cursor?.let{"&cursor=${encode(it)}"}.orEmpty()}"))
+    return search(query,cursor,null)
+  }
+
+  private suspend fun search(query:String,cursor:String?,domains:Set<LifeDomain>?):RecordPage {
+    val filters=domains?.takeIf{it.isNotEmpty()}?.joinToString(",",prefix="&types="){it.name.lowercase()}.orEmpty()
+    val result=wireJson.decodeFromString<LifeSearchResultDto>(getText("/api/search?q=${encode(query)}&limit=50$filters${cursor?.let{"&cursor=${encode(it)}"}.orEmpty()}"))
     return RecordPage(result.items.map{item->
       RecordSummary(domainFromWire(item.domain.wireValue),item.kind,item.id,item.title,item.supporting?:item.happenedOn,item.amount?.let{listOfNotNull(item.currency,it).joinToString(" ")},null,item.recordId)
     },result.nextCursor,result.asOf)
@@ -106,6 +117,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   suspend fun records(domain:LifeDomain,query:String="",cursor:String?=null):RecordPage {
     val apiDomain=when(domain){LifeDomain.Meals->"life";else->domain.name.lowercase()}
     if(domain==LifeDomain.Meals){
+      if(query.isNotBlank())return search(query,cursor,setOf(LifeDomain.Meals))
       val result=wireJson.decodeFromString<ListMealsResultDto>(getText("/api/meals?limit=50${cursor?.let{"&cursor=${encode(it)}"}.orEmpty()}"))
       return RecordPage(result.items.map{item->
         RecordSummary(domain,"meal",item.id,item.items.map{it.name}.filter(String::isNotBlank).joinToString("、").ifBlank{mealTypeLabel(item.mealType.wireValue)},item.occurredOn,item.payments.joinToString(" + "){"${it.currency} ${it.amount}"}.ifBlank{null},item.revision.toInt())
@@ -115,7 +127,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     val result=wireJson.decodeFromString<DomainRecordsResultDto>(getText("/api/$apiDomain?$params"))
     return RecordPage(result.items.map{item->
       val trailing=item.amount?.let{value->listOfNotNull(item.currency,value).joinToString(" ")}
-      RecordSummary(domain,item.kind,item.id,item.title,item.supporting,trailing,item.revision?.toInt(),item.recordId)
+      RecordSummary(domain,item.kind,item.id,item.title,item.supporting,trailing,item.revision?.toInt(),item.recordId,item.entryType?.wireValue)
     },result.nextCursor,result.asOf)
   }
 
@@ -142,12 +154,13 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       )
     }
     LifeDomain.Health->{
-      val result=wireJson.decodeFromString<HealthSourcesResultDto>(getText("/api/health/sources"))
+      val result=wireJson.decodeFromString<HealthSourcesResultDto>(getText("/api/health/sources"));val summary=healthSummary(LocalDate.now())
       val items=result.items
       WorkspaceOverview.Health(
         sources=items.size,
         sourcesNeedingAttention=items.count{it.permissionState!="granted"||it.cursors.any{cursor->cursor.state!="active"}},
         streams=items.sumOf{it.cursors.size},
+        summary=summary,
         asOf=result.asOf
       )
     }
@@ -191,7 +204,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       reviews=reviews?.items?.map{item->ReviewSummary(
         id=item.id,fromOn=item.fromOn,toOn=item.toOn,algorithmVersion=item.algorithmVersion,revision=item.revision.toInt(),generatedAt=item.generatedAt,
         metrics=item.metrics.size,limitations=item.limitations.size,timeZone=item.timeZone,domains=item.domains.map{it.wireValue},
-        metricKeys=item.metrics.keys.sorted(),coverageKeys=item.coverage.keys.sorted(),
+        metricGroups=reviewGroups(item.metrics),coverageGroups=reviewGroups(item.coverage),
         evidence=item.evidence.map{evidence->ReviewEvidence(evidence.type,evidence.id,evidence.revision.toInt())},limitationItems=item.limitations
       )}.orEmpty(),
       truncated=agenda.truncated,asOf=agenda.asOf,
@@ -238,7 +251,10 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     enqueueCommand(primary.capability,input)
   }
 
-  suspend fun library(query:String=""):List<LibrarySummary> = records(LifeDomain.Library,query).items.map{LibrarySummary(it.id,it.title,it.kind,it.supporting,it.revision)}
+  suspend fun library(query:String="",cursor:String?=null):LibraryPage {
+    val page=records(LifeDomain.Library,query,cursor)
+    return LibraryPage(page.items.map{LibrarySummary(it.id,it.title,it.kind,it.supporting,it.revision)},page.nextCursor,page.asOf)
+  }
 
   suspend fun detail(domain:LifeDomain,id:String):RecordDetail {
     val path=when(domain){LifeDomain.Meals->"/api/life/records/$id";LifeDomain.Health->"/api/health/records/$id";LifeDomain.Travel->"/api/travel/trips/$id";LifeDomain.Library->"/api/library/items/$id";LifeDomain.Money->"/api/life/records/$id?sections=money"}
@@ -253,7 +269,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       CaptureKind.Expense->JSONObject().put("entry_type",if(draft.option=="income")"income" else "expense").put("amount",money(draft.primary)).put("currency","CNY").put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).apply{draft.secondary.trim().takeIf(String::isNotBlank)?.let{put("counterparty",it)};draft.category.trim().takeIf(String::isNotBlank)?.let{put("category",it)};draft.paymentMethod.takeIf(String::isNotBlank)?.let{put("payment_method",it)};draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
       CaptureKind.Purchase->JSONObject().put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).put("scene",draft.option.ifBlank{"other"}).put("merchant_name_raw",draft.primary.trim()).put("items",JSONArray().put(JSONObject().put("raw_name",draft.primary.trim()).apply{draft.secondary.trim().takeIf(String::isNotBlank)?.let{put("line_amount",money(it))}})).apply{draft.category.trim().takeIf(String::isNotBlank)?.let{put("channel_name_raw",it)};draft.secondary.trim().takeIf(String::isNotBlank)?.let{put("payment",JSONObject().put("amount",money(it)).put("currency","CNY").put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).apply{draft.paymentMethod.takeIf(String::isNotBlank)?.let{method->put("payment_method",method)}})};draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
       CaptureKind.Refund->JSONObject().put("original_entry_id",draft.secondary.trim()).put("amount",money(draft.primary)).put("currency","CNY").put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
-      CaptureKind.Meal->JSONObject().put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).put("meal_type",draft.option.ifBlank{"other"}).put("items",JSONArray().put(JSONObject().put("name",draft.primary.trim()).put("free_text",draft.primary.trim()).put("estimate",false))).apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
+      CaptureKind.Meal->JSONObject().put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).put("meal_type",draft.option.ifBlank{"other"}).put("items",mealItems(draft.primary)).apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
       CaptureKind.Health->JSONObject().put("metric",draft.option.ifBlank{"weight"}).put("value",decimal(draft.primary)).put("unit",draft.secondary.trim()).put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
       CaptureKind.Workout->JSONObject().put("session_type",draft.primary.trim()).put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).apply{draft.secondary.trim().takeIf(String::isNotBlank)?.let{put("duration_minutes",it.toIntOrNull()?:error("训练时长必须是整数分钟"))};draft.note.trim().takeIf(String::isNotBlank)?.let{put("detail",JSONObject().put("note",it))}}
       CaptureKind.Visit->JSONObject().put("place_name",draft.primary.trim()).put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).put("visibility","private").apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
@@ -286,6 +302,19 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
 
   private fun displayName(uri:Uri):String=runCatching{context.contentResolver.query(uri,arrayOf(OpenableColumns.DISPLAY_NAME),null,null,null)?.use{cursor->if(cursor.moveToFirst())cursor.getString(0) else null}}.getOrNull()?.trim()?.take(300)?.takeIf(String::isNotBlank)?:""
 
+  private fun mealItems(value:String):JSONArray{
+    val result=JSONArray()
+    value.lineSequence().map(String::trim).filter(String::isNotBlank).forEachIndexed{index,line->
+      val parts=line.replace('｜','|').split('|').map(String::trim)
+      if(parts.size !in setOf(1,3)||parts.first().isBlank())error("第 ${index+1} 行请填写名称，或使用 名称 | 份量 | 单位")
+      val item=JSONObject().put("name",parts[0]).put("free_text",line).put("estimate",false)
+      if(parts.size==3){val quantity=runCatching{java.math.BigDecimal(parts[1]).stripTrailingZeros()}.getOrNull()?.takeIf{it>java.math.BigDecimal.ZERO}?:error("第 ${index+1} 行份量必须是正数");if(parts[2].isBlank())error("第 ${index+1} 行缺少单位");item.put("quantity",quantity.toPlainString()).put("unit",parts[2])}
+      result.put(item)
+    }
+    if(result.length()==0)error("请至少填写一种食物")
+    return result
+  }
+
   private suspend fun getText(path:String):String=withContext(Dispatchers.IO){
     val session=app.sessions.active()?:error("请先登录 Shadow Life")
     when(val fresh=app.sessions.fresh(session.accountId,context)){
@@ -297,6 +326,48 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       }
     }
   }
+
+  private suspend fun healthSummary(date:LocalDate):TodayHealthSummary=coroutineScope{
+    val dailyRequest=async{runCatching{wireJson.decodeFromString<HealthDailyResultDto>(getText("/api/health/daily/$date"))}}
+    val trendRequest=async{runCatching{JSONObject(getText("/api/health/trend?metric_key=weight&limit=2"))}}
+    val dailyResult=dailyRequest.await();val trendResult=trendRequest.await();val daily=dailyResult.getOrNull();val trend=trendResult.getOrNull()
+    val points=trend?.optJSONArray("points");val latest=points?.takeIf{it.length()>0}?.optJSONObject(points.length()-1)
+    val weight=latest?.optString("value")?.takeIf(String::isNotBlank)
+    val hasDaily=daily!=null
+    val dailyMissing=dailyResult.exceptionOrNull().toString().contains("not found",ignoreCase=true)
+    val failed=(dailyResult.isFailure&&!dailyMissing)||(trendResult.isFailure&&!hasDaily)
+    TodayHealthSummary(
+      state=when{failed->HealthSummaryState.Failed;hasDaily||weight!=null->HealthSummaryState.Ready;else->HealthSummaryState.Empty},
+      weight=weight,weightUnit=latest?.optString("unit")?.takeIf(String::isNotBlank),weightOn=latest?.optString("occurred_on")?.takeIf(String::isNotBlank),
+      steps=daily?.result?.activity?.steps,sleepMinutes=daily?.result?.sleep?.totalMinutes,
+      updatedAt=daily?.updatedAt?:trend?.optString("as_of")?.takeIf(String::isNotBlank)
+    )
+  }
+
+  private fun reviewGroups(value:JsonObject):List<ReviewMetricGroup> = value.entries.sortedBy{it.key}.map{(key,item)->
+    ReviewMetricGroup(reviewLabel(key),flattenReview(item).ifEmpty{listOf(ReviewMetric("状态","暂无可显示数值"))})
+  }
+
+  private fun flattenReview(value:JsonElement,path:List<String> = emptyList(),currency:String?=null):List<ReviewMetric> = when(value){
+    is JsonObject->{
+      val localCurrency=(value["currency"] as? JsonPrimitive)?.content?:currency
+      value.entries.sortedBy{it.key}.flatMap{(key,item)->flattenReview(item,path+key,localCurrency)}
+    }
+    is JsonArray->value.flatMapIndexed{index,item->flattenReview(item,path+(index+1).toString(),currency)}
+    JsonNull->listOf(ReviewMetric(path.joinToString(" · "){reviewLabel(it)},"未记录"))
+    is JsonPrimitive->{
+      val key=path.lastOrNull().orEmpty();val raw=value.content;val shown=if(currency!=null&&key in setOf("amount","gross_expense","refund","net_spending","income","net_cashflow","spent"))"$currency $raw" else raw
+      listOf(ReviewMetric(path.joinToString(" · "){reviewLabel(it)},shown))
+    }
+  }
+
+  private fun reviewLabel(key:String)=mapOf(
+    "money" to "消费","meals" to "饮食","health" to "健康","items" to "物品","library" to "资料",
+    "totals" to "金额汇总","currency" to "币种","gross_expense" to "支出","refund" to "退款","net_spending" to "净支出","income" to "收入","net_cashflow" to "净现金流","entries" to "记录数",
+    "records" to "记录数","recorded_days" to "记录天数","day_coverage" to "天数覆盖率","measurements" to "测量数","workouts" to "训练数","active_days" to "活跃天数",
+    "by_state" to "状态分布","idle_owned" to "闲置持有","captured" to "收存数","reading_activity" to "阅读活动",
+    "source_records" to "源记录数","covered_days" to "覆盖天数","evidence_included" to "证据数","evidence_truncated" to "证据已截断"
+  )[key]?:key.replace('_',' ')
 
   private fun request(fresh:FreshSession,path:String,method:String,body:String?,accept:String):String{
     val connection=(URL(fresh.session.apiBase+path).openConnection() as HttpURLConnection).apply{requestMethod=method;connectTimeout=10_000;readTimeout=30_000;setRequestProperty("Authorization","Bearer ${fresh.accessToken}");setRequestProperty("Accept",accept);if(body!=null){doOutput=true;setRequestProperty("Content-Type","application/json");outputStream.bufferedWriter().use{it.write(body)}}}

@@ -41,8 +41,16 @@ import java.util.Locale
 @Composable private fun TodayContent(today:TodaySnapshot,onWorkspace:(LifeDomain)->Unit,onDetail:(LifeDomain,String,String)->Unit){
   LifeSection("身体状态"){
     LifeCard(onClick={onWorkspace(LifeDomain.Health)}){
-      Text(if(today.healthFacts==null)"尚未授权健康数据" else "${today.healthFacts}",style=MaterialTheme.typography.displaySmall,fontWeight=FontWeight.SemiBold)
-      Text(if(today.healthFacts==null)"连接设备或手动记录" else "今天的健康事实",color=MaterialTheme.colorScheme.onSurfaceVariant)
+      when(today.health.state){
+        HealthSummaryState.NotAuthorized->{Text("尚未授权健康数据",style=MaterialTheme.typography.titleLarge);Text("连接设备或手动记录",color=MaterialTheme.colorScheme.onSurfaceVariant)}
+        HealthSummaryState.Empty->{Text("今天还没有健康记录",style=MaterialTheme.typography.titleLarge);Text("不会把缺失数据显示为 0",color=MaterialTheme.colorScheme.onSurfaceVariant)}
+        HealthSummaryState.Failed->{Text("健康摘要暂时无法读取",style=MaterialTheme.typography.titleLarge);Text("点击进入健康空间重试",color=MaterialTheme.colorScheme.error)}
+        HealthSummaryState.Ready->{
+          today.health.weight?.let{Text("$it ${today.health.weightUnit.orEmpty()}",style=MaterialTheme.typography.displaySmall,fontWeight=FontWeight.SemiBold);Text("最近体重${today.health.weightOn?.let{on->" · $on"}.orEmpty()}",color=MaterialTheme.colorScheme.onSurfaceVariant)}
+          Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(18.dp)){today.health.steps?.let{PlanningFact("今日步数",it.toString())};today.health.sleepMinutes?.let{PlanningFact("睡眠",formatMinutes(it))}}
+          if(today.health.weight==null&&today.health.steps==null&&today.health.sleepMinutes==null)Text("已有健康记录，暂无可概览指标",color=MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+      }
       if(today.syncIssueCount>0)Text("${today.syncIssueCount} 个来源需要处理",color=MaterialTheme.colorScheme.error)
     }
   }
@@ -91,7 +99,7 @@ import java.util.Locale
       item{Text("我的物品",style=MaterialTheme.typography.titleLarge,modifier=Modifier.padding(top=10.dp))}
       if(value.ownedItems.isEmpty())item{Text("还没有显式加入管理的物品。",color=MaterialTheme.colorScheme.onSurfaceVariant)} else items(value.ownedItems,key={"item:${it.id}"}){owned->LifeCard(onClick={onOwnedItem(owned)}){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(owned.name,Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);StatusLabel(owned.state)};Text(listOfNotNull(owned.location,owned.returnBy?.let{"退货截至 $it"},owned.warrantyEndsOn?.let{"保修截至 $it"}).joinToString(" · ").ifBlank{"${owned.documents} 份资料 · ${owned.events} 条事件"},color=MaterialTheme.colorScheme.onSurfaceVariant)}}
       item{Text("生活回顾",style=MaterialTheme.typography.titleLarge,modifier=Modifier.padding(top=10.dp))}
-      if(value.reviews.isEmpty())item{Text("还没有生成可追溯回顾。",color=MaterialTheme.colorScheme.onSurfaceVariant)} else items(value.reviews,key={"review:${it.id}"}){review->LifeCard(onClick={onReview(review)}){Text("${review.fromOn} — ${review.toOn}",style=MaterialTheme.typography.titleMedium);Text("${review.metrics} 组指标 · ${review.limitations} 条覆盖说明 · 修订 ${review.revision}",color=MaterialTheme.colorScheme.onSurfaceVariant)}}
+      if(value.reviews.isEmpty())item{Text("还没有生成可追溯回顾。",color=MaterialTheme.colorScheme.onSurfaceVariant)} else items(value.reviews,key={"review:${it.id}"}){review->LifeCard(onClick={onReview(review)}){Text("${review.fromOn} — ${review.toOn}",style=MaterialTheme.typography.titleMedium);Text("${review.metrics} 组指标 · ${review.evidence.size} 项证据",color=MaterialTheme.colorScheme.onSurfaceVariant)}}
     }}
   }}
 }
@@ -100,12 +108,12 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
 
 @Composable private fun AgendaActions(item:AgendaItem,onAction:(AgendaItem,String)->Unit){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End){TextButton(onClick={onAction(item,"complete")}){Text("完成")};if(item.sourceKind=="recurring_occurrence"){TextButton(onClick={onAction(item,"snooze")}){Text("稍后 1 小时")};TextButton(onClick={onAction(item,"dismiss")}){Text("忽略")}}else TextButton(onClick={onAction(item,"cancel")}){Text("取消")}}}
 
-@Composable fun LibraryScreen(state:LoadState<List<LibrarySummary>>,onSearch:(String)->Unit,onDetail:(LifeDomain,String,String)->Unit,onProjects:()->Unit,onSettings:()->Unit){
+@Composable fun LibraryScreen(state:LoadState<LibraryPage>,onSearch:(String)->Unit,onLoadMore:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onProjects:()->Unit,onSettings:()->Unit){
   var query by rememberSaveable{mutableStateOf("")}
   RootPage("资料库",onProjects,onSettings){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp,8.dp,20.dp,112.dp)){
     item{OutlinedTextField(value=query,onValueChange={query=it;if(it.isBlank())onSearch("")},modifier=Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("搜索标题、正文或标签")},leadingIcon={Icon(Icons.Default.Search,null)},trailingIcon={IconButton(onClick={onSearch(query)}){Icon(Icons.Default.Search,"搜索")}});Spacer(Modifier.height(18.dp))}
     item{StateContent(state,{onSearch(query)}){}}
-    if(state is LoadState.Ready)items(state.value,key={it.id}){item->RecordRow(RecordSummary(LifeDomain.Library,item.itemType,item.id,item.title,item.state,null,item.revision)){onDetail(LifeDomain.Library,item.id,item.title)};HorizontalDivider(color=MaterialTheme.colorScheme.outline.copy(alpha=.45f))}
+    if(state is LoadState.Ready){items(state.value.items,key={it.id}){item->RecordRow(RecordSummary(LifeDomain.Library,item.itemType,item.id,item.title,item.state,null,item.revision)){onDetail(LifeDomain.Library,item.id,item.title)};HorizontalDivider(color=MaterialTheme.colorScheme.outline.copy(alpha=.45f))};if(state.value.nextCursor!=null)item{TextButton(onClick=onLoadMore,Modifier.fillMaxWidth()){Text("加载更多资料")}}}
   }}
 }
 
@@ -126,7 +134,7 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
     is LoadState.Empty->Text(state.reason,color=MaterialTheme.colorScheme.onSurfaceVariant)
     is LoadState.Failed->SectionError(state.message,onRetry)
     is LoadState.Ready->when(val value=state.value){
-      is WorkspaceOverview.Health->LifeSection("来源状态"){LifeCard{Text("${value.sources} 个来源 · ${value.streams} 条同步流",style=MaterialTheme.typography.titleLarge);Text(if(value.sourcesNeedingAttention==0)"来源与游标状态正常" else "${value.sourcesNeedingAttention} 个来源需要处理",color=if(value.sourcesNeedingAttention==0)MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error)}}
+      is WorkspaceOverview.Health->{LifeSection("健康概览"){LifeCard{HealthSummaryContent(value.summary)}};LifeSection("同步状态"){LifeCard{Text("${value.sources} 个来源 · ${value.streams} 条同步流",style=MaterialTheme.typography.titleLarge);Text(if(value.sourcesNeedingAttention==0)"来源与游标状态正常" else "${value.sourcesNeedingAttention} 个来源需要处理",color=if(value.sourcesNeedingAttention==0)MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error)}}}
       is WorkspaceOverview.Money->LifeSection("${value.period} 规划"){LifeCard{Text("${value.budgets.size} 项预算 · ${value.openOccurrences} 个待办",style=MaterialTheme.typography.titleLarge);Text("${value.recurringPlans} 个周期计划 · ${value.spendingIntents} 个消费意向",color=MaterialTheme.colorScheme.onSurfaceVariant);value.budgets.take(3).forEach{budget->Row(Modifier.fillMaxWidth()){Text(budget.title,Modifier.weight(1f));Text("${budget.currency} ${budget.spent} / ${budget.amount}")}}}}
       is WorkspaceOverview.Travel->LifeSection("旅行空间"){LifeCard{Text("${value.trips} 段旅程 · ${value.places} 个地点",style=MaterialTheme.typography.titleLarge);Text("${value.maps} 张主题地图${if(value.activeRun)" · 正在旅途中" else ""}",color=if(value.activeRun)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)}}
       is WorkspaceOverview.Meals->LifeSection("餐单与采购"){LifeCard{Text("${value.mealPlans} 份餐单 · ${value.shoppingLists} 张购物清单",style=MaterialTheme.typography.titleLarge);Text(if(value.openShoppingItems==0)"没有待采购食材" else "${value.openShoppingItems} 项待采购",color=MaterialTheme.colorScheme.onSurfaceVariant)}}
@@ -211,16 +219,19 @@ private fun primaryValid(seed:EditSeed,primary:String,secondary:String)=when(see
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun ReviewDetailScreen(review:ReviewSummary?,onBack:()->Unit){
+@Composable fun ReviewDetailScreen(review:ReviewSummary?,onEvidence:(ReviewEvidence)->Unit,onBack:()->Unit){
   PlanningDetailScaffold("生活回顾",onBack){
     if(review==null)item{EmptyState("回顾已更新，请返回刷新")} else{
-      item{DetailStatus("generated",review.revision)}
-      item{LifeSection("回顾范围"){LifeCard{PlanningFact("期间","${review.fromOn} — ${review.toOn}");PlanningFact("时区",review.timeZone);PlanningFact("领域",review.domains.joinToString("、",transform=::planningDomainLabel).ifBlank{"未记录"});PlanningFact("算法版本",review.algorithmVersion);PlanningFact("生成时间",review.generatedAt)}}}
-      item{LifeSection("指标与覆盖"){LifeCard{PlanningFact("指标",review.metricKeys.joinToString("、",transform=::reviewKeyLabel).ifBlank{"没有可用指标"});PlanningFact("覆盖",review.coverageKeys.joinToString("、",transform=::reviewKeyLabel).ifBlank{"没有覆盖信息"});PlanningFact("证据","${review.evidence.size} 项可追溯对象")}}}
+      item{LifeSection("回顾范围"){LifeCard{PlanningFact("期间","${review.fromOn} — ${review.toOn}");PlanningFact("时区",review.timeZone);PlanningFact("领域",review.domains.joinToString("、",transform=::planningDomainLabel).ifBlank{"未记录"})}}}
+      item{Text("实际指标",style=MaterialTheme.typography.titleLarge)}
+      if(review.metricGroups.isEmpty())item{EmptyState("没有可用指标")} else review.metricGroups.forEach{group->item(key="metric:${group.title}"){ReviewMetricCard(group)}}
+      item{Text("数据覆盖",style=MaterialTheme.typography.titleLarge)}
+      if(review.coverageGroups.isEmpty())item{EmptyState("没有覆盖信息")} else review.coverageGroups.forEach{group->item(key="coverage:${group.title}"){ReviewMetricCard(group)}}
       item{Text("覆盖说明",style=MaterialTheme.typography.titleLarge)}
       if(review.limitationItems.isEmpty())item{LifeCard{Text("本期没有额外覆盖限制",color=MaterialTheme.colorScheme.onSurfaceVariant)}} else items(review.limitationItems,key={it}){limitation->LifeCard{Text(limitation)}}
+      item{LifeSection("数据说明"){LifeCard{PlanningFact("算法版本",review.algorithmVersion);PlanningFact("生成时间",review.generatedAt);PlanningFact("回顾修订",review.revision.toString());PlanningFact("证据数量","${review.evidence.size} 项")}}}
       item{Text("证据索引",style=MaterialTheme.typography.titleLarge,modifier=Modifier.padding(top=8.dp))}
-      if(review.evidence.isEmpty())item{EmptyState("没有可显示的证据引用")} else items(review.evidence.take(20),key={"evidence:${it.kind}:${it.id}:${it.revision}"}){evidence->LifeCard{Text(planningKindLabel(evidence.kind),style=MaterialTheme.typography.titleMedium);Text("修订 ${evidence.revision}",color=MaterialTheme.colorScheme.onSurfaceVariant)}}
+      if(review.evidence.isEmpty())item{EmptyState("没有可显示的证据引用")} else items(review.evidence.take(20),key={"evidence:${it.kind}:${it.id}:${it.revision}"}){evidence->LifeCard(onClick=if(reviewEvidenceActionable(evidence.kind)){{onEvidence(evidence)}} else null){Text(planningKindLabel(evidence.kind),style=MaterialTheme.typography.titleMedium);Text(if(reviewEvidenceActionable(evidence.kind))"查看原记录" else "证据修订 ${evidence.revision}",color=if(reviewEvidenceActionable(evidence.kind))MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)}}
     }
   }
 }
@@ -231,9 +242,12 @@ private fun primaryValid(seed:EditSeed,primary:String,secondary:String)=when(see
 @Composable private fun DetailStatus(state:String,revision:Int){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text("当前状态",Modifier.weight(1f),color=MaterialTheme.colorScheme.onSurfaceVariant);StatusLabel(state)};Text("修订 $revision",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}
 @Composable private fun PlanningFact(label:String,value:String){Column(Modifier.fillMaxWidth().padding(vertical=5.dp)){Text(label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(value,style=MaterialTheme.typography.bodyLarge)}}
 @Composable private fun RelatedPlanningLink(link:PlanningLink,onRelated:(String,String)->Unit){LifeCard(onClick={onRelated(link.kind,link.id)}){Text(link.title?:planningKindLabel(link.kind),style=MaterialTheme.typography.titleMedium);Text("${link.role} · 修订 ${link.revision}",color=MaterialTheme.colorScheme.onSurfaceVariant)}}
-private fun planningKindLabel(kind:String)=when(kind){"trip"->"旅程";"health_plan"->"健康计划";"recurring_plan"->"周期计划";"owned_item"->"物品";"library_item"->"资料";"money_entry"->"交易";"meal"->"餐次";"recipe"->"食谱";else->kind}
+private fun planningKindLabel(kind:String)=when(kind){"trip"->"旅程";"health_plan"->"健康计划";"recurring_plan"->"周期计划";"owned_item"->"物品";"library_item"->"资料";"money_entry"->"交易";"meal"->"餐次";"recipe"->"食谱";"health_measurement"->"健康测量";"health_workout_session"->"训练记录";else->kind}
 private fun planningDomainLabel(domain:String)=when(domain){"money"->"消费";"meals"->"饮食";"health"->"健康";"items"->"物品";"library"->"资料";else->domain}
-private fun reviewKeyLabel(key:String)=key.replace('_',' ')
+@Composable private fun ReviewMetricCard(group:ReviewMetricGroup){LifeCard{Text(group.title,style=MaterialTheme.typography.titleMedium);group.values.forEach{PlanningFact(it.label,it.value)}}}
+@Composable private fun HealthSummaryContent(summary:TodayHealthSummary){when(summary.state){HealthSummaryState.NotAuthorized->Text("未授权健康数据",color=MaterialTheme.colorScheme.onSurfaceVariant);HealthSummaryState.Empty->Text("尚无有效健康记录；缺失值不会显示为 0",color=MaterialTheme.colorScheme.onSurfaceVariant);HealthSummaryState.Failed->Text("健康摘要读取失败，请稍后重试",color=MaterialTheme.colorScheme.error);HealthSummaryState.Ready->{summary.weight?.let{PlanningFact("最近体重","$it ${summary.weightUnit.orEmpty()}${summary.weightOn?.let{on->" · $on"}.orEmpty()}")};summary.steps?.let{PlanningFact("今日步数",it.toString())};summary.sleepMinutes?.let{PlanningFact("睡眠",formatMinutes(it))};summary.updatedAt?.let{PlanningFact("最近更新",it)}}}}
+private fun formatMinutes(value:Long)="${value/60} 小时 ${value%60} 分"
+private fun reviewEvidenceActionable(kind:String)=kind in setOf("money_entry","meal","health_measurement","health_workout_session","library_item","owned_item")
 private fun ownedEventLabel(kind:String)=when(kind){"maintenance"->"维护";"repair"->"维修";"return"->"退货";"dispose"->"处置";"gift"->"赠出";"lost"->"遗失";"restore"->"恢复持有";"note"->"记录";else->kind}
 
 @Composable private fun StatusLabel(state:String){Surface(shape=RoundedCornerShape(999.dp),color=MaterialTheme.colorScheme.primaryContainer){Text(stateLabel(state),Modifier.padding(horizontal=10.dp,vertical=5.dp),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onPrimaryContainer)}}

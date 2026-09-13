@@ -587,7 +587,8 @@ export const domainRecordSummarySchema=z.object({
   revision:z.number().int().positive().nullable(),
   record_id:stableId.nullable(),
   amount:signedStoredAmount.nullable(),
-  currency:currencyCode.nullable()
+  currency:currencyCode.nullable(),
+  entry_type:z.enum(["expense","income","refund"]).optional()
 }).strict();
 export const domainRecordsResultSchema=z.object({items:z.array(domainRecordSummarySchema),next_cursor:z.string().nullable(),as_of:instant}).strict();
 export type DomainRecordSummary=z.infer<typeof domainRecordSummarySchema>;

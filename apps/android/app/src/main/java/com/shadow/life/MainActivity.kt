@@ -33,9 +33,16 @@ class MainActivity:ComponentActivity(){
     if(data==null){loginError="登录已取消";return@registerForActivityResult}
     oidc.complete(data){value->runOnUiThread{session=value;loginError=if(value==null)"登录失败，请重试" else null}}
   }
-  private val healthPermissions=registerForActivityResult(PermissionController.createRequestPermissionResultContract()){granted->
-    session?.let{HealthConnectScheduler.schedule(this,it.accountId)}
-    if(granted.isEmpty())loginError="未获得 Health Connect 权限，其他功能仍可使用"
+  private val healthPermissions=registerForActivityResult(PermissionController.createRequestPermissionResultContract()){
+    lifecycleScope.launch{
+      val current=session?:return@launch
+      val client=androidx.health.connect.client.HealthConnectClient.getOrCreate(this@MainActivity)
+      val granted=client.permissionController.getGrantedPermissions()
+      if(HealthConnectSync.hasAnySupportedPermission(granted)){
+        HealthConnectScheduler.schedule(this@MainActivity,current.accountId)
+        HealthConnectSync.backgroundPermission(client)?.takeIf{it !in granted}?.let{loginError="后台健康读取未开启；前台手动同步仍可使用"}
+      }else loginError="未获得 Health Connect 数据权限，其他功能仍可使用"
+    }
   }
   private val notificationPermission=registerForActivityResult(ActivityResultContracts.RequestPermission()){granted->notificationAuthorization=if(granted)"enabled" else "denied";if(!granted)loginError="系统通知未开启，提醒仍会保留在 Life 收件箱"}
 
@@ -63,10 +70,9 @@ class MainActivity:ComponentActivity(){
     lifecycleScope.launch{
       val client=androidx.health.connect.client.HealthConnectClient.getOrCreate(this@MainActivity)
       val granted=client.permissionController.getGrantedPermissions()
-      if(HealthConnectSync.hasAnySupportedPermission(granted)){
-        HealthConnectScheduler.schedule(this@MainActivity,current.accountId)
-        if(!granted.containsAll(HealthConnectSync.permissions))healthPermissions.launch(HealthConnectSync.permissions-granted)
-      }else healthPermissions.launch(HealthConnectSync.permissions)
+      val requested=HealthConnectSync.requestedPermissions(client)
+      if(granted.containsAll(requested))HealthConnectScheduler.schedule(this@MainActivity,current.accountId)
+      else healthPermissions.launch(requested-granted)
     }
   }
   private fun requestNotifications(){if(Build.VERSION.SDK_INT>=33)notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) else notificationAuthorization="enabled"}
