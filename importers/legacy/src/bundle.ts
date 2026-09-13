@@ -18,7 +18,7 @@ export const migrationObjectSchema = z.object({
   payload: z.record(z.string(), jsonValue),
   targets: z.array(z.object({
     component: z.string().min(1).max(100),
-    type: z.enum(["money_entry", "meal", "health_raw", "archive"]),
+    type: z.enum(["money_entry", "purchase", "meal", "food", "recipe", "meal_template", "health_plan", "health_raw", "asset", "archive"]),
     id: z.string().regex(/^[a-z][a-z0-9_]{7,127}$/u),
     role: z.string().min(1).max(80).default("primary"),
     data: z.record(z.string(), jsonValue)

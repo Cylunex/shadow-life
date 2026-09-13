@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "scripts": { "dry-run": "node --import tsx src/dry-run.ts fixtures/diet-log.json", "export:postgres": "node --import tsx src/export-postgres.ts", "mapping": "node --import tsx src/mapping-cli.ts", "migration": "node --import tsx src/cli.ts", "typecheck": "tsc -p tsconfig.json --noEmit", "test": "node --import tsx --test test/*.test.ts" },
+  "scripts": { "dry-run": "node --import tsx src/dry-run.ts fixtures/diet-log.json", "export:postgres": "node --import tsx src/export-postgres.ts", "mapping": "node --import tsx src/mapping-cli.ts", "map:production": "node --import tsx src/production-mapper.ts", "migration": "node --import tsx src/cli.ts", "typecheck": "tsc -p tsconfig.json --noEmit", "test": "node --import tsx --test test/*.test.ts" },
   "dependencies": { "@shadow/contracts": "workspace:*", "pg": "^8.16.3", "zod": "^4.1.13" },
   "devDependencies": { "@types/pg": "^8.15.6" }
 }
