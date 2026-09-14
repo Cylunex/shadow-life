@@ -24,9 +24,9 @@ class OfflineQueue(private val database:ShadowDatabase,private val crypto:QueueC
     failed=commands.count{it.state in setOf("blocked","failed")}+attachments.count{it.state in setOf("blocked","failed")},
     completed=commands.count{it.state=="committed"}+attachments.count{it.state=="committed"},
     attachments=attachments.count{it.state in setOf("pending","uploading","unknown")},
-    latestScaleState=sourceState(scale),
+    latestScaleState=latestSourceState(scale),
     latestScaleAt=scale.maxOfOrNull{it.createdAt},
-    latestSamsungState=sourceState(samsung),
+    latestSamsungState=latestSourceState(samsung),
     latestSamsungAt=samsung.maxOfOrNull{it.createdAt},
     committedReceipts=committedReceipts
   )}
@@ -99,17 +99,11 @@ class OfflineQueue(private val database:ShadowDatabase,private val crypto:QueueC
     }
     return secured
   }
-  private fun sourceState(commands:List<PendingCommand>):String?=when{
-    commands.isEmpty()->null
-    commands.any{it.state in setOf("blocked","failed")}->"failed"
-    commands.any{it.state=="unknown"}->"reconciling"
-    commands.any{it.state in setOf("pending","uploading")}->"pending"
-    commands.all{it.state=="committed"}->"committed"
-    else->commands.first().state
-  }
   private fun verifiedReceipt(command:PendingCommand):OperationReceipt?=runCatching{
     val value=JSONObject(receiptBody(command));if(value.optString("protocol")!="shadow.execution-result"||value.optString("status")!="committed"||value.optString("command_id")!=command.commandId)return@runCatching null
     val resources=value.optJSONArray("resources");val warnings=value.optJSONArray("warnings")
     OperationReceipt(command.capability,command.commandId,value.optString("execution_id").takeIf(String::isNotBlank),(0 until (resources?.length()?:0)).mapNotNull{index->resources?.optJSONObject(index)?.let{ResourceRef(it.optString("type"),it.optString("id"),it.optInt("revision",1))}},(0 until (warnings?.length()?:0)).mapNotNull{index->warnings?.optString(index)?.takeIf(String::isNotBlank)},queued=false)
   }.getOrNull()
 }
+
+internal fun latestSourceState(commands:List<PendingCommand>):String?=commands.maxWithOrNull(compareBy<PendingCommand>{it.createdAt}.thenBy{it.commandId})?.state?.let{state->when(state){"blocked","failed"->"failed";"unknown"->"reconciling";"pending","uploading"->"pending";else->state}}
