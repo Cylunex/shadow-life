@@ -6,7 +6,11 @@ import java.time.LocalDate
 import java.time.Period
 
 data class XiaomiProfile(val sex:String,val birthDate:LocalDate,val heightCm:Double)
-data class XiaomiBodyComposition(val bodyFatPct:Double,val muscleMassKg:Double,val bodyWaterKg:Double,val visceralFatLevel:Double,val bmrKcal:Double)
+data class XiaomiBodyComposition(
+  val bmi:Double,val bodyFatPct:Double,val fatMassKg:Double,val leanMassKg:Double,
+  val muscleMassKg:Double,val musclePct:Double,val bodyWaterKg:Double,val bodyWaterPct:Double,
+  val boneMassKg:Double,val bonePct:Double,val visceralFatLevel:Double,val bmrKcal:Double
+)
 
 /** Community Xiaomi/Huami BIA formula retained for trend compatibility with Shadow Health. */
 fun xiaomiBodyComposition(weightKg:Double,impedance:Double,profile:XiaomiProfile,on:LocalDate):XiaomiBodyComposition? {
@@ -33,5 +37,10 @@ fun xiaomiBodyComposition(weightKg:Double,impedance:Double,profile:XiaomiProfile
   var bmr=if(sex=="female")864.6+weightKg*10.2036-height*.39336-age*6.204 else 877.8+weightKg*14.916-height*.726-age*8.976
   if(sex=="female"&&bmr>2996||sex=="male"&&bmr>2322)bmr=5000.0
   fun rounded(value:Double,scale:Int)=BigDecimal.valueOf(value).setScale(scale,RoundingMode.HALF_UP).toDouble()
-  return XiaomiBodyComposition(rounded(fat,1),rounded(muscle,2),rounded(water.coerceIn(35.0,75.0)*weightKg/100,2),rounded(visceral.coerceIn(1.0,50.0),0),rounded(bmr.coerceIn(500.0,10000.0),0))
+  val waterPct=water.coerceIn(35.0,75.0);val fatMass=weightKg*fat/100;val leanMass=weightKg-fatMass
+  return XiaomiBodyComposition(
+    bmi=rounded(weightKg/((height/100)*(height/100)),1),bodyFatPct=rounded(fat,1),fatMassKg=rounded(fatMass,2),leanMassKg=rounded(leanMass,2),
+    muscleMassKg=rounded(muscle,2),musclePct=rounded(muscle/weightKg*100,1),bodyWaterKg=rounded(waterPct*weightKg/100,2),bodyWaterPct=rounded(waterPct,1),
+    boneMassKg=rounded(bone,2),bonePct=rounded(bone/weightKg*100,1),visceralFatLevel=rounded(visceral.coerceIn(1.0,50.0),0),bmrKcal=rounded(bmr.coerceIn(500.0,10000.0),0)
+  )
 }

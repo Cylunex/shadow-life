@@ -87,10 +87,16 @@ data class RecordSummary(val domain:LifeDomain,val kind:String,val id:String,val
 data class RecordPage(val items:List<RecordSummary>,val nextCursor:String?,val asOf:String)
 data class HealthTrendPoint(val id:String,val occurredOn:String,val value:Double,val valueText:String,val unit:String,val sourceKind:String,val revision:Int)
 data class HealthMetricTrend(val key:String,val label:String,val points:List<HealthTrendPoint>,val coveragePoints:Int,val truncated:Boolean,val unavailable:Boolean=false)
+data class HealthWorkoutSummary(
+  val id:String,val occurredOn:String,val sessionType:String,val startedAt:String?,
+  val durationMinutes:Long?,val distanceKm:String?,val caloriesKcal:String?,val rpe:Long?,val heartRateAvg:Long?,val sourceKind:String?
+)
 data class HealthDailyOverview(
   val occurredOn:String,val steps:Long?,val activeMinutes:Long?,val caloriesKcal:String?,
   val sleepMinutes:Long?,val deepMinutes:Long?,val remMinutes:Long?,
-  val workouts:Int,val habitsDone:Int,val updatedAt:String
+  val workouts:Int,val habitsDone:Int,val updatedAt:String,
+  val lightMinutes:Long?=null,val awakeMinutes:Long?=null,val sleepSource:String?=null,
+  val workoutItems:List<HealthWorkoutSummary> = emptyList()
 )
 data class MoneyRecurringSummary(val id:String,val title:String,val amount:String?,val currency:String,val cadence:String,val nextDueOn:String,val state:String)
 data class MoneyOccurrenceSummary(val id:String,val title:String,val dueOn:String,val state:String,val amount:String?,val currency:String?)
@@ -111,7 +117,11 @@ sealed interface WorkspaceOverview { val asOf:String
     val recurring:List<MoneyRecurringSummary> = emptyList(),val occurrences:List<MoneyOccurrenceSummary> = emptyList(),val intents:List<MoneyIntentSummary> = emptyList(),
     override val asOf:String
   ):WorkspaceOverview
-  data class Health(val sources:Int,val sourcesNeedingAttention:Int,val streams:Int,val summary:TodayHealthSummary,val metrics:List<HealthMetricTrend> = emptyList(),val daily:HealthDailyOverview?=null,override val asOf:String):WorkspaceOverview
+  data class Health(
+    val sources:Int,val sourcesNeedingAttention:Int,val streams:Int,val summary:TodayHealthSummary,
+    val metrics:List<HealthMetricTrend> = emptyList(),val daily:HealthDailyOverview?=null,
+    val history:List<HealthDailyOverview> = emptyList(),override val asOf:String
+  ):WorkspaceOverview
   data class Travel(
     val trips:Int,val places:Int,val maps:Int,val activeRun:Boolean,
     val tripItems:List<TravelTripSummary> = emptyList(),val placeItems:List<TravelPlaceSummary> = emptyList(),val mapItems:List<TravelMapSummary> = emptyList(),

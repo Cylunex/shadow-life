@@ -391,8 +391,13 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   private suspend fun healthOverview():WorkspaceOverview.Health=coroutineScope{
     val today=LocalDate.now();val from=today.minusDays(89)
     val sourcesRequest=async{wireJson.decodeFromString<HealthSourcesResultDto>(getText("/api/health/sources"))}
-    val dailyRequest=async{partialRequest{wireJson.decodeFromString<HealthDailyResultDto>(getText("/api/health/daily/$today"))}}
-    val metricKeys=listOf("weight" to "体重","body_fat" to "体脂","muscle_mass" to "肌肉量","body_water" to "身体水分","visceral_fat" to "内脏脂肪","bmr" to "基础代谢")
+    val dailyRequests=(0L..6L).map{offset->val date=today.minusDays(offset);date to async{partialRequest{wireJson.decodeFromString<HealthDailyResultDto>(getText("/api/health/daily/$date"))}}}
+    val metricKeys=listOf(
+      "weight" to "体重","bmi" to "BMI","body_fat" to "体脂率","fat_mass" to "脂肪量","lean_mass" to "去脂体重",
+      "skeletal_muscle" to "骨骼肌","muscle_mass" to "肌肉量","muscle_rate" to "肌肉率",
+      "body_water" to "身体水分量","body_water_rate" to "身体水分率","bone_mass" to "骨量","bone_rate" to "骨量率",
+      "visceral_fat" to "内脏脂肪等级","bmr" to "基础代谢","heart_rate" to "测量心率"
+    )
     val trendRequests=metricKeys.map{(key,label)->async{
       partialRequest{
         val value=JSONObject(getText("/api/health/trend?metric_key=${encode(key)}&from=$from&to=$today&limit=1000"))
@@ -405,24 +410,49 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         HealthMetricTrend(key,label,points,coverage?.optInt("points",points.size)?:points.size,coverage?.optBoolean("truncated",false)?:false)
       }.getOrElse{HealthMetricTrend(key,label,emptyList(),0,false,unavailable=true)}
     }}
-    val sources=sourcesRequest.await();val daily=dailyRequest.await().getOrNull();val metrics=trendRequests.map{it.await()}
+    val sources=sourcesRequest.await();val history=dailyRequests.mapNotNull{(_,request)->request.await().getOrNull()?.toHealthDailyOverview()}.sortedBy{it.occurredOn};val daily=history.firstOrNull{it.occurredOn==today.toString()};val metrics=fillDerivedBodyMetrics(trendRequests.map{it.await()})
     val weight=metrics.first().points.lastOrNull()
     val summary=TodayHealthSummary(
       state=when{daily!=null||weight!=null->HealthSummaryState.Ready;metrics.all{it.unavailable}->HealthSummaryState.Failed;else->HealthSummaryState.Empty},
       weight=weight?.valueText,weightUnit=weight?.unit,weightOn=weight?.occurredOn,
-      steps=daily?.result?.activity?.steps,sleepMinutes=daily?.result?.sleep?.totalMinutes,
+      steps=daily?.steps,sleepMinutes=daily?.sleepMinutes,
       updatedAt=daily?.updatedAt?:sources.asOf
     )
-    val dailyOverview=daily?.let{value->HealthDailyOverview(
-      value.occurredOn,value.result.activity?.steps,value.result.activity?.activeMinutes,value.result.activity?.caloriesKcal,
-      value.result.sleep?.totalMinutes,value.result.sleep?.deepMinutes,value.result.sleep?.remMinutes,
-      value.result.workouts.size,value.result.habits.sumOf{it.doneCount.toInt()},value.updatedAt
-    )}
     WorkspaceOverview.Health(
       sources=sources.items.size,
       sourcesNeedingAttention=sources.items.count{it.permissionState!="granted"||it.cursors.any{cursor->cursor.state!="active"}},
-      streams=sources.items.sumOf{it.cursors.size},summary=summary,metrics=metrics,daily=dailyOverview,asOf=sources.asOf
+      streams=sources.items.sumOf{it.cursors.size},summary=summary,metrics=metrics,daily=daily,history=history,asOf=sources.asOf
     )
+  }
+
+  private fun HealthDailyResultDto.toHealthDailyOverview()=HealthDailyOverview(
+    occurredOn=occurredOn,steps=result.activity?.steps,activeMinutes=result.activity?.activeMinutes,caloriesKcal=result.activity?.caloriesKcal,
+    sleepMinutes=result.sleep?.totalMinutes,deepMinutes=result.sleep?.deepMinutes,remMinutes=result.sleep?.remMinutes,
+    workouts=result.workouts.size,habitsDone=result.habits.sumOf{it.doneCount.toInt()},updatedAt=updatedAt,
+    lightMinutes=result.sleep?.lightMinutes,awakeMinutes=result.sleep?.awakeMinutes,sleepSource=result.sleep?.sourceType,
+    workoutItems=result.workouts.map{workout->HealthWorkoutSummary(
+      id=workout.id,occurredOn=occurredOn,sessionType=workout.sessionType,startedAt=workout.startedAt,
+      durationMinutes=workout.durationMinutes,distanceKm=workout.distanceKm,caloriesKcal=workout.caloriesKcal,
+      rpe=workout.rpe,heartRateAvg=workout.heartRateAvg,
+      sourceKind=((workout.detail as? JsonObject)?.get("source") as? JsonPrimitive)?.content?.takeUnless{it.isBlank()||it=="null"}
+    )}
+  )
+
+  private fun fillDerivedBodyMetrics(metrics:List<HealthMetricTrend>):List<HealthMetricTrend>{
+    fun metric(key:String)=metrics.firstOrNull{it.key==key}
+    fun derived(key:String,leftKey:String,rightKey:String,unit:String,calculate:(Double,Double)->Double):HealthMetricTrend?{
+      val target=metric(key)?:return null;if(target.points.isNotEmpty())return target
+      val rightByDate=metric(rightKey)?.points.orEmpty().associateBy{it.occurredOn}
+      val points=metric(leftKey)?.points.orEmpty().mapNotNull{left->val right=rightByDate[left.occurredOn]?:return@mapNotNull null;val value=calculate(left.value,right.value).takeIf{it.isFinite()&&it>=0}?:return@mapNotNull null;val text=java.math.BigDecimal.valueOf(value).setScale(2,java.math.RoundingMode.HALF_UP).stripTrailingZeros().toPlainString();HealthTrendPoint(left.id,left.occurredOn,value,text,unit,"derived",maxOf(left.revision,right.revision))}
+      return target.copy(points=points,coveragePoints=points.size,unavailable=false)
+    }
+    val replacements=listOfNotNull(
+      derived("fat_mass","weight","body_fat","kg"){weight,fat->weight*fat/100},
+      derived("lean_mass","weight","body_fat","kg"){weight,fat->weight*(1-fat/100)},
+      derived("muscle_rate","muscle_mass","weight","%"){muscle,weight->if(weight==0.0)Double.NaN else muscle/weight*100},
+      derived("body_water_rate","body_water","weight","%"){water,weight->if(weight==0.0)Double.NaN else water/weight*100}
+    ).associateBy{it.key}
+    return metrics.map{replacements[it.key]?:it}
   }
 
   private suspend fun healthSummary(date:LocalDate):TodayHealthSummary=coroutineScope{

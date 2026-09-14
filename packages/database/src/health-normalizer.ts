@@ -3,7 +3,7 @@ import { healthDailyActivityPayloadSchema, healthHabitPayloadSchema, healthObser
 import { Pool, type PoolClient, type PoolConfig } from "pg";
 
 const projectionTables=["health_observations","health_daily_wellbeing","health_sleep_sessions","health_workout_sessions","health_daily_activity","health_habit_logs"] as const;
-const metricUnits:Record<string,readonly string[]>={weight:["kg"],body_fat:["%"],muscle_mass:["kg"],skeletal_muscle:["kg"],body_water:["kg"],visceral_fat:["level"],bmr:["kcal/day"],impedance_low:["ohm"],impedance_high:["ohm"],waist:["cm"],chest:["cm"],hip:["cm"],heart_rate:["bpm"],blood_pressure_systolic:["mmHg"],blood_pressure_diastolic:["mmHg"],temperature:["C","°C"],spo2:["%"],blood_glucose:["mmol/L","mg/dL"]};
+const metricUnits:Record<string,readonly string[]>={weight:["kg"],bmi:["kg/m²"],body_fat:["%"],fat_mass:["kg"],lean_mass:["kg"],muscle_mass:["kg"],muscle_rate:["%"],skeletal_muscle:["kg"],body_water:["kg"],body_water_rate:["%"],bone_mass:["kg"],bone_rate:["%"],visceral_fat:["level"],bmr:["kcal/day"],impedance_low:["ohm"],impedance_high:["ohm"],waist:["cm"],chest:["cm"],hip:["cm"],heart_rate:["bpm"],blood_pressure_systolic:["mmHg"],blood_pressure_diastolic:["mmHg"],temperature:["C","°C"],spo2:["%"],blood_glucose:["mmol/L","mg/dL"]};
 const stableId=(prefix:string,value:string)=>`${prefix}_${createHash("sha256").update(value).digest("hex").slice(0,24)}`;
 
 export interface HealthNormalizationResult{raw_id:string;raw_version:number;state:"completed"|"failed"|"stale"|"deleted";affected_dates:string[];error?:string;}
