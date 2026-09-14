@@ -1,5 +1,6 @@
 import { capabilityRegistry, executionResultSchema, universalCommandEnvelopeSchema, type ExecutionResult, type RecordMealCommand, type UniversalCommandEnvelope } from "@shadow/contracts";
 import { conflict, notFound, permissionDenied } from "./errors.js";
+import { mealEstimateWarnings } from "./meal-warnings.js";
 import type { Clock, Fingerprinter, IdGenerator, RequestContext, StoredOperation, UnitOfWork } from "./ports.js";
 
 export interface KernelDependencies {
@@ -97,7 +98,7 @@ export class CommandExecutor {
       }
       if (sourceId !== undefined) await store.linkMealSource(mealId, sourceId);
 
-      const warnings = command.input.items.some((item) => item.estimate) ? ["部分营养值为估算，已保留依据。"] : [];
+      const warnings = mealEstimateWarnings(command.input.items);
       const result = executionResultSchema.parse({
         protocol: "shadow.execution-result",
         capability: "life.record_meal",

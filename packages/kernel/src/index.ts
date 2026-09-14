@@ -7,6 +7,7 @@ export * from "./travel.js";
 export * from "./travel-portable.js";
 export * from "./library-proof.js";
 export * from "./library-processing.js";
+export * from "./meal-warnings.js";
 export * from "./record-meal.js";
 export * from "./queries.js";
 export * from "./runtime.js";
