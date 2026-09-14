@@ -11,6 +11,7 @@ export const queryTransportRegistry:Readonly<Record<string,ReadRoute>>={
   "life.today":input=>get(`/api/today${search({date:input.date,time_zone:input.time_zone,domains:input.domains})}`),
   "life.timeline":input=>get(`/api/timeline${search({domains:input.domains,limit:input.limit,cursor:input.cursor})}`),
   "life.search":input=>get(`/api/search${search({q:input.q,types:input.types,from_on:input.from_on,to_on_exclusive:input.to_on_exclusive,limit:input.limit,cursor:input.cursor})}`),
+  "life.consumption_stats":input=>get(`/api/life/consumption-stats${search({from_on:input.from_on,to_on_exclusive:input.to_on_exclusive,time_zone:input.time_zone,scopes:input.scopes,categories:input.categories,merchant_rank_by:input.merchant_rank_by,item_rank_by:input.item_rank_by,currency:input.currency,limit:input.limit})}`),
   "life.list_meals":input=>get(`/api/meals${search({limit:input.limit})}`),
   "life.food_catalog":input=>get(`/api/life/foods${search({q:input.query,limit:input.limit})}`),
   "money.summarize":()=>get("/api/money/summary"),

@@ -361,6 +361,257 @@ data class LifeSearchResultDto(
 )
 
 @Serializable
+data class ConsumptionStatsResultDtoWindow(
+  @SerialName("from_on") val fromOn: String,
+  @SerialName("to_on_exclusive") val toOnExclusive: String,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("refund_attribution") val refundAttribution: String
+)
+
+@Serializable
+enum class ConsumptionStatsResultDtoAppliedFiltersScopesEntry(val wireValue: String) {
+  @SerialName("restaurant_delivery") RestaurantDelivery("restaurant_delivery"),
+  @SerialName("grocery_delivery") GroceryDelivery("grocery_delivery"),
+  @SerialName("dine_in") DineIn("dine_in"),
+  @SerialName("takeaway") Takeaway("takeaway"),
+  @SerialName("physical_retail") PhysicalRetail("physical_retail"),
+  @SerialName("drink_snack") DrinkSnack("drink_snack"),
+  @SerialName("other") Other("other"),
+  @SerialName("unknown") Unknown("unknown")
+}
+
+@Serializable
+enum class ConsumptionStatsResultDtoAppliedFiltersCategoriesEntry(val wireValue: String) {
+  @SerialName("dish") Dish("dish"),
+  @SerialName("staple") Staple("staple"),
+  @SerialName("snack") Snack("snack"),
+  @SerialName("beverage") Beverage("beverage"),
+  @SerialName("fresh_food") FreshFood("fresh_food"),
+  @SerialName("daily_goods") DailyGoods("daily_goods"),
+  @SerialName("other") Other("other"),
+  @SerialName("unknown") Unknown("unknown")
+}
+
+@Serializable
+enum class ConsumptionStatsResultDtoAppliedFiltersMerchantRankBy(val wireValue: String) {
+  @SerialName("orders") Orders("orders"),
+  @SerialName("gross_spend") GrossSpend("gross_spend"),
+  @SerialName("net_spend") NetSpend("net_spend")
+}
+
+@Serializable
+enum class ConsumptionStatsResultDtoAppliedFiltersItemRankBy(val wireValue: String) {
+  @SerialName("purchased_orders") PurchasedOrders("purchased_orders"),
+  @SerialName("confirmed_consumptions") ConfirmedConsumptions("confirmed_consumptions"),
+  @SerialName("line_spend") LineSpend("line_spend")
+}
+
+@Serializable
+data class ConsumptionStatsResultDtoAppliedFilters(
+  @SerialName("scopes") val scopes: List<ConsumptionStatsResultDtoAppliedFiltersScopesEntry>,
+  @SerialName("categories") val categories: List<ConsumptionStatsResultDtoAppliedFiltersCategoriesEntry>,
+  @SerialName("merchant_rank_by") val merchantRankBy: ConsumptionStatsResultDtoAppliedFiltersMerchantRankBy,
+  @SerialName("item_rank_by") val itemRankBy: ConsumptionStatsResultDtoAppliedFiltersItemRankBy,
+  @SerialName("currency") val currency: String?,
+  @SerialName("limit") val limit: Long
+)
+
+@Serializable
+data class ConsumptionStatsResultDtoMonthlyEntrySpendEntry(
+  @SerialName("currency") val currency: String,
+  @SerialName("gross") val gross: String,
+  @SerialName("refund") val refund: String,
+  @SerialName("net") val net: String
+)
+
+@Serializable
+data class ConsumptionStatsResultDtoMonthlyEntry(
+  @SerialName("month") val month: String,
+  @SerialName("orders") val orders: Long,
+  @SerialName("confirmed_meals") val confirmedMeals: Long,
+  @SerialName("spend") val spend: List<ConsumptionStatsResultDtoMonthlyEntrySpendEntry>
+)
+
+@Serializable
+enum class ConsumptionStatsResultDtoMerchantsEntryNormalizationEntry(val wireValue: String) {
+  @SerialName("unicode_nfkc") UnicodeNfkc("unicode_nfkc"),
+  @SerialName("whitespace") Whitespace("whitespace"),
+  @SerialName("punctuation") Punctuation("punctuation"),
+  @SerialName("personal_alias") PersonalAlias("personal_alias")
+}
+
+@Serializable
+enum class ConsumptionStatsResultDtoMerchantsEntryScope(val wireValue: String) {
+  @SerialName("restaurant_delivery") RestaurantDelivery("restaurant_delivery"),
+  @SerialName("grocery_delivery") GroceryDelivery("grocery_delivery"),
+  @SerialName("dine_in") DineIn("dine_in"),
+  @SerialName("takeaway") Takeaway("takeaway"),
+  @SerialName("physical_retail") PhysicalRetail("physical_retail"),
+  @SerialName("drink_snack") DrinkSnack("drink_snack"),
+  @SerialName("other") Other("other"),
+  @SerialName("unknown") Unknown("unknown")
+}
+
+@Serializable
+enum class ConsumptionStatsResultDtoMerchantsEntryScopeSource(val wireValue: String) {
+  @SerialName("explicit") Explicit("explicit"),
+  @SerialName("meal_link") MealLink("meal_link"),
+  @SerialName("rule") Rule("rule"),
+  @SerialName("scene") Scene("scene"),
+  @SerialName("unknown") Unknown("unknown")
+}
+
+@Serializable
+data class ConsumptionStatsResultDtoMerchantsEntrySpendEntry(
+  @SerialName("currency") val currency: String,
+  @SerialName("gross") val gross: String,
+  @SerialName("refund") val refund: String,
+  @SerialName("net") val net: String
+)
+
+@Serializable
+data class ConsumptionStatsResultDtoMerchantsEntry(
+  @SerialName("canonical_name") val canonicalName: String,
+  @SerialName("raw_names") val rawNames: List<String>,
+  @SerialName("normalization") val normalization: List<ConsumptionStatsResultDtoMerchantsEntryNormalizationEntry>,
+  @SerialName("scope") val scope: ConsumptionStatsResultDtoMerchantsEntryScope,
+  @SerialName("scope_source") val scopeSource: ConsumptionStatsResultDtoMerchantsEntryScopeSource,
+  @SerialName("orders") val orders: Long,
+  @SerialName("confirmed_meals") val confirmedMeals: Long,
+  @SerialName("spend") val spend: List<ConsumptionStatsResultDtoMerchantsEntrySpendEntry>
+)
+
+@Serializable
+enum class ConsumptionStatsResultDtoItemsEntryNormalizationEntry(val wireValue: String) {
+  @SerialName("unicode_nfkc") UnicodeNfkc("unicode_nfkc"),
+  @SerialName("whitespace") Whitespace("whitespace"),
+  @SerialName("punctuation") Punctuation("punctuation"),
+  @SerialName("personal_alias") PersonalAlias("personal_alias")
+}
+
+@Serializable
+enum class ConsumptionStatsResultDtoItemsEntryCategory(val wireValue: String) {
+  @SerialName("dish") Dish("dish"),
+  @SerialName("staple") Staple("staple"),
+  @SerialName("snack") Snack("snack"),
+  @SerialName("beverage") Beverage("beverage"),
+  @SerialName("fresh_food") FreshFood("fresh_food"),
+  @SerialName("daily_goods") DailyGoods("daily_goods"),
+  @SerialName("other") Other("other"),
+  @SerialName("unknown") Unknown("unknown")
+}
+
+@Serializable
+enum class ConsumptionStatsResultDtoItemsEntryCategorySource(val wireValue: String) {
+  @SerialName("explicit") Explicit("explicit"),
+  @SerialName("meal_link") MealLink("meal_link"),
+  @SerialName("rule") Rule("rule"),
+  @SerialName("scene") Scene("scene"),
+  @SerialName("unknown") Unknown("unknown")
+}
+
+@Serializable
+data class ConsumptionStatsResultDtoItemsEntryLineSpendEntry(
+  @SerialName("currency") val currency: String,
+  @SerialName("amount") val amount: String
+)
+
+@Serializable
+enum class ConsumptionStatsResultDtoItemsEntryQuantitiesEntryBasis(val wireValue: String) {
+  @SerialName("purchased") Purchased("purchased"),
+  @SerialName("consumed") Consumed("consumed")
+}
+
+@Serializable
+data class ConsumptionStatsResultDtoItemsEntryQuantitiesEntry(
+  @SerialName("basis") val basis: ConsumptionStatsResultDtoItemsEntryQuantitiesEntryBasis,
+  @SerialName("unit") val unit: String,
+  @SerialName("quantity") val quantity: String,
+  @SerialName("records") val records: Long
+)
+
+@Serializable
+data class ConsumptionStatsResultDtoItemsEntry(
+  @SerialName("canonical_name") val canonicalName: String,
+  @SerialName("raw_names") val rawNames: List<String>,
+  @SerialName("normalization") val normalization: List<ConsumptionStatsResultDtoItemsEntryNormalizationEntry>,
+  @SerialName("category") val category: ConsumptionStatsResultDtoItemsEntryCategory,
+  @SerialName("category_source") val categorySource: ConsumptionStatsResultDtoItemsEntryCategorySource,
+  @SerialName("purchased_orders") val purchasedOrders: Long,
+  @SerialName("confirmed_consumptions") val confirmedConsumptions: Long,
+  @SerialName("line_spend") val lineSpend: List<ConsumptionStatsResultDtoItemsEntryLineSpendEntry>,
+  @SerialName("quantities") val quantities: List<ConsumptionStatsResultDtoItemsEntryQuantitiesEntry>
+)
+
+@Serializable
+enum class ConsumptionStatsResultDtoTimeDistributionEntryBucket(val wireValue: String) {
+  @SerialName("morning") Morning("morning"),
+  @SerialName("lunch") Lunch("lunch"),
+  @SerialName("afternoon") Afternoon("afternoon"),
+  @SerialName("dinner") Dinner("dinner"),
+  @SerialName("late_night") LateNight("late_night"),
+  @SerialName("unknown") Unknown("unknown")
+}
+
+@Serializable
+data class ConsumptionStatsResultDtoTimeDistributionEntry(
+  @SerialName("bucket") val bucket: ConsumptionStatsResultDtoTimeDistributionEntryBucket,
+  @SerialName("orders") val orders: Long,
+  @SerialName("confirmed_meals") val confirmedMeals: Long
+)
+
+@Serializable
+data class ConsumptionStatsResultDtoCoverage(
+  @SerialName("orders") val orders: Long,
+  @SerialName("merchant_known") val merchantKnown: Long,
+  @SerialName("scope_explicit") val scopeExplicit: Long,
+  @SerialName("scope_derived") val scopeDerived: Long,
+  @SerialName("scope_unknown") val scopeUnknown: Long,
+  @SerialName("payment_known") val paymentKnown: Long,
+  @SerialName("timestamp_known") val timestampKnown: Long,
+  @SerialName("meal_linked_orders") val mealLinkedOrders: Long,
+  @SerialName("item_lines") val itemLines: Long,
+  @SerialName("included_item_lines") val includedItemLines: Long,
+  @SerialName("excluded_service_lines") val excludedServiceLines: Long,
+  @SerialName("item_category_explicit") val itemCategoryExplicit: Long,
+  @SerialName("item_category_derived") val itemCategoryDerived: Long,
+  @SerialName("item_category_unknown") val itemCategoryUnknown: Long,
+  @SerialName("money_authorized") val moneyAuthorized: Boolean
+)
+
+@Serializable
+data class ConsumptionStatsResultDtoUnknownsMerchantsEntry(
+  @SerialName("name") val name: String,
+  @SerialName("orders") val orders: Long
+)
+
+@Serializable
+data class ConsumptionStatsResultDtoUnknownsItemsEntry(
+  @SerialName("name") val name: String,
+  @SerialName("occurrences") val occurrences: Long
+)
+
+@Serializable
+data class ConsumptionStatsResultDtoUnknowns(
+  @SerialName("merchants") val merchants: List<ConsumptionStatsResultDtoUnknownsMerchantsEntry>,
+  @SerialName("items") val items: List<ConsumptionStatsResultDtoUnknownsItemsEntry>
+)
+
+@Serializable
+data class ConsumptionStatsResultDto(
+  @SerialName("algorithm_version") val algorithmVersion: String,
+  @SerialName("window") val window: ConsumptionStatsResultDtoWindow,
+  @SerialName("applied_filters") val appliedFilters: ConsumptionStatsResultDtoAppliedFilters,
+  @SerialName("monthly") val monthly: List<ConsumptionStatsResultDtoMonthlyEntry>,
+  @SerialName("merchants") val merchants: List<ConsumptionStatsResultDtoMerchantsEntry>,
+  @SerialName("items") val items: List<ConsumptionStatsResultDtoItemsEntry>,
+  @SerialName("time_distribution") val timeDistribution: List<ConsumptionStatsResultDtoTimeDistributionEntry>,
+  @SerialName("coverage") val coverage: ConsumptionStatsResultDtoCoverage,
+  @SerialName("unknowns") val unknowns: ConsumptionStatsResultDtoUnknowns,
+  @SerialName("as_of") val asOf: String
+)
+
+@Serializable
 enum class ListMealsResultDtoItemsEntryMealType(val wireValue: String) {
   @SerialName("breakfast") Breakfast("breakfast"),
   @SerialName("lunch") Lunch("lunch"),

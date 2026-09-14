@@ -2,6 +2,16 @@
 
 Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The table separates source modeling, usable operations, migrated production data, and actual cutover. A schema or command alone is never counted as a completed migration.
 
+## 2026-09-14: consumption and item statistics
+
+- Added the shared `life.consumption_stats` contract, HTTP/Agent query, PostgreSQL fact reader, and
+  versioned `consumption-stats-v1` classification in the kernel.
+- Web and Android now expose 1/3/6/12-month filters, scope/category filters, monthly trends, merchant
+  and item rankings, time distribution, coverage, and minimal unknown lists.
+- This is a query-time derivation: no production data, materialized summary, migration, or destructive
+  historical backfill was introduced. See `docs/architecture/consumption-statistics.md` for semantics,
+  audit, and rollback constraints.
+
 | Source and reviewed SHA | Life fact model | Usable operation and verification | Production migration | Formal takeover and retirement condition |
 |---|---|---|---|---|
 | Health `800af69` | Meals, nutrition snapshots, raw revisions, body/sleep/activity/workout/habit projections, habits/goals/workout plans | Meal aggregate, correction, templates, batch cursor, queued normalizer, daily rebuild and versioned Health plans have contract and journey coverage | Synthetic importer only; real owner map, snapshots, photos and device backlog absent | Not taken over; real Health Connect/Samsung/scale runs, full history reconciliation and old writers stopped |

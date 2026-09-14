@@ -31,6 +31,7 @@ class MemoryUnitOfWork implements UnitOfWork {
       lifeToday:async(_subjectId,date)=>({date,domains:{},as_of:new Date().toISOString()}),
       lifeTimeline:async()=>({items:[],hasMore:false,asOf:new Date().toISOString()}),
       lifeSearch:async()=>({items:[],hasMore:false,asOf:new Date().toISOString()}),
+      consumptionStatsData:async()=>({purchases:[],meals:[],intakes:[],aliases:[],asOf:new Date().toISOString()}),
       lifeRecord:async()=>undefined,moneyPlanning:async()=>({}),moneyImportReview:async()=>undefined,healthDaily:async()=>undefined,healthRecord:async()=>undefined,travelTrip:async()=>undefined,travelWorkspace:async()=>({}),travelExportData:async()=>undefined,libraryItem:async()=>undefined,libraryProcessingQueue:async()=>({items:[]}),agentContextPack:async()=>undefined,agentMemories:async()=>({items:[],asOf:new Date().toISOString()}),notifications:async()=>({items:[]}),ownedItems:async()=>({items:[]}),lifeReviews:async()=>({items:[]}),lifeProjects:async()=>({items:[]}),planningAgenda:async()=>({items:[],truncated:false,asOf:new Date().toISOString()}),mealPlanning:async()=>({meal_plans:[],shopping_lists:[]}),purchaseItems:async()=>({items:[]}),foreignEntries:async()=>({items:[]}),agentPersonalContext:async()=>({aliases:[],mealTemplates:[]})
     };
     const result = await work(store);

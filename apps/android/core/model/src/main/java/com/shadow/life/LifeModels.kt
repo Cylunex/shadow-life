@@ -192,6 +192,7 @@ data class RecordDetail(val title:String,val state:String?,val revision:Int?,val
 @Serializable data object ConnectionsRoute
 @Serializable data object InboxRoute
 @Serializable data object ItemsRoute
+@Serializable data object ConsumptionStatsRoute
 
 enum class CaptureKind(val label:String,val capability:String) {
   Expense("消费","money.record_entry"),

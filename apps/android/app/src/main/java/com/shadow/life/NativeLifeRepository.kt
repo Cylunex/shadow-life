@@ -63,6 +63,12 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     },result.nextCursor,result.asOf)
   }
 
+  suspend fun consumptionStats(months:Int=3,scope:String?=null,category:String?=null,merchantRankBy:String="orders",itemRankBy:String="purchased_orders",currency:String="CNY"):ConsumptionStatsResultDto {
+    val range=consumptionStatsDateRange(LocalDate.now(),months);val zone=ZoneId.systemDefault().id
+    val query=buildList{add("from_on=${range.first}");add("to_on_exclusive=${range.second}");add("time_zone=${encode(zone)}");add("merchant_rank_by=$merchantRankBy");add("item_rank_by=$itemRankBy");add("currency=${encode(currency)}");add("limit=20");scope?.takeIf(String::isNotBlank)?.let{add("scopes=${encode(it)}")};category?.takeIf(String::isNotBlank)?.let{add("categories=${encode(it)}")}}.joinToString("&")
+    return wireJson.decodeFromString(getText("/api/life/consumption-stats?$query"))
+  }
+
   suspend fun search(query:String,cursor:String?=null):RecordPage {
     return search(query,cursor,null)
   }
@@ -605,6 +611,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
 private fun JSONArray?.objects():List<JSONObject>{if(this==null)return emptyList();return (0 until length()).mapNotNull{optJSONObject(it)}}
 private fun JSONObject.optNullableString(key:String):String?=if(!has(key)||isNull(key))null else optString(key).takeIf(String::isNotBlank)
 private fun encode(value:String)=java.net.URLEncoder.encode(value,Charsets.UTF_8.name())
+internal fun consumptionStatsDateRange(today:LocalDate,months:Int):Pair<LocalDate,LocalDate>{require(months in setOf(1,3,6,12));val current=today.withDayOfMonth(1);return current.minusMonths(months.toLong()-1) to current.plusMonths(1)}
 private fun decimal(value:String):String { val normalized=value.trim().removePrefix("+");require(Regex("^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$").matches(normalized)){"请输入有效数值，最多 6 位小数"};return normalized }
 private fun money(value:String):String { val normalized=value.trim();require(Regex("^(?:0|[1-9]\\d*)(?:\\.\\d{1,2})?$").matches(normalized)){"请输入有效金额，最多 2 位小数"};return normalized.toBigDecimal().setScale(2).toPlainString().also{require(it!="0.00"){"金额必须大于 0"}} }
 private fun correctionReason(value:String)=value.trim().ifBlank{"用户在详情中更正"}

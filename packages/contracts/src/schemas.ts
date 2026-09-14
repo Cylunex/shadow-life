@@ -613,6 +613,34 @@ export const lifeTimelineResultSchema=z.object({items:z.array(lifeTimelineItemSc
 export const lifeSearchInputSchema=z.object({q:z.string().trim().min(1).max(200),types:z.array(lifeOverviewDomainSchema).min(1).max(5).optional(),from_on:localDate.optional(),to_on_exclusive:localDate.optional(),limit:z.number().int().min(1).max(100).default(30),cursor:z.string().max(1_000).optional()}).strict().refine(value=>!value.from_on||!value.to_on_exclusive||value.to_on_exclusive>value.from_on,{path:["to_on_exclusive"],message:"to_on_exclusive must be after from_on"});
 export const lifeSearchItemSchema=z.object({domain:lifeOverviewDomainSchema,kind:z.string(),id:stableId,title:z.string(),supporting:z.string().nullable(),happened_on:localDate,amount:storedAmount.optional(),currency:currencyCode.optional(),record_id:stableId.optional()}).strict();
 export const lifeSearchResultSchema=z.object({items:z.array(lifeSearchItemSchema),next_cursor:z.string().nullable(),as_of:instant,applied_filters:z.object({q:z.string(),types:z.array(lifeOverviewDomainSchema),from_on:localDate.nullable(),to_on_exclusive:localDate.nullable()}).strict()}).strict();
+export const consumptionScopeSchema=z.enum(["restaurant_delivery","grocery_delivery","dine_in","takeaway","physical_retail","drink_snack","other","unknown"]);
+export const consumptionItemCategorySchema=z.enum(["dish","staple","snack","beverage","fresh_food","daily_goods","other","unknown"]);
+export const consumptionStatsInputSchema=z.object({
+  from_on:localDate,to_on_exclusive:localDate,time_zone:ianaTimeZone,
+  scopes:z.array(consumptionScopeSchema).min(1).max(8).optional(),
+  categories:z.array(consumptionItemCategorySchema).min(1).max(8).optional(),
+  merchant_rank_by:z.enum(["orders","gross_spend","net_spend"]).default("orders"),
+  item_rank_by:z.enum(["purchased_orders","confirmed_consumptions","line_spend"]).default("purchased_orders"),
+  currency:currencyCode.optional(),limit:z.number().int().min(1).max(100).default(20)
+}).strict().superRefine((value,context)=>{
+  if(value.to_on_exclusive<=value.from_on)context.addIssue({code:"custom",path:["to_on_exclusive"],message:"to_on_exclusive must be after from_on"});
+  if(Date.parse(`${value.to_on_exclusive}T00:00:00Z`)-Date.parse(`${value.from_on}T00:00:00Z`)>370*86_400_000)context.addIssue({code:"custom",path:["from_on"],message:"consumption statistics are limited to twelve months"});
+  if((value.merchant_rank_by!=="orders"||value.item_rank_by==="line_spend")&&!value.currency)context.addIssue({code:"custom",path:["currency"],message:"currency is required for monetary ranking"});
+});
+const consumptionMoneySchema=z.object({currency:currencyCode,gross:storedAmount,refund:storedAmount,net:signedStoredAmount}).strict();
+const consumptionClassificationSourceSchema=z.enum(["explicit","meal_link","rule","scene","unknown"]);
+export const consumptionStatsResultSchema=z.object({
+  algorithm_version:z.literal("consumption-stats-v1"),
+  window:z.object({from_on:localDate,to_on_exclusive:localDate,time_zone:ianaTimeZone,refund_attribution:z.literal("original_purchase_month")}).strict(),
+  applied_filters:z.object({scopes:z.array(consumptionScopeSchema),categories:z.array(consumptionItemCategorySchema),merchant_rank_by:z.enum(["orders","gross_spend","net_spend"]),item_rank_by:z.enum(["purchased_orders","confirmed_consumptions","line_spend"]),currency:currencyCode.nullable(),limit:z.number().int().positive()}).strict(),
+  monthly:z.array(z.object({month:z.string().regex(/^\d{4}-\d{2}$/u),orders:z.number().int().nonnegative(),confirmed_meals:z.number().int().nonnegative(),spend:z.array(consumptionMoneySchema)}).strict()),
+  merchants:z.array(z.object({canonical_name:z.string(),raw_names:z.array(z.string()),normalization:z.array(z.enum(["unicode_nfkc","whitespace","punctuation","personal_alias"])),scope:consumptionScopeSchema,scope_source:consumptionClassificationSourceSchema,orders:z.number().int().nonnegative(),confirmed_meals:z.number().int().nonnegative(),spend:z.array(consumptionMoneySchema)}).strict()),
+  items:z.array(z.object({canonical_name:z.string(),raw_names:z.array(z.string()),normalization:z.array(z.enum(["unicode_nfkc","whitespace","punctuation","personal_alias"])),category:consumptionItemCategorySchema,category_source:consumptionClassificationSourceSchema,purchased_orders:z.number().int().nonnegative(),confirmed_consumptions:z.number().int().nonnegative(),line_spend:z.array(z.object({currency:currencyCode,amount:storedAmount}).strict()),quantities:z.array(z.object({basis:z.enum(["purchased","consumed"]),unit:z.string(),quantity:storedAmount,records:z.number().int().positive()}).strict())}).strict()),
+  time_distribution:z.array(z.object({bucket:z.enum(["morning","lunch","afternoon","dinner","late_night","unknown"]),orders:z.number().int().nonnegative(),confirmed_meals:z.number().int().nonnegative()}).strict()),
+  coverage:z.object({orders:z.number().int().nonnegative(),merchant_known:z.number().int().nonnegative(),scope_explicit:z.number().int().nonnegative(),scope_derived:z.number().int().nonnegative(),scope_unknown:z.number().int().nonnegative(),payment_known:z.number().int().nonnegative(),timestamp_known:z.number().int().nonnegative(),meal_linked_orders:z.number().int().nonnegative(),item_lines:z.number().int().nonnegative(),included_item_lines:z.number().int().nonnegative(),excluded_service_lines:z.number().int().nonnegative(),item_category_explicit:z.number().int().nonnegative(),item_category_derived:z.number().int().nonnegative(),item_category_unknown:z.number().int().nonnegative(),money_authorized:z.boolean()}).strict(),
+  unknowns:z.object({merchants:z.array(z.object({name:z.string(),orders:z.number().int().positive()}).strict()),items:z.array(z.object({name:z.string(),occurrences:z.number().int().positive()}).strict())}).strict(),
+  as_of:instant
+}).strict();
 export const lifeRecordSectionSchema=z.enum(["meal","purchase","money","sources"]);
 export const lifeRecordInputSchema=z.object({id:stableId,sections:z.array(lifeRecordSectionSchema).min(1).max(4).optional()}).strict();
 export const resourceDetailInputSchema=z.object({id:stableId}).strict();
@@ -654,6 +682,8 @@ export type RecordMealInput = z.infer<typeof recordMealInputSchema>;
 export type LifeOverviewDomain = z.infer<typeof lifeOverviewDomainSchema>;
 export type LifeTimelineItem = z.infer<typeof lifeTimelineItemSchema>;
 export type LifeSearchItem = z.infer<typeof lifeSearchItemSchema>;
+export type ConsumptionStatsInput = z.infer<typeof consumptionStatsInputSchema>;
+export type ConsumptionStatsResult = z.infer<typeof consumptionStatsResultSchema>;
 export type RecordMealCommand = z.infer<typeof recordMealCommandEnvelopeSchema>;
 export type WriteCapabilityName = z.infer<typeof writeCapabilityNameSchema>;
 export type UniversalCommandEnvelope = z.infer<typeof universalCommandEnvelopeSchema>;

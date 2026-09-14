@@ -1,0 +1,112 @@
+import { consumptionStatsResultSchema, type ConsumptionStatsInput, type ConsumptionStatsResult } from "@shadow/contracts";
+
+export type ConsumptionScope="restaurant_delivery"|"grocery_delivery"|"dine_in"|"takeaway"|"physical_retail"|"drink_snack"|"other"|"unknown";
+export type ConsumptionItemCategory="dish"|"staple"|"snack"|"beverage"|"fresh_food"|"daily_goods"|"other"|"unknown";
+type ClassificationSource="explicit"|"meal_link"|"rule"|"scene"|"unknown";
+type Normalization="unicode_nfkc"|"whitespace"|"punctuation"|"personal_alias";
+
+export interface ConsumptionStatsRawItem extends Record<string,unknown> {id:string;raw_name:string;quantity:string|null;unit:string|null;line_amount:string|null;category_key:string|null}
+export interface ConsumptionStatsRawPurchase extends Record<string,unknown> {
+  id:string;record_id:string;merchant:string|null;category:string|null;scene:string|null;channel_name_raw:string|null;
+  occurred_on:string;occurred_at:string|null;currency:string;purchase_amount:string|null;items:ConsumptionStatsRawItem[];
+  expense:{amount:string;currency:string}|null;refunds:Array<{id:string;amount:string;currency:string}>;meal_ids:string[];
+}
+export interface ConsumptionStatsRawMeal extends Record<string,unknown> {id:string;occurred_on:string;occurred_at:string|null;linked_record_ids:string[]}
+export interface ConsumptionStatsRawIntake extends Record<string,unknown> {id:string;meal_id:string;name:string;quantity:string|null;unit:string|null;consumed_fraction:string|null}
+export interface ConsumptionStatsRawData {
+  purchases:ConsumptionStatsRawPurchase[];meals:ConsumptionStatsRawMeal[];intakes:ConsumptionStatsRawIntake[];
+  aliases:Array<{alias:string;target_kind:string;target_value:string}>;asOf:string;
+}
+
+const serviceRules:[string,RegExp][]=[
+  ["service.delivery",/^(?:配送|运送|外送|跑腿|运)费$/u],
+  ["service.package",/^(?:打包|包装|餐盒|保温袋)费$/u],
+  ["service.tableware",/^(?:无需|不需要|需要|环保)?餐具(?:选项|数量)?$/u],
+  ["service.preference",/^(?:备注|口味|辣度|加辣|少辣|微辣|中辣|重辣|不辣|免辣|去冰|少冰|常温|少糖|无糖)$/u],
+  ["service.specification",/^(?:规格|规格选择|商品规格|份量选择)(?:[:：]\s*.{1,30})?$/u],
+  ["service.preference_detail",/^(?:口味|辣度|甜度|温度)[:：]\s*.{1,30}$/u],
+  ["service.addon",/^(?:纯)?加料(?:选项|要求|说明)?(?:[:：]\s*.{1,30})?$/u]
+];
+const categoryRules:Array<[string,ConsumptionItemCategory,RegExp]>=[
+  ["category.snack", "snack",/(?:薯片|饼干|曲奇|巧克力|糖果|果冻|辣条|坚果|瓜子|肉脯|海苔|零食)/u],
+  ["category.beverage", "beverage",/(?:咖啡|奶茶|可乐|汽水|饮料|果汁|酸奶|纯牛奶|矿泉水|气泡水|椰子水)/u],
+  ["category.fresh", "fresh_food",/(?:香蕉|苹果|橙子|柑橘|葡萄|草莓|蓝莓|蔬菜|水果|鲜肉|鸡蛋|生鲜)/u],
+  ["category.daily", "daily_goods",/(?:纸巾|洗衣|清洁|牙膏|牙刷|洗发|沐浴|垃圾袋|保鲜膜|日用品)/u],
+  ["category.staple", "staple",/(?:米饭|炒饭|盖饭|面条|米线|米粉|河粉|馒头|包子|饺子|馄饨|粥)/u],
+  ["category.dish", "dish",/(?:套餐|汉堡|披萨|鸡翅|鸡腿|牛肉|猪肉|羊肉|鱼|虾|汤|沙拉|炒菜|小炒|烧烤|火锅)/u]
+];
+const groceryMerchantRule=/(?:盒马|叮咚买菜|朴朴|永辉|山姆|沃尔玛|麦德龙|华润万家|生鲜|超市|便利店)/u;
+
+function normalized(value:string):{value:string;methods:Normalization[]}{
+  const methods:Normalization[]=[];let next=value;
+  const nfkc=next.normalize("NFKC");if(nfkc!==next)methods.push("unicode_nfkc");next=nfkc;
+  const punctuation=next.replace(/[，、；：。！？【】「」『』]/gu," ").replace(/[()]/gu," ");if(punctuation!==next)methods.push("punctuation");next=punctuation;
+  const whitespace=next.trim().replace(/\s+/gu," ");if(whitespace!==next)methods.push("whitespace");
+  return{value:whitespace,methods};
+}
+function aliasMap(data:ConsumptionStatsRawData,kind:"merchant"|"food"):Map<string,string>{return new Map(data.aliases.filter(item=>item.target_kind===kind).map(item=>[normalized(item.alias).value.toLowerCase(),normalized(item.target_value).value]));}
+function canonical(raw:string,aliases:ReadonlyMap<string,string>):{value:string;methods:Normalization[]}{const base=normalized(raw),target=aliases.get(base.value.toLowerCase());if(!target)return base;const resolved=normalized(target),methods:Normalization[]=[...base.methods,"personal_alias",...resolved.methods];return{value:resolved.value,methods:[...new Set(methods)]};}
+function lineIsService(name:string):boolean{const value=normalized(name).value;return serviceRules.some(([,pattern])=>pattern.test(value));}
+function explicitCategory(value:string|null):ConsumptionItemCategory|undefined{
+  if(!value)return undefined;const key=normalized(value).value.toLowerCase().replace(/[\s-]+/gu,"_");
+  const map:Record<string,ConsumptionItemCategory>={dish:"dish",meal:"dish",food:"dish",菜品:"dish",staple:"staple",主食:"staple",snack:"snack",snacks:"snack",零食:"snack",beverage:"beverage",drink:"beverage",饮料:"beverage",fresh_food:"fresh_food",fresh:"fresh_food",生鲜:"fresh_food",daily_goods:"daily_goods",household:"daily_goods",日用品:"daily_goods",other:"other",其他:"other"};return map[key];
+}
+function classifyItem(name:string,explicit:string|null):{category:ConsumptionItemCategory;source:ClassificationSource}{const direct=explicitCategory(explicit);if(direct)return{category:direct,source:"explicit"};for(const[,category,pattern]of categoryRules)if(pattern.test(normalized(name).value))return{category,source:"rule"};return{category:"unknown",source:"unknown"};}
+function classifyScope(purchase:ConsumptionStatsRawPurchase,categories:readonly ConsumptionItemCategory[]):{scope:ConsumptionScope;source:ClassificationSource}{
+  const explicit=normalized(purchase.category??"").value.toLowerCase().replace(/[\s-]+/gu,"_");
+  const categoryMap:Record<string,ConsumptionScope>={restaurant_delivery:"restaurant_delivery",餐饮外卖:"restaurant_delivery",grocery_delivery:"grocery_delivery",生鲜配送:"grocery_delivery",dine_in:"dine_in",堂食:"dine_in",takeaway:"takeaway",到店自取:"takeaway",physical_retail:"physical_retail",实体零售:"physical_retail",drink_snack:"drink_snack",饮料零食:"drink_snack"};
+  if(categoryMap[explicit])return{scope:categoryMap[explicit]!,source:"explicit"};
+  if(purchase.meal_ids.length){if(purchase.scene==="delivery")return{scope:"restaurant_delivery",source:"meal_link"};if(purchase.scene==="dine_in")return{scope:"dine_in",source:"meal_link"};if(purchase.scene==="takeaway")return{scope:"takeaway",source:"meal_link"};}
+  const merchantAndChannel=`${purchase.merchant??""} ${purchase.channel_name_raw??""}`;
+  if(purchase.scene==="delivery"){
+    if(groceryMerchantRule.test(merchantAndChannel)||categories.some(item=>item==="fresh_food"||item==="daily_goods"))return{scope:"grocery_delivery",source:"rule"};
+    if(categories.some(item=>item==="dish"||item==="staple"))return{scope:"restaurant_delivery",source:"rule"};
+    return{scope:"unknown",source:"unknown"};
+  }
+  if(purchase.scene==="dine_in")return{scope:"dine_in",source:"scene"};
+  if(purchase.scene==="takeaway")return{scope:"takeaway",source:"scene"};
+  if(purchase.scene==="offline_purchase")return{scope:"physical_retail",source:"scene"};
+  if(purchase.scene==="drink")return{scope:"drink_snack",source:"scene"};
+  if(purchase.scene==="other"||purchase.scene==="online_purchase")return{scope:"other",source:"scene"};
+  return{scope:"unknown",source:"unknown"};
+}
+function localParts(on:string,at:string|null,timeZone:string):{on:string;hour:number|null}{if(!at)return{on,hour:null};const parts=new Intl.DateTimeFormat("en-US",{timeZone,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",hourCycle:"h23"}).formatToParts(new Date(at)),part=(type:string)=>parts.find(item=>item.type===type)?.value??"";return{on:`${part("year")}-${part("month")}-${part("day")}`,hour:Number(part("hour"))};}
+function bucket(hour:number|null):"morning"|"lunch"|"afternoon"|"dinner"|"late_night"|"unknown"{if(hour===null)return"unknown";if(hour<10)return"morning";if(hour<14)return"lunch";if(hour<17)return"afternoon";if(hour<22)return"dinner";return"late_night";}
+function decimal(value:string|null|undefined):bigint{if(!value)return 0n;const [whole="0",fraction=""]=value.split(".");return BigInt(whole)*1_000_000n+BigInt(fraction.padEnd(6,"0").slice(0,6));}
+function multiplyDecimal(left:bigint,right:bigint):bigint{return left*right/1_000_000n;}
+function decimalText(value:bigint):string{const sign=value<0n?"-":"",absolute=value<0n?-value:value,whole=absolute/1_000_000n,fraction=(absolute%1_000_000n).toString().padStart(6,"0").replace(/0+$/u,"");return`${sign}${whole}${fraction?`.${fraction}`:""}`;}
+function moneyRows(values:ReadonlyMap<string,{gross:bigint;refund:bigint}>){return[...values.entries()].sort(([a],[b])=>a.localeCompare(b)).map(([currency,value])=>({currency,gross:decimalText(value.gross),refund:decimalText(value.refund),net:decimalText(value.gross-value.refund)}));}
+function addMoney(values:Map<string,{gross:bigint;refund:bigint}>,currency:string,gross:bigint,refund:bigint){const current=values.get(currency)??{gross:0n,refund:0n};current.gross+=gross;current.refund+=refund;values.set(currency,current);}
+function expenseFor(purchase:ConsumptionStatsRawPurchase):{amount:string;currency:string}|null{return purchase.expense??(purchase.purchase_amount?{amount:purchase.purchase_amount,currency:purchase.currency}:null);}
+function refundFor(purchase:ConsumptionStatsRawPurchase,currency:string):bigint{const seen=new Set<string>();return purchase.refunds.reduce((sum,item)=>{if(item.currency!==currency||seen.has(item.id))return sum;seen.add(item.id);return sum+decimal(item.amount);},0n);}
+function months(from:string,toExclusive:string):string[]{const result:string[]=[];let [year,month]=from.slice(0,7).split("-").map(Number) as [number,number];while(`${String(year).padStart(4,"0")}-${String(month).padStart(2,"0")}-01`<toExclusive){result.push(`${String(year).padStart(4,"0")}-${String(month).padStart(2,"0")}`);if(++month===13){month=1;year++;}}return result;}
+function normalizedQuantity(quantity:string|null,unit:string|null):{unit:string;quantity:bigint}|null{if(!quantity||!unit)return null;const key=normalized(unit).value.toLowerCase();if(key==="kg"||key==="千克"||key==="公斤")return{unit:"g",quantity:decimal(quantity)*1000n};if(key==="克"||key==="g")return{unit:"g",quantity:decimal(quantity)};if(key==="l"||key==="升")return{unit:"ml",quantity:decimal(quantity)*1000n};if(key==="ml"||key==="毫升")return{unit:"ml",quantity:decimal(quantity)};if(["个","件"].includes(key))return{unit:"count",quantity:decimal(quantity)};if(["份","包","盒","瓶","杯","袋","串"].includes(key))return{unit:key,quantity:decimal(quantity)};return null;}
+function sourcePriority(value:ClassificationSource):number{return({explicit:5,meal_link:4,rule:3,scene:2,unknown:1})[value];}
+
+export function buildConsumptionStats(raw:ConsumptionStatsRawData,input:ConsumptionStatsInput,includeMoney:boolean):ConsumptionStatsResult{
+  const merchantAliases=aliasMap(raw,"merchant"),foodAliases=aliasMap(raw,"food"),scopeFilter=new Set(input.scopes??[]),categoryFilter=new Set(input.categories??[]),inWindow=(on:string)=>on>=input.from_on&&on<input.to_on_exclusive;
+  const purchases=[...new Map(raw.purchases.map(purchase=>[purchase.id,purchase])).values()],meals=[...new Map(raw.meals.map(meal=>[meal.id,meal])).values()],intakes=[...new Map(raw.intakes.map(intake=>[intake.id,intake])).values()];
+  const classified=purchases.flatMap(purchase=>{const local=localParts(purchase.occurred_on,purchase.occurred_at,input.time_zone);if(!inWindow(local.on))return[];const itemClasses=purchase.items.map(item=>classifyItem(item.raw_name,item.category_key)),scope=classifyScope(purchase,itemClasses.map(item=>item.category));return[{purchase,local,itemClasses,scope}]});
+  const selected=classified.filter(row=>(!scopeFilter.size||scopeFilter.has(row.scope.scope))&&(!categoryFilter.size||row.purchase.items.some((item,index)=>!lineIsService(item.raw_name)&&categoryFilter.has(row.itemClasses[index]!.category))));
+  const selectedRecordScopes=new Map(selected.map(row=>[row.purchase.record_id,row.scope.scope])),selectedPurchaseIds=new Set(selected.map(row=>row.purchase.id));
+  const eligibleMeals=meals.filter(meal=>{const local=localParts(meal.occurred_on,meal.occurred_at,input.time_zone);if(!inWindow(local.on))return false;const linkedScopes=meal.linked_record_ids.flatMap(id=>selectedRecordScopes.get(id)??[]);if(scopeFilter.size&&!(linkedScopes.some(scope=>scopeFilter.has(scope))||(!meal.linked_record_ids.length&&scopeFilter.has("unknown"))))return false;if(categoryFilter.size&&!intakes.some(item=>item.meal_id===meal.id&&categoryFilter.has(classifyItem(item.name,null).category)))return false;return true;}),eligibleMealIds=new Set(eligibleMeals.map(meal=>meal.id));
+  const monthly=new Map(months(input.from_on,input.to_on_exclusive).map(month=>[month,{orders:new Set<string>(),meals:new Set<string>(),money:new Map<string,{gross:bigint;refund:bigint}>()}]));
+  const time=new Map(["morning","lunch","afternoon","dinner","late_night","unknown"].map(key=>[key,{orders:new Set<string>(),meals:new Set<string>()}]));
+  for(const row of selected){const month=monthly.get(row.local.on.slice(0,7));month?.orders.add(row.purchase.id);time.get(bucket(row.local.hour))!.orders.add(row.purchase.id);if(includeMoney){const expense=expenseFor(row.purchase);if(expense)addMoney(month!.money,expense.currency,decimal(expense.amount),refundFor(row.purchase,expense.currency));}}
+  for(const meal of eligibleMeals){const local=localParts(meal.occurred_on,meal.occurred_at,input.time_zone);monthly.get(local.on.slice(0,7))?.meals.add(meal.id);time.get(bucket(local.hour))!.meals.add(meal.id);}
+  type MerchantGroup={canonical_name:string;rawNames:Set<string>;methods:Set<Normalization>;scope:ConsumptionScope;source:ClassificationSource;orders:Set<string>;meals:Set<string>;money:Map<string,{gross:bigint;refund:bigint}>};
+  const merchants=new Map<string,MerchantGroup>();
+  for(const row of selected){if(!row.purchase.merchant)continue;const name=canonical(row.purchase.merchant,merchantAliases),key=`${name.value.toLowerCase()}\u0000${row.scope.scope}`,group=merchants.get(key)??{canonical_name:name.value,rawNames:new Set(),methods:new Set(),scope:row.scope.scope,source:row.scope.source,orders:new Set(),meals:new Set(),money:new Map()};group.rawNames.add(row.purchase.merchant);name.methods.forEach(item=>group.methods.add(item));group.orders.add(row.purchase.id);row.purchase.meal_ids.forEach(id=>group.meals.add(id));if(sourcePriority(row.scope.source)>sourcePriority(group.source))group.source=row.scope.source;const expense=expenseFor(row.purchase);if(includeMoney&&expense)addMoney(group.money,expense.currency,decimal(expense.amount),refundFor(row.purchase,expense.currency));merchants.set(key,group);}
+  type ItemGroup={canonical_name:string;rawNames:Set<string>;methods:Set<Normalization>;category:ConsumptionItemCategory;source:ClassificationSource;orders:Set<string>;meals:Set<string>;line:Map<string,bigint>;quantities:Map<string,{basis:"purchased"|"consumed";unit:string;quantity:bigint;records:Set<string>}>};
+  const itemGroups=new Map<string,ItemGroup>();
+  const groupFor=(name:{value:string;methods:Normalization[]},classification:{category:ConsumptionItemCategory;source:ClassificationSource})=>{const key=name.value.toLowerCase(),current=itemGroups.get(key)??{canonical_name:name.value,rawNames:new Set(),methods:new Set(),category:classification.category,source:classification.source,orders:new Set(),meals:new Set(),line:new Map(),quantities:new Map()};if(sourcePriority(classification.source)>sourcePriority(current.source)){current.category=classification.category;current.source=classification.source;}name.methods.forEach(item=>current.methods.add(item));itemGroups.set(key,current);return current;};
+  let itemLines=0,includedItemLines=0,excludedServiceLines=0,categoryExplicit=0,categoryDerived=0,categoryUnknown=0;
+  for(const row of classified)for(const [index,item]of row.purchase.items.entries()){itemLines++;if(lineIsService(item.raw_name)){excludedServiceLines++;continue;}const classification=row.itemClasses[index]!;if(classification.source==="explicit")categoryExplicit++;else if(classification.source==="rule")categoryDerived++;else categoryUnknown++;if(!selectedPurchaseIds.has(row.purchase.id)||categoryFilter.size&&!categoryFilter.has(classification.category))continue;includedItemLines++;const name=canonical(item.raw_name,foodAliases),group=groupFor(name,classification);group.rawNames.add(item.raw_name);group.orders.add(row.purchase.id);if(includeMoney&&item.line_amount)group.line.set(row.purchase.currency,(group.line.get(row.purchase.currency)??0n)+decimal(item.line_amount));const quantity=normalizedQuantity(item.quantity,item.unit);if(quantity){const key=`purchased:${quantity.unit}`,current=group.quantities.get(key)??{basis:"purchased" as const,unit:quantity.unit,quantity:0n,records:new Set<string>()};current.quantity+=quantity.quantity;current.records.add(row.purchase.id);group.quantities.set(key,current);}}
+  for(const intake of intakes){if(!eligibleMealIds.has(intake.meal_id))continue;const fraction=intake.consumed_fraction===null?1_000_000n:decimal(intake.consumed_fraction);if(fraction===0n)continue;const classification=classifyItem(intake.name,null);if(categoryFilter.size&&!categoryFilter.has(classification.category))continue;const name=canonical(intake.name,foodAliases),group=groupFor(name,classification);group.rawNames.add(intake.name);group.meals.add(intake.meal_id);const quantity=normalizedQuantity(intake.quantity,intake.unit);if(quantity){const key=`consumed:${quantity.unit}`,current=group.quantities.get(key)??{basis:"consumed" as const,unit:quantity.unit,quantity:0n,records:new Set<string>()};current.quantity+=multiplyDecimal(quantity.quantity,fraction);current.records.add(intake.meal_id);group.quantities.set(key,current);}}
+  const moneyRank=(values:ReadonlyMap<string,{gross:bigint;refund:bigint}>,basis:"gross_spend"|"net_spend")=>{const value=values.get(input.currency??"")??{gross:0n,refund:0n};return basis==="gross_spend"?value.gross:value.gross-value.refund;};
+  const merchantRows=[...merchants.values()].map(group=>({canonical_name:group.canonical_name,raw_names:[...group.rawNames].sort(),normalization:[...group.methods].sort(),scope:group.scope,scope_source:group.source,orders:group.orders.size,confirmed_meals:group.meals.size,spend:moneyRows(group.money)})).sort((a,b)=>{if(input.merchant_rank_by==="orders")return b.orders-a.orders||b.confirmed_meals-a.confirmed_meals||a.canonical_name.localeCompare(b.canonical_name);const left=moneyRank(merchants.get(`${a.canonical_name.toLowerCase()}\u0000${a.scope}`)?.money??new Map(),input.merchant_rank_by),right=moneyRank(merchants.get(`${b.canonical_name.toLowerCase()}\u0000${b.scope}`)?.money??new Map(),input.merchant_rank_by);return left===right?a.canonical_name.localeCompare(b.canonical_name):left>right?-1:1;}).slice(0,input.limit);
+  const itemRows=[...itemGroups.values()].map(group=>({canonical_name:group.canonical_name,raw_names:[...group.rawNames].sort(),normalization:[...group.methods].sort(),category:group.category,category_source:group.source,purchased_orders:group.orders.size,confirmed_consumptions:group.meals.size,line_spend:[...group.line.entries()].sort(([a],[b])=>a.localeCompare(b)).map(([currency,amount])=>({currency,amount:decimalText(amount)})),quantities:[...group.quantities.values()].sort((a,b)=>a.basis.localeCompare(b.basis)||a.unit.localeCompare(b.unit)).map(value=>({basis:value.basis,unit:value.unit,quantity:decimalText(value.quantity),records:value.records.size}))})).sort((a,b)=>{if(input.item_rank_by==="purchased_orders")return b.purchased_orders-a.purchased_orders||b.confirmed_consumptions-a.confirmed_consumptions||a.canonical_name.localeCompare(b.canonical_name);if(input.item_rank_by==="confirmed_consumptions")return b.confirmed_consumptions-a.confirmed_consumptions||b.purchased_orders-a.purchased_orders||a.canonical_name.localeCompare(b.canonical_name);const amount=(row:typeof a)=>decimal(row.line_spend.find(item=>item.currency===input.currency)?.amount);return amount(b)>amount(a)?1:amount(b)<amount(a)?-1:a.canonical_name.localeCompare(b.canonical_name);}).slice(0,input.limit);
+  const unknownMerchants=new Map<string,number>();for(const row of classified)if(row.scope.scope==="unknown"&&row.purchase.merchant)unknownMerchants.set(row.purchase.merchant,(unknownMerchants.get(row.purchase.merchant)??0)+1);const unknownItems=new Map<string,number>();for(const row of classified)row.purchase.items.forEach((item,index)=>{if(!lineIsService(item.raw_name)&&row.itemClasses[index]!.category==="unknown")unknownItems.set(item.raw_name,(unknownItems.get(item.raw_name)??0)+1);});
+  const result={algorithm_version:"consumption-stats-v1" as const,window:{from_on:input.from_on,to_on_exclusive:input.to_on_exclusive,time_zone:input.time_zone,refund_attribution:"original_purchase_month" as const},applied_filters:{scopes:input.scopes??[],categories:input.categories??[],merchant_rank_by:input.merchant_rank_by,item_rank_by:input.item_rank_by,currency:input.currency??null,limit:input.limit},monthly:[...monthly.entries()].map(([month,value])=>({month,orders:value.orders.size,confirmed_meals:value.meals.size,spend:moneyRows(value.money)})),merchants:merchantRows,items:itemRows,time_distribution:[...time.entries()].map(([key,value])=>({bucket:key as ReturnType<typeof bucket>,orders:value.orders.size,confirmed_meals:value.meals.size})),coverage:{orders:classified.length,merchant_known:classified.filter(row=>Boolean(row.purchase.merchant)).length,scope_explicit:classified.filter(row=>row.scope.source==="explicit").length,scope_derived:classified.filter(row=>["meal_link","rule","scene"].includes(row.scope.source)).length,scope_unknown:classified.filter(row=>row.scope.scope==="unknown").length,payment_known:includeMoney?classified.filter(row=>expenseFor(row.purchase)!==null).length:0,timestamp_known:classified.filter(row=>row.purchase.occurred_at!==null).length,meal_linked_orders:classified.filter(row=>row.purchase.meal_ids.length>0).length,item_lines:itemLines,included_item_lines:includedItemLines,excluded_service_lines:excludedServiceLines,item_category_explicit:categoryExplicit,item_category_derived:categoryDerived,item_category_unknown:categoryUnknown,money_authorized:includeMoney},unknowns:{merchants:[...unknownMerchants.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).slice(0,input.limit).map(([name,orders])=>({name,orders})),items:[...unknownItems.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).slice(0,input.limit).map(([name,occurrences])=>({name,occurrences}))},as_of:raw.asOf};
+  return consumptionStatsResultSchema.parse(result);
+}

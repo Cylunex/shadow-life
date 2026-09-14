@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { z } from "zod";
 import { capabilityRegistry } from "../src/registry.js";
-import { agentThreadMessagesResultSchema, agentThreadsResultSchema, domainRecordsResultSchema, foreignEntriesResultSchema, healthDailyResultSchema, healthRecordResultSchema, healthSourcesResultSchema, libraryItemResultSchema, lifeProjectsResultSchema, lifeRecordResultSchema, lifeReviewsResultSchema, lifeSearchResultSchema, lifeTimelineResultSchema, lifeTodayResultSchema, listMealsResultSchema, mealPlanningResultSchema, moneyPlanningResultSchema, notificationsResultSchema, ownedItemsResultSchema, planningAgendaResultSchema, projectDirectoryResultSchema, travelTripResultSchema, travelWorkspaceResultSchema } from "../src/schemas.js";
+import { agentThreadMessagesResultSchema, agentThreadsResultSchema, consumptionStatsResultSchema, domainRecordsResultSchema, foreignEntriesResultSchema, healthDailyResultSchema, healthRecordResultSchema, healthSourcesResultSchema, libraryItemResultSchema, lifeProjectsResultSchema, lifeRecordResultSchema, lifeReviewsResultSchema, lifeSearchResultSchema, lifeTimelineResultSchema, lifeTodayResultSchema, listMealsResultSchema, mealPlanningResultSchema, moneyPlanningResultSchema, notificationsResultSchema, ownedItemsResultSchema, planningAgendaResultSchema, projectDirectoryResultSchema, travelTripResultSchema, travelWorkspaceResultSchema } from "../src/schemas.js";
 
 const output = resolve(import.meta.dirname, "../generated");
 await mkdir(output, { recursive: true });
@@ -98,6 +98,7 @@ defineObject(z.toJSONSchema(notificationsResultSchema) as JsonSchema, "Notificat
 defineObject(z.toJSONSchema(lifeTodayResultSchema) as JsonSchema, "LifeTodayResultDto");
 defineObject(z.toJSONSchema(lifeTimelineResultSchema) as JsonSchema, "LifeTimelineResultDto");
 defineObject(z.toJSONSchema(lifeSearchResultSchema) as JsonSchema, "LifeSearchResultDto");
+defineObject(z.toJSONSchema(consumptionStatsResultSchema) as JsonSchema, "ConsumptionStatsResultDto");
 defineObject(z.toJSONSchema(listMealsResultSchema) as JsonSchema, "ListMealsResultDto");
 defineObject(z.toJSONSchema(healthSourcesResultSchema) as JsonSchema, "HealthSourcesResultDto");
 defineObject(z.toJSONSchema(lifeProjectsResultSchema) as JsonSchema, "LifeProjectsResultDto");

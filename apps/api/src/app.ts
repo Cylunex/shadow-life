@@ -3,7 +3,7 @@ import { bodyLimit } from "hono/body-limit";
 import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 import { createHash } from "node:crypto";
-import { agentThreadMessagesInputSchema, agentThreadMessagesResultSchema, agentThreadsResultSchema, capabilityRegistry, executionResultSchema, healthTrendInputSchema, lifeMeResultSchema, lifeRecordInputSchema, lifeSearchInputSchema, lifeTimelineInputSchema, lifeTodayInputSchema, planningAgendaInputSchema, projectDirectoryResultSchema, writeCapabilityNameSchema, type ProjectDirectoryResult } from "@shadow/contracts";
+import { agentThreadMessagesInputSchema, agentThreadMessagesResultSchema, agentThreadsResultSchema, capabilityRegistry, consumptionStatsInputSchema, executionResultSchema, healthTrendInputSchema, lifeMeResultSchema, lifeRecordInputSchema, lifeSearchInputSchema, lifeTimelineInputSchema, lifeTodayInputSchema, planningAgendaInputSchema, projectDirectoryResultSchema, writeCapabilityNameSchema, type ProjectDirectoryResult } from "@shadow/contracts";
 import { AssetService, type PostgresUnitOfWork } from "@shadow/database";
 import type { AgentRepository } from "@shadow/database";
 import { hostRunEventSchema, runtimeEventSchema, type AgentRuntimeAdapter, type HostRunEvent, type RuntimeEvent, type RunState } from "@shadow/agent-adapter";
@@ -31,6 +31,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.get("/api/me",context=>{const value=context.get("requestContext");context.header("Cache-Control","no-store");return context.json(lifeMeResultSchema.parse({issuer:value.issuer??"shadow:unknown",oidc_sub:value.oidcSubject??value.actorId,life_subject_id:value.subjectId,environment_id:value.environmentId??"default",display_name:value.displayName??null,effects:[...value.effects].sort(),authorization_revision:value.authorizationRevision??1}));});
   app.get("/api/project-links",context=>{context.header("Cache-Control","private, max-age=300");return context.json(projectDirectoryResultSchema.parse(dependencies.projectLinks??{schema_version:1,catalog_revision:"empty",items:[]}));});
   app.get("/api/search",async context=>context.json(await dependencies.queries.lifeSearch(context.get("requestContext"),lifeSearchInputSchema.parse({q:context.req.query("q"),...(context.req.query("types")?{types:context.req.query("types")!.split(",").filter(Boolean)}:{}),...(context.req.query("from_on")?{from_on:context.req.query("from_on")} :{}),...(context.req.query("to_on_exclusive")?{to_on_exclusive:context.req.query("to_on_exclusive")} :{}),limit:Number(context.req.query("limit")??"30"),...(context.req.query("cursor")?{cursor:context.req.query("cursor")} :{})}))));
+  app.get("/api/life/consumption-stats",async context=>context.json(await dependencies.queries.consumptionStats(context.get("requestContext"),consumptionStatsInputSchema.parse({from_on:context.req.query("from_on"),to_on_exclusive:context.req.query("to_on_exclusive"),time_zone:context.req.query("time_zone"),...(context.req.query("scopes")?{scopes:context.req.query("scopes")!.split(",").filter(Boolean)}:{}),...(context.req.query("categories")?{categories:context.req.query("categories")!.split(",").filter(Boolean)}:{}),...(context.req.query("merchant_rank_by")?{merchant_rank_by:context.req.query("merchant_rank_by")}:{}),...(context.req.query("item_rank_by")?{item_rank_by:context.req.query("item_rank_by")}:{}),...(context.req.query("currency")?{currency:context.req.query("currency")}:{}),limit:Number(context.req.query("limit")??"20")}))));
   app.get("/api/capabilities", (context) => {
     const requestContext=context.get("requestContext");
     return context.json({
@@ -138,6 +139,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         if(capabilityName==="life.today")return dependencies.queries.lifeToday(requestContext,parsed);
         if(capabilityName==="life.timeline")return dependencies.queries.lifeTimeline(requestContext,parsed);
         if(capabilityName==="life.search")return dependencies.queries.lifeSearch(requestContext,parsed);
+        if(capabilityName==="life.consumption_stats")return dependencies.queries.consumptionStats(requestContext,parsed);
         if(capabilityName==="money.summarize")return dependencies.queries.summarizeMoney(requestContext);
         if(capabilityName==="money.records"||capabilityName==="health.records"||capabilityName==="travel.records"||capabilityName==="library.records")return dependencies.queries.listDomain(requestContext,capabilityName.split(".")[0] as "money"|"health"|"travel"|"library",parsed as {query?:string|undefined;limit?:number|undefined;cursor?:string|undefined});
         if(capabilityName==="health.trend")return dependencies.queries.healthTrend(requestContext,parsed as {metric_key:string;from?:string|undefined;to?:string|undefined;limit:number});

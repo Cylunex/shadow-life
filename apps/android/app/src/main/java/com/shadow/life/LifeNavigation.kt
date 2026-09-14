@@ -68,7 +68,7 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
           )
           LifeDomain.Meals->MealsWorkspaceScreen(
             viewModel.workspaceOverview,viewModel.workspace,viewModel.assetPreviews,viewModel::loadAssetPreview,
-            {viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,capture
+            {viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,capture,{viewModel.loadConsumptionStats();nav.navigate(ConsumptionStatsRoute)}
           )
           LifeDomain.Money->MoneyWorkspaceScreen(
             viewModel.workspaceOverview,viewModel.workspace,{viewModel.loadWorkspace(domain,it)},{viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,
@@ -89,6 +89,7 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
       composable<ConnectionsRoute>{ProjectDirectoryScreen(viewModel.projectLinks,viewModel::refreshProjectLinks){nav.popBackStack()}}
       composable<InboxRoute>{InboxScreen(viewModel.inbox,viewModel::refreshInbox,viewModel::loadMoreInbox,viewModel::updateNotification,viewModel::setNotificationPreferences,onNotificationPermission){nav.popBackStack()}}
       composable<ItemsRoute>{LaunchedEffect(Unit){viewModel.refreshPlans()};ItemsWorkspaceScreen(viewModel.plans,viewModel::refreshPlans,{nav.popBackStack()},{item->nav.navigate(OwnedItemDetailRoute(item.id))},{kind->openComposer(defaultCaptureSeed(kind))})}
+      composable<ConsumptionStatsRoute>{ConsumptionStatsScreen(viewModel.consumptionStats,viewModel::loadConsumptionStats){nav.popBackStack()}}
     }
   }}
   statusMessage?.let{message->AlertDialog(onDismissRequest=onDismissStatus,confirmButton={TextButton(onClick=onDismissStatus){Text("知道了")}},text={Text(message)})}

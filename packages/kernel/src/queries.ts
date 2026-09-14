@@ -1,4 +1,4 @@
-import { domainRecordsResultSchema, foodCatalogInputSchema, foodCatalogResultSchema, healthDailyResultSchema, healthRecordResultSchema, healthSourcesResultSchema, healthTrendResultSchema, lifeRecordResultSchema, lifeSearchInputSchema, lifeSearchResultSchema, lifeTimelineInputSchema, lifeTimelineResultSchema, lifeTodayInputSchema, lifeTodayResultSchema, listMealsInputSchema, listMealsResultSchema, moneyImportReviewResultSchema, moneySummarySchema, travelExportInputSchema, travelExportResultSchema, travelTripResultSchema, travelWorkspaceInputSchema, travelWorkspaceResultSchema, type DomainRecordSummary, type LifeOverviewDomain, type MoneySummary } from "@shadow/contracts";
+import { consumptionStatsInputSchema, domainRecordsResultSchema, foodCatalogInputSchema, foodCatalogResultSchema, healthDailyResultSchema, healthRecordResultSchema, healthSourcesResultSchema, healthTrendResultSchema, lifeRecordResultSchema, lifeSearchInputSchema, lifeSearchResultSchema, lifeTimelineInputSchema, lifeTimelineResultSchema, lifeTodayInputSchema, lifeTodayResultSchema, listMealsInputSchema, listMealsResultSchema, moneyImportReviewResultSchema, moneySummarySchema, travelExportInputSchema, travelExportResultSchema, travelTripResultSchema, travelWorkspaceInputSchema, travelWorkspaceResultSchema, type DomainRecordSummary, type LifeOverviewDomain, type MoneySummary } from "@shadow/contracts";
 import { previewTravelPortableInputSchema, previewTravelPortableResultSchema, travelBundleSchema } from "@shadow/contracts";
 import { libraryItemResultSchema, libraryProcessingQueueInputSchema, libraryProcessingQueueResultSchema } from "@shadow/contracts";
 import { agentContextPackInputSchema, agentContextPackResultSchema, agentMemoriesInputSchema, agentMemoriesResultSchema, notificationsInputSchema, notificationsResultSchema } from "@shadow/contracts";
@@ -8,6 +8,7 @@ import { planningAgendaInputSchema, planningAgendaResultSchema } from "@shadow/c
 import { invalidInput, notFound, permissionDenied } from "./errors.js";
 import type { RequestContext, UnitOfWork } from "./ports.js";
 import { parseGpx, portableDocument, serializeGpx, serializeTravelBundle, serializeTripIcs, validateTravelBundleSemantics, type TravelTrackPoint } from "./travel-portable.js";
+import { buildConsumptionStats } from "./consumption-stats.js";
 
 type Domain="money"|"health"|"travel"|"library";
 type Cursor={domain:Domain;query:string;at:string;kind:string;id:string;as_of:string};
@@ -125,6 +126,11 @@ export class QueryService {
     if(parsed.data.cursor){try{before=JSON.parse(Buffer.from(parsed.data.cursor,"base64url").toString("utf8")) as SearchCursor;}catch{throw invalidInput("search cursor is invalid",["cursor"]);}if(before.signature!==signature||!before.on||!before.domain||!before.kind||!before.id||!before.as_of)throw invalidInput("search cursor does not match this query",["cursor"]);}
     const page=await this.unitOfWork.read(store=>store.lifeSearch(context.subjectId,domains,{query:parsed.data.q.toLocaleLowerCase(),...(parsed.data.from_on?{fromOn:parsed.data.from_on}:{}),...(parsed.data.to_on_exclusive?{toOnExclusive:parsed.data.to_on_exclusive}:{}),limit:parsed.data.limit,...(before?{asOf:before.as_of,before:{on:before.on,domain:before.domain,kind:before.kind,id:before.id}}:{})})),last=page.items.at(-1),next=page.hasMore&&last?Buffer.from(JSON.stringify({signature,on:last.happened_on,domain:last.domain,kind:last.kind,id:last.id,as_of:page.asOf} satisfies SearchCursor)).toString("base64url"):null;
     return lifeSearchResultSchema.parse({items:page.items,next_cursor:next,as_of:page.asOf,applied_filters:{q:parsed.data.q,types:domains,from_on:parsed.data.from_on??null,to_on_exclusive:parsed.data.to_on_exclusive??null}});
+  }
+  async consumptionStats(context:RequestContext,input:unknown){
+    if(!context.effects.has("life.meal.read"))throw permissionDenied("life.meal.read");const parsed=consumptionStatsInputSchema.safeParse(input);if(!parsed.success)throw invalidInput("consumption stats query is invalid",parsed.error.issues.map(issue=>issue.path.join(".")));
+    const monetary=parsed.data.merchant_rank_by!=="orders"||parsed.data.item_rank_by==="line_spend";if(monetary&&!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");const includeMoney=context.effects.has("money.entry.read");
+    const data=await this.unitOfWork.read(store=>store.consumptionStatsData(context.subjectId,{fromOn:parsed.data.from_on,toOnExclusive:parsed.data.to_on_exclusive,timeZone:parsed.data.time_zone,includeMoney}));return buildConsumptionStats(data,parsed.data,includeMoney);
   }
   async lifeRecord(context:RequestContext,id:string,requested?:readonly LifeRecordSection[]){
     const sections=[...new Set(requested??[...(context.effects.has("life.meal.read")?["meal","purchase","sources"] as const:[]),...(context.effects.has("money.entry.read")?["money"] as const:[])])];
