@@ -3,7 +3,10 @@ package com.shadow.life
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.net.Uri
+import androidx.browser.customtabs.CustomTabColorSchemeParams
+import androidx.browser.customtabs.CustomTabsIntent
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.withLock
 import net.openid.appauth.AuthState
@@ -29,13 +32,22 @@ class OidcSessions(private val activity:Activity,private val store:SessionStore)
   private val executor=Executors.newSingleThreadExecutor()
   val configured:Boolean get()=BuildConfig.SHADOW_OIDC_ISSUER.isNotBlank()&&BuildConfig.SHADOW_OIDC_CLIENT_ID.isNotBlank()&&BuildConfig.SHADOW_OIDC_RESOURCE.isNotBlank()
 
-  fun loginIntent(callback:(Intent?)->Unit){
+  fun loginIntent(silent:Boolean=false,callback:(Intent?)->Unit){
     if(!configured){callback(null);return}
     AuthorizationServiceConfiguration.fetchFromIssuer(Uri.parse(BuildConfig.SHADOW_OIDC_ISSUER)){configuration,error->
       if(configuration==null||error!=null){callback(null);return@fetchFromIssuer}
       val state=randomToken();val nonce=randomToken();store.beginAttempt(state,nonce)
-      val request=AuthorizationRequest.Builder(configuration,BuildConfig.SHADOW_OIDC_CLIENT_ID,ResponseTypeValues.CODE,Uri.parse(BuildConfig.SHADOW_OIDC_REDIRECT_URI)).setState(state).setNonce(nonce).setScope("openid profile offline_access").setAdditionalParameters(mapOf("resource" to BuildConfig.SHADOW_OIDC_RESOURCE)).build()
-      callback(service.getAuthorizationRequestIntent(request))
+      val builder=AuthorizationRequest.Builder(configuration,BuildConfig.SHADOW_OIDC_CLIENT_ID,ResponseTypeValues.CODE,Uri.parse(BuildConfig.SHADOW_OIDC_REDIRECT_URI)).setState(state).setNonce(nonce).setScope("openid profile offline_access").setAdditionalParameters(mapOf("resource" to BuildConfig.SHADOW_OIDC_RESOURCE))
+      if(silent)builder.setPrompt("none")
+      val request=builder.build()
+      val darkColors=CustomTabColorSchemeParams.Builder().setToolbarColor(Color.rgb(10,16,20)).setNavigationBarColor(Color.BLACK).build()
+      val customTab=service.createCustomTabsIntentBuilder(configuration.authorizationEndpoint)
+        .setShowTitle(true)
+        .setShareState(CustomTabsIntent.SHARE_STATE_OFF)
+        .setDefaultColorSchemeParams(darkColors)
+        .setColorScheme(CustomTabsIntent.COLOR_SCHEME_DARK)
+        .build()
+      callback(service.getAuthorizationRequestIntent(request,customTab))
     }
   }
 

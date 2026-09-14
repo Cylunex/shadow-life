@@ -33,11 +33,15 @@ class MainActivity:ComponentActivity(){
   private var openInboxNonce by mutableStateOf(0L)
   private lateinit var scalePreferences:ScalePreferences
   private var scaleSettings by mutableStateOf(ScaleProfileSettings())
+  private var loginMode=LoginMode.None
+  private var restoringSession=false
 
   private val loginResult=registerForActivityResult(ActivityResultContracts.StartActivityForResult()){result->
+    val completedMode=loginMode
+    loginMode=LoginMode.None
     val data=result.data
-    if(data==null){loginError="登录已取消";return@registerForActivityResult}
-    oidc.complete(data){value->runOnUiThread{session=value;loginError=if(value==null)"登录失败，请重试" else null;value?.let(::resumeAccount)}}
+    if(data==null){handleLoginFailure(completedMode,"登录已取消");return@registerForActivityResult}
+    oidc.complete(data){value->runOnUiThread{if(value==null)handleLoginFailure(completedMode,"登录失败，请重试") else{session=value;loginError=null;resumeAccount(value)}}}
   }
   private val healthPermissions=registerForActivityResult(PermissionController.createRequestPermissionResultContract()){
     lifecycleScope.launch{
@@ -71,12 +75,40 @@ class MainActivity:ComponentActivity(){
     appearance=appearances.current()
     setContent{LifeTheme(appearance){val model:NativeLifeViewModel=viewModel();LifeApp(session,model,appearance,loginError,pendingShare,notificationAuthorization,openInboxNonce,scaleSettings,{payload->model.importShare(payload){pendingShare=null}},{pendingShare=null},{loginError=null},{appearance=it;appearances.save(it)},::login,::logout,::syncHealth,::syncSamsung,::startScale,::saveScaleSettings,::requestNotifications)}}
   }
-  override fun onStart(){super.onStart();session?.let{SyncScheduler.schedule(this,it.accountId,ensureNext=true);SamsungHealthBridge.startIfAuthorized(this,it.accountId)}}
+  override fun onStart(){super.onStart();session?.let(::restoreSession)}
   override fun onDestroy(){oidc.close();super.onDestroy()}
   override fun onSaveInstanceState(outState:Bundle){super.onSaveInstanceState(outState);outState.putBoolean(SHARE_PRESENT,pendingShare!=null);pendingShare?.let{payload->outState.putString(SHARE_ID,payload.ingressId);outState.putString(SHARE_TEXT,payload.text);outState.putStringArrayList(SHARE_URIS,ArrayList(payload.uris))}}
   override fun onNewIntent(intent:Intent){super.onNewIntent(intent);setIntent(intent);intent.sharePayload()?.let{pendingShare=it};if(intent.getBooleanExtra(OPEN_INBOX_EXTRA,false))openInboxNonce++}
 
-  private fun login(){loginError=null;oidc.loginIntent{intent->runOnUiThread{if(intent==null)loginError="登录配置不可用" else loginResult.launch(intent)}}}
+  private fun login(){launchLogin(LoginMode.Interactive)}
+  private fun launchLogin(mode:LoginMode){
+    if(loginMode!=LoginMode.None)return
+    loginMode=mode
+    loginError=if(mode==LoginMode.Silent)"登录状态已过期，正在自动恢复…" else null
+    oidc.loginIntent(silent=mode==LoginMode.Silent){intent->runOnUiThread{
+      if(intent==null){loginMode=LoginMode.None;loginError="登录配置不可用"}else loginResult.launch(intent)
+    }}
+  }
+  private fun handleLoginFailure(completedMode:LoginMode,message:String){
+    when(nextLoginModeAfterFailure(completedMode)){
+      LoginMode.Interactive->launchLogin(LoginMode.Interactive)
+      else->loginError=message
+    }
+  }
+  private fun restoreSession(value:ProductSession){
+    if(restoringSession||loginMode!=LoginMode.None)return
+    restoringSession=true
+    lifecycleScope.launch{
+      val refreshed=(application as ShadowApp).sessions.fresh(value.accountId,this@MainActivity)
+      restoringSession=false
+      if(session?.accountId!=value.accountId)return@launch
+      when(refreshed){
+        is SessionRefresh.Ready->{session=refreshed.value.session;loginError=null;resumeAccount(refreshed.value.session)}
+        SessionRefresh.Retryable->loginError="暂时无法验证登录，已保留本地数据，请稍后重试"
+        SessionRefresh.ReauthRequired->{session=null;launchLogin(LoginMode.Silent)}
+      }
+    }
+  }
   private fun resumeAccount(value:ProductSession){lifecycleScope.launch{val app=application as ShadowApp;withContext(Dispatchers.IO){app.queue.secureLegacy(value)};SyncScheduler.retryNow(this@MainActivity,value.accountId)};SamsungHealthBridge.startIfAuthorized(this,value.accountId)}
   private fun logout(){session?.let{current->WorkManager.getInstance(this).cancelUniqueWork(SyncScheduler.workName(current.accountId));WorkManager.getInstance(this).cancelUniqueWork(HealthConnectScheduler.workName(current.accountId));WorkManager.getInstance(this).cancelUniqueWork("shadow-samsung-${current.accountId}");WorkManager.getInstance(this).cancelUniqueWork("shadow-samsung-now-${current.accountId}");stopService(Intent(this,ScaleScanService::class.java));NotificationSyncScheduler.cancel(this,current.accountId);oidc.logout(current)};session=null}
   private fun syncHealth(){
@@ -127,3 +159,6 @@ private const val SHARE_PRESENT="com.shadow.life.share.PRESENT"
 private const val SHARE_ID="com.shadow.life.share.INGRESS_ID"
 private const val SHARE_TEXT="com.shadow.life.share.TEXT"
 private const val SHARE_URIS="com.shadow.life.share.URIS"
+
+internal enum class LoginMode{None,Silent,Interactive}
+internal fun nextLoginModeAfterFailure(mode:LoginMode)=if(mode==LoginMode.Silent)LoginMode.Interactive else LoginMode.None
