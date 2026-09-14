@@ -116,7 +116,7 @@ function storeFor(database: Database | Transaction): TransactionStore {
     },
     async listMeals(subjectId,options) {
       const asOf=options.asOf??String((await database.execute(sql`select to_char(clock_timestamp() at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as_of`)).rows[0]!.as_of),before=options.before;
-      const mealResult=await database.execute<{id:string;occurredOn:string;occurredAt:Date|null;timeZone:string;mealType:string;note:string|null;revision:number;createdAt:Date;pageAt:string}>(sql`select id,occurred_on::text "occurredOn",occurred_at "occurredAt",time_zone "timeZone",meal_type "mealType",note,revision,created_at "createdAt",to_char(created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') "pageAt" from meals where subject_id=${subjectId} and created_at<=${asOf}::timestamptz and (${before?.at??null}::timestamptz is null or (occurred_on,created_at,id)<(${before?.on??null}::date,${before?.at??null}::timestamptz,${before?.id??null})) order by occurred_on desc,created_at desc,id desc limit ${options.limit+1}`),hasMore=mealResult.rows.length>options.limit,mealRows=mealResult.rows.slice(0,options.limit);
+      const mealResult=await database.execute<{id:string;occurredOn:string;occurredAt:string|null;timeZone:string;mealType:string;note:string|null;revision:number;createdAt:Date;pageAt:string}>(sql`select id,occurred_on::text "occurredOn",case when occurred_at is null then null else to_char(occurred_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') end "occurredAt",time_zone "timeZone",meal_type "mealType",note,revision,created_at "createdAt",to_char(created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') "pageAt" from meals where subject_id=${subjectId} and created_at<=${asOf}::timestamptz and (${before?.at??null}::timestamptz is null or (occurred_on,created_at,id)<(${before?.on??null}::date,${before?.at??null}::timestamptz,${before?.id??null})) order by occurred_on desc,created_at desc,id desc limit ${options.limit+1}`),hasMore=mealResult.rows.length>options.limit,mealRows=mealResult.rows.slice(0,options.limit);
       if(mealRows.length===0)return {items:[],hasMore:false,asOf};
       const mealIds=mealRows.map(meal=>meal.id);
       const [itemRows,paymentRows,sourceRows]=await Promise.all([
@@ -128,7 +128,7 @@ function storeFor(database: Database | Transaction): TransactionStore {
       return {items:mealRows.map((meal) => {
         const items=(itemsByMeal.get(meal.id)??[]).map(row=>row.item),payments=paymentsByMeal.get(meal.id)??[],sourceLinks=sourcesByMeal.get(meal.id)??[];
         return {
-          id: meal.id, occurred_on: meal.occurredOn, occurred_at: meal.occurredAt?.toISOString() ?? null,
+          id: meal.id, occurred_on: meal.occurredOn, occurred_at: meal.occurredAt,
           time_zone: meal.timeZone, meal_type: meal.mealType as "breakfast" | "lunch" | "dinner" | "snack" | "other", note: meal.note, revision: meal.revision,
           items: items.map((item) => ({ id: item.id, name: item.name,food_ref_id:item.foodRefId,free_text:item.freeText, quantity: trimNumeric(item.quantity), unit: item.unit,amount_g:trimNumeric(item.amountG), energy_kcal: trimNumeric(item.energyKcal),protein_g:trimNumeric(item.proteinG),fat_g:trimNumeric(item.fatG),carb_g:trimNumeric(item.carbG),fiber_g:trimNumeric(item.fiberG),sodium_mg:trimNumeric(item.sodiumMg),consumed_fraction:trimNumeric(item.consumedFraction),provenance:item.provenance,grouping_origin:item.groupingOrigin, estimate: item.estimate, revision: item.revision })),
           payments: payments.map((payment) => ({ id: payment.id, amount: moneyNumeric(payment.amount), currency: payment.currency as "CNY",payment_method:payment.paymentMethod as "alipay"|"wechat"|"jd_pay"|"jd_baitiao"|"huabei"|"gift_card"|"cash"|"bank_card"|"bank_transfer"|"mixed"|"other"|null })),
@@ -319,7 +319,8 @@ function storeFor(database: Database | Transaction): TransactionStore {
           if (!source) {
             [source] = await database.insert(schema.healthSourceInstances).values({ id: nextId("source_instance"), subjectId, sourceType: input.source_type, instanceKey: input.source_instance_key, fingerprint: input.source_fingerprint, syncEpoch: input.sync_epoch }).returning();
           } else if (source.fingerprint !== input.source_fingerprint) {
-            if (input.sync_epoch <= source.syncEpoch) throw conflict("source fingerprint changed without a newer sync epoch");
+            const volatileDeviceSource=input.source_type==="samsung"||input.source_type==="scale";
+            if (input.sync_epoch < source.syncEpoch||(!volatileDeviceSource&&input.sync_epoch===source.syncEpoch)) throw conflict("source fingerprint changed without a newer sync epoch");
             [source] = await database.update(schema.healthSourceInstances).set({ fingerprint: input.source_fingerprint, syncEpoch: input.sync_epoch }).where(eq(schema.healthSourceInstances.id, source.id)).returning();
           }
           if(input.source_type==="health_connect"&&input.record_type==="daily_activity"){

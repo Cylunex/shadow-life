@@ -52,17 +52,21 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
     const body=z.object({commands:z.array(z.record(z.string(),z.unknown())).min(1).max(50)}).strict().parse(await context.req.json());
     const ids=new Set<string>();
     for(const command of body.commands){const id=command.command_id;if(typeof id!=="string"||ids.has(id))return context.json({protocol:"shadow.error",code:"validation",message:"Batch command IDs must be present and unique.",fields:["commands.command_id"]},422);ids.add(id);}
-    const items=[];
+    const items:Array<{command_id:string;http_status:number;result?:unknown;error?:unknown}>=[];
     for(const command of body.commands){
+      const commandId=command.command_id as string;
       try{
         const result=await dependencies.executor.execute(requestContext,command);
-        items.push({command_id:command.command_id,http_status:result.replayed?200:201,result});
+        items.push({command_id:commandId,http_status:result.replayed?200:201,result});
       }catch(error){
-        if(error instanceof KernelError){items.push({command_id:command.command_id,http_status:error.status,error:error.detail});continue;}
-        if(error instanceof z.ZodError){items.push({command_id:command.command_id,http_status:422,error:{protocol:"shadow.error",code:"validation",message:"Command validation failed.",fields:error.issues.map(issue=>issue.path.join("."))}});continue;}
+        if(error instanceof KernelError){items.push({command_id:commandId,http_status:error.status,error:error.detail});continue;}
+        if(error instanceof z.ZodError){items.push({command_id:commandId,http_status:422,error:{protocol:"shadow.error",code:"validation",message:"Command validation failed.",fields:error.issues.map(issue=>issue.path.join("."))}});continue;}
         throw error;
       }
     }
+    const statusCounts=Object.fromEntries([...new Set(items.map(item=>item.http_status))].sort((left,right)=>left-right).map(status=>[String(status),items.filter(item=>item.http_status===status).length]));
+    const capabilities=[...new Set(body.commands.map(command=>writeCapabilityNameSchema.safeParse(command.capability).data??"invalid"))].sort();
+    console.log(JSON.stringify({event:"command.batch.completed",commands:items.length,status_counts:statusCounts,capabilities}));
     return context.json({protocol:"shadow.command-batch-result",items});
   });
   app.post("/api/assets",async context=>{const requestContext=context.get("requestContext");if(!requestContext.effects.has("library.item.write")&&!requestContext.effects.has("library.processor.write"))return context.json({protocol:"shadow.error",code:"permission_denied",message:"Missing asset upload permission."},403);const mediaType=context.req.header("content-type")?.split(";")[0]?.trim();if(!mediaType||!mediaType.includes("/"))return context.json({protocol:"shadow.error",code:"validation",message:"A media Content-Type is required."},422);const bytes=Buffer.from(await context.req.arrayBuffer());if(bytes.length===0)return context.json({protocol:"shadow.error",code:"validation",message:"Asset bytes are empty."},422);await dependencies.unitOfWork.ensurePrincipal(requestContext.subjectId);return context.json(await assets.store(requestContext.subjectId,mediaType,bytes),201);});

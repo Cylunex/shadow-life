@@ -69,7 +69,7 @@ private val MealCoral=Color(0xFFFF806F)
           "body"->item{BodyMetricsWorkspace(overview.metrics,onDetail,onCapture)}
           "activity"->item{ActivityWorkspace(overview.history,onDetail,onCapture)}
           "sleep"->item{SleepWorkspace(overview.history)}
-          else->{item{DailyActivityHero(overview.daily,onCapture)};item{HealthOverviewCards(overview,{tab=it},onMeals)};item{BodyCompositionStrip(overview.metrics){tab="body"}}}
+          else->{item{DailyActivityHero(overview.daily?:overview.history.lastOrNull(),onCapture)};item{HealthOverviewCards(overview,{tab=it},onMeals)};item{BodyCompositionStrip(overview.metrics){tab="body"}}}
         }
         item{CompactDeviceStatus(deviceStatus,queueState,samsungAvailable,onHealthSync,onSamsungSync,onScale,onSettings)}
       }
@@ -84,7 +84,8 @@ private val MealCoral=Color(0xFFFF806F)
 }
 
 @Composable private fun DailyActivityHero(daily:HealthDailyOverview?,onCapture:(CaptureKind)->Unit){HealthSurface{
-  Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Top){Column(Modifier.weight(1f)){Text("今日活动",style=MaterialTheme.typography.titleLarge);Text(daily?.occurredOn?:LocalDate.now().toString(),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)};FilledTonalIconButton(onClick={onCapture(CaptureKind.Workout)}){Icon(Icons.Default.Add,"记录训练")}}
+  val isToday=daily?.occurredOn==LocalDate.now().toString()
+  Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Top){Column(Modifier.weight(1f)){Text(if(isToday)"今日活动" else "最近活动",style=MaterialTheme.typography.titleLarge);Text(daily?.occurredOn?:LocalDate.now().toString(),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)};FilledTonalIconButton(onClick={onCapture(CaptureKind.Workout)}){Icon(Icons.Default.Add,"记录训练")}}
   Spacer(Modifier.height(12.dp));Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(18.dp)){TripleActivityRings(daily,Modifier.size(150.dp));Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(13.dp)){RingLegend("步数",daily?.steps?.toString()?:"—","步",ActivityGreen);RingLegend("活跃时间",daily?.activeMinutes?.toString()?:"—","分钟",ActivityBlue);RingLegend("活动热量",daily?.caloriesKcal?:"—","kcal",ActivityPurple)}}
   Text("圆环使用固定参考刻度：10,000 步、60 分钟、500 kcal；不是个人目标，也不补造缺失数据。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
 }}

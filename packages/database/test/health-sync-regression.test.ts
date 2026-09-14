@@ -7,6 +7,18 @@ const base={source_type:"health_connect",source_instance_key:"review-health-devi
 function steps(id:string,start:string,end:string,count:number,origin="example.provider",version=1){return{client_record_id:id,provider_record_id:id,record_version:version,change_kind:"upsert",payload:{occurred_on:start.slice(0,10),time_zone:"UTC",steps:count,step_interval:{started_at:start,ended_at:end,data_origin:origin},field_sources:{steps:`health_connect:${origin}`}}};}
 const window={generation:"hcscan_regression_0001",window_start:"2026-09-01T00:00:00Z",window_end:"2026-09-11T00:00:00Z",complete:true};
 
+test("device sources can refresh volatile fingerprints without stranding a same-epoch queue",pgOnly,async t=>{
+  const {pool,run}=await reviewFixture(t);
+  const record={source_type:"samsung",source_instance_key:"android-samsung-device",source_fingerprint:"permission-snapshot-a",record_type:"body",client_record_id:"samsung-heart-2026-09-10",record_version:1,sync_epoch:1,change_kind:"upsert",parse_version:"samsung-data-1",payload:{occurred_on:"2026-09-10",time_zone:"UTC",group_kind:"measurement",observations:[{metric_key:"heart_rate",value:"60",unit:"bpm"}]}};
+  await run("health.ingest_raw",record);
+  await run("health.ingest_raw",{...record,source_fingerprint:"permission-snapshot-b",record_version:2,payload:{...record.payload,observations:[{metric_key:"heart_rate",value:"61",unit:"bpm"}]}});
+  assert.deepEqual((await pool.query("select fingerprint,sync_epoch,current_version::text from health_source_instances source join health_raw_records raw on raw.source_instance_id=source.id")).rows[0],{fingerprint:"permission-snapshot-b",sync_epoch:1,current_version:"2"});
+
+  const strict={...record,source_type:"health_connect",source_instance_key:"strict-health-connect",client_record_id:"strict-record"};
+  await run("health.ingest_raw",strict);
+  await assert.rejects(()=>run("health.ingest_raw",{...strict,source_fingerprint:"permission-snapshot-b",record_version:2}),/newer sync epoch/);
+});
+
 test("F07: interval steps sum without source duplication and rebuild on update/delete",pgOnly,async t=>{
   const {pool,run,queries,context,executor,command}=await reviewFixture(t);
   const a=steps("steps_a","2026-09-10T01:00:00Z","2026-09-10T02:00:00Z",100),b=steps("steps_b","2026-09-10T02:00:00Z","2026-09-10T03:00:00Z",200);
