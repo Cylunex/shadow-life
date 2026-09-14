@@ -426,10 +426,11 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       steps=daily?.steps,sleepMinutes=daily?.sleepMinutes,
       updatedAt=daily?.updatedAt?:sources.asOf
     )
+    val deviceSources=sources.items.filter{isActionableHealthSource(it.sourceType)}
     WorkspaceOverview.Health(
-      sources=sources.items.size,
-      sourcesNeedingAttention=sources.items.count{it.permissionState!="granted"||it.cursors.any{cursor->cursor.state!="active"}},
-      streams=sources.items.sumOf{it.cursors.size},summary=summary,metrics=metrics,daily=daily,history=history,asOf=sources.asOf
+      sources=deviceSources.size,
+      sourcesNeedingAttention=deviceSources.count{source->healthSourceNeedsAttention(source.sourceType,source.permissionState,source.cursors.map{it.state})},
+      streams=deviceSources.sumOf{it.cursors.size},summary=summary,metrics=metrics,daily=daily,history=history,asOf=sources.asOf
     )
   }
 
@@ -442,7 +443,8 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       id=workout.id,occurredOn=occurredOn,sessionType=workout.sessionType,startedAt=workout.startedAt,
       durationMinutes=workout.durationMinutes,distanceKm=workout.distanceKm,caloriesKcal=workout.caloriesKcal,
       rpe=workout.rpe,heartRateAvg=workout.heartRateAvg,
-      sourceKind=((workout.detail as? JsonObject)?.get("source") as? JsonPrimitive)?.content?.takeUnless{it.isBlank()||it=="null"}
+      sourceKind=((workout.detail as? JsonObject)?.get("source") as? JsonPrimitive)?.content?.takeUnless{it.isBlank()||it=="null"},
+      autoDetected=((workout.detail as? JsonObject)?.get("auto_detected") as? JsonPrimitive)?.content?.toBooleanStrictOrNull()
     )}
   )
 
@@ -619,4 +621,4 @@ private fun money(value:String):String { val normalized=value.trim();require(Reg
 private fun correctionReason(value:String)=value.trim().ifBlank{"用户在详情中更正"}
 private fun mealTypeLabel(value:String)=mapOf("breakfast" to "早餐","lunch" to "午餐","dinner" to "晚餐","snack" to "加餐","other" to "一餐")[value]?:"一餐"
 private fun domainFromWire(value:String)=LifeDomain.entries.first{it.name.equals(value,true)}
-internal fun kindLabel(value:String)=mapOf("money_entry" to "收支记录","health_measurement" to "健康记录","trip" to "旅程","visit" to "到访","library_item" to "资料","meal" to "餐次","purchase" to "购买")[value]?:value.replace('_',' ')
+internal fun kindLabel(value:String)=mapOf("money_entry" to "收支记录","health_measurement" to "健康记录","trip" to "旅程","visit" to "到访","library_item" to "资料","meal" to "餐次","purchase" to "购买","release" to "释放记录")[value]?:value.replace('_',' ')

@@ -19,6 +19,32 @@ test("device sources can refresh volatile fingerprints without stranding a same-
   await assert.rejects(()=>run("health.ingest_raw",{...strict,source_fingerprint:"permission-snapshot-b",record_version:2}),/newer sync epoch/);
 });
 
+test("Samsung takeoff records become release habits and can move back to workouts",pgOnly,async t=>{
+  const {pool,run,queries,context}=await reviewFixture(t);
+  const record={source_type:"samsung",source_instance_key:"android-samsung-release",source_fingerprint:"permission-release",record_type:"workout",client_record_id:"samsung-exercise-release",record_version:1,sync_epoch:1,change_kind:"upsert",parse_version:"samsung-data-2",payload:{occurred_on:"2026-09-10",time_zone:"Asia/Shanghai",session_type:"release",started_at:"2026-09-10T10:00:00Z",duration_minutes:5,detail:{source:"samsung_health",provider_type:"OTHER",custom_title:"起飞",excluded_from_activity:true}}};
+  await run("health.ingest_raw",record);await processPendingHealth(pool);
+  assert.equal((await pool.query("select count(*)::int n from health_workout_sessions where effective")).rows[0].n,0);
+  assert.deepEqual((await pool.query("select habit_key,done_count,effective from health_habit_logs")).rows[0],{habit_key:"release",done_count:1,effective:true});
+  const releaseId=(await pool.query("select id from health_habit_logs where effective")).rows[0].id;
+  assert.equal((await queries.healthRecord(context,releaseId) as {kind:string}).kind,"habit_log");
+
+  await run("health.ingest_raw",{...record,record_version:2,payload:{...record.payload,session_type:"running",detail:{source:"samsung_health",provider_type:"RUNNING",excluded_from_activity:false}}});await processPendingHealth(pool);
+  assert.equal((await pool.query("select count(*)::int n from health_workout_sessions where effective and session_type='running'")).rows[0].n,1);
+  assert.equal((await pool.query("select count(*)::int n from health_habit_logs where effective")).rows[0].n,0);
+  assert.equal((await queries.healthRecord(context,releaseId) as {kind:string}).kind,"workout_session");
+
+  await run("health.ingest_raw",{...record,record_version:3,payload:{...record.payload,session_type:"other",detail:{source:"samsung_health",provider_type:"OTHER",custom_title:"起飞"}}});await processPendingHealth(pool);
+  assert.equal((await pool.query("select count(*)::int n from health_workout_sessions where effective")).rows[0].n,0);
+  assert.equal((await pool.query("select count(*)::int n from health_habit_logs where effective and habit_key='release'")).rows[0].n,1);
+});
+
+test("historical migration sources are not actionable sync issues",pgOnly,async t=>{
+  const {pool,queries,context}=await reviewFixture(t);
+  await pool.query("insert into health_source_instances(id,subject_id,source_type,instance_key,permission_state,sync_epoch) values('healthsource_historical_review',$1,'legacy_health','legacy-history','historical',1)",[context.subjectId]);
+  const view=await queries.lifeToday(context,{date:"2026-09-10",time_zone:"Asia/Shanghai"}) as {domains:{health:{sync_issues:Array<{source_type:string}>}}};
+  assert.deepEqual(view.domains.health.sync_issues,[]);
+});
+
 test("F07: interval steps sum without source duplication and rebuild on update/delete",pgOnly,async t=>{
   const {pool,run,queries,context,executor,command}=await reviewFixture(t);
   const a=steps("steps_a","2026-09-10T01:00:00Z","2026-09-10T02:00:00Z",100),b=steps("steps_b","2026-09-10T02:00:00Z","2026-09-10T03:00:00Z",200);

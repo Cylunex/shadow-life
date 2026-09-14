@@ -24,7 +24,7 @@ test("complete Life journey uses PostgreSQL transactions and survives replay", {
   const intermediateInitial=initialMigrations[0]!.contents.replace("capability_version integer NOT NULL, ","");
   await Promise.all([migrate(pool),migrate(pool)]); await migrate(pool);
   assert.equal(createHash("sha256").update(initialMigrations[0]!.contents).digest("hex"),"c418d9faaf5ed2017433a8069b9a8ba863233aa9c1969e8d0920675ebf4fd73f");
-  assert.equal((await pool.query("select count(*)::int count from schema_migrations")).rows[0].count,35);
+  assert.equal((await pool.query("select count(*)::int count from schema_migrations")).rows[0].count,36);
   assert.deepEqual((await pool.query("select distinct stage from write_epochs")).rows.map(row=>row.stage),["read_only"]);
   await pool.query("update schema_migrations set checksum='invalid' where name='0001_initial.sql'");
   await assert.rejects(()=>migrate(pool),/checksum mismatch/u);
@@ -35,7 +35,7 @@ test("complete Life journey uses PostgreSQL transactions and survives replay", {
   await pool.query("create table schema_migrations(name text primary key, checksum text not null, applied_at timestamptz not null default now())");
   await pool.query("insert into schema_migrations(name,checksum) values('0001_initial.sql',$1),('0002_first_release.sql',$2)",[createHash("sha256").update(intermediateInitial).digest("hex"),createHash("sha256").update(initialMigrations[1]!.contents).digest("hex")]);
   await migrate(pool);
-  assert.equal((await pool.query("select count(*)::int count from schema_migrations")).rows[0].count,35);
+  assert.equal((await pool.query("select count(*)::int count from schema_migrations")).rows[0].count,36);
   assert.deepEqual((await pool.query("select column_name from information_schema.columns where table_name='operations' and column_name in ('capability_version','legacy_capability_version')")).rows.map(row=>row.column_name),["legacy_capability_version"]);
   await pool.query("drop schema public cascade; create schema public");
   for(const migration of initialMigrations) await pool.query(migration.contents);
@@ -46,7 +46,7 @@ test("complete Life journey uses PostgreSQL transactions and survives replay", {
   await pool.query("create table schema_migrations(name text primary key, checksum text not null, applied_at timestamptz not null default now())");
   for(const migration of initialMigrations) await pool.query("insert into schema_migrations(name,checksum) values($1,$2)",[migration.name,createHash("sha256").update(migration.contents).digest("hex")]);
   await migrate(pool);
-  assert.equal((await pool.query("select count(*)::int count from schema_migrations")).rows[0].count,35);
+  assert.equal((await pool.query("select count(*)::int count from schema_migrations")).rows[0].count,36);
   assert.deepEqual((await pool.query("select legacy_capability_version,result->>'protocol' protocol from operations where execution_id='exec_legacy_operation'")).rows[0],{legacy_capability_version:1,protocol:"shadow.execution-result"});assert.equal((await pool.query("select event_type from outbox where id='event_legacy_operation'")).rows[0].event_type,"health.record_measurement.committed");const legacyExecutor=new CommandExecutor({unitOfWork:new PostgresUnitOfWork(pool),ids:uuidIds,clock:systemClock,fingerprinter:sha256Fingerprinter});const legacyReplay=await legacyExecutor.execute({actorId:"subject_legacy",subjectId:"subject_legacy",clientId:"client_legacy",traceId:"trace_legacy",effects:new Set(["health.measurement.write"])},{protocol:"shadow.command",capability:"health.record_measurement",command_id:"cmd_legacy_operation",input:legacyInput});assert.equal(legacyReplay.replayed,true);assert.equal(legacyReplay.protocol,"shadow.execution-result");
   const legacyRoots=await pool.query("select p.record_id purchase_record,m.record_id money_record,m.amount::text amount,m.currency from purchases p cross join money_entries m where p.id='purchase_legacy' and m.id='money_legacy'");
   assert.notEqual(legacyRoots.rows[0].purchase_record,legacyRoots.rows[0].money_record);

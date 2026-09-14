@@ -12,6 +12,25 @@ function compareDecimal(left: string, right: string): number {
   return leftInteger < rightInteger ? -1 : leftInteger > rightInteger ? 1 : 0;
 }
 
+const workoutLabels:Readonly<Record<string,string>>={
+  walk:"健走",walking:"健走",brisk_walking:"健走",run:"跑步",running:"跑步",track_running:"田径跑",jogging:"慢跑",
+  treadmill:"跑步机",treadmill_running:"跑步机跑步",running_treadmill:"跑步机跑步",walking_treadmill:"跑步机健走",
+  cycling:"自行车",biking:"自行车",stationary_biking:"室内自行车",indoor_cycling:"室内自行车",mountain_biking:"山地自行车",
+  hiking:"徒步",backpacking:"旅行徒步",swimming:"游泳",pool_swimming:"游泳",open_water_swimming:"户外游泳",
+  circuit_training:"循环训练",strength_training:"力量训练",weight_training:"力量训练",weightlifting:"举重",weight_machine:"器械训练",
+  hiit:"高强度间歇训练",elliptical:"椭圆机",rowing:"划船",rowing_machine:"划船机",stair_climbing:"爬楼梯",
+  stair_climbing_machine:"登阶机",step_machine:"踏步机",yoga:"瑜伽",pilates:"普拉提",stretching:"拉伸",
+  dancing:"舞蹈",dance:"舞蹈",aerobics:"有氧操",jump_rope:"跳绳",soccer:"足球",football:"足球",
+  basketball:"篮球",badminton:"羽毛球",tennis:"网球",table_tennis:"乒乓球",other:"其他运动"
+};
+
+export function workoutSessionLabel(value:string):string{
+  const trimmed=value.trim(),key=trimmed.toLowerCase().replace(/[ -]/gu,"_");
+  return workoutLabels[key]??(/[^\u0000-\u007f]/u.test(trimmed)?trimmed:`其他运动 · ${trimmed.replaceAll("_"," ")}`);
+}
+
+export function healthHabitLabel(value:string):string{return value.trim().toLowerCase()==="release"?"释放记录":value.trim().replaceAll("_"," ");}
+
 export function reconcileActivityEnergy(deviceSummary: string | null, workoutSum: string | null): { caloriesKcal: string | null; source: "device_summary" | "workout_sum" | "equal" | null } {
   if (deviceSummary === null && workoutSum === null) return { caloriesKcal: null, source: null };
   if (deviceSummary === null) return { caloriesKcal: workoutSum, source: "workout_sum" };

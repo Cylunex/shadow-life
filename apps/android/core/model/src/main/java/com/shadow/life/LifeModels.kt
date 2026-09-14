@@ -89,7 +89,7 @@ data class HealthTrendPoint(val id:String,val occurredOn:String,val value:Double
 data class HealthMetricTrend(val key:String,val label:String,val points:List<HealthTrendPoint>,val coveragePoints:Int,val truncated:Boolean,val unavailable:Boolean=false)
 data class HealthWorkoutSummary(
   val id:String,val occurredOn:String,val sessionType:String,val startedAt:String?,
-  val durationMinutes:Long?,val distanceKm:String?,val caloriesKcal:String?,val rpe:Long?,val heartRateAvg:Long?,val sourceKind:String?
+  val durationMinutes:Long?,val distanceKm:String?,val caloriesKcal:String?,val rpe:Long?,val heartRateAvg:Long?,val sourceKind:String?,val autoDetected:Boolean?=null
 )
 data class HealthDailyOverview(
   val occurredOn:String,val steps:Long?,val activeMinutes:Long?,val caloriesKcal:String?,
