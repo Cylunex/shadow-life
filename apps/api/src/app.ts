@@ -46,6 +46,25 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
     const capability = capabilityRegistry[context.req.param("name") as keyof typeof capabilityRegistry];
     return capability === undefined||!capability.possibleEffects.some(effect=>context.get("requestContext").effects.has(effect)) ? context.json({ protocol: "shadow.error", code: "not_found", message: "Capability not found." }, 404) : context.json({ name: capability.name, description: capability.description, possible_effects: capability.possibleEffects, input_schema: z.toJSONSchema(capability.inputSchema), result_schema: z.toJSONSchema(capability.resultSchema) });
   });
+  app.post("/api/commands/batch", async (context) => {
+    const requestContext=context.get("requestContext");
+    await dependencies.unitOfWork.ensurePrincipal(requestContext.subjectId);
+    const body=z.object({commands:z.array(z.record(z.string(),z.unknown())).min(1).max(50)}).strict().parse(await context.req.json());
+    const ids=new Set<string>();
+    for(const command of body.commands){const id=command.command_id;if(typeof id!=="string"||ids.has(id))return context.json({protocol:"shadow.error",code:"validation",message:"Batch command IDs must be present and unique.",fields:["commands.command_id"]},422);ids.add(id);}
+    const items=[];
+    for(const command of body.commands){
+      try{
+        const result=await dependencies.executor.execute(requestContext,command);
+        items.push({command_id:command.command_id,http_status:result.replayed?200:201,result});
+      }catch(error){
+        if(error instanceof KernelError){items.push({command_id:command.command_id,http_status:error.status,error:error.detail});continue;}
+        if(error instanceof z.ZodError){items.push({command_id:command.command_id,http_status:422,error:{protocol:"shadow.error",code:"validation",message:"Command validation failed.",fields:error.issues.map(issue=>issue.path.join("."))}});continue;}
+        throw error;
+      }
+    }
+    return context.json({protocol:"shadow.command-batch-result",items});
+  });
   app.post("/api/assets",async context=>{const requestContext=context.get("requestContext");if(!requestContext.effects.has("library.item.write")&&!requestContext.effects.has("library.processor.write"))return context.json({protocol:"shadow.error",code:"permission_denied",message:"Missing asset upload permission."},403);const mediaType=context.req.header("content-type")?.split(";")[0]?.trim();if(!mediaType||!mediaType.includes("/"))return context.json({protocol:"shadow.error",code:"validation",message:"A media Content-Type is required."},422);const bytes=Buffer.from(await context.req.arrayBuffer());if(bytes.length===0)return context.json({protocol:"shadow.error",code:"validation",message:"Asset bytes are empty."},422);await dependencies.unitOfWork.ensurePrincipal(requestContext.subjectId);return context.json(await assets.store(requestContext.subjectId,mediaType,bytes),201);});
   const readAsset=async(subjectId:string,versionId:string)=>{const result=await dependencies.unitOfWork.pool.query<{bytes:Buffer;media_type:string;sha256:string}>("select blob.bytes,asset.media_type,version.sha256 from asset_blobs blob join asset_versions version on version.id=blob.asset_version_id join assets asset on asset.id=version.asset_id where version.id=$1 and (asset.subject_id=$2 or exists(select 1 from asset_access_grants grant_row where grant_row.asset_id=asset.id and grant_row.grantee_subject_id=$2 and grant_row.permission='read' and (grant_row.expires_at is null or grant_row.expires_at>now())))",[versionId,subjectId]);return result.rows[0];};
   app.get("/api/assets/:versionId/preview",async context=>{const requestContext=context.get("requestContext");if(!requestContext.effects.has("library.asset.read"))return context.json({protocol:"shadow.error",code:"permission_denied",message:"Missing permission: library.asset.read"},403);const versionId=context.req.param("versionId"),row=await readAsset(requestContext.subjectId,versionId);if(!row)return context.json({protocol:"shadow.error",code:"not_found",message:"Asset version not found."},404);if(!safePreviewMediaTypes.has(row.media_type))return context.json({protocol:"shadow.error",code:"validation",message:"This media type has no inline preview; download the protected original instead."},415,secureAssetHeaders());const headers=secureAssetHeaders({"content-type":row.media_type,"content-length":String(row.bytes.length),etag:`\"${row.sha256}\"`,"content-disposition":`inline; filename=\"${assetFileName(versionId,row.media_type)}\"`});if(context.req.header("if-none-match")===`\"${row.sha256}\"`)return context.body(null,304,headers);return new Response(Uint8Array.from(row.bytes),{headers});});
@@ -246,6 +265,7 @@ function serializedSize(value:unknown):number{try{return Buffer.byteLength(JSON.
 function isRuntimeToolError(value:unknown):boolean{return value!==null&&typeof value==="object"&&(value as {protocol?:unknown}).protocol==="shadow.runtime-tool-error";}
 function safeRequestId(value:string|undefined):string{return value&&/^[A-Za-z0-9._:-]{8,128}$/u.test(value)?value:crypto.randomUUID();}
 export function requestLogRoute(path:string):string{
+  if(path==="/api/commands/batch")return path;
   if(/^\/api\/operations\/by-command\/[^/]+$/u.test(path))return"/api/operations/by-command/:commandId";
   if(/^\/api\/operations\/[^/]+$/u.test(path))return"/api/operations/:executionId";
   if(/^\/api\/assets\/[^/]+(?:\/preview)?$/u.test(path))return path.endsWith("/preview")?"/api/assets/:versionId/preview":"/api/assets/:versionId";

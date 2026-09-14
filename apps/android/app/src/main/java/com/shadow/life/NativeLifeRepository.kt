@@ -394,11 +394,13 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     }finally{connection.disconnect()}
   }
 
-  private suspend fun healthOverview():WorkspaceOverview.Health=coroutineScope{
+  suspend fun homeHealthOverview():WorkspaceOverview.Health=healthOverview(listOf("weight" to "体重","body_fat" to "体脂率","muscle_mass" to "肌肉量","skeletal_muscle" to "骨骼肌"))
+
+  private suspend fun healthOverview(requestedMetrics:List<Pair<String,String>>?=null):WorkspaceOverview.Health=coroutineScope{
     val today=LocalDate.now();val from=today.minusDays(89)
     val sourcesRequest=async{wireJson.decodeFromString<HealthSourcesResultDto>(getText("/api/health/sources"))}
     val dailyRequests=(0L..6L).map{offset->val date=today.minusDays(offset);date to async{partialRequest{wireJson.decodeFromString<HealthDailyResultDto>(getText("/api/health/daily/$date"))}}}
-    val metricKeys=listOf(
+    val metricKeys=requestedMetrics?:listOf(
       "weight" to "体重","bmi" to "BMI","body_fat" to "体脂率","fat_mass" to "脂肪量","lean_mass" to "去脂体重",
       "skeletal_muscle" to "骨骼肌","muscle_mass" to "肌肉量","muscle_rate" to "肌肉率",
       "body_water" to "身体水分量","body_water_rate" to "身体水分率","bone_mass" to "骨量","bone_rate" to "骨量率",
@@ -417,7 +419,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       }.getOrElse{HealthMetricTrend(key,label,emptyList(),0,false,unavailable=true)}
     }}
     val sources=sourcesRequest.await();val history=dailyRequests.mapNotNull{(_,request)->request.await().getOrNull()?.toHealthDailyOverview()}.sortedBy{it.occurredOn};val daily=history.firstOrNull{it.occurredOn==today.toString()};val metrics=fillDerivedBodyMetrics(trendRequests.map{it.await()})
-    val weight=metrics.first().points.lastOrNull()
+    val weight=metrics.firstOrNull{it.key=="weight"}?.points?.lastOrNull()
     val summary=TodayHealthSummary(
       state=when{daily!=null||weight!=null->HealthSummaryState.Ready;metrics.all{it.unavailable}->HealthSummaryState.Failed;else->HealthSummaryState.Empty},
       weight=weight?.valueText,weightUnit=weight?.unit,weightOn=weight?.occurredOn,

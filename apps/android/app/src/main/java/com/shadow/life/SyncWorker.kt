@@ -97,7 +97,23 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
       }finally{connection?.disconnect()}
     }
 
-    for(command in dao.pending(accountId,session.subjectId)){
+    val pendingCommands=dao.pending(accountId,session.subjectId)
+    val handledByBatch=mutableSetOf<String>()
+    val batchCandidates=mutableListOf<Pair<PendingCommand,String>>()
+    for(command in pendingCommands.filter{it.capability=="health.ingest_raw"}){
+      try{batchCandidates+=command to app.queue.commandBody(command)}
+      catch(_:QueueKeyUnavailableException){dao.setCommandState(command.commandId,"blocked");handledByBatch+=command.commandId}
+    }
+    for(batch in healthCommandBatches(batchCandidates)){
+      val outcome=uploadHealthBatch(app,session,accessToken,batch)
+      if(outcome.reauthRequired)return@withContext Result.failure(workDataOf("reason" to "reauth_required"))
+      if(!outcome.fallbackToSingles)handledByBatch+=batch.map{it.first.commandId}
+      needsRetry=needsRetry||outcome.needsRetry
+      recoveredCommands+=outcome.recovered
+      committedCommands+=outcome.committed
+    }
+
+    for(command in pendingCommands.filterNot{it.commandId in handledByBatch}){
       if(command.state=="unknown"){
         val recovered=lookupReceipt(session,accessToken,command)
         if(recovered!=null){commitVerified(app,command,recovered);recoveredCommands++;continue}
@@ -126,10 +142,16 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
         if(code==503&&retryableNotApplied(errorBody)){
           dao.setCommandState(command.commandId,"pending");showWriteFence(app,command);Log.w("SyncWorker","server kept ${command.capability} behind a migration write fence");needsRetry=true;continue
         }
-        val recovered=lookupReceipt(session,accessToken,command)
-        if(recovered!=null){commitVerified(app,command,recovered);recoveredCommands++;continue}
-        if(code==429||code>=500){if(command.attempts>=7)dao.setCommandState(command.commandId,"failed")else{dao.setCommandState(command.commandId,"unknown");needsRetry=true};continue}
-        dao.setCommandState(command.commandId,if(code in listOf(403,409,413,422))"blocked" else "failed")
+        if(code==429||code>=500){
+          val recovered=if(code>=500)lookupReceipt(session,accessToken,command) else null
+          if(recovered!=null){commitVerified(app,command,recovered);recoveredCommands++}
+          else if(command.attempts>=7)dao.setCommandState(command.commandId,"failed")
+          else{dao.setCommandState(command.commandId,"unknown");needsRetry=true}
+          continue
+        }
+        val terminal=if(isDeterministicCommandFailure(code))"blocked" else "failed"
+        dao.setCommandState(command.commandId,terminal)
+        showRejected(app,command,code,errorBody)
       }catch(error:CancellationException){dao.setCommandState(command.commandId,"unknown");throw error
       }catch(_:QueueKeyUnavailableException){dao.setCommandState(command.commandId,"blocked")
       }catch(_:Exception){
@@ -146,6 +168,65 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
   private suspend fun commitVerified(app:ShadowApp,command:PendingCommand,receipt:String){
     try{app.queue.commit(command,receipt)}catch(_:QueueKeyUnavailableException){app.database.commands().commitWithHealthRound(command,"")}
     when{command.commandId.startsWith("cmd_scale_")->app.deviceSync.updateScale(command.accountId,"committed","称重数据已同步到 Life");command.commandId.startsWith("cmd_samsung_")->app.deviceSync.updateSamsung(command.accountId,"committed","Samsung Health 数据已同步到 Life")}
+  }
+
+  private suspend fun uploadHealthBatch(app:ShadowApp,session:ProductSession,accessToken:String,batch:List<Pair<PendingCommand,String>>):BatchUploadOutcome{
+    val dao=app.database.commands()
+    batch.forEach{(command,_)->dao.mark(command.commandId,"uploading")}
+    val payload=JSONObject().put("commands",JSONArray(batch.map{JSONObject(it.second)})).toString()
+    var connection:HttpURLConnection?=null
+    try{
+      val activeConnection=(URL("${session.apiBase}/api/commands/batch").openConnection() as HttpURLConnection).apply{
+        requestMethod="POST";connectTimeout=15_000;readTimeout=60_000
+        setRequestProperty("Authorization","Bearer $accessToken");setRequestProperty("Content-Type","application/json")
+        setRequestProperty("X-Request-Id","android-batch-${batch.first().first.commandId.takeLast(12)}-${batch.size}")
+        doOutput=true
+      }
+      connection=activeConnection
+      activeConnection.outputStream.use{it.write(payload.toByteArray(StandardCharsets.UTF_8))}
+      val code=activeConnection.responseCode
+      if(code==401){batch.forEach{dao.setCommandState(it.first.commandId,"unknown")};app.sessions.revoke(session.accountId);return BatchUploadOutcome(reauthRequired=true)}
+      if(code==404)return BatchUploadOutcome(fallbackToSingles=true)
+      if(code!=200){
+        val errorBody=activeConnection.errorStream?.bufferedReader()?.use{it.readText()}.orEmpty()
+        if(code==503&&retryableNotApplied(errorBody)){batch.forEach{dao.setCommandState(it.first.commandId,"pending")};return BatchUploadOutcome(needsRetry=true)}
+        if(isDeterministicCommandFailure(code)){batch.forEach{(command,_)->dao.setCommandState(command.commandId,"blocked");showRejected(app,command,code,errorBody)};return BatchUploadOutcome()}
+        return recoverBatchAfterUnknown(app,session,accessToken,batch)
+      }
+      val response=JSONObject(activeConnection.inputStream.bufferedReader().use{it.readText()})
+      if(response.optString("protocol")!="shadow.command-batch-result")return recoverBatchAfterUnknown(app,session,accessToken,batch)
+      val byId=response.optJSONArray("items")?.let{items->(0 until items.length()).mapNotNull{items.optJSONObject(it)}.associateBy{it.optString("command_id")}}.orEmpty()
+      var committed=0;var retry=false
+      for((command,_) in batch){
+        val item=byId[command.commandId]
+        if(item==null){dao.setCommandState(command.commandId,"unknown");retry=true;continue}
+        val itemCode=item.optInt("http_status",500)
+        val result=item.optJSONObject("result")?.toString()
+        val errorBody=item.optJSONObject("error")?.toString().orEmpty()
+        when{
+          itemCode in listOf(200,201)&&result!=null&&validReceipt(result,command)->{commitVerified(app,command,result);committed++}
+          itemCode==503&&retryableNotApplied(errorBody)->{dao.setCommandState(command.commandId,"pending");showWriteFence(app,command);retry=true}
+          isDeterministicCommandFailure(itemCode)->{dao.setCommandState(command.commandId,"blocked");showRejected(app,command,itemCode,errorBody)}
+          itemCode==429||itemCode>=500->{if(command.attempts>=7)dao.setCommandState(command.commandId,"failed")else{dao.setCommandState(command.commandId,"unknown");retry=true}}
+          else->dao.setCommandState(command.commandId,"failed")
+        }
+      }
+      Log.i(TAG,"batch upload commands=${batch.size} committed=$committed retry=$retry")
+      return BatchUploadOutcome(committed=committed,needsRetry=retry)
+    }catch(error:CancellationException){batch.forEach{dao.setCommandState(it.first.commandId,"unknown")};throw error
+    }catch(error:Exception){Log.w(TAG,"batch upload outcome unknown commands=${batch.size} type=${error.javaClass.simpleName}");return recoverBatchAfterUnknown(app,session,accessToken,batch)
+    }finally{connection?.disconnect()}
+  }
+
+  private suspend fun recoverBatchAfterUnknown(app:ShadowApp,session:ProductSession,accessToken:String,batch:List<Pair<PendingCommand,String>>):BatchUploadOutcome{
+    val dao=app.database.commands();var recovered=0;var retry=false
+    for((command,_) in batch){
+      val receipt=lookupReceipt(session,accessToken,command)
+      if(receipt!=null){commitVerified(app,command,receipt);recovered++}
+      else if(command.attempts>=7)dao.setCommandState(command.commandId,"failed")
+      else{dao.setCommandState(command.commandId,"unknown");retry=true}
+    }
+    return BatchUploadOutcome(recovered=recovered,needsRetry=retry)
   }
 
   private fun lookupReceipt(session:ProductSession,accessToken:String,command:PendingCommand):String?{
@@ -170,5 +251,19 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
   private fun retryableNotApplied(text:String)=runCatching{JSONObject(text).optString("code")=="retryable_not_applied"}.getOrDefault(false)
   private fun requestId(commandId:String,attempts:Int,phase:String)="android-$phase-${commandId.takeLast(16)}-${attempts.coerceAtLeast(0)}"
   private fun showWriteFence(app:ShadowApp,command:PendingCommand){when{command.commandId.startsWith("cmd_scale_")->app.deviceSync.updateScale(command.accountId,"error","Life 健康写入正在迁移保护中，读数已安全保留");command.commandId.startsWith("cmd_samsung_")->app.deviceSync.updateSamsung(command.accountId,"error","Life 健康写入正在迁移保护中，数据已安全保留")}}
+  private fun showRejected(app:ShadowApp,command:PendingCommand,status:Int,body:String){
+    val code=runCatching{JSONObject(body).optString("code")}.getOrDefault("")
+    val message=when(code){"conflict"->"服务器拒绝了旧版本或冲突数据，请重新发起同步";"validation"->"数据字段与服务器不兼容，请升级后重新同步";"permission_denied"->"当前账户没有健康数据写入权限";else->"数据上传失败（HTTP $status），请在数据状态中重试"}
+    when{command.commandId.startsWith("cmd_scale_")->app.deviceSync.updateScale(command.accountId,"error",message);command.commandId.startsWith("cmd_samsung_")->app.deviceSync.updateSamsung(command.accountId,"error",message)}
+    Log.w(TAG,"command rejected status=$status code=${code.ifBlank{"unknown"}} capability=${command.capability}")
+  }
   companion object{private const val TAG="SyncWorker"}
+}
+
+internal data class BatchUploadOutcome(val committed:Int=0,val recovered:Int=0,val needsRetry:Boolean=false,val reauthRequired:Boolean=false,val fallbackToSingles:Boolean=false)
+internal fun isDeterministicCommandFailure(status:Int)=status in listOf(400,403,409,413,415,422)
+internal fun healthCommandBatches(commands:List<Pair<PendingCommand,String>>,maxCommands:Int=40,maxBytes:Int=850_000):List<List<Pair<PendingCommand,String>>>{
+  val batches=mutableListOf<MutableList<Pair<PendingCommand,String>>>();var bytes=0
+  for(command in commands){val size=command.second.toByteArray(StandardCharsets.UTF_8).size+1;if(batches.isEmpty()||batches.last().size>=maxCommands||bytes+size>maxBytes){batches.add(mutableListOf());bytes=0};batches.last().add(command);bytes+=size}
+  return batches
 }
