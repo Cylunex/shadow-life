@@ -102,6 +102,7 @@ data class MoneyRecurringSummary(val id:String,val title:String,val amount:Strin
 data class MoneyOccurrenceSummary(val id:String,val title:String,val dueOn:String,val state:String,val amount:String?,val currency:String?)
 data class MoneyIntentSummary(val id:String,val title:String,val expectedAmount:String?,val currency:String?,val intendedOn:String?,val state:String)
 data class TravelPlaceSummary(val id:String,val name:String,val address:String?,val latitude:Double?,val longitude:Double?,val tags:List<String>,val favorite:Boolean)
+data class TravelVisitSummary(val id:String,val tripId:String?,val placeName:String,val latitude:Double?,val longitude:Double?,val occurredOn:String,val occurredAt:String?)
 data class TravelMapItemSummary(val placeId:String,val status:String,val note:String?)
 data class TravelMapSummary(val id:String,val title:String,val description:String?,val state:String,val items:List<TravelMapItemSummary>)
 data class TravelTripSummary(val id:String,val title:String,val startsOn:String,val endsOn:String,val timeZone:String,val visibility:String?,val active:Boolean)
@@ -124,7 +125,7 @@ sealed interface WorkspaceOverview { val asOf:String
   ):WorkspaceOverview
   data class Travel(
     val trips:Int,val places:Int,val maps:Int,val activeRun:Boolean,
-    val tripItems:List<TravelTripSummary> = emptyList(),val placeItems:List<TravelPlaceSummary> = emptyList(),val mapItems:List<TravelMapSummary> = emptyList(),
+    val tripItems:List<TravelTripSummary> = emptyList(),val placeItems:List<TravelPlaceSummary> = emptyList(),val visitItems:List<TravelVisitSummary> = emptyList(),val mapItems:List<TravelMapSummary> = emptyList(),
     val days:List<TravelDaySummary> = emptyList(),val tracks:List<TravelTrackSummary> = emptyList(),val segments:List<TravelSegmentSummary> = emptyList(),
     val selectedTripId:String?=null,override val asOf:String
   ):WorkspaceOverview

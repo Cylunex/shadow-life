@@ -11,8 +11,12 @@ android { namespace="com.shadow.life"; compileSdk=36
     buildConfigField("String","SHADOW_OIDC_REDIRECT_URI",quoted(configured("SHADOW_OIDC_REDIRECT_URI","com.shadow.life:/oauth2redirect")))
     buildConfigField("String","SHADOW_OIDC_RESOURCE",quoted(configured("SHADOW_OIDC_RESOURCE","https://api.example.com")))
     buildConfigField("boolean","SAMSUNG_HEALTH_DATA_AVAILABLE",(samsungHealthAar!=null).toString())
+    buildConfigField("String","AMAP_MAPS_API_KEY",quoted(configured("AMAP_MAPS_API_KEY","")))
+    buildConfigField("String","GOOGLE_MAPS_API_KEY",quoted(configured("GOOGLE_MAPS_API_KEY","")))
     manifestPlaceholders["appAuthRedirectScheme"]=configured("SHADOW_OIDC_REDIRECT_SCHEME","com.shadow.life")
     manifestPlaceholders["shadowLifeAppLinkHost"]=configured("SHADOW_APP_LINK_HOST","life.example.com")
+    manifestPlaceholders["amapMapsApiKey"]=configured("AMAP_MAPS_API_KEY","")
+    manifestPlaceholders["googleMapsApiKey"]=configured("GOOGLE_MAPS_API_KEY","")
   }
   compileOptions { sourceCompatibility=JavaVersion.VERSION_17; targetCompatibility=JavaVersion.VERSION_17 }
   buildFeatures { compose=true; buildConfig=true }
@@ -27,6 +31,8 @@ dependencies {
   implementation(libs.health.connect)
   implementation(libs.appauth)
   implementation(libs.security.crypto)
+  implementation(libs.google.maps)
+  implementation(libs.amap.maps)
   if(samsungHealthAar!=null){implementation(files(samsungHealthAar));implementation(libs.gson)}
   testImplementation(libs.junit)
 }

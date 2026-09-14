@@ -72,7 +72,14 @@ SHADOW_OIDC_REDIRECT_URI=com.shadow.life:/oauth2redirect
 SHADOW_OIDC_REDIRECT_SCHEME=com.shadow.life
 SHADOW_OIDC_RESOURCE=https://api.example.com
 SAMSUNG_HEALTH_DATA_AAR=/absolute/local/path/samsung-health-data-api-1.1.0.aar
+AMAP_MAPS_API_KEY=REPLACE_ANDROID_AMAP_KEY
+GOOGLE_MAPS_API_KEY=REPLACE_ANDROID_GOOGLE_MAPS_KEY
 ```
+
+The travel map can switch between native AMap and Google Maps. Use Android-app keys restricted to the
+`com.shadow.life` package and its signing certificate; never reuse a browser or Web Service key. Missing keys
+do not break the build: the app keeps a coordinate/track preview and labels that provider as unconfigured.
+AMap is initialized only after the user accepts its first-use privacy disclosure.
 
 The Samsung AAR is vendor-distributed and intentionally ignored by Git. Builds without the property remain
 valid but expose Samsung direct sync as unavailable. Release builds must point at the reviewed local AAR. Samsung

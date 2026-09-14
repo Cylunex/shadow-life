@@ -1396,6 +1396,26 @@ data class TravelWorkspaceResultDtoMapsEntry(
 )
 
 @Serializable
+enum class TravelWorkspaceResultDtoVisitsEntryVisibility(val wireValue: String) {
+  @SerialName("shared") Shared("shared"),
+  @SerialName("private") Private("private")
+}
+
+@Serializable
+data class TravelWorkspaceResultDtoVisitsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("trip_id") val tripId: String?,
+  @SerialName("place_name") val placeName: String,
+  @SerialName("latitude") val latitude: String?,
+  @SerialName("longitude") val longitude: String?,
+  @SerialName("occurred_on") val occurredOn: String,
+  @SerialName("occurred_at") val occurredAt: String?,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("visibility") val visibility: TravelWorkspaceResultDtoVisitsEntryVisibility,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
 enum class TravelWorkspaceResultDtoTripsEntryRole(val wireValue: String) {
   @SerialName("owner") Owner("owner"),
   @SerialName("editor") Editor("editor"),
@@ -1548,6 +1568,7 @@ data class TravelWorkspaceResultDtoSegmentsEntry(
 data class TravelWorkspaceResultDto(
   @SerialName("places") val places: List<TravelWorkspaceResultDtoPlacesEntry>,
   @SerialName("maps") val maps: List<TravelWorkspaceResultDtoMapsEntry>,
+  @SerialName("visits") val visits: List<TravelWorkspaceResultDtoVisitsEntry>,
   @SerialName("trips") val trips: List<TravelWorkspaceResultDtoTripsEntry>,
   @SerialName("selected_trip_id") val selectedTripId: String?,
   @SerialName("active_run") val activeRun: TravelWorkspaceResultDtoActiveRun?,

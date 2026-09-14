@@ -14,6 +14,8 @@ appauth = "0.11.1"
 bcprov = "1.84"
 junit = "4.13.2"
 gson = "2.13.2"
+google-maps = "20.0.0"
+amap-maps = "10.1.200_loc6.4.9_sea9.7.4"
 
 [libraries]
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose-bom" }
@@ -37,3 +39,5 @@ appauth = { module = "net.openid:appauth", version.ref = "appauth" }
 bcprov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bcprov" }
 junit = { module = "junit:junit", version.ref = "junit" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+google-maps = { module = "com.google.android.gms:play-services-maps", version.ref = "google-maps" }
+amap-maps = { module = "com.amap.api:3dmap-location-search", version.ref = "amap-maps" }

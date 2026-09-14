@@ -178,6 +178,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         activeRun=result.activeRun!=null,
         tripItems=result.trips.map{trip->TravelTripSummary(trip.id,trip.title,trip.startsOn,trip.endsOn,trip.timeZone,trip.visibility?.wireValue,result.activeRun?.tripId==trip.id)},
         placeItems=result.places.map{place->TravelPlaceSummary(place.id,place.name,place.address,place.latitude?.toDoubleOrNull(),place.longitude?.toDoubleOrNull(),place.tags,place.favorite)},
+        visitItems=result.visits.map{visit->TravelVisitSummary(visit.id,visit.tripId,visit.placeName,visit.latitude?.toDoubleOrNull(),visit.longitude?.toDoubleOrNull(),visit.occurredOn,visit.occurredAt)},
         mapItems=result.maps.map{map->TravelMapSummary(map.id,map.title,map.description,map.state.wireValue,map.items.map{TravelMapItemSummary(it.placeId,it.status.wireValue,it.note)})},
         days=result.dayPlans.map{day->TravelDaySummary(day.id,day.tripId,day.planDate,day.items.map{TravelStopSummary(it.stopId,it.title,it.startsAt,it.placeId,it.note)})},
         tracks=result.tracks.map{track->TravelTrackSummary(track.id,track.tripId,track.name,track.points.map{TravelTrackPoint(it.latitude,it.longitude)})},
