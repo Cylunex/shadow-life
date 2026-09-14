@@ -5,27 +5,25 @@
     {
       "id": "shadow-foliant",
       "title": "股票研究",
-      "subtitle": "Shadow Foliant · 独立应用",
+      "subtitle": "Shadow Foliant · 行情、组合与研究",
       "icon": "chart-line",
       "state": "configured",
       "target": {
-        "kind": "app_link",
-        "url": "https://foliant.example.com",
-        "package_name": "com.shadow.foliant",
-        "web_fallback_url": "https://foliant.example.com"
+        "kind": "browser",
+        "url": "https://stock.example.com/"
       },
-      "auth_hint": "project_managed",
+      "auth_hint": "shadow_identity",
       "order": 10
     },
     {
       "id": "shadow-garden",
       "title": "博客创作",
-      "subtitle": "Shadow Garden · 独立应用",
+      "subtitle": "Shadow Garden · 草稿、编辑与发布",
       "icon": "notebook-pen",
       "state": "configured",
       "target": {
         "kind": "browser",
-        "url": "https://garden.example.com"
+        "url": "https://garden.example.com/admin/"
       },
       "auth_hint": "shadow_identity",
       "order": 20

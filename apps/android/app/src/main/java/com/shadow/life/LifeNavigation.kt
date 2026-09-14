@@ -8,6 +8,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,8 +23,10 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -205,7 +208,7 @@ private fun SettingsScreen(
       LifeSection("连接"){
         OutlinedButton(onClick=onInbox,Modifier.fillMaxWidth().heightIn(min=52.dp)){Text("提醒与收件箱")}
         Text(if(scaleSettings.profile()!=null)"体成分档案已配置${if(scaleSettings.hasS400Key)" · S400 bindkey 已配置" else ""}" else "未配置完整档案时仍保存体重与阻抗，不推测体脂",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-        OutlinedButton(onClick=onProjects,Modifier.fillMaxWidth().heightIn(min=52.dp)){Text("其他项目与连接")}
+        OutlinedButton(onClick=onProjects,Modifier.fillMaxWidth().heightIn(min=52.dp)){Text("股票、博客与其他项目")}
       }
       Text("退出后待上传内容仍按当前账号加密保留。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
       TextButton(onClick=onLogout,Modifier.fillMaxWidth()){Text("退出 Life",color=MaterialTheme.colorScheme.error)}
@@ -246,9 +249,35 @@ private fun SettingsScreen(
 private fun notificationStateLabel(item:NotificationItem)=when(item.deliveryState){"ready"->"现在可处理";"scheduled"->"计划于 ${item.scheduledAt}";"quiet"->"静默时段后提醒";"disabled"->"仅保留在收件箱";"snoozed"->"已稍后提醒";else->item.deliveryState}
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable private fun ProjectDirectoryScreen(state:LoadState<List<ProjectLinkItem>>,onRetry:()->Unit,onBack:()->Unit){val context=LocalContext.current;var launchError by remember{mutableStateOf<String?>(null)};LaunchedEffect(Unit){onRetry()};Scaffold(topBar={TopAppBar(title={Text("其他项目")},navigationIcon={IconButton(onClick=onBack){Text("‹",style=MaterialTheme.typography.headlineLarge)}})}){padding->Column(Modifier.fillMaxSize().padding(padding).padding(20.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){Text("目录只负责到达独立项目；各项目自行登录和授权。Life 不会把会话令牌放进链接。",color=MaterialTheme.colorScheme.onSurfaceVariant);launchError?.let{Text(it,color=MaterialTheme.colorScheme.error)};when(state){LoadState.Loading->CircularProgressIndicator();is LoadState.Empty->Text(state.reason,color=MaterialTheme.colorScheme.onSurfaceVariant);is LoadState.Failed->LifeCard{Text(state.message,color=MaterialTheme.colorScheme.error);TextButton(onClick=onRetry){Text("重试")}};is LoadState.Ready->state.value.forEach{item->ProjectLink(item){launchError=if(launchProject(context,item))null else "没有可用的应用或浏览器，请检查配置后重试。"}}}}}}
+@Composable private fun ProjectDirectoryScreen(state:LoadState<List<ProjectLinkItem>>,onRetry:()->Unit,onBack:()->Unit){
+  val context=LocalContext.current;var launchError by remember{mutableStateOf<String?>(null)}
+  LaunchedEffect(Unit){onRetry()}
+  Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Column{Text("其他项目");Text("股票研究与博客创作",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}},navigationIcon={IconButton(onClick=onBack){Text("‹",style=MaterialTheme.typography.headlineLarge)}})}){padding->
+    LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(horizontal=20.dp,vertical=12.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
+      item{Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(24.dp),color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.48f)){Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){Text("从 Life 直接到达",style=MaterialTheme.typography.titleLarge);Text("Foliant 保留行情、组合和研究；Garden 保留草稿、编辑和发布。两个项目使用各自的 Shadow Identity 会话。",color=MaterialTheme.colorScheme.onSurfaceVariant);Text("Life 不会把访问令牌放进链接。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
+      launchError?.let{message->item{Text(message,color=MaterialTheme.colorScheme.error)}}
+      when(state){
+        LoadState.Loading->item{CircularProgressIndicator()}
+        is LoadState.Empty->item{Text(state.reason,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+        is LoadState.Failed->item{LifeCard{Text(state.message,color=MaterialTheme.colorScheme.error);TextButton(onClick=onRetry){Text("重试")}}}
+        is LoadState.Ready->items(state.value.sortedBy{it.order},key={it.id}){item->ProjectLink(item){launchError=if(launchProject(context,item))null else "没有可用的浏览器，请检查系统设置后重试。"}}
+      }
+    }
+  }
+}
 
-@Composable private fun ProjectLink(item:ProjectLinkItem,onOpen:()->Unit){val configured=item.state=="configured"&&projectUrl(item)!=null;LifeCard(onClick=if(configured)onOpen else null){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(14.dp)){Icon(when(item.icon){"chart-line"->Icons.Default.Search;"notebook-pen"->Icons.AutoMirrored.Filled.List;else->Icons.Default.Menu},null);Column(Modifier.weight(1f)){Text(item.title,style=MaterialTheme.typography.titleLarge);Text(item.subtitle,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(when(item.state){"configured"->authHint(item.authHint);"disabled"->"维护中";else->"入口待配置"},color=if(configured)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)};if(configured)Icon(Icons.AutoMirrored.Filled.ArrowForward,"外部打开")}}}
+@Composable private fun ProjectLink(item:ProjectLinkItem,onOpen:()->Unit){
+  val configured=item.state=="configured"&&projectUrl(item)!=null
+  val tone=when(item.icon){"chart-line"->Color(0xFF79E66A);"notebook-pen"->Color(0xFFFFB56B);else->MaterialTheme.colorScheme.primary}
+  val action=if(configured)Modifier.clickable(role=Role.Button,onClick=onOpen) else Modifier
+  Surface(Modifier.fillMaxWidth().then(action),shape=RoundedCornerShape(24.dp),color=tone.copy(alpha=.10f),border=BorderStroke(1.dp,tone.copy(alpha=.34f))){
+    Row(Modifier.padding(18.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(14.dp)){
+      Surface(Modifier.size(52.dp),shape=RoundedCornerShape(17.dp),color=tone.copy(alpha=.18f)){Box(contentAlignment=Alignment.Center){Text(if(item.icon=="chart-line")"股" else if(item.icon=="notebook-pen")"文" else "项",style=MaterialTheme.typography.titleLarge,color=tone)}}
+      Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(3.dp)){Text(item.title,style=MaterialTheme.typography.titleLarge);Text(item.subtitle,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(when(item.state){"configured"->"已接入 · ${authHint(item.authHint)}";"disabled"->"维护中";else->"入口待配置"},style=MaterialTheme.typography.labelMedium,color=if(configured)tone else MaterialTheme.colorScheme.onSurfaceVariant)}
+      if(configured){Column(horizontalAlignment=Alignment.CenterHorizontally){Icon(Icons.AutoMirrored.Filled.ArrowForward,"外部打开",tint=tone);Text("打开",style=MaterialTheme.typography.labelSmall,color=tone)}}
+    }
+  }
+}
 
 private fun authHint(value:String)=when(value){"shadow_identity"->"使用 Shadow Identity 登录";"public"->"公开项目";else->"由项目独立登录"}
 private fun projectUrl(item:ProjectLinkItem):String?=(if(item.launchMode=="app_link")item.appLinkUrl?:item.webFallbackUrl else item.appLinkUrl)?.takeIf{runCatching{Uri.parse(it).scheme=="https"}.getOrDefault(false)}

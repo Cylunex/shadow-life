@@ -31,7 +31,7 @@ import java.util.Locale
   Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text(title,style=MaterialTheme.typography.headlineLarge)},colors=TopAppBarDefaults.topAppBarColors(containerColor=MaterialTheme.colorScheme.background),actions={IconButton(onClick=onProjects){ProjectGridIcon()};onSearch?.let{search->IconButton(onClick=search){Icon(Icons.Default.Search,"搜索生活记录")}};IconButton(onClick=onSettings){Icon(Icons.Default.AccountCircle,"账号与设置")}})},content=content)
 }
 
-@Composable private fun ProjectGridIcon(){Box(Modifier.size(20.dp).semantics{contentDescription="其他项目"}){listOf(Alignment.TopStart,Alignment.TopEnd,Alignment.BottomStart,Alignment.BottomEnd).forEach{alignment->Box(Modifier.size(7.dp).align(alignment).background(MaterialTheme.colorScheme.onSurface,RoundedCornerShape(2.dp)))}}}
+@Composable private fun ProjectGridIcon(){Box(Modifier.size(20.dp).semantics{contentDescription="股票、博客与其他项目"}){listOf(Alignment.TopStart,Alignment.TopEnd,Alignment.BottomStart,Alignment.BottomEnd).forEach{alignment->Box(Modifier.size(7.dp).align(alignment).background(MaterialTheme.colorScheme.onSurface,RoundedCornerShape(2.dp)))}}}
 
 @Composable fun TodayScreen(state:LoadState<TodaySnapshot>,deviceStatus:DeviceSyncStatus,queueState:LoadState<QueueSummary>,samsungAvailable:Boolean,onRetry:()->Unit,onWorkspace:(LifeDomain)->Unit,onDetail:(LifeDomain,String,String)->Unit,onSearch:()->Unit,onFeatures:()->Unit,onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onProjects:()->Unit,onSettings:()->Unit){
   RootPage(LocalDate.now().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.CHINA)),onProjects,onSettings,onSearch){padding->
