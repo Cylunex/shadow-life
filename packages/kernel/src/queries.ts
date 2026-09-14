@@ -49,13 +49,14 @@ function lifeRecordWire(raw:unknown):unknown{
 function healthRecordWire(raw:unknown):unknown{
   const value=JSON.parse(JSON.stringify(raw)) as Record<string,unknown>;
   const object=(item:unknown):Record<string,unknown>=>item!==null&&typeof item==="object"&&!Array.isArray(item)?item as Record<string,unknown>:{};
+  const rows=(item:unknown):Record<string,unknown>[]=>Array.isArray(item)?item.map(object):[];
   const pick=(item:Record<string,unknown>,keys:readonly string[])=>Object.fromEntries(keys.filter(key=>key in item).map(key=>[key,item[key]]));
   const times=(item:Record<string,unknown>,keys:readonly string[])=>{const result={...item};for(const key of keys)if(result[key]!==null&&result[key]!==undefined)result[key]=new Date(String(result[key])).toISOString();return result;};
   const decimal=(item:unknown)=>item===null||item===undefined?null:String(item);
   const fact=object(value.fact),kind=String(value.kind);
   const keys:Record<string,readonly string[]>={
     measurement:["id","metric","value","unit","label","occurred_on","occurred_at","time_zone","note","source_id","raw_id","group_id","autofilled","effective","revision","created_at"],
-    observation:["id","raw_id","raw_version","metric_key","position","value","unit","occurred_on","occurred_at","time_zone","group_id","group_kind","original_field","autofilled","effective","revision","created_at"],
+    observation:["id","raw_id","raw_version","metric_key","position","value","unit","occurred_on","occurred_at","time_zone","group_id","group_kind","original_field","autofilled","effective","revision","created_at","related_observations"],
     daily_wellbeing:["id","raw_id","raw_version","occurred_on","time_zone","mood_score","energy_level","sleep_quality","morning_erection","notes","effective","revision","created_at"],
     sleep_session:["id","raw_id","raw_version","wake_date","time_zone","started_at","ended_at","total_minutes","deep_minutes","light_minutes","rem_minutes","awake_minutes","effective","revision","created_at"],
     workout_session:["id","raw_id","raw_version","plan_id","occurred_on","time_zone","session_type","started_at","duration_minutes","distance_km","calories_kcal","rpe","heart_rate_avg","detail","effective","revision","created_at"],
@@ -63,9 +64,10 @@ function healthRecordWire(raw:unknown):unknown{
     habit_log:["id","raw_id","raw_version","occurred_on","time_zone","habit_key","done_count","explicit_denial","note","effective","revision","created_at"]
   };
   const mapped=times(pick(fact,keys[kind]??[]),["occurred_at","started_at","ended_at","created_at","steps_started_at","steps_ended_at"]);
+  if(kind==="observation")mapped.related_observations=rows(fact.related_observations).map(item=>pick(item,["id","metric_key","value","unit","original_field","autofilled"]));
   if(kind==="workout_session"){mapped.distance_km=decimal(fact.distance_km);mapped.calories_kcal=decimal(fact.calories_kcal);}
   const source=value.source===null?null:times(pick(object(value.source),["id","kind","external_id","captured_on","captured_at","time_zone","original_text","asset_version_id","revision"]),["captured_at"]);
-  const rawView=value.raw===null?null:pick(object(value.raw),["id","record_type","client_record_id","current_version","state","parse_version","source_instance_id"]);
+  const rawView=value.raw===null?null:pick(object(value.raw),["id","record_type","client_record_id","current_version","state","parse_version","source_instance_id","source_type","source_instance_key"]);
   return{kind,fact:mapped,source,raw:rawView};
 }
 function travelTripWire(raw:unknown):unknown{

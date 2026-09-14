@@ -2412,7 +2412,9 @@ data class HealthRecordResultDtoMeasurementRaw(
   @SerialName("current_version") val currentVersion: Long,
   @SerialName("state") val state: HealthRecordResultDtoMeasurementRawState,
   @SerialName("parse_version") val parseVersion: String?,
-  @SerialName("source_instance_id") val sourceInstanceId: String
+  @SerialName("source_instance_id") val sourceInstanceId: String,
+  @SerialName("source_type") val sourceType: String?,
+  @SerialName("source_instance_key") val sourceInstanceKey: String?
 )
 
 @Serializable
@@ -2426,6 +2428,7 @@ data class HealthRecordResultDtoMeasurement(
 @Serializable
 enum class HealthRecordResultDtoObservationFactMetricKey(val wireValue: String) {
   @SerialName("weight") Weight("weight"),
+  @SerialName("height") Height("height"),
   @SerialName("bmi") Bmi("bmi"),
   @SerialName("body_fat") BodyFat("body_fat"),
   @SerialName("fat_mass") FatMass("fat_mass"),
@@ -2463,6 +2466,48 @@ enum class HealthRecordResultDtoObservationFactGroupKind(val wireValue: String) 
 }
 
 @Serializable
+enum class HealthRecordResultDtoObservationFactRelatedObservationsEntryMetricKey(val wireValue: String) {
+  @SerialName("weight") Weight("weight"),
+  @SerialName("height") Height("height"),
+  @SerialName("bmi") Bmi("bmi"),
+  @SerialName("body_fat") BodyFat("body_fat"),
+  @SerialName("fat_mass") FatMass("fat_mass"),
+  @SerialName("lean_mass") LeanMass("lean_mass"),
+  @SerialName("muscle_mass") MuscleMass("muscle_mass"),
+  @SerialName("muscle_rate") MuscleRate("muscle_rate"),
+  @SerialName("skeletal_muscle") SkeletalMuscle("skeletal_muscle"),
+  @SerialName("body_water") BodyWater("body_water"),
+  @SerialName("body_water_rate") BodyWaterRate("body_water_rate"),
+  @SerialName("bone_mass") BoneMass("bone_mass"),
+  @SerialName("bone_rate") BoneRate("bone_rate"),
+  @SerialName("visceral_fat") VisceralFat("visceral_fat"),
+  @SerialName("bmr") Bmr("bmr"),
+  @SerialName("impedance_low") ImpedanceLow("impedance_low"),
+  @SerialName("impedance_high") ImpedanceHigh("impedance_high"),
+  @SerialName("waist") Waist("waist"),
+  @SerialName("chest") Chest("chest"),
+  @SerialName("hip") Hip("hip"),
+  @SerialName("heart_rate") HeartRate("heart_rate"),
+  @SerialName("blood_pressure_systolic") BloodPressureSystolic("blood_pressure_systolic"),
+  @SerialName("blood_pressure_diastolic") BloodPressureDiastolic("blood_pressure_diastolic"),
+  @SerialName("temperature") Temperature("temperature"),
+  @SerialName("spo2") Spo2("spo2"),
+  @SerialName("blood_glucose") BloodGlucose("blood_glucose"),
+  @SerialName("lab_value") LabValue("lab_value"),
+  @SerialName("fitness_value") FitnessValue("fitness_value")
+}
+
+@Serializable
+data class HealthRecordResultDtoObservationFactRelatedObservationsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("metric_key") val metricKey: HealthRecordResultDtoObservationFactRelatedObservationsEntryMetricKey,
+  @SerialName("value") val value: String,
+  @SerialName("unit") val unit: String,
+  @SerialName("original_field") val originalField: String?,
+  @SerialName("autofilled") val autofilled: Boolean
+)
+
+@Serializable
 data class HealthRecordResultDtoObservationFact(
   @SerialName("id") val id: String,
   @SerialName("raw_id") val rawId: String,
@@ -2480,7 +2525,8 @@ data class HealthRecordResultDtoObservationFact(
   @SerialName("autofilled") val autofilled: Boolean,
   @SerialName("effective") val effective: Boolean,
   @SerialName("revision") val revision: Long,
-  @SerialName("created_at") val createdAt: String
+  @SerialName("created_at") val createdAt: String,
+  @SerialName("related_observations") val relatedObservations: List<HealthRecordResultDtoObservationFactRelatedObservationsEntry>
 )
 
 @Serializable
@@ -2526,7 +2572,9 @@ data class HealthRecordResultDtoObservationRaw(
   @SerialName("current_version") val currentVersion: Long,
   @SerialName("state") val state: HealthRecordResultDtoObservationRawState,
   @SerialName("parse_version") val parseVersion: String?,
-  @SerialName("source_instance_id") val sourceInstanceId: String
+  @SerialName("source_instance_id") val sourceInstanceId: String,
+  @SerialName("source_type") val sourceType: String?,
+  @SerialName("source_instance_key") val sourceInstanceKey: String?
 )
 
 @Serializable
@@ -2597,7 +2645,9 @@ data class HealthRecordResultDtoDailyWellbeingRaw(
   @SerialName("current_version") val currentVersion: Long,
   @SerialName("state") val state: HealthRecordResultDtoDailyWellbeingRawState,
   @SerialName("parse_version") val parseVersion: String?,
-  @SerialName("source_instance_id") val sourceInstanceId: String
+  @SerialName("source_instance_id") val sourceInstanceId: String,
+  @SerialName("source_type") val sourceType: String?,
+  @SerialName("source_instance_key") val sourceInstanceKey: String?
 )
 
 @Serializable
@@ -2670,7 +2720,9 @@ data class HealthRecordResultDtoSleepSessionRaw(
   @SerialName("current_version") val currentVersion: Long,
   @SerialName("state") val state: HealthRecordResultDtoSleepSessionRawState,
   @SerialName("parse_version") val parseVersion: String?,
-  @SerialName("source_instance_id") val sourceInstanceId: String
+  @SerialName("source_instance_id") val sourceInstanceId: String,
+  @SerialName("source_type") val sourceType: String?,
+  @SerialName("source_instance_key") val sourceInstanceKey: String?
 )
 
 @Serializable
@@ -2745,7 +2797,9 @@ data class HealthRecordResultDtoWorkoutSessionRaw(
   @SerialName("current_version") val currentVersion: Long,
   @SerialName("state") val state: HealthRecordResultDtoWorkoutSessionRawState,
   @SerialName("parse_version") val parseVersion: String?,
-  @SerialName("source_instance_id") val sourceInstanceId: String
+  @SerialName("source_instance_id") val sourceInstanceId: String,
+  @SerialName("source_type") val sourceType: String?,
+  @SerialName("source_instance_key") val sourceInstanceKey: String?
 )
 
 @Serializable
@@ -2820,7 +2874,9 @@ data class HealthRecordResultDtoDailyActivityRaw(
   @SerialName("current_version") val currentVersion: Long,
   @SerialName("state") val state: HealthRecordResultDtoDailyActivityRawState,
   @SerialName("parse_version") val parseVersion: String?,
-  @SerialName("source_instance_id") val sourceInstanceId: String
+  @SerialName("source_instance_id") val sourceInstanceId: String,
+  @SerialName("source_type") val sourceType: String?,
+  @SerialName("source_instance_key") val sourceInstanceKey: String?
 )
 
 @Serializable
@@ -2890,7 +2946,9 @@ data class HealthRecordResultDtoHabitLogRaw(
   @SerialName("current_version") val currentVersion: Long,
   @SerialName("state") val state: HealthRecordResultDtoHabitLogRawState,
   @SerialName("parse_version") val parseVersion: String?,
-  @SerialName("source_instance_id") val sourceInstanceId: String
+  @SerialName("source_instance_id") val sourceInstanceId: String,
+  @SerialName("source_type") val sourceType: String?,
+  @SerialName("source_instance_key") val sourceInstanceKey: String?
 )
 
 @Serializable
@@ -2993,6 +3051,7 @@ data class HealthDailyResultDtoResultWellbeingEntry(
 data class HealthDailyResultDtoResultWorkoutsEntry(
   @SerialName("id") val id: String,
   @SerialName("session_type") val sessionType: String,
+  @SerialName("time_zone") val timeZone: String? = null,
   @SerialName("started_at") val startedAt: String?,
   @SerialName("duration_minutes") val durationMinutes: Long?,
   @SerialName("distance_km") val distanceKm: String?,

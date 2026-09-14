@@ -45,6 +45,20 @@ test("historical migration sources are not actionable sync issues",pgOnly,async 
   assert.deepEqual(view.domains.health.sync_issues,[]);
 });
 
+test("workout duration supplies active minutes and body detail returns the complete measurement",pgOnly,async t=>{
+  const {pool,run,queries,context}=await reviewFixture(t);
+  await run("health.ingest_raw",{source_type:"samsung",source_instance_key:"android-samsung-complete",source_fingerprint:"permission-complete",record_type:"workout",client_record_id:"samsung-exercise-active",record_version:1,sync_epoch:1,change_kind:"upsert",parse_version:"samsung-data-3",payload:{occurred_on:"2026-09-10",time_zone:"Asia/Shanghai",session_type:"walking",started_at:"2026-09-10T02:00:00Z",duration_minutes:42,detail:{source:"samsung_health"}}});
+  await run("health.ingest_raw",{source_type:"scale",source_instance_key:"android-scale-complete",source_fingerprint:"scale-complete",record_type:"body",client_record_id:"scale-complete",record_version:1,sync_epoch:1,change_kind:"upsert",parse_version:"xiaomi-ble-2",payload:{occurred_on:"2026-09-10",occurred_at:"2026-09-10T02:30:00Z",time_zone:"Asia/Shanghai",group_kind:"measurement",observations:[{metric_key:"weight",value:"85.700000",unit:"kg",original_field:"S400:weight",autofilled:false},{metric_key:"body_fat",value:"27.400000",unit:"%",original_field:"xiaomi-bia-v1",autofilled:true},{metric_key:"impedance_low",value:"503.000000",unit:"ohm",original_field:"S400:impedance_low",autofilled:false}]}});
+  await processPendingHealth(pool);
+  const daily=await queries.healthDaily(context,"2026-09-10") as {result:{activity:{active_minutes:number};workouts:Array<{time_zone?:string}>}};
+  assert.equal(daily.result.activity.active_minutes,42);
+  assert.equal(daily.result.workouts[0]?.time_zone,"Asia/Shanghai");
+  const observationId=(await pool.query("select id from health_observations where metric_key='weight' and effective")).rows[0].id;
+  const detail=await queries.healthRecord(context,observationId) as {fact:{related_observations:Array<{metric_key:string}>};source:{kind:string}};
+  assert.deepEqual(detail.fact.related_observations.map(item=>item.metric_key),["weight","body_fat","impedance_low"]);
+  assert.equal(detail.source.kind,"scale");
+});
+
 test("F07: interval steps sum without source duplication and rebuild on update/delete",pgOnly,async t=>{
   const {pool,run,queries,context,executor,command}=await reviewFixture(t);
   const a=steps("steps_a","2026-09-10T01:00:00Z","2026-09-10T02:00:00Z",100),b=steps("steps_b","2026-09-10T02:00:00Z","2026-09-10T03:00:00Z",200);

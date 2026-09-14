@@ -1,6 +1,7 @@
 package com.shadow.life
 
 import android.app.Application
+import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
@@ -28,6 +29,7 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
   var workspaceDomain:LifeDomain?=null;private set
   private var activeDetail:Pair<LifeDomain,String>?=null
   var submit:SubmitState by androidx.compose.runtime.mutableStateOf(SubmitState.Editing);private set
+  var mealPhotoSubmit:SubmitState by androidx.compose.runtime.mutableStateOf(SubmitState.Editing);private set
   var assistant:LoadState<AssistantReply>? by androidx.compose.runtime.mutableStateOf(null);private set
   var assistantHistory:LoadState<AssistantConversation>? by androidx.compose.runtime.mutableStateOf(null);private set
   var shareImport:LoadState<Int>? by androidx.compose.runtime.mutableStateOf(null);private set
@@ -81,6 +83,7 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
   fun loadWorkspace(domain:LifeDomain,query:String=""){workspaceDomain=domain;workspaceQuery=query.trim();val requestedQuery=workspaceQuery;val token=beginRead("workspace");workspace=LoadState.Loading;workspaceJob?.cancel();workspaceJob=viewModelScope.launch{val result=load("没有符合条件的记录"){repository.records(domain,query=requestedQuery)};if(isCurrentRead("workspace",token)&&workspaceDomain==domain&&workspaceQuery==requestedQuery)workspace=result};if(query.isBlank()){val overviewToken=beginRead("workspace-overview");workspaceOverview=LoadState.Loading;workspaceOverviewJob?.cancel();workspaceOverviewJob=viewModelScope.launch{val result=load("暂无工作台摘要"){repository.workspaceOverview(domain)};if(isCurrentRead("workspace-overview",overviewToken)&&workspaceDomain==domain)workspaceOverview=result}}}
   fun loadMoreWorkspace(){val domain=workspaceDomain?:return;val current=(workspace as? LoadState.Ready)?.value?:return;val cursor=current.nextCursor?:return;val requestedQuery=workspaceQuery;val token=beginRead("workspace");viewModelScope.launch{when(val next=load("没有更多记录"){repository.records(domain,requestedQuery,cursor)}){is LoadState.Ready->if(isCurrentRead("workspace",token)&&workspaceDomain==domain&&workspaceQuery==requestedQuery)workspace=LoadState.Ready(current.copy(items=(current.items+next.value.items).distinctBy{"${it.kind}:${it.id}"},nextCursor=next.value.nextCursor,asOf=current.asOf));is LoadState.Failed->if(isCurrentRead("workspace",token))workspace=LoadState.Ready(current);else->Unit}}}
   fun loadAssetPreview(versionId:String){if(assetPreviews[versionId] is LoadState.Loading||assetPreviews[versionId] is LoadState.Ready)return;assetPreviews[versionId]=LoadState.Loading;viewModelScope.launch{assetPreviews[versionId]=try{LoadState.Ready(repository.assetPreview(versionId))}catch(error:CancellationException){assetPreviews.remove(versionId);throw error}catch(error:Exception){LoadState.Failed(error.message?:"无法读取餐照")}}}
+  fun attachMealPhoto(record:RecordSummary,uri:Uri){val revision=record.revision?:run{mealPhotoSubmit=SubmitState.Rejected("这条餐次缺少修订版本，刷新后再试");return};mealPhotoSubmit=SubmitState.Sending("meal_photo");viewModelScope.launch{try{val receipt=repository.attachMealPhoto(record.detailId?:record.id,revision,uri);mealPhotoSubmit=SubmitState.Saved(receipt)}catch(error:CancellationException){throw error}catch(error:Exception){mealPhotoSubmit=SubmitState.Rejected(error.message?:"无法添加餐照")}}}
   fun loadRefundCandidates(query:String=""){val token=beginRead("refund-candidates");refundCandidates=LoadState.Loading;viewModelScope.launch{val result=load("没有可退款的交易"){repository.records(LifeDomain.Money,query.trim())};if(isCurrentRead("refund-candidates",token))refundCandidates=when(result){is LoadState.Ready->result.value.copy(items=result.value.items.filter{it.kind=="money_entry"&&it.subtype=="expense"}).let{if(it.items.isEmpty())LoadState.Empty("没有可退款的支出") else LoadState.Ready(it)};else->result}}}
   fun loadDetail(domain:LifeDomain,id:String){activeDetail=domain to id;val token=beginRead("detail");detail=LoadState.Loading;viewModelScope.launch{val result=load("对象不可用"){repository.detail(domain,id)};if(isCurrentRead("detail",token)&&activeDetail==(domain to id))detail=result}}
   fun loadPlanDetail(id:String){val token=beginRead("plan-detail");planDetail=LoadState.Loading;viewModelScope.launch{val result=load("项目不存在或当前无权查看"){repository.project(id)};if(isCurrentRead("plan-detail",token))planDetail=result}}
@@ -111,7 +114,7 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
         val newlyCommitted=knownCommitted?.let{known->next.committedReceipts.filterNot{it.commandId in known}}.orEmpty()
         knownCommitted=currentCommitted
         if(deviceUploadCompleted){refreshToday();if(workspaceDomain==LifeDomain.Health)loadWorkspace(LifeDomain.Health,workspaceQuery)}
-        if(newlyCommitted.isNotEmpty()){val current=submit as? SubmitState.Saved;newlyCommitted.firstOrNull{it.commandId==current?.receipt?.commandId}?.let{submit=SubmitState.Saved(it)};refreshForCapabilities(newlyCommitted.mapTo(linkedSetOf()){it.capability})}
+        if(newlyCommitted.isNotEmpty()){val current=submit as? SubmitState.Saved;newlyCommitted.firstOrNull{it.commandId==current?.receipt?.commandId}?.let{submit=SubmitState.Saved(it)};val photo=mealPhotoSubmit as? SubmitState.Saved;newlyCommitted.firstOrNull{it.commandId==photo?.receipt?.commandId}?.let{mealPhotoSubmit=SubmitState.Saved(it)};refreshForCapabilities(newlyCommitted.mapTo(linkedSetOf()){it.capability})}
       }
     }
   }

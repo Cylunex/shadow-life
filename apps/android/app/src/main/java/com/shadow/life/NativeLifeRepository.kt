@@ -131,7 +131,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         RecordSummary(
           domain,"meal",item.id,foods.map{it.name}.filter(String::isNotBlank).joinToString("、").ifBlank{mealTypeLabel(item.mealType.wireValue)},item.occurredOn,
           item.payments.joinToString(" + "){"${it.currency} ${it.amount}"}.ifBlank{null},item.revision.toInt(),
-          meal=MealCardSummary(item.mealType.wireValue,item.occurredOn,item.occurredAt,item.note,foods,photo)
+          meal=MealCardSummary(item.mealType.wireValue,item.occurredOn,item.occurredAt,item.timeZone,item.note,foods,photo)
         )
       },result.nextCursor,result.asOf)
     }
@@ -394,6 +394,22 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     }finally{connection.disconnect()}
   }
 
+  suspend fun attachMealPhoto(mealId:String,expectedRevision:Int,uri:Uri):OperationReceipt=withContext(Dispatchers.IO){
+    val mediaType=context.contentResolver.getType(uri)?.takeIf{it.startsWith("image/")}?:error("请选择图片文件")
+    val session=app.sessions.active()?:error("请先登录 Shadow Life")
+    val fresh=when(val value=app.sessions.fresh(session.accountId,context)){SessionRefresh.ReauthRequired->error("会话已失效，请重新登录");SessionRefresh.Retryable->error("暂时无法刷新会话，请稍后重试");is SessionRefresh.Ready->value.value}
+    context.contentResolver.openAssetFileDescriptor(uri,"r")?.use{descriptor->if(descriptor.length>12L*1024*1024)error("餐照尺寸不能超过 12 MB")}
+    val uploadId="meal-photo-${UUID.randomUUID()}";val connection=(URL("${fresh.session.apiBase}/api/assets").openConnection() as HttpURLConnection).apply{requestMethod="POST";connectTimeout=15_000;readTimeout=30_000;doOutput=true;setChunkedStreamingMode(64*1024);setRequestProperty("Authorization","Bearer ${fresh.accessToken}");setRequestProperty("Content-Type",mediaType);setRequestProperty("X-Request-Id",uploadId)}
+    val uploaded=try{
+      val input=context.contentResolver.openInputStream(uri)?:error("无法读取所选餐照")
+      input.use{source->connection.outputStream.use{target->val buffer=ByteArray(64*1024);var total=0L;while(true){val read=source.read(buffer);if(read<0)break;total+=read;if(total>12L*1024*1024)error("餐照尺寸不能超过 12 MB");target.write(buffer,0,read)}}}
+      val code=connection.responseCode;val text=(if(code in 200..299)connection.inputStream else connection.errorStream)?.bufferedReader()?.use{it.readText()}.orEmpty();if(code !in 200..299)error(runCatching{JSONObject(text).optString("message")}.getOrNull().orEmpty().ifBlank{"餐照上传失败（HTTP $code）"});JSONObject(text)
+    }finally{connection.disconnect()}
+    val versionId=uploaded.optString("asset_version_id").takeIf(String::isNotBlank)?:error("服务器没有返回餐照版本")
+    val now=java.time.Instant.now();val zone=ZoneId.systemDefault()
+    enqueueCommand("life.attach_meal_source",JSONObject().put("meal_id",mealId).put("expected_meal_revision",expectedRevision).put("role","meal_photo").put("source",JSONObject().put("kind","image").put("captured_on",now.atZone(zone).toLocalDate().toString()).put("captured_at",now.toString()).put("time_zone",zone.id).put("asset_version_id",versionId)))
+  }
+
   suspend fun homeHealthOverview():WorkspaceOverview.Health=healthOverview(listOf("weight" to "体重","body_fat" to "体脂率","muscle_mass" to "肌肉量","skeletal_muscle" to "骨骼肌"))
 
   private suspend fun healthOverview(requestedMetrics:List<Pair<String,String>>?=null):WorkspaceOverview.Health=coroutineScope{
@@ -401,10 +417,12 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     val sourcesRequest=async{wireJson.decodeFromString<HealthSourcesResultDto>(getText("/api/health/sources"))}
     val dailyRequests=(0L..6L).map{offset->val date=today.minusDays(offset);date to async{partialRequest{wireJson.decodeFromString<HealthDailyResultDto>(getText("/api/health/daily/$date"))}}}
     val metricKeys=requestedMetrics?:listOf(
-      "weight" to "体重","bmi" to "BMI","body_fat" to "体脂率","fat_mass" to "脂肪量","lean_mass" to "去脂体重",
+      "weight" to "体重","height" to "身高","bmi" to "BMI","body_fat" to "体脂率","fat_mass" to "脂肪量","lean_mass" to "去脂体重",
       "skeletal_muscle" to "骨骼肌","muscle_mass" to "肌肉量","muscle_rate" to "肌肉率",
       "body_water" to "身体水分量","body_water_rate" to "身体水分率","bone_mass" to "骨量","bone_rate" to "骨量率",
-      "visceral_fat" to "内脏脂肪等级","bmr" to "基础代谢","heart_rate" to "测量心率"
+      "visceral_fat" to "内脏脂肪等级","bmr" to "基础代谢","impedance_low" to "低频阻抗","impedance_high" to "高频阻抗",
+      "waist" to "腰围","chest" to "胸围","hip" to "臀围","heart_rate" to "心率","blood_pressure_systolic" to "收缩压",
+      "blood_pressure_diastolic" to "舒张压","temperature" to "体温","spo2" to "血氧","blood_glucose" to "血糖","lab_value" to "检验结果","fitness_value" to "体能测试"
     )
     val trendRequests=metricKeys.map{(key,label)->async{
       partialRequest{
@@ -412,7 +430,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         val points=value.optJSONArray("points").objects().mapNotNull{point->
           val text=point.optString("value").takeIf(String::isNotBlank)?:return@mapNotNull null
           val number=text.toDoubleOrNull()?:return@mapNotNull null
-          HealthTrendPoint(point.optString("id"),point.optString("occurred_on"),number,text,point.optString("unit"),point.optString("source_kind"),point.optInt("revision",1))
+          val unit=point.optString("unit");HealthTrendPoint(point.optString("id"),point.optString("occurred_on"),number,healthValueText(text,unit),unit,point.optString("source_kind"),point.optInt("revision",1))
         }
         val coverage=value.optJSONObject("coverage")
         HealthMetricTrend(key,label,points,coverage?.optInt("points",points.size)?:points.size,coverage?.optBoolean("truncated",false)?:false)
@@ -440,7 +458,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     workouts=result.workouts.size,habitsDone=result.habits.sumOf{it.doneCount.toInt()},updatedAt=updatedAt,
     lightMinutes=result.sleep?.lightMinutes,awakeMinutes=result.sleep?.awakeMinutes,sleepSource=result.sleep?.sourceType,
     workoutItems=result.workouts.map{workout->HealthWorkoutSummary(
-      id=workout.id,occurredOn=occurredOn,sessionType=workout.sessionType,startedAt=workout.startedAt,
+      id=workout.id,occurredOn=occurredOn,sessionType=workout.sessionType,startedAt=workout.startedAt,timeZone=workout.timeZone?:ZoneId.systemDefault().id,
       durationMinutes=workout.durationMinutes,distanceKm=workout.distanceKm,caloriesKcal=workout.caloriesKcal,
       rpe=workout.rpe,heartRateAvg=workout.heartRateAvg,
       sourceKind=((workout.detail as? JsonObject)?.get("source") as? JsonPrimitive)?.content?.takeUnless{it.isBlank()||it=="null"},
@@ -524,7 +542,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     if(value.snippets.isNotEmpty())sections+=DetailSection("可检索内容",value.snippets.take(10).mapIndexed{index,snippet->DetailFact("片段 ${index+1}",snippet.text)},value.snippets.size)
     if(value.processingJobs.isNotEmpty())sections+=DetailSection("处理任务",value.processingJobs.take(20).flatMap{job->listOfNotNull(DetailFact(job.kind.wireValue,"${job.state.wireValue} · 尝试 ${job.attempts}"),job.lastError?.let{DetailFact("失败原因",it)})},value.processingJobs.size)
     if(value.derivations.isNotEmpty()||value.proofs.isNotEmpty()||value.legacyLinks.isNotEmpty())sections+=DetailSection("来源与完整性",listOf(DetailFact("派生产物","${value.derivations.size} 项"),DetailFact("内容证明","${value.proofs.size} 项"),DetailFact("旧链接","${value.legacyLinks.size} 项")))
-    return RecordDetail(item.title,item.state.wireValue,item.currentRevision.toInt(),sections,latest?.let{EditSeed.Library(item.id,item.currentRevision.toInt(),item.title,it.text,it.url,it.tags)})
+    return RecordDetail(item.title,item.state.wireValue,item.currentRevision.toInt(),sections,latest?.let{EditSeed.Library(item.id,item.currentRevision.toInt(),item.title,it.text,it.url,it.tags)},presentation=DetailPresentation.Library,heroSupporting=item.itemType)
   }
 
   private fun travelDetail(value:TravelTripResultDto):RecordDetail{
@@ -551,7 +569,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     if(value.revisions.isNotEmpty())sections+=DetailSection("更正历史",value.revisions.take(20).map{revision->DetailFact("版本 ${revision.revision}","${revision.reason} · ${revision.createdAt}")},value.revisions.size)
     return RecordDetail(
       trip.title,value.myRuns.firstOrNull()?.state?.wireValue,trip.revision.toInt(),sections,
-      EditSeed.Trip(trip.id,trip.revision.toInt(),trip.title,trip.startsOn,trip.endsOn,trip.timeZone,trip.note)
+      EditSeed.Trip(trip.id,trip.revision.toInt(),trip.title,trip.startsOn,trip.endsOn,trip.timeZone,trip.note),presentation=DetailPresentation.Travel,heroSupporting="${trip.startsOn} — ${trip.endsOn}"
     )
   }
 
@@ -567,7 +585,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       if(sources.isNotEmpty())sections+=DetailSection("来源",sources.take(20).map{source->DetailFact(source.kind,source.capturedAt?:source.capturedOn?:source.externalId?:"已收存")},sources.size)
       val revision=value.revision;val occurredOn=value.occurredOn;val timeZone=value.timeZone;val mealType=value.mealType
       val seed=if(revision!=null&&occurredOn!=null&&timeZone!=null&&mealType!=null)EditSeed.Meal(value.mealId,revision.toInt(),occurredOn,timeZone,mealType.wireValue,value.note) else null
-      RecordDetail(title,null,value.revision?.toInt(),sections,seed)
+      RecordDetail(title,null,value.revision?.toInt(),sections,seed,presentation=DetailPresentation.Meal,heroSupporting=listOfNotNull(value.mealType?.wireValue?.let(::mealTypeLabel),value.occurredOn).joinToString(" · "))
     }
     is LifeRecordResultDtoRecord->{
       val entry=value.moneyEntry;val purchase=value.purchase;val meals=value.meals.orEmpty();val items=value.purchaseItems.orEmpty();val sources=value.sources.orEmpty()
@@ -583,25 +601,31 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         if(entry?.entryType?.wireValue=="expense"&&entry.currency=="CNY")add(DetailAction("记录这笔交易的退款",CaptureSeed(CaptureKind.Refund,date=LocalDate.now().toString(),secondary=entry.id,contextKind="money_entry",contextId=entry.id,contextLabel=listOfNotNull(entry.counterparty,entry.category,"CNY ${entry.amount}").joinToString(" · "))))
         items.take(10).forEach{item->add(DetailAction("将“${item.rawName}”加入我的物品",CaptureSeed(CaptureKind.OwnedItem,primary=item.rawName,date=value.occurredOn,option="owned",contextKind="purchase_item",contextId=item.id,contextLabel="来自本次购买")))}
       }
-      RecordDetail(title,value.state.wireValue,value.revision.toInt(),sections,seed,actions)
+      RecordDetail(title,value.state.wireValue,value.revision.toInt(),sections,seed,actions,if(domain==LifeDomain.Money)DetailPresentation.Money else DetailPresentation.Meal,entry?.let{"${it.currency} ${it.amount}"},value.occurredOn)
     }
   }
 
   private fun healthDetail(value:HealthRecordResultDto):RecordDetail{
-    fun build(title:String,revision:Long,overview:List<DetailFact>,sourceKind:String?,sourceAt:String?,rawType:String?,rawState:String?,seed:EditSeed?=null):RecordDetail{
-      val sections=mutableListOf(DetailSection("概要",overview))
-      if(sourceKind!=null)sections+=DetailSection("来源",listOfNotNull(DetailFact("类型",sourceKind),sourceAt?.let{DetailFact("采集时间",it)}))
+    fun build(title:String,revision:Long,overview:List<DetailFact>,sourceKind:String?,sourceAt:String?,rawType:String?,rawState:String?,seed:EditSeed?=null,presentation:DetailPresentation=DetailPresentation.Generic,heroValue:String?=null,heroSupporting:String?=null,extra:List<DetailSection> = emptyList()):RecordDetail{
+      val sections=mutableListOf(DetailSection("概要",overview));sections+=extra
+      if(sourceKind!=null)sections+=DetailSection("来源",listOfNotNull(DetailFact("类型",sourceLabel(sourceKind)),sourceAt?.let{DetailFact("采集时间",localDateTime(it,null)?:it)}))
       if(rawType!=null)sections+=DetailSection("原始记录",listOfNotNull(DetailFact("类型",rawType),rawState?.let{DetailFact("状态",it)}))
-      return RecordDetail(title,null,revision.toInt(),sections,seed)
+      return RecordDetail(title,null,revision.toInt(),sections,seed,presentation=presentation,heroValue=heroValue,heroSupporting=heroSupporting)
     }
     return when(value){
-      is HealthRecordResultDtoMeasurement->{val fact=value.fact;build(fact.label?:kindLabel(fact.metric.wireValue),fact.revision,listOfNotNull(DetailFact("指标",fact.metric.wireValue),DetailFact("数值","${fact.value} ${fact.unit}"),DetailFact("日期",fact.occurredOn),DetailFact("时区",fact.timeZone),fact.note?.let{DetailFact("备注",it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue,if(value.raw==null)EditSeed.Health(fact.id,fact.revision.toInt(),fact.metric.wireValue,fact.value,fact.unit,fact.occurredOn,fact.timeZone,fact.label,fact.note) else null)}
-      is HealthRecordResultDtoObservation->{val fact=value.fact;build(kindLabel(fact.metricKey.wireValue),fact.revision,listOfNotNull(DetailFact("指标",fact.metricKey.wireValue),DetailFact("数值","${fact.value} ${fact.unit}"),DetailFact("日期",fact.occurredOn),DetailFact("分组",fact.groupKind.wireValue),fact.originalField?.let{DetailFact("原字段",it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue)}
-      is HealthRecordResultDtoDailyWellbeing->{val fact=value.fact;build("每日感受",fact.revision,listOfNotNull(DetailFact("日期",fact.occurredOn),fact.moodScore?.let{DetailFact("心情","$it/10")},fact.energyLevel?.let{DetailFact("精力","$it/10")},fact.sleepQuality?.let{DetailFact("睡眠质量","$it/10")},fact.morningErection?.let{DetailFact("晨间状态",if(it)"是" else "否")},fact.notes?.let{DetailFact("备注",it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue)}
-      is HealthRecordResultDtoSleepSession->{val fact=value.fact;build("睡眠",fact.revision,listOfNotNull(DetailFact("醒来日期",fact.wakeDate),DetailFact("总时长","${fact.totalMinutes} 分钟"),fact.deepMinutes?.let{DetailFact("深睡","$it 分钟")},fact.lightMinutes?.let{DetailFact("浅睡","$it 分钟")},fact.remMinutes?.let{DetailFact("REM","$it 分钟")},fact.awakeMinutes?.let{DetailFact("清醒","$it 分钟")},fact.startedAt?.let{DetailFact("开始",it)},fact.endedAt?.let{DetailFact("结束",it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue)}
-      is HealthRecordResultDtoWorkoutSession->{val fact=value.fact;build(fact.sessionType,fact.revision,listOfNotNull(DetailFact("日期",fact.occurredOn),fact.startedAt?.let{DetailFact("开始",it)},fact.durationMinutes?.let{DetailFact("时长","$it 分钟")},fact.distanceKm?.let{DetailFact("距离","$it km")},fact.caloriesKcal?.let{DetailFact("热量","$it kcal")},fact.rpe?.let{DetailFact("RPE","$it/10")},fact.heartRateAvg?.let{DetailFact("平均心率","$it bpm")}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue)}
-      is HealthRecordResultDtoDailyActivity->{val fact=value.fact;build("每日活动",fact.revision,listOfNotNull(DetailFact("日期",fact.occurredOn),fact.steps?.let{DetailFact("步数","$it")},fact.activeMinutes?.let{DetailFact("活跃时长","$it 分钟")},fact.effectiveCaloriesKcal?.let{DetailFact("活动热量","$it kcal")},fact.stepsOrigin?.let{DetailFact("步数来源",it)},fact.stepsStartedAt?.let{DetailFact("区间开始",it)},fact.stepsEndedAt?.let{DetailFact("区间结束",it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue)}
-      is HealthRecordResultDtoHabitLog->{val fact=value.fact;build(kindLabel(fact.habitKey),fact.revision,listOfNotNull(DetailFact("日期",fact.occurredOn),DetailFact("完成次数","${fact.doneCount}"),DetailFact("明确未完成",if(fact.explicitDenial)"是" else "否"),fact.note?.let{DetailFact("备注",it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue)}
+      is HealthRecordResultDtoMeasurement->{val fact=value.fact;val label=fact.label?:healthMetricLabel(fact.metric.wireValue);val shown=healthValueText(fact.value,fact.unit);build(label,fact.revision,listOfNotNull(fact.occurredAt?.let{DetailFact("测量时间",localDateTime(it,fact.timeZone)?:it)},DetailFact("发生日期",fact.occurredOn),DetailFact("数据精度",if(fact.autofilled)"推导值" else "原始值"),fact.note?.let{DetailFact("备注",it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue,if(value.raw==null)EditSeed.Health(fact.id,fact.revision.toInt(),fact.metric.wireValue,fact.value,fact.unit,fact.occurredOn,fact.timeZone,fact.label,fact.note) else null,DetailPresentation.HealthMetric,"$shown ${unitLabel(fact.unit)}",fact.occurredOn)}
+      is HealthRecordResultDtoObservation->{val fact=value.fact;val label=healthMetricLabel(fact.metricKey.wireValue);val shown=healthValueText(fact.value,fact.unit);val related=fact.relatedObservations.map{item->DetailFact(healthMetricLabel(item.metricKey.wireValue),"${healthValueText(item.value,item.unit)} ${unitLabel(item.unit)}${if(item.autofilled)" · 计算" else " · 设备"}")};build(label,fact.revision,listOfNotNull(fact.occurredAt?.let{DetailFact("测量时间",localDateTime(it,fact.timeZone)?:it)},DetailFact("发生日期",fact.occurredOn),DetailFact("数据性质",if(fact.autofilled)"根据体重、阻抗和档案计算" else "设备直接上报"),fact.originalField?.let{DetailFact("原字段",it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue,presentation=DetailPresentation.HealthMetric,heroValue="$shown ${unitLabel(fact.unit)}",heroSupporting=fact.occurredOn,extra=listOf(DetailSection("本次测量全部指标",related,related.size)))}
+      is HealthRecordResultDtoDailyWellbeing->{val fact=value.fact;build("每日感受",fact.revision,listOfNotNull(DetailFact("日期",fact.occurredOn),fact.moodScore?.let{DetailFact("心情","$it/10")},fact.energyLevel?.let{DetailFact("精力","$it/10")},fact.sleepQuality?.let{DetailFact("睡眠质量","$it/10")},fact.morningErection?.let{DetailFact("晨间状态",if(it)"是" else "否")},fact.notes?.let{DetailFact("备注",it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue,presentation=DetailPresentation.Habit,heroValue=fact.moodScore?.let{"$it / 10"}?:"已记录",heroSupporting=fact.occurredOn)}
+      is HealthRecordResultDtoSleepSession->{val fact=value.fact;build("睡眠",fact.revision,listOfNotNull(DetailFact("醒来日期",fact.wakeDate),fact.deepMinutes?.let{DetailFact("深睡","$it 分钟")},fact.lightMinutes?.let{DetailFact("浅睡","$it 分钟")},fact.remMinutes?.let{DetailFact("REM","$it 分钟")},fact.awakeMinutes?.let{DetailFact("清醒","$it 分钟")},fact.startedAt?.let{DetailFact("入睡",localDateTime(it,fact.timeZone)?:it)},fact.endedAt?.let{DetailFact("醒来",localDateTime(it,fact.timeZone)?:it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue,presentation=DetailPresentation.Sleep,heroValue=if(fact.totalMinutes>=60)"${fact.totalMinutes/60} 小时 ${fact.totalMinutes%60} 分" else "${fact.totalMinutes} 分钟",heroSupporting="${fact.wakeDate} · 睡眠结构")}
+      is HealthRecordResultDtoWorkoutSession->{
+        val fact=value.fact
+        val detail=fact.detail as? JsonObject
+        fun detailText(key:String)=(detail?.get(key) as? JsonPrimitive)?.content?.takeUnless{it.isBlank()||it=="null"}
+        val auto=detailText("auto_detected")?.toBooleanStrictOrNull();val title=workoutTypeUi(fact.sessionType)
+        build(title,fact.revision,listOfNotNull(DetailFact("日期",fact.occurredOn),fact.startedAt?.let{DetailFact("开始时间",localDateTime(it,fact.timeZone)?:it)},fact.durationMinutes?.let{DetailFact("运动时长","$it 分钟")},fact.distanceKm?.let{DetailFact("距离","${healthValueText(it,"km")} km")},fact.caloriesKcal?.let{DetailFact("活动热量","${healthValueText(it,"kcal")} kcal")},fact.rpe?.let{DetailFact("主观强度","$it/10")},fact.heartRateAvg?.let{DetailFact("平均心率","$it 次/分")},auto?.let{DetailFact("记录方式",if(it)"Samsung Health 自动识别" else "手动开始")},detailText("provider_type")?.let{DetailFact("三星运动类型",it)},detailText("custom_title")?.let{DetailFact("自定义名称",it)},detailText("notes")?.let{DetailFact("备注",it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue,presentation=DetailPresentation.Workout,heroValue=fact.durationMinutes?.let{"$it 分钟"}?:fact.distanceKm?.let{"${healthValueText(it,"km")} km"}?:"已完成",heroSupporting=listOfNotNull(fact.startedAt?.let{localDateTime(it,fact.timeZone)},auto?.let{if(it)"自动记录" else "手动记录"}).joinToString(" · "))
+      }
+      is HealthRecordResultDtoDailyActivity->{val fact=value.fact;build("每日活动",fact.revision,listOfNotNull(DetailFact("日期",fact.occurredOn),fact.steps?.let{DetailFact("步数","$it 步")},fact.activeMinutes?.let{DetailFact("活跃时长","$it 分钟")},fact.effectiveCaloriesKcal?.let{DetailFact("活动热量","${healthValueText(it,"kcal")} kcal")},fact.deviceCaloriesKcal?.let{DetailFact("设备活动热量","${healthValueText(it,"kcal")} kcal")},fact.workoutCaloriesKcal?.let{DetailFact("运动合计热量","${healthValueText(it,"kcal")} kcal")},fact.stepsOrigin?.let{DetailFact("步数来源",it)},fact.stepsStartedAt?.let{DetailFact("区间开始",localDateTime(it,fact.timeZone)?:it)},fact.stepsEndedAt?.let{DetailFact("区间结束",localDateTime(it,fact.timeZone)?:it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue,presentation=DetailPresentation.Activity,heroValue=fact.steps?.let{"$it 步"}?:fact.activeMinutes?.let{"$it 分钟"}?:"已记录",heroSupporting=fact.occurredOn)}
+      is HealthRecordResultDtoHabitLog->{val fact=value.fact;build(kindLabel(fact.habitKey),fact.revision,listOfNotNull(DetailFact("日期",fact.occurredOn),DetailFact("完成次数","${fact.doneCount}"),DetailFact("明确未完成",if(fact.explicitDenial)"是" else "否"),fact.note?.let{DetailFact("备注",it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue,presentation=DetailPresentation.Habit,heroValue=if(fact.explicitDenial)"未完成" else "${fact.doneCount} 次",heroSupporting=fact.occurredOn)}
     }
   }
 

@@ -38765,6 +38765,18 @@
                       "source_instance_id": {
                         "type": "string",
                         "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                      },
+                      "source_type": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "source_instance_key": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       }
                     },
                     "required": [
@@ -38774,7 +38786,9 @@
                       "current_version",
                       "state",
                       "parse_version",
-                      "source_instance_id"
+                      "source_instance_id",
+                      "source_type",
+                      "source_instance_key"
                     ],
                     "additionalProperties": false
                   },
@@ -38819,6 +38833,7 @@
                     "type": "string",
                     "enum": [
                       "weight",
+                      "height",
                       "bmi",
                       "body_fat",
                       "fat_mass",
@@ -38915,6 +38930,77 @@
                     "type": "string",
                     "format": "date-time",
                     "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                  },
+                  "related_observations": {
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                        },
+                        "metric_key": {
+                          "type": "string",
+                          "enum": [
+                            "weight",
+                            "height",
+                            "bmi",
+                            "body_fat",
+                            "fat_mass",
+                            "lean_mass",
+                            "muscle_mass",
+                            "muscle_rate",
+                            "skeletal_muscle",
+                            "body_water",
+                            "body_water_rate",
+                            "bone_mass",
+                            "bone_rate",
+                            "visceral_fat",
+                            "bmr",
+                            "impedance_low",
+                            "impedance_high",
+                            "waist",
+                            "chest",
+                            "hip",
+                            "heart_rate",
+                            "blood_pressure_systolic",
+                            "blood_pressure_diastolic",
+                            "temperature",
+                            "spo2",
+                            "blood_glucose",
+                            "lab_value",
+                            "fitness_value"
+                          ]
+                        },
+                        "value": {
+                          "type": "string",
+                          "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                        },
+                        "unit": {
+                          "type": "string"
+                        },
+                        "original_field": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "autofilled": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "metric_key",
+                        "value",
+                        "unit",
+                        "original_field",
+                        "autofilled"
+                      ],
+                      "additionalProperties": false
+                    }
                   }
                 },
                 "required": [
@@ -38934,7 +39020,8 @@
                   "autofilled",
                   "effective",
                   "revision",
-                  "created_at"
+                  "created_at",
+                  "related_observations"
                 ],
                 "additionalProperties": false
               },
@@ -39083,6 +39170,18 @@
                       "source_instance_id": {
                         "type": "string",
                         "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                      },
+                      "source_type": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "source_instance_key": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       }
                     },
                     "required": [
@@ -39092,7 +39191,9 @@
                       "current_version",
                       "state",
                       "parse_version",
-                      "source_instance_id"
+                      "source_instance_id",
+                      "source_type",
+                      "source_instance_key"
                     ],
                     "additionalProperties": false
                   },
@@ -39367,6 +39468,18 @@
                       "source_instance_id": {
                         "type": "string",
                         "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                      },
+                      "source_type": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "source_instance_key": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       }
                     },
                     "required": [
@@ -39376,7 +39489,9 @@
                       "current_version",
                       "state",
                       "parse_version",
-                      "source_instance_id"
+                      "source_instance_id",
+                      "source_type",
+                      "source_instance_key"
                     ],
                     "additionalProperties": false
                   },
@@ -39682,6 +39797,18 @@
                       "source_instance_id": {
                         "type": "string",
                         "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                      },
+                      "source_type": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "source_instance_key": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       }
                     },
                     "required": [
@@ -39691,7 +39818,9 @@
                       "current_version",
                       "state",
                       "parse_version",
-                      "source_instance_id"
+                      "source_instance_id",
+                      "source_type",
+                      "source_instance_key"
                     ],
                     "additionalProperties": false
                   },
@@ -40030,6 +40159,18 @@
                       "source_instance_id": {
                         "type": "string",
                         "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                      },
+                      "source_type": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "source_instance_key": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       }
                     },
                     "required": [
@@ -40039,7 +40180,9 @@
                       "current_version",
                       "state",
                       "parse_version",
-                      "source_instance_id"
+                      "source_instance_id",
+                      "source_type",
+                      "source_instance_key"
                     ],
                     "additionalProperties": false
                   },
@@ -40366,6 +40509,18 @@
                       "source_instance_id": {
                         "type": "string",
                         "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                      },
+                      "source_type": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "source_instance_key": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       }
                     },
                     "required": [
@@ -40375,7 +40530,9 @@
                       "current_version",
                       "state",
                       "parse_version",
-                      "source_instance_id"
+                      "source_instance_id",
+                      "source_type",
+                      "source_instance_key"
                     ],
                     "additionalProperties": false
                   },
@@ -40618,6 +40775,18 @@
                       "source_instance_id": {
                         "type": "string",
                         "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                      },
+                      "source_type": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "source_instance_key": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       }
                     },
                     "required": [
@@ -40627,7 +40796,9 @@
                       "current_version",
                       "state",
                       "parse_version",
-                      "source_instance_id"
+                      "source_instance_id",
+                      "source_type",
+                      "source_instance_key"
                     ],
                     "additionalProperties": false
                   },
@@ -43764,6 +43935,11 @@
                     },
                     "session_type": {
                       "type": "string"
+                    },
+                    "time_zone": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
                     },
                     "started_at": {
                       "anyOf": [

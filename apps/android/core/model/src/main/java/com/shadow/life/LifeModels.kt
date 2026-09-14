@@ -80,7 +80,7 @@ data class MealFoodSummary(
   val estimated:Boolean=false
 )
 data class MealCardSummary(
-  val mealType:String,val occurredOn:String,val occurredAt:String?,val note:String?,
+  val mealType:String,val occurredOn:String,val occurredAt:String?,val timeZone:String,val note:String?,
   val foods:List<MealFoodSummary>,val photoAssetVersionId:String?=null
 )
 data class RecordSummary(val domain:LifeDomain,val kind:String,val id:String,val title:String,val supporting:String?,val trailing:String?,val revision:Int?,val detailId:String?=null,val subtype:String?=null,val meal:MealCardSummary?=null)
@@ -88,7 +88,7 @@ data class RecordPage(val items:List<RecordSummary>,val nextCursor:String?,val a
 data class HealthTrendPoint(val id:String,val occurredOn:String,val value:Double,val valueText:String,val unit:String,val sourceKind:String,val revision:Int)
 data class HealthMetricTrend(val key:String,val label:String,val points:List<HealthTrendPoint>,val coveragePoints:Int,val truncated:Boolean,val unavailable:Boolean=false)
 data class HealthWorkoutSummary(
-  val id:String,val occurredOn:String,val sessionType:String,val startedAt:String?,
+  val id:String,val occurredOn:String,val sessionType:String,val startedAt:String?,val timeZone:String?,
   val durationMinutes:Long?,val distanceKm:String?,val caloriesKcal:String?,val rpe:Long?,val heartRateAvg:Long?,val sourceKind:String?,val autoDetected:Boolean?=null
 )
 data class HealthDailyOverview(
@@ -176,7 +176,11 @@ sealed interface EditSeed { val domain:LifeDomain;val detailId:String
   data class Library(override val detailId:String,val revision:Int,val title:String,val text:String?,val url:String?,val tags:List<String>):EditSeed{override val domain=LifeDomain.Library}
 }
 data class CorrectionDraft(val primary:String,val secondary:String,val note:String,val date:String,val option:String,val reason:String)
-data class RecordDetail(val title:String,val state:String?,val revision:Int?,val sections:List<DetailSection>,val editSeed:EditSeed?=null,val actions:List<DetailAction> = emptyList())
+enum class DetailPresentation { Generic, Meal, Money, HealthMetric, Workout, Sleep, Activity, Habit, Travel, Library }
+data class RecordDetail(
+  val title:String,val state:String?,val revision:Int?,val sections:List<DetailSection>,val editSeed:EditSeed?=null,val actions:List<DetailAction> = emptyList(),
+  val presentation:DetailPresentation=DetailPresentation.Generic,val heroValue:String?=null,val heroSupporting:String?=null
+)
 
 @Serializable data object TodayRoute
 @Serializable data object RecordsRoute

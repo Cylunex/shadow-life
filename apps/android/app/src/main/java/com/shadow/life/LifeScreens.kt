@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -221,11 +222,12 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
       item{StateContent(state,onRetry){}}
       if(state is LoadState.Ready){
         val detail=state.value
+        if(detail.presentation!=DetailPresentation.Generic)item{DetailHero(detail)}
         item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){detail.state?.let{StatusLabel(it)};detail.revision?.let{Text("修订 $it",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
         if(detail.actions.isNotEmpty())item{Column(Modifier.fillMaxWidth().padding(top=14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){detail.actions.forEach{action->Button(onClick={onAction(action)},Modifier.fillMaxWidth().heightIn(min=52.dp)){Text(action.label)}}}}
         detail.editSeed?.let{seed->item{OutlinedButton(onClick={onReset();editing=true},Modifier.fillMaxWidth().padding(top=8.dp).heightIn(min=52.dp)){Text("更正记录")}}}
         detail.sections.forEach{section->
-          item(section.title){Column(Modifier.padding(top=20.dp)){Text(section.title,style=MaterialTheme.typography.titleLarge);section.itemCount?.let{Text("$it 项",color=MaterialTheme.colorScheme.onSurfaceVariant)};section.facts.forEach{fact->Column(Modifier.fillMaxWidth().padding(vertical=9.dp)){Text(fact.label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(fact.value,style=MaterialTheme.typography.bodyLarge)}};section.links.forEach{link->LifeCard(onClick={onLink(link)}){Text(link.title,style=MaterialTheme.typography.titleMedium);link.supporting?.let{Text(it,color=MaterialTheme.colorScheme.onSurfaceVariant)};Text("打开${planningKindLabel(link.kind)}",color=MaterialTheme.colorScheme.primary,style=MaterialTheme.typography.labelMedium)}};HorizontalDivider(color=MaterialTheme.colorScheme.outline.copy(alpha=.35f))}}
+          item(section.title){Column(Modifier.padding(top=14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(section.title,style=MaterialTheme.typography.titleLarge,modifier=Modifier.weight(1f));section.itemCount?.let{Text("$it 项",color=MaterialTheme.colorScheme.onSurfaceVariant)}};if(section.facts.isNotEmpty())Surface(shape=RoundedCornerShape(22.dp),color=detailTone(detail.presentation).copy(alpha=.08f)){Column(Modifier.fillMaxWidth().padding(horizontal=17.dp,vertical=8.dp)){section.facts.forEachIndexed{index,fact->Column(Modifier.fillMaxWidth().padding(vertical=9.dp)){Text(fact.label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(fact.value,style=MaterialTheme.typography.bodyLarge,fontWeight=if(index==0)FontWeight.Medium else FontWeight.Normal)};if(index<section.facts.lastIndex)HorizontalDivider(color=MaterialTheme.colorScheme.outline.copy(alpha=.22f))}}};section.links.forEach{link->LifeCard(onClick={onLink(link)}){Text(link.title,style=MaterialTheme.typography.titleMedium);link.supporting?.let{Text(it,color=MaterialTheme.colorScheme.onSurfaceVariant)};Text("打开${planningKindLabel(link.kind)}",color=MaterialTheme.colorScheme.primary,style=MaterialTheme.typography.labelMedium)}}}}
         }
       }
     }
@@ -233,6 +235,10 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
   val seed=(state as? LoadState.Ready)?.value?.editSeed
   if(editing&&seed!=null)DetailEditSheet(seed,submitState,{editing=false;onReset()},{onCorrect(seed,it)})
 }
+
+@Composable private fun DetailHero(detail:RecordDetail){val tone=detailTone(detail.presentation);Surface(Modifier.fillMaxWidth().padding(bottom=12.dp),shape=RoundedCornerShape(28.dp),color=tone.copy(alpha=.13f)){Row(Modifier.padding(22.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(16.dp)){Surface(Modifier.size(58.dp),shape=RoundedCornerShape(20.dp),color=tone.copy(alpha=.2f)){Box(contentAlignment=Alignment.Center){Text(detailGlyph(detail.presentation),style=MaterialTheme.typography.headlineMedium,color=tone)}};Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)){Text(detail.title,style=MaterialTheme.typography.labelLarge,color=tone);Text(detail.heroValue?:detail.title,style=MaterialTheme.typography.headlineMedium,fontWeight=FontWeight.SemiBold);detail.heroSupporting?.takeIf(String::isNotBlank)?.let{Text(it,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}}}
+@Composable private fun detailTone(value:DetailPresentation):Color=when(value){DetailPresentation.HealthMetric->Color(0xFFFF9F43);DetailPresentation.Workout,DetailPresentation.Activity->Color(0xFF7CEB52);DetailPresentation.Sleep->Color(0xFFA982FF);DetailPresentation.Meal->Color(0xFFFF806F);DetailPresentation.Money->Color(0xFF64D2FF);DetailPresentation.Travel->Color(0xFF58D6B1);DetailPresentation.Library->Color(0xFF8DA6FF);DetailPresentation.Habit->Color(0xFFFFC857);DetailPresentation.Generic->MaterialTheme.colorScheme.primary}
+private fun detailGlyph(value:DetailPresentation)=when(value){DetailPresentation.HealthMetric->"◇";DetailPresentation.Workout->"↗";DetailPresentation.Sleep->"☾";DetailPresentation.Activity->"◎";DetailPresentation.Meal->"◐";DetailPresentation.Money->"¥";DetailPresentation.Travel->"⌁";DetailPresentation.Library->"▤";DetailPresentation.Habit->"✓";DetailPresentation.Generic->"·"}
 
 @OptIn(ExperimentalMaterial3Api::class,ExperimentalLayoutApi::class)
 @Composable private fun DetailEditSheet(seed:EditSeed,state:SubmitState,onDismiss:()->Unit,onSubmit:(CorrectionDraft)->Unit){
