@@ -28,4 +28,5 @@ dependencies {
   implementation(libs.appauth)
   implementation(libs.security.crypto)
   if(samsungHealthAar!=null){implementation(files(samsungHealthAar));implementation(libs.gson)}
+  testImplementation(libs.junit)
 }

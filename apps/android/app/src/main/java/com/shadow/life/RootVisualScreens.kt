@@ -6,6 +6,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -16,10 +17,13 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -28,23 +32,42 @@ import java.util.Locale
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable fun TodayVisualScreen(
-  state:LoadState<TodaySnapshot>,deviceStatus:DeviceSyncStatus,queueState:LoadState<QueueSummary>,samsungAvailable:Boolean,onRetry:()->Unit,
-  onWorkspace:(LifeDomain)->Unit,onItems:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onSearch:()->Unit,onInbox:()->Unit,onFeatures:()->Unit,onCapture:(CaptureKind)->Unit,
+  accountId:String,state:LoadState<TodaySnapshot>,deviceStatus:DeviceSyncStatus,queueState:LoadState<QueueSummary>,samsungAvailable:Boolean,onRetry:()->Unit,
+  onWorkspace:(LifeDomain,String)->Unit,onItems:()->Unit,onPlans:()->Unit,onLibrary:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onRecords:()->Unit,onInbox:()->Unit,onFeatures:()->Unit,onCapture:(CaptureKind)->Unit,
   onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onProjects:()->Unit,onSettings:()->Unit
 ){
-  RootPage("今天",onProjects,onSettings,onSearch){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp,8.dp,20.dp,112.dp),verticalArrangement=Arrangement.spacedBy(20.dp)){
-    item{Text(LocalDate.now().format(DateTimeFormatter.ofPattern("M 月 d 日 EEEE",Locale.CHINA)),style=MaterialTheme.typography.titleMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+  val context=LocalContext.current
+  val layoutStore=remember(context,accountId){TodayCardLayoutStore(context,accountId)}
+  var cards by remember(accountId){mutableStateOf(layoutStore.current())}
+  var editCards by rememberSaveable(accountId){mutableStateOf(false)}
+  val updateCards:(List<TodayCardKind>)->Unit={next->cards=next;layoutStore.save(next)}
+  val today=(state as? LoadState.Ready)?.value
+  RootPage("今天",onProjects,onSettings,onRecords){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp,8.dp,20.dp,112.dp),verticalArrangement=Arrangement.spacedBy(20.dp)){
+    item{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(LocalDate.now().format(DateTimeFormatter.ofPattern("M 月 d 日 EEEE",Locale.CHINA)),Modifier.weight(1f),style=MaterialTheme.typography.titleMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);TextButton(onClick={editCards=true}){Text("编辑卡片")}}}
     item{StateContent(state,onRetry){} }
-    item{TodayScaleReceiver(deviceStatus,queueState,onScale,onSettings)}
-    if(state is LoadState.Ready){val today=state.value
-      item{TodayFocusCard(today,onWorkspace,onDetail)}
-      item{TodayWorkspaceGrid(today,onWorkspace,onItems)}
-      item{QuickCaptureGrid(onCapture,onFeatures)}
-      item{TodayAgenda(today,onInbox)}
-      item{TodayRecent(today,onWorkspace)}
+    if(cards.isEmpty())item{EmptyState("首页还没有卡片","添加卡片"){editCards=true}}
+    cards.forEach{card->when(card){
+      TodayCardKind.Focus->today?.let{item(key=card.key){TodayFocusCard(it,{domain->onWorkspace(domain,"")},onDetail)}}
+      TodayCardKind.Scale->item(key=card.key){TodayScaleReceiver(deviceStatus,queueState,onScale,onSettings)}
+      TodayCardKind.Health->today?.let{item(key=card.key){TodayLinkCard("健康总览",it.health.steps?.let{steps->"$steps 步"}?:it.health.weight?.let{weight->"$weight ${it.health.weightUnit.orEmpty()}"}?:"等待健康数据",listOfNotNull(it.health.sleepMinutes?.let{minutes->"睡眠 ${rootMinutes(minutes)}"},it.health.weight?.let{weight->"最近体重 $weight ${it.health.weightUnit.orEmpty()}"}).joinToString(" · ").ifBlank{"查看今日活动与健康趋势"},"健",MaterialTheme.colorScheme.primary){onWorkspace(LifeDomain.Health,"overview")}}}
+      TodayCardKind.Body->today?.let{item(key=card.key){TodayLinkCard("身体分析",it.health.weight?.let{weight->"$weight ${it.health.weightUnit.orEmpty()}"}?:"尚未测量",it.health.weightOn?.let{date->"最近测量 $date · 查看身体成分变化"}?:"体重、体脂和身体成分变化","体",MaterialTheme.colorScheme.tertiary){onWorkspace(LifeDomain.Health,"body")}}}
+      TodayCardKind.Activity->today?.let{item(key=card.key){TodayLinkCard("运动",it.health.steps?.let{steps->"$steps 步"}?:"尚未同步","步数、活跃时间与 Samsung Health 运动记录","动",MaterialTheme.colorScheme.primary){onWorkspace(LifeDomain.Health,"activity")}}}
+      TodayCardKind.Sleep->today?.let{item(key=card.key){TodayLinkCard("睡眠",it.health.sleepMinutes?.let(::rootMinutes)?:"尚未同步","睡眠时长、分期和近七天趋势","眠",MaterialTheme.colorScheme.secondary){onWorkspace(LifeDomain.Health,"sleep")}}}
+      TodayCardKind.Meals->today?.let{item(key=card.key){TodayLinkCard("饮食",it.mealCount?.let{count->"$count 餐"}?:"今天还没有记录","按餐次查看食物、营养和饮食图片","食",MaterialTheme.colorScheme.tertiary){onWorkspace(LifeDomain.Meals,"")}}}
+      TodayCardKind.Money->today?.let{item(key=card.key){val money=it.moneyTotals.firstOrNull();TodayLinkCard("消费",money?.let{value->"${value.currency} ${value.netSpending}"}?:"今天无收支",if(it.moneyTotals.size>1)"${it.moneyTotals.size} 种币种分别统计 · 查看本月明细" else "预算、订阅与本月收支明细","¥",MaterialTheme.colorScheme.secondary){onWorkspace(LifeDomain.Money,"")}}}
+      TodayCardKind.Travel->today?.let{item(key=card.key){val trip=it.currentTrips.firstOrNull();TodayLinkCard("旅行",trip?.title?:"还没有进行中的旅程",trip?.let{value->"${value.startsOn} — ${value.endsOn}"}?:"行程、地点、轨迹与回忆","行",MaterialTheme.colorScheme.tertiary){onWorkspace(LifeDomain.Travel,"overview")}}}
+      TodayCardKind.TravelMap->today?.let{item(key=card.key){TodayLinkCard("旅行地图",it.currentTrips.firstOrNull()?.title?:"打开足迹地图","真实地点、主题地图和上传轨迹","⌖",MaterialTheme.colorScheme.secondary){onWorkspace(LifeDomain.Travel,"map")}}}
+      TodayCardKind.Items->item(key=card.key){TodayLinkCard("物品","使用、维护与补给","保修、退货、资料和维护事件","◇",MaterialTheme.colorScheme.primary,onItems)}
+      TodayCardKind.Plans->today?.let{item(key=card.key){TodayLinkCard("计划",if(it.dueItems.isEmpty())"今天没有待处理事项" else "${it.dueItems.size} 项待处理","项目行动、生活计划与回顾","计",MaterialTheme.colorScheme.secondary,onPlans)}}
+      TodayCardKind.Agenda->today?.let{item(key=card.key){TodayAgenda(it,onInbox)}}
+      TodayCardKind.QuickCapture->item(key=card.key){QuickCaptureGrid(onCapture,onFeatures)}
+      TodayCardKind.Library->today?.let{item(key=card.key){TodayLinkCard("资料",it.libraryCaptured?.let{count->"今天收存 $count 份"}?:"打开资料库","照片、文件、链接、笔记与票券","资",MaterialTheme.colorScheme.secondary,onLibrary)}}
+      TodayCardKind.Records->item(key=card.key){TodayLinkCard("全部记录","生活时间线","按领域和时间筛选，并进入每条记录详情","录",MaterialTheme.colorScheme.primary,onRecords)}
+      TodayCardKind.DeviceSync->item(key=card.key){CompactTodaySync(deviceStatus,queueState,samsungAvailable,onHealthSync,onSamsungSync,onSettings)}
     }
-    item{CompactTodaySync(deviceStatus,queueState,samsungAvailable,onHealthSync,onSamsungSync,onSettings)}
+    }
   }}
+  if(editCards)TodayCardManager(cards,updateCards,{cards=layoutStore.reset()},{editCards=false})
 }
 
 @Composable private fun TodayFocusCard(value:TodaySnapshot,onWorkspace:(LifeDomain)->Unit,onDetail:(LifeDomain,String,String)->Unit){
@@ -55,20 +78,46 @@ import java.util.Locale
   LifeCard(onClick=open){Text(if(trip!=null)"今日旅程" else "今日状态",style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.primary);Text(headline,style=MaterialTheme.typography.headlineMedium,fontWeight=FontWeight.SemiBold);Text(subtitle,color=MaterialTheme.colorScheme.onSurfaceVariant);if(trip!=null)Button(onClick=open){Text("继续旅程")}}
 }
 
-@Composable private fun TodayWorkspaceGrid(value:TodaySnapshot,onWorkspace:(LifeDomain)->Unit,onItems:()->Unit){LifeSection("生活空间"){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){TodaySpace("健康",value.health.weight?.let{"$it ${value.health.weightUnit.orEmpty()}"}?:value.health.steps?.let{"$it 步"}?:"查看趋势","↗",{onWorkspace(LifeDomain.Health)},Modifier.weight(1f));TodaySpace("消费",value.moneyTotals.firstOrNull()?.let{"${it.currency} ${it.netSpending}"}?:"今日无收支","¥",{onWorkspace(LifeDomain.Money)},Modifier.weight(1f))};Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){TodaySpace("旅行",value.currentTrips.firstOrNull()?.title?:"地图与足迹","⌖",{onWorkspace(LifeDomain.Travel)},Modifier.weight(1f));TodaySpace("物品","使用、维护与补给","◇",onItems,Modifier.weight(1f))}}}
-@Composable private fun TodaySpace(title:String,subtitle:String,mark:String,onClick:()->Unit,modifier:Modifier){Surface(modifier.heightIn(min=108.dp).clickable(role=Role.Button,onClick=onClick),shape=RoundedCornerShape(21.dp),color=MaterialTheme.colorScheme.surface,border=androidx.compose.foundation.BorderStroke(1.dp,MaterialTheme.colorScheme.outline.copy(alpha=.65f))){Column(Modifier.padding(15.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){Text(mark,style=MaterialTheme.typography.titleLarge,color=MaterialTheme.colorScheme.primary);Text(title,style=MaterialTheme.typography.titleMedium);Text(subtitle,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2,overflow=TextOverflow.Ellipsis)}}}
+@Composable private fun TodayLinkCard(title:String,value:String,subtitle:String,mark:String,tone:Color,onClick:()->Unit){Surface(Modifier.fillMaxWidth().clickable(role=Role.Button,onClick=onClick),shape=RoundedCornerShape(23.dp),color=MaterialTheme.colorScheme.surface,border=androidx.compose.foundation.BorderStroke(1.dp,tone.copy(alpha=.38f))){Row(Modifier.padding(17.dp),verticalAlignment=Alignment.CenterVertically){Surface(Modifier.size(48.dp),shape=RoundedCornerShape(16.dp),color=tone.copy(alpha=.13f)){Box(contentAlignment=Alignment.Center){Text(mark,style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold,color=tone)}};Spacer(Modifier.width(13.dp));Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(3.dp)){Text(title,style=MaterialTheme.typography.labelLarge,color=tone);Text(value,style=MaterialTheme.typography.titleLarge,maxLines=1,overflow=TextOverflow.Ellipsis);Text(subtitle,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2,overflow=TextOverflow.Ellipsis)};Spacer(Modifier.width(8.dp));Text("›",style=MaterialTheme.typography.headlineMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
+
+@Composable private fun TodayCardManager(cards:List<TodayCardKind>,onChange:(List<TodayCardKind>)->Unit,onReset:()->Unit,onDismiss:()->Unit){
+  val hidden=TodayCardKind.entries.filterNot{it in cards}
+  Dialog(onDismissRequest=onDismiss){
+    Surface(Modifier.fillMaxWidth().heightIn(max=700.dp),shape=RoundedCornerShape(28.dp),color=MaterialTheme.colorScheme.surface,border=androidx.compose.foundation.BorderStroke(1.dp,MaterialTheme.colorScheme.outline)){
+      Column(Modifier.padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("编辑首页卡片",style=MaterialTheme.typography.headlineSmall);Text("添加、隐藏并调整显示顺序",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};TextButton(onClick=onDismiss){Text("完成")}}
+        HorizontalDivider()
+        LazyColumn(Modifier.weight(1f,false),verticalArrangement=Arrangement.spacedBy(10.dp)){
+          if(cards.isNotEmpty())item{Text("首页已显示",style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.primary)}
+          itemsIndexed(cards,key={_,item->"visible:${item.key}"}){index,item->
+            Surface(shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.5f)){
+              Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
+                Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Surface(Modifier.size(30.dp),shape=RoundedCornerShape(99.dp),color=MaterialTheme.colorScheme.primaryContainer){Box(contentAlignment=Alignment.Center){Text("${index+1}",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onPrimaryContainer)}};Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text(item.title,style=MaterialTheme.typography.titleMedium);Text(item.description,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};TextButton(onClick={onChange(cards.filterNotSame(item))}){Text("隐藏")}}
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){OutlinedButton(onClick={if(index>0)onChange(moveTodayCard(cards,index,index-1))},enabled=index>0,modifier=Modifier.weight(1f)){Text("上移")};OutlinedButton(onClick={if(index<cards.lastIndex)onChange(moveTodayCard(cards,index,index+1))},enabled=index<cards.lastIndex,modifier=Modifier.weight(1f)){Text("下移")}}
+              }
+            }
+          }
+          if(hidden.isNotEmpty())item{Text("可添加卡片",Modifier.padding(top=8.dp),style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.primary)}
+          items(hidden,key={"hidden:${it.key}"}){item->Surface(shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.34f)){Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(item.title,style=MaterialTheme.typography.titleMedium);Text(item.description,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};Button(onClick={onChange(cards+item)}){Text("添加")}}}}
+        }
+        HorizontalDivider()
+        TextButton(onClick=onReset,modifier=Modifier.align(Alignment.Start)){Text("恢复默认布局")}
+      }
+    }
+  }
+}
+
+private fun List<TodayCardKind>.filterNotSame(item:TodayCardKind)=filterNot{it==item}
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable private fun QuickCaptureGrid(onCapture:(CaptureKind)->Unit,onFeatures:()->Unit){LifeSection("快速记录",action={TextButton(onClick=onFeatures){Text("全部")}}){FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){listOf(CaptureKind.Expense to "记一笔",CaptureKind.Health to "记体重",CaptureKind.Meal to "记饮食",CaptureKind.Workout to "记运动",CaptureKind.Visit to "记到访",CaptureKind.Library to "记随记").forEach{(kind,label)->FilledTonalButton(onClick={onCapture(kind)}){Text(label)}}}}}
 @Composable private fun TodayAgenda(value:TodaySnapshot,onInbox:()->Unit){
   LifeSection("接下来",action={TextButton(onClick=onInbox){Text("全部提醒")}}){
     if(value.dueItems.isEmpty())EmptyState("今天没有待处理事项") else value.dueItems.take(3).forEach{due->
-      LifeCard{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(12.dp).background(MaterialTheme.colorScheme.primary,RoundedCornerShape(99.dp)));Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(due.title,style=MaterialTheme.typography.titleMedium);Text(due.dueOn,color=MaterialTheme.colorScheme.onSurfaceVariant)};due.amount?.let{Text("${due.currency.orEmpty()} $it")}}}
+      LifeCard(onClick=onInbox){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(12.dp).background(MaterialTheme.colorScheme.primary,RoundedCornerShape(99.dp)));Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(due.title,style=MaterialTheme.typography.titleMedium);Text(due.dueOn,color=MaterialTheme.colorScheme.onSurfaceVariant)};due.amount?.let{Text("${due.currency.orEmpty()} $it")}}}
     }
   }
 }
-@Composable private fun TodayRecent(value:TodaySnapshot,onWorkspace:(LifeDomain)->Unit){LifeSection("今日记录"){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){RootStat("饮食",value.mealCount?.toString()?:"—","餐",{onWorkspace(LifeDomain.Meals)},Modifier.weight(1f));RootStat("资料",value.libraryCaptured?.toString()?:"—","份",{onWorkspace(LifeDomain.Library)},Modifier.weight(1f))}}}
-@Composable private fun RootStat(title:String,value:String,suffix:String,onClick:()->Unit,modifier:Modifier){Surface(modifier.clickable(role=Role.Button,onClick=onClick),shape=RoundedCornerShape(19.dp),color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.55f)){Column(Modifier.padding(15.dp)){Text(title,color=MaterialTheme.colorScheme.onSurfaceVariant);Text("$value $suffix",style=MaterialTheme.typography.titleLarge)}}}
 @Composable private fun TodayScaleReceiver(status:DeviceSyncStatus,queue:LoadState<QueueSummary>,onStart:()->Unit,onSettings:()->Unit){
   val queueSummary=(queue as? LoadState.Ready)?.value
   val uploadState=queueSummary?.latestScaleState

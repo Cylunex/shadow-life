@@ -52,9 +52,9 @@ private val MealCoral=Color(0xFFFF806F)
 @Composable fun HealthWorkspaceScreen(
   overviewState:LoadState<WorkspaceOverview>,recordsState:LoadState<RecordPage>,deviceStatus:DeviceSyncStatus,queueState:LoadState<QueueSummary>,samsungAvailable:Boolean,
   onRetry:()->Unit,onLoadMore:()->Unit,onBack:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onCapture:(CaptureKind)->Unit,
-  onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onSettings:()->Unit,onMeals:()->Unit
+  onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onSettings:()->Unit,onMeals:()->Unit,initialTab:String="overview"
 ){
-  var tab by rememberSaveable{mutableStateOf("overview")}
+  var tab by rememberSaveable(initialTab){mutableStateOf(initialTab.takeIf{value->healthTabs.any{it.first==value}}?:"overview")}
   val overview=(overviewState as? LoadState.Ready)?.value as? WorkspaceOverview.Health
   Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(
     title={Column{Text("健康");Text(healthSourceLine(overview),style=MaterialTheme.typography.labelMedium,color=healthSourceColor(overview))}},

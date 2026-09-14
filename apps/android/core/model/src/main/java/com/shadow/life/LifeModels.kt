@@ -182,7 +182,7 @@ data class RecordDetail(val title:String,val state:String?,val revision:Int?,val
 @Serializable data object RecordsRoute
 @Serializable data object PlansRoute
 @Serializable data object LibraryRoute
-@Serializable data class WorkspaceRoute(val domain:String)
+@Serializable data class WorkspaceRoute(val domain:String,val tab:String="")
 @Serializable data class DetailRoute(val domain:String,val id:String,val title:String="")
 @Serializable data class PlanDetailRoute(val id:String)
 @Serializable data class OwnedItemDetailRoute(val id:String)

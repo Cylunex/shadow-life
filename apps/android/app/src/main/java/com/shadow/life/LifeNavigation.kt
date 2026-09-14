@@ -46,7 +46,7 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
     onRoute={route->nav.navigate(route){popUpTo(nav.graph.findStartDestination().id){saveState=true};launchSingleTop=true;restoreState=true}},onLife={openComposer();viewModel.openAssistant()})
   }){outer->Box(Modifier.fillMaxSize().padding(bottom=if(root)outer.calculateBottomPadding() else 0.dp)){
     NavHost(navController=nav,startDestination=TodayRoute){
-      composable<TodayRoute>{TodayVisualScreen(viewModel.today,viewModel.deviceSyncStatus,viewModel.queueStatus,SamsungHealthBridge.available(),viewModel::refreshToday,{domain->if(domain==LifeDomain.Library)nav.navigate(LibraryRoute) else{viewModel.loadWorkspace(domain);nav.navigate(WorkspaceRoute(domain.name))}},{viewModel.refreshPlans();nav.navigate(ItemsRoute)},{domain,id,title->viewModel.loadDetail(domain,id);nav.navigate(DetailRoute(domain.name,id,title))},{nav.navigate(RecordsRoute)},{viewModel.refreshInbox();nav.navigate(InboxRoute)},{nav.navigate(FeaturesRoute)},{kind->openComposer(defaultCaptureSeed(kind))},onHealthSync,onSamsungSync,onScale,{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)})}
+      composable<TodayRoute>{TodayVisualScreen(session.accountId,viewModel.today,viewModel.deviceSyncStatus,viewModel.queueStatus,SamsungHealthBridge.available(),viewModel::refreshToday,{domain,tab->if(domain==LifeDomain.Library)nav.navigate(LibraryRoute) else{viewModel.loadWorkspace(domain);nav.navigate(WorkspaceRoute(domain.name,tab))}},{viewModel.refreshPlans();nav.navigate(ItemsRoute)},{viewModel.refreshPlans();nav.navigate(PlansRoute)},{viewModel.refreshLibrary();nav.navigate(LibraryRoute)},{domain,id,title->viewModel.loadDetail(domain,id);nav.navigate(DetailRoute(domain.name,id,title))},{nav.navigate(RecordsRoute)},{viewModel.refreshInbox();nav.navigate(InboxRoute)},{nav.navigate(FeaturesRoute)},{kind->openComposer(defaultCaptureSeed(kind))},onHealthSync,onSamsungSync,onScale,{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)})}
       composable<RecordsRoute>{RecordsVisualScreen(viewModel.timeline,viewModel.searchResults,viewModel::refreshTimeline,viewModel::loadMoreTimeline,viewModel::search,viewModel::loadMoreSearch,viewModel::clearSearch,{domain,id,title->viewModel.loadDetail(domain,id);nav.navigate(DetailRoute(domain.name,id,title))},{openComposer()},{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)})}
       composable<PlansRoute>{PlansVisualScreen(
         viewModel.plans,viewModel.planningMessage,viewModel::refreshPlans,
@@ -64,7 +64,7 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
           LifeDomain.Health->HealthWorkspaceScreen(
             viewModel.workspaceOverview,viewModel.workspace,viewModel.deviceSyncStatus,viewModel.queueStatus,SamsungHealthBridge.available(),
             {viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,capture,onHealthSync,onSamsungSync,onScale,
-            {nav.navigate(SettingsRoute)},{viewModel.loadWorkspace(LifeDomain.Meals);nav.navigate(WorkspaceRoute(LifeDomain.Meals.name))}
+            {nav.navigate(SettingsRoute)},{viewModel.loadWorkspace(LifeDomain.Meals);nav.navigate(WorkspaceRoute(LifeDomain.Meals.name))},route.tab
           )
           LifeDomain.Meals->MealsWorkspaceScreen(
             viewModel.workspaceOverview,viewModel.workspace,viewModel.assetPreviews,viewModel::loadAssetPreview,
@@ -75,7 +75,7 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
             {nav.popBackStack()},detail,capture
           )
           LifeDomain.Travel->TravelWorkspaceScreen(
-            viewModel.workspaceOverview,viewModel.workspace,{viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,capture
+            viewModel.workspaceOverview,viewModel.workspace,{viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,capture,route.tab
           )
           else->WorkspaceScreen(domain,viewModel.workspaceOverview,viewModel.workspace,viewModel.deviceSyncStatus,viewModel.queueStatus,SamsungHealthBridge.available(),{viewModel.loadWorkspace(domain,it)},{viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,capture,onHealthSync,onSamsungSync,onScale,{nav.navigate(SettingsRoute)})
         }
