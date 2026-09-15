@@ -111,7 +111,7 @@ import java.util.Locale
       Button(onClick=onScale,enabled=status.scaleState!="scanning",modifier=Modifier.fillMaxWidth().heightIn(min=50.dp)){Text(if(status.scaleState=="scanning")"正在等待上秤…" else "开始称重（3 分钟）")}
       Text("开始后再上秤。收到广播、稳定读数和上传结果会实时显示在这里。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }
-    OutlinedButton(onClick=onHealthSync,Modifier.fillMaxWidth().heightIn(min=50.dp)){Text("同步 Health Connect")}
+    if(HealthConnectSync.enabled())OutlinedButton(onClick=onHealthSync,Modifier.fillMaxWidth().heightIn(min=50.dp)){Text("同步 Health Connect")}
   }
 }
 
@@ -276,12 +276,12 @@ private data class FeatureEntry(val group:String,val title:String,val subtitle:S
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun FeaturesScreen(onCapture:(CaptureKind)->Unit,onWorkspace:(LifeDomain)->Unit,onPlans:()->Unit,onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onBack:()->Unit){
   var query by rememberSaveable{mutableStateOf("")}
-  val entries=remember{listOf(
+  val entries=remember{buildList{
+    addAll(listOf(
     FeatureEntry("健康","记录健康数据","体重、体脂、心率、体温、睡眠或步数","体重 体脂 心率 睡眠 步数",FeatureAction.Capture(CaptureKind.Health)),
     FeatureEntry("健康","记录训练","保存一次手工训练","运动 健身 跑步",FeatureAction.Capture(CaptureKind.Workout)),
     FeatureEntry("健康","Samsung Health 同步","读取已授权的三星健康数据","三星 手表 自动同步",FeatureAction.Samsung),
     FeatureEntry("健康","小米体脂秤称重","开启三分钟蓝牙接收窗口","小米 体重秤 s400 scale2 蓝牙",FeatureAction.Scale),
-    FeatureEntry("健康","Health Connect 同步","读取系统健康聚合来源","谷歌 health connect",FeatureAction.HealthConnect),
     FeatureEntry("饮食","记录一餐","用食物行、份量和单位快速录入","早餐 午餐 晚餐 食物",FeatureAction.Capture(CaptureKind.Meal)),
     FeatureEntry("饮食","饮食记录","查看餐次并搜索","食谱 餐次",FeatureAction.Workspace(LifeDomain.Meals)),
     FeatureEntry("消费","记录收支","记录支出或收入","消费 收入 账单",FeatureAction.Capture(CaptureKind.Expense)),
@@ -296,7 +296,9 @@ private data class FeatureEntry(val group:String,val title:String,val subtitle:S
     FeatureEntry("物品与计划","计划、物品与回顾","查看本周行动、物品和生活回顾","计划 物品 回顾",FeatureAction.Plans),
     FeatureEntry("资料","收存资料","保存文字、链接或从系统分享文件","文档 PDF 链接",FeatureAction.Capture(CaptureKind.Library)),
     FeatureEntry("资料","资料库","搜索原件、正文与处理状态","阅读 凭证 批注",FeatureAction.Workspace(LifeDomain.Library))
-  )}
+    ))
+    if(HealthConnectSync.enabled())add(FeatureEntry("健康","Health Connect 同步","读取系统健康聚合来源","谷歌 health connect",FeatureAction.HealthConnect))
+  }}
   val shown=entries.filter{query.isBlank()||listOf(it.group,it.title,it.subtitle,it.keywords).any{value->value.contains(query.trim(),ignoreCase=true)}}
   Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text("全部功能")},navigationIcon={IconButton(onClick=onBack){Text("‹",style=MaterialTheme.typography.headlineLarge)}})}){padding->
     LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){

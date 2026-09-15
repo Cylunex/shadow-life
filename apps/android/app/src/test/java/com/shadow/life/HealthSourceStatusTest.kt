@@ -12,9 +12,15 @@ class HealthSourceStatusTest {
   }
 
   @Test fun `only actionable device source failures request attention`() {
-    assertTrue(isActionableHealthSource("samsung"))
-    assertTrue(healthSourceNeedsAttention("samsung","revoked",emptyList()))
-    assertTrue(healthSourceNeedsAttention("health_connect","granted",listOf("rescan_required")))
-    assertFalse(healthSourceNeedsAttention("scale","granted",emptyList()))
+    assertTrue(isActionableHealthSource("samsung",healthConnectEnabled=false))
+    assertTrue(healthSourceNeedsAttention("samsung","revoked",emptyList(),healthConnectEnabled=false))
+    assertFalse(healthSourceNeedsAttention("health_connect","granted",listOf("rescan_required"),healthConnectEnabled=false))
+    assertFalse(healthSourceNeedsAttention("scale","granted",emptyList(),healthConnectEnabled=false))
+  }
+
+  @Test fun `health connect only requests attention when explicitly enabled`() {
+    assertFalse(isActionableHealthSource("health_connect",healthConnectEnabled=false))
+    assertTrue(isActionableHealthSource("health_connect",healthConnectEnabled=true))
+    assertTrue(healthSourceNeedsAttention("health_connect","granted",listOf("rescan_required"),healthConnectEnabled=true))
   }
 }

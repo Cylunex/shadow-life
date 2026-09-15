@@ -5,11 +5,14 @@ android { namespace="com.shadow.life"; compileSdk=36
     applicationId="com.shadow.life"; minSdk=29; targetSdk=36; versionCode=30; versionName="2.1.8"
     fun configured(name:String,fallback:String)=providers.gradleProperty(name).orElse(fallback).get()
     fun quoted(value:String)="\"${value.replace("\\","\\\\").replace("\"","\\\"")}\""
+    val healthConnectEnabled=configured("HEALTH_CONNECT_ENABLED","false").toBooleanStrictOrNull()
+      ?: error("HEALTH_CONNECT_ENABLED must be true or false")
     buildConfigField("String","SHADOW_API_BASE",quoted(configured("SHADOW_API_BASE","https://api.example.com")))
     buildConfigField("String","SHADOW_OIDC_ISSUER",quoted(configured("SHADOW_OIDC_ISSUER","")))
     buildConfigField("String","SHADOW_OIDC_CLIENT_ID",quoted(configured("SHADOW_OIDC_CLIENT_ID","shadow-life-android")))
     buildConfigField("String","SHADOW_OIDC_REDIRECT_URI",quoted(configured("SHADOW_OIDC_REDIRECT_URI","com.shadow.life:/oauth2redirect")))
     buildConfigField("String","SHADOW_OIDC_RESOURCE",quoted(configured("SHADOW_OIDC_RESOURCE","https://api.example.com")))
+    buildConfigField("boolean","HEALTH_CONNECT_ENABLED",healthConnectEnabled.toString())
     buildConfigField("boolean","SAMSUNG_HEALTH_DATA_AVAILABLE",(samsungHealthAar!=null).toString())
     buildConfigField("String","AMAP_MAPS_API_KEY",quoted(configured("AMAP_MAPS_API_KEY","")))
     buildConfigField("String","GOOGLE_MAPS_API_KEY",quoted(configured("GOOGLE_MAPS_API_KEY","")))

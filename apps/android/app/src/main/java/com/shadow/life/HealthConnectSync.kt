@@ -48,7 +48,8 @@ object HealthConnectSync {
   fun backgroundPermission(client:HealthConnectClient):String?=HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND.takeIf{client.features.getFeatureStatus(HealthConnectFeatures.FEATURE_READ_HEALTH_DATA_IN_BACKGROUND)==HealthConnectFeatures.FEATURE_STATUS_AVAILABLE}
   fun requestedPermissions(client:HealthConnectClient):Set<String> = permissions+listOfNotNull(backgroundPermission(client))
   fun hasAnySupportedPermission(granted:Set<String>)=granted.any{it in permissions}
-  fun available(context:Context)=HealthConnectClient.getSdkStatus(context)==HealthConnectClient.SDK_AVAILABLE
+  fun enabled()=BuildConfig.HEALTH_CONNECT_ENABLED
+  fun available(context:Context)=enabled()&&HealthConnectClient.getSdkStatus(context)==HealthConnectClient.SDK_AVAILABLE
 }
 
 object HealthConnectScheduler {
@@ -56,6 +57,10 @@ object HealthConnectScheduler {
   fun schedule(context:Context,accountId:String)=enqueue(context,accountId,UUID.randomUUID().toString())
   fun resume(context:Context,accountId:String)=enqueue(context,accountId,null)
   private fun enqueue(context:Context,accountId:String,startRequestId:String?){
+    if(!HealthConnectSync.enabled()){
+      WorkManager.getInstance(context).cancelUniqueWork(workName(accountId))
+      return
+    }
     val request=OneTimeWorkRequestBuilder<HealthConnectSyncWorker>()
       .setInputData(workDataOf("account_id" to accountId,"start_request_id" to startRequestId))
       .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
@@ -66,6 +71,7 @@ object HealthConnectScheduler {
 
 class HealthConnectSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(context,params){
   override suspend fun doWork():Result=withContext(Dispatchers.IO){
+    if(!HealthConnectSync.enabled())return@withContext Result.success(workDataOf("state" to "disabled"))
     val accountId=inputData.getString("account_id")?:return@withContext Result.failure()
     val app=applicationContext as ShadowApp
     val fresh=when(val refresh=app.sessions.fresh(accountId,applicationContext)){

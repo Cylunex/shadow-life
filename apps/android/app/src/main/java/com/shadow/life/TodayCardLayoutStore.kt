@@ -19,7 +19,7 @@ enum class TodayCardKind(val key:String,val title:String,val description:String)
   QuickCapture("quick_capture","快速记录","消费、饮食、健康、运动和到访"),
   Library("library","资料","照片、文件、链接、笔记与票券"),
   Records("records","全部记录","按领域和时间查看生活时间线"),
-  DeviceSync("device_sync","其他数据源","Samsung Health 与 Health Connect")
+  DeviceSync("device_sync","其他数据源","Samsung Health 与小米体脂秤")
 }
 
 val defaultTodayCards=listOf(

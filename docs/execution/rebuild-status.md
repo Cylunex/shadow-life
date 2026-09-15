@@ -456,3 +456,15 @@ and [delivery/validation record](library-processing-recovery-delivery-2026-09-11
   coordinates and track points, supports theme-map filtering, and explicitly stays empty when coordinates are absent.
 - Items has a dedicated discoverable workspace for owned state, warranty/return attention, events and documents while its
   detail remains the single source of truth. Unsupported facts are not manufactured merely to fill a card or chart.
+
+## Health Connect default-off follow-up (2026-09-15)
+
+- Android now defaults `HEALTH_CONNECT_ENABLED` to `false`. Disabled builds do not enqueue or resume Health Connect
+  work, and a previously queued worker exits successfully without reading permissions, creating source-state commands
+  or competing with the Samsung direct projection path.
+- Today, Health, Settings and the searchable function directory omit Health Connect actions and status when disabled.
+  Historical Health Connect records keep their factual provenance labels, but stale source/cursor state no longer
+  contributes to the visible device-attention count.
+- Samsung Health direct sync and Xiaomi scale reception remain visible and operational. Both default-off and explicit
+  opt-in builds compile with the reviewed Samsung Health Data SDK; Android unit tests and the production Health policy,
+  round-state, envelope and Room migration checks pass.

@@ -48,8 +48,9 @@ Android Keystore and never embedded in source or server configuration. Samsung H
 metadata and every public SDK field, including continuous series, exercise routes/logs and swimming intervals, in
 raw archive revisions even when Life does not project the field yet. Steps, activity and goal aggregates are archived
 as well. Oversized route payloads are split into ordered, lossless archive chunks below the command-body limit. When
-the matching Health Connect permission is already granted, Samsung steps/sleep/exercise and weight
-remain archived but are not projected into both paths, avoiding duplicate dashboard facts.
+the optional Health Connect integration is explicitly enabled and the matching permission is already granted,
+Samsung steps/sleep/exercise and weight remain archived but are not projected into both paths, avoiding duplicate
+dashboard facts. Health Connect is disabled by default; Samsung direct sync remains the primary health source.
 After Samsung permission has been granted, returning to Life starts an immediate unique sync and keeps the hourly
 background schedule. Today, Health and Settings show the live read state, record count, queue state and committed
 result. Xiaomi Scale 2/S400 scanning reports scan start, first matching advertisement, stable measurement, local
@@ -75,6 +76,7 @@ SHADOW_OIDC_CLIENT_ID=REPLACE_PUBLIC_CLIENT_ID
 SHADOW_OIDC_REDIRECT_URI=com.shadow.life:/oauth2redirect
 SHADOW_OIDC_REDIRECT_SCHEME=com.shadow.life
 SHADOW_OIDC_RESOURCE=https://api.example.com
+HEALTH_CONNECT_ENABLED=false
 SAMSUNG_HEALTH_DATA_AAR=/absolute/local/path/samsung-health-data-api-1.1.0.aar
 AMAP_MAPS_API_KEY=REPLACE_ANDROID_AMAP_KEY
 GOOGLE_MAPS_API_KEY=REPLACE_ANDROID_GOOGLE_MAPS_KEY
@@ -108,8 +110,9 @@ Use JDK 17 and an Android 36 SDK:
 gradle :app:compileDebugKotlin
 ```
 
-Health Connect requests the background-read permission only when the installed provider advertises that feature;
-otherwise foreground manual sync remains available. Production request construction and round-state regressions remain available through
+When `HEALTH_CONNECT_ENABLED=true`, Health Connect requests the background-read permission only when the installed
+provider advertises that feature; otherwise it is neither scheduled nor exposed in the native UI. Production request
+construction and round-state regressions remain available through
 `pnpm test:android-health`; `:devices:testDebugUnitTest` covers the retained Scale 2/S400 frames and Xiaomi body
 composition formula. Compilation is not physical-device acceptance. Signed builds, Samsung registration and BLE
 hardware validation remain release gates.

@@ -160,7 +160,7 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
       }finally{connection?.disconnect()}
     }
     // Also recovers a process death after the atomic receipt commit but before the wake-up.
-    if(dao.healthRound(accountId,session.subjectId)?.progress?.ready==true)HealthConnectScheduler.resume(applicationContext,accountId)
+    if(HealthConnectSync.enabled()&&dao.healthRound(accountId,session.subjectId)?.progress?.ready==true)HealthConnectScheduler.resume(applicationContext,accountId)
     Log.i(TAG,"sync finished recovered=$recoveredCommands committed=$committedCommands retry=$needsRetry")
     if(needsRetry)Result.retry()else Result.success()
   }

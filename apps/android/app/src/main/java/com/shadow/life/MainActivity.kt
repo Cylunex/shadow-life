@@ -45,6 +45,7 @@ class MainActivity:ComponentActivity(){
   }
   private val healthPermissions=registerForActivityResult(PermissionController.createRequestPermissionResultContract()){
     lifecycleScope.launch{
+      if(!HealthConnectSync.enabled())return@launch
       val current=session?:return@launch
       val client=androidx.health.connect.client.HealthConnectClient.getOrCreate(this@MainActivity)
       val granted=client.permissionController.getGrantedPermissions()
@@ -109,10 +110,15 @@ class MainActivity:ComponentActivity(){
       }
     }
   }
-  private fun resumeAccount(value:ProductSession){lifecycleScope.launch{val app=application as ShadowApp;withContext(Dispatchers.IO){app.queue.secureLegacy(value)};SyncScheduler.retryNow(this@MainActivity,value.accountId)};SamsungHealthBridge.startIfAuthorized(this,value.accountId)}
+  private fun resumeAccount(value:ProductSession){
+    if(!HealthConnectSync.enabled())WorkManager.getInstance(this).cancelUniqueWork(HealthConnectScheduler.workName(value.accountId))
+    lifecycleScope.launch{val app=application as ShadowApp;withContext(Dispatchers.IO){app.queue.secureLegacy(value)};SyncScheduler.retryNow(this@MainActivity,value.accountId)}
+    SamsungHealthBridge.startIfAuthorized(this,value.accountId)
+  }
   private fun logout(){session?.let{current->WorkManager.getInstance(this).cancelUniqueWork(SyncScheduler.workName(current.accountId));WorkManager.getInstance(this).cancelUniqueWork(HealthConnectScheduler.workName(current.accountId));WorkManager.getInstance(this).cancelUniqueWork("shadow-samsung-${current.accountId}");WorkManager.getInstance(this).cancelUniqueWork("shadow-samsung-now-${current.accountId}");stopService(Intent(this,ScaleScanService::class.java));NotificationSyncScheduler.cancel(this,current.accountId);oidc.logout(current)};session=null}
   private fun syncHealth(){
     val current=session?:return
+    if(!HealthConnectSync.enabled()){loginError="Health Connect 当前已关闭";return}
     if(!HealthConnectSync.available(this)){loginError="此设备未提供 Health Connect";return}
     lifecycleScope.launch{
       val client=androidx.health.connect.client.HealthConnectClient.getOrCreate(this@MainActivity)
