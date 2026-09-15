@@ -2,6 +2,19 @@
 
 Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The table separates source modeling, usable operations, migrated production data, and actual cutover. A schema or command alone is never counted as a completed migration.
 
+## 2026-09-15: consumable balances and folded purchase detail
+
+- Use cycles now retain optional comparable package quantity, explicit intake matching, daily-use estimate,
+  replenishment threshold/lead time, time zone, reminder mode and a concrete purchase-item link. Remaining
+  quantity is rebuilt from current effective intake facts; incompatible dimensions are reported, never summed.
+- Unknown package size is an explicit `needs_specification` state with no fabricated depletion date or reminder.
+  Threshold notifications reuse the notification inbox and have a stable idempotency key.
+- `life.update_purchase_items` repairs an existing folded purchase under an expected aggregate revision, retains
+  the original summary and full prior snapshot, and never creates another order or amount. Consumption statistics
+  report folded/supplemented coverage and exclude folded summaries from product rankings.
+- Web and Android expose the resulting balances; Web also supplies minimal versioned repair, specification and
+  replenishment-completion entry points. No production data, deployment or APK is changed by this source batch.
+
 ## 2026-09-14: consumption and item statistics
 
 - Added the shared `life.consumption_stats` contract, HTTP/Agent query, PostgreSQL fact reader, and

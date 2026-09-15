@@ -4,8 +4,8 @@ import { consumptionStatsInputSchema } from "@shadow/contracts";
 import { buildConsumptionStats, type ConsumptionStatsRawData, type ConsumptionStatsRawPurchase } from "../src/consumption-stats.js";
 
 const instant="2026-09-14T00:00:00.000Z";
-const item=(id:string,raw_name:string,extra:Partial<ConsumptionStatsRawPurchase["items"][number]>={})=>({id,raw_name,quantity:null,unit:null,line_amount:null,category_key:null,...extra});
-const purchase=(id:string,extra:Partial<ConsumptionStatsRawPurchase>={}):ConsumptionStatsRawPurchase=>({id,record_id:`record_${id}`,merchant:"示例店",category:null,scene:"delivery",channel_name_raw:null,occurred_on:"2026-09-01",occurred_at:null,currency:"CNY",purchase_amount:null,items:[],expense:null,refunds:[],meal_ids:[],...extra});
+const item=(id:string,raw_name:string,extra:Partial<ConsumptionStatsRawPurchase["items"][number]>={})=>({id,raw_name,quantity:null,unit:null,line_amount:null,category_key:null,detail_role:"item" as const,...extra});
+const purchase=(id:string,extra:Partial<ConsumptionStatsRawPurchase>={}):ConsumptionStatsRawPurchase=>({id,record_id:`record_${id}`,merchant:"示例店",category:null,scene:"delivery",channel_name_raw:null,occurred_on:"2026-09-01",occurred_at:null,currency:"CNY",purchase_amount:null,item_detail_state:"complete",items:[],expense:null,refunds:[],meal_ids:[],...extra});
 const input=(extra:Record<string,unknown>={})=>consumptionStatsInputSchema.parse({from_on:"2026-08-01",to_on_exclusive:"2026-10-01",time_zone:"Asia/Shanghai",...extra});
 const data=(extra:Partial<ConsumptionStatsRawData>={}):ConsumptionStatsRawData=>({purchases:[],meals:[],intakes:[],aliases:[],asOf:instant,...extra});
 
@@ -48,6 +48,8 @@ test("duplicate raw rows cannot inflate order, meal, item, or quantity counts",(
   const result=buildConsumptionStats(data({purchases:[order,order],meals:[meal,meal],intakes:[intake,intake]}),input(),true),food=result.items[0]!;
   assert.equal(result.coverage.orders,1);assert.equal(result.monthly[1]!.orders,1);assert.equal(result.monthly[1]!.confirmed_meals,1);assert.equal(food.purchased_orders,1);assert.equal(food.confirmed_consumptions,1);assert.deepEqual(food.quantities.map(row=>[row.basis,row.quantity]),[["consumed","0.5"],["purchased","1"]]);
 });
+
+test("exposes folded-order coverage and excludes retained summary lines",()=>{const result=buildConsumptionStats(data({purchases:[purchase("purchase_1",{item_detail_state:"supplemented",items:[item("line_folded","小熊电火锅等多件",{detail_role:"folded_summary"}),item("line_oats","西麦即食燕麦片",{quantity:"1854",unit:"g",detail_role:"supplemented_item"})]})]}),input(),true);assert.equal(result.coverage.supplemented_orders,1);assert.equal(result.coverage.excluded_folded_lines,1);assert.equal(result.items.some(row=>row.canonical_name.includes("等多件")),false);assert.equal(result.items.find(row=>row.canonical_name==="西麦即食燕麦片")?.purchased_orders,1);});
 
 test("never adds different currencies together",()=>{
   const result=buildConsumptionStats(data({purchases:[purchase("purchase_cny",{expense:{amount:"10.00",currency:"CNY"}}),purchase("purchase_usd",{currency:"USD",expense:{amount:"20.00",currency:"USD"}})]}),input(),true);

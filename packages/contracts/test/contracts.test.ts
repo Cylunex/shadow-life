@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { capabilityRegistry, commandEnvelopeSchema, domainRecordsResultSchema, healthObservationPayloadSchema, healthSourcesResultSchema, lifeTimelineInputSchema, lifeTodayInputSchema, lifeTodayResultSchema, moneyPlanningInputSchema, projectDirectoryResultSchema, publishTripPlanInputSchema, recordDiningInputSchema, recordMealInputSchema, setHealthPlanInputSchema, setHealthSourceStateInputSchema, setRecurringPlanInputSchema, setTripDayPlanInputSchema, setTripStopOutcomeInputSchema, universalCommandEnvelopeSchema } from "../src/index.js";
+import { setUseCycleInputSchema, updatePurchaseItemsInputSchema } from "../src/index.js";
 
 const meal = {
   occurred_on: "2026-09-08",
@@ -133,6 +134,9 @@ test("money planning accepts only real calendar months",()=>{
   assert.equal(moneyPlanningInputSchema.safeParse({period:"0000-12"}).success,false);
   assert.equal(moneyPlanningInputSchema.safeParse({period:"2026-00"}).success,false);
   assert.equal(moneyPlanningInputSchema.safeParse({period:"2026-13"}).success,false);
+  assert.equal(setUseCycleInputSchema.safeParse({item_name:"燕麦",started_on:"2026-09-15",state:"active",quantity_unit:"g",expected_daily_usage:"45",replenish_lead_days:2,match_mode:"exact_name",match_value:"燕麦",reminder_enabled:true}).success,true);
+  assert.equal(setUseCycleInputSchema.safeParse({item_name:"燕麦",started_on:"2026-09-15",state:"active",reminder_enabled:true}).success,false);
+  assert.equal(updatePurchaseItemsInputSchema.safeParse({record_id:"record_12345678",expected_revision:1,detail_state:"supplemented",folded_item_ids:["purchase_item_12345678"],changes:[{action:"append",item:{raw_name:"燕麦",quantity:"1854",unit:"g"}}],reason:"补录折叠商品"}).success,true);
 });
 
 test("overview contracts bound domains, dates and page sizes",()=>{

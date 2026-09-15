@@ -165,6 +165,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         recurring=result.recurringPlans.map{MoneyRecurringSummary(it.id,it.title,it.amount,it.currency,it.cadence.wireValue,it.nextDueOn,it.state.wireValue)},
         occurrences=result.occurrences.map{occurrence->val plan=result.recurringPlans.firstOrNull{it.id==occurrence.planId};MoneyOccurrenceSummary(occurrence.id,plan?.title?:"周期事项",occurrence.effectiveDueOn,occurrence.state.wireValue,plan?.amount,plan?.currency)},
         intents=result.spendingIntents.map{MoneyIntentSummary(it.id,it.title,it.expectedAmount,it.currency,it.intendedOn,it.state.wireValue)},
+        useCycles=result.useCycles.map{MoneyUseCycleSummary(it.id,it.itemName,it.remainingQuantity,it.quantityUnit?.wireValue,it.balanceStatus.wireValue,it.projectedDepletionOn,it.matchedIntakes.toInt())},
         asOf=result.asOf
       )
     }

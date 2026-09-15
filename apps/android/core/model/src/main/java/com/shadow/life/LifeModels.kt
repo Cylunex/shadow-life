@@ -101,6 +101,7 @@ data class HealthDailyOverview(
 data class MoneyRecurringSummary(val id:String,val title:String,val amount:String?,val currency:String,val cadence:String,val nextDueOn:String,val state:String)
 data class MoneyOccurrenceSummary(val id:String,val title:String,val dueOn:String,val state:String,val amount:String?,val currency:String?)
 data class MoneyIntentSummary(val id:String,val title:String,val expectedAmount:String?,val currency:String?,val intendedOn:String?,val state:String)
+data class MoneyUseCycleSummary(val id:String,val title:String,val remaining:String?,val unit:String?,val balanceStatus:String,val projectedDepletionOn:String?,val matchedIntakes:Int)
 data class TravelPlaceSummary(val id:String,val name:String,val address:String?,val latitude:Double?,val longitude:Double?,val tags:List<String>,val favorite:Boolean)
 data class TravelVisitSummary(val id:String,val tripId:String?,val placeName:String,val latitude:Double?,val longitude:Double?,val occurredOn:String,val occurredAt:String?)
 data class TravelMapItemSummary(val placeId:String,val status:String,val note:String?)
@@ -115,7 +116,7 @@ sealed interface WorkspaceOverview { val asOf:String
   data class Meals(val mealPlans:Int,val shoppingLists:Int,val openShoppingItems:Int,override val asOf:String):WorkspaceOverview
   data class Money(
     val period:String,val budgets:List<BudgetProgress>,val recurringPlans:Int,val openOccurrences:Int,val spendingIntents:Int,
-    val recurring:List<MoneyRecurringSummary> = emptyList(),val occurrences:List<MoneyOccurrenceSummary> = emptyList(),val intents:List<MoneyIntentSummary> = emptyList(),
+    val recurring:List<MoneyRecurringSummary> = emptyList(),val occurrences:List<MoneyOccurrenceSummary> = emptyList(),val intents:List<MoneyIntentSummary> = emptyList(),val useCycles:List<MoneyUseCycleSummary> = emptyList(),
     override val asOf:String
   ):WorkspaceOverview
   data class Health(

@@ -573,6 +573,10 @@ data class ConsumptionStatsResultDtoCoverage(
   @SerialName("item_lines") val itemLines: Long,
   @SerialName("included_item_lines") val includedItemLines: Long,
   @SerialName("excluded_service_lines") val excludedServiceLines: Long,
+  @SerialName("excluded_folded_lines") val excludedFoldedLines: Long,
+  @SerialName("folded_orders") val foldedOrders: Long,
+  @SerialName("supplemented_orders") val supplementedOrders: Long,
+  @SerialName("complete_item_orders") val completeItemOrders: Long,
   @SerialName("item_category_explicit") val itemCategoryExplicit: Long,
   @SerialName("item_category_derived") val itemCategoryDerived: Long,
   @SerialName("item_category_unknown") val itemCategoryUnknown: Long,
@@ -1083,18 +1087,62 @@ data class MoneyPlanningResultDtoSpendingIntentsEntry(
 enum class MoneyPlanningResultDtoUseCyclesEntryState(val wireValue: String) {
   @SerialName("active") Active("active"),
   @SerialName("completed") Completed("completed"),
-  @SerialName("discarded") Discarded("discarded")
+  @SerialName("discarded") Discarded("discarded"),
+  @SerialName("replenished") Replenished("replenished")
+}
+
+@Serializable
+enum class MoneyPlanningResultDtoUseCyclesEntryQuantityUnit(val wireValue: String) {
+  @SerialName("g") G("g"),
+  @SerialName("ml") Ml("ml"),
+  @SerialName("count") Count("count")
+}
+
+@Serializable
+enum class MoneyPlanningResultDtoUseCyclesEntryMatchMode(val wireValue: String) {
+  @SerialName("none") None("none"),
+  @SerialName("exact_name") ExactName("exact_name"),
+  @SerialName("food_ref") FoodRef("food_ref")
+}
+
+@Serializable
+enum class MoneyPlanningResultDtoUseCyclesEntryBalanceStatus(val wireValue: String) {
+  @SerialName("tracking_only") TrackingOnly("tracking_only"),
+  @SerialName("needs_specification") NeedsSpecification("needs_specification"),
+  @SerialName("monitoring") Monitoring("monitoring"),
+  @SerialName("replenish_now") ReplenishNow("replenish_now"),
+  @SerialName("depleted") Depleted("depleted"),
+  @SerialName("completed") Completed("completed"),
+  @SerialName("discarded") Discarded("discarded"),
+  @SerialName("replenished") Replenished("replenished")
 }
 
 @Serializable
 data class MoneyPlanningResultDtoUseCyclesEntry(
   @SerialName("id") val id: String,
   @SerialName("purchase_record_id") val purchaseRecordId: String?,
+  @SerialName("purchase_item_id") val purchaseItemId: String?,
   @SerialName("item_name") val itemName: String,
   @SerialName("started_on") val startedOn: String,
   @SerialName("ended_on") val endedOn: String?,
   @SerialName("state") val state: MoneyPlanningResultDtoUseCyclesEntryState,
-  @SerialName("revision") val revision: Long
+  @SerialName("revision") val revision: Long,
+  @SerialName("initial_quantity") val initialQuantity: String?,
+  @SerialName("quantity_unit") val quantityUnit: MoneyPlanningResultDtoUseCyclesEntryQuantityUnit?,
+  @SerialName("expected_daily_usage") val expectedDailyUsage: String?,
+  @SerialName("replenish_threshold") val replenishThreshold: String?,
+  @SerialName("replenish_lead_days") val replenishLeadDays: Long?,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("match_mode") val matchMode: MoneyPlanningResultDtoUseCyclesEntryMatchMode,
+  @SerialName("match_value") val matchValue: String?,
+  @SerialName("reminder_enabled") val reminderEnabled: Boolean,
+  @SerialName("consumed_quantity") val consumedQuantity: String?,
+  @SerialName("remaining_quantity") val remainingQuantity: String?,
+  @SerialName("projected_depletion_on") val projectedDepletionOn: String?,
+  @SerialName("balance_status") val balanceStatus: MoneyPlanningResultDtoUseCyclesEntryBalanceStatus,
+  @SerialName("matched_intakes") val matchedIntakes: Long,
+  @SerialName("ignored_incompatible_intakes") val ignoredIncompatibleIntakes: Long,
+  @SerialName("incompatible_units") val incompatibleUnits: List<String>
 )
 
 @Serializable

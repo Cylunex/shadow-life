@@ -534,6 +534,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -1233,6 +1234,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -2399,6 +2401,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -2793,6 +2796,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -3303,6 +3307,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -3631,6 +3636,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -4062,6 +4068,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -4495,6 +4502,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -4833,6 +4841,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -5343,6 +5352,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -5795,6 +5805,588 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
+              "life.void_purchase",
+              "life.link_meal_consumption",
+              "life.save_meal_template",
+              "life.record_meal_from_template",
+              "life.save_food",
+              "life.save_recipe",
+              "life.record_meal_from_recipe",
+              "money.record_entry",
+              "money.record_refund",
+              "money.correct_entry",
+              "money.void_entry",
+              "money.set_budget",
+              "money.set_recurring_plan",
+              "money.set_spending_intent",
+              "money.set_use_cycle",
+              "money.set_occurrence_state",
+              "money.stage_import",
+              "money.resolve_import_candidate",
+              "money.set_import_rule",
+              "health.record_measurement",
+              "health.correct_measurement",
+              "health.record_workout",
+              "health.ingest_raw",
+              "health.ingest_batch",
+              "health.set_source_state",
+              "health.set_plan",
+              "travel.create_trip",
+              "travel.correct_trip",
+              "travel.add_reservation",
+              "travel.correct_reservation",
+              "travel.void_reservation",
+              "travel.record_segment",
+              "travel.record_visit",
+              "travel.save_place",
+              "travel.set_day_plan",
+              "travel.set_member",
+              "travel.publish_plan",
+              "travel.start_run",
+              "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
+              "travel.restore_bundle",
+              "library.capture",
+              "library.revise",
+              "library.annotate",
+              "library.register_derivation",
+              "library.queue_processing",
+              "library.retry_processing",
+              "library.claim_processing",
+              "library.renew_processing",
+              "library.fail_processing",
+              "library.complete_processing",
+              "library.set_reading_state",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update",
+              "notifications.register_device",
+              "notifications.set_delivery_state",
+              "life.save_owned_item",
+              "life.record_owned_item_event",
+              "life.generate_review",
+              "life.save_project",
+              "life.save_action_item",
+              "life.save_meal_plan",
+              "life.build_shopping_list",
+              "life.update_shopping_item",
+              "money.record_foreign_entry",
+              "money.update_shared_allocation"
+            ]
+          },
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+          },
+          "execution_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "status": {
+            "type": "string",
+            "const": "committed"
+          },
+          "result_kind": {
+            "type": "string",
+            "enum": [
+              "record",
+              "plan",
+              "task"
+            ]
+          },
+          "resources": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "meal",
+                    "meal_template",
+                    "food",
+                    "recipe",
+                    "personal_alias",
+                    "intake_item",
+                    "consumption_record",
+                    "purchase",
+                    "purchase_item",
+                    "money_entry",
+                    "refund",
+                    "budget",
+                    "recurring_plan",
+                    "recurring_occurrence",
+                    "spending_intent",
+                    "use_cycle",
+                    "money_import_batch",
+                    "money_import_candidate",
+                    "money_import_rule",
+                    "health_measurement",
+                    "health_workout_session",
+                    "health_raw",
+                    "health_sync_cursor",
+                    "health_plan",
+                    "trip",
+                    "trip_segment",
+                    "reservation",
+                    "visit",
+                    "place",
+                    "travel_map",
+                    "trip_track",
+                    "trip_day_plan",
+                    "trip_member",
+                    "trip_plan_version",
+                    "trip_run",
+                    "trip_stop_outcome",
+                    "library_item",
+                    "library_annotation",
+                    "library_derivation",
+                    "library_processing_job",
+                    "library_reading_state",
+                    "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
+                    "notification_installation",
+                    "notification_delivery",
+                    "owned_item",
+                    "owned_item_event",
+                    "life_review",
+                    "life_project",
+                    "action_item",
+                    "meal_plan",
+                    "shopping_list",
+                    "shopping_list_item",
+                    "money_fx_snapshot",
+                    "shared_expense_allocation",
+                    "source",
+                    "thread",
+                    "run",
+                    "task"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "revision": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "revision"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "actual_values": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "replayed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "protocol",
+          "capability",
+          "command_id",
+          "execution_id",
+          "status",
+          "result_kind",
+          "resources",
+          "actual_values",
+          "warnings",
+          "replayed"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "life.update_purchase_items": {
+      "name": "life.update_purchase_items",
+      "description": "按消费记录版本安全追加或修正商品明细；保留折叠来源行、完整修订快照且不新建订单或金额。",
+      "possible_effects": [
+        "life.purchase.write"
+      ],
+      "idempotency": "required",
+      "status_query": "operations.get",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "detail_state": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "folded",
+              "supplemented"
+            ]
+          },
+          "folded_item_ids": {
+            "default": [],
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{7,127}$"
+            }
+          },
+          "changes": {
+            "minItems": 1,
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "action": {
+                      "type": "string",
+                      "const": "append"
+                    },
+                    "item": {
+                      "type": "object",
+                      "properties": {
+                        "raw_name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "quantity": {
+                          "type": "string",
+                          "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                        },
+                        "unit": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 32
+                        },
+                        "line_amount": {
+                          "type": "string",
+                          "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                        },
+                        "category_key": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80
+                        }
+                      },
+                      "required": [
+                        "raw_name"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "action",
+                    "item"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "action": {
+                      "type": "string",
+                      "const": "replace"
+                    },
+                    "item_id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                    },
+                    "item": {
+                      "type": "object",
+                      "properties": {
+                        "raw_name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "quantity": {
+                          "type": "string",
+                          "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                        },
+                        "unit": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 32
+                        },
+                        "line_amount": {
+                          "type": "string",
+                          "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                        },
+                        "category_key": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80
+                        }
+                      },
+                      "required": [
+                        "raw_name"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "action",
+                    "item_id",
+                    "item"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "record_id",
+          "expected_revision",
+          "detail_state",
+          "folded_item_ids",
+          "changes",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "command_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "const": "shadow.command"
+          },
+          "capability": {
+            "type": "string",
+            "const": "life.update_purchase_items"
+          },
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+          },
+          "input": {
+            "type": "object",
+            "properties": {
+              "record_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{7,127}$"
+              },
+              "expected_revision": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "detail_state": {
+                "type": "string",
+                "enum": [
+                  "complete",
+                  "folded",
+                  "supplemented"
+                ]
+              },
+              "folded_item_ids": {
+                "default": [],
+                "maxItems": 100,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                }
+              },
+              "changes": {
+                "minItems": 1,
+                "maxItems": 100,
+                "type": "array",
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "action": {
+                          "type": "string",
+                          "const": "append"
+                        },
+                        "item": {
+                          "type": "object",
+                          "properties": {
+                            "raw_name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            },
+                            "quantity": {
+                              "type": "string",
+                              "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                            },
+                            "unit": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 32
+                            },
+                            "line_amount": {
+                              "type": "string",
+                              "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                            },
+                            "category_key": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 80
+                            }
+                          },
+                          "required": [
+                            "raw_name"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "action",
+                        "item"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "action": {
+                          "type": "string",
+                          "const": "replace"
+                        },
+                        "item_id": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                        },
+                        "item": {
+                          "type": "object",
+                          "properties": {
+                            "raw_name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            },
+                            "quantity": {
+                              "type": "string",
+                              "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                            },
+                            "unit": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 32
+                            },
+                            "line_amount": {
+                              "type": "string",
+                              "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                            },
+                            "category_key": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 80
+                            }
+                          },
+                          "required": [
+                            "raw_name"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "action",
+                        "item_id",
+                        "item"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "required": [
+              "record_id",
+              "expected_revision",
+              "detail_state",
+              "folded_item_ids",
+              "changes",
+              "reason"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "protocol",
+          "capability",
+          "command_id",
+          "input"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "const": "shadow.execution-result"
+          },
+          "capability": {
+            "type": "string",
+            "enum": [
+              "life.record_meal",
+              "life.record_dining",
+              "life.correct_meal",
+              "life.add_intake",
+              "life.remove_intake",
+              "life.add_meal_payment",
+              "life.attach_meal_source",
+              "life.set_personal_alias",
+              "life.record_purchase",
+              "life.correct_intake",
+              "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -6124,6 +6716,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -6457,6 +7050,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -6973,6 +7567,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -7549,6 +8144,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -7993,6 +8589,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -8557,6 +9154,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -8949,6 +9547,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -9467,6 +10066,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -9927,6 +10527,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -10371,6 +10972,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -10699,6 +11301,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -11057,6 +11660,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -11571,6 +12175,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -11975,6 +12580,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -12199,7 +12805,7 @@
     },
     "money.set_use_cycle": {
       "name": "money.set_use_cycle",
-      "description": "记录物品从开始使用到完成或丢弃的使用周期。",
+      "description": "创建或按版本更新可消耗物的使用周期、明确摄入匹配、规格与补货提醒；state=replenished 可完成本包装的补货周期。",
       "possible_effects": [
         "money.plan.write"
       ],
@@ -12219,6 +12825,10 @@
             "maximum": 9007199254740991
           },
           "purchase_record_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "purchase_item_id": {
             "type": "string",
             "pattern": "^[a-z][a-z0-9_]{7,127}$"
           },
@@ -12242,14 +12852,67 @@
             "enum": [
               "active",
               "completed",
-              "discarded"
+              "discarded",
+              "replenished"
             ]
+          },
+          "initial_quantity": {
+            "type": "string",
+            "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+          },
+          "quantity_unit": {
+            "type": "string",
+            "enum": [
+              "g",
+              "ml",
+              "count"
+            ]
+          },
+          "expected_daily_usage": {
+            "type": "string",
+            "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+          },
+          "replenish_threshold": {
+            "type": "string",
+            "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+          },
+          "replenish_lead_days": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 365
+          },
+          "time_zone": {
+            "default": "Asia/Shanghai",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "match_mode": {
+            "default": "none",
+            "type": "string",
+            "enum": [
+              "none",
+              "exact_name",
+              "food_ref"
+            ]
+          },
+          "match_value": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "reminder_enabled": {
+            "default": false,
+            "type": "boolean"
           }
         },
         "required": [
           "item_name",
           "started_on",
-          "state"
+          "state",
+          "time_zone",
+          "match_mode",
+          "reminder_enabled"
         ],
         "additionalProperties": false
       },
@@ -12285,6 +12948,10 @@
                 "type": "string",
                 "pattern": "^[a-z][a-z0-9_]{7,127}$"
               },
+              "purchase_item_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{7,127}$"
+              },
               "item_name": {
                 "type": "string",
                 "minLength": 1,
@@ -12305,14 +12972,67 @@
                 "enum": [
                   "active",
                   "completed",
-                  "discarded"
+                  "discarded",
+                  "replenished"
                 ]
+              },
+              "initial_quantity": {
+                "type": "string",
+                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+              },
+              "quantity_unit": {
+                "type": "string",
+                "enum": [
+                  "g",
+                  "ml",
+                  "count"
+                ]
+              },
+              "expected_daily_usage": {
+                "type": "string",
+                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+              },
+              "replenish_threshold": {
+                "type": "string",
+                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+              },
+              "replenish_lead_days": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 365
+              },
+              "time_zone": {
+                "default": "Asia/Shanghai",
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "match_mode": {
+                "default": "none",
+                "type": "string",
+                "enum": [
+                  "none",
+                  "exact_name",
+                  "food_ref"
+                ]
+              },
+              "match_value": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "reminder_enabled": {
+                "default": false,
+                "type": "boolean"
               }
             },
             "required": [
               "item_name",
               "started_on",
-              "state"
+              "state",
+              "time_zone",
+              "match_mode",
+              "reminder_enabled"
             ],
             "additionalProperties": false
           }
@@ -12347,6 +13067,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -12801,6 +13522,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -13149,6 +13871,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -13693,6 +14416,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -14115,6 +14839,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -14607,6 +15332,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -15041,6 +15767,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -15507,6 +16234,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -16025,6 +16753,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -16689,6 +17418,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -17071,6 +17801,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -17613,6 +18344,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -17965,6 +18697,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -18351,6 +19084,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -19011,6 +19745,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -19580,6 +20315,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -19908,6 +20644,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -20417,6 +21154,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -20906,6 +21644,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -21292,6 +22031,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -21690,6 +22430,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -22036,6 +22777,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -22360,6 +23102,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -22672,6 +23415,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -23032,6 +23776,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -23460,6 +24205,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -23786,6 +24532,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -24102,6 +24849,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -24565,6 +25313,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -24947,6 +25696,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -25337,6 +26087,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -25685,6 +26436,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -26029,6 +26781,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -26333,6 +27086,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -26649,6 +27403,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -26965,6 +27720,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -27293,6 +28049,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -27745,6 +28502,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -28163,6 +28921,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -28580,6 +29339,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -28884,6 +29644,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -29415,6 +30176,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -29745,6 +30507,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -30081,6 +30844,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -30423,6 +31187,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -30783,6 +31548,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -31331,6 +32097,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -31747,6 +32514,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -32146,6 +32914,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -32750,6 +33519,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -33146,6 +33916,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -33641,6 +34412,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -34027,6 +34799,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -34370,6 +35143,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -34985,6 +35759,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -35329,6 +36104,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
@@ -37111,6 +37887,26 @@
                 "minimum": 0,
                 "maximum": 9007199254740991
               },
+              "excluded_folded_lines": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "folded_orders": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "supplemented_orders": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "complete_item_orders": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
               "item_category_explicit": {
                 "type": "integer",
                 "minimum": 0,
@@ -37142,6 +37938,10 @@
               "item_lines",
               "included_item_lines",
               "excluded_service_lines",
+              "excluded_folded_lines",
+              "folded_orders",
+              "supplemented_orders",
+              "complete_item_orders",
               "item_category_explicit",
               "item_category_derived",
               "item_category_unknown",
@@ -42480,7 +43280,7 @@
     },
     "money.planning": {
       "name": "money.planning",
-      "description": "读取一个月的预算、周期事项、消费意向和使用周期。",
+      "description": "读取一个月的预算、周期事项、消费意向，以及基于当前有效摄入事实重算的可消耗物余量与补货状态。",
       "possible_effects": [
         "money.entry.read"
       ],
@@ -42920,6 +43720,17 @@
                     }
                   ]
                 },
+                "purchase_item_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "item_name": {
                   "type": "string"
                 },
@@ -42945,23 +43756,186 @@
                   "enum": [
                     "active",
                     "completed",
-                    "discarded"
+                    "discarded",
+                    "replenished"
                   ]
                 },
                 "revision": {
                   "type": "integer",
                   "exclusiveMinimum": 0,
                   "maximum": 9007199254740991
+                },
+                "initial_quantity": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^(?:0|[1-9]\\d{0,17})(?:\\.\\d{1,6})?$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "quantity_unit": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "g",
+                        "ml",
+                        "count"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "expected_daily_usage": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^(?:0|[1-9]\\d{0,17})(?:\\.\\d{1,6})?$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "replenish_threshold": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^(?:0|[1-9]\\d{0,17})(?:\\.\\d{1,6})?$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "replenish_lead_days": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "time_zone": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "match_mode": {
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "exact_name",
+                    "food_ref"
+                  ]
+                },
+                "match_value": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "reminder_enabled": {
+                  "type": "boolean"
+                },
+                "consumed_quantity": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^(?:0|[1-9]\\d{0,17})(?:\\.\\d{1,6})?$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "remaining_quantity": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^(?:0|[1-9]\\d{0,17})(?:\\.\\d{1,6})?$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "projected_depletion_on": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "balance_status": {
+                  "type": "string",
+                  "enum": [
+                    "tracking_only",
+                    "needs_specification",
+                    "monitoring",
+                    "replenish_now",
+                    "depleted",
+                    "completed",
+                    "discarded",
+                    "replenished"
+                  ]
+                },
+                "matched_intakes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "ignored_incompatible_intakes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "incompatible_units": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
                 }
               },
               "required": [
                 "id",
                 "purchase_record_id",
+                "purchase_item_id",
                 "item_name",
                 "started_on",
                 "ended_on",
                 "state",
-                "revision"
+                "revision",
+                "initial_quantity",
+                "quantity_unit",
+                "expected_daily_usage",
+                "replenish_threshold",
+                "replenish_lead_days",
+                "time_zone",
+                "match_mode",
+                "match_value",
+                "reminder_enabled",
+                "consumed_quantity",
+                "remaining_quantity",
+                "projected_depletion_on",
+                "balance_status",
+                "matched_intakes",
+                "ignored_incompatible_intakes",
+                "incompatible_units"
               ],
               "additionalProperties": false
             }
@@ -50353,6 +51327,7 @@
               "life.record_purchase",
               "life.correct_intake",
               "life.correct_purchase",
+              "life.update_purchase_items",
               "life.void_purchase",
               "life.link_meal_consumption",
               "life.save_meal_template",
