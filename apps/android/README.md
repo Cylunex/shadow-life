@@ -82,6 +82,11 @@ AMAP_MAPS_API_KEY=REPLACE_ANDROID_AMAP_KEY
 GOOGLE_MAPS_API_KEY=REPLACE_ANDROID_GOOGLE_MAPS_KEY
 ```
 
+Alternatively, set `SHADOW_MAP_KEYS_FILE` in the ignored Android `local.properties` file to an external Java
+properties file. The build accepts `AMAP_MAPS_API_KEY` / `GOOGLE_MAPS_API_KEY` there and also the legacy local
+aliases `amap-key` / `googlemap-apikey`. Values from `-P` or direct `local.properties` entries take precedence.
+The AMap Web `jscode` value is deliberately not consumed by the native Android SDK.
+
 The travel map can switch between native AMap and Google Maps. Use Android-app keys restricted to the
 `com.shadow.life` package and its signing certificate; never reuse a browser or Web Service key. Missing keys
 do not break the build: the app keeps a coordinate/track preview and labels that provider as unconfigured.

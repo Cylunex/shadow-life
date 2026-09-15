@@ -1,9 +1,30 @@
+import java.util.Properties
+
 plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id("org.jetbrains.kotlin.plugin.compose"); id("org.jetbrains.kotlin.plugin.serialization"); id("kotlin-parcelize") }
 val samsungHealthAar=providers.gradleProperty("SAMSUNG_HEALTH_DATA_AAR").orNull?.let(::file)?.takeIf{it.isFile}
+val androidLocalProperties=Properties().apply {
+  rootProject.file("local.properties").takeIf{it.isFile}?.inputStream()?.use(::load)
+}
+val externalMapProperties=Properties().apply {
+  val path=providers.gradleProperty("SHADOW_MAP_KEYS_FILE").orNull
+    ?:androidLocalProperties.getProperty("SHADOW_MAP_KEYS_FILE")
+    ?:System.getenv("SHADOW_MAP_KEYS_FILE")
+  path?.takeIf{it.isNotBlank()}?.let(::file)?.takeIf{it.isFile}?.inputStream()?.use(::load)
+}
+fun configuredProperty(name:String,fallback:String):String {
+  providers.gradleProperty(name).orNull?.takeIf{it.isNotBlank()}?.let{return it}
+  androidLocalProperties.getProperty(name)?.takeIf{it.isNotBlank()}?.let{return it}
+  val aliases=when(name){
+    "AMAP_MAPS_API_KEY"->listOf(name,"amap-key")
+    "GOOGLE_MAPS_API_KEY"->listOf(name,"googlemap-apikey")
+    else->listOf(name)
+  }
+  return aliases.firstNotNullOfOrNull{externalMapProperties.getProperty(it)?.takeIf(String::isNotBlank)}?:fallback
+}
 android { namespace="com.shadow.life"; compileSdk=36
   defaultConfig {
     applicationId="com.shadow.life"; minSdk=29; targetSdk=36; versionCode=30; versionName="2.1.8"
-    fun configured(name:String,fallback:String)=providers.gradleProperty(name).orElse(fallback).get()
+    fun configured(name:String,fallback:String)=configuredProperty(name,fallback)
     fun quoted(value:String)="\"${value.replace("\\","\\\\").replace("\"","\\\"")}\""
     val healthConnectEnabled=configured("HEALTH_CONNECT_ENABLED","false").toBooleanStrictOrNull()
       ?: error("HEALTH_CONNECT_ENABLED must be true or false")
