@@ -2413,7 +2413,8 @@ enum class HealthRecordResultDtoMeasurementRawRecordType(val wireValue: String) 
   @SerialName("steps_interval") StepsInterval("steps_interval"),
   @SerialName("habit") Habit("habit"),
   @SerialName("lab") Lab("lab"),
-  @SerialName("fitness_test") FitnessTest("fitness_test")
+  @SerialName("fitness_test") FitnessTest("fitness_test"),
+  @SerialName("archive") Archive("archive")
 }
 
 @Serializable
@@ -2573,7 +2574,8 @@ enum class HealthRecordResultDtoObservationRawRecordType(val wireValue: String) 
   @SerialName("steps_interval") StepsInterval("steps_interval"),
   @SerialName("habit") Habit("habit"),
   @SerialName("lab") Lab("lab"),
-  @SerialName("fitness_test") FitnessTest("fitness_test")
+  @SerialName("fitness_test") FitnessTest("fitness_test"),
+  @SerialName("archive") Archive("archive")
 }
 
 @Serializable
@@ -2646,7 +2648,8 @@ enum class HealthRecordResultDtoDailyWellbeingRawRecordType(val wireValue: Strin
   @SerialName("steps_interval") StepsInterval("steps_interval"),
   @SerialName("habit") Habit("habit"),
   @SerialName("lab") Lab("lab"),
-  @SerialName("fitness_test") FitnessTest("fitness_test")
+  @SerialName("fitness_test") FitnessTest("fitness_test"),
+  @SerialName("archive") Archive("archive")
 }
 
 @Serializable
@@ -2721,7 +2724,8 @@ enum class HealthRecordResultDtoSleepSessionRawRecordType(val wireValue: String)
   @SerialName("steps_interval") StepsInterval("steps_interval"),
   @SerialName("habit") Habit("habit"),
   @SerialName("lab") Lab("lab"),
-  @SerialName("fitness_test") FitnessTest("fitness_test")
+  @SerialName("fitness_test") FitnessTest("fitness_test"),
+  @SerialName("archive") Archive("archive")
 }
 
 @Serializable
@@ -2798,7 +2802,8 @@ enum class HealthRecordResultDtoWorkoutSessionRawRecordType(val wireValue: Strin
   @SerialName("steps_interval") StepsInterval("steps_interval"),
   @SerialName("habit") Habit("habit"),
   @SerialName("lab") Lab("lab"),
-  @SerialName("fitness_test") FitnessTest("fitness_test")
+  @SerialName("fitness_test") FitnessTest("fitness_test"),
+  @SerialName("archive") Archive("archive")
 }
 
 @Serializable
@@ -2875,7 +2880,8 @@ enum class HealthRecordResultDtoDailyActivityRawRecordType(val wireValue: String
   @SerialName("steps_interval") StepsInterval("steps_interval"),
   @SerialName("habit") Habit("habit"),
   @SerialName("lab") Lab("lab"),
-  @SerialName("fitness_test") FitnessTest("fitness_test")
+  @SerialName("fitness_test") FitnessTest("fitness_test"),
+  @SerialName("archive") Archive("archive")
 }
 
 @Serializable
@@ -2947,7 +2953,8 @@ enum class HealthRecordResultDtoHabitLogRawRecordType(val wireValue: String) {
   @SerialName("steps_interval") StepsInterval("steps_interval"),
   @SerialName("habit") Habit("habit"),
   @SerialName("lab") Lab("lab"),
-  @SerialName("fitness_test") FitnessTest("fitness_test")
+  @SerialName("fitness_test") FitnessTest("fitness_test"),
+  @SerialName("archive") Archive("archive")
 }
 
 @Serializable

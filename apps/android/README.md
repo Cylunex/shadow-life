@@ -43,9 +43,13 @@ The device layer also carries the verified Shadow Health integrations. Xiaomi Bo
 (`XMTZC05HM`) and S400 (`MJTZC01YM`) advertisements are parsed locally in an on-demand foreground BLE session;
 stable weight, impedance, optional heart rate and profile-derived body composition enter the encrypted Life
 command queue before upload. S400 bindkeys and the optional sex/birth-date/height profile are stored with the
-Android Keystore and never embedded in source or server configuration. Samsung Health Data SDK reads steps,
-heart-rate bounds, sleep, exercise and body composition. When the matching Health Connect permission is already
-granted, Samsung steps/sleep/exercise and weight are treated as fallback rather than duplicated into both paths.
+Android Keystore and never embedded in source or server configuration. Samsung Health Data SDK 1.1.0 requests all
+25 supported read permissions and paginates every directly readable type. Provider-native records preserve common
+metadata and every public SDK field, including continuous series, exercise routes/logs and swimming intervals, in
+raw archive revisions even when Life does not project the field yet. Steps, activity and goal aggregates are archived
+as well. Oversized route payloads are split into ordered, lossless archive chunks below the command-body limit. When
+the matching Health Connect permission is already granted, Samsung steps/sleep/exercise and weight
+remain archived but are not projected into both paths, avoiding duplicate dashboard facts.
 After Samsung permission has been granted, returning to Life starts an immediate unique sync and keeps the hourly
 background schedule. Today, Health and Settings show the live read state, record count, queue state and committed
 result. Xiaomi Scale 2/S400 scanning reports scan start, first matching advertisement, stable measurement, local

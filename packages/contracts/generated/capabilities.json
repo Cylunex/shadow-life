@@ -15772,7 +15772,8 @@
               "steps_interval",
               "habit",
               "lab",
-              "fitness_test"
+              "fitness_test",
+              "archive"
             ]
           },
           "client_record_id": {
@@ -15907,7 +15908,8 @@
                   "steps_interval",
                   "habit",
                   "lab",
-                  "fitness_test"
+                  "fitness_test",
+                  "archive"
                 ]
               },
               "client_record_id": {
@@ -16293,7 +16295,8 @@
               "steps_interval",
               "habit",
               "lab",
-              "fitness_test"
+              "fitness_test",
+              "archive"
             ]
           },
           "permission_fingerprint": {
@@ -16501,7 +16504,8 @@
                   "steps_interval",
                   "habit",
                   "lab",
-                  "fitness_test"
+                  "fitness_test",
+                  "archive"
                 ]
               },
               "permission_fingerprint": {
@@ -38735,7 +38739,8 @@
                           "steps_interval",
                           "habit",
                           "lab",
-                          "fitness_test"
+                          "fitness_test",
+                          "archive"
                         ]
                       },
                       "client_record_id": {
@@ -39140,7 +39145,8 @@
                           "steps_interval",
                           "habit",
                           "lab",
-                          "fitness_test"
+                          "fitness_test",
+                          "archive"
                         ]
                       },
                       "client_record_id": {
@@ -39438,7 +39444,8 @@
                           "steps_interval",
                           "habit",
                           "lab",
-                          "fitness_test"
+                          "fitness_test",
+                          "archive"
                         ]
                       },
                       "client_record_id": {
@@ -39767,7 +39774,8 @@
                           "steps_interval",
                           "habit",
                           "lab",
-                          "fitness_test"
+                          "fitness_test",
+                          "archive"
                         ]
                       },
                       "client_record_id": {
@@ -40129,7 +40137,8 @@
                           "steps_interval",
                           "habit",
                           "lab",
-                          "fitness_test"
+                          "fitness_test",
+                          "archive"
                         ]
                       },
                       "client_record_id": {
@@ -40479,7 +40488,8 @@
                           "steps_interval",
                           "habit",
                           "lab",
-                          "fitness_test"
+                          "fitness_test",
+                          "archive"
                         ]
                       },
                       "client_record_id": {
@@ -40745,7 +40755,8 @@
                           "steps_interval",
                           "habit",
                           "lab",
-                          "fitness_test"
+                          "fitness_test",
+                          "archive"
                         ]
                       },
                       "client_record_id": {

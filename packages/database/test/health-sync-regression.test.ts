@@ -19,6 +19,16 @@ test("device sources can refresh volatile fingerprints without stranding a same-
   await assert.rejects(()=>run("health.ingest_raw",{...strict,source_fingerprint:"permission-snapshot-b",record_version:2}),/newer sync epoch/);
 });
 
+test("provider-native archive payloads are retained without creating duplicate projections",pgOnly,async t=>{
+  const {pool,run}=await reviewFixture(t);
+  const payload={samsung_data_type:"com.samsung.health.heart_rate",sdk_schema_version:"1.1.0",uid:"heart-archive-1",fields:{heart_rate:72,series_data:[{heart_rate:71,start_time:"2026-09-10T01:00:00Z",end_time:"2026-09-10T01:01:00Z"}]}};
+  await run("health.ingest_raw",{source_type:"samsung",source_instance_key:"android-samsung-archive",source_fingerprint:"permission-archive",record_type:"archive",client_record_id:"samsung-archive-heart-1",provider_record_id:"heart-archive-1",record_version:1,sync_epoch:1,change_kind:"upsert",parse_version:"samsung-data-4",payload});
+  const result=await processPendingHealth(pool);
+  assert.equal(result[0]?.state,"completed");
+  assert.deepEqual((await pool.query("select revision.payload from health_raw_records raw join health_raw_revisions revision on revision.raw_id=raw.id and revision.record_version=raw.current_version where raw.client_record_id='samsung-archive-heart-1'")).rows[0].payload,payload);
+  assert.equal((await pool.query("select (select count(*) from health_observations)+(select count(*) from health_daily_activity)+(select count(*) from health_workout_sessions) n")).rows[0].n,"0");
+});
+
 test("Samsung takeoff records become release habits and can move back to workouts",pgOnly,async t=>{
   const {pool,run,queries,context}=await reviewFixture(t);
   const record={source_type:"samsung",source_instance_key:"android-samsung-release",source_fingerprint:"permission-release",record_type:"workout",client_record_id:"samsung-exercise-release",record_version:1,sync_epoch:1,change_kind:"upsert",parse_version:"samsung-data-2",payload:{occurred_on:"2026-09-10",time_zone:"Asia/Shanghai",session_type:"release",started_at:"2026-09-10T10:00:00Z",duration_minutes:5,detail:{source:"samsung_health",provider_type:"OTHER",custom_title:"起飞",excluded_from_activity:true}}};

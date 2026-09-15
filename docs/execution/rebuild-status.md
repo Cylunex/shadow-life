@@ -382,11 +382,14 @@ and [delivery/validation record](library-processing-recovery-delivery-2026-09-11
   and optional profile-derived composition are encoded as typed `health.ingest_raw` records and first committed to
   the account-bound encrypted Room queue. The S400 bindkey and optional calculation profile are stored through the
   Android Keystore and do not enter source, server configuration or logs.
-- The vendor Samsung Health Data SDK 1.1.0 is compiled from an ignored, reviewed local AAR. Granted SDK permissions
-  independently gate steps, heart rate, sleep, exercise and body-composition reads. Equivalent Health Connect
-  permissions take precedence for steps, sleep, exercise and weight to avoid double counting; Samsung-only body
-  composition and heart-rate facts remain available. Builds without the AAR compile and expose an honest unavailable
-  state instead of shipping a broken button.
+- The vendor Samsung Health Data SDK 1.1.0 is compiled from an ignored, reviewed local AAR. All 25 SDK-supported read
+  permissions are requested independently, directly readable types are exhausted through page tokens, and aggregate-
+  only steps, activity summaries and goals are retained too. Provider UID/source/update metadata and all public fields
+  are stored in raw archive revisions, including continuous series, exercise route/log data and swimming intervals,
+  with oversized provider payloads split into ordered lossless chunks below the API command limit. Currently unused
+  fields can therefore be projected later without recollecting the phone. Equivalent Health Connect
+  permissions take precedence only for current step/sleep/exercise/weight projections; the Samsung originals are
+  still archived without double counting. Builds without the AAR compile and expose an honest unavailable state.
 - Device synchronization is now a first-level surface on Today and Health rather than a Settings-only action.
   Samsung automatically schedules an immediate unique read whenever an authorized user returns to Life. Samsung and
   Xiaomi status persists per account and exposes authorization/scanning, first BLE advertisement, stable reading,
