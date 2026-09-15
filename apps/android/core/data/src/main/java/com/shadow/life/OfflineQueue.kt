@@ -12,22 +12,15 @@ import org.json.JSONObject
 
 class OfflineQueue(private val database:ShadowDatabase,private val crypto:QueueCrypto=QueueCrypto()) {
   fun observeStatus(session:ProductSession):Flow<QueueSummary> = combine(
-    database.commands().observe(session.accountId,session.subjectId),
-    database.commands().observeAttachments(session.accountId,session.subjectId)
-  ){commands,attachments->
-    val scale=commands.filter{it.commandId.startsWith("cmd_scale_")}
-    val samsung=commands.filter{it.commandId.startsWith("cmd_samsung_")}
-    val committedReceipts=commands.asSequence().filter{it.state=="committed"}.sortedBy{it.createdAt}.mapNotNull(::verifiedReceipt).toList()
+    database.commands().observeStatus(session.accountId,session.subjectId),
+    database.commands().observeRecentCommitted(session.accountId,session.subjectId,RECENT_RECEIPT_LIMIT)
+  ){status,committed->
+    val committedReceipts=committed.asReversed().mapNotNull(::verifiedReceipt)
     QueueSummary(
-    waiting=commands.count{it.state in setOf("pending","uploading")},
-    reconciling=commands.count{it.state=="unknown"}+attachments.count{it.state=="unknown"},
-    failed=commands.count{it.state in setOf("blocked","failed")}+attachments.count{it.state in setOf("blocked","failed")},
-    completed=commands.count{it.state=="committed"}+attachments.count{it.state=="committed"},
-    attachments=attachments.count{it.state in setOf("pending","uploading","unknown")},
-    latestScaleState=latestSourceState(scale),
-    latestScaleAt=scale.maxOfOrNull{it.createdAt},
-    latestSamsungState=latestSourceState(samsung),
-    latestSamsungAt=samsung.maxOfOrNull{it.createdAt},
+    waiting=status.waiting,reconciling=status.reconciling,failed=status.failed,completed=status.completed,
+    attachments=status.attachments,
+    latestScaleState=status.latestScaleState?.let(::sourceState),latestScaleAt=status.latestScaleAt,
+    latestSamsungState=status.latestSamsungState?.let(::sourceState),latestSamsungAt=status.latestSamsungAt,
     committedReceipts=committedReceipts
   )}
   suspend fun enqueueCommand(session:ProductSession,commandId:String,capability:String,plainBody:String):Long{
@@ -99,11 +92,14 @@ class OfflineQueue(private val database:ShadowDatabase,private val crypto:QueueC
     }
     return secured
   }
-  private fun verifiedReceipt(command:PendingCommand):OperationReceipt?=runCatching{
+  private fun verifiedReceipt(row:CommittedCommandRow):OperationReceipt?=runCatching{
+    val command=PendingCommand(row.commandId,row.accountId,row.subjectId,row.capability,"",state=row.state,createdAt=row.createdAt,encryptionVersion=1,receiptBody=row.receiptBody)
     val value=JSONObject(receiptBody(command));if(value.optString("protocol")!="shadow.execution-result"||value.optString("status")!="committed"||value.optString("command_id")!=command.commandId)return@runCatching null
     val resources=value.optJSONArray("resources");val warnings=value.optJSONArray("warnings")
     OperationReceipt(command.capability,command.commandId,value.optString("execution_id").takeIf(String::isNotBlank),(0 until (resources?.length()?:0)).mapNotNull{index->resources?.optJSONObject(index)?.let{ResourceRef(it.optString("type"),it.optString("id"),it.optInt("revision",1))}},(0 until (warnings?.length()?:0)).mapNotNull{index->warnings?.optString(index)?.takeIf(String::isNotBlank)},queued=false)
   }.getOrNull()
+  companion object { private const val RECENT_RECEIPT_LIMIT=100 }
 }
 
-internal fun latestSourceState(commands:List<PendingCommand>):String?=commands.maxWithOrNull(compareBy<PendingCommand>{it.createdAt}.thenBy{it.commandId})?.state?.let{state->when(state){"blocked","failed"->"failed";"unknown"->"reconciling";"pending","uploading"->"pending";else->state}}
+internal fun sourceState(state:String)=when(state){"blocked","failed"->"failed";"unknown"->"reconciling";"pending","uploading"->"pending";else->state}
+internal fun latestSourceState(commands:List<PendingCommand>):String?=commands.maxWithOrNull(compareBy<PendingCommand>{it.createdAt}.thenBy{it.commandId})?.state?.let(::sourceState)

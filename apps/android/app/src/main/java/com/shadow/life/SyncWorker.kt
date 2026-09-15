@@ -37,7 +37,7 @@ object SyncScheduler {
   }
   fun retryNow(context:Context,accountId:String){
     val request=OneTimeWorkRequestBuilder<SyncWorker>().setInputData(workDataOf("account_id" to accountId)).setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()).setBackoffCriteria(BackoffPolicy.EXPONENTIAL,10,TimeUnit.SECONDS).build()
-    WorkManager.getInstance(context).enqueueUniqueWork(workName(accountId),ExistingWorkPolicy.REPLACE,request)
+    WorkManager.getInstance(context).enqueueUniqueWork(workName(accountId),ExistingWorkPolicy.APPEND_OR_REPLACE,request)
   }
 }
 
@@ -58,7 +58,7 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
     var committedCommands=0
     Log.i(TAG,"sync started")
 
-    for(attachment in dao.pendingAttachments(accountId,session.subjectId)){
+    for(attachment in dao.pendingAttachments(accountId,session.subjectId,MAX_ATTACHMENTS_PER_RUN)){
       val file=File(attachment.localPath)
       if(!file.isFile){dao.markAttachment(attachment.id,"failed");continue}
       dao.markAttachmentAttempt(attachment.id,"uploading")
@@ -97,7 +97,7 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
       }finally{connection?.disconnect()}
     }
 
-    val pendingCommands=dao.pending(accountId,session.subjectId)
+    val pendingCommands=dao.pending(accountId,session.subjectId,MAX_COMMANDS_PER_RUN)
     val handledByBatch=mutableSetOf<String>()
     val batchCandidates=mutableListOf<Pair<PendingCommand,String>>()
     for(command in pendingCommands.filter{it.capability=="health.ingest_raw"}){
@@ -161,7 +161,9 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
     }
     // Also recovers a process death after the atomic receipt commit but before the wake-up.
     if(HealthConnectSync.enabled()&&dao.healthRound(accountId,session.subjectId)?.progress?.ready==true)HealthConnectScheduler.resume(applicationContext,accountId)
-    Log.i(TAG,"sync finished recovered=$recoveredCommands committed=$committedCommands retry=$needsRetry")
+    val remaining=dao.inFlight(accountId,session.subjectId)
+    if(!needsRetry&&remaining>0)SyncScheduler.schedule(applicationContext,accountId,ensureNext=true)
+    Log.i(TAG,"sync finished recovered=$recoveredCommands committed=$committedCommands retry=$needsRetry remaining=$remaining")
     if(needsRetry)Result.retry()else Result.success()
   }
 
@@ -257,12 +259,12 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
     when{command.commandId.startsWith("cmd_scale_")->app.deviceSync.updateScale(command.accountId,"error",message);command.commandId.startsWith("cmd_samsung_")->app.deviceSync.updateSamsung(command.accountId,"error",message)}
     Log.w(TAG,"command rejected status=$status code=${code.ifBlank{"unknown"}} capability=${command.capability}")
   }
-  companion object{private const val TAG="SyncWorker"}
+  companion object{private const val TAG="SyncWorker";private const val MAX_COMMANDS_PER_RUN=24;private const val MAX_ATTACHMENTS_PER_RUN=4}
 }
 
 internal data class BatchUploadOutcome(val committed:Int=0,val recovered:Int=0,val needsRetry:Boolean=false,val reauthRequired:Boolean=false,val fallbackToSingles:Boolean=false)
 internal fun isDeterministicCommandFailure(status:Int)=status in listOf(400,403,409,413,415,422)
-internal fun healthCommandBatches(commands:List<Pair<PendingCommand,String>>,maxCommands:Int=40,maxBytes:Int=850_000):List<List<Pair<PendingCommand,String>>>{
+internal fun healthCommandBatches(commands:List<Pair<PendingCommand,String>>,maxCommands:Int=12,maxBytes:Int=350_000):List<List<Pair<PendingCommand,String>>>{
   val batches=mutableListOf<MutableList<Pair<PendingCommand,String>>>();var bytes=0
   for(command in commands){val size=command.second.toByteArray(StandardCharsets.UTF_8).size+1;if(batches.isEmpty()||batches.last().size>=maxCommands||bytes+size>maxBytes){batches.add(mutableListOf());bytes=0};batches.last().add(command);bytes+=size}
   return batches

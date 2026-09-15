@@ -14,8 +14,8 @@ class SyncBatchPolicyTest {
   }
 
   @Test fun `health commands are packed by command count`() {
-    val batches=healthCommandBatches((1..81).map{command("cmd_$it")})
-    assertEquals(listOf(40,40,1),batches.map{it.size})
+    val batches=healthCommandBatches((1..25).map{command("cmd_$it")})
+    assertEquals(listOf(12,12,1),batches.map{it.size})
   }
 
   @Test fun `health commands are packed below request byte limit`() {

@@ -44,9 +44,11 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -111,10 +113,18 @@ object SamsungSync {
   private fun status(context:Context)=(context.applicationContext as ShadowApp).deviceSync
 }
 
-private data class SamsungReadResult(val commands:List<HealthQueuedCommand>,val failedTypes:Set<String>)
+private data class SamsungReadResult(val commandCount:Int,val failedTypes:Set<String>)
 
 class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(context,params){
   override suspend fun doWork():Result {
+    if(!workerMutex.tryLock()){
+      Log.i("SamsungSyncWorker","another Samsung read is already active; skipping duplicate worker")
+      return Result.success(workDataOf("reason" to "already_running"))
+    }
+    try{return runSync()}finally{workerMutex.unlock()}
+  }
+
+  private suspend fun runSync():Result {
     val accountId=inputData.getString("account_id")?:return Result.failure()
     val app=applicationContext as ShadowApp
     val status=app.deviceSync
@@ -139,21 +149,22 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
       val end=LocalDate.now()
       val start=end.minusDays((days-1).toLong())
       val healthConnectPermissions=if(HealthConnectSync.available(applicationContext))HealthConnectClient.getOrCreate(applicationContext).permissionController.getGrantedPermissions() else emptySet()
-      val read=readCommands(store,session,start,end,now,granted,healthConnectPermissions)
-      read.commands.forEach{app.queue.enqueueCommand(session,it.commandId,it.capability,it.body)}
-      if(read.commands.isNotEmpty())SyncScheduler.schedule(applicationContext,accountId)
+      val read=readCommands(store,session,start,end,now,granted,healthConnectPermissions){command->app.queue.enqueueCommand(session,command.commandId,command.capability,command.body)}
+      if(read.commandCount>0)SyncScheduler.schedule(applicationContext,accountId)
       val missing=SamsungSync.PERMISSIONS.size-granted.size
       if(read.failedTypes.isEmpty())prefs.edit().putLong("last_sync_$accountId",now).putString("permission_fingerprint_$accountId",permissionFingerprint).apply()
-      val state=if(missing>0||read.failedTypes.isNotEmpty())"needs_permission" else if(read.commands.isEmpty())"complete" else "queued"
+      val state=if(missing>0||read.failedTypes.isNotEmpty())"needs_permission" else if(read.commandCount==0)"complete" else "queued"
       val message=when{
-        read.failedTypes.isNotEmpty()->"已读取 ${read.commands.size} 条；${read.failedTypes.size} 类暂时失败，将自动重试"
-        missing>0->"已读取 ${read.commands.size} 条；仍有 $missing 类权限未授予"
-        read.commands.isEmpty()->"读取完成，暂无新数据"
-        else->"已完整读取 ${read.commands.size} 条，正在上传"
+        read.failedTypes.isNotEmpty()->"已读取 ${read.commandCount} 条；${read.failedTypes.size} 类暂时失败，将自动重试"
+        missing>0->"已读取 ${read.commandCount} 条；仍有 $missing 类权限未授予"
+        read.commandCount==0->"读取完成，暂无新数据"
+        else->"已完整读取 ${read.commandCount} 条，正在上传"
       }
-      status.updateSamsung(accountId,state,message,read.commands.size)
-      Log.i("SamsungSyncWorker","Samsung read completed records=${read.commands.size} granted=${granted.size}/${SamsungSync.PERMISSIONS.size} failed=${read.failedTypes.joinToString()}")
-      Result.success(workDataOf("records" to read.commands.size,"failed_types" to read.failedTypes.size,"missing_permissions" to missing))
+      status.updateSamsung(accountId,state,message,read.commandCount)
+      Log.i("SamsungSyncWorker","Samsung read completed records=${read.commandCount} granted=${granted.size}/${SamsungSync.PERMISSIONS.size} failed=${read.failedTypes.joinToString()}")
+      Result.success(workDataOf("records" to read.commandCount,"failed_types" to read.failedTypes.size,"missing_permissions" to missing))
+    }catch(error:CancellationException){
+      throw error
     }catch(error:Exception){
       Log.w("SamsungSyncWorker","Samsung read failed",error)
       status.updateSamsung(accountId,"error","读取失败：${error.message?:"未知错误"}")
@@ -161,26 +172,26 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
     }
   }
 
-  private suspend fun readCommands(store:HealthDataStore,session:ProductSession,start:LocalDate,end:LocalDate,version:Long,samsungPermissions:Set<Permission>,healthConnectPermissions:Set<String>):SamsungReadResult{
-    val out=linkedMapOf<String,HealthQueuedCommand>()
+  private suspend fun readCommands(store:HealthDataStore,session:ProductSession,start:LocalDate,end:LocalDate,version:Long,samsungPermissions:Set<Permission>,healthConnectPermissions:Set<String>,enqueue:suspend(HealthQueuedCommand)->Long):SamsungReadResult{
+    var commandCount=0
     val failed=linkedSetOf<String>()
     val zone=ZoneId.systemDefault()
     val instance="android-samsung-${sha256(android.provider.Settings.Secure.getString(applicationContext.contentResolver,android.provider.Settings.Secure.ANDROID_ID)?:"unknown").take(24)}"
     val fingerprint=sha256(samsungPermissions.map{it.toString()}.sorted().joinToString("|"))
     val timeFilter=LocalTimeFilter.of(start.atStartOfDay(),end.plusDays(1).atStartOfDay())
     val dateFilter=LocalDateFilter.of(start,end,true,true)
-    fun add(type:String,id:String,payload:JSONObject,recordVersion:Long=version){
+    suspend fun add(type:String,id:String,payload:JSONObject,recordVersion:Long=version){
       val command=healthDeviceRecordCommand(session.accountId,session.subjectId,"samsung",instance,fingerprint,type,id,recordVersion,payload,SAMSUNG_PARSE_VERSION)
-      out[id]=command
+      if(enqueue(command)>=0)commandCount++
     }
     fun pointVersion(point:HealthDataPoint)=(point.updateTime?:point.endTime?:point.startTime)?.toEpochMilli()?:version
     fun dailyVersion(day:LocalDate)=if(day==end)version else day.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
     fun permitted(type:DataType)=Permission.of(type,AccessType.READ) in samsungPermissions
     suspend fun attempt(type:DataType,block:suspend()->Unit){
       if(!permitted(type))return
-      runCatching{block()}.onFailure{failed+=type.name;Log.w("SamsungSyncWorker","${type.name} read failed",it)}
+      try{block()}catch(error:CancellationException){throw error}catch(error:Exception){failed+=type.name;Log.w("SamsungSyncWorker","${type.name} read failed",error)}
     }
-    fun archive(type:DataType,point:HealthDataPoint){
+    suspend fun archive(type:DataType,point:HealthDataPoint){
       val payload=samsungHealthPointPayload(type,point)
       val identity=point.uid?:sha256(payload.toString()).take(32)
       val clientId="samsung-archive-${typeKey(type)}-$identity"
@@ -198,7 +209,7 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
           .put("chunk_index",index).put("chunk_count",chunks.size).put("content",chunk),recordVersion)}
       }
     }
-    fun archiveAggregates(type:DataType,operation:String,points:List<AggregatedData<*>>){points.forEach{point->
+    suspend fun archiveAggregates(type:DataType,operation:String,points:List<AggregatedData<*>>){points.forEach{point->
       val day=point.getStartLocalDateTime().toLocalDate()
       add("archive","samsung-aggregate-${typeKey(type)}-$operation-$day",samsungAggregatePayload(type,operation,point.startTime?.toString(),point.endTime?.toString(),point.value),dailyVersion(day))
     }}
@@ -223,44 +234,44 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
       activeTime.forEach{point->point.value?.toMinutes()?.takeIf{it>0}?.let{minutes->val payload=activityPayload(point.getStartLocalDateTime().toLocalDate());payload.put("active_minutes",minutes);payload.getJSONObject("field_sources").put("active_minutes","samsung_data_sdk")}}
       activeCalories.forEach{point->point.value?.takeIf{it>0}?.let{calories->val payload=activityPayload(point.getStartLocalDateTime().toLocalDate());payload.put("device_calories_kcal",decimal(calories.toDouble()));payload.getJSONObject("field_sources").put("device_calories_kcal","samsung_data_sdk")}}
     }
-    activity.toSortedMap().forEach{(day,payload)->add("daily_activity","samsung-activity-$day",payload,dailyVersion(day))}
+    for((day,payload) in activity.toSortedMap())add("daily_activity","samsung-activity-$day",payload,dailyVersion(day))
 
     attempt(DataTypes.HEART_RATE){
-      readAllDual(store,DataTypes.HEART_RATE,timeFilter).forEach{archive(DataTypes.HEART_RATE,it)}
+      forEachDual(store,DataTypes.HEART_RATE,timeFilter){archive(DataTypes.HEART_RATE,it)}
       val daily=LocalDateGroup.of(LocalDateGroupUnit.DAILY,1)
       val mins=store.aggregateData(DataType.HeartRateType.MIN.requestBuilder.setLocalDateFilterWithGroup(dateFilter,daily).build()).dataList.associate{it.getStartLocalDateTime().toLocalDate() to it.value}
       val maxes=store.aggregateData(DataType.HeartRateType.MAX.requestBuilder.setLocalDateFilterWithGroup(dateFilter,daily).build()).dataList.associate{it.getStartLocalDateTime().toLocalDate() to it.value}
       (mins.keys+maxes.keys).forEach{day->val observations=JSONArray();mins[day]?.let{observations.put(observation("heart_rate",decimal(it.toDouble()),"bpm","samsung:daily_min"))};maxes[day]?.let{observations.put(observation("heart_rate",decimal(it.toDouble()),"bpm","samsung:daily_max"))};if(observations.length()>0)add("body","samsung-heart-$day",bodyPayload(day,null,zone,observations),dailyVersion(day))}
     }
 
-    attempt(DataTypes.SLEEP){readAllDual(store,DataTypes.SLEEP,timeFilter).forEach{point->
+    attempt(DataTypes.SLEEP){forEachDual(store,DataTypes.SLEEP,timeFilter){point->
       archive(DataTypes.SLEEP,point)
-      if(HealthPermission.getReadPermission(SleepSessionRecord::class) in healthConnectPermissions)return@forEach
-      val uid=point.uid?:return@forEach;val endTime=point.endTime?:return@forEach;var light=0L;var deep=0L;var rem=0L;var awake=0L
+      if(HealthPermission.getReadPermission(SleepSessionRecord::class) in healthConnectPermissions)return@forEachDual
+      val uid=point.uid?:return@forEachDual;val endTime=point.endTime?:return@forEachDual;var light=0L;var deep=0L;var rem=0L;var awake=0L
       point.getValue(DataType.SleepType.SESSIONS)?.forEach{sessionPoint->sessionPoint.stages?.forEach{stage->val minutes=Duration.between(stage.startTime,stage.endTime).toMinutes();when(stage.stage){DataType.SleepType.StageType.LIGHT->light+=minutes;DataType.SleepType.StageType.DEEP->deep+=minutes;DataType.SleepType.StageType.REM->rem+=minutes;DataType.SleepType.StageType.AWAKE->awake+=minutes;else->Unit}}}
       val total=point.getValue(DataType.SleepType.DURATION)?.toMinutes()?:Duration.between(point.startTime,endTime).toMinutes();val wake=endTime.atZone(zone).toLocalDate()
       add("sleep","samsung-sleep-$uid",JSONObject().put("wake_date",wake.toString()).put("time_zone",zone.id).put("started_at",point.startTime.toString()).put("ended_at",endTime.toString()).put("total_minutes",total).put("light_minutes",light).put("deep_minutes",deep).put("rem_minutes",rem).put("awake_minutes",awake),pointVersion(point))
     }}
 
-    attempt(DataTypes.EXERCISE){readAllDual(store,DataTypes.EXERCISE,timeFilter).forEach{point->
+    attempt(DataTypes.EXERCISE){forEachDual(store,DataTypes.EXERCISE,timeFilter){point->
       archive(DataTypes.EXERCISE,point)
-      if(HealthPermission.getReadPermission(ExerciseSessionRecord::class) in healthConnectPermissions)return@forEach
-      val uid=point.uid?:return@forEach;val started=point.startTime?:return@forEach;val sessionPoint=point.getValue(DataType.ExerciseType.SESSIONS)?.firstOrNull();val predefined=point.getValue(DataType.ExerciseType.EXERCISE_TYPE);val customTitle=point.getValue(DataType.ExerciseType.CUSTOM_TITLE)?.trim()?.takeIf{it.isNotBlank()};val mapping=samsungExerciseMapping(predefined?.name,customTitle)
+      if(HealthPermission.getReadPermission(ExerciseSessionRecord::class) in healthConnectPermissions)return@forEachDual
+      val uid=point.uid?:return@forEachDual;val started=point.startTime?:return@forEachDual;val sessionPoint=point.getValue(DataType.ExerciseType.SESSIONS)?.firstOrNull();val predefined=point.getValue(DataType.ExerciseType.EXERCISE_TYPE);val customTitle=point.getValue(DataType.ExerciseType.CUSTOM_TITLE)?.trim()?.takeIf{it.isNotBlank()};val mapping=samsungExerciseMapping(predefined?.name,customTitle)
       val detail=JSONObject().put("source","samsung_health").putOpt("provider_type",predefined?.name).putOpt("custom_title",customTitle).put("excluded_from_activity",mapping.releaseEvent);sessionPoint?.autoDetected?.let{detail.put("auto_detected",it)}
       val payload=JSONObject().put("occurred_on",started.atZone(zone).toLocalDate().toString()).put("time_zone",zone.id).put("session_type",mapping.sessionType).put("started_at",started.toString()).put("detail",detail)
       sessionPoint?.let{runCatching{it.duration.toMinutes()}.getOrNull()?.let{value->payload.put("duration_minutes",value)};it.distance?.let{value->payload.put("distance_km",decimal(value.toDouble()/1000))};if(it.calories>0)payload.put("calories_kcal",decimal(it.calories.toDouble()));it.meanHeartRate?.let{value->payload.put("heart_rate_avg",value.toInt())}}
       add("workout","samsung-exercise-$uid",payload,pointVersion(point))
     }}
 
-    attempt(DataTypes.BODY_COMPOSITION){readAllDual(store,DataTypes.BODY_COMPOSITION,timeFilter).forEach{point->
+    attempt(DataTypes.BODY_COMPOSITION){forEachDual(store,DataTypes.BODY_COMPOSITION,timeFilter){point->
       archive(DataTypes.BODY_COMPOSITION,point)
       val observations=JSONArray();if(HealthPermission.getReadPermission(WeightRecord::class) !in healthConnectPermissions)point.getValue(DataType.BodyCompositionType.WEIGHT)?.let{observations.put(observation("weight",decimal(it.toDouble()),"kg","samsung:weight"))};point.getValue(DataType.BodyCompositionType.HEIGHT)?.let{observations.put(observation("height",decimal(it.toDouble()),"cm","samsung:height"))};point.getValue(DataType.BodyCompositionType.BODY_MASS_INDEX)?.let{observations.put(observation("bmi",decimal(it.toDouble()),"kg/m²","samsung:bmi"))};point.getValue(DataType.BodyCompositionType.BODY_FAT)?.let{observations.put(observation("body_fat",decimal(it.toDouble()),"%","samsung:body_fat"))};point.getValue(DataType.BodyCompositionType.BODY_FAT_MASS)?.let{observations.put(observation("fat_mass",decimal(it.toDouble()),"kg","samsung:fat_mass"))};(point.getValue(DataType.BodyCompositionType.FAT_FREE_MASS)?:point.getValue(DataType.BodyCompositionType.FAT_FREE))?.let{observations.put(observation("lean_mass",decimal(it.toDouble()),"kg","samsung:lean_mass"))};(point.getValue(DataType.BodyCompositionType.SKELETAL_MUSCLE_MASS)?:point.getValue(DataType.BodyCompositionType.SKELETAL_MUSCLE))?.let{observations.put(observation("skeletal_muscle",decimal(it.toDouble()),"kg","samsung:skeletal_muscle"))};point.getValue(DataType.BodyCompositionType.MUSCLE_MASS)?.let{observations.put(observation("muscle_mass",decimal(it.toDouble()),"kg","samsung:muscle_mass"))};point.getValue(DataType.BodyCompositionType.TOTAL_BODY_WATER)?.let{observations.put(observation("body_water",decimal(it.toDouble()),"kg","samsung:body_water"))};point.getValue(DataType.BodyCompositionType.BASAL_METABOLIC_RATE)?.let{observations.put(observation("bmr",decimal(it.toDouble()),"kcal/day","samsung:bmr"))}
-      if(observations.length()>0){val instant=point.startTime?:return@forEach;add("body","samsung-body-${point.uid?:instant.toEpochMilli()}",bodyPayload(instant.atZone(zone).toLocalDate(),instant,zone,observations),pointVersion(point))}
+      if(observations.length()>0){val instant=point.startTime?:return@forEachDual;add("body","samsung-body-${point.uid?:instant.toEpochMilli()}",bodyPayload(instant.atZone(zone).toLocalDate(),instant,zone,observations),pointVersion(point))}
     }}
 
     suspend fun vital(type:DataType.Readable<HealthDataPoint,ReadDataRequest.DualTimeBuilder<HealthDataPoint>>,prefix:String,values:(HealthDataPoint)->JSONArray){
       val dataType=type as DataType
-      attempt(dataType){readAllDual(store,type,timeFilter).forEach{point->archive(dataType,point);val observations=values(point);if(observations.length()>0){val instant=point.startTime?:return@forEach;add("body","samsung-$prefix-${point.uid?:instant.toEpochMilli()}",bodyPayload(instant.atZone(zone).toLocalDate(),instant,zone,observations),pointVersion(point))}}}
+      attempt(dataType){forEachDual(store,type,timeFilter){point->archive(dataType,point);val observations=values(point);if(observations.length()>0){val instant=point.startTime?:return@forEachDual;add("body","samsung-$prefix-${point.uid?:instant.toEpochMilli()}",bodyPayload(instant.atZone(zone).toLocalDate(),instant,zone,observations),pointVersion(point))}}}
     }
     vital(DataTypes.BLOOD_OXYGEN,"oxygen"){point->JSONArray().also{items->point.getValue(DataType.BloodOxygenType.OXYGEN_SATURATION)?.let{items.put(observation("spo2",decimal(it.toDouble()),"%","samsung:oxygen_saturation"))};point.getValue(DataType.BloodOxygenType.MIN_OXYGEN_SATURATION)?.let{items.put(observation("spo2",decimal(it.toDouble()),"%","samsung:min_oxygen_saturation"))};point.getValue(DataType.BloodOxygenType.MAX_OXYGEN_SATURATION)?.let{items.put(observation("spo2",decimal(it.toDouble()),"%","samsung:max_oxygen_saturation"))}}}
     vital(DataTypes.SKIN_TEMPERATURE,"skin-temperature"){point->JSONArray().also{items->point.getValue(DataType.SkinTemperatureType.SKIN_TEMPERATURE)?.let{items.put(observation("temperature",decimal(it.toDouble()),"°C","samsung:skin_temperature"))};point.getValue(DataType.SkinTemperatureType.MIN_SKIN_TEMPERATURE)?.let{items.put(observation("temperature",decimal(it.toDouble()),"°C","samsung:min_skin_temperature"))};point.getValue(DataType.SkinTemperatureType.MAX_SKIN_TEMPERATURE)?.let{items.put(observation("temperature",decimal(it.toDouble()),"°C","samsung:max_skin_temperature"))}}}
@@ -272,9 +283,9 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
       DataTypes.FLOORS_CLIMBED,DataTypes.WATER_INTAKE,DataTypes.NUTRITION,
       DataTypes.SLEEP_APNEA,DataTypes.IRREGULAR_HEART_RHYTHM_NOTIFICATION
     )
-    archiveOnlyDual.forEach{type->attempt(type){readAllDual(store,type,timeFilter).forEach{archive(type,it)}}}
+    archiveOnlyDual.forEach{type->attempt(type){forEachDual(store,type,timeFilter){archive(type,it)}}}
 
-    attempt(DataTypes.ENERGY_SCORE){readAllLocalDate(store,DataTypes.ENERGY_SCORE,dateFilter).forEach{archive(DataTypes.ENERGY_SCORE,it)}}
+    attempt(DataTypes.ENERGY_SCORE){forEachLocalDate(store,DataTypes.ENERGY_SCORE,dateFilter){archive(DataTypes.ENERGY_SCORE,it)}}
     attempt(DataTypes.USER_PROFILE){store.readData(DataTypes.USER_PROFILE.readDataRequestBuilder.build()).dataList.forEachIndexed{index,point->add("archive","samsung-user-profile-$index",samsungUserProfilePayload(DataTypes.USER_PROFILE,point))}}
 
     val goalGroup=LocalDateGroup.of(LocalDateGroupUnit.DAILY,1)
@@ -284,25 +295,23 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
     attempt(DataTypes.ACTIVE_TIME_GOAL){archiveAggregates(DataTypes.ACTIVE_TIME_GOAL,"last",store.aggregateData(DataType.ActiveTimeGoalType.LAST.requestBuilder.setLocalDateFilterWithGroup(dateFilter,goalGroup).build()).dataList)}
     attempt(DataTypes.WATER_INTAKE_GOAL){archiveAggregates(DataTypes.WATER_INTAKE_GOAL,"last",store.aggregateData(DataType.WaterIntakeGoalType.LAST.requestBuilder.setLocalDateFilterWithGroup(dateFilter,goalGroup).build()).dataList)}
     attempt(DataTypes.NUTRITION_GOAL){archiveAggregates(DataTypes.NUTRITION_GOAL,"last_calories",store.aggregateData(DataType.NutritionGoalType.LAST_CALORIES.requestBuilder.setLocalDateFilterWithGroup(dateFilter,goalGroup).build()).dataList)}
-    return SamsungReadResult(out.values.toList(),failed)
+    return SamsungReadResult(commandCount,failed)
   }
 
-  private suspend fun readAllDual(store:HealthDataStore,type:DataType.Readable<HealthDataPoint,ReadDataRequest.DualTimeBuilder<HealthDataPoint>>,filter:LocalTimeFilter):List<HealthDataPoint>{
-    val out=mutableListOf<HealthDataPoint>();val seen=mutableSetOf<String>();var token:String?=null
+  private suspend fun forEachDual(store:HealthDataStore,type:DataType.Readable<HealthDataPoint,ReadDataRequest.DualTimeBuilder<HealthDataPoint>>,filter:LocalTimeFilter,onPoint:suspend(HealthDataPoint)->Unit){
+    val seen=mutableSetOf<String>();var token:String?=null
     do{
       val builder=type.readDataRequestBuilder.setLocalTimeFilter(filter).setPageSize(500);token?.let{builder.setPageToken(it)}
-      val response=store.readData(builder.build());out+=response.dataList;val next=response.pageToken?.takeIf{it.isNotBlank()&&seen.add(it)};token=next
+      val response=store.readData(builder.build());for(point in response.dataList)onPoint(point);val next=response.pageToken?.takeIf{it.isNotBlank()&&seen.add(it)};token=next
     }while(token!=null)
-    return out
   }
 
-  private suspend fun readAllLocalDate(store:HealthDataStore,type:DataType.Readable<HealthDataPoint,ReadDataRequest.LocalDateBuilder<HealthDataPoint>>,filter:LocalDateFilter):List<HealthDataPoint>{
-    val out=mutableListOf<HealthDataPoint>();val seen=mutableSetOf<String>();var token:String?=null
+  private suspend fun forEachLocalDate(store:HealthDataStore,type:DataType.Readable<HealthDataPoint,ReadDataRequest.LocalDateBuilder<HealthDataPoint>>,filter:LocalDateFilter,onPoint:suspend(HealthDataPoint)->Unit){
+    val seen=mutableSetOf<String>();var token:String?=null
     do{
       val builder=type.readDataRequestBuilder.setLocalDateFilter(filter).setPageSize(500);token?.let{builder.setPageToken(it)}
-      val response=store.readData(builder.build());out+=response.dataList;val next=response.pageToken?.takeIf{it.isNotBlank()&&seen.add(it)};token=next
+      val response=store.readData(builder.build());for(point in response.dataList)onPoint(point);val next=response.pageToken?.takeIf{it.isNotBlank()&&seen.add(it)};token=next
     }while(token!=null)
-    return out
   }
 
   private fun typeKey(type:DataType)=type.name.substringAfterLast('.').replace(Regex("[^a-zA-Z0-9_-]"),"_")
@@ -310,4 +319,5 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
   private fun observation(metric:String,value:String,unit:String,source:String)=JSONObject().put("metric_key",metric).put("value",value).put("unit",unit).put("original_field",source).put("autofilled",false)
   private fun decimal(value:Double)=BigDecimal.valueOf(value).setScale(6,RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()
   private fun sha256(value:String)=MessageDigest.getInstance("SHA-256").digest(value.toByteArray()).joinToString(""){"%02x".format(it)}
+  companion object { private val workerMutex=Mutex() }
 }
