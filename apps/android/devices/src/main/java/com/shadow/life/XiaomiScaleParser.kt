@@ -19,6 +19,14 @@ data class XiaomiScaleFrame(
   val reset:Boolean=false
 )
 
+sealed interface S400ParseResult {
+  data class Measurement(val frame:XiaomiScaleFrame):S400ParseResult
+  data object NotMeasurement:S400ParseResult
+  data object MissingBindkey:S400ParseResult
+  data object BindkeyMismatch:S400ParseResult
+  data object InvalidFrame:S400ParseResult
+}
+
 /** Pure protocol parser ported from the verified Shadow Health device implementation. */
 object XiaomiScaleParser {
   private val s400ProductIds=setOf(0x30D9,0x3BD5,0x48CF)
@@ -38,43 +46,46 @@ object XiaomiScaleParser {
 
   fun isS400(data:ByteArray?)=data!=null&&data.size>=5&&le16(data,2) in s400ProductIds
 
-  fun parseS400(data:ByteArray,address:String?,bindkeyHex:String?):XiaomiScaleFrame? {
-    if(!isS400(data)||data.size<8)return null
+  fun parseS400(data:ByteArray,address:String?,bindkeyHex:String?):XiaomiScaleFrame?=
+    (inspectS400(data,address,bindkeyHex) as? S400ParseResult.Measurement)?.frame
+
+  fun inspectS400(data:ByteArray,address:String?,bindkeyHex:String?):S400ParseResult {
+    if(!isS400(data)||data.size<8)return S400ParseResult.InvalidFrame
     val frameControl=le16(data,0)
-    if((frameControl ushr 12)<2||(frameControl and 0x80)!=0||(frameControl and 0x40)==0)return null
+    if((frameControl ushr 12)<2||(frameControl and 0x80)!=0||(frameControl and 0x40)==0)return S400ParseResult.InvalidFrame
     var offset=5
     val xiaomiMac=if((frameControl and 0x10)!=0){
-      if(data.size<offset+6)return null
+      if(data.size<offset+6)return S400ParseResult.InvalidFrame
       data.copyOfRange(offset,offset+6).reversedArray().also{offset+=6}
-    }else parseMac(address)?:return null
+    }else parseMac(address)?:return S400ParseResult.InvalidFrame
     if((frameControl and 0x20)!=0){
-      if(data.size<=offset)return null
+      if(data.size<=offset)return S400ParseResult.InvalidFrame
       val capability=u8(data[offset++])
-      if((capability and 0x20)!=0){offset++;if(data.size<offset)return null}
+      if((capability and 0x20)!=0){offset++;if(data.size<offset)return S400ParseResult.InvalidFrame}
     }
     val payload=if((frameControl and 0x08)!=0){
-      val key=parseHexKey(bindkeyHex)?:return null
-      if(data.size<offset+9)return null
+      val key=parseHexKey(bindkeyHex)?:return S400ParseResult.MissingBindkey
+      if(data.size<offset+9)return S400ParseResult.InvalidFrame
       val nonce=concat(xiaomiMac.reversedArray(),data.copyOfRange(2,5),data.copyOfRange(data.size-7,data.size-4))
       val encrypted=concat(data.copyOfRange(offset,data.size-7),data.copyOfRange(data.size-4,data.size))
-      decryptCcm(key,nonce,encrypted,byteArrayOf(0x11))?:return null
+      decryptCcm(key,nonce,encrypted,byteArrayOf(0x11))?:return S400ParseResult.BindkeyMismatch
     }else data.copyOfRange(offset,data.size)
     var index=0
     while(index+3<=payload.size){
       val type=le16(payload,index);val length=u8(payload[index+2]);val end=index+3+length
-      if(end>payload.size)return null
+      if(end>payload.size)return S400ParseResult.InvalidFrame
       if(type==0x6E16&&length==9){
         val p=index+3;val profile=u8(payload[p]);val packed=le32(payload,p+1)
         val mass=(packed and 0x7FF).toInt();val heart=((packed ushr 11) and 0x7F).toInt();val impedance=packed ushr 18
-        if(mass==0&&heart==0&&impedance==0L)return XiaomiScaleFrame("MJTZC01YM/S400",null,profileId=profile,reset=true)
+        if(mass==0&&heart==0&&impedance==0L)return S400ParseResult.Measurement(XiaomiScaleFrame("MJTZC01YM/S400",null,profileId=profile,reset=true))
         val heartRate=(heart+50).takeIf{heart in 1..126};val z=(impedance/10.0).takeIf{impedance>0}
-        if(mass>0){val weight=mass/10.0;if(weight !in 10.0..300.0)return null;return XiaomiScaleFrame("MJTZC01YM/S400",weight,impedanceLow=z,heartRate=heartRate,profileId=profile)}
-        if(heart==0&&z!=null)return XiaomiScaleFrame("MJTZC01YM/S400",null,impedanceHigh=z,profileId=profile)
-        return null
+        if(mass>0){val weight=mass/10.0;if(weight !in 10.0..300.0)return S400ParseResult.InvalidFrame;return S400ParseResult.Measurement(XiaomiScaleFrame("MJTZC01YM/S400",weight,impedanceLow=z,heartRate=heartRate,profileId=profile))}
+        if(heart==0&&z!=null)return S400ParseResult.Measurement(XiaomiScaleFrame("MJTZC01YM/S400",null,impedanceHigh=z,profileId=profile))
+        return S400ParseResult.NotMeasurement
       }
       index=end
     }
-    return null
+    return S400ParseResult.NotMeasurement
   }
 
   private fun decryptCcm(key:ByteArray,nonce:ByteArray,input:ByteArray,aad:ByteArray):ByteArray?=try{

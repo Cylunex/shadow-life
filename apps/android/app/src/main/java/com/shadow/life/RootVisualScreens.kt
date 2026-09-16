@@ -1,5 +1,10 @@
 package com.shadow.life
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Canvas
@@ -21,10 +26,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -200,13 +210,12 @@ private fun List<TodayCardKind>.filterNotSame(item:TodayCardKind)=filterNot{it==
   val queueSummary=(queue as? LoadState.Ready)?.value
   val uploadState=queueSummary?.latestScaleState
   val currentUploadState=uploadState.takeIf{status.scaleState=="queued"}
-  val active=status.scaleState in setOf("starting","scanning","detected","reading")
+  val active=status.scaleState in setOf("starting","scanning","detected","reading","needs_config","key_mismatch")
   val tone=todayScaleTone(status.scaleState,currentUploadState)
   val stateLabel=todayScaleStateLabel(status.scaleState,currentUploadState)
   val message=todayScaleMessage(status,currentUploadState)
   LifeSection("小米体脂秤"){
-    Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(24.dp),color=MaterialTheme.colorScheme.surface,border=androidx.compose.foundation.BorderStroke(1.dp,tone.copy(alpha=.48f))){
-      Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
+    ListeningScaleCard(active,tone){
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
           Surface(Modifier.size(48.dp),shape=RoundedCornerShape(16.dp),color=tone.copy(alpha=.14f)){Box(contentAlignment=Alignment.Center){Text("体",style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold,color=tone)}}
           Spacer(Modifier.width(12.dp))
@@ -218,13 +227,25 @@ private fun List<TodayCardKind>.filterNotSame(item:TodayCardKind)=filterNot{it==
           Text(listOfNotNull(status.scaleLastModel,todayDeviceTime(status.scaleMeasuredAt)).joinToString(" · ").ifBlank{"最近一次稳定读数"},style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Text(message,color=tone,style=MaterialTheme.typography.bodyMedium)
-        if(active)LinearProgressIndicator(Modifier.fillMaxWidth(),color=tone,trackColor=tone.copy(alpha=.14f))
         Button(onClick=onStart,enabled=!active,modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)){
           Text(if(active)todayScaleActionLabel(status.scaleState) else if(status.scaleLastWeight==null)"开启数据接收" else "再测一次")
         }
-        if(status.scaleState=="needs_config")TextButton(onClick=onSettings,modifier=Modifier.align(Alignment.End)){Text("打开体脂秤设置")}
+        if(status.scaleState in setOf("needs_config","key_mismatch"))TextButton(onClick=onSettings,modifier=Modifier.align(Alignment.End)){Text("打开 S400 设备密钥设置")}
         uploadState?.let{state->Text("${if(status.scaleState in setOf("queued","committed"))"本次" else "最近一次"}上传：${todayScaleQueueLabel(state)}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
-      }
+    }
+  }
+}
+
+@Composable private fun ListeningScaleCard(active:Boolean,tone:Color,content:@Composable ColumnScope.()->Unit){
+  val progress=if(active){val transition=rememberInfiniteTransition(label="scale-listening");transition.animateFloat(0f,1f,infiniteRepeatable(tween(2200,easing=LinearEasing)),label="scale-listening-border").value}else 0f
+  Box(Modifier.fillMaxWidth()){
+    Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(24.dp),color=MaterialTheme.colorScheme.surface,border=androidx.compose.foundation.BorderStroke(1.dp,tone.copy(alpha=if(active).28f else .48f))){Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(14.dp),content=content)}
+    if(active)Canvas(Modifier.matchParentSize()){
+      val stroke=3.dp.toPx();val inset=stroke/2;val radius=24.dp.toPx()-inset
+      val perimeter=Path().apply{addRoundRect(RoundRect(inset,inset,size.width-inset,size.height-inset,CornerRadius(radius,radius)))}
+      val measure=PathMeasure().apply{setPath(perimeter,false)};val length=measure.length;val end=progress*length;val start=end-length*.22f;val segment=Path()
+      if(start>=0)measure.getSegment(start,end,segment,true) else{measure.getSegment(length+start,length,segment,true);measure.getSegment(0f,end,segment,true)}
+      drawPath(segment,Brush.linearGradient(listOf(tone.copy(alpha=.18f),tone,tone.copy(alpha=.18f)),Offset.Zero,Offset(size.width,size.height)),style=Stroke(stroke,cap=StrokeCap.Round))
     }
   }
 }
@@ -232,7 +253,8 @@ private fun List<TodayCardKind>.filterNotSame(item:TodayCardKind)=filterNot{it==
 @Composable private fun CompactTodaySync(status:DeviceSyncStatus,queue:LoadState<QueueSummary>,samsungAvailable:Boolean,onHealth:()->Unit,onSamsung:()->Unit,onSettings:()->Unit){val q=(queue as? LoadState.Ready)?.value;LifeSection("其他数据源",action={TextButton(onClick=onSettings){Text("管理")}}){LifeCard{Text(listOfNotNull(if(samsungAvailable)"Samsung ${status.samsungMessage}" else null,q?.takeIf{it.waiting>0||it.reconciling>0||it.failed>0}?.let{"${it.waiting} 待发送 · ${it.reconciling} 核对中 · ${it.failed} 失败"}).joinToString(" · ").ifBlank{"数据同步正常"},color=MaterialTheme.colorScheme.onSurfaceVariant);Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(7.dp)){if(samsungAvailable)AssistChip(onSamsung,{Text("同步三星")});if(HealthConnectSync.enabled())AssistChip(onHealth,{Text("Health Connect")})}}}}
 
 @Composable private fun todayScaleTone(state:String,uploadState:String?)=when{
-  uploadState=="failed"||state in setOf("error","timeout","needs_permission","needs_config")->MaterialTheme.colorScheme.error
+  uploadState=="failed"||state in setOf("error","timeout","needs_permission")->MaterialTheme.colorScheme.error
+  state in setOf("needs_config","key_mismatch")->MaterialTheme.colorScheme.tertiary
   uploadState=="committed"||state in setOf("queued","committed","complete")->MaterialTheme.colorScheme.primary
   state in setOf("starting","scanning","detected","reading")->MaterialTheme.colorScheme.secondary
   else->MaterialTheme.colorScheme.onSurfaceVariant
@@ -242,7 +264,7 @@ private fun todayScaleStateLabel(state:String,uploadState:String?)=when{
   state=="queued"&&uploadState=="failed"->"上传失败"
   state=="queued"&&uploadState=="reconciling"->"核对中"
   state=="queued"&&uploadState=="pending"->"发送中"
-  else->mapOf("idle" to "未开启","starting" to "正在启动","scanning" to "等待上秤","detected" to "已发现设备","reading" to "正在保存","queued" to "已接收","committed" to "已同步","complete" to "已同步","timeout" to "未收到","needs_permission" to "需授权","needs_config" to "需配置","error" to "接收失败")[state]?:state
+  else->mapOf("idle" to "未开启","starting" to "正在启动","scanning" to "等待上秤","detected" to "已发现设备","reading" to "正在保存","queued" to "已接收","committed" to "已同步","complete" to "已同步","timeout" to "未收到","needs_permission" to "需授权","needs_config" to "缺少设备密钥","key_mismatch" to "设备密钥不匹配","error" to "接收失败")[state]?:state
 }
 private fun todayScaleMessage(status:DeviceSyncStatus,uploadState:String?)=when{
   status.scaleState=="queued"&&uploadState=="committed"->"稳定读数已接收，并已同步到 Life"
@@ -251,7 +273,7 @@ private fun todayScaleMessage(status:DeviceSyncStatus,uploadState:String?)=when{
   status.scaleState=="queued"&&uploadState=="pending"->"稳定读数已接收，正在安全发送"
   else->status.scaleMessage
 }
-private fun todayScaleActionLabel(state:String)=when(state){"starting"->"正在启动…";"detected"->"已发现设备，等待稳定读数…";"reading"->"正在保存读数…";else->"正在等待上秤…"}
+private fun todayScaleActionLabel(state:String)=when(state){"starting"->"正在启动…";"detected"->"已发现设备，等待稳定读数…";"reading"->"正在保存读数…";"needs_config"->"监听中 · 等待配置 S400 设备密钥";"key_mismatch"->"监听中 · S400 设备密钥不匹配";else->"正在等待上秤…"}
 private fun todayScaleQueueLabel(state:String)=when(state){"pending"->"待发送";"sending"->"发送中";"reconciling"->"核对中";"committed"->"已完成";"failed"->"失败";"blocked"->"已阻止";else->state}
 private fun todayDeviceTime(value:Long):String?=value.takeIf{it>0}?.let{Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("M 月 d 日 HH:mm"))}
 

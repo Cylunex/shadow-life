@@ -59,7 +59,6 @@ class MainActivity:ComponentActivity(){
   private val scalePermissions=registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()){granted->
     if(granted.isNotEmpty()&&granted.values.all{it})startScaleService() else{
       session?.let{(application as ShadowApp).deviceSync.updateScale(it.accountId,"needs_permission","未获得附近设备权限，无法接收体脂秤广播")}
-      loginError="未获得附近设备权限，无法接收体脂秤广播"
     }
   }
 
@@ -131,6 +130,7 @@ class MainActivity:ComponentActivity(){
   private fun requestNotifications(){if(Build.VERSION.SDK_INT>=33)notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) else notificationAuthorization="enabled"}
   private fun startScale(){
     val current=session?:return
+    loginError=null
     val required=if(Build.VERSION.SDK_INT>=31)arrayOf(Manifest.permission.BLUETOOTH_SCAN,Manifest.permission.BLUETOOTH_CONNECT) else arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
     val missing=required.filter{ContextCompat.checkSelfPermission(this,it)!=PackageManager.PERMISSION_GRANTED}
     (application as ShadowApp).deviceSync.updateScale(current.accountId,"starting",if(missing.isEmpty())"正在启动蓝牙接收" else "请允许附近设备权限以开始接收")
@@ -140,11 +140,9 @@ class MainActivity:ComponentActivity(){
     val current=session?:return
     try{
       ContextCompat.startForegroundService(this,Intent(this,ScaleScanService::class.java).putExtra(ScaleScanService.EXTRA_ACCOUNT_ID,current.accountId))
-      loginError="体脂秤接收已开启，请在三分钟内上秤"
     }catch(error:Exception){
       val message=error.message?.takeIf(String::isNotBlank)?:"无法启动体脂秤数据接收"
       (application as ShadowApp).deviceSync.updateScale(current.accountId,"error",message)
-      loginError=message
     }
   }
   private fun saveScaleSettings(value:ScaleProfileSettings){try{scalePreferences.save(value);scaleSettings=scalePreferences.current();loginError="体脂秤档案已安全保存"}catch(error:Exception){loginError=error.message?:"体脂秤档案保存失败"}}

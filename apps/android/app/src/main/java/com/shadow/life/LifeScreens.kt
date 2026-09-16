@@ -83,6 +83,7 @@ import java.util.Locale
 
 @Composable fun DeviceSyncPanel(status:DeviceSyncStatus,queueState:LoadState<QueueSummary>,samsungAvailable:Boolean,onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onSettings:()->Unit){
   val queue=(queueState as? LoadState.Ready)?.value
+  val scaleActive=status.scaleState in setOf("starting","scanning","detected","reading","needs_config","key_mismatch")
   LifeSection("健康设备",action={TextButton(onClick=onSettings){Text("设备设置")}}){
     LifeCard{
       Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
@@ -108,7 +109,7 @@ import java.util.Locale
           if(details.isNotEmpty())Text(details.joinToString(" · "),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
       }
-      Button(onClick=onScale,enabled=status.scaleState!="scanning",modifier=Modifier.fillMaxWidth().heightIn(min=50.dp)){Text(if(status.scaleState=="scanning")"正在等待上秤…" else "开始称重（3 分钟）")}
+      Button(onClick=onScale,enabled=!scaleActive,modifier=Modifier.fillMaxWidth().heightIn(min=50.dp)){Text(if(scaleActive)"正在监听体脂秤…" else "开始称重（3 分钟）")}
       Text("开始后再上秤。收到广播、稳定读数和上传结果会实时显示在这里。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }
     if(HealthConnectSync.enabled())OutlinedButton(onClick=onHealthSync,Modifier.fillMaxWidth().heightIn(min=50.dp)){Text("同步 Health Connect")}
@@ -116,7 +117,8 @@ import java.util.Locale
 }
 
 @Composable private fun deviceStatusColor(state:String)=when(state){
-  "error","timeout","needs_permission","needs_config"->MaterialTheme.colorScheme.error
+  "error","timeout","needs_permission"->MaterialTheme.colorScheme.error
+  "needs_config","key_mismatch"->MaterialTheme.colorScheme.tertiary
   "complete","committed","queued","detected"->MaterialTheme.colorScheme.primary
   else->MaterialTheme.colorScheme.onSurfaceVariant
 }

@@ -15,7 +15,8 @@ class XiaomiScaleParserTest {
     val frame=XiaomiScaleParser.parseS400(hex("4859d53b0bb2379319971fee32b3504a25000000bace36ee"),"AA:BB:CC:DD:EE:FF","000102030405060708090a0b0c0d0e0f")
     assertNotNull(frame);assertNull(frame!!.weightKg);assertEquals(497.6,frame.impedanceHigh!!,.001)
   }
-  @Test fun rejectsMissingOrWrongS400Key(){val raw=hex("4859d53b0a1993e27d5504ae40a2356a77000000eda9f477");assertNull(XiaomiScaleParser.parseS400(raw,"AA:BB:CC:DD:EE:FF",null));assertNull(XiaomiScaleParser.parseS400(raw,"AA:BB:CC:DD:EE:FF","ffffffffffffffffffffffffffffffff"))}
+  @Test fun distinguishesMissingAndWrongS400Key(){val raw=hex("4859d53b0a1993e27d5504ae40a2356a77000000eda9f477");assertEquals(S400ParseResult.MissingBindkey,XiaomiScaleParser.inspectS400(raw,"AA:BB:CC:DD:EE:FF",null));assertEquals(S400ParseResult.BindkeyMismatch,XiaomiScaleParser.inspectS400(raw,"AA:BB:CC:DD:EE:FF","ffffffffffffffffffffffffffffffff"));assertNull(XiaomiScaleParser.parseS400(raw,"AA:BB:CC:DD:EE:FF",null))}
+  @Test fun ignoresValidS400FramesWithoutMeasurementObject(){val raw=hex("4050d53b0a0410020102");assertEquals(S400ParseResult.NotMeasurement,XiaomiScaleParser.inspectS400(raw,"AA:BB:CC:DD:EE:FF","000102030405060708090a0b0c0d0e0f"))}
   @Test fun parsesStableScale2Frame(){
     val raw=byteArrayOf(0x02,0x22,0xEA.toByte(),0x07,9,13,8,30,0,0x20,0x03,0x9C.toByte(),0x36)
     val frame=XiaomiScaleParser.parseScale2(raw)!!;assertEquals(69.9,frame.weightKg!!,.001);assertEquals(800.0,frame.impedanceLow!!,.001);assertEquals(LocalDate.of(2026,9,13),frame.measuredAt!!.toLocalDate())
