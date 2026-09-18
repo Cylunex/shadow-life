@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { capabilityRegistry, commandEnvelopeSchema, domainRecordsResultSchema, healthObservationPayloadSchema, healthSourcesResultSchema, lifeTimelineInputSchema, lifeTodayInputSchema, lifeTodayResultSchema, moneyPlanningInputSchema, projectDirectoryResultSchema, publishTripPlanInputSchema, recordDiningInputSchema, recordMealInputSchema, setHealthPlanInputSchema, setHealthSourceStateInputSchema, setRecurringPlanInputSchema, setTripDayPlanInputSchema, setTripStopOutcomeInputSchema, universalCommandEnvelopeSchema } from "../src/index.js";
+import { capabilityRegistry, commandEnvelopeSchema, diningSceneSchema, domainRecordsResultSchema, healthObservationPayloadSchema, healthSourcesResultSchema, lifeTimelineInputSchema, lifeTodayInputSchema, lifeTodayResultSchema, moneyPlanningInputSchema, projectDirectoryResultSchema, publishTripPlanInputSchema, recordDiningInputSchema, recordMealInputSchema, setHealthPlanInputSchema, setHealthSourceStateInputSchema, setRecurringPlanInputSchema, setTripDayPlanInputSchema, setTripStopOutcomeInputSchema, universalCommandEnvelopeSchema } from "../src/index.js";
 import { setUseCycleInputSchema, updatePurchaseItemsInputSchema } from "../src/index.js";
 
 const meal = {
@@ -69,6 +69,17 @@ test("dining keeps purchased goods, consumed nutrition and source roles distinct
   assert.equal(recordDiningInputSchema.safeParse(base).success,true);
   assert.equal(recordDiningInputSchema.safeParse({...base,items:base.consumed_items}).success,false);
   assert.equal(recordDiningInputSchema.safeParse({...base,sources:[{kind:"image",captured_on:"2026-09-09",asset_version_id:"asset_version_12345678"}]}).success,false);
+});
+
+test("every dining purchase scene can be retained when correcting its time",()=>{
+  const recordPurchase=capabilityRegistry["life.record_purchase"].inputSchema;
+  const correctPurchase=capabilityRegistry["life.correct_purchase"].inputSchema;
+  for(const scene of diningSceneSchema.options){
+    assert.equal(recordPurchase.safeParse({occurred_on:"2026-09-18",time_zone:"Asia/Shanghai",scene,merchant_name_raw:"饮品店"}).success,true,`record_purchase: ${scene}`);
+    assert.equal(correctPurchase.safeParse({record_id:"record_12345678",expected_revision:1,occurred_on:"2026-09-18",occurred_at:"2026-09-18T13:32:00+08:00",time_zone:"Asia/Shanghai",scene,merchant_name_raw:"饮品店",reason:"补充时间"}).success,true,`correct_purchase: ${scene}`);
+  }
+  assert.equal(correctPurchase.safeParse({record_id:"record_12345678",expected_revision:1,occurred_on:"2026-09-18",time_zone:"Asia/Shanghai",scene:"drink",reason:"保留旧场景"}).success,true);
+  assert.equal(correctPurchase.safeParse({record_id:"record_12345678",expected_revision:1,occurred_on:"2026-09-18",time_zone:"Asia/Shanghai",scene:"unknown_scene",reason:"非法场景"}).success,false);
 });
 
 test("source-bearing capabilities require the source-link effect",()=>{

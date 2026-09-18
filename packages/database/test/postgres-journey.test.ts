@@ -220,4 +220,14 @@ test("complete Life journey uses PostgreSQL transactions and survives replay", {
     const dueAttentionPlan=await planner.query("explain (format json) select id from recurring_occurrences where due_on<=$1::date and state in('pending','reminded','snoozed') order by due_on,id limit 20",["2026-10-02"]);assert.match(JSON.stringify(dueAttentionPlan.rows),/recurring_occurrences_open_due_idx/u);
     const tripAttentionPlan=await planner.query("explain (format json) select id from trips where subject_id=$1 and starts_on<=$2::date and ends_on>=$2::date order by starts_on,id limit 20",["subject_journey","2026-10-02"]);assert.match(JSON.stringify(tripAttentionPlan.rows),/trips_subject_date_window_idx/u);
   }finally{await planner.query("reset enable_seqscan");planner.release();}
+  const takeawayDining=await execute("life.record_dining","takeaway_time_correction",{occurred_on:"2026-09-18",time_zone:"Asia/Shanghai",meal_type:"snack",consumed_items:[{name:"日常可乐",provenance:"manual",estimate:false}],purchased_items:[{raw_name:"日常可乐",quantity:"1",unit:"瓶"}],merchant_name_raw:"饮品店",scene:"takeaway"});
+  const takeawayRecordId=String(takeawayDining.actual_values.consumption_record_id);
+  const correctedTakeaway=await execute("life.correct_purchase","takeaway_time_correction_update",{record_id:takeawayRecordId,expected_revision:1,occurred_on:"2026-09-18",occurred_at:"2026-09-18T13:32:00+08:00",time_zone:"Asia/Shanghai",scene:"takeaway",merchant_name_raw:"饮品店",reason:"补充默认时间"});
+  assert.equal(correctedTakeaway.actual_values.revision,2);
+  const takeawayPersisted=await pool.query("select p.scene,(p.occurred_at at time zone 'UTC')::text as occurred_at,r.revision from purchases p join consumption_records r on r.id=p.record_id where r.id=$1",[takeawayRecordId]);
+  assert.equal(takeawayPersisted.rows[0].scene,"takeaway");
+  assert.match(takeawayPersisted.rows[0].occurred_at,/2026-09-18 05:32:00/u);
+  assert.equal(takeawayPersisted.rows[0].revision,2);
+  const takeawaySnapshot=await pool.query("select snapshot->'purchase'->>'scene' as scene from consumption_record_revisions where record_id=$1 and revision=1",[takeawayRecordId]);
+  assert.equal(takeawaySnapshot.rows[0].scene,"takeaway");
 });
