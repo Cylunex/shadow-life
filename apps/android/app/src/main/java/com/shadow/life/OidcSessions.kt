@@ -26,6 +26,7 @@ import kotlin.coroutines.resume
 
 data class FreshSession(val session:ProductSession,val accessToken:String)
 sealed interface SessionRefresh { data class Ready(val value:FreshSession):SessionRefresh;data object Retryable:SessionRefresh;data object ReauthRequired:SessionRefresh }
+internal fun updatedSessionAfterRefresh(saved:ProductSession,authStateJson:String):ProductSession=if(authStateJson==saved.authStateJson)saved else saved.copy(authStateJson=authStateJson,tokenRevision=saved.tokenRevision+1)
 
 class OidcSessions(private val activity:Activity,private val store:SessionStore) {
   private val service=AuthorizationService(activity)
@@ -94,7 +95,7 @@ suspend fun SessionStore.fresh(accountId:String,context:Context):SessionRefresh=
     state.performActionWithFreshTokens(service){token,_,error->
       if(!continuation.isActive){service.dispose();return@performActionWithFreshTokens}
       if(error!=null||token==null){val permanent=error?.type==AuthorizationException.TYPE_OAUTH_TOKEN_ERROR&&error.error !in setOf("server_error","temporarily_unavailable");if(permanent)revoke(accountId);continuation.resume(if(permanent)SessionRefresh.ReauthRequired else SessionRefresh.Retryable)}
-      else{val updated=saved.copy(authStateJson=state.jsonSerializeString(),tokenRevision=saved.tokenRevision+1);continuation.resume(if(saveIfCurrent(generation,updated))SessionRefresh.Ready(FreshSession(updated,token))else SessionRefresh.ReauthRequired)}
+      else{val updated=updatedSessionAfterRefresh(saved,state.jsonSerializeString());val current=if(updated===saved)isCurrent(generation,saved.accountId) else saveIfCurrent(generation,updated);continuation.resume(if(current)SessionRefresh.Ready(FreshSession(updated,token))else SessionRefresh.ReauthRequired)}
       service.dispose()
     }
   }

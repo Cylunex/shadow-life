@@ -8,6 +8,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -47,6 +48,7 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
   private var workspaceQuery:String=""
   private var queueJob:Job?=null
   private var deviceSyncJob:Job?=null
+  private var landingJob:Job?=null
   private var workspaceJob:Job?=null
   private var workspaceOverviewJob:Job?=null
   private var readSequence=0L
@@ -56,11 +58,8 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
   private fun isCurrentRead(key:String,token:Long)=activeAccountId!=null&&latestReads[key]==token
   private fun invalidateReads(){readSequence++;latestReads.clear()}
 
-  fun refreshAll(){
-    refreshToday();refreshHomeHealth();refreshTimeline();refreshPlans();refreshLibrary()
-  }
-  fun activateAccount(accountId:String){if(activeAccountId==accountId)return;invalidateReads();assetPreviews.clear();activeAccountId=accountId;assistantThreadId=null;assistant=null;assistantHistory=null;searchResults=null;workspaceDomain=null;activeDetail=null;workspace=LoadState.Loading;workspaceOverview=LoadState.Loading;detail=LoadState.Loading;planDetail=LoadState.Loading;ownedItemDetail=LoadState.Loading;reviewDetail=LoadState.Loading;consumptionStats=LoadState.Loading;submit=SubmitState.Editing;observeQueue();observeDeviceSync(accountId);refreshAll();refreshProjectLinks();refreshInbox()}
-  fun deactivateAccount(){invalidateReads();assetPreviews.clear();queueJob?.cancel();deviceSyncJob?.cancel();workspaceJob?.cancel();workspaceOverviewJob?.cancel();queueJob=null;deviceSyncJob=null;workspaceJob=null;workspaceOverviewJob=null;activeAccountId=null;assistantThreadId=null;assistant=null;assistantHistory=null;searchResults=null;workspaceDomain=null;activeDetail=null;today=LoadState.Loading;homeHealth=LoadState.Loading;timeline=LoadState.Loading;plans=LoadState.Loading;library=LoadState.Loading;workspace=LoadState.Loading;workspaceOverview=LoadState.Loading;refundCandidates=LoadState.Loading;detail=LoadState.Loading;planDetail=LoadState.Loading;ownedItemDetail=LoadState.Loading;reviewDetail=LoadState.Loading;consumptionStats=LoadState.Loading;projectLinks=LoadState.Loading;queueStatus=LoadState.Loading;deviceSyncStatus=DeviceSyncStatus();inbox=LoadState.Loading;submit=SubmitState.Editing}
+  fun activateAccount(accountId:String){if(activeAccountId==accountId)return;invalidateReads();landingJob?.cancel();assetPreviews.clear();activeAccountId=accountId;assistantThreadId=null;assistant=null;assistantHistory=null;searchResults=null;workspaceDomain=null;activeDetail=null;today=LoadState.Loading;homeHealth=LoadState.Loading;timeline=LoadState.Loading;plans=LoadState.Loading;library=LoadState.Loading;projectLinks=LoadState.Loading;inbox=LoadState.Loading;workspace=LoadState.Loading;workspaceOverview=LoadState.Loading;detail=LoadState.Loading;planDetail=LoadState.Loading;ownedItemDetail=LoadState.Loading;reviewDetail=LoadState.Loading;consumptionStats=LoadState.Loading;submit=SubmitState.Editing;observeQueue();observeDeviceSync(accountId);refreshToday();landingJob=viewModelScope.launch{delay(450);if(activeAccountId==accountId)refreshHomeHealth()}}
+  fun deactivateAccount(){invalidateReads();assetPreviews.clear();queueJob?.cancel();deviceSyncJob?.cancel();landingJob?.cancel();workspaceJob?.cancel();workspaceOverviewJob?.cancel();queueJob=null;deviceSyncJob=null;landingJob=null;workspaceJob=null;workspaceOverviewJob=null;activeAccountId=null;assistantThreadId=null;assistant=null;assistantHistory=null;searchResults=null;workspaceDomain=null;activeDetail=null;today=LoadState.Loading;homeHealth=LoadState.Loading;timeline=LoadState.Loading;plans=LoadState.Loading;library=LoadState.Loading;workspace=LoadState.Loading;workspaceOverview=LoadState.Loading;refundCandidates=LoadState.Loading;detail=LoadState.Loading;planDetail=LoadState.Loading;ownedItemDetail=LoadState.Loading;reviewDetail=LoadState.Loading;consumptionStats=LoadState.Loading;projectLinks=LoadState.Loading;queueStatus=LoadState.Loading;deviceSyncStatus=DeviceSyncStatus();inbox=LoadState.Loading;submit=SubmitState.Editing}
   fun refreshToday(date:LocalDate=LocalDate.now()){val token=beginRead("today");today=LoadState.Loading;viewModelScope.launch{val result=load("今天还没有记录"){repository.today(date)};if(isCurrentRead("today",token))today=result}}
   fun refreshHomeHealth(){val token=beginRead("home-health");homeHealth=LoadState.Loading;viewModelScope.launch{val result=load("还没有健康趋势"){repository.homeHealthOverview()};if(isCurrentRead("home-health",token))homeHealth=result}}
   fun refreshTimeline(){val token=beginRead("timeline");timeline=LoadState.Loading;viewModelScope.launch{val result=load("还没有生活记录"){repository.timeline()};if(isCurrentRead("timeline",token))timeline=result}}
@@ -113,7 +112,7 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
         val currentCommitted=next.committedReceipts.mapTo(linkedSetOf()){it.commandId}
         val newlyCommitted=knownCommitted?.let{known->next.committedReceipts.filterNot{it.commandId in known}}.orEmpty()
         knownCommitted=currentCommitted
-        if(deviceUploadCompleted){refreshToday();if(workspaceDomain==LifeDomain.Health)loadWorkspace(LifeDomain.Health,workspaceQuery)}
+        if(deviceUploadCompleted&&newlyCommitted.isEmpty()){refreshToday();refreshHomeHealth();if(workspaceDomain==LifeDomain.Health)loadWorkspace(LifeDomain.Health,workspaceQuery)}
         if(newlyCommitted.isNotEmpty()){val current=submit as? SubmitState.Saved;newlyCommitted.firstOrNull{it.commandId==current?.receipt?.commandId}?.let{submit=SubmitState.Saved(it)};val photo=mealPhotoSubmit as? SubmitState.Saved;newlyCommitted.firstOrNull{it.commandId==photo?.receipt?.commandId}?.let{mealPhotoSubmit=SubmitState.Saved(it)};refreshForCapabilities(newlyCommitted.mapTo(linkedSetOf()){it.capability})}
       }
     }
@@ -131,6 +130,7 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
       else->null
     }}.toSet()
     refreshToday();refreshTimeline()
+    if(domains.contains(LifeDomain.Health))refreshHomeHealth()
     if(domains.contains(LifeDomain.Library))refreshLibrary(activeLibraryQuery)
     if(capabilities.any{it.startsWith("life.save_project")||it.startsWith("life.save_action")||it.startsWith("life.save_owned")||it.startsWith("life.record_owned")||it.startsWith("life.generate_review")||it.startsWith("life.save_meal")||it.startsWith("life.build_shopping")||it.startsWith("life.update_shopping")||it.startsWith("money.set_")||it.startsWith("health.set_plan")})refreshPlans()
     workspaceDomain?.let{loadWorkspace(it,workspaceQuery)}

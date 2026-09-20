@@ -49,6 +49,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -90,25 +91,26 @@ object SamsungSync {
 
   @JvmStatic fun startIfAuthorized(context:Context,accountId:String){scope.launch{
     try{
-      val granted=HealthDataService.getStore(context.applicationContext).getGrantedPermissions(PERMISSIONS)
+      val granted=withContext(Dispatchers.IO){HealthDataService.getStore(context.applicationContext).getGrantedPermissions(PERMISSIONS)}
       if(granted.isEmpty()){
         status(context).updateSamsung(accountId,"needs_permission","尚未授权，点此连接")
         return@launch
       }
       status(context).updateSamsung(accountId,"syncing","已自动启动 Samsung Health 同步")
-      schedule(context,accountId)
+      schedule(context,accountId,2)
     }catch(error:Exception){
       Log.w("SamsungSync","automatic Samsung sync unavailable",error)
       status(context).updateSamsung(accountId,"error","自动同步启动失败：${error.message?:"未知错误"}")
     }
   }}
 
-  private fun schedule(context:Context,accountId:String){
+  private fun schedule(context:Context,accountId:String,initialDelaySeconds:Long=0){
     val data=workDataOf("account_id" to accountId)
     val constraints=Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
     val work=WorkManager.getInstance(context)
     work.enqueueUniquePeriodicWork("shadow-samsung-$accountId",ExistingPeriodicWorkPolicy.UPDATE,PeriodicWorkRequestBuilder<SamsungSyncWorker>(1,TimeUnit.HOURS).setInputData(data).setConstraints(constraints).build())
-    work.enqueueUniqueWork("shadow-samsung-now-$accountId",ExistingWorkPolicy.KEEP,OneTimeWorkRequestBuilder<SamsungSyncWorker>().setInputData(data).setConstraints(constraints).build())
+    val immediate=OneTimeWorkRequestBuilder<SamsungSyncWorker>().setInputData(data).setConstraints(constraints).apply{if(initialDelaySeconds>0)setInitialDelay(initialDelaySeconds,TimeUnit.SECONDS)}.build()
+    work.enqueueUniqueWork("shadow-samsung-now-$accountId",ExistingWorkPolicy.KEEP,immediate)
   }
   private fun status(context:Context)=(context.applicationContext as ShadowApp).deviceSync
 }

@@ -432,7 +432,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         val points=value.optJSONArray("points").objects().mapNotNull{point->
           val text=point.optString("value").takeIf(String::isNotBlank)?:return@mapNotNull null
           val number=text.toDoubleOrNull()?:return@mapNotNull null
-          val unit=point.optString("unit");HealthTrendPoint(point.optString("id"),point.optString("occurred_on"),number,healthValueText(text,unit),unit,point.optString("source_kind"),point.optInt("revision",1))
+          val unit=point.optString("unit");HealthTrendPoint(point.optString("id"),point.optString("occurred_on"),number,healthValueText(text,unit),unit,point.optString("source_kind"),point.optInt("revision",1),point.optString("occurred_at").takeIf(String::isNotBlank))
         }
         val coverage=value.optJSONObject("coverage")
         HealthMetricTrend(key,label,points,coverage?.optInt("points",points.size)?:points.size,coverage?.optBoolean("truncated",false)?:false)

@@ -19,6 +19,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
@@ -111,8 +112,7 @@ class MainActivity:ComponentActivity(){
   }
   private fun resumeAccount(value:ProductSession){
     if(!HealthConnectSync.enabled())WorkManager.getInstance(this).cancelUniqueWork(HealthConnectScheduler.workName(value.accountId))
-    lifecycleScope.launch{val app=application as ShadowApp;withContext(Dispatchers.IO){app.queue.secureLegacy(value)};SyncScheduler.retryNow(this@MainActivity,value.accountId)}
-    SamsungHealthBridge.startIfAuthorized(this,value.accountId)
+    lifecycleScope.launch{val app=application as ShadowApp;withContext(Dispatchers.IO){app.queue.secureLegacy(value)};delay(500);if(session?.accountId!=value.accountId)return@launch;SyncScheduler.retryNow(this@MainActivity,value.accountId);delay(1_500);if(session?.accountId==value.accountId)SamsungHealthBridge.startIfAuthorized(this@MainActivity,value.accountId)}
   }
   private fun logout(){session?.let{current->WorkManager.getInstance(this).cancelUniqueWork(SyncScheduler.workName(current.accountId));WorkManager.getInstance(this).cancelUniqueWork(HealthConnectScheduler.workName(current.accountId));WorkManager.getInstance(this).cancelUniqueWork("shadow-samsung-${current.accountId}");WorkManager.getInstance(this).cancelUniqueWork("shadow-samsung-now-${current.accountId}");stopService(Intent(this,ScaleScanService::class.java));NotificationSyncScheduler.cancel(this,current.accountId);oidc.logout(current)};session=null}
   private fun syncHealth(){
