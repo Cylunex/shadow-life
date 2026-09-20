@@ -6,23 +6,28 @@ import java.io.OutputStream
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import org.json.JSONObject
 
 class OfflineQueue(private val database:ShadowDatabase,private val crypto:QueueCrypto=QueueCrypto()) {
-  fun observeStatus(session:ProductSession):Flow<QueueSummary> = combine(
-    database.commands().observeStatus(session.accountId,session.subjectId),
-    database.commands().observeRecentCommitted(session.accountId,session.subjectId,RECENT_RECEIPT_LIMIT)
-  ){status,committed->
-    val committedReceipts=committed.asReversed().mapNotNull(::verifiedReceipt)
+  private val receiptCache=linkedMapOf<String,CachedReceipt>()
+  fun observeStatus(session:ProductSession):Flow<QueueSummary> {
+    val status=database.commands().observeStatus(session.accountId,session.subjectId).distinctUntilChanged()
+    val receipts=database.commands().observeRecentCommitted(session.accountId,session.subjectId,RECENT_RECEIPT_LIMIT).distinctUntilChanged().map(::verifiedReceipts)
+    return combine(status,receipts){queue,committedReceipts->
     QueueSummary(
-    waiting=status.waiting,reconciling=status.reconciling,failed=status.failed,completed=status.completed,
-    attachments=status.attachments,
-    latestScaleState=status.latestScaleState?.let(::sourceState),latestScaleAt=status.latestScaleAt,
-    latestSamsungState=status.latestSamsungState?.let(::sourceState),latestSamsungAt=status.latestSamsungAt,
+    waiting=queue.waiting,reconciling=queue.reconciling,failed=queue.failed,completed=queue.completed,
+    attachments=queue.attachments,
+    latestScaleState=queue.latestScaleState?.let(::sourceState),latestScaleAt=queue.latestScaleAt,
+    latestSamsungState=queue.latestSamsungState?.let(::sourceState),latestSamsungAt=queue.latestSamsungAt,
     committedReceipts=committedReceipts
-  )}
+  )}.distinctUntilChanged().flowOn(Dispatchers.IO)
+  }
   suspend fun enqueueCommand(session:ProductSession,commandId:String,capability:String,plainBody:String):Long{
     val encrypted=crypto.encryptCommand(session.accountId,session.subjectId,commandId,plainBody)
     return database.commands().enqueue(PendingCommand(commandId,session.accountId,session.subjectId,capability,encrypted,encryptionVersion=1))
@@ -98,8 +103,18 @@ class OfflineQueue(private val database:ShadowDatabase,private val crypto:QueueC
     val resources=value.optJSONArray("resources");val warnings=value.optJSONArray("warnings")
     OperationReceipt(command.capability,command.commandId,value.optString("execution_id").takeIf(String::isNotBlank),(0 until (resources?.length()?:0)).mapNotNull{index->resources?.optJSONObject(index)?.let{ResourceRef(it.optString("type"),it.optString("id"),it.optInt("revision",1))}},(0 until (warnings?.length()?:0)).mapNotNull{index->warnings?.optString(index)?.takeIf(String::isNotBlank)},queued=false)
   }.getOrNull()
+  @Synchronized private fun verifiedReceipts(rows:List<CommittedCommandRow>):List<OperationReceipt>{
+    val active=rows.mapTo(hashSetOf()){it.commandId};receiptCache.keys.retainAll(active)
+    return rows.asReversed().mapNotNull{row->
+      val cached=receiptCache[row.commandId]
+      if(cached!=null&&cached.body==row.receiptBody)cached.receipt
+      else verifiedReceipt(row).also{receiptCache[row.commandId]=CachedReceipt(row.receiptBody,it)}
+    }
+  }
   companion object { private const val RECENT_RECEIPT_LIMIT=100 }
 }
+
+private data class CachedReceipt(val body:String,val receipt:OperationReceipt?)
 
 internal fun sourceState(state:String)=when(state){"blocked","failed"->"failed";"unknown"->"reconciling";"pending","uploading"->"pending";else->state}
 internal fun latestSourceState(commands:List<PendingCommand>):String?=commands.maxWithOrNull(compareBy<PendingCommand>{it.createdAt}.thenBy{it.commandId})?.state?.let(::sourceState)

@@ -22,6 +22,7 @@ import javax.crypto.spec.GCMParameterSpec
 class QueueKeyUnavailableException(cause:Throwable):Exception(cause)
 
 class QueueCrypto {
+  private val keyCache=mutableMapOf<String,SecretKey>()
   fun encryptCommand(accountId:String,subjectId:String,commandId:String,plainText:String)=
     encryptText(accountId,subjectId,"command",commandId,plainText)
 
@@ -63,9 +64,11 @@ class QueueCrypto {
   private fun decryptCipher(accountId:String,iv:ByteArray,aad:ByteArray)=Cipher.getInstance(TRANSFORMATION).also{it.init(Cipher.DECRYPT_MODE,key(accountId),GCMParameterSpec(128,iv));it.updateAAD(aad)}
   @Synchronized private fun key(accountId:String):SecretKey{
     val alias="shadow_queue_${digest(accountId).take(32)}"
+    keyCache[alias]?.let{return it}
     val store=KeyStore.getInstance("AndroidKeyStore").apply{load(null)}
-    (store.getKey(alias,null) as? SecretKey)?.let{return it}
-    return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES,"AndroidKeyStore").apply{init(KeyGenParameterSpec.Builder(alias,KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT).setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE).setRandomizedEncryptionRequired(true).build())}.generateKey()
+    val key=(store.getKey(alias,null) as? SecretKey)?:KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES,"AndroidKeyStore").apply{init(KeyGenParameterSpec.Builder(alias,KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT).setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE).setRandomizedEncryptionRequired(true).build())}.generateKey()
+    keyCache[alias]=key
+    return key
   }
   private fun aad(accountId:String,subjectId:String,kind:String,id:String)="$accountId\u0000$subjectId\u0000$kind\u0000$id".toByteArray(Charsets.UTF_8)
   private fun encryptText(accountId:String,subjectId:String,kind:String,id:String,plainText:String):String=protect{val cipher=encryptCipher(accountId,aad(accountId,subjectId,kind,id));"slq1.${encode(cipher.iv)}.${encode(cipher.doFinal(plainText.toByteArray(Charsets.UTF_8)))}"}

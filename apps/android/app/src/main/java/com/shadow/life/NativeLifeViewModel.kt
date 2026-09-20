@@ -7,9 +7,11 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 
 class NativeLifeViewModel(application:Application):AndroidViewModel(application){
@@ -49,6 +51,8 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
   private var queueJob:Job?=null
   private var deviceSyncJob:Job?=null
   private var landingJob:Job?=null
+  private var commitRefreshJob:Job?=null
+  private val pendingRefreshCapabilities=linkedSetOf<String>()
   private var workspaceJob:Job?=null
   private var workspaceOverviewJob:Job?=null
   private var readSequence=0L
@@ -58,8 +62,8 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
   private fun isCurrentRead(key:String,token:Long)=activeAccountId!=null&&latestReads[key]==token
   private fun invalidateReads(){readSequence++;latestReads.clear()}
 
-  fun activateAccount(accountId:String){if(activeAccountId==accountId)return;invalidateReads();landingJob?.cancel();assetPreviews.clear();activeAccountId=accountId;assistantThreadId=null;assistant=null;assistantHistory=null;searchResults=null;workspaceDomain=null;activeDetail=null;today=LoadState.Loading;homeHealth=LoadState.Loading;timeline=LoadState.Loading;plans=LoadState.Loading;library=LoadState.Loading;projectLinks=LoadState.Loading;inbox=LoadState.Loading;workspace=LoadState.Loading;workspaceOverview=LoadState.Loading;detail=LoadState.Loading;planDetail=LoadState.Loading;ownedItemDetail=LoadState.Loading;reviewDetail=LoadState.Loading;consumptionStats=LoadState.Loading;submit=SubmitState.Editing;observeQueue();observeDeviceSync(accountId);refreshToday();landingJob=viewModelScope.launch{delay(450);if(activeAccountId==accountId)refreshHomeHealth()}}
-  fun deactivateAccount(){invalidateReads();assetPreviews.clear();queueJob?.cancel();deviceSyncJob?.cancel();landingJob?.cancel();workspaceJob?.cancel();workspaceOverviewJob?.cancel();queueJob=null;deviceSyncJob=null;landingJob=null;workspaceJob=null;workspaceOverviewJob=null;activeAccountId=null;assistantThreadId=null;assistant=null;assistantHistory=null;searchResults=null;workspaceDomain=null;activeDetail=null;today=LoadState.Loading;homeHealth=LoadState.Loading;timeline=LoadState.Loading;plans=LoadState.Loading;library=LoadState.Loading;workspace=LoadState.Loading;workspaceOverview=LoadState.Loading;refundCandidates=LoadState.Loading;detail=LoadState.Loading;planDetail=LoadState.Loading;ownedItemDetail=LoadState.Loading;reviewDetail=LoadState.Loading;consumptionStats=LoadState.Loading;projectLinks=LoadState.Loading;queueStatus=LoadState.Loading;deviceSyncStatus=DeviceSyncStatus();inbox=LoadState.Loading;submit=SubmitState.Editing}
+  fun activateAccount(accountId:String){if(activeAccountId==accountId)return;invalidateReads();landingJob?.cancel();commitRefreshJob?.cancel();pendingRefreshCapabilities.clear();assetPreviews.clear();activeAccountId=accountId;assistantThreadId=null;assistant=null;assistantHistory=null;searchResults=null;workspaceDomain=null;activeDetail=null;today=LoadState.Loading;homeHealth=LoadState.Loading;timeline=LoadState.Loading;plans=LoadState.Loading;library=LoadState.Loading;projectLinks=LoadState.Loading;inbox=LoadState.Loading;workspace=LoadState.Loading;workspaceOverview=LoadState.Loading;detail=LoadState.Loading;planDetail=LoadState.Loading;ownedItemDetail=LoadState.Loading;reviewDetail=LoadState.Loading;consumptionStats=LoadState.Loading;submit=SubmitState.Editing;observeQueue();observeDeviceSync(accountId);refreshToday();landingJob=viewModelScope.launch{delay(450);if(activeAccountId==accountId)refreshHomeHealth()}}
+  fun deactivateAccount(){invalidateReads();assetPreviews.clear();queueJob?.cancel();deviceSyncJob?.cancel();landingJob?.cancel();commitRefreshJob?.cancel();pendingRefreshCapabilities.clear();workspaceJob?.cancel();workspaceOverviewJob?.cancel();queueJob=null;deviceSyncJob=null;landingJob=null;commitRefreshJob=null;workspaceJob=null;workspaceOverviewJob=null;activeAccountId=null;assistantThreadId=null;assistant=null;assistantHistory=null;searchResults=null;workspaceDomain=null;activeDetail=null;today=LoadState.Loading;homeHealth=LoadState.Loading;timeline=LoadState.Loading;plans=LoadState.Loading;library=LoadState.Loading;workspace=LoadState.Loading;workspaceOverview=LoadState.Loading;refundCandidates=LoadState.Loading;detail=LoadState.Loading;planDetail=LoadState.Loading;ownedItemDetail=LoadState.Loading;reviewDetail=LoadState.Loading;consumptionStats=LoadState.Loading;projectLinks=LoadState.Loading;queueStatus=LoadState.Loading;deviceSyncStatus=DeviceSyncStatus();inbox=LoadState.Loading;submit=SubmitState.Editing}
   fun refreshToday(date:LocalDate=LocalDate.now()){val token=beginRead("today");today=LoadState.Loading;viewModelScope.launch{val result=load("今天还没有记录"){repository.today(date)};if(isCurrentRead("today",token))today=result}}
   fun refreshHomeHealth(){val token=beginRead("home-health");homeHealth=LoadState.Loading;viewModelScope.launch{val result=load("还没有健康趋势"){repository.homeHealthOverview()};if(isCurrentRead("home-health",token))homeHealth=result}}
   fun refreshTimeline(){val token=beginRead("timeline");timeline=LoadState.Loading;viewModelScope.launch{val result=load("还没有生活记录"){repository.timeline()};if(isCurrentRead("timeline",token))timeline=result}}
@@ -112,12 +116,24 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
         val currentCommitted=next.committedReceipts.mapTo(linkedSetOf()){it.commandId}
         val newlyCommitted=knownCommitted?.let{known->next.committedReceipts.filterNot{it.commandId in known}}.orEmpty()
         knownCommitted=currentCommitted
-        if(deviceUploadCompleted&&newlyCommitted.isEmpty()){refreshToday();refreshHomeHealth();if(workspaceDomain==LifeDomain.Health)loadWorkspace(LifeDomain.Health,workspaceQuery)}
-        if(newlyCommitted.isNotEmpty()){val current=submit as? SubmitState.Saved;newlyCommitted.firstOrNull{it.commandId==current?.receipt?.commandId}?.let{submit=SubmitState.Saved(it)};val photo=mealPhotoSubmit as? SubmitState.Saved;newlyCommitted.firstOrNull{it.commandId==photo?.receipt?.commandId}?.let{mealPhotoSubmit=SubmitState.Saved(it)};refreshForCapabilities(newlyCommitted.mapTo(linkedSetOf()){it.capability})}
+        if(deviceUploadCompleted&&newlyCommitted.isEmpty())scheduleRefreshForCapabilities(setOf("health.ingest_raw"))
+        if(newlyCommitted.isNotEmpty()){val current=submit as? SubmitState.Saved;newlyCommitted.firstOrNull{it.commandId==current?.receipt?.commandId}?.let{submit=SubmitState.Saved(it)};val photo=mealPhotoSubmit as? SubmitState.Saved;newlyCommitted.firstOrNull{it.commandId==photo?.receipt?.commandId}?.let{mealPhotoSubmit=SubmitState.Saved(it)};scheduleRefreshForCapabilities(newlyCommitted.mapTo(linkedSetOf()){it.capability})}
       }
     }
   }
   private fun observeDeviceSync(accountId:String){deviceSyncJob?.cancel();deviceSyncJob=viewModelScope.launch{getApplication<ShadowApp>().deviceSync.observe(accountId).collect{deviceSyncStatus=it}}}
+
+  private fun scheduleRefreshForCapabilities(capabilities:Set<String>){
+    pendingRefreshCapabilities+=capabilities
+    commitRefreshJob?.cancel()
+    val accountId=activeAccountId?:return
+    commitRefreshJob=viewModelScope.launch{
+      delay(900)
+      if(activeAccountId!=accountId)return@launch
+      val pending=pendingRefreshCapabilities.toSet();pendingRefreshCapabilities.clear()
+      refreshForCapabilities(pending)
+    }
+  }
 
   private fun refreshForCapabilities(capabilities:Set<String>){
     if(capabilities.isEmpty())return
@@ -137,6 +153,6 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
     activeDetail?.let{(domain,id)->loadDetail(domain,id)}
   }
 
-  private suspend fun <T> load(emptyMessage:String,block:suspend()->T):LoadState<T> = try{val value=block();when(value){is Collection<*>->if(value.isEmpty())LoadState.Empty(emptyMessage) else LoadState.Ready(value);else->LoadState.Ready(value)}}catch(error:CancellationException){throw error}catch(error:Exception){LoadState.Failed(error.message?:"读取失败")}
-  private suspend fun <T> loadList(emptyMessage:String,block:suspend()->List<T>):LoadState<List<T>> = try{block().let{if(it.isEmpty())LoadState.Empty(emptyMessage) else LoadState.Ready(it)}}catch(error:CancellationException){throw error}catch(error:Exception){LoadState.Failed(error.message?:"读取失败")}
+  private suspend fun <T> load(emptyMessage:String,block:suspend()->T):LoadState<T> = withContext(Dispatchers.Default){try{val value=block();when(value){is Collection<*>->if(value.isEmpty())LoadState.Empty(emptyMessage) else LoadState.Ready(value);else->LoadState.Ready(value)}}catch(error:CancellationException){throw error}catch(error:Exception){LoadState.Failed(error.message?:"读取失败")}}
+  private suspend fun <T> loadList(emptyMessage:String,block:suspend()->List<T>):LoadState<List<T>> = withContext(Dispatchers.Default){try{block().let{if(it.isEmpty())LoadState.Empty(emptyMessage) else LoadState.Ready(it)}}catch(error:CancellationException){throw error}catch(error:Exception){LoadState.Failed(error.message?:"读取失败")}}
 }
