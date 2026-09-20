@@ -23,7 +23,7 @@ fun configuredProperty(name:String,fallback:String):String {
 }
 android { namespace="com.shadow.life"; compileSdk=36
   defaultConfig {
-    applicationId="com.shadow.life"; minSdk=29; targetSdk=36; versionCode=33; versionName="2.1.11"
+    applicationId="com.shadow.life"; minSdk=29; targetSdk=36; versionCode=34; versionName="2.1.12"
     fun configured(name:String,fallback:String)=configuredProperty(name,fallback)
     fun quoted(value:String)="\"${value.replace("\\","\\\\").replace("\"","\\\"")}\""
     val healthConnectEnabled=configured("HEALTH_CONNECT_ENABLED","false").toBooleanStrictOrNull()

@@ -28,8 +28,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.amap.api.maps.AMap
 import com.amap.api.maps.CameraUpdateFactory as AMapCameraUpdateFactory
 import com.amap.api.maps.CoordinateConverter
-import com.amap.api.maps.MapView as AMapView
 import com.amap.api.maps.MapsInitializer
+import com.amap.api.maps.TextureMapView as AMapTextureView
 import com.amap.api.maps.model.LatLng as AMapLatLng
 import com.amap.api.maps.model.LatLngBounds as AMapLatLngBounds
 import com.amap.api.maps.model.MarkerOptions as AMapMarkerOptions
@@ -84,16 +84,19 @@ internal fun providerConfigured(provider:TravelMapProvider)=when(provider){
 @Composable private fun AmapSurface(markers:List<TravelMapMarker>,tracks:List<TravelTrackSummary>,modifier:Modifier){
   val context=LocalContext.current
   val lifecycle=LocalLifecycleOwner.current.lifecycle
-  var mapView by remember{mutableStateOf<AMapView?>(null)}
-  DisposableEffect(lifecycle,mapView){val view=mapView;var destroyed=false;fun destroy(){if(!destroyed){view?.onDestroy();destroyed=true}};val observer=LifecycleEventObserver{_,event->when(event){Lifecycle.Event.ON_RESUME->view?.onResume();Lifecycle.Event.ON_PAUSE->view?.onPause();Lifecycle.Event.ON_DESTROY->destroy();else->{}}};lifecycle.addObserver(observer);if(lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))view?.onResume();onDispose{lifecycle.removeObserver(observer);view?.onPause();destroy()}}
-  AndroidView(modifier=modifier,factory={ctx->
-    MapsInitializer.updatePrivacyShow(ctx.applicationContext,true,true)
-    MapsInitializer.updatePrivacyAgree(ctx.applicationContext,true)
-    AMapView(ctx).also{view->view.layoutParams=ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT);view.onCreate(Bundle());mapView=view}
-  },update={view->renderAmap(context,view.map,markers,tracks,view)})
+  val mapView=remember(context){
+    MapsInitializer.updatePrivacyShow(context.applicationContext,true,true)
+    MapsInitializer.updatePrivacyAgree(context.applicationContext,true)
+    MapsInitializer.setSupportRecycleView(true)
+    when(preferredAmapSurface()){
+      AmapSurfaceKind.Texture->AMapTextureView(context).apply{layoutParams=ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT);onCreate(Bundle())}
+    }
+  }
+  DisposableEffect(lifecycle,mapView){var destroyed=false;fun pause(){if(!destroyed)mapView.onPause()};fun destroy(){if(!destroyed){mapView.onDestroy();destroyed=true}};val observer=LifecycleEventObserver{_,event->when(event){Lifecycle.Event.ON_RESUME->if(!destroyed)mapView.onResume();Lifecycle.Event.ON_PAUSE->pause();Lifecycle.Event.ON_DESTROY->destroy();else->{}}};lifecycle.addObserver(observer);onDispose{lifecycle.removeObserver(observer);pause();destroy()}}
+  AndroidView(modifier=modifier,factory={mapView},update={view->renderAmap(context,view.map,markers,tracks,view)})
 }
 
-private fun renderAmap(context:Context,map:AMap,markers:List<TravelMapMarker>,tracks:List<TravelTrackSummary>,view:AMapView){
+private fun renderAmap(context:Context,map:AMap,markers:List<TravelMapMarker>,tracks:List<TravelTrackSummary>,view:AMapTextureView){
   map.mapType=preferredAmapMapType();map.uiSettings.isZoomControlsEnabled=false;map.uiSettings.isCompassEnabled=true;map.clear()
   val bounds=AMapLatLngBounds.builder();var count=0;var firstPoint:AMapLatLng?=null
   fun convert(latitude:Double,longitude:Double):AMapLatLng=CoordinateConverter(context).from(CoordinateConverter.CoordType.GPS).coord(AMapLatLng(latitude,longitude)).convert()
@@ -103,6 +106,8 @@ private fun renderAmap(context:Context,map:AMap,markers:List<TravelMapMarker>,tr
 }
 
 internal fun preferredAmapMapType():Int=AMap.MAP_TYPE_NORMAL
+internal enum class AmapSurfaceKind{Texture}
+internal fun preferredAmapSurface()=AmapSurfaceKind.Texture
 
 @Composable private fun GoogleMapSurface(markers:List<TravelMapMarker>,tracks:List<TravelTrackSummary>,modifier:Modifier){
   val lifecycle=LocalLifecycleOwner.current.lifecycle

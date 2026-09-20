@@ -8,4 +8,8 @@ class TravelNativeMapTest {
   @Test fun nativeAmapUsesReadableNormalBaseMap(){
     assertEquals(AMap.MAP_TYPE_NORMAL,preferredAmapMapType())
   }
+
+  @Test fun nativeAmapUsesTextureSurfaceInsideComposeScrollingContent(){
+    assertEquals(AmapSurfaceKind.Texture,preferredAmapSurface())
+  }
 }
