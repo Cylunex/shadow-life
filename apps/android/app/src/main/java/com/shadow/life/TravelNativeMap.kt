@@ -94,13 +94,15 @@ internal fun providerConfigured(provider:TravelMapProvider)=when(provider){
 }
 
 private fun renderAmap(context:Context,map:AMap,markers:List<TravelMapMarker>,tracks:List<TravelTrackSummary>,view:AMapView){
-  map.mapType=AMap.MAP_TYPE_NIGHT;map.uiSettings.isZoomControlsEnabled=false;map.uiSettings.isCompassEnabled=true;map.clear()
+  map.mapType=preferredAmapMapType();map.uiSettings.isZoomControlsEnabled=false;map.uiSettings.isCompassEnabled=true;map.clear()
   val bounds=AMapLatLngBounds.builder();var count=0;var firstPoint:AMapLatLng?=null
   fun convert(latitude:Double,longitude:Double):AMapLatLng=CoordinateConverter(context).from(CoordinateConverter.CoordType.GPS).coord(AMapLatLng(latitude,longitude)).convert()
   markers.forEach{item->val point=convert(item.latitude,item.longitude);if(firstPoint==null)firstPoint=point;bounds.include(point);count++;map.addMarker(AMapMarkerOptions().position(point).title(item.title).snippet(item.supporting))}
   tracks.forEach{track->val points=sampleTrack(track.points).map{convert(it.latitude,it.longitude)};if(points.isNotEmpty()){if(firstPoint==null)firstPoint=points.first();points.forEach{bounds.include(it);count++};if(points.size>1)map.addPolyline(AMapPolylineOptions().addAll(points).width(9f).color(0xff56d6c9.toInt()))}}
   if(count>0)view.post{runCatching{map.animateCamera(if(count==1)AMapCameraUpdateFactory.newLatLngZoom(firstPoint!!,14f) else AMapCameraUpdateFactory.newLatLngBounds(bounds.build(),72))}}
 }
+
+internal fun preferredAmapMapType():Int=AMap.MAP_TYPE_NORMAL
 
 @Composable private fun GoogleMapSurface(markers:List<TravelMapMarker>,tracks:List<TravelTrackSummary>,modifier:Modifier){
   val lifecycle=LocalLifecycleOwner.current.lifecycle
