@@ -49,12 +49,13 @@ test("thread history exposes exact stable pages and rejects malformed cursors",a
 });
 
 test("overview routes parse typed filters before calling query services",async()=>{
-  let todayInput:unknown,timelineInput:unknown,searchInput:unknown,importBatchId="",healthRecordId="",travelWorkspaceInput:unknown,travelExportInput:unknown,travelPreviewInput:unknown,ownedItemsInput:unknown,reviewsInput:unknown,projectsInput:unknown,mealPlanningInput:unknown,foreignEntriesInput:unknown;
+  let todayInput:unknown,dailyInput:unknown,timelineInput:unknown,searchInput:unknown,importBatchId="",healthRecordId="",travelWorkspaceInput:unknown,travelExportInput:unknown,travelPreviewInput:unknown,ownedItemsInput:unknown,reviewsInput:unknown,projectsInput:unknown,mealPlanningInput:unknown,foreignEntriesInput:unknown;
   const dependencies={
     unitOfWork:{ensurePrincipal:async()=>undefined,pool:{query:async()=>({rows:[]})}},
     executor:{execute:async()=>({}),getOperation:async()=>({})},
     queries:{
       lifeToday:async(_context:unknown,input:unknown)=>{todayInput=input;return{date:"2026-09-10",time_zone:"Asia/Shanghai",domains:{money:{entries:1,totals:[],freshness:"2026-09-10T01:00:00.000Z"}},as_of:"2026-09-10T02:00:00.000Z"};},
+      dailyRecordCheck:async(_context:unknown,input:unknown)=>{dailyInput=input;return{date:"2026-09-10",time_zone:"Asia/Shanghai",actionable_messages:[]};},
       lifeTimeline:async(_context:unknown,input:unknown)=>{timelineInput=input;return{items:[],next_cursor:null,as_of:"2026-09-10T02:00:00.000Z"};},
       lifeSearch:async(_context:unknown,input:unknown)=>{searchInput=input;return{items:[],next_cursor:null,as_of:"2026-09-10T02:00:00.000Z",applied_filters:{}};},
       moneyImportReview:async(_context:unknown,batchId:string)=>{importBatchId=batchId;return{batch:{id:batchId},candidates:[]};},
@@ -72,6 +73,7 @@ test("overview routes parse typed filters before calling query services",async()
   } as unknown as Parameters<typeof createApp>[0];
   const app=createApp(dependencies),headers={authorization:"Bearer dev:subject_test"};
   const today=await app.request("/api/today?date=2026-09-10&time_zone=Asia%2FShanghai&domains=money,health",{headers});
+  const daily=await app.request("/api/life/daily-record-check",{method:"POST",headers:{...headers,"content-type":"application/json"},body:JSON.stringify({date:"2026-09-10",time_zone:"Asia/Shanghai"})});
   const timeline=await app.request("/api/timeline?domains=money&limit=2",{headers});
   const search=await app.request("/api/search?q=%E5%8D%88%E9%A4%90&types=meals,money&from_on=2026-09-01&to_on_exclusive=2026-10-01&limit=12",{headers});
   const importReview=await app.request("/api/money/imports/import_batch_12345678",{headers});
@@ -81,8 +83,9 @@ test("overview routes parse typed filters before calling query services",async()
   const travelPreview=await app.request("/api/travel/portable/preview",{method:"POST",headers:{...headers,"content-type":"application/json"},body:JSON.stringify({format:"gpx",content:'<gpx><trkpt lat="1" lon="2"></trkpt></gpx>'})});
   const ownedItems=await app.request("/api/life/owned-items?id=owned_item_12345678&state=owned&limit=12",{headers});const reviews=await app.request("/api/life/reviews?id=life_review_12345678&limit=7",{headers});
   const projects=await app.request("/api/life/projects?id=life_project_12345678&state=active&limit=5",{headers});const mealPlanning=await app.request("/api/life/meal-planning?limit=6",{headers});const foreignEntries=await app.request("/api/money/foreign?trip_id=trip_12345678&limit=7",{headers});
-  assert.equal(today.status,200);assert.equal(timeline.status,200);assert.equal(search.status,200);assert.equal(importReview.status,200);assert.equal(healthRecord.status,200);assert.equal(travelWorkspace.status,200);assert.equal(travelExport.status,200);assert.equal(travelPreview.status,200);assert.equal(ownedItems.status,200);assert.equal(reviews.status,200);assert.equal(projects.status,200);assert.equal(mealPlanning.status,200);assert.equal(foreignEntries.status,200);assert.equal(importBatchId,"import_batch_12345678");assert.equal(healthRecordId,"health_12345678");
+  assert.equal(today.status,200);assert.equal(daily.status,200);assert.equal(timeline.status,200);assert.equal(search.status,200);assert.equal(importReview.status,200);assert.equal(healthRecord.status,200);assert.equal(travelWorkspace.status,200);assert.equal(travelExport.status,200);assert.equal(travelPreview.status,200);assert.equal(ownedItems.status,200);assert.equal(reviews.status,200);assert.equal(projects.status,200);assert.equal(mealPlanning.status,200);assert.equal(foreignEntries.status,200);assert.equal(importBatchId,"import_batch_12345678");assert.equal(healthRecordId,"health_12345678");
   assert.deepEqual(todayInput,{date:"2026-09-10",time_zone:"Asia/Shanghai",domains:["money","health"]});
+  assert.deepEqual(dailyInput,{date:"2026-09-10",time_zone:"Asia/Shanghai",expectations:{minimum_meal_records:3,expected_meal_types:[],minimum_purchase_records:0,minimum_money_entries:0}});
   assert.deepEqual(timelineInput,{domains:["money"],limit:2});
   assert.deepEqual(searchInput,{q:"午餐",types:["meals","money"],from_on:"2026-09-01",to_on_exclusive:"2026-10-01",limit:12});
   assert.deepEqual(travelWorkspaceInput,{trip_id:"trip_12345678"});assert.deepEqual(travelExportInput,{trip_id:"trip_12345678",format:"ics"});assert.deepEqual(travelPreviewInput,{format:"gpx",content:'<gpx><trkpt lat="1" lon="2"></trkpt></gpx>'});

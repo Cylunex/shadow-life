@@ -29,6 +29,7 @@ class MemoryUnitOfWork implements UnitOfWork {
       healthTrend:async()=>({metric_key:"weight",points:[],coverage:{from:null,to:null,points:0,truncated:false},as_of:new Date().toISOString()}),
       healthSources:async()=>({items:[],as_of:new Date().toISOString()}),
       lifeToday:async(_subjectId,date)=>({date,domains:{},as_of:new Date().toISOString()}),
+      dailyRecordCheck:async()=>({meals:[],purchases:{records:0,with_payment:0},money:{entries:0,expenses:0,income:0,refunds:0},health:{facts:0,by_kind:[],steps:null,sleep_target_on:"2026-09-07",sleep_sessions:0},sources:[],as_of:new Date().toISOString()}),
       lifeTimeline:async()=>({items:[],hasMore:false,asOf:new Date().toISOString()}),
       lifeSearch:async()=>({items:[],hasMore:false,asOf:new Date().toISOString()}),
       consumptionStatsData:async()=>({purchases:[],meals:[],intakes:[],aliases:[],asOf:new Date().toISOString()}),

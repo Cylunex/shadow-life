@@ -11,7 +11,7 @@ import { updatePurchaseItemsInputSchema } from "@shadow/contracts";
 import { applyMoneyImportRules, assignTripStopIds, buildRecurrenceRule, conflict, invalidInput, mealEstimateWarnings, parseGpx, parseMoneyStatement, parseRecurrenceRule, publishTripPlan, retryableNotApplied, serializeGpx, sha256Fingerprinter, tripPlanStopIds, tripRunIsComplete, validateTravelBundleSemantics, type DomainRecordPageItem, type DraftTripPlanItem, type StoredOperation, type TransactionStore, type UnitOfWork } from "@shadow/kernel";
 import { computeAgentAggregate, healthHabitLabel, healthRescanCoverage, libraryProcessingLeaseSeconds, workoutSessionLabel } from "@shadow/kernel";
 import { buildUseCycleStatus, type UseCycleIntakeRaw, type UseCycleRaw } from "@shadow/kernel";
-import type { ConsumptionStatsRawData, ConsumptionStatsRawIntake, ConsumptionStatsRawMeal, ConsumptionStatsRawPurchase } from "@shadow/kernel";
+import type { ConsumptionStatsRawData, ConsumptionStatsRawIntake, ConsumptionStatsRawMeal, ConsumptionStatsRawPurchase, DailyRecordCheckRawData } from "@shadow/kernel";
 import * as schema from "./schema.js";
 
 type Database = NodePgDatabase<typeof schema>;
@@ -523,6 +523,29 @@ function storeFor(database: Database | Transaction): TransactionStore {
         case when ${include("travel")} then (select jsonb_build_object('visits',count(*)::int,'current_trips',(select coalesce(jsonb_agg(to_jsonb(current_trip) order by current_trip.starts_on,current_trip.id),'[]'::jsonb) from (select trip.id,trip.title,trip.starts_on::text starts_on,trip.ends_on::text ends_on,trip.time_zone from trips trip where trip.starts_on<=${date}::date and trip.ends_on>=${date}::date and (trip.subject_id=${subjectId} or exists(select 1 from trip_members member where member.trip_id=trip.id and member.subject_id=${subjectId})) order by trip.starts_on,trip.id limit 20) current_trip),'freshness',max(visit.created_at)) from visits visit where visit.occurred_on=${date}::date and (visit.subject_id=${subjectId} or (visit.visibility='shared' and exists(select 1 from trip_members member where member.trip_id=visit.trip_id and member.subject_id=${subjectId})))) end travel,
         case when ${include("library")} then (select jsonb_build_object('captured',count(*)::int,'freshness',max(created_at)) from library_items where subject_id=${subjectId} and (created_at at time zone ${timeZone})::date=${date}::date) end library`);
       const row=result.rows[0]??{},visible=Object.fromEntries(domains.map(domain=>[domain,row[domain]]));return{date,domains:visible,as_of:new Date().toISOString()};
+    },
+    async dailyRecordCheck(subjectId,date,timeZone):Promise<DailyRecordCheckRawData>{
+      const result=await database.execute<Record<string,unknown>>(sql`select
+        (select coalesce(jsonb_agg(jsonb_build_object('meal_type',meal.meal_type,'local_hour',case when meal.occurred_at is null then null else extract(hour from meal.occurred_at at time zone ${timeZone})::int end) order by coalesce(meal.occurred_at,meal.created_at),meal.id),'[]'::jsonb) from meals meal where meal.subject_id=${subjectId} and meal.occurred_on=${date}::date) meals,
+        (select jsonb_build_object('records',count(*)::int,'with_payment',count(*) filter(where exists(select 1 from money_entries entry where entry.record_id=record.id and entry.subject_id=${subjectId}))::int) from purchases purchase join consumption_records record on record.id=purchase.record_id where purchase.subject_id=${subjectId} and record.state='confirmed' and purchase.occurred_on=${date}::date) purchases,
+        (select jsonb_build_object('entries',count(*)::int,'expenses',count(*) filter(where entry.entry_type='expense')::int,'income',count(*) filter(where entry.entry_type='income')::int,'refunds',count(*) filter(where entry.entry_type='refund')::int) from money_entries entry join consumption_records record on record.id=entry.record_id where entry.subject_id=${subjectId} and record.state='confirmed' and entry.occurred_on=${date}::date) money,
+        (select jsonb_build_object('facts',coalesce(sum(kind_count),0)::int,'by_kind',coalesce(jsonb_agg(jsonb_build_object('kind',kind,'count',kind_count) order by kind),'[]'::jsonb),'steps',(select max(activity.steps)::int from health_daily_activity activity where activity.subject_id=${subjectId} and activity.occurred_on=${date}::date and activity.effective),'sleep_target_on',(${date}::date-1)::text,'sleep_sessions',(select count(*)::int from health_sleep_sessions sleep where sleep.subject_id=${subjectId} and sleep.wake_date=(${date}::date-1) and sleep.effective)) from (
+          select kind,count(*)::int kind_count from (
+            select 'measurement'::text kind from health_measurements where subject_id=${subjectId} and occurred_on=${date}::date and effective
+            union all select 'observation' from health_observations where subject_id=${subjectId} and occurred_on=${date}::date and effective
+            union all select 'wellbeing' from health_daily_wellbeing where subject_id=${subjectId} and occurred_on=${date}::date and effective
+            union all select 'sleep' from health_sleep_sessions where subject_id=${subjectId} and wake_date=${date}::date and effective
+            union all select 'workout' from health_workout_sessions where subject_id=${subjectId} and occurred_on=${date}::date and effective
+            union all select 'activity' from health_daily_activity where subject_id=${subjectId} and occurred_on=${date}::date and effective
+            union all select 'habit' from health_habit_logs where subject_id=${subjectId} and occurred_on=${date}::date and effective
+          ) facts group by kind
+        ) counts) health,
+        (select coalesce(jsonb_agg(jsonb_build_object('source_type',source.source_type,'instance_key',source.instance_key,'permission_state',source.permission_state,'cursor_states',source.cursor_states,'last_sync_at',source.last_sync_at) order by source.source_type,source.instance_key),'[]'::jsonb) from (
+          select instance.id,instance.source_type,instance.instance_key,instance.permission_state,coalesce(array_agg(distinct cursor.state) filter(where cursor.state is not null),'{}'::text[]) cursor_states,max(cursor.updated_at) last_sync_at
+          from health_source_instances instance left join health_sync_cursors cursor on cursor.source_instance_id=instance.id and cursor.subject_id=instance.subject_id
+          where instance.subject_id=${subjectId} and instance.source_type in('health_connect','samsung','scale') group by instance.id
+        ) source) sources`),row=result.rows[0]??{};
+      return{meals:(row.meals??[]) as DailyRecordCheckRawData["meals"],purchases:row.purchases as DailyRecordCheckRawData["purchases"],money:row.money as DailyRecordCheckRawData["money"],health:row.health as DailyRecordCheckRawData["health"],sources:(row.sources??[]) as DailyRecordCheckRawData["sources"],as_of:new Date().toISOString()};
     },
     async lifeTimeline(subjectId,domains,options){
       const asOf=options.asOf??String((await database.execute(sql`select to_char(clock_timestamp() at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as_of`)).rows[0]!.as_of),include=(domain:"meals"|"money"|"health"|"travel"|"library")=>domains.includes(domain),before=options.before?sql`and (happened_at,domain,kind,id)<(${options.before.at}::timestamptz,${options.before.domain},${options.before.kind},${options.before.id})`:sql``;

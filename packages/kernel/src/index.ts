@@ -14,4 +14,5 @@ export * from "./runtime.js";
 export * from "./agent-memory.js";
 export * from "./health-rescan.js";
 export * from "./consumption-stats.js";
+export * from "./daily-record-check.js";
 export * from "./use-cycles.js";

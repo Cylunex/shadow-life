@@ -37,6 +37,12 @@ test("overview queries read only explicitly authorized domains",async()=>{
   await assert.rejects(()=>queries.lifeToday(moneyContext,{date:"2026-09-10",time_zone:"Asia/Shanghai",domains:["health"]}),(error:unknown)=>(error as {detail?:{code?:string}}).detail?.code==="permission_denied");
 });
 
+test("daily record check requires every record domain and applies explicit defaults",async()=>{
+  let reads=0,seen:unknown;const store={dailyRecordCheck:async(_subject:string,date:string,timeZone:string)=>{reads++;seen={date,timeZone};return{meals:[],purchases:{records:0,with_payment:0},money:{entries:0,expenses:0,income:0,refunds:0},health:{facts:0,by_kind:[],steps:null,sleep_target_on:"2026-09-18",sleep_sessions:0},sources:[],as_of:"2026-09-19T14:30:00.000Z"};}} as unknown as TransactionStore,unit={read:async<T>(work:(value:TransactionStore)=>Promise<T>)=>work(store)} as unknown as UnitOfWork,queries=new QueryService(unit);
+  await assert.rejects(()=>queries.dailyRecordCheck(context(["life.meal.read","money.entry.read"]),{date:"2026-09-19",time_zone:"Asia/Shanghai"}),(error:unknown)=>(error as {detail?:{code?:string}}).detail?.code==="permission_denied");assert.equal(reads,0);
+  const result=await queries.dailyRecordCheck(context(["life.meal.read","money.entry.read","health.measurement.read"]),{date:"2026-09-19",time_zone:"Asia/Shanghai"});assert.deepEqual(seen,{date:"2026-09-19",timeZone:"Asia/Shanghai"});assert.equal(result.expectations.minimum_meal_records,3);assert.equal(reads,1);
+});
+
 test("timeline cursor is bound to the authorized domain selection",async()=>{
   let reads=0;const store={lifeTimeline:async()=>{reads++;return{items:[{domain:"money",kind:"money_entry",id:"money_12345678",happened_at:"2026-09-10T00:00:00Z",title:"餐饮",amount:"20.00",currency:"CNY",record_id:"record_12345678"}],hasMore:true,asOf:"2026-09-10T01:00:00Z"};}} as unknown as TransactionStore,unit={read:async<T>(work:(value:TransactionStore)=>Promise<T>)=>work(store)} as unknown as UnitOfWork,queries=new QueryService(unit),readContext=context(["money.entry.read","health.measurement.read"]);
   const first=await queries.lifeTimeline(readContext,{domains:["money"],limit:1});assert.ok(first.next_cursor);assert.equal(reads,1);

@@ -617,6 +617,23 @@ export const lifeTodayResultSchema=z.object({date:localDate,domains:z.object({
   travel:z.object({visits:z.number().int().nonnegative(),current_trips:z.array(z.object({id:stableId,title:z.string(),starts_on:localDate,ends_on:localDate,time_zone:ianaTimeZone}).strict()).max(20).default([]),freshness:instant.nullable()}).strict().optional(),
   library:z.object({captured:z.number().int().nonnegative(),freshness:instant.nullable()}).strict().optional()
 }).strict(),as_of:instant}).strict();
+const dailyRecordMealTypeSchema=z.enum(["breakfast","lunch","dinner","snack","other"]);
+export const dailyRecordExpectationsSchema=z.object({
+  minimum_meal_records:z.number().int().min(0).max(10).default(3),
+  expected_meal_types:z.array(dailyRecordMealTypeSchema).max(5).default([]),
+  minimum_purchase_records:z.number().int().min(0).max(50).default(0),
+  minimum_money_entries:z.number().int().min(0).max(50).default(0)
+}).strict();
+export const dailyRecordCheckInputSchema=z.object({date:localDate,time_zone:ianaTimeZone,expectations:dailyRecordExpectationsSchema.default({minimum_meal_records:3,expected_meal_types:[],minimum_purchase_records:0,minimum_money_entries:0})}).strict();
+export const dailyRecordCheckResultSchema=z.object({
+  date:localDate,time_zone:ianaTimeZone,expectations:dailyRecordExpectationsSchema,
+  meals:z.object({count:z.number().int().nonnegative(),by_period:z.array(z.object({period:z.enum(["morning","midday","afternoon","evening","late_night","unknown"]),count:z.number().int().nonnegative()}).strict()),by_type:z.array(z.object({meal_type:dailyRecordMealTypeSchema,count:z.number().int().nonnegative()}).strict()),expectation_status:z.enum(["met","missing","not_configured"])}).strict(),
+  purchases:z.object({records:z.number().int().nonnegative(),with_payment:z.number().int().nonnegative(),expectation_status:z.enum(["met","missing","not_configured"])}).strict(),
+  money:z.object({entries:z.number().int().nonnegative(),by_type:z.array(z.object({entry_type:z.enum(["expense","income","refund"]),count:z.number().int().nonnegative()}).strict()),expectation_status:z.enum(["met","missing","not_configured"])}).strict(),
+  health:z.object({facts:z.number().int().nonnegative(),by_kind:z.array(z.object({kind:z.enum(["measurement","observation","wellbeing","sleep","workout","activity","habit"]),count:z.number().int().nonnegative()}).strict()),steps:z.number().int().nonnegative().nullable(),sources:z.array(z.object({source_type:z.string(),instance_key:z.string(),permission_state:z.string(),cursor_states:z.array(z.string()),last_sync_at:instant.nullable(),status:z.enum(["ok","issue"])}).strict()),sleep_check:z.object({wake_date:localDate,sessions:z.number().int().nonnegative(),status:z.enum(["recorded","awaiting_sync","sync_issue"])}).strict(),goal_expectations_applied:z.literal(false),goal_gaps:z.array(z.string()).max(0)}).strict(),
+  confirmed_omissions:z.array(z.object({code:z.enum(["meal_records_below_minimum","expected_meal_type_missing","purchase_records_below_minimum","money_entries_below_minimum"]),domain:z.enum(["meals","purchases","money"]),message:z.string()}).strict()).max(10),
+  actionable_messages:z.array(z.string()).max(3),as_of:instant
+}).strict();
 export const lifeTimelineInputSchema=z.object({domains:z.array(lifeOverviewDomainSchema).min(1).max(5).optional(),limit:z.number().int().min(1).max(100).default(30),cursor:z.string().max(1_000).optional()}).strict();
 export const lifeTimelineItemSchema=z.object({domain:lifeOverviewDomainSchema,kind:z.string(),id:stableId,happened_at:instant,title:z.string(),amount:storedAmount.optional(),currency:currencyCode.optional(),record_id:stableId.optional()}).strict();
 export const lifeTimelineResultSchema=z.object({items:z.array(lifeTimelineItemSchema),next_cursor:z.string().nullable(),as_of:instant}).strict();
@@ -693,6 +710,8 @@ export type RecordMealInput = z.infer<typeof recordMealInputSchema>;
 export type LifeOverviewDomain = z.infer<typeof lifeOverviewDomainSchema>;
 export type LifeTimelineItem = z.infer<typeof lifeTimelineItemSchema>;
 export type LifeSearchItem = z.infer<typeof lifeSearchItemSchema>;
+export type DailyRecordCheckInput = z.infer<typeof dailyRecordCheckInputSchema>;
+export type DailyRecordCheckResult = z.infer<typeof dailyRecordCheckResultSchema>;
 export type ConsumptionStatsInput = z.infer<typeof consumptionStatsInputSchema>;
 export type ConsumptionStatsResult = z.infer<typeof consumptionStatsResultSchema>;
 export type UseCycleStatus = z.infer<typeof useCycleStatusSchema>;

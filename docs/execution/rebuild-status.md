@@ -2,6 +2,20 @@
 
 Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The table separates source modeling, usable operations, migrated production data, and actual cutover. A schema or command alone is never counted as a completed migration.
 
+## 2026-09-21: authoritative daily record completeness check
+
+- Added the read-only `life.daily_record_check` capability and HTTP/Agent transport. One database read returns
+  local-date meal counts by period/type, confirmed purchases and money entries, effective Health fact/step counts,
+  source status, and the previous wake date's sleep status.
+- Omissions are emitted only from explicit configurable expectations. The default checks a three-record meal
+  minimum without guessing which named meal is missing; purchase and money minimums are disabled. Nutrition,
+  step, exercise, habit, and sleep goals are never invented, and an absent previous-night sleep fact remains
+  pending unless a source explicitly reports a permission or cursor issue.
+- Regression fixtures cover 2026-09-18 (four meals, 27 Health facts, 14,444 steps), 2026-09-19 (one meal,
+  31 facts, 1,911 steps), and 2026-09-20 (same-night sleep and absent habits are not omissions). Contract,
+  boundary, TypeScript, API, kernel, and isolated PostgreSQL checks pass; Android is unchanged and no APK is
+  required for this server/runtime capability.
+
 ## 2026-09-15: consumable balances and folded purchase detail
 
 - Use cycles now retain optional comparable package quantity, explicit intake matching, daily-use estimate,

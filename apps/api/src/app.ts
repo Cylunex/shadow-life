@@ -3,7 +3,7 @@ import { bodyLimit } from "hono/body-limit";
 import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 import { createHash } from "node:crypto";
-import { agentThreadMessagesInputSchema, agentThreadMessagesResultSchema, agentThreadsResultSchema, capabilityRegistry, consumptionStatsInputSchema, executionResultSchema, healthTrendInputSchema, lifeMeResultSchema, lifeRecordInputSchema, lifeSearchInputSchema, lifeTimelineInputSchema, lifeTodayInputSchema, planningAgendaInputSchema, projectDirectoryResultSchema, writeCapabilityNameSchema, type ProjectDirectoryResult } from "@shadow/contracts";
+import { agentThreadMessagesInputSchema, agentThreadMessagesResultSchema, agentThreadsResultSchema, capabilityRegistry, consumptionStatsInputSchema, dailyRecordCheckInputSchema, executionResultSchema, healthTrendInputSchema, lifeMeResultSchema, lifeRecordInputSchema, lifeSearchInputSchema, lifeTimelineInputSchema, lifeTodayInputSchema, planningAgendaInputSchema, projectDirectoryResultSchema, writeCapabilityNameSchema, type ProjectDirectoryResult } from "@shadow/contracts";
 import { AssetService, type PostgresUnitOfWork } from "@shadow/database";
 import type { AgentRepository } from "@shadow/database";
 import { hostRunEventSchema, runtimeEventSchema, type AgentRuntimeAdapter, type HostRunEvent, type RuntimeEvent, type RunState } from "@shadow/agent-adapter";
@@ -27,6 +27,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.use("/api/*", authMiddleware({ development: dependencies.developmentAuth,...dependencies.auth }));
   app.use("/api/commands/*", bodyLimit({ maxSize: 1024 * 1024, onError: (context) => context.json({ protocol: "shadow.error", code: "validation", message: "Command body is too large." }, 413) }));
   app.use("/api/travel/portable/preview",bodyLimit({maxSize:1024*1024,onError:context=>context.json({protocol:"shadow.error",code:"validation",message:"Portable travel input is too large."},413)}));
+  app.use("/api/life/daily-record-check",bodyLimit({maxSize:64*1024,onError:context=>context.json({protocol:"shadow.error",code:"validation",message:"Daily record check input is too large."},413)}));
   app.use("/api/assets",bodyLimit({maxSize:20*1024*1024,onError:context=>context.json({protocol:"shadow.error",code:"validation",message:"Asset is too large."},413)}));
   app.get("/api/me",context=>{const value=context.get("requestContext");context.header("Cache-Control","no-store");return context.json(lifeMeResultSchema.parse({issuer:value.issuer??"shadow:unknown",oidc_sub:value.oidcSubject??value.actorId,life_subject_id:value.subjectId,environment_id:value.environmentId??"default",display_name:value.displayName??null,effects:[...value.effects].sort(),authorization_revision:value.authorizationRevision??1}));});
   app.get("/api/project-links",context=>{context.header("Cache-Control","private, max-age=300");return context.json(projectDirectoryResultSchema.parse(dependencies.projectLinks??{schema_version:1,catalog_revision:"empty",items:[]}));});
@@ -87,6 +88,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.get("/api/meals",async context=>context.json(await dependencies.queries.listMeals(context.get("requestContext"),{limit:Number(context.req.query("limit")??"20"),...(context.req.query("cursor")?{cursor:context.req.query("cursor")}:{})})));
   app.get("/api/life/foods",async context=>context.json(await dependencies.queries.foodCatalog(context.get("requestContext"),{...(context.req.query("q")?{query:context.req.query("q")} :{}),limit:Number(context.req.query("limit")??"50")})));
   app.get("/api/today",async context=>{const domains=context.req.query("domains")?.split(",").filter(Boolean);return context.json(await dependencies.queries.lifeToday(context.get("requestContext"),lifeTodayInputSchema.parse({date:context.req.query("date")??new Date().toISOString().slice(0,10),time_zone:context.req.query("time_zone")??"UTC",...(domains?.length?{domains}:{})})));});
+  app.post("/api/life/daily-record-check",async context=>context.json(await dependencies.queries.dailyRecordCheck(context.get("requestContext"),dailyRecordCheckInputSchema.parse(await context.req.json()))));
   app.get("/api/timeline",async context=>{const domains=context.req.query("domains")?.split(",").filter(Boolean),cursor=context.req.query("cursor");return context.json(await dependencies.queries.lifeTimeline(context.get("requestContext"),lifeTimelineInputSchema.parse({...(domains?.length?{domains}:{}),limit:Number(context.req.query("limit")??"30"),...(cursor?{cursor}:{})})));});
   app.get("/api/money/summary", async (context) => context.json(await dependencies.queries.summarizeMoney(context.get("requestContext"))));
   app.get("/api/health/trend",async context=>context.json(await dependencies.queries.healthTrend(context.get("requestContext"),healthTrendInputSchema.parse({metric_key:context.req.query("metric_key"),...(context.req.query("from")?{from:context.req.query("from")} :{}),...(context.req.query("to")?{to:context.req.query("to")} :{}),limit:Number(context.req.query("limit")??"100")}))));
@@ -160,6 +162,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         if(capabilityName==="life.list_meals")return dependencies.queries.listMeals(requestContext,parsed);
         if(capabilityName==="life.food_catalog")return dependencies.queries.foodCatalog(requestContext,parsed);
         if(capabilityName==="life.today")return dependencies.queries.lifeToday(requestContext,parsed);
+        if(capabilityName==="life.daily_record_check")return dependencies.queries.dailyRecordCheck(requestContext,parsed);
         if(capabilityName==="life.timeline")return dependencies.queries.lifeTimeline(requestContext,parsed);
         if(capabilityName==="life.search")return dependencies.queries.lifeSearch(requestContext,parsed);
         if(capabilityName==="life.consumption_stats")return dependencies.queries.consumptionStats(requestContext,parsed);

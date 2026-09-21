@@ -36785,6 +36785,598 @@
         "additionalProperties": false
       }
     },
+    "life.daily_record_check": {
+      "name": "life.daily_record_check",
+      "description": "一次核对指定日期的用餐、购买、收支和健康同步记录；只按显式记录期望判定遗漏，不推测餐次、习惯或健康目标。",
+      "possible_effects": [
+        "life.meal.read",
+        "money.entry.read",
+        "health.measurement.read"
+      ],
+      "idempotency": "not-applicable",
+      "status_query": "operations.get",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "time_zone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "expectations": {
+            "default": {
+              "minimum_meal_records": 3,
+              "expected_meal_types": [],
+              "minimum_purchase_records": 0,
+              "minimum_money_entries": 0
+            },
+            "type": "object",
+            "properties": {
+              "minimum_meal_records": {
+                "default": 3,
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 10
+              },
+              "expected_meal_types": {
+                "default": [],
+                "maxItems": 5,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "breakfast",
+                    "lunch",
+                    "dinner",
+                    "snack",
+                    "other"
+                  ]
+                }
+              },
+              "minimum_purchase_records": {
+                "default": 0,
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 50
+              },
+              "minimum_money_entries": {
+                "default": 0,
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 50
+              }
+            },
+            "required": [
+              "minimum_meal_records",
+              "expected_meal_types",
+              "minimum_purchase_records",
+              "minimum_money_entries"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "date",
+          "time_zone",
+          "expectations"
+        ],
+        "additionalProperties": false
+      },
+      "command_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "time_zone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "expectations": {
+            "default": {
+              "minimum_meal_records": 3,
+              "expected_meal_types": [],
+              "minimum_purchase_records": 0,
+              "minimum_money_entries": 0
+            },
+            "type": "object",
+            "properties": {
+              "minimum_meal_records": {
+                "default": 3,
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 10
+              },
+              "expected_meal_types": {
+                "default": [],
+                "maxItems": 5,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "breakfast",
+                    "lunch",
+                    "dinner",
+                    "snack",
+                    "other"
+                  ]
+                }
+              },
+              "minimum_purchase_records": {
+                "default": 0,
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 50
+              },
+              "minimum_money_entries": {
+                "default": 0,
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 50
+              }
+            },
+            "required": [
+              "minimum_meal_records",
+              "expected_meal_types",
+              "minimum_purchase_records",
+              "minimum_money_entries"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "date",
+          "time_zone",
+          "expectations"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "time_zone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "expectations": {
+            "type": "object",
+            "properties": {
+              "minimum_meal_records": {
+                "default": 3,
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 10
+              },
+              "expected_meal_types": {
+                "default": [],
+                "maxItems": 5,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "breakfast",
+                    "lunch",
+                    "dinner",
+                    "snack",
+                    "other"
+                  ]
+                }
+              },
+              "minimum_purchase_records": {
+                "default": 0,
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 50
+              },
+              "minimum_money_entries": {
+                "default": 0,
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 50
+              }
+            },
+            "required": [
+              "minimum_meal_records",
+              "expected_meal_types",
+              "minimum_purchase_records",
+              "minimum_money_entries"
+            ],
+            "additionalProperties": false
+          },
+          "meals": {
+            "type": "object",
+            "properties": {
+              "count": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "by_period": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "period": {
+                      "type": "string",
+                      "enum": [
+                        "morning",
+                        "midday",
+                        "afternoon",
+                        "evening",
+                        "late_night",
+                        "unknown"
+                      ]
+                    },
+                    "count": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "period",
+                    "count"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "by_type": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "meal_type": {
+                      "type": "string",
+                      "enum": [
+                        "breakfast",
+                        "lunch",
+                        "dinner",
+                        "snack",
+                        "other"
+                      ]
+                    },
+                    "count": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "meal_type",
+                    "count"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "expectation_status": {
+                "type": "string",
+                "enum": [
+                  "met",
+                  "missing",
+                  "not_configured"
+                ]
+              }
+            },
+            "required": [
+              "count",
+              "by_period",
+              "by_type",
+              "expectation_status"
+            ],
+            "additionalProperties": false
+          },
+          "purchases": {
+            "type": "object",
+            "properties": {
+              "records": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "with_payment": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "expectation_status": {
+                "type": "string",
+                "enum": [
+                  "met",
+                  "missing",
+                  "not_configured"
+                ]
+              }
+            },
+            "required": [
+              "records",
+              "with_payment",
+              "expectation_status"
+            ],
+            "additionalProperties": false
+          },
+          "money": {
+            "type": "object",
+            "properties": {
+              "entries": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "by_type": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "entry_type": {
+                      "type": "string",
+                      "enum": [
+                        "expense",
+                        "income",
+                        "refund"
+                      ]
+                    },
+                    "count": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "entry_type",
+                    "count"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "expectation_status": {
+                "type": "string",
+                "enum": [
+                  "met",
+                  "missing",
+                  "not_configured"
+                ]
+              }
+            },
+            "required": [
+              "entries",
+              "by_type",
+              "expectation_status"
+            ],
+            "additionalProperties": false
+          },
+          "health": {
+            "type": "object",
+            "properties": {
+              "facts": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "by_kind": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "measurement",
+                        "observation",
+                        "wellbeing",
+                        "sleep",
+                        "workout",
+                        "activity",
+                        "habit"
+                      ]
+                    },
+                    "count": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "count"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "steps": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "sources": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "source_type": {
+                      "type": "string"
+                    },
+                    "instance_key": {
+                      "type": "string"
+                    },
+                    "permission_state": {
+                      "type": "string"
+                    },
+                    "cursor_states": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "last_sync_at": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ok",
+                        "issue"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "source_type",
+                    "instance_key",
+                    "permission_state",
+                    "cursor_states",
+                    "last_sync_at",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "sleep_check": {
+                "type": "object",
+                "properties": {
+                  "wake_date": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "sessions": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "recorded",
+                      "awaiting_sync",
+                      "sync_issue"
+                    ]
+                  }
+                },
+                "required": [
+                  "wake_date",
+                  "sessions",
+                  "status"
+                ],
+                "additionalProperties": false
+              },
+              "goal_expectations_applied": {
+                "type": "boolean",
+                "const": false
+              },
+              "goal_gaps": {
+                "maxItems": 0,
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "facts",
+              "by_kind",
+              "steps",
+              "sources",
+              "sleep_check",
+              "goal_expectations_applied",
+              "goal_gaps"
+            ],
+            "additionalProperties": false
+          },
+          "confirmed_omissions": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "meal_records_below_minimum",
+                    "expected_meal_type_missing",
+                    "purchase_records_below_minimum",
+                    "money_entries_below_minimum"
+                  ]
+                },
+                "domain": {
+                  "type": "string",
+                  "enum": [
+                    "meals",
+                    "purchases",
+                    "money"
+                  ]
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "domain",
+                "message"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "actionable_messages": {
+            "maxItems": 3,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+          }
+        },
+        "required": [
+          "date",
+          "time_zone",
+          "expectations",
+          "meals",
+          "purchases",
+          "money",
+          "health",
+          "confirmed_omissions",
+          "actionable_messages",
+          "as_of"
+        ],
+        "additionalProperties": false
+      }
+    },
     "life.timeline": {
       "name": "life.timeline",
       "description": "从一个数据库快照按真实发生时间分页读取获准领域的统一时间线。",

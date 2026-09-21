@@ -1,4 +1,5 @@
 import type { DomainRecordSummary, ExecutionResult, LifeOverviewDomain, LifeTimelineItem, MealView, MoneySummary, PlanningAgendaItem, RecordMealInput, UniversalCommandEnvelope } from "@shadow/contracts";
+import type { DailyRecordCheckRawData } from "./daily-record-check.js";
 
 export type DomainRecordPageItem=DomainRecordSummary&{readonly _page_at:string};
 
@@ -50,6 +51,7 @@ export interface TransactionStore {
   healthTrend(subjectId:string,input:{metric_key:string;from?:string|undefined;to?:string|undefined;limit:number}):Promise<unknown>;
   healthSources(subjectId:string):Promise<unknown>;
   lifeToday(subjectId:string,date:string,timeZone:string,domains:readonly LifeOverviewDomain[]):Promise<unknown>;
+  dailyRecordCheck(subjectId:string,date:string,timeZone:string):Promise<DailyRecordCheckRawData>;
   lifeTimeline(subjectId:string,domains:readonly LifeOverviewDomain[],options:{limit:number;asOf?:string;before?:{at:string;domain:LifeOverviewDomain;kind:string;id:string}}):Promise<{items:readonly LifeTimelineItem[];hasMore:boolean;asOf:string}>;
   lifeSearch(subjectId:string,domains:readonly LifeOverviewDomain[],options:{query:string;fromOn?:string;toOnExclusive?:string;limit:number;asOf?:string;before?:{on:string;domain:LifeOverviewDomain;kind:string;id:string}}):Promise<{items:readonly import("@shadow/contracts").LifeSearchItem[];hasMore:boolean;asOf:string}>;
   consumptionStatsData(subjectId:string,input:{fromOn:string;toOnExclusive:string;timeZone:string;includeMoney:boolean}):Promise<import("./consumption-stats.js").ConsumptionStatsRawData>;
