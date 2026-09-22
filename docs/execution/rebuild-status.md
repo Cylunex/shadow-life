@@ -2,6 +2,16 @@
 
 Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The table separates source modeling, usable operations, migrated production data, and actual cutover. A schema or command alone is never counted as a completed migration.
 
+## 2026-09-22: Health display semantics and release history
+
+- Android Health/Meals now use labeled semantic colors, explicit reference ranges and activity goal semantics.
+- Samsung vital extrema and skin temperature retain their context; sleep sessions, workout pace/speed and
+  activity energy provenance are exposed from existing synchronized facts.
+- Health → 起飞 adds monthly calendar, scoped counts, date intervals and detail navigation through an
+  owner-scoped, bounded read capability. See [display semantics](../architecture/health-display-semantics.md).
+- Validation: all 258 tests pass with disposable local PostgreSQL; contract generation, dependency checks,
+  TypeScript and Android compilation plus all 45 unit tests pass. No deployment, APK or device acceptance is included.
+
 ## 2026-09-22: Agent usability and one maintained MCP entry
 
 - Repository MCP and operational runtime templates now share one implementation, with personal planning

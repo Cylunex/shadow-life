@@ -26,6 +26,7 @@ class MemoryUnitOfWork implements UnitOfWork {
       summarizeMoney: async () => ({ currency: "CNY", expense_total: "0.00", entries: 0, as_of:"2026-09-08T00:00:00Z",totals:[] }),
       executeDomainWrite: async () => { throw new Error("not used"); },
       listDomain: async () => ({items:[],hasMore:false,asOf:"2026-09-09T00:00:00.000Z"}),
+      healthReleaseHistory:async()=>({}),
       healthTrend:async()=>({metric_key:"weight",points:[],coverage:{from:null,to:null,points:0,truncated:false},as_of:new Date().toISOString()}),
       healthSources:async()=>({items:[],as_of:new Date().toISOString()}),
       lifeToday:async(_subjectId,date)=>({date,domains:{},as_of:new Date().toISOString()}),

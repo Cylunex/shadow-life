@@ -69,15 +69,15 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
         val detail:(LifeDomain,String,String)->Unit={d,id,title->viewModel.loadDetail(d,id);nav.navigate(DetailRoute(d.name,id,title))}
         val capture:(CaptureKind)->Unit={kind->openComposer(defaultCaptureSeed(kind))}
         when(domain){
-          LifeDomain.Health->HealthWorkspaceScreen(
+          LifeDomain.Health->HealthReferenceProvider(session.accountId,scaleSettings){HealthWorkspaceScreen(
             viewModel.workspaceOverview,viewModel.workspace,viewModel.deviceSyncStatus,viewModel.queueStatus,SamsungHealthBridge.available(),
             {viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,capture,onHealthSync,onSamsungSync,onScale,
-            {nav.navigate(SettingsRoute)},{viewModel.loadWorkspace(LifeDomain.Meals);nav.navigate(WorkspaceRoute(LifeDomain.Meals.name))},route.tab
-          )
-          LifeDomain.Meals->MealsWorkspaceScreen(
+            {nav.navigate(SettingsRoute)},{viewModel.loadWorkspace(LifeDomain.Meals);nav.navigate(WorkspaceRoute(LifeDomain.Meals.name))},route.tab,viewModel.releaseHistory,viewModel::loadReleaseHistory
+          )}
+          LifeDomain.Meals->HealthReferenceProvider(session.accountId,scaleSettings){MealsWorkspaceScreen(
             viewModel.workspaceOverview,viewModel.workspace,viewModel.assetPreviews,viewModel::loadAssetPreview,
             {viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,{date,type->openComposer(defaultCaptureSeed(CaptureKind.Meal).copy(date=date,option=type))},{record->pendingMealPhoto=record;mealPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))},viewModel.mealPhotoSubmit,{viewModel.loadConsumptionStats();nav.navigate(ConsumptionStatsRoute)}
-          )
+          )}
           LifeDomain.Money->MoneyWorkspaceScreen(
             viewModel.workspaceOverview,viewModel.workspace,{viewModel.loadWorkspace(domain,it)},{viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,
             {nav.popBackStack()},detail,capture,route.tab

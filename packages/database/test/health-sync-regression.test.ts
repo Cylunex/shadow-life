@@ -133,3 +133,41 @@ test("F08: unknown coverage and oversized or failed scans cannot mark a source c
   assert.equal((await pool.query("select permission_state from health_source_instances")).rows[0].permission_state,"rescan_required");
   assert.equal((await pool.query("select cursor from health_sync_cursors")).rows[0].cursor,"cursor-1");
 });
+
+test("release history uses effective normalized facts, exact provider revision and subject bounds",pgOnly,async t=>{
+  const {pool,run,queries,context}=await reviewFixture(t);
+  const base={source_type:"samsung",source_instance_key:"release-display",source_fingerprint:"permission-display",record_type:"workout",record_version:1,sync_epoch:1,change_kind:"upsert",parse_version:"samsung-data-4"};
+  const first={...base,client_record_id:"release-display-1",payload:{occurred_on:"2026-09-10",time_zone:"Asia/Shanghai",session_type:"release",started_at:"2026-09-10T10:00:00Z",duration_minutes:5}};
+  await run("health.ingest_raw",first);
+  await run("health.ingest_raw",{...base,client_record_id:"release-display-2",payload:{...first.payload,started_at:"2026-09-10T11:00:00Z"}});
+  await run("health.ingest_raw",{...base,client_record_id:"release-display-other-month",payload:{...first.payload,occurred_on:"2026-08-10",started_at:"2026-08-10T11:00:00Z"}});
+  await run("health.ingest_raw",{...base,record_type:"habit",client_record_id:"release-display-denial",payload:{occurred_on:"2026-09-11",time_zone:"Asia/Shanghai",habit_key:"release",done_count:0,explicit_denial:true}});
+  await processPendingHealth(pool);
+  const input={from:"2026-09-01",to:"2026-09-30",limit:1000};
+  const history=await queries.healthReleaseHistory(context,input);
+  assert.equal(history.total_count,2);assert.equal(history.recorded_days,1);assert.equal(history.latest_on,"2026-09-10");assert.equal(history.items.length,3);
+  assert.equal(history.items[0]?.started_at,null);assert.equal(history.items[0]?.explicit_denial,true);
+  assert.equal(history.items[1]?.started_at,"2026-09-10T11:00:00Z");assert.equal(history.items[1]?.duration_minutes,5);
+  const limited=await queries.healthReleaseHistory(context,{...input,limit:1});assert.equal(limited.total_count,2);assert.equal(limited.items.length,1);assert.equal(limited.truncated,true);
+  await assert.rejects(()=>queries.healthReleaseHistory({...context,effects:new Set()},input),/permission|denied|effect/i);
+  assert.equal((await queries.healthReleaseHistory({...context,subjectId:"other-subject"},input)).items.length,0);
+  await assert.rejects(()=>queries.healthReleaseHistory(context,{...input,to:"2026-08-01"}));
+  await assert.rejects(()=>queries.healthReleaseHistory(context,{...input,to:"2028-01-01"}));
+  await run("health.ingest_raw",{...first,record_version:2,payload:{...first.payload,duration_minutes:50}});
+  assert.equal((await queries.healthReleaseHistory(context,input)).items.find(item=>item.started_at===first.payload.started_at)?.duration_minutes,5);
+  await processPendingHealth(pool);
+  assert.equal((await queries.healthReleaseHistory(context,input)).items.find(item=>item.started_at===first.payload.started_at)?.duration_minutes,50);
+  await run("health.ingest_raw",{...first,record_version:3,payload:{...first.payload,session_type:"running"}});await processPendingHealth(pool);
+  assert.equal((await queries.healthReleaseHistory(context,input)).total_count,1);
+  await run("health.ingest_raw",{...base,client_record_id:"release-display-2",record_version:2,change_kind:"delete"});await processPendingHealth(pool);
+  const remaining=await queries.healthReleaseHistory(context,input);assert.equal(remaining.total_count,0);assert.equal(remaining.latest_on,null);assert.equal(remaining.items.length,1);
+});
+
+test("health trends preserve Samsung extrema and temperature measurement context",pgOnly,async t=>{
+  const {pool,run,queries,context}=await reviewFixture(t);
+  await run("health.ingest_raw",{source_type:"samsung",source_instance_key:"context-display",source_fingerprint:"permission-context",record_type:"body",client_record_id:"context-body",parse_version:"samsung-data-4",record_version:1,sync_epoch:1,change_kind:"upsert",payload:{occurred_on:"2026-09-10",time_zone:"UTC",group_kind:"measurement",observations:[{metric_key:"heart_rate",value:"49",unit:"bpm",original_field:"samsung:daily_min"},{metric_key:"heart_rate",value:"158",unit:"bpm",original_field:"samsung:daily_max"},{metric_key:"temperature",value:"32.5",unit:"°C",original_field:"samsung:skin_temperature"}]}});
+  await processPendingHealth(pool);
+  const heart=await queries.healthTrend(context,{metric_key:"heart_rate",limit:100});
+  assert.deepEqual(heart.points.map(point=>point.original_field).sort(),["samsung:daily_max","samsung:daily_min"]);
+  const skin=await queries.healthTrend(context,{metric_key:"temperature",limit:100});assert.equal(skin.points[0]?.original_field,"samsung:skin_temperature");
+});

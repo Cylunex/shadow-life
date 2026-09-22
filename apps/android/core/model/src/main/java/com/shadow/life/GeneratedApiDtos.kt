@@ -3084,6 +3084,32 @@ data class HealthRecordResultDtoHabitLog(
 ): HealthRecordResultDto
 
 @Serializable
+data class HealthReleaseHistoryResultDtoItemsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("occurred_on") val occurredOn: String,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("started_at") val startedAt: String?,
+  @SerialName("duration_minutes") val durationMinutes: Double?,
+  @SerialName("done_count") val doneCount: Long,
+  @SerialName("explicit_denial") val explicitDenial: Boolean,
+  @SerialName("note") val note: String?,
+  @SerialName("source_type") val sourceType: String,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+data class HealthReleaseHistoryResultDto(
+  @SerialName("from") val from: String,
+  @SerialName("to") val to: String,
+  @SerialName("items") val items: List<HealthReleaseHistoryResultDtoItemsEntry>,
+  @SerialName("total_count") val totalCount: Long,
+  @SerialName("recorded_days") val recordedDays: Long,
+  @SerialName("latest_on") val latestOn: String?,
+  @SerialName("truncated") val truncated: Boolean,
+  @SerialName("as_of") val asOf: String
+)
+
+@Serializable
 enum class HealthDailyResultDtoResultFactsEntryKind(val wireValue: String) {
   @SerialName("observation") Observation("observation"),
   @SerialName("measurement") Measurement("measurement")

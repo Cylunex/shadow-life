@@ -85,7 +85,7 @@ data class MealCardSummary(
 )
 data class RecordSummary(val domain:LifeDomain,val kind:String,val id:String,val title:String,val supporting:String?,val trailing:String?,val revision:Int?,val detailId:String?=null,val subtype:String?=null,val meal:MealCardSummary?=null)
 data class RecordPage(val items:List<RecordSummary>,val nextCursor:String?,val asOf:String)
-data class HealthTrendPoint(val id:String,val occurredOn:String,val value:Double,val valueText:String,val unit:String,val sourceKind:String,val revision:Int,val occurredAt:String?=null)
+data class HealthTrendPoint(val id:String,val occurredOn:String,val value:Double,val valueText:String,val unit:String,val sourceKind:String,val revision:Int,val occurredAt:String?=null,val originalField:String?=null)
 data class HealthMetricTrend(val key:String,val label:String,val points:List<HealthTrendPoint>,val coveragePoints:Int,val truncated:Boolean,val unavailable:Boolean=false)
 data class HealthWorkoutSummary(
   val id:String,val occurredOn:String,val sessionType:String,val startedAt:String?,val timeZone:String?,
@@ -96,6 +96,7 @@ data class HealthDailyOverview(
   val sleepMinutes:Long?,val deepMinutes:Long?,val remMinutes:Long?,
   val workouts:Int,val habitsDone:Int,val updatedAt:String,
   val lightMinutes:Long?=null,val awakeMinutes:Long?=null,val sleepSource:String?=null,
+  val sleepTotalDayMinutes:Long?=null,val napMinutes:List<Long> = emptyList(),val caloriesSource:String?=null,
   val workoutItems:List<HealthWorkoutSummary> = emptyList()
 )
 data class MoneyRecurringSummary(val id:String,val title:String,val amount:String?,val currency:String,val cadence:String,val nextDueOn:String,val state:String)

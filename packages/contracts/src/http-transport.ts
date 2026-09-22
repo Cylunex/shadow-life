@@ -21,6 +21,7 @@ export const queryTransportRegistry:Readonly<Record<string,ReadRoute>>={
   "travel.records":input=>get(`/api/travel${search({q:input.query,limit:input.limit,cursor:input.cursor})}`),
   "library.records":input=>get(`/api/library${search({q:input.query,limit:input.limit,cursor:input.cursor})}`),
   "health.get_record":input=>get(`/api/health/records/${encodeURIComponent(input.id)}`),
+  "health.release_history":input=>get(`/api/health/releases${search({from:input.from,to:input.to,limit:input.limit})}`),
   "health.trend":input=>get(`/api/health/trend${search({metric_key:input.metric_key,from:input.from,to:input.to,limit:input.limit})}`),
   "health.sources":()=>get("/api/health/sources"),
   "life.get_record":input=>get(`/api/life/records/${encodeURIComponent(input.id)}${search({sections:input.sections})}`),
