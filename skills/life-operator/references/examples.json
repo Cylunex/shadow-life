@@ -178,5 +178,50 @@
         "reason": "实际没有用这张卡"
       }
     }
+  },
+  {
+    "scenario": "Purchase and pending coffee stock together; no fabricated actual use",
+    "capability": "life.record_purchase",
+    "arguments": {
+      "command_id": "cmd_example_consumable_purchase_01",
+      "input": {
+        "scene": "online_purchase",
+        "occurred_on": "2026-09-22",
+        "time_zone": "Asia/Shanghai",
+        "items": [
+          {
+            "raw_name": "示例咖啡80袋"
+          }
+        ],
+        "consumables": [
+          {
+            "item_position": 0,
+            "initial_quantity": "80",
+            "quantity_unit": "count",
+            "quantity_label": "袋",
+            "expected_daily_usage": "1"
+          }
+        ],
+        "payment": {
+          "amount": "40.00",
+          "currency": "CNY",
+          "occurred_on": "2026-09-22",
+          "time_zone": "Asia/Shanghai"
+        }
+      }
+    }
+  },
+  {
+    "scenario": "Actual one-bag use after explicit opening; read current cycle revision first",
+    "capability": "money.record_consumable_use",
+    "arguments": {
+      "command_id": "cmd_example_consumable_use_01",
+      "input": {
+        "cycle_id": "plan_example_coffee",
+        "expected_revision": 2,
+        "occurred_on": "2026-09-22",
+        "quantity": "1"
+      }
+    }
   }
 ]

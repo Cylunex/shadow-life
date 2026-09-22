@@ -102,7 +102,7 @@ data class HealthDailyOverview(
 data class MoneyRecurringSummary(val id:String,val title:String,val amount:String?,val currency:String,val cadence:String,val nextDueOn:String,val state:String)
 data class MoneyOccurrenceSummary(val id:String,val title:String,val dueOn:String,val state:String,val amount:String?,val currency:String?)
 data class MoneyIntentSummary(val id:String,val title:String,val expectedAmount:String?,val currency:String?,val intendedOn:String?,val state:String)
-data class MoneyUseCycleSummary(val id:String,val title:String,val remaining:String?,val unit:String?,val balanceStatus:String,val projectedDepletionOn:String?,val matchedIntakes:Int)
+data class MoneyUseCycleSummary(val id:String,val title:String,val remaining:String?,val unit:String?,val balanceStatus:String,val projectedDepletionOn:String?,val matchedIntakes:Int,val usageState:String="in_use",val estimatedRemaining:String?=null,val consumed:String?=null,val matchMode:String="none")
 data class TravelPlaceSummary(val id:String,val name:String,val address:String?,val latitude:Double?,val longitude:Double?,val tags:List<String>,val favorite:Boolean)
 data class TravelVisitSummary(val id:String,val tripId:String?,val placeName:String,val latitude:Double?,val longitude:Double?,val occurredOn:String,val occurredAt:String?)
 data class TravelMapItemSummary(val placeId:String,val status:String,val note:String?)

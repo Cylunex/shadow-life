@@ -1142,6 +1142,28 @@ data class MoneyPlanningResultDtoSpendingIntentsEntry(
 )
 
 @Serializable
+enum class MoneyPlanningResultDtoUseCyclesEntryUsageState(val wireValue: String) {
+  @SerialName("pending") Pending("pending"),
+  @SerialName("in_use") InUse("in_use")
+}
+
+@Serializable
+enum class MoneyPlanningResultDtoUseCyclesEntryUsesEntryState(val wireValue: String) {
+  @SerialName("active") Active("active"),
+  @SerialName("voided") Voided("voided")
+}
+
+@Serializable
+data class MoneyPlanningResultDtoUseCyclesEntryUsesEntry(
+  @SerialName("id") val id: String,
+  @SerialName("occurred_on") val occurredOn: String,
+  @SerialName("quantity") val quantity: String,
+  @SerialName("state") val state: MoneyPlanningResultDtoUseCyclesEntryUsesEntryState,
+  @SerialName("note") val note: String?,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
 enum class MoneyPlanningResultDtoUseCyclesEntryState(val wireValue: String) {
   @SerialName("active") Active("active"),
   @SerialName("completed") Completed("completed"),
@@ -1177,6 +1199,12 @@ enum class MoneyPlanningResultDtoUseCyclesEntryBalanceStatus(val wireValue: Stri
 
 @Serializable
 data class MoneyPlanningResultDtoUseCyclesEntry(
+  @SerialName("usage_state") val usageState: MoneyPlanningResultDtoUseCyclesEntryUsageState? = null,
+  @SerialName("quantity_label") val quantityLabel: String? = null,
+  @SerialName("note") val note: String? = null,
+  @SerialName("estimated_remaining_quantity") val estimatedRemainingQuantity: String? = null,
+  @SerialName("uses") val uses: List<MoneyPlanningResultDtoUseCyclesEntryUsesEntry>? = null,
+  @SerialName("uses_truncated") val usesTruncated: Boolean? = null,
   @SerialName("id") val id: String,
   @SerialName("purchase_record_id") val purchaseRecordId: String?,
   @SerialName("purchase_item_id") val purchaseItemId: String?,

@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -62,13 +63,15 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
   onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onSettings:()->Unit,onMeals:()->Unit,initialTab:String="overview",releaseState:LoadState<HealthReleaseHistoryResultDto>,onReleaseLoad:(String,String)->Unit
 ){
   var tab by rememberSaveable(initialTab){mutableStateOf(initialTab.takeIf{value->healthTabs.any{it.first==value}}?:"overview")}
+  val workspaceScroll=rememberLazyListState()
+  LaunchedEffect(tab){workspaceScroll.scrollToItem(0)}
   val overview=(overviewState as? LoadState.Ready)?.value as? WorkspaceOverview.Health
   Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(
     title={Column{Text("健康");Text(healthSourceLine(overview),style=MaterialTheme.typography.labelMedium,color=healthSourceColor(overview))}},
     navigationIcon={IconButton(onClick=onBack){Text("‹",style=MaterialTheme.typography.headlineLarge)}},
     actions={IconButton(onClick=onSettings){Icon(Icons.Default.Settings,"健康数据与设备设置")}}
   )}){padding->
-    LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(horizontal=20.dp,vertical=10.dp),verticalArrangement=Arrangement.spacedBy(18.dp)){
+    LazyColumn(Modifier.fillMaxSize().padding(padding),state=workspaceScroll,contentPadding=PaddingValues(horizontal=20.dp,vertical=10.dp),verticalArrangement=Arrangement.spacedBy(18.dp)){
       item{Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){healthTabs.forEach{(key,label)->FilterChip(selected=tab==key,onClick={tab=key},label={Text(label)})};FilterChip(selected=false,onClick=onMeals,label={Text("饮食")})}}
       item{StateContent(overviewState,onRetry){} }
       if(tab=="release")item{ReleaseHistoryWorkspace(releaseState,onReleaseLoad,onDetail)}

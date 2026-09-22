@@ -1057,3 +1057,6 @@ button.secondary,.soft-button { color:#c3cbd3; border-color:var(--line-strong); 
 .service-cards-panel .service-card-detail .actions { flex-wrap:wrap; }
 .service-cards-panel .compact-form>button { align-self:end; }
 @media(max-width:600px) { .service-cards-panel .section-heading { align-items:start; } .service-cards-panel .section-heading>button { width:100%; } }
+.consumables-panel .stats-card{display:block;min-width:0}.consumables-panel .stats-card p{margin:.65rem 0}.consumables-panel .actions{display:flex;flex-wrap:wrap;gap:.5rem;margin:1rem 0}.consumables-panel details{margin-top:.8rem}.consumables-panel li{margin:.6rem 0}.consumables-panel form{scroll-margin-top:1rem}.consumables-panel .panel-heading{flex-wrap:wrap}
+
+.app-shell{overflow-anchor:none}

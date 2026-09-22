@@ -165,7 +165,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         recurring=result.recurringPlans.map{MoneyRecurringSummary(it.id,it.title,it.amount,it.currency,it.cadence.wireValue,it.nextDueOn,it.state.wireValue)},
         occurrences=result.occurrences.map{occurrence->val plan=result.recurringPlans.firstOrNull{it.id==occurrence.planId};MoneyOccurrenceSummary(occurrence.id,plan?.title?:"周期事项",occurrence.effectiveDueOn,occurrence.state.wireValue,plan?.amount,plan?.currency)},
         intents=result.spendingIntents.map{MoneyIntentSummary(it.id,it.title,it.expectedAmount,it.currency,it.intendedOn,it.state.wireValue)},
-        useCycles=result.useCycles.map{MoneyUseCycleSummary(it.id,it.itemName,it.remainingQuantity,it.quantityUnit?.wireValue,it.balanceStatus.wireValue,it.projectedDepletionOn,it.matchedIntakes.toInt())},
+        useCycles=result.useCycles.map{MoneyUseCycleSummary(it.id,it.itemName,it.remainingQuantity,it.quantityLabel?:it.quantityUnit?.wireValue,it.balanceStatus.wireValue,it.projectedDepletionOn,it.matchedIntakes.toInt(),it.usageState?.wireValue?:"in_use",it.estimatedRemainingQuantity,it.consumedQuantity,it.matchMode.wireValue)},
         asOf=result.asOf
       )
     }
@@ -609,7 +609,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     }
     is LifeRecordResultDtoRecord->{
       val entry=value.moneyEntry;val purchase=value.purchase;val meals=value.meals.orEmpty();val items=value.purchaseItems.orEmpty();val sources=value.sources.orEmpty()
-      val title=entry?.counterparty?:purchase?.merchant?:entry?.category?:meals.firstOrNull()?.items?.joinToString("、"){it.name}?.takeIf(String::isNotBlank)?:"消费详情"
+      val title=items.take(3).joinToString("、"){it.rawName}.takeIf(String::isNotBlank)?:entry?.counterparty?:purchase?.merchant?:entry?.category?:meals.firstOrNull()?.items?.joinToString("、"){it.name}?.takeIf(String::isNotBlank)?:"消费详情"
       val sections=mutableListOf(DetailSection("概要",listOfNotNull(DetailFact("状态",value.state.wireValue),DetailFact("日期",value.occurredOn),DetailFact("时区",value.timeZone),value.note?.let{DetailFact("备注",it)})))
       entry?.let{sections+=DetailSection("金额",listOfNotNull(DetailFact("金额","${it.currency} ${it.amount}"),DetailFact("类型",when(it.entryType.wireValue){"expense"->"支出";"refund"->"退款";else->"收入"}),it.counterparty?.let{item->DetailFact("交易方",item)},it.category?.let{item->DetailFact("分类",item)},it.paymentMethod?.let{item->DetailFact("支付方式",item.wireValue)}))}
       purchase?.let{sections+=DetailSection("消费",listOfNotNull(it.merchant?.let{item->DetailFact("商家",item)},it.amount?.let{amount->DetailFact("金额","${it.currency} $amount")},it.scene?.let{item->DetailFact("场景",item)},it.channelNameRaw?.let{item->DetailFact("渠道",item)},it.rating?.let{item->DetailFact("评分","$item/5")}))}

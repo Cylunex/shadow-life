@@ -38,5 +38,6 @@ export function recordRelations(detail:Record<string,unknown>):RecordRelation[]{
 export function recordTitle(detail:Record<string,unknown>,selection:RecordSelection):string{
   const fact=objectValue(detail.fact),entry=objectValue(detail.money_entry),trip=objectValue(detail.trip),item=objectValue(detail.item),purchase=objectValue(detail.purchase);
   const metric:Record<string,string>={weight:"体重",body_fat:"体脂率",heart_rate:"心率",blood_pressure_systolic:"收缩压",blood_pressure_diastolic:"舒张压",steps:"步数",sleep_duration:"睡眠时长",workout_session:"训练",sleep_session:"睡眠",daily_activity:"每日活动",daily_wellbeing:"每日感受",habit_log:"习惯"};
-  return stringValue(trip.title??item.title??entry.counterparty??purchase.merchant??fact.label)||metric[stringValue(fact.metric??fact.metric_key??detail.kind)]||(selection.domain==="meals"?(Array.isArray(detail.items)?detail.items.slice(0,3).map(row=>stringValue(objectValue(row).name)).filter(Boolean).join("、"):"")||"饮食详情":selection.domain==="money"?"收支详情":"记录详情");
+  const purchaseTitle=Array.isArray(detail.purchase_items)?detail.purchase_items.slice(0,3).map(row=>stringValue(objectValue(row).raw_name)).filter(Boolean).join("、"):"";
+  return purchaseTitle||stringValue(trip.title??item.title??entry.counterparty??purchase.merchant??fact.label)||metric[stringValue(fact.metric??fact.metric_key??detail.kind)]||(selection.domain==="meals"?(Array.isArray(detail.items)?detail.items.slice(0,3).map(row=>stringValue(objectValue(row).name)).filter(Boolean).join("、"):"")||"饮食详情":selection.domain==="money"?"收支详情":"记录详情");
 }

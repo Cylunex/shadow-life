@@ -559,6 +559,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -666,6 +667,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -773,10 +775,11 @@
     },
     "life.record_purchase": {
       "name": "life.record_purchase",
-      "description": "记录购买商品与可选付款，不代表已吃下或库存入库。未知单项金额省略而非 null；实际摄入另记并关联，避免重复付款。",
+      "description": "记录购买商品与可选付款，可用 consumables 按 item_position 同时建立待启用消耗品（数量未知可省略），不代表已经消耗。未知单项金额省略而非 null；实际摄入另记并关联，避免重复付款。",
       "possible_effects": [
         "life.purchase.write",
-        "money.entry.write"
+        "money.entry.write",
+        "money.plan.write"
       ],
       "idempotency": "required",
       "status_query": "operations.get",
@@ -925,6 +928,45 @@
               },
               "required": [
                 "raw_name"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "consumables": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "item_position": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 99
+                },
+                "initial_quantity": {
+                  "type": "string",
+                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                },
+                "quantity_unit": {
+                  "type": "string",
+                  "enum": [
+                    "g",
+                    "ml",
+                    "count"
+                  ]
+                },
+                "quantity_label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 16
+                },
+                "expected_daily_usage": {
+                  "type": "string",
+                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                }
+              },
+              "required": [
+                "item_position"
               ],
               "additionalProperties": false
             }
@@ -1159,6 +1201,45 @@
                   "additionalProperties": false
                 }
               },
+              "consumables": {
+                "maxItems": 100,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "item_position": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 99
+                    },
+                    "initial_quantity": {
+                      "type": "string",
+                      "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                    },
+                    "quantity_unit": {
+                      "type": "string",
+                      "enum": [
+                        "g",
+                        "ml",
+                        "count"
+                      ]
+                    },
+                    "quantity_label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 16
+                    },
+                    "expected_daily_usage": {
+                      "type": "string",
+                      "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                    }
+                  },
+                  "required": [
+                    "item_position"
+                  ],
+                  "additionalProperties": false
+                }
+              },
               "payment": {
                 "type": "object",
                 "properties": {
@@ -1271,6 +1352,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -1378,6 +1460,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -2456,6 +2539,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -2563,6 +2647,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -2857,6 +2942,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -2964,6 +3050,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -3380,6 +3467,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -3487,6 +3575,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -3715,6 +3804,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -3822,6 +3912,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -4153,6 +4244,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -4260,6 +4352,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -4595,6 +4688,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -4702,6 +4796,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -4940,6 +5035,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -5047,6 +5143,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -5463,6 +5560,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -5570,6 +5668,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -5926,6 +6025,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -6033,6 +6133,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -6513,6 +6614,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -6620,6 +6722,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -6849,6 +6952,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -6956,6 +7060,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -7189,6 +7294,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -7296,6 +7402,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -7718,6 +7825,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -7825,6 +7933,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -8303,6 +8412,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -8410,6 +8520,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -8754,6 +8865,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -8861,6 +8973,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -9331,6 +9444,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -9438,6 +9552,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -9730,6 +9845,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -9837,6 +9953,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -10257,6 +10374,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -10364,6 +10482,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -10726,6 +10845,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -10833,6 +10953,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -11177,6 +11298,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -11284,6 +11406,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -11512,6 +11635,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -11619,6 +11743,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -11877,6 +12002,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -11984,6 +12110,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -12398,6 +12525,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -12505,6 +12633,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -12809,6 +12938,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -12916,6 +13046,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -13257,6 +13388,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -13364,6 +13496,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -13652,6 +13785,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -13759,6 +13893,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -14156,9 +14291,402 @@
         "additionalProperties": false
       }
     },
+    "money.record_consumable_use": {
+      "name": "money.record_consumable_use",
+      "description": "记录真实消耗数量（沿用周期单位），不新增支出；先查询 money.planning 获取版本。仅用于手动消耗模式，已关联饮食的燕麦不重复扣减。use_id 加 reason 可修正或撤销。",
+      "possible_effects": [
+        "money.plan.write"
+      ],
+      "idempotency": "required",
+      "status_query": "operations.get",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "cycle_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "use_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "occurred_on": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "quantity": {
+            "type": "string",
+            "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+          },
+          "state": {
+            "default": "active",
+            "type": "string",
+            "enum": [
+              "active",
+              "voided"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "cycle_id",
+          "expected_revision",
+          "occurred_on",
+          "quantity",
+          "state"
+        ],
+        "additionalProperties": false
+      },
+      "command_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "const": "shadow.command"
+          },
+          "capability": {
+            "type": "string",
+            "const": "money.record_consumable_use"
+          },
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
+          },
+          "input": {
+            "type": "object",
+            "properties": {
+              "cycle_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{7,127}$"
+              },
+              "expected_revision": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "use_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{7,127}$"
+              },
+              "occurred_on": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "quantity": {
+                "type": "string",
+                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+              },
+              "state": {
+                "default": "active",
+                "type": "string",
+                "enum": [
+                  "active",
+                  "voided"
+                ]
+              },
+              "note": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "required": [
+              "cycle_id",
+              "expected_revision",
+              "occurred_on",
+              "quantity",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "protocol",
+          "capability",
+          "command_id",
+          "input"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "const": "shadow.execution-result"
+          },
+          "capability": {
+            "type": "string",
+            "enum": [
+              "life.record_meal",
+              "life.record_dining",
+              "life.correct_meal",
+              "life.add_intake",
+              "life.remove_intake",
+              "life.add_meal_payment",
+              "life.attach_meal_source",
+              "life.set_personal_alias",
+              "life.record_purchase",
+              "life.correct_intake",
+              "life.correct_purchase",
+              "life.update_purchase_items",
+              "life.void_purchase",
+              "life.link_meal_consumption",
+              "life.save_meal_template",
+              "life.record_meal_from_template",
+              "life.save_food",
+              "life.save_recipe",
+              "life.record_meal_from_recipe",
+              "money.record_entry",
+              "money.record_refund",
+              "money.correct_entry",
+              "money.void_entry",
+              "money.set_budget",
+              "money.set_recurring_plan",
+              "money.set_spending_intent",
+              "money.set_use_cycle",
+              "money.record_consumable_use",
+              "money.save_service_card",
+              "money.record_service_card_use",
+              "money.set_occurrence_state",
+              "money.stage_import",
+              "money.resolve_import_candidate",
+              "money.set_import_rule",
+              "health.record_measurement",
+              "health.correct_measurement",
+              "health.record_workout",
+              "health.ingest_raw",
+              "health.ingest_batch",
+              "health.set_source_state",
+              "health.set_plan",
+              "travel.create_trip",
+              "travel.correct_trip",
+              "travel.add_reservation",
+              "travel.correct_reservation",
+              "travel.void_reservation",
+              "travel.record_segment",
+              "travel.record_visit",
+              "travel.save_place",
+              "travel.set_day_plan",
+              "travel.set_member",
+              "travel.publish_plan",
+              "travel.start_run",
+              "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
+              "travel.restore_bundle",
+              "library.capture",
+              "library.revise",
+              "library.annotate",
+              "library.register_derivation",
+              "library.queue_processing",
+              "library.retry_processing",
+              "library.claim_processing",
+              "library.renew_processing",
+              "library.fail_processing",
+              "library.complete_processing",
+              "library.set_reading_state",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update",
+              "notifications.register_device",
+              "notifications.set_delivery_state",
+              "life.save_owned_item",
+              "life.record_owned_item_event",
+              "life.generate_review",
+              "life.save_project",
+              "life.save_action_item",
+              "life.save_meal_plan",
+              "life.build_shopping_list",
+              "life.update_shopping_item",
+              "money.record_foreign_entry",
+              "money.update_shared_allocation"
+            ]
+          },
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
+          },
+          "execution_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "status": {
+            "type": "string",
+            "const": "committed"
+          },
+          "result_kind": {
+            "type": "string",
+            "enum": [
+              "record",
+              "plan",
+              "task"
+            ]
+          },
+          "resources": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "meal",
+                    "meal_template",
+                    "food",
+                    "recipe",
+                    "personal_alias",
+                    "intake_item",
+                    "consumption_record",
+                    "purchase",
+                    "purchase_item",
+                    "money_entry",
+                    "refund",
+                    "budget",
+                    "recurring_plan",
+                    "recurring_occurrence",
+                    "spending_intent",
+                    "use_cycle",
+                    "service_card",
+                    "service_card_use",
+                    "consumable_use",
+                    "money_import_batch",
+                    "money_import_candidate",
+                    "money_import_rule",
+                    "health_measurement",
+                    "health_workout_session",
+                    "health_raw",
+                    "health_sync_cursor",
+                    "health_plan",
+                    "trip",
+                    "trip_segment",
+                    "reservation",
+                    "visit",
+                    "place",
+                    "travel_map",
+                    "trip_track",
+                    "trip_day_plan",
+                    "trip_member",
+                    "trip_plan_version",
+                    "trip_run",
+                    "trip_stop_outcome",
+                    "library_item",
+                    "library_annotation",
+                    "library_derivation",
+                    "library_processing_job",
+                    "library_reading_state",
+                    "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
+                    "notification_installation",
+                    "notification_delivery",
+                    "owned_item",
+                    "owned_item_event",
+                    "life_review",
+                    "life_project",
+                    "action_item",
+                    "meal_plan",
+                    "shopping_list",
+                    "shopping_list_item",
+                    "money_fx_snapshot",
+                    "shared_expense_allocation",
+                    "source",
+                    "thread",
+                    "run",
+                    "task"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "revision": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "revision"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "actual_values": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "replayed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "protocol",
+          "capability",
+          "command_id",
+          "execution_id",
+          "status",
+          "result_kind",
+          "resources",
+          "actual_values",
+          "warnings",
+          "replayed"
+        ],
+        "additionalProperties": false
+      }
+    },
     "money.set_use_cycle": {
       "name": "money.set_use_cycle",
-      "description": "创建或按版本更新可消耗物的使用周期、明确摄入匹配、规格与补货提醒；state=replenished 可完成本包装的补货周期。",
+      "description": "创建或按版本更新消耗品；usage_state=pending 表示尚未确认启用，in_use 的 started_on 必须是真实启用日。quantity_label 可为袋/卷/个，日用量仅估算；明确摄入匹配、规格与补货提醒；state=replenished 可完成本包装的补货周期。",
       "possible_effects": [
         "money.plan.write"
       ],
@@ -14184,6 +14712,23 @@
           "purchase_item_id": {
             "type": "string",
             "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "usage_state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "in_use"
+            ]
+          },
+          "quantity_label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
           },
           "item_name": {
             "type": "string",
@@ -14305,6 +14850,23 @@
               "purchase_item_id": {
                 "type": "string",
                 "pattern": "^[a-z][a-z0-9_]{7,127}$"
+              },
+              "usage_state": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "in_use"
+                ]
+              },
+              "quantity_label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 16
+              },
+              "note": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
               },
               "item_name": {
                 "type": "string",
@@ -14437,6 +14999,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -14544,6 +15107,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -14898,6 +15462,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -15005,6 +15570,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -15253,6 +15819,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -15360,6 +15927,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -15804,6 +16372,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -15911,6 +16480,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -16233,6 +16803,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -16340,6 +16911,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -16734,6 +17306,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -16841,6 +17414,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -17175,6 +17749,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -17282,6 +17857,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -17648,6 +18224,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -17755,6 +18332,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -18173,6 +18751,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -18280,6 +18859,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -18844,6 +19424,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -18951,6 +19532,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -19233,6 +19815,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -19340,6 +19923,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -19782,6 +20366,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -19889,6 +20474,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -20141,6 +20727,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -20248,6 +20835,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -20534,6 +21122,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -20641,6 +21230,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -21203,6 +21793,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -21310,6 +21901,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -21781,6 +22373,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -21888,6 +22481,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -22116,6 +22710,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -22223,6 +22818,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -22634,6 +23230,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -22741,6 +23338,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -23132,6 +23730,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -23239,6 +23838,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -23525,6 +24125,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -23632,6 +24233,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -23930,6 +24532,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -24037,6 +24640,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -24283,6 +24887,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -24390,6 +24995,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -24614,6 +25220,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -24721,6 +25328,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -24933,6 +25541,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -25040,6 +25649,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -25300,6 +25910,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -25407,6 +26018,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -25735,6 +26347,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -25842,6 +26455,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -26068,6 +26682,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -26175,6 +26790,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -26391,6 +27007,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -26498,6 +27115,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -26863,6 +27481,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -26970,6 +27589,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -27252,6 +27872,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -27359,6 +27980,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -27649,6 +28271,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -27756,6 +28379,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -28004,6 +28628,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -28111,6 +28736,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -28355,6 +28981,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -28462,6 +29089,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -28666,6 +29294,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -28773,6 +29402,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -28989,6 +29619,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -29096,6 +29727,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -29312,6 +29944,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -29419,6 +30052,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -29647,6 +30281,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -29754,6 +30389,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -30106,6 +30742,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -30213,6 +30850,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -30531,6 +31169,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -30638,6 +31277,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -30955,6 +31595,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -31062,6 +31703,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -31266,6 +31908,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -31373,6 +32016,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -31804,6 +32448,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -31911,6 +32556,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -32141,6 +32787,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -32248,6 +32895,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -32484,6 +33132,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -32591,6 +33240,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -32833,6 +33483,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -32940,6 +33591,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -33200,6 +33852,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -33307,6 +33960,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -33755,6 +34409,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -33862,6 +34517,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -34178,6 +34834,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -34285,6 +34942,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -34584,6 +35242,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -34691,6 +35350,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -35195,6 +35855,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -35302,6 +35963,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -35598,6 +36260,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -35705,6 +36368,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -36100,6 +36764,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -36207,6 +36872,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -36493,6 +37159,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -36600,6 +37267,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -36843,6 +37511,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -36950,6 +37619,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -37465,6 +38135,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -37572,6 +38243,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -37816,6 +38488,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -37923,6 +38596,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -46310,6 +46984,87 @@
             "items": {
               "type": "object",
               "properties": {
+                "usage_state": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "in_use"
+                  ]
+                },
+                "quantity_label": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "note": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "estimated_remaining_quantity": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^(?:0|[1-9]\\d{0,17})(?:\\.\\d{1,6})?$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "uses": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                      },
+                      "occurred_on": {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      "quantity": {
+                        "type": "string",
+                        "pattern": "^(?:0|[1-9]\\d{0,17})(?:\\.\\d{1,6})?$"
+                      },
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "active",
+                          "voided"
+                        ]
+                      },
+                      "note": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "revision": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "occurred_on",
+                      "quantity",
+                      "state",
+                      "note",
+                      "revision"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "uses_truncated": {
+                  "type": "boolean"
+                },
                 "id": {
                   "type": "string",
                   "pattern": "^[a-z][a-z0-9_]{7,127}$"
@@ -53953,6 +54708,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -54060,6 +54816,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",
@@ -54239,6 +54996,7 @@
               "money.set_recurring_plan",
               "money.set_spending_intent",
               "money.set_use_cycle",
+              "money.record_consumable_use",
               "money.save_service_card",
               "money.record_service_card_use",
               "money.set_occurrence_state",
@@ -54346,6 +55104,7 @@
                     "use_cycle",
                     "service_card",
                     "service_card_use",
+                    "consumable_use",
                     "money_import_batch",
                     "money_import_candidate",
                     "money_import_rule",

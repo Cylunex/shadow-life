@@ -29,3 +29,5 @@ Development authentication is deliberately explicit: `dev:` bearer tokens are ac
 `SHADOW_DEV_AUTH=true`, and production startup rejects that setting. Production verifies issuer, audience,
 signature and expiry through OIDC JWKS, derives subject/client/effects from claims, and applies a server-owned
 Health/Ledger write epoch. Request bodies never choose their owner or permissions.
+
+消耗品购买关联、实际使用和估算边界见 [消耗品使用](docs/architecture/consumable-usage.md)。

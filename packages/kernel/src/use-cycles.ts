@@ -2,6 +2,7 @@ export type UseCycleUnit="g"|"ml"|"count";
 export type UseCycleMatchMode="none"|"exact_name"|"food_ref";
 
 export interface UseCycleRaw extends Record<string,unknown> {
+  usage_state?:"pending"|"in_use";quantity_label?:string|null;note?:string|null;manual_consumed_quantity?:string;uses?:Array<{id:string;occurred_on:string;quantity:string;state:"active"|"voided";note:string|null;revision:number}>;uses_truncated?:boolean;
   id:string;purchase_record_id:string|null;purchase_item_id:string|null;item_name:string;started_on:string;ended_on:string|null;
   state:"active"|"completed"|"discarded"|"replenished";revision:number;
   initial_quantity:string|null;quantity_unit:UseCycleUnit|null;expected_daily_usage:string|null;
@@ -30,27 +31,33 @@ function quantity(value:string|null,unit:string|null,amountG:string|null,target:
   return{value:null,unit:key};
 }
 function localDate(instant:string,timeZone:string):string{const parts=new Intl.DateTimeFormat("en-US",{timeZone,year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date(instant)),part=(type:string)=>parts.find(item=>item.type===type)?.value??"";return`${part("year")}-${part("month")}-${part("day")}`;}
-function addDays(value:string,days:number):string{const date=new Date(`${value}T00:00:00Z`);date.setUTCDate(date.getUTCDate()+days);return date.toISOString().slice(0,10);}
+function addDays(value:string,days:number):string|null{if(!Number.isSafeInteger(days))return null;const date=new Date(`${value}T00:00:00Z`);date.setUTCDate(date.getUTCDate()+days);return Number.isFinite(date.valueOf())&&date.getUTCFullYear()<=9999?date.toISOString().slice(0,10):null;}
 
 export function buildUseCycleStatus(cycle:UseCycleRaw,intakes:readonly UseCycleIntakeRaw[],asOf:string){
   const selected=new Map<string,UseCycleIntakeRaw>();
   for(const intake of intakes){const matches=cycle.match_mode==="exact_name"&&normalized(intake.name)===normalized(cycle.match_value??"")||cycle.match_mode==="food_ref"&&intake.food_ref_id===cycle.match_value;if(matches&&!selected.has(intake.id))selected.set(intake.id,intake);}
-  let consumed=0n,matched=0,ignored=0;const incompatible=new Set<string>();
+  let consumed=cycle.match_mode==="none"?decimal(cycle.manual_consumed_quantity)??0n:0n,matched=0,ignored=0;const incompatible=new Set<string>();
   if(cycle.quantity_unit)for(const intake of selected.values()){
     const normalizedQuantity=quantity(intake.quantity,intake.unit,intake.amount_g,cycle.quantity_unit);
     if(normalizedQuantity.value===null){ignored++;if(normalizedQuantity.unit)incompatible.add(normalizedQuantity.unit);continue;}
     const fraction=decimal(intake.consumed_fraction)??scale;consumed+=normalizedQuantity.value*fraction/scale;matched++;
   }
-  const initial=decimal(cycle.initial_quantity),remaining=initial===null?null:(initial-consumed>0n?initial-consumed:0n),daily=decimal(cycle.expected_daily_usage);
-  const today=localDate(asOf,cycle.time_zone),days=remaining!==null&&daily!==null&&daily>0n?Number((remaining+daily-1n)/daily):null,projected=days===null?null:addDays(today,days);
+  const pending=cycle.usage_state==="pending";
+  const initial=pending?null:decimal(cycle.initial_quantity),remaining=initial===null?null:(initial-consumed>0n?initial-consumed:0n),daily=decimal(cycle.expected_daily_usage);
+  const today=localDate(asOf,cycle.time_zone),elapsed=BigInt(Math.max(0,Math.floor((Date.parse(`${cycle.ended_on??today}T00:00:00Z`)-Date.parse(`${cycle.started_on}T00:00:00Z`))/86400000)));
+  const estimated=cycle.match_mode==="none"&&initial!==null&&daily!==null?initial-(daily*elapsed>consumed?daily*elapsed:consumed):null;
+  const estimate=estimated===null?null:estimated>0n?estimated:0n,projectionBalance=estimate??remaining;
+  const days=projectionBalance!==null&&daily!==null&&daily>0n?Number((projectionBalance+daily-1n)/daily):null,projected=days===null?null:addDays(today,days);
   const threshold=decimal(cycle.replenish_threshold),thresholdReached=remaining!==null&&threshold!==null&&remaining<=threshold;
-  const leadReached=projected!==null&&cycle.replenish_lead_days!==null&&projected<=addDays(today,cycle.replenish_lead_days);
+  const leadOn=cycle.replenish_lead_days===null?null:addDays(today,cycle.replenish_lead_days),leadReached=projected!==null&&leadOn!==null&&projected<=leadOn;
   let balanceStatus:"tracking_only"|"needs_specification"|"monitoring"|"replenish_now"|"depleted"|"completed"|"discarded"|"replenished";
   if(cycle.state!=="active")balanceStatus=cycle.state;
+  else if(pending)balanceStatus="tracking_only";
   else if(initial===null||cycle.quantity_unit===null)balanceStatus="needs_specification";
   else if(remaining===0n)balanceStatus="depleted";
   else if(!cycle.reminder_enabled)balanceStatus="tracking_only";
   else if(thresholdReached||leadReached)balanceStatus="replenish_now";
   else balanceStatus="monitoring";
-  return{...cycle,consumed_quantity:cycle.quantity_unit?decimalText(consumed):null,remaining_quantity:remaining===null?null:decimalText(remaining),projected_depletion_on:projected,balance_status:balanceStatus,matched_intakes:matched,ignored_incompatible_intakes:ignored,incompatible_units:[...incompatible].sort()};
+  const {manual_consumed_quantity:_,...visible}=cycle;
+  return{...visible,estimated_remaining_quantity:estimate===null?null:decimalText(estimate),consumed_quantity:cycle.quantity_unit?decimalText(consumed):null,remaining_quantity:remaining===null?null:decimalText(remaining),projected_depletion_on:projected,balance_status:balanceStatus,matched_intakes:matched,ignored_incompatible_intakes:ignored,incompatible_units:[...incompatible].sort()};
 }

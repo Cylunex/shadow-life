@@ -47,14 +47,14 @@ export interface TransactionStore {
   foodCatalog(subjectId:string,query:string|undefined,limit:number):Promise<unknown>;
   summarizeMoney(subjectId: string): Promise<MoneySummary>;
   executeDomainWrite(value: { subjectId: string; command: UniversalCommandEnvelope; nextId(type: string): string }): Promise<{ resources: ExecutionResult["resources"]; actualValues: ExecutionResult["actual_values"]; warnings?: string[] }>;
-  listDomain(subjectId:string,domain:"money"|"health"|"travel"|"library",options:{query?:string;limit:number;asOf?:string;before?:{at:string;kind:string;id:string}}):Promise<{items:readonly DomainRecordPageItem[];hasMore:boolean;asOf:string}>;
+  listDomain(subjectId:string,domain:"money"|"health"|"travel"|"library",options:{includePurchase?:boolean;query?:string;limit:number;asOf?:string;before?:{at:string;kind:string;id:string}}):Promise<{items:readonly DomainRecordPageItem[];hasMore:boolean;asOf:string}>;
   healthReleaseHistory(subjectId:string,input:{from:string;to:string;limit:number}):Promise<unknown>;
   healthTrend(subjectId:string,input:{metric_key:string;from?:string|undefined;to?:string|undefined;limit:number}):Promise<unknown>;
   healthSources(subjectId:string):Promise<unknown>;
   lifeToday(subjectId:string,date:string,timeZone:string,domains:readonly LifeOverviewDomain[]):Promise<unknown>;
   dailyRecordCheck(subjectId:string,date:string,timeZone:string):Promise<DailyRecordCheckRawData>;
-  lifeTimeline(subjectId:string,domains:readonly LifeOverviewDomain[],options:{limit:number;asOf?:string;before?:{at:string;domain:LifeOverviewDomain;kind:string;id:string}}):Promise<{items:readonly LifeTimelineItem[];hasMore:boolean;asOf:string}>;
-  lifeSearch(subjectId:string,domains:readonly LifeOverviewDomain[],options:{query:string;fromOn?:string;toOnExclusive?:string;limit:number;asOf?:string;before?:{on:string;domain:LifeOverviewDomain;kind:string;id:string}}):Promise<{items:readonly import("@shadow/contracts").LifeSearchItem[];hasMore:boolean;asOf:string}>;
+  lifeTimeline(subjectId:string,domains:readonly LifeOverviewDomain[],options:{includePurchase?:boolean;limit:number;asOf?:string;before?:{at:string;domain:LifeOverviewDomain;kind:string;id:string}}):Promise<{items:readonly LifeTimelineItem[];hasMore:boolean;asOf:string}>;
+  lifeSearch(subjectId:string,domains:readonly LifeOverviewDomain[],options:{includePurchase?:boolean;query:string;fromOn?:string;toOnExclusive?:string;limit:number;asOf?:string;before?:{on:string;domain:LifeOverviewDomain;kind:string;id:string}}):Promise<{items:readonly import("@shadow/contracts").LifeSearchItem[];hasMore:boolean;asOf:string}>;
   consumptionStatsData(subjectId:string,input:{fromOn:string;toOnExclusive:string;timeZone:string;includeMoney:boolean}):Promise<import("./consumption-stats.js").ConsumptionStatsRawData>;
   lifeRecord(subjectId:string,id:string,sections:readonly ("meal"|"purchase"|"money"|"sources")[],includeTravel?:boolean):Promise<unknown|undefined>;
   moneyPlanning(subjectId:string,period:string):Promise<unknown>;

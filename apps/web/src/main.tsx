@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { StrictMode, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import type { ExecutionResult } from "@shadow/contracts";
 import "./styles.css";
@@ -63,6 +63,8 @@ function App(){
   const [fields,setFields]=useState<RecordFormFields>(()=>initialRecordFields(today(),zone()));
   async function load(){setLoadState("loading");try{const loaded=await loadDashboard(fetch,auth,{date:today(),timeZone:zone()});commandController.setIdentity(loaded.identity.issuer,loaded.identity.subjectId,loaded.identity.clientId);setIdentityKey(`${loaded.identity.issuer}:${loaded.identity.subjectId}:${loaded.identity.clientId}`);epochHeader=loaded.epochHeader;setData(loaded.data);setTodayData(loaded.today);setTimeline(loaded.timeline?.items??[]);setTimelineCursor(loaded.timeline?.next_cursor??null);setHealthWorkspace(loaded.health);setCapabilities(loaded.capabilities);setFields(current=>!loaded.capabilities.includes("money.set_budget")&&loaded.capabilities.includes("health.set_plan")&&current.planKind==="budget"?{...current,planKind:"goal"}:current);const labels:Record<DashboardDomain|"today"|"timeline",string>={meals:"饮食",money:"账目",health:"健康",travel:"旅行",library:"资料",today:"生活概览",timeline:"时间线"},messages=(Object.entries(loaded.errors) as [DashboardDomain|"today"|"timeline",string][]).map(([domain,message])=>`${labels[domain]}：${message}`);setReadError(messages.length?messages.join("；"):undefined);setLoadState(messages.length||!loaded.today?"partial":"ready");}catch(caught){setReadError(caught instanceof Error?caught.message:"读取失败");setLoadState("error");}}
   useEffect(()=>{void load()},[]);
+  useLayoutEffect(()=>{const previous=history.scrollRestoration;history.scrollRestoration="manual";return()=>{history.scrollRestoration=previous;};},[]);
+  useLayoutEffect(()=>{window.scrollTo({top:0,left:0,behavior:"instant"});},[tab,section]);
   useEffect(()=>{if(tab==="today")return;const available=workspaceSections[tab].map(item=>item[0] as string);if(!available.includes(section))setSection(available[0]!);},[tab,section]);
   useEffect(()=>{const query=new URLSearchParams(window.location.search);query.set("tab",assistantOpen?"assistant":tab);if(tab!=="today")query.set("section",section);else query.delete("section");history.replaceState(null,"",`${location.pathname}?${query.toString()}${location.hash}`);},[tab,section,assistantOpen]);
   function navigate(next:Tab,nextSection?:string){setAssistantOpen(false);setTab(next);if(next!=="today")setSection(nextSection??defaultSection[next]);}

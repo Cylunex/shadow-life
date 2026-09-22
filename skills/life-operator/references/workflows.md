@@ -146,3 +146,32 @@ do not imply a visit. Actual visits and private reservation details retain their
 - `money.save_service_card` updates replace metadata; preserve existing start, expiry, merchant, purchase, unit, state and note unless the user changes them. A closed card can be reopened explicitly; expired/unusable cards still show the unconsumed units and their status.
 - Read back `money.service_cards` by `id` after writes. Confirm original purchase link, total, recorded used and remaining units. Follow `next_uses_before_id` via `uses_before_id` for older history; the balance always covers all effective uses, including those outside the displayed page.
 - Report “总共 8 次，已记录使用 1 次，剩余 7 次”. If historical usage is unknown, say “尚未记录使用” instead of asserting the user has never used it. These service uses are not dietary intake and do not belong in `money.set_use_cycle` matching rules.
+
+## Consumables: purchase → pending → use
+
+- For a purchase the user wants to track, pass `life.record_purchase.consumables` with zero-based
+  `item_position`. The purchase, optional payment and pending tracker commit atomically. Supply only
+  explicit quantities; package count is not the number of units inside it. `quantity_unit=count` plus
+  `quantity_label` represents bags, rolls, heads, etc.; grams and millilitres use `g` / `ml`.
+- Read user conventions first. Do not track every grocery run automatically. A weekly food restock
+  exclusion affects extra consumable tracking, never whether the actual purchase/payment is recorded.
+- For an existing purchase, search by product and read `life.get_record` plus `money.planning` before
+  `money.set_use_cycle`. Link the original `purchase_record_id` and exact `purchase_item_id`; never
+  duplicate the payment. A folded order does not prove the other product lines: safely supplement
+  only supported facts with `life.update_purchase_items` first.
+- `usage_state=pending` means opening/current stock are not yet known. Its `started_on` is the
+  purchase/registration date, not an invented opening date. Old purchases must not become claims
+  about present inventory. Pending trackers have no remaining balance or depletion forecast.
+- When opening is explicitly known, use `usage_state=in_use` and the real `started_on`, with the
+  quantity of this batch. Query the current revision and preserve other fields on updates.
+- For manual consumption, call `money.record_consumable_use` with the cycle version, actual local
+  date and quantity in the cycle's unit. It adds no expense. Correct/void a mistaken use with its
+  `use_id` and `reason`; use the original command key to recover uncertain outcomes.
+- Oats can retain exact-name/food-ref intake matching. Never also log manual consumption for a cycle
+  matched to intake. Use a new cycle for a new package/batch after ending the previous one.
+- `expected_daily_usage` is an estimate, not a daily actual-use event. Read back
+  `consumed_quantity`, `remaining_quantity` (from recorded uses), `estimated_remaining_quantity`
+  (rate estimate) and `projected_depletion_on` with their different meanings. Do not invent an
+  opening date, toothbrush replacement interval or grams per bag. Unknown specifications stay unknown.
+- `money.planning` lists up to 100 cycles relevant to its month, and the last 50 manual uses per
+  cycle. Respect `truncated.use_cycles` and `uses_truncated`; balances use all effective facts.
