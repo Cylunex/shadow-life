@@ -8,7 +8,7 @@ The Android build is split into the five planned Gradle groups: `app`, `core:mod
 storage lives in data; reusable Compose tokens/components live in designsystem; deterministic device protocol
 and sync-round logic live in devices. App owns navigation, feature UI, dependency assembly and workers.
 
-The root navigation is Today / Records / Plans / Library. The centered Life action opens one composer while
+The root navigation is Life / Records / Plans / Library. The centered Life action opens one composer while
 preserving the selected root and its back stack. Manual forms for expense, meal, health, visit and library
 capture remain available without an Agent. The same composer can start and continue a native Agent conversation;
 only Executor-authenticated operation events are presented as committed results. Records use the paginated
@@ -52,7 +52,7 @@ the optional Health Connect integration is explicitly enabled and the matching p
 Samsung steps/sleep/exercise and weight remain archived but are not projected into both paths, avoiding duplicate
 dashboard facts. Health Connect is disabled by default; Samsung direct sync remains the primary health source.
 After Samsung permission has been granted, returning to Life starts an immediate unique sync and keeps the hourly
-background schedule. Today, Health and Settings show the live read state, record count, queue state and committed
+background schedule. Life, Health and Settings show the live read state, record count, queue state and committed
 result. Xiaomi Scale 2/S400 scanning reports scan start, first matching advertisement, stable measurement, local
 queueing and server commit in the same visible panel; the latest accepted weight remains visible after the service
 notification closes.

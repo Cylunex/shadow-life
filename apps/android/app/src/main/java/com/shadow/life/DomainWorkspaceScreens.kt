@@ -35,14 +35,18 @@ import kotlin.math.abs
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun MoneyWorkspaceScreen(
   overviewState:LoadState<WorkspaceOverview>,recordsState:LoadState<RecordPage>,onSearch:(String)->Unit,onRetry:()->Unit,onLoadMore:()->Unit,
-  onBack:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onCapture:(CaptureKind)->Unit
+  onBack:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onCapture:(CaptureKind)->Unit,initialTab:String="overview"
 ){
-  var tab by rememberSaveable{mutableStateOf("overview")};var query by rememberSaveable{mutableStateOf("")}
+  var tab by rememberSaveable(initialTab){mutableStateOf(initialTab.takeIf{it in setOf("overview","details","budgets","recurring","supplies")}?:"overview")};var query by rememberSaveable{mutableStateOf("")}
   val overview=(overviewState as? LoadState.Ready)?.value as? WorkspaceOverview.Money
   val records=(recordsState as? LoadState.Ready)?.value?.items.orEmpty()
-  val periodRecords=records.filter{it.supporting?.startsWith(overview?.period?:LocalDate.now().toString().take(7))==true}
+  var selectedCurrency by rememberSaveable{mutableStateOf<String?>(null)}
+  val periodRecords=records.filter{it.subtype in setOf("expense","income","refund")&&it.supporting?.startsWith(overview?.period?:LocalDate.now().toString().take(7))==true}
+  val currencies=periodRecords.mapNotNull(::recordCurrency).distinct().sorted()
+  val currency=selectedCurrency?.takeIf{it in currencies}?:currencies.firstOrNull()
+  val currencyRecords=periodRecords.filter{recordCurrency(it)==currency}
   Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(
-    title={Column{Text("消费");Text(overview?.period?.let{"$it 真实收支"}?:"正在读取账目",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}},
+    title={Column{Text("消费");Text(overview?.period?.let{"$it · 收支与预算"}?:"正在读取账目",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}},
     navigationIcon={IconButton(onClick=onBack){Text("‹",style=MaterialTheme.typography.headlineLarge)}},actions={FilledTonalIconButton(onClick={onCapture(CaptureKind.Expense)}){Icon(Icons.Default.Add,"记一笔")}}
   )}){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp,10.dp,20.dp,28.dp),verticalArrangement=Arrangement.spacedBy(18.dp)){
     item{WorkspaceTabs(tab,{tab=it},listOf("overview" to "概览","details" to "明细","budgets" to "预算","recurring" to "订阅","supplies" to "消耗品"))}
@@ -51,47 +55,87 @@ import kotlin.math.abs
       "budgets"->item{BudgetWorkspace(overview)}
       "recurring"->item{RecurringWorkspace(overview)}
       "supplies"->item{UseCycleWorkspace(overview)}
-      "details"->{item{MoneySearch(query,{query=it},{onSearch(query)},onCapture)};item{MoneyRecordList(records,onDetail)};if(recordsState is LoadState.Ready&&recordsState.value.nextCursor!=null)item{LoadMoreButton("加载更多明细",onLoadMore)}}
-      else->{item{MoneyHero(periodRecords,overview,onCapture)};item{MoneyComposition(periodRecords)};item{BudgetPreview(overview){tab="budgets"}};item{UseCyclePreview(overview){tab="supplies"}};item{RecurringPreview(overview){tab="recurring"}};item{RecentMoney(records,onDetail){tab="details"}}}
+      "details"->{item{MoneySearch(query,{query=it},{onSearch(query)},onCapture)};if(recordsState is LoadState.Ready)item{MoneyRecordList(records,onDetail)};if(recordsState is LoadState.Ready&&recordsState.value.nextCursor!=null)item{LoadMoreButton("加载更多明细",onLoadMore)}}
+      else->{
+        if(currencies.size>1)item{Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){currencies.forEach{code->FilterChip(currency==code,{selectedCurrency=code},{Text(code)})}}}
+        if(recordsState is LoadState.Ready){item{MoneyHero(currencyRecords,overview,currency,recordsState.value.nextCursor!=null,onCapture)};item{MoneyComposition(currencyRecords,currency)}};item{BudgetPreview(overview){tab="budgets"}};item{UseCyclePreview(overview){tab="supplies"}};item{RecurringPreview(overview){tab="recurring"}};if(recordsState is LoadState.Ready)item{RecentMoney(records,onDetail){tab="details"}}}
     }
     item{StateContent(recordsState,onRetry){} }
   }}
 }
 
-@Composable private fun MoneyHero(records:List<RecordSummary>,overview:WorkspaceOverview.Money,onCapture:(CaptureKind)->Unit){
-  val currencies=records.mapNotNull{it.trailing?.substringBefore(' ')?.takeIf(String::isNotBlank)}.distinct()
-  val currency=currencies.singleOrNull()?:overview.budgets.map{it.currency}.distinct().singleOrNull()?:"CNY"
-  fun total(type:String)=records.filter{it.subtype==type&&it.trailing?.startsWith("$currency ")==true}.sumOf{it.trailing?.substringAfter(' ')?.toDoubleOrNull()?:0.0}
-  val expense=total("expense")
-  val refund=total("refund")
-  val income=total("income")
-  val net=(expense-refund).coerceAtLeast(0.0)
-  LifeCard{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Top){Column(Modifier.weight(1f)){Text("本月净支出",color=MaterialTheme.colorScheme.secondary,style=MaterialTheme.typography.labelLarge);Text(if(records.isEmpty())"尚无记录" else "$currency ${moneyNumber(net)}",style=MaterialTheme.typography.headlineLarge,fontWeight=FontWeight.SemiBold);Text("${records.size} 条已加载明细${if(currencies.size>1)" · 当前显示 $currency，其他币种未合并" else ""}",color=MaterialTheme.colorScheme.onSurfaceVariant)};FilledTonalIconButton(onClick={onCapture(CaptureKind.Expense)}){Icon(Icons.Default.Add,"记消费")}}
-    MoneyBars(records,currency,Modifier.fillMaxWidth().height(142.dp))
-    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){VisualStat("支出",moneyNumber(expense),currency,MaterialTheme.colorScheme.tertiary,Modifier.weight(1f));VisualStat("收入",moneyNumber(income),currency,MaterialTheme.colorScheme.primary,Modifier.weight(1f));VisualStat("退款",moneyNumber(refund),currency,MaterialTheme.colorScheme.secondary,Modifier.weight(1f))}
-    Text("图表仅基于当前已加载且币种为 $currency 的正式明细。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+@Composable private fun MoneyHero(records:List<RecordSummary>,overview:WorkspaceOverview.Money,currency:String?,hasMore:Boolean,onCapture:(CaptureKind)->Unit){
+  val totals=moneyCardTotals(records,currency.orEmpty())
+  LifeCard{
+    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Top){
+      Column(Modifier.weight(1f)){
+        Text("${overview.period} · 已加载收支",color=MaterialTheme.colorScheme.secondary,style=MaterialTheme.typography.labelLarge)
+        Text(if(records.isEmpty())"暂无收支明细" else "${currency.orEmpty()} ${totals.net.stripTrailingZeros().toPlainString()}",style=MaterialTheme.typography.headlineMedium,fontWeight=FontWeight.SemiBold)
+        Text("净支出 · 支出减退款",color=MaterialTheme.colorScheme.onSurfaceVariant)
+      }
+      FilledTonalIconButton(onClick={onCapture(CaptureKind.Expense)}){Icon(Icons.Default.Add,"记消费")}
+    }
+    if(records.isNotEmpty()){
+      MoneyBars(records,currency.orEmpty(),Modifier.fillMaxWidth().height(120.dp))
+      Text("净支出趋势 · 最近 14 个有收支的日期",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+      Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){
+        VisualStat("支出",totals.expense.stripTrailingZeros().toPlainString(),currency.orEmpty(),MaterialTheme.colorScheme.tertiary,Modifier.weight(1f))
+        VisualStat("收入",totals.income.stripTrailingZeros().toPlainString(),currency.orEmpty(),MaterialTheme.colorScheme.primary,Modifier.weight(1f))
+        VisualStat("退款",totals.refund.stripTrailingZeros().toPlainString(),currency.orEmpty(),MaterialTheme.colorScheme.secondary,Modifier.weight(1f))
+      }
+    }
+    Text("${records.size} 条已加载明细"+if(hasMore)" · 尚有更多记录，请在明细中继续加载" else " · 按原币种统计",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
   }
 }
 
 @Composable private fun MoneyBars(records:List<RecordSummary>,currency:String,modifier:Modifier){
-  val days=records.filter{it.trailing?.startsWith("$currency ")==true}.groupBy{it.supporting.orEmpty().takeLast(2)}.toSortedMap().entries.toList().takeLast(14)
-  val values=days.map{entry->entry.value.sumOf{record->val value=record.trailing?.substringAfter(' ')?.toDoubleOrNull()?:0.0;if(record.subtype=="income")-value else if(record.subtype=="refund")-value else value}}
-  val grid=MaterialTheme.colorScheme.outline;val expense=MaterialTheme.colorScheme.tertiary;val income=MaterialTheme.colorScheme.primary
-  Canvas(modifier){
-    repeat(3){i->val y=size.height*(i+1)/4;drawLine(grid.copy(alpha=.35f),Offset(0f,y),Offset(size.width,y),1.dp.toPx())}
-    val maximum=values.maxOfOrNull{abs(it)}?.takeIf{it>0}?:1.0
-    val width=size.width/(values.size.coerceAtLeast(1)*1.7f)
-    values.forEachIndexed{i,value->val height=(size.height*.72f*(abs(value)/maximum)).toFloat();val x=(i+.5f)*size.width/values.size.coerceAtLeast(1);drawRoundRect(if(value>=0)expense else income,Offset(x-width/2,size.height-height),androidx.compose.ui.geometry.Size(width,height),CornerRadius(8.dp.toPx()))}
+  val days=records.filter{recordCurrency(it)==currency&&it.subtype in setOf("expense","refund")}
+    .groupBy{it.supporting.orEmpty().take(10)}.toSortedMap().entries.toList().takeLast(14)
+  if(days.isEmpty())return
+  val values=days.map{moneyCardTotals(it.value,currency).net.toDouble()}
+  val grid=MaterialTheme.colorScheme.outline;val expense=MaterialTheme.colorScheme.tertiary;val refund=MaterialTheme.colorScheme.primary
+  Column(modifier,verticalArrangement=Arrangement.spacedBy(6.dp)){
+    Canvas(Modifier.fillMaxWidth().weight(1f)){
+      val above=values.maxOrNull()?.coerceAtLeast(0.0)?:0.0
+      val below=values.minOrNull()?.coerceAtMost(0.0)?.let{abs(it)}?:0.0
+      val range=(above+below).takeIf{it>0}?:1.0
+      val baseline=if(above+below==0.0)size.height else (size.height*above/range).toFloat()
+      drawLine(grid,Offset(0f,baseline),Offset(size.width,baseline),1.dp.toPx())
+      val width=size.width/(values.size*1.7f)
+      values.forEachIndexed{index,value->
+        val height=(size.height*abs(value)/range).toFloat()
+        val x=(index+.5f)*size.width/values.size
+        drawRoundRect(if(value>=0)expense else refund,Offset(x-width/2,if(value>=0)baseline-height else baseline),androidx.compose.ui.geometry.Size(width,height),CornerRadius(4.dp.toPx()))
+      }
+    }
+    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){
+      Text(days.first().key.takeLast(5),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+      if(days.size>1)Text(days.last().key.takeLast(5),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    }
   }
 }
 
-@Composable private fun MoneyComposition(records:List<RecordSummary>){
-  val expenses=records.filter{it.subtype=="expense"&&it.trailing!=null};val groups=expenses.groupBy{it.title.ifBlank{"未分类"}}.mapValues{(_,rows)->rows.sumOf{it.trailing?.substringAfter(' ')?.toDoubleOrNull()?:0.0}}.entries.sortedByDescending{it.value}.take(5);val max=groups.maxOfOrNull{it.value}?:1.0
-  LifeSection("消费构成"){if(groups.isEmpty())EmptyState("有消费记录后显示主要去向") else groups.forEach{entry->Column(verticalArrangement=Arrangement.spacedBy(5.dp)){Row(Modifier.fillMaxWidth()){Text(entry.key,Modifier.weight(1f),maxLines=1,overflow=TextOverflow.Ellipsis);Text(moneyNumber(entry.value))};LinearProgressIndicator({(entry.value/max).toFloat()},Modifier.fillMaxWidth().height(7.dp),color=MaterialTheme.colorScheme.secondary,trackColor=MaterialTheme.colorScheme.surfaceVariant)}};Text("按当前明细标题聚合，不把商家自动推断成消费分类。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+@Composable private fun MoneyComposition(records:List<RecordSummary>,currency:String?){
+  val groups=records.filter{it.subtype=="expense"&&recordCurrency(it)==currency}
+    .groupBy{it.title.ifBlank{"未命名交易"}}
+    .mapValues{(_,rows)->moneyCardTotals(rows,currency.orEmpty()).expense}.entries.sortedByDescending{it.value}.take(5)
+  val max=groups.maxOfOrNull{it.value.toDouble()}?.takeIf{it>0}?:1.0
+  LifeSection("主要消费去向"){
+    if(groups.isEmpty())EmptyState("当前明细没有支出") else groups.forEach{entry->
+      Column(verticalArrangement=Arrangement.spacedBy(5.dp)){
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)){
+          Text(entry.key,Modifier.weight(1f),maxLines=2,overflow=TextOverflow.Ellipsis)
+          Text("${currency.orEmpty()} ${entry.value.stripTrailingZeros().toPlainString()}")
+        }
+        LinearProgressIndicator({(entry.value.toDouble()/max).toFloat().coerceIn(0f,1f)},Modifier.fillMaxWidth().height(7.dp),color=MaterialTheme.colorScheme.secondary,trackColor=MaterialTheme.colorScheme.surfaceVariant)
+      }
+    }
+    Text("按已加载的交易名称归纳 · ${currency.orEmpty()} · 前 5 项",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+  }
 }
 
 @Composable private fun BudgetPreview(value:WorkspaceOverview.Money,onOpen:()->Unit){LifeSection("预算",action={TextButton(onClick=onOpen){Text("完整预算")}}){if(value.budgets.isEmpty())EmptyState("本月还没有预算") else value.budgets.take(2).forEach{BudgetCard(it)}}}
-@Composable private fun BudgetWorkspace(value:WorkspaceOverview.Money){Column(verticalArrangement=Arrangement.spacedBy(14.dp)){Text("${value.period} 预算",style=MaterialTheme.typography.headlineSmall);if(value.budgets.isEmpty())EmptyState("还没有预算；记录仍会正常保留") else value.budgets.forEach{BudgetCard(it)};Text("预算进度使用服务端按正式支出计算的 spent 口径。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
+@Composable private fun BudgetWorkspace(value:WorkspaceOverview.Money){Column(verticalArrangement=Arrangement.spacedBy(14.dp)){Text("${value.period} 预算",style=MaterialTheme.typography.headlineSmall);if(value.budgets.isEmpty())EmptyState("还没有预算；记录仍会正常保留") else value.budgets.forEach{BudgetCard(it)};Text("预算按该月已确认的支出计算。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
 @Composable private fun BudgetCard(value:BudgetProgress){val amount=value.amount.toDoubleOrNull()?:0.0;val spent=value.spent.toDoubleOrNull()?:0.0;val ratio=if(amount>0)(spent/amount).toFloat().coerceIn(0f,1f) else 0f;LifeCard{Row(Modifier.fillMaxWidth()){Column(Modifier.weight(1f)){Text(value.title,style=MaterialTheme.typography.titleMedium);Text("${value.currency} ${value.spent} / ${value.amount}",color=MaterialTheme.colorScheme.onSurfaceVariant)};Text(if(spent>amount)"超支" else "剩余 ${moneyNumber((amount-spent).coerceAtLeast(0.0))}",color=if(spent>amount)MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)};LinearProgressIndicator({ratio},Modifier.fillMaxWidth().height(9.dp),color=if(spent>amount)MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary,trackColor=MaterialTheme.colorScheme.surfaceVariant)}}
 
 @Composable private fun RecurringPreview(value:WorkspaceOverview.Money,onOpen:()->Unit){LifeSection("订阅与周期费用",action={TextButton(onClick=onOpen){Text("全部")}}){LifeCard(onClick=onOpen){Text("${value.recurringPlans} 个周期计划",style=MaterialTheme.typography.titleLarge);Text("${value.openOccurrences} 项待处理 · ${value.spendingIntents} 个消费意向",color=MaterialTheme.colorScheme.onSurfaceVariant);value.recurring.firstOrNull()?.let{Text("最近：${it.title} · ${it.nextDueOn}",color=MaterialTheme.colorScheme.secondary)}}}}
@@ -174,7 +218,7 @@ private fun travelMapMarkers(value:WorkspaceOverview.Travel,places:List<TravelPl
     markers.forEach{marker->val point=position(marker.latitude,marker.longitude);drawCircle(surface,8.dp.toPx(),point);drawCircle(if(marker.favorite)warm else primary,5.dp.toPx(),point)}
   }
 }
-@Composable private fun UpcomingTrips(value:WorkspaceOverview.Travel,onDetail:(LifeDomain,String,String)->Unit){LifeSection("旅程"){if(value.tripItems.isEmpty())EmptyState("还没有旅程") else value.tripItems.take(4).forEach{trip->LifeCard(onClick={onDetail(LifeDomain.Travel,trip.id,trip.title)}){Row(Modifier.fillMaxWidth()){Column(Modifier.weight(1f)){Text(trip.title,style=MaterialTheme.typography.titleLarge);Text("${trip.startsOn} — ${trip.endsOn}",color=MaterialTheme.colorScheme.onSurfaceVariant)};DomainStatusLabel(if(trip.active)"active" else if(trip.endsOn<LocalDate.now().toString())"completed" else "planned")}}}}}
+@Composable private fun UpcomingTrips(value:WorkspaceOverview.Travel,onDetail:(LifeDomain,String,String)->Unit){LifeSection("旅程"){if(value.tripItems.isEmpty())EmptyState("还没有旅程") else value.tripItems.take(4).forEach{trip->LifeCard(onClick={onDetail(LifeDomain.Travel,trip.id,trip.title)}){Row(Modifier.fillMaxWidth()){Column(Modifier.weight(1f)){Text(trip.title,style=MaterialTheme.typography.titleLarge);Text("${trip.startsOn} — ${trip.endsOn}",color=MaterialTheme.colorScheme.onSurfaceVariant)};DomainStatusLabel(tripPhase(trip))}}}}}
 @Composable private fun TravelPlaces(value:WorkspaceOverview.Travel,onCapture:(CaptureKind)->Unit){Column(verticalArrangement=Arrangement.spacedBy(12.dp)){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("收藏地点",style=MaterialTheme.typography.headlineSmall);Text("${value.places} 个地点 · ${value.placeItems.count{it.favorite}} 个收藏",color=MaterialTheme.colorScheme.onSurfaceVariant)};FilledTonalButton(onClick={onCapture(CaptureKind.Visit)}){Text("记到访")}};if(value.placeItems.isEmpty())EmptyState("还没有地点") else value.placeItems.forEach{place->LifeCard{Row(Modifier.fillMaxWidth()){Column(Modifier.weight(1f)){Text(place.name,style=MaterialTheme.typography.titleMedium);Text(place.address?:"地址未记录",color=MaterialTheme.colorScheme.onSurfaceVariant)};if(place.favorite)Text("★",color=MaterialTheme.colorScheme.tertiary,style=MaterialTheme.typography.titleLarge)};if(place.tags.isNotEmpty())Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)){place.tags.forEach{tag->SuggestionChip({},label={Text(tag)})}}}}}}
 @Composable private fun TravelMemorySummary(value:WorkspaceOverview.Travel,onOpen:()->Unit){LifeSection("足迹与回忆"){LifeCard(onClick=onOpen){Text("${value.places} 个地点 · ${value.tracks.size} 条轨迹",style=MaterialTheme.typography.titleLarge);Text("到访记录、地点收藏和轨迹都保留为各自的真实事实。",color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
 

@@ -50,7 +50,7 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
   val entry by nav.currentBackStackEntryAsState();val destination=entry?.destination
   val root=destination?.hasRoute<TodayRoute>()==true||destination?.hasRoute<RecordsRoute>()==true||destination?.hasRoute<PlansRoute>()==true||destination?.hasRoute<LibraryRoute>()==true
   Scaffold(containerColor=MaterialTheme.colorScheme.background,bottomBar={if(root)LifeDock(
-    selected=when{destination?.hasRoute<RecordsRoute>()==true->"记录";destination?.hasRoute<PlansRoute>()==true->"计划";destination?.hasRoute<LibraryRoute>()==true->"资料";else->"今天"},
+    selected=when{destination?.hasRoute<RecordsRoute>()==true->"记录";destination?.hasRoute<PlansRoute>()==true->"计划";destination?.hasRoute<LibraryRoute>()==true->"资料";else->"生活"},
     onRoute={route->nav.navigate(route){popUpTo(nav.graph.findStartDestination().id){saveState=true};launchSingleTop=true;restoreState=true}},onLife={openComposer();viewModel.openAssistant()})
   }){outer->Box(Modifier.fillMaxSize().padding(bottom=if(root)outer.calculateBottomPadding() else 0.dp)){
     NavHost(navController=nav,startDestination=TodayRoute){
@@ -76,11 +76,11 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
           )
           LifeDomain.Meals->MealsWorkspaceScreen(
             viewModel.workspaceOverview,viewModel.workspace,viewModel.assetPreviews,viewModel::loadAssetPreview,
-            {viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,capture,{record->pendingMealPhoto=record;mealPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))},viewModel.mealPhotoSubmit,{viewModel.loadConsumptionStats();nav.navigate(ConsumptionStatsRoute)}
+            {viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,{date,type->openComposer(defaultCaptureSeed(CaptureKind.Meal).copy(date=date,option=type))},{record->pendingMealPhoto=record;mealPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))},viewModel.mealPhotoSubmit,{viewModel.loadConsumptionStats();nav.navigate(ConsumptionStatsRoute)}
           )
           LifeDomain.Money->MoneyWorkspaceScreen(
             viewModel.workspaceOverview,viewModel.workspace,{viewModel.loadWorkspace(domain,it)},{viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,
-            {nav.popBackStack()},detail,capture
+            {nav.popBackStack()},detail,capture,route.tab
           )
           LifeDomain.Travel->TravelWorkspaceScreen(
             viewModel.workspaceOverview,viewModel.workspace,{viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,capture,route.tab,viewModel::selectTravelTrip,{seed->openComposer(seed)},viewModel.submit,viewModel::saveTravelDay,viewModel::editAgain
@@ -114,7 +114,8 @@ private fun openPlanningRelated(nav:androidx.navigation.NavHostController,viewMo
     "library_item"->{viewModel.loadDetail(LifeDomain.Library,id);nav.navigate(DetailRoute(LifeDomain.Library.name,id,"资料详情"))}
     "money_entry"->{viewModel.loadDetail(LifeDomain.Money,id);nav.navigate(DetailRoute(LifeDomain.Money.name,id,"交易详情"))}
     "health_record"->{viewModel.loadDetail(LifeDomain.Health,id);nav.navigate(DetailRoute(LifeDomain.Health.name,id,"健康详情"))}
-    "purchase","meal"->{viewModel.loadDetail(LifeDomain.Meals,id);nav.navigate(DetailRoute(LifeDomain.Meals.name,id,"餐次详情"))}
+    "purchase"->{viewModel.loadDetail(LifeDomain.Money,id);nav.navigate(DetailRoute(LifeDomain.Money.name,id,"购买详情"))}
+    "meal"->{viewModel.loadDetail(LifeDomain.Meals,id);nav.navigate(DetailRoute(LifeDomain.Meals.name,id,"餐次详情"))}
     "owned_item"->nav.navigate(OwnedItemDetailRoute(id))
   }
 }
@@ -128,7 +129,7 @@ private fun openReviewEvidence(nav:androidx.navigation.NavHostController,viewMod
 @Composable private fun ShareIngressDialog(payload:SharePayload,state:LoadState<Int>?,onAccept:()->Unit,onDiscard:()->Unit){AlertDialog(onDismissRequest={},title={Text("收存到资料库")},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Text("这份分享将归属当前登录账号。") ;payload.text?.let{Text(it.take(180),maxLines=4,color=MaterialTheme.colorScheme.onSurfaceVariant)};if(payload.uris.isNotEmpty())Text("${payload.uris.size} 个附件会复制到加密队列");if(state is LoadState.Failed)Text(state.message,color=MaterialTheme.colorScheme.error)}},dismissButton={TextButton(onClick=onDiscard,enabled=state !is LoadState.Loading){Text("放弃")}},confirmButton={Button(onClick=onAccept,enabled=state !is LoadState.Loading){Text(if(state is LoadState.Loading)"正在收存…" else "确认收存")}})}
 
 @Composable private fun LifeDock(selected:String,onRoute:(Any)->Unit,onLife:()->Unit){
-  val items=listOf(DockItem("今天",TodayRoute,Icons.Default.Home),DockItem("记录",RecordsRoute,Icons.AutoMirrored.Filled.List),DockItem("计划",PlansRoute,Icons.Default.DateRange),DockItem("资料",LibraryRoute,Icons.Default.Menu))
+  val items=listOf(DockItem("生活",TodayRoute,Icons.Default.Home),DockItem("记录",RecordsRoute,Icons.AutoMirrored.Filled.List),DockItem("计划",PlansRoute,Icons.Default.DateRange),DockItem("资料",LibraryRoute,Icons.Default.Menu))
   Surface(tonalElevation=0.dp,shadowElevation=0.dp,shape=RoundedCornerShape(topStart=24.dp,topEnd=24.dp),color=MaterialTheme.colorScheme.surface,border=BorderStroke(1.dp,MaterialTheme.colorScheme.outline.copy(alpha=.7f))){NavigationBar(containerColor=MaterialTheme.colorScheme.surface,tonalElevation=0.dp,modifier=Modifier.navigationBarsPadding().heightIn(min=76.dp)){
     items.take(2).forEach{item->NavigationBarItem(selected=selected==item.label,onClick={onRoute(item.route)},icon={Icon(item.icon,item.label)},label={Text(item.label)})}
     NavigationBarItem(selected=false,onClick=onLife,icon={Surface(shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.primary,modifier=Modifier.size(50.dp)){Box(contentAlignment=Alignment.Center){Icon(Icons.Default.Add,"打开助手，记录或提问",tint=MaterialTheme.colorScheme.onPrimary)}}},label={Text("助手")})

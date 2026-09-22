@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
@@ -222,15 +223,13 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
   var travelDate by rememberSaveable(title){mutableStateOf<String?>(null)}
   var showActions by rememberSaveable(title){mutableStateOf(false)}
   var detailTab by rememberSaveable(title){mutableStateOf("日程")}
-  Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text(title.ifBlank{"详情"})},navigationIcon={IconButton(onClick=onBack){Text("‹",style=MaterialTheme.typography.headlineLarge)}})}){padding->
+  Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text((state as? LoadState.Ready)?.value?.title?:title.ifBlank{"详情"},maxLines=1,overflow=TextOverflow.Ellipsis)},navigationIcon={IconButton(onClick=onBack){Text("‹",style=MaterialTheme.typography.headlineLarge)}})}){padding->
     LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(2.dp)){
       item{StateContent(state,onRetry){}}
       if(state is LoadState.Ready){
         val detail=state.value
-        if(detail.presentation!=DetailPresentation.Generic)item{DetailHero(detail)}
-        item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){detail.state?.let{StatusLabel(it)};detail.revision?.let{Text("修订 $it",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
-        if(detail.actions.isNotEmpty())item{Column(Modifier.fillMaxWidth().padding(top=14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){(if(showActions)detail.actions else detail.actions.take(2)).forEach{action->OutlinedButton(onClick={onAction(action)},Modifier.fillMaxWidth().heightIn(min=52.dp)){Text(action.label)}};if(detail.actions.size>2)TextButton(onClick={showActions=!showActions}){Text(if(showActions)"收起操作" else "更多操作（${detail.actions.size}）")}}}
-        detail.editSeed?.let{seed->item{OutlinedButton(onClick={onReset();editing=true},Modifier.fillMaxWidth().padding(top=8.dp).heightIn(min=52.dp)){Text("更正记录")}}}
+        item{DetailHero(detail)}
+        item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){detail.state?.let{StatusLabel(it)}}}
         val schedule=detail.travelSchedule
         if(schedule!=null){
           item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){listOf("日程","预订与记录").forEach{tab->FilterChip(detailTab==tab,{detailTab=tab},label={Text(tab)})}}}
@@ -242,9 +241,13 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
             item{TextButton(onClick={onLink(DetailLink("travel_workspace",schedule.trip.id,schedule.trip.title))}){Text("打开行程工作台，调整当天安排")}}
           }
         }
-        if(schedule==null||detailTab!="日程")detail.sections.forEachIndexed{sectionIndex,section->
+        if(schedule==null||detailTab!="日程")detail.sections.filter{it.facts.isNotEmpty()||it.groups.isNotEmpty()||it.links.isNotEmpty()}.sortedBy(::isDetailMetadata).forEachIndexed{sectionIndex,section->
           item("section:$sectionIndex"){DetailSectionContent(section,onLink)}
         }
+
+        if(detail.actions.isNotEmpty())item{Column(Modifier.fillMaxWidth().padding(top=14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){(if(showActions)detail.actions else detail.actions.take(2)).forEach{action->OutlinedButton(onClick={onAction(action)},Modifier.fillMaxWidth().heightIn(min=52.dp)){Text(action.label)}};if(detail.actions.size>2)TextButton(onClick={showActions=!showActions}){Text(if(showActions)"收起操作" else "更多操作（${detail.actions.size}）")}}}
+        detail.editSeed?.let{seed->item{OutlinedButton(onClick={onReset();editing=true},Modifier.fillMaxWidth().padding(top=8.dp).heightIn(min=52.dp)){Text("更正记录")}}}
+        detail.revision?.let{revision->item{Text("记录版本 $revision",Modifier.padding(top=16.dp),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
 
       }
     }
@@ -255,19 +258,20 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
 
 @Composable private fun DetailSectionContent(section:DetailSection,onLink:(DetailLink)->Unit){
   var expanded by rememberSaveable(section.title){mutableStateOf(false)}
-  val technical=section.title in setOf("来源","原始记录","来源与完整性","更正历史","处理任务","可检索内容","固定原件")
+  val technical=isDetailMetadata(section)
   val visibleFacts=if(expanded)section.facts else if(technical)emptyList() else section.facts.take(6)
-  val visibleGroups=if(expanded)section.groups else section.groups.take(3)
+  val visibleGroups=if(expanded)section.groups else if(technical)emptyList() else section.groups.take(3)
   Column(Modifier.fillMaxWidth().padding(top=16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(section.title,style=MaterialTheme.typography.titleLarge,modifier=Modifier.weight(1f));section.itemCount?.let{Text("$it 项",color=MaterialTheme.colorScheme.onSurfaceVariant)}}
     if(visibleFacts.isNotEmpty())LifeCard{visibleFacts.forEach{fact->PlanningFact(fact.label,fact.value)}}
     visibleGroups.forEach{group->LifeCard{Text(group.title,style=MaterialTheme.typography.titleMedium);group.facts.forEach{PlanningFact(it.label,it.value)};group.links.forEach{link->TextButton(onClick={onLink(link)}){Text("查看${link.title}")}}}}
-    (if(expanded)section.links else section.links.take(6)).forEach{link->LifeCard(onClick={onLink(link)}){Text(link.title,style=MaterialTheme.typography.titleMedium);link.supporting?.let{Text(it,color=MaterialTheme.colorScheme.onSurfaceVariant)};Text("打开${planningKindLabel(link.kind)} ›",color=MaterialTheme.colorScheme.primary)}}
+    (if(expanded)section.links else if(technical)emptyList() else section.links.take(6)).forEach{link->LifeCard(onClick={onLink(link)}){Text(link.title,style=MaterialTheme.typography.titleMedium);link.supporting?.let{Text(it,color=MaterialTheme.colorScheme.onSurfaceVariant)};Text("打开${planningKindLabel(link.kind)} ›",color=MaterialTheme.colorScheme.primary)}}
     if(technical||section.facts.size>6||section.groups.size>3||section.links.size>6)TextButton(onClick={expanded=!expanded}){Text(if(expanded)"收起" else "展开全部（${section.itemCount?:maxOf(section.facts.size,section.groups.size,section.links.size)}）")}
   }
 }
 
-@Composable private fun DetailHero(detail:RecordDetail){val tone=detailTone(detail.presentation);Surface(Modifier.fillMaxWidth().padding(bottom=12.dp),shape=RoundedCornerShape(28.dp),color=tone.copy(alpha=.13f)){Row(Modifier.padding(22.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(16.dp)){Surface(Modifier.size(58.dp),shape=RoundedCornerShape(20.dp),color=tone.copy(alpha=.2f)){Box(contentAlignment=Alignment.Center){Text(detailGlyph(detail.presentation),style=MaterialTheme.typography.headlineMedium,color=tone)}};Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)){Text(detail.title,style=MaterialTheme.typography.labelLarge,color=tone);Text(detail.heroValue?:detail.title,style=MaterialTheme.typography.headlineMedium,fontWeight=FontWeight.SemiBold);detail.heroSupporting?.takeIf(String::isNotBlank)?.let{Text(it,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}}}
+@Composable private fun DetailHero(detail:RecordDetail){val tone=detailTone(detail.presentation);Surface(Modifier.fillMaxWidth().padding(bottom=12.dp),shape=RoundedCornerShape(28.dp),color=tone.copy(alpha=.13f)){Row(Modifier.padding(22.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(16.dp)){Surface(Modifier.size(58.dp),shape=RoundedCornerShape(20.dp),color=tone.copy(alpha=.2f)){Box(contentAlignment=Alignment.Center){Text(detailGlyph(detail.presentation),style=MaterialTheme.typography.headlineMedium,color=tone)}};Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)){Text(detailCategory(detail.presentation),style=MaterialTheme.typography.labelLarge,color=tone);if(detail.heroValue!=null)Text(detail.title,style=MaterialTheme.typography.titleMedium);Text(detail.heroValue?:detail.title,style=MaterialTheme.typography.headlineMedium,fontWeight=FontWeight.SemiBold);detail.heroSupporting?.takeIf(String::isNotBlank)?.let{Text(it,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}}}
+private fun detailCategory(value:DetailPresentation)=when(value){DetailPresentation.HealthMetric->"身体测量";DetailPresentation.Workout->"运动记录";DetailPresentation.Sleep->"睡眠记录";DetailPresentation.Activity->"活动记录";DetailPresentation.Meal->"饮食记录";DetailPresentation.Money->"消费记录";DetailPresentation.Travel->"旅程";DetailPresentation.Library->"资料";DetailPresentation.Habit->"生活习惯";DetailPresentation.Generic->"记录详情"}
 @Composable private fun detailTone(value:DetailPresentation):Color=when(value){DetailPresentation.HealthMetric->Color(0xFFFF9F43);DetailPresentation.Workout,DetailPresentation.Activity->Color(0xFF7CEB52);DetailPresentation.Sleep->Color(0xFFA982FF);DetailPresentation.Meal->Color(0xFFFF806F);DetailPresentation.Money->Color(0xFF64D2FF);DetailPresentation.Travel->Color(0xFF58D6B1);DetailPresentation.Library->Color(0xFF8DA6FF);DetailPresentation.Habit->Color(0xFFFFC857);DetailPresentation.Generic->MaterialTheme.colorScheme.primary}
 private fun detailGlyph(value:DetailPresentation)=when(value){DetailPresentation.HealthMetric->"◇";DetailPresentation.Workout->"↗";DetailPresentation.Sleep->"☾";DetailPresentation.Activity->"◎";DetailPresentation.Meal->"◐";DetailPresentation.Money->"¥";DetailPresentation.Travel->"⌁";DetailPresentation.Library->"▤";DetailPresentation.Habit->"✓";DetailPresentation.Generic->"·"}
 
@@ -379,6 +383,8 @@ private data class FeatureEntry(val group:String,val title:String,val subtitle:S
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun ReviewDetailScreen(state:LoadState<ReviewSummary>,onRetry:()->Unit,onEvidence:(ReviewEvidence)->Unit,onBack:()->Unit){
   val review=(state as? LoadState.Ready)?.value
+  var showEvidence by rememberSaveable(review?.id){mutableStateOf(false)}
+  var showMetadata by rememberSaveable(review?.id){mutableStateOf(false)}
   PlanningDetailScaffold("生活回顾",onBack){
     item{StateContent(state,onRetry){}}
     if(review!=null){
@@ -389,25 +395,27 @@ private data class FeatureEntry(val group:String,val title:String,val subtitle:S
       if(review.coverageGroups.isEmpty())item{EmptyState("没有覆盖信息")} else review.coverageGroups.forEach{group->item(key="coverage:${group.title}"){ReviewMetricCard(group)}}
       item{Text("覆盖说明",style=MaterialTheme.typography.titleLarge)}
       if(review.limitationItems.isEmpty())item{LifeCard{Text("本期没有额外覆盖限制",color=MaterialTheme.colorScheme.onSurfaceVariant)}} else items(review.limitationItems,key={it}){limitation->LifeCard{Text(limitation)}}
-      item{LifeSection("数据说明"){LifeCard{PlanningFact("算法版本",review.algorithmVersion);PlanningFact("生成时间",review.generatedAt);PlanningFact("回顾修订",review.revision.toString());PlanningFact("证据数量","${review.evidence.size} 项")}}}
+      item{TextButton(onClick={showMetadata=!showMetadata}){Text(if(showMetadata)"收起生成信息" else "查看生成信息")};if(showMetadata)LifeCard{PlanningFact("算法版本",review.algorithmVersion);PlanningFact("生成时间",review.generatedAt);PlanningFact("回顾修订",review.revision.toString());PlanningFact("证据数量","${review.evidence.size} 项")}}
       item{Text("证据索引",style=MaterialTheme.typography.titleLarge,modifier=Modifier.padding(top=8.dp))}
-      if(review.evidence.isEmpty())item{EmptyState("没有可显示的证据引用")} else items(review.evidence.take(20),key={"evidence:${it.kind}:${it.id}:${it.revision}"}){evidence->LifeCard(onClick=if(reviewEvidenceActionable(evidence.kind)){{onEvidence(evidence)}} else null){Text(planningKindLabel(evidence.kind),style=MaterialTheme.typography.titleMedium);Text(if(reviewEvidenceActionable(evidence.kind))"查看原记录" else "证据修订 ${evidence.revision}",color=if(reviewEvidenceActionable(evidence.kind))MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)}}
+      if(review.evidence.isEmpty())item{EmptyState("没有可显示的证据引用")} else items(if(showEvidence)review.evidence else review.evidence.take(5),key={"evidence:${it.kind}:${it.id}:${it.revision}"}){evidence->LifeCard(onClick=if(reviewEvidenceActionable(evidence.kind)){{onEvidence(evidence)}} else null){Text(planningKindLabel(evidence.kind),style=MaterialTheme.typography.titleMedium);Text(if(reviewEvidenceActionable(evidence.kind))"查看原记录" else "证据修订 ${evidence.revision}",color=if(reviewEvidenceActionable(evidence.kind))MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)}}
+      if(review.evidence.size>5)item{TextButton(onClick={showEvidence=!showEvidence}){Text(if(showEvidence)"收起关联记录" else "查看全部 ${review.evidence.size} 条关联记录")}}
     }
   }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable private fun PlanningDetailScaffold(title:String,onBack:()->Unit,content:androidx.compose.foundation.lazy.LazyListScope.()->Unit){Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text(title)},navigationIcon={IconButton(onClick=onBack){Text("‹",style=MaterialTheme.typography.headlineLarge)}})}){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(14.dp),content=content)}}
+@Composable private fun PlanningDetailScaffold(title:String,onBack:()->Unit,content:androidx.compose.foundation.lazy.LazyListScope.()->Unit){Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text(title,maxLines=1,overflow=TextOverflow.Ellipsis)},navigationIcon={IconButton(onClick=onBack){Text("‹",style=MaterialTheme.typography.headlineLarge)}})}){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(14.dp),content=content)}}
 
 @Composable private fun DetailStatus(state:String,revision:Int){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text("当前状态",Modifier.weight(1f),color=MaterialTheme.colorScheme.onSurfaceVariant);StatusLabel(state)};Text("修订 $revision",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}
-@Composable private fun PlanningFact(label:String,value:String){Column(Modifier.fillMaxWidth().padding(vertical=5.dp)){Text(label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(value,style=MaterialTheme.typography.bodyLarge)}}
+@Composable private fun PlanningFact(label:String,value:String){Column(Modifier.fillMaxWidth().padding(vertical=5.dp)){Text(label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(detailValue(label,value),style=MaterialTheme.typography.bodyLarge)}}
 @Composable private fun RelatedPlanningLink(link:PlanningLink,onRelated:(String,String)->Unit){
-  val actionable=link.kind in setOf("trip","owned_item","library_item","money_entry","meal")
+  val actionable=link.kind in setOf("trip","owned_item","library_item","money_entry","meal","purchase")
   LifeCard(onClick=if(actionable){{onRelated(link.kind,link.id)}} else null){
     Text(link.title?:planningKindLabel(link.kind),style=MaterialTheme.typography.titleMedium)
-    Text(if(actionable)"${link.role} · 修订 ${link.revision} · 查看详情" else "${link.role} · 修订 ${link.revision} · 当前仅提供关联摘要",color=if(actionable)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(if(actionable)"${planningRoleLabel(link.role)} · 查看详情" else "${planningRoleLabel(link.role)} · 关联摘要",color=if(actionable)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
   }
 }
+private fun planningRoleLabel(role:String)=mapOf("receipt" to "购买凭证","manual" to "使用说明","warranty" to "保修资料","repair" to "维修记录")[role]?:role
 private fun planningKindLabel(kind:String)=when(kind){"trip"->"旅程";"health_plan"->"健康计划";"recurring_plan"->"周期计划";"owned_item"->"物品";"library_item"->"资料";"money_entry"->"交易";"meal"->"餐次";"purchase"->"消费";"health_record"->"健康记录";"recipe"->"食谱";"health_measurement"->"健康测量";"health_workout_session"->"训练记录";else->kind}
 private fun planningDomainLabel(domain:String)=when(domain){"money"->"消费";"meals"->"饮食";"health"->"健康";"items"->"物品";"library"->"资料";else->domain}
 @Composable private fun ReviewMetricCard(group:ReviewMetricGroup){LifeCard{Text(group.title,style=MaterialTheme.typography.titleMedium);group.values.forEach{PlanningFact(it.label,it.value)}}}

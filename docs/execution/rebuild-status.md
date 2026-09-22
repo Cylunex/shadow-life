@@ -2,6 +2,14 @@
 
 Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The table separates source modeling, usable operations, migrated production data, and actual cutover. A schema or command alone is never counted as a completed migration.
 
+## 2026-09-22: Life home and presentation hierarchy
+
+- Android now names the home destination Life (生活); Web mirrors the name. Home cards retain saved customization
+  and distinguish their reporting periods. Domain cards and details use consistent summaries, content, and actions.
+- Presentation corrections cover currency-isolated decimal summaries, unknown nutrition, local-date timeline
+  grouping, bounded upcoming agendas, and expandable record evidence. See
+  [Life home presentation](life-home-presentation-2026-09-22.md) for scope and verification limits.
+
 ## 2026-09-22: daily travel interaction and linked record details
 
 - Android and Web expose one selected travel day at a time, including empty dates. Native day editing uses

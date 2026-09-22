@@ -606,11 +606,15 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     }
     is LifeRecordResultDtoRecord->{
       val entry=value.moneyEntry;val purchase=value.purchase;val meals=value.meals.orEmpty();val items=value.purchaseItems.orEmpty();val sources=value.sources.orEmpty()
-      val title=when(domain){LifeDomain.Money->entry?.counterparty?:entry?.category?:"收支详情";else->purchase?.merchant?:meals.firstOrNull()?.items?.joinToString("、"){it.name}?.takeIf(String::isNotBlank)?:"消费详情"}
+      val title=entry?.counterparty?:purchase?.merchant?:entry?.category?:meals.firstOrNull()?.items?.joinToString("、"){it.name}?.takeIf(String::isNotBlank)?:"消费详情"
       val sections=mutableListOf(DetailSection("概要",listOfNotNull(DetailFact("状态",value.state.wireValue),DetailFact("日期",value.occurredOn),DetailFact("时区",value.timeZone),value.note?.let{DetailFact("备注",it)})))
       entry?.let{sections+=DetailSection("金额",listOfNotNull(DetailFact("金额","${it.currency} ${it.amount}"),DetailFact("类型",when(it.entryType.wireValue){"expense"->"支出";"refund"->"退款";else->"收入"}),it.counterparty?.let{item->DetailFact("交易方",item)},it.category?.let{item->DetailFact("分类",item)},it.paymentMethod?.let{item->DetailFact("支付方式",item.wireValue)}))}
       purchase?.let{sections+=DetailSection("消费",listOfNotNull(it.merchant?.let{item->DetailFact("商家",item)},it.amount?.let{amount->DetailFact("金额","${it.currency} $amount")},it.scene?.let{item->DetailFact("场景",item)},it.channelNameRaw?.let{item->DetailFact("渠道",item)},it.rating?.let{item->DetailFact("评分","$item/5")}))}
-      if(items.isNotEmpty())sections+=DetailSection("购买明细",items.map{item->DetailFact(item.rawName,listOfNotNull(item.quantity?.let{amount->listOfNotNull(amount,item.unit).joinToString(" ")},item.lineAmount?.let{"金额 $it"}).joinToString(" · ").ifBlank{"已记录"})},items.size)
+      if(items.isNotEmpty())sections+=DetailSection("购买明细",itemCount=items.size,groups=items.map{item->DetailGroup(item.id,item.rawName,listOfNotNull(
+        item.quantity?.let{DetailFact("数量",listOfNotNull(detailDecimal(it),item.unit).joinToString(" "))},
+        item.unitPrice?.let{DetailFact("单价",listOfNotNull(purchase?.currency,detailDecimal(it)).joinToString(" "))},
+        item.lineAmount?.let{DetailFact("金额",listOfNotNull(purchase?.currency,detailDecimal(it)).joinToString(" "))}
+      ))})
       if(meals.isNotEmpty())sections+=DetailSection("关联餐次",itemCount=meals.size,links=meals.map{meal->DetailLink("meal",meal.id,mealTypeLabel(meal.mealType.wireValue),"${meal.occurredOn} · ${meal.items.joinToString("、"){it.name}}")})
       if(sources.isNotEmpty())sections+=DetailSection("来源",sources.take(20).map{source->DetailFact(source.kind,source.capturedAt?:source.capturedOn?:source.externalId?:"已收存")},sources.size)
       if(!value.relatedRecords.isNullOrEmpty())sections+=DetailSection("关联记录",links=value.relatedRecords.orEmpty().map{DetailLink(it.kind.wireValue,it.id,it.title,it.supporting)})
@@ -619,7 +623,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         if(entry?.entryType?.wireValue=="expense"&&entry.currency=="CNY")add(DetailAction("记录这笔交易的退款",CaptureSeed(CaptureKind.Refund,date=LocalDate.now().toString(),secondary=entry.id,contextKind="money_entry",contextId=entry.id,contextLabel=listOfNotNull(entry.counterparty,entry.category,"CNY ${entry.amount}").joinToString(" · "))))
         items.take(10).forEach{item->add(DetailAction("将“${item.rawName}”加入我的物品",CaptureSeed(CaptureKind.OwnedItem,primary=item.rawName,date=value.occurredOn,option="owned",contextKind="purchase_item",contextId=item.id,contextLabel="来自本次购买")))}
       }
-      RecordDetail(title,value.state.wireValue,value.revision.toInt(),sections,seed,actions,if(domain==LifeDomain.Money)DetailPresentation.Money else DetailPresentation.Meal,entry?.let{"${it.currency} ${it.amount}"},value.occurredOn)
+      RecordDetail(title,value.state.wireValue,value.revision.toInt(),sections,seed,actions,DetailPresentation.Money,entry?.let{"${it.currency} ${detailDecimal(it.amount)}"}?:purchase?.amount?.let{"${purchase.currency.orEmpty()} ${detailDecimal(it)}"},value.occurredOn)
     }
   }
 
