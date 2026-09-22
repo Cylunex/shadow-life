@@ -24,6 +24,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -39,6 +40,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.LocalDate
@@ -204,25 +206,89 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
   val colors=points.map{if(metricKey==null)color else healthTone(metricAssessment(metricKey,it.value,it.unit).tone)}
   val values=points.map{it.value};val outline=MaterialTheme.colorScheme.outline;val surface=MaterialTheme.colorScheme.surface;val textColor=MaterialTheme.colorScheme.onSurfaceVariant;val unit=points.lastOrNull()?.unit.orEmpty()
   val axisPaint=remember{textPaint(Paint.Align.RIGHT)}.apply{this.color=textColor.toArgb()}
-  val pointPaint=remember{textPaint(Paint.Align.CENTER,true)}.apply{this.color=color.toArgb()}
-  Canvas(modifier){
-    val left=48.dp.toPx();val right=size.width-8.dp.toPx();val top=30.dp.toPx();val bottom=size.height-16.dp.toPx()
+  val pointPaint=remember{textPaint(Paint.Align.LEFT,true)}
+  Canvas(modifier.clipToBounds()){
     if(values.isEmpty())return@Canvas
+    axisPaint.textSize=11.sp.toPx()
+    pointPaint.textSize=12.sp.toPx()
     val rawMin=values.minOrNull()?:0.0;val rawMax=values.maxOrNull()?:rawMin;val padding=((rawMax-rawMin)*.12).takeIf{it>.000001}?:maxOf(abs(rawMax)*.01,.5);val min=rawMin-padding;val max=rawMax+padding;val range=max-min
-    repeat(4){index->val y=top+(bottom-top)*index/3f;val tick=max-range*index/3;drawLine(outline.copy(alpha=.35f),Offset(left,y),Offset(right,y),1.dp.toPx());drawContext.canvas.nativeCanvas.drawText(healthValueText(tick,unit),left-7.dp.toPx(),y+4.dp.toPx(),axisPaint)}
+    val ticks=List(4){index->healthValueText(max-range*index/3,unit)}
+    val axisGap=8.dp.toPx()
+    val left=ticks.maxOf{axisPaint.measureText(it)}+axisGap
+    val right=size.width-6.dp.toPx()
+    val top=pointPaint.fontSpacing+12.dp.toPx()
+    val bottom=size.height-axisPaint.fontSpacing/2-4.dp.toPx()
+    if(right<=left||bottom<=top)return@Canvas
+    val axisBaseline=-(axisPaint.ascent()+axisPaint.descent())/2
+    ticks.forEachIndexed{index,label->
+      val y=top+(bottom-top)*index/3f
+      drawLine(outline.copy(alpha=.35f),Offset(left,y),Offset(right,y),1.dp.toPx())
+      drawContext.canvas.nativeCanvas.drawText(label,left-axisGap,y+axisBaseline,axisPaint)
+    }
     fun pointOffset(index:Int,value:Double):Offset{
       val x=if(values.size==1)(left+right)/2 else left+(right-left)*index/values.lastIndex.toFloat()
       return Offset(x,bottom-(bottom-top)*((value-min)/range).toFloat())
     }
     if(values.size>1){val path=Path();values.forEachIndexed{index,value->val point=pointOffset(index,value);if(index==0)path.moveTo(point.x,point.y) else path.lineTo(point.x,point.y)};drawPath(path,color,style=Stroke(3.dp.toPx(),cap=StrokeCap.Round))}
-    val stride=(values.size/8).coerceAtLeast(1);values.forEachIndexed{index,value->val point=pointOffset(index,value);drawCircle(surface,5.dp.toPx(),point);drawCircle(colors[index],3.dp.toPx(),point);pointPaint.color=colors[index].toArgb();if(index%stride==0||index==values.lastIndex)drawContext.canvas.nativeCanvas.drawText(healthValueText(value,unit),point.x,point.y-8.dp.toPx(),pointPaint)}
+    // Dense series keep their complete line without turning every sample into an overlapping dot.
+    val showAllMarkers=values.size<=1||(right-left)/values.lastIndex>=10.dp.toPx()
+    values.forEachIndexed{index,value->
+      if(showAllMarkers||index==values.lastIndex){
+        val point=pointOffset(index,value)
+        drawCircle(surface,5.dp.toPx(),point)
+        drawCircle(colors[index],3.dp.toPx(),point)
+      }
+    }
+    // The card already lists min/max/average. Only annotate the latest measurement on the plot.
+    val latest=pointOffset(values.lastIndex,values.last())
+    val label=healthValueText(values.last(),unit)
+    val labelWidth=pointPaint.measureText(label)
+    val labelPadding=3.dp.toPx()
+    if(labelWidth+labelPadding*2<=right-left){
+      val x=(latest.x-labelWidth/2).coerceIn(left+labelPadding,right-labelWidth-labelPadding)
+      val baseline=latest.y-9.dp.toPx()
+      drawRoundRect(
+        surface.copy(alpha=.94f),
+        Offset(x-labelPadding,baseline+pointPaint.ascent()-labelPadding),
+        Size(labelWidth+labelPadding*2,pointPaint.descent()-pointPaint.ascent()+labelPadding*2),
+        cornerRadius=androidx.compose.ui.geometry.CornerRadius(labelPadding)
+      )
+      pointPaint.color=colors.last().toArgb()
+      drawContext.canvas.nativeCanvas.drawText(label,x,baseline,pointPaint)
+    }
   }
 }
 
-private fun textPaint(align:Paint.Align,bold:Boolean=false)=Paint(Paint.ANTI_ALIAS_FLAG).apply{textAlign=align;textSize=31f;typeface=if(bold)Typeface.create(Typeface.DEFAULT,Typeface.BOLD) else Typeface.DEFAULT}
+private fun textPaint(align:Paint.Align,bold:Boolean=false)=Paint(Paint.ANTI_ALIAS_FLAG).apply{textAlign=align;typeface=if(bold)Typeface.create(Typeface.DEFAULT,Typeface.BOLD) else Typeface.DEFAULT}
 
 @Composable private fun WeekBarChart(dates:List<LocalDate>,values:List<Double?>,color:Color,modifier:Modifier,unit:String?=null,metricKey:String?=null){val tones=values.map{if(metricKey==null)color else healthTone(metricAssessment(metricKey,it,unit.orEmpty(),true).tone)};val outline=MaterialTheme.colorScheme.outline;Column{Canvas(modifier){val maxValue=(values.filterNotNull().maxOrNull()?:0.0).coerceAtLeast(1.0);val gap=8.dp.toPx();val slot=(size.width-gap*(values.size-1))/values.size.coerceAtLeast(1);values.forEachIndexed{index,value->val left=index*(slot+gap);drawRoundRect(outline.copy(alpha=.2f),Offset(left,0f),Size(slot,size.height),cornerRadius=androidx.compose.ui.geometry.CornerRadius(slot/2));if(value!=null){val height=(size.height*(value/maxValue).toFloat()).coerceAtLeast(5.dp.toPx());drawRoundRect(tones[index],Offset(left,size.height-height),Size(slot,height),cornerRadius=androidx.compose.ui.geometry.CornerRadius(slot/2))}}};Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){dates.forEachIndexed{index,date->Column(horizontalAlignment=Alignment.CenterHorizontally){Text(dayUi(date),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant);values.getOrNull(index)?.let{Text(number(it),style=MaterialTheme.typography.labelSmall,color=tones[index])}}}}}}
-@Composable private fun MiniTrend(points:List<HealthTrendPoint>,modifier:Modifier,color:Color=MaterialTheme.colorScheme.primary){if(points.isEmpty()){Box(modifier,contentAlignment=Alignment.CenterStart){Text("等待数据",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}} else TrendChart(points.takeLast(20),modifier,color)}
+@Composable private fun MiniTrend(points:List<HealthTrendPoint>,modifier:Modifier,color:Color=MaterialTheme.colorScheme.primary){
+  if(points.isEmpty()){
+    Box(modifier,contentAlignment=Alignment.CenterStart){Text("等待数据",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+    return
+  }
+  val values=points.takeLast(20).map{it.value}
+  Canvas(modifier.clipToBounds()){
+    // Compact cards need the full plotting area: no axes, labels or per-sample markers.
+    val inset=5.dp.toPx()
+    val width=size.width-inset*2
+    val height=size.height-inset*2
+    if(width<=0||height<=0)return@Canvas
+    val min=values.minOrNull()?:return@Canvas
+    val max=values.maxOrNull()?:return@Canvas
+    val span=max-min
+    val offsets=values.mapIndexed{index,value->
+      Offset(
+        if(values.size==1)size.width/2 else inset+width*index/values.lastIndex,
+        if(span==0.0)size.height/2 else inset+height*(1-((value-min)/span).toFloat())
+      )
+    }
+    val path=Path()
+    offsets.forEachIndexed{index,point->if(index==0)path.moveTo(point.x,point.y) else path.lineTo(point.x,point.y)}
+    drawPath(path,color,style=Stroke(2.dp.toPx(),cap=StrokeCap.Round))
+    drawCircle(color,3.dp.toPx(),offsets.last())
+  }
+}
 @Composable private fun ChartEmpty(text:String){Box(Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.34f)),contentAlignment=Alignment.Center){Text(text,color=MaterialTheme.colorScheme.onSurfaceVariant,modifier=Modifier.padding(24.dp))}}
 @Composable private fun ChartDateRange(from:String,to:String){Row(Modifier.fillMaxWidth()){Text(from.takeLast(5),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);Spacer(Modifier.weight(1f));Text(to.takeLast(5),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
 @Composable private fun SummaryFact(label:String,value:String,modifier:Modifier=Modifier){Column(modifier){Text(label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(value,style=MaterialTheme.typography.titleMedium,maxLines=1,overflow=TextOverflow.Ellipsis)}}
