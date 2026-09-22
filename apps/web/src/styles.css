@@ -991,3 +991,54 @@ button.secondary,.soft-button { color:#c3cbd3; border-color:var(--line-strong); 
   .top-nav { background:rgba(4,5,6,.97); box-shadow:0 -16px 42px rgba(0,0,0,.52),inset 0 1px 0 rgba(255,255,255,.05); backdrop-filter:blur(18px); }
   .quick-add { border-color:rgba(156,250,197,.55); background:linear-gradient(145deg,#75efb3,#36bd78); box-shadow:0 0 0 7px rgba(3,4,5,.96),0 10px 32px rgba(54,189,120,.3); }
 }
+
+/* Daily travel and readable domain details share the full workspace width. */
+.daily-itinerary { min-width:0; margin:18px 0; }
+.itinerary-date-bar { display:flex; align-items:center; gap:10px; margin-bottom:18px; }
+.itinerary-date-bar label { flex:1; min-width:0; margin:0; }
+.itinerary-date-bar select { width:100%; min-height:48px; }
+.itinerary-date-bar button { min-width:44px; min-height:48px; }
+.itinerary-stops { display:grid; gap:12px; margin:16px 0 0; padding:0; list-style:none; }
+.itinerary-stops li { display:flex; align-items:flex-start; gap:16px; padding:20px; border:1px solid var(--line); border-radius:18px; background:var(--surface,#111a25); }
+.itinerary-stops li>div { min-width:0; flex:1; }
+.stop-number { display:grid; place-items:center; flex:0 0 32px; height:32px; border-radius:50%; background:var(--primary,#58d6b1); color:#10271f; font-weight:700; }
+.itinerary-stops h4 { margin:6px 0; font-size:18px; overflow-wrap:anywhere; }
+.itinerary-stops p { margin:6px 0 0; color:var(--muted); white-space:pre-wrap; overflow-wrap:anywhere; }
+.itinerary-stops time { color:var(--primary,#58d6b1); }
+.itinerary-empty { padding:30px 18px; border:1px dashed var(--line); border-radius:18px; color:var(--muted); }
+.travel-planning .travel-grid { grid-template-columns:1fr; }
+.stop-editor-actions { display:flex; align-items:center; flex-wrap:wrap; gap:6px; }
+.record-hero { padding:22px; margin:16px 0; background:var(--surface,#111a25); border:1px solid var(--line); border-radius:22px; }
+.record-hero h2 { margin:8px 0; overflow-wrap:anywhere; }
+.record-hero strong { display:block; font-size:28px; color:var(--primary); }
+.record-hero p { margin-bottom:0; color:var(--muted); }
+.detail-relations>div { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr)); gap:10px; }
+.detail-relations a { display:grid; gap:6px; padding:16px; border:1px solid var(--line); border-radius:15px; text-decoration:none; color:inherit; overflow-wrap:anywhere; }
+.detail-relations a:hover { border-color:var(--primary); }
+.detail-relations span,.detail-relations small { color:var(--muted); }
+.record-browser>.record-detail { margin-top:0; padding-top:0; border-top:0; }
+.record-detail>.detail-close { display:inline-block; position:static; margin-bottom:16px; color:var(--muted); }
+.detail-object-list { display:grid; gap:14px; list-style:none; padding:0; margin:0; }
+.detail-object-list>li { padding:16px; border:1px solid var(--line); border-radius:14px; min-width:0; }
+.detail-section h3 { margin-top:0; }
+.detail-meta { margin-top:18px; }
+.detail-meta summary { cursor:pointer; padding:6px 0; }
+.detail-meta pre { white-space:pre-wrap; overflow-wrap:anywhere; max-height:420px; overflow:auto; }
+.detail-workspace-link { display:inline-block; margin-bottom:16px; }
+@media(max-width:560px) {
+  .structured-fields>div { grid-template-columns:1fr; gap:4px; }
+  .itinerary-stops li { padding:16px 12px; gap:12px; }
+  .record-hero { padding:18px; }
+}
+.travel-itinerary-workspace { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(300px,.85fr); align-items:start; gap:22px; }
+.travel-itinerary-workspace>.travel-grid { display:flex; flex-direction:column; position:sticky; top:16px; }
+.travel-itinerary-workspace .editor-launchers { flex-wrap:wrap; }
+.travel-itinerary-workspace .panel-heading { flex-wrap:wrap; gap:12px; }
+.travel-itinerary-workspace .map-board { min-width:0; }
+@media(max-width:900px){.travel-itinerary-workspace { grid-template-columns:1fr; }.travel-itinerary-workspace>.travel-grid { position:static; }}
+
+.travel-quick-actions { padding:10px 0; margin-bottom:12px; }
+.travel-quick-actions>summary,.travel-more-actions>summary { cursor:pointer; color:var(--muted); min-height:36px; display:flex; align-items:center; gap:8px; }
+.travel-quick-actions>summary::before,.travel-more-actions>summary::before { content:"＋"; }
+.travel-quick-actions[open]>summary::before,.travel-more-actions[open]>summary::before { content:"−"; }
+.travel-more-actions .editor-launchers { margin-top:8px; }

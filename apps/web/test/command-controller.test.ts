@@ -62,3 +62,15 @@ test("keeps the recovery journal when post-commit draft cleanup fails",async()=>
   const committed=await controller(fetcher,journal,drafts).execute("money.record_entry",{amount:"12.00"},"quick-money");
   assert.match(committed.warnings.join("\n"),/服务端已保存/);assert.equal(journal.values.size,1);
 });
+
+test("browser fetch is called without a controller receiver for submission and recovery",async()=>{
+  let saved:ExecutionResult|undefined;
+  const fetcher=async function(this:unknown,_input:string|URL|Request,init?:RequestInit){
+    assert.equal(this,undefined,"native Window.fetch rejects a CommandController receiver");
+    if(init?.method==="POST"){saved=result(JSON.parse(String(init.body)).command_id);throw new TypeError("response interrupted");}
+    return Response.json(saved);
+  } as typeof fetch;
+  const value=controller(fetcher,new MemoryStorage());
+  await assert.rejects(value.execute("money.record_entry",{amount:"12.00"},"binding"));
+  assert.equal((await value.execute("money.record_entry",{amount:"12.00"},"binding")).command_id,saved?.command_id);
+});

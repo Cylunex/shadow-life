@@ -2,6 +2,15 @@
 
 Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The table separates source modeling, usable operations, migrated production data, and actual cutover. A schema or command alone is never counted as a completed migration.
 
+## 2026-09-22: daily travel interaction and linked record details
+
+- Android and Web expose one selected travel day at a time, including empty dates. Native day editing uses
+  stable stops, trip-local times and the existing versioned command queue; Web keeps maps scoped to the day.
+- Explicit meal/payment/purchase, refund/original and travel-fare relationships are navigable and permission
+  projected. Detail pages separate business objects and fold long lists and technical history.
+- Scope, reference products, browser verification and remaining device acceptance are recorded in
+  [Travel and domain interaction delivery](travel-domain-interactions-2026-09-22.md).
+
 ## 2026-09-21: authoritative daily record completeness check
 
 - Added the read-only `life.daily_record_check` capability and HTTP/Agent transport. One database read returns

@@ -43390,6 +43390,49 @@
                   ],
                   "additionalProperties": false
                 }
+              },
+              "related_records": {
+                "maxItems": 100,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "domain": {
+                      "type": "string",
+                      "enum": [
+                        "money",
+                        "meals",
+                        "travel"
+                      ]
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "money_entry",
+                        "purchase",
+                        "trip"
+                      ]
+                    },
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "supporting": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "domain",
+                    "kind",
+                    "id",
+                    "title",
+                    "supporting"
+                  ],
+                  "additionalProperties": false
+                }
               }
             },
             "required": [
@@ -43877,6 +43920,49 @@
                     "original_text",
                     "asset_version_id",
                     "revision"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "related_records": {
+                "maxItems": 100,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "domain": {
+                      "type": "string",
+                      "enum": [
+                        "money",
+                        "meals",
+                        "travel"
+                      ]
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "money_entry",
+                        "purchase",
+                        "trip"
+                      ]
+                    },
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "supporting": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "domain",
+                    "kind",
+                    "id",
+                    "title",
+                    "supporting"
                   ],
                   "additionalProperties": false
                 }

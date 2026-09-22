@@ -2282,6 +2282,29 @@ data class LifeRecordResultDtoRecordSourcesEntry(
 )
 
 @Serializable
+enum class LifeRecordResultDtoRecordRelatedRecordsEntryDomain(val wireValue: String) {
+  @SerialName("money") Money("money"),
+  @SerialName("meals") Meals("meals"),
+  @SerialName("travel") Travel("travel")
+}
+
+@Serializable
+enum class LifeRecordResultDtoRecordRelatedRecordsEntryKind(val wireValue: String) {
+  @SerialName("money_entry") MoneyEntry("money_entry"),
+  @SerialName("purchase") Purchase("purchase"),
+  @SerialName("trip") Trip("trip")
+}
+
+@Serializable
+data class LifeRecordResultDtoRecordRelatedRecordsEntry(
+  @SerialName("domain") val domain: LifeRecordResultDtoRecordRelatedRecordsEntryDomain,
+  @SerialName("kind") val kind: LifeRecordResultDtoRecordRelatedRecordsEntryKind,
+  @SerialName("id") val id: String,
+  @SerialName("title") val title: String,
+  @SerialName("supporting") val supporting: String
+)
+
+@Serializable
 @SerialName("record")
 data class LifeRecordResultDtoRecord(
   @SerialName("record_id") val recordId: String,
@@ -2295,7 +2318,8 @@ data class LifeRecordResultDtoRecord(
   @SerialName("purchase_items") val purchaseItems: List<LifeRecordResultDtoRecordPurchaseItemsEntry>? = null,
   @SerialName("money_entry") val moneyEntry: LifeRecordResultDtoRecordMoneyEntry? = null,
   @SerialName("meals") val meals: List<LifeRecordResultDtoRecordMealsEntry>? = null,
-  @SerialName("sources") val sources: List<LifeRecordResultDtoRecordSourcesEntry>? = null
+  @SerialName("sources") val sources: List<LifeRecordResultDtoRecordSourcesEntry>? = null,
+  @SerialName("related_records") val relatedRecords: List<LifeRecordResultDtoRecordRelatedRecordsEntry>? = null
 ): LifeRecordResultDto
 
 @Serializable
@@ -2387,6 +2411,29 @@ data class LifeRecordResultDtoMealSourcesEntry(
 )
 
 @Serializable
+enum class LifeRecordResultDtoMealRelatedRecordsEntryDomain(val wireValue: String) {
+  @SerialName("money") Money("money"),
+  @SerialName("meals") Meals("meals"),
+  @SerialName("travel") Travel("travel")
+}
+
+@Serializable
+enum class LifeRecordResultDtoMealRelatedRecordsEntryKind(val wireValue: String) {
+  @SerialName("money_entry") MoneyEntry("money_entry"),
+  @SerialName("purchase") Purchase("purchase"),
+  @SerialName("trip") Trip("trip")
+}
+
+@Serializable
+data class LifeRecordResultDtoMealRelatedRecordsEntry(
+  @SerialName("domain") val domain: LifeRecordResultDtoMealRelatedRecordsEntryDomain,
+  @SerialName("kind") val kind: LifeRecordResultDtoMealRelatedRecordsEntryKind,
+  @SerialName("id") val id: String,
+  @SerialName("title") val title: String,
+  @SerialName("supporting") val supporting: String
+)
+
+@Serializable
 @SerialName("meal")
 data class LifeRecordResultDtoMeal(
   @SerialName("meal_id") val mealId: String,
@@ -2398,7 +2445,8 @@ data class LifeRecordResultDtoMeal(
   @SerialName("revision") val revision: Long? = null,
   @SerialName("items") val items: List<LifeRecordResultDtoMealItemsEntry>? = null,
   @SerialName("payments") val payments: List<LifeRecordResultDtoMealPaymentsEntry>? = null,
-  @SerialName("sources") val sources: List<LifeRecordResultDtoMealSourcesEntry>? = null
+  @SerialName("sources") val sources: List<LifeRecordResultDtoMealSourcesEntry>? = null,
+  @SerialName("related_records") val relatedRecords: List<LifeRecordResultDtoMealRelatedRecordsEntry>? = null
 ): LifeRecordResultDto
 
 @Serializable

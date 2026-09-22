@@ -22,3 +22,21 @@ function stringValue(value:unknown):string{return typeof value==="string"?value:
 function numberValue(value:unknown):number{if(typeof value!=="number"||!Number.isInteger(value)||value<1)throw new Error("详情缺少可用修订版本，请重新加载。");return value;}
 function mealTypeValue(value:unknown):EditableRecordFields["mealType"]{return value==="breakfast"||value==="lunch"||value==="dinner"||value==="snack"||value==="other"?value:"other";}
 function healthMetricValue(value:unknown):EditableRecordFields["healthMetric"]{return value==="weight"||value==="body_fat"||value==="heart_rate"||value==="blood_pressure_systolic"||value==="blood_pressure_diastolic"||value==="temperature"||value==="sleep_duration"||value==="steps"||value==="custom"?value:"custom";}
+
+export interface RecordRelation {title:string;supporting:string;href:string;}
+export function recordRelations(detail:Record<string,unknown>):RecordRelation[]{
+  const rows=(value:unknown)=>Array.isArray(value)?value.map(objectValue):[];
+  const href=(domain:DashboardDomain,kind:string,id:string)=>`?${new URLSearchParams({tab:"record",section:"timeline",domain,kind,id})}`;
+  const result:RecordRelation[]=[];
+  for(const row of rows(detail.payments)){const id=stringValue(row.record_id??row.id);if(id)result.push({title:`付款 · ${stringValue(row.counterparty??row.category)||"交易"}`,supporting:`${formatMoneyAmount(row.amount,row.currency,row.source_scale)} ${stringValue(row.currency)}`,href:href("money","money_entry",id)});}
+  for(const row of rows(detail.meals)){const id=stringValue(row.id);if(id)result.push({title:`餐次 · ${rows(row.items).map(item=>stringValue(item.name)).join("、")||"饮食记录"}`,supporting:stringValue(row.occurred_on),href:href("meals","meal",id)});}
+  for(const row of rows(detail.related_records)){if(isDomain(stringValue(row.domain))&&row.id)result.push({title:stringValue(row.title),supporting:stringValue(row.supporting),href:href(row.domain as DashboardDomain,stringValue(row.kind),stringValue(row.id))});}
+  for(const row of rows(objectValue(detail.fact).related_observations)){if(row.id&&row.id!==objectValue(detail.fact).id)result.push({title:({weight:"体重",body_fat:"体脂率",muscle_mass:"肌肉量",body_water:"体水分",bmi:"BMI"} as Record<string,string>)[stringValue(row.metric_key)]??stringValue(row.metric_key),supporting:`${stringValue(row.value)} ${stringValue(row.unit)}`,href:href("health","observation",stringValue(row.id))});}
+  for(const row of rows(detail.reservations)){if(row.fare_entry_id)result.push({title:`预订付款 · ${stringValue(row.title)}`,supporting:"查看关联交易",href:href("money","money_entry",stringValue(row.fare_entry_id))});}
+  return [...new Map(result.map(item=>[item.href,item])).values()];
+}
+export function recordTitle(detail:Record<string,unknown>,selection:RecordSelection):string{
+  const fact=objectValue(detail.fact),entry=objectValue(detail.money_entry),trip=objectValue(detail.trip),item=objectValue(detail.item),purchase=objectValue(detail.purchase);
+  const metric:Record<string,string>={weight:"体重",body_fat:"体脂率",heart_rate:"心率",blood_pressure_systolic:"收缩压",blood_pressure_diastolic:"舒张压",steps:"步数",sleep_duration:"睡眠时长",workout_session:"训练",sleep_session:"睡眠",daily_activity:"每日活动",daily_wellbeing:"每日感受",habit_log:"习惯"};
+  return stringValue(trip.title??item.title??entry.counterparty??purchase.merchant??fact.label)||metric[stringValue(fact.metric??fact.metric_key??detail.kind)]||(selection.domain==="meals"?(Array.isArray(detail.items)?detail.items.slice(0,3).map(row=>stringValue(objectValue(row).name)).filter(Boolean).join("、"):"")||"饮食详情":selection.domain==="money"?"收支详情":"记录详情");
+}

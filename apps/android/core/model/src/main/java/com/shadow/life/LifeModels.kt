@@ -108,7 +108,7 @@ data class TravelMapItemSummary(val placeId:String,val status:String,val note:St
 data class TravelMapSummary(val id:String,val title:String,val description:String?,val state:String,val items:List<TravelMapItemSummary>)
 data class TravelTripSummary(val id:String,val title:String,val startsOn:String,val endsOn:String,val timeZone:String,val visibility:String?,val active:Boolean)
 data class TravelStopSummary(val id:String,val title:String,val startsAt:String?,val placeId:String?,val note:String?)
-data class TravelDaySummary(val id:String,val tripId:String,val date:String,val stops:List<TravelStopSummary>)
+data class TravelDaySummary(val id:String,val tripId:String,val date:String,val stops:List<TravelStopSummary>,val revision:Int?=null)
 data class TravelTrackPoint(val latitude:Double,val longitude:Double)
 data class TravelTrackSummary(val id:String,val tripId:String,val name:String,val points:List<TravelTrackPoint>)
 data class TravelSegmentSummary(val id:String,val tripId:String,val mode:String,val origin:String,val destination:String,val startsAt:String?,val distanceKm:String?)
@@ -144,7 +144,7 @@ data class PlanSummary(
 data class AgendaAction(val capability:String,val targetId:String,val expectedRevision:Int)
 data class AgendaItem(val sourceKind:String,val sourceId:String,val sourceKey:String,val title:String,val state:String,val dueOn:String,val dueAt:String?,val targetKind:String,val targetId:String,val projectId:String?,val primaryAction:AgendaAction?)
 data class OwnedItemPurchase(val purchaseItemId:String,val purchaseId:String,val recordId:String,val rawName:String,val quantity:String?,val unit:String?,val lineAmount:String?)
-data class OwnedItemEvent(val id:String,val kind:String,val occurredOn:String,val note:String,val revision:Int,val cost:String?,val documentTitle:String?)
+data class OwnedItemEvent(val id:String,val kind:String,val occurredOn:String,val note:String,val revision:Int,val cost:String?,val documentTitle:String?,val costEntryId:String?=null,val documentId:String?=null)
 data class OwnedItemSummary(
   val id:String,val name:String,val state:String,val location:String?,val warrantyEndsOn:String?,val returnBy:String?,val revision:Int,val documents:Int,val events:Int,
   val startedOn:String?=null,val updatedAt:String?=null,val purchase:OwnedItemPurchase?=null,
@@ -169,7 +169,9 @@ data class CaptureSeed(
   val contextKind:String?=null,val contextId:String?=null,val contextLabel:String?=null
 )
 data class DetailAction(val label:String,val seed:CaptureSeed)
-data class DetailSection(val title:String,val facts:List<DetailFact> = emptyList(),val itemCount:Int?=null,val links:List<DetailLink> = emptyList())
+data class DetailGroup(val id:String,val title:String,val facts:List<DetailFact>,val links:List<DetailLink> = emptyList())
+data class DetailSection(val title:String,val facts:List<DetailFact> = emptyList(),val itemCount:Int?=null,val links:List<DetailLink> = emptyList(),val groups:List<DetailGroup> = emptyList())
+data class TravelDetailSchedule(val trip:TravelTripSummary,val days:List<TravelDaySummary>)
 sealed interface EditSeed { val domain:LifeDomain;val detailId:String
   data class Meal(override val detailId:String,val revision:Int,val occurredOn:String,val timeZone:String,val mealType:String,val note:String?):EditSeed{override val domain=LifeDomain.Meals}
   data class Money(override val detailId:String,val revision:Int,val amount:String,val currency:String,val occurredOn:String,val timeZone:String,val category:String?,val counterparty:String?,val note:String?):EditSeed{override val domain=LifeDomain.Money}
@@ -181,7 +183,7 @@ data class CorrectionDraft(val primary:String,val secondary:String,val note:Stri
 enum class DetailPresentation { Generic, Meal, Money, HealthMetric, Workout, Sleep, Activity, Habit, Travel, Library }
 data class RecordDetail(
   val title:String,val state:String?,val revision:Int?,val sections:List<DetailSection>,val editSeed:EditSeed?=null,val actions:List<DetailAction> = emptyList(),
-  val presentation:DetailPresentation=DetailPresentation.Generic,val heroValue:String?=null,val heroSupporting:String?=null
+  val presentation:DetailPresentation=DetailPresentation.Generic,val heroValue:String?=null,val heroSupporting:String?=null,val travelSchedule:TravelDetailSchedule?=null
 )
 
 @Serializable data object TodayRoute

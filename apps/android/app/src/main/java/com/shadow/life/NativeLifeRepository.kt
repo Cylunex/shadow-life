@@ -143,7 +143,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     },result.nextCursor,result.asOf)
   }
 
-  suspend fun workspaceOverview(domain:LifeDomain):WorkspaceOverview=when(domain){
+  suspend fun workspaceOverview(domain:LifeDomain,tripId:String?=null):WorkspaceOverview=when(domain){
     LifeDomain.Meals->{
       val result=wireJson.decodeFromString<MealPlanningResultDto>(getText("/api/life/meal-planning?limit=20"))
       WorkspaceOverview.Meals(
@@ -171,7 +171,8 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     }
     LifeDomain.Health->healthOverview()
     LifeDomain.Travel->{
-      val result=wireJson.decodeFromString<TravelWorkspaceResultDto>(getText("/api/travel/workspace"))
+      var result=wireJson.decodeFromString<TravelWorkspaceResultDto>(getText("/api/travel/workspace"+tripId?.let{"?trip_id=${encode(it)}"}.orEmpty()))
+      if(tripId==null&&result.selectedTripId==null){val today=LocalDate.now().toString();val first=result.trips.firstOrNull{it.startsOn<=today&&it.endsOn>=today}?:result.trips.filter{it.startsOn>today}.minByOrNull{it.startsOn}?:result.trips.firstOrNull();if(first!=null)result=wireJson.decodeFromString(getText("/api/travel/workspace?trip_id=${encode(first.id)}"))}
       WorkspaceOverview.Travel(
         trips=result.trips.size,
         places=result.places.size,
@@ -181,7 +182,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         placeItems=result.places.map{place->TravelPlaceSummary(place.id,place.name,place.address,place.latitude?.toDoubleOrNull(),place.longitude?.toDoubleOrNull(),place.tags,place.favorite)},
         visitItems=result.visits.map{visit->TravelVisitSummary(visit.id,visit.tripId,visit.placeName,visit.latitude?.toDoubleOrNull(),visit.longitude?.toDoubleOrNull(),visit.occurredOn,visit.occurredAt)},
         mapItems=result.maps.map{map->TravelMapSummary(map.id,map.title,map.description,map.state.wireValue,map.items.map{TravelMapItemSummary(it.placeId,it.status.wireValue,it.note)})},
-        days=result.dayPlans.map{day->TravelDaySummary(day.id,day.tripId,day.planDate,day.items.map{TravelStopSummary(it.stopId,it.title,it.startsAt,it.placeId,it.note)})},
+        days=result.dayPlans.map{day->TravelDaySummary(day.id,day.tripId,day.planDate,day.items.map{TravelStopSummary(it.stopId,it.title,it.startsAt,it.placeId,it.note)},day.revision.toInt())},
         tracks=result.tracks.map{track->TravelTrackSummary(track.id,track.tripId,track.name,track.points.map{TravelTrackPoint(it.latitude,it.longitude)})},
         segments=result.segments.map{segment->TravelSegmentSummary(segment.id,segment.tripId,segment.mode.wireValue,segment.origin,segment.destination,segment.startsAt,segment.distanceKm)},
         selectedTripId=result.selectedTripId,
@@ -241,7 +242,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     revision=item.revision.toInt(),documents=item.documents.size,events=item.events.size,startedOn=item.startedOn,updatedAt=item.updatedAt,
     purchase=item.purchase?.let{purchase->OwnedItemPurchase(purchase.purchaseItemId,purchase.purchaseId,purchase.recordId,purchase.rawName,purchase.quantity,purchase.unit,purchase.lineAmount)},
     documentItems=item.documents.map{document->PlanningLink("library_item",document.libraryItemId,document.libraryRevision.toInt(),document.role.wireValue,document.title)},
-    eventItems=item.events.map{event->OwnedItemEvent(event.id,event.eventKind.wireValue,event.occurredOn,event.note,event.revision.toInt(),event.costAmount?.let{amount->listOfNotNull(event.costCurrency,amount).joinToString(" ")},event.documentTitle)}
+    eventItems=item.events.map{event->OwnedItemEvent(event.id,event.eventKind.wireValue,event.occurredOn,event.note,event.revision.toInt(),event.costAmount?.let{amount->listOfNotNull(event.costCurrency,amount).joinToString(" ")},event.documentTitle,event.costEntryId,event.documentLibraryItemId)}
   )
 
   private fun reviewSummary(item:LifeReviewsResultDtoItemsEntry)=ReviewSummary(
@@ -292,11 +293,18 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   }
 
   suspend fun detail(domain:LifeDomain,id:String):RecordDetail {
-    val path=when(domain){LifeDomain.Meals->"/api/life/records/$id";LifeDomain.Health->"/api/health/records/$id";LifeDomain.Travel->"/api/travel/trips/$id";LifeDomain.Library->"/api/library/items/$id";LifeDomain.Money->"/api/life/records/$id?sections=money"}
+    val path=when(domain){LifeDomain.Meals->"/api/life/records/$id";LifeDomain.Health->"/api/health/records/$id";LifeDomain.Travel->"/api/travel/trips/$id";LifeDomain.Library->"/api/library/items/$id";LifeDomain.Money->"/api/life/records/$id"}
     if(domain==LifeDomain.Library)return libraryDetail(wireJson.decodeFromString(getText(path)))
     if(domain==LifeDomain.Travel)return travelDetail(wireJson.decodeFromString(getText(path)))
     if(domain==LifeDomain.Meals||domain==LifeDomain.Money)return lifeRecordDetail(domain,wireJson.decodeFromString(getText(path)))
     return healthDetail(wireJson.decodeFromString(getText(path)))
+  }
+
+  suspend fun saveTravelDay(draft:TravelDayDraft):OperationReceipt=withContext(Dispatchers.IO){
+    enqueueCommand("travel.set_day_plan",JSONObject().put("trip_id",draft.tripId).put("plan_date",draft.date).apply{
+      draft.revision?.let{put("expected_revision",it)}
+      put("items",JSONArray().apply{draft.stops.forEach{stop->put(JSONObject().put("stop_id",stop.id).put("title",stop.title).apply{stop.startsAt?.let{put("starts_at",it)};stop.placeId?.let{put("place_id",it)};stop.note?.let{put("note",it)}})}})
+    })
   }
 
   suspend fun enqueue(draft:CaptureDraft):OperationReceipt=withContext(Dispatchers.IO){
@@ -307,7 +315,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       CaptureKind.Meal->JSONObject().put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).put("meal_type",draft.option.ifBlank{"other"}).put("items",mealItems(draft.mealItems,draft.primary)).apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
       CaptureKind.Health->JSONObject().put("metric",draft.option.ifBlank{"weight"}).put("value",decimal(draft.primary)).put("unit",draft.secondary.trim()).put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
       CaptureKind.Workout->JSONObject().put("session_type",draft.primary.trim()).put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).apply{draft.secondary.trim().takeIf(String::isNotBlank)?.let{put("duration_minutes",it.toIntOrNull()?:error("训练时长必须是整数分钟"))};draft.note.trim().takeIf(String::isNotBlank)?.let{put("detail",JSONObject().put("note",it))}}
-      CaptureKind.Visit->JSONObject().put("place_name",draft.primary.trim()).put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).put("visibility","private").apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
+      CaptureKind.Visit->JSONObject().put("place_name",draft.primary.trim()).put("occurred_on",draft.date).put("time_zone",draft.option.ifBlank{ZoneId.systemDefault().id}).put("visibility","private").apply{if(draft.contextKind=="trip")draft.contextId?.let{put("trip_id",it)};draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
       CaptureKind.Trip->JSONObject().put("title",draft.primary.trim()).put("starts_on",draft.date).put("ends_on",draft.secondary.trim()).put("time_zone",ZoneId.systemDefault().id).apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
       CaptureKind.OwnedItem->JSONObject().put("name",draft.primary.trim()).put("ownership_state",draft.option.ifBlank{"owned"}).put("started_on",draft.date).put("documents",JSONArray()).apply{draft.secondary.trim().takeIf(String::isNotBlank)?.let{put("location",it)};if(draft.contextKind=="purchase_item")draft.contextId?.let{put("purchase_item_id",it)}}
       CaptureKind.Project->JSONObject().put("title",draft.primary.trim()).put("goal",draft.secondary.trim()).put("starts_on",draft.date).put("state",draft.option.ifBlank{"active"}).put("milestones",JSONArray()).put("links",JSONArray())
@@ -549,31 +557,35 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
 
   private fun travelDetail(value:TravelTripResultDto):RecordDetail{
     val trip=value.trip
-    val sections=mutableListOf(
-      DetailSection("概要",listOfNotNull(DetailFact("开始日期",trip.startsOn),DetailFact("结束日期",trip.endsOn),DetailFact("时区",trip.timeZone),trip.note?.let{DetailFact("备注",it)},DetailFact("创建时间",trip.createdAt)))
-    )
-    if(value.reservations.isNotEmpty())sections+=DetailSection("预订",value.reservations.take(30).flatMap{reservation->listOfNotNull(
-      DetailFact(reservation.title,"${reservation.reservationType.wireValue} · ${reservation.state.wireValue}"),
-      reservation.startsAt?.let{DetailFact("开始",it)},reservation.endsAt?.let{DetailFact("结束",it)},
-      listOfNotNull(reservation.origin,reservation.destination).takeIf{it.isNotEmpty()}?.let{DetailFact("路线",it.joinToString(" → "))},
-      reservation.serviceNumber?.let{DetailFact("班次",it)},reservation.seat?.let{DetailFact("座位",it)}
-    )},value.reservations.size)
-    if(value.segments.isNotEmpty())sections+=DetailSection("行程段",value.segments.take(30).flatMap{segment->listOfNotNull(
-      DetailFact("${segment.origin} → ${segment.destination}",segment.mode.wireValue),segment.startsAt?.let{DetailFact("出发",it)},segment.endsAt?.let{DetailFact("到达",it)},segment.distanceKm?.let{DetailFact("距离","$it km")},segment.note?.let{DetailFact("备注",it)}
-    )},value.segments.size)
-    if(value.visits.isNotEmpty())sections+=DetailSection("到访",value.visits.take(30).flatMap{visit->listOfNotNull(
-      DetailFact(visit.placeName,visit.occurredAt?:visit.occurredOn),visit.latitude?.let{latitude->visit.longitude?.let{longitude->DetailFact("坐标","$latitude, $longitude")}},visit.note?.let{DetailFact("备注",it)}
-    )},value.visits.size)
-    if(value.dayPlans.isNotEmpty())sections+=DetailSection("日程",value.dayPlans.take(30).flatMap{plan->listOf(DetailFact(plan.planDate,"${plan.items.size} 个停靠点"))+plan.items.take(20).map{item->DetailFact(item.startsAt?:"停靠",item.title)}},value.dayPlans.size)
-    if(value.planVersions.isNotEmpty())sections+=DetailSection("已发布计划",value.planVersions.take(20).map{version->DetailFact("版本 ${version.version}",listOfNotNull(version.label,"${version.snapshot.stopCount} 个停靠点",version.createdAt).joinToString(" · "))},value.planVersions.size)
-    if(value.myRuns.isNotEmpty())sections+=DetailSection("我的执行",value.myRuns.take(20).flatMap{run->listOf(DetailFact(run.state.wireValue,"${run.outcomes.size} 个结果 · ${run.startedAt}"))+run.outcomes.take(30).map{outcome->DetailFact(outcome.state.wireValue,outcome.note?:outcome.occurredAt?:outcome.stopId)}},value.myRuns.size)
-    if(value.members.isNotEmpty())sections+=DetailSection("成员",value.members.take(30).map{member->DetailFact(member.role.wireValue,member.visibility.wireValue)},value.members.size)
-    if(value.revisions.isNotEmpty())sections+=DetailSection("更正历史",value.revisions.take(20).map{revision->DetailFact("版本 ${revision.revision}","${revision.reason} · ${revision.createdAt}")},value.revisions.size)
-    return RecordDetail(
-      trip.title,value.myRuns.firstOrNull()?.state?.wireValue,trip.revision.toInt(),sections,
-      EditSeed.Trip(trip.id,trip.revision.toInt(),trip.title,trip.startsOn,trip.endsOn,trip.timeZone,trip.note),presentation=DetailPresentation.Travel,heroSupporting="${trip.startsOn} — ${trip.endsOn}"
-    )
+    fun time(value:String?)=value?.let{localDateTime(it,trip.timeZone)?:it}
+    val sections=mutableListOf(DetailSection("旅程信息",listOfNotNull(
+      DetailFact("日期","${trip.startsOn} — ${trip.endsOn}"),DetailFact("时区",trip.timeZone),trip.note?.let{DetailFact("备注",it)})))
+    if(value.reservations.isNotEmpty())sections+=DetailSection("预订",itemCount=value.reservations.size,groups=value.reservations.map{reservation->
+      DetailGroup(reservation.id,reservation.title,listOfNotNull(
+        DetailFact("类型与状态","${travelLabel(reservation.reservationType.wireValue)} · ${travelLabel(reservation.state.wireValue)}"),
+        time(reservation.startsAt)?.let{DetailFact("开始",it)},time(reservation.endsAt)?.let{DetailFact("结束",it)},
+        listOfNotNull(reservation.origin,reservation.destination).takeIf{it.isNotEmpty()}?.let{DetailFact("路线",it.joinToString(" → "))},
+        reservation.serviceNumber?.let{DetailFact("班次",it)},reservation.seat?.let{DetailFact("座位",it)},reservation.confirmationCode?.let{DetailFact("确认号",it)}
+      ),reservation.fareEntryId?.let{listOf(DetailLink("money_entry",it,"预订付款",reservation.title))}.orEmpty())
+    })
+    if(value.segments.isNotEmpty())sections+=DetailSection("实际交通",itemCount=value.segments.size,groups=value.segments.map{segment->
+      DetailGroup(segment.id,"${segment.origin} → ${segment.destination}",listOfNotNull(
+        DetailFact("方式",travelLabel(segment.mode.wireValue)),time(segment.startsAt)?.let{DetailFact("出发",it)},time(segment.endsAt)?.let{DetailFact("到达",it)},segment.distanceKm?.let{DetailFact("距离","$it km")},segment.note?.let{DetailFact("备注",it)}))
+    })
+    if(value.visits.isNotEmpty())sections+=DetailSection("实际到访",itemCount=value.visits.size,groups=value.visits.map{visit->
+      DetailGroup(visit.id,visit.placeName,listOfNotNull(DetailFact("时间",time(visit.occurredAt)?:visit.occurredOn),visit.note?.let{DetailFact("备注",it)}))
+    })
+    if(value.planVersions.isNotEmpty())sections+=DetailSection("已发布计划",value.planVersions.map{version->DetailFact("版本 ${version.version}",listOfNotNull(version.label,"${version.snapshot.stopCount} 个停留点",time(version.createdAt)).joinToString(" · "))},value.planVersions.size)
+    if(value.myRuns.isNotEmpty())sections+=DetailSection("我的执行",itemCount=value.myRuns.size,groups=value.myRuns.map{run->DetailGroup(run.id,travelLabel(run.state.wireValue),listOf(DetailFact("开始",time(run.startedAt)?:run.startedAt))+run.outcomes.map{outcome->DetailFact(travelLabel(outcome.state.wireValue),outcome.note?:time(outcome.occurredAt)?:"已记录")})})
+    if(value.members.isNotEmpty())sections+=DetailSection("成员",value.members.map{member->DetailFact(travelLabel(member.role.wireValue),travelLabel(member.visibility.wireValue))},value.members.size)
+    if(value.revisions.isNotEmpty())sections+=DetailSection("更正历史",value.revisions.map{revision->DetailFact("版本 ${revision.revision}","${revision.reason} · ${time(revision.createdAt)}")},value.revisions.size)
+    return RecordDetail(trip.title,null,trip.revision.toInt(),sections,
+      EditSeed.Trip(trip.id,trip.revision.toInt(),trip.title,trip.startsOn,trip.endsOn,trip.timeZone,trip.note),presentation=DetailPresentation.Travel,heroSupporting="${trip.startsOn} — ${trip.endsOn}",
+      travelSchedule=TravelDetailSchedule(TravelTripSummary(trip.id,trip.title,trip.startsOn,trip.endsOn,trip.timeZone,null,value.myRuns.any{it.state.wireValue=="active"}),
+        value.dayPlans.map{day->TravelDaySummary(day.id,day.tripId,day.planDate,day.items.map{TravelStopSummary(it.stopId,it.title,it.startsAt,it.placeId,it.note)},day.revision.toInt())}))
   }
+
+  private fun detailDecimal(value:String):String=runCatching{java.math.BigDecimal(value).stripTrailingZeros().toPlainString()}.getOrDefault(value)
 
   private fun lifeRecordDetail(domain:LifeDomain,value:LifeRecordResultDto):RecordDetail=when(value){
     is LifeRecordResultDtoMeal->{
@@ -582,9 +594,12 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       val sections=mutableListOf(
         DetailSection("概要",listOfNotNull(value.mealType?.let{DetailFact("餐次",mealTypeLabel(it.wireValue))},value.occurredOn?.let{DetailFact("日期",it)},value.timeZone?.let{DetailFact("时区",it)},value.note?.let{DetailFact("备注",it)}))
       )
-      if(items.isNotEmpty())sections+=DetailSection("食物",items.take(50).flatMap{item->listOfNotNull(DetailFact(item.name,listOfNotNull(item.quantity?.let{amount->listOfNotNull(amount,item.unit).joinToString(" ")},item.energyKcal?.let{"$it kcal"}).joinToString(" · ").ifBlank{"已记录"}),item.evidenceNote?.let{DetailFact("依据",it)})},items.size)
-      if(payments.isNotEmpty())sections+=DetailSection("关联付款",itemCount=payments.size,links=payments.take(20).map{payment->DetailLink("money_entry",payment.recordId,payment.counterparty?:payment.category?:"交易","${payment.currency} ${payment.amount}")})
+      if(items.isNotEmpty())sections+=DetailSection("食物与营养",itemCount=items.size,groups=items.map{item->DetailGroup(item.id,item.name,listOfNotNull(
+        DetailFact("份量",listOfNotNull(item.quantity?.let(::detailDecimal),item.unit).joinToString(" ").ifBlank{"未记录"}),DetailFact("热量",item.energyKcal?.let{"${detailDecimal(it)} kcal${if(item.estimate)" · 估算" else ""}"}?:"未记录"),
+        item.proteinG?.let{DetailFact("蛋白质","${detailDecimal(it)} g")},item.fatG?.let{DetailFact("脂肪","${detailDecimal(it)} g")},item.carbG?.let{DetailFact("碳水","${detailDecimal(it)} g")},item.fiberG?.let{DetailFact("膳食纤维","${detailDecimal(it)} g")},item.sodiumMg?.let{DetailFact("钠","${detailDecimal(it)} mg")},item.evidenceNote?.let{DetailFact("依据",it)}))})
+      if(payments.isNotEmpty())sections+=DetailSection("关联付款",itemCount=payments.size,links=payments.map{payment->DetailLink("money_entry",payment.recordId,payment.counterparty?:payment.category?:"交易","${payment.currency} ${payment.amount}")})
       if(sources.isNotEmpty())sections+=DetailSection("来源",sources.take(20).map{source->DetailFact(source.kind,source.capturedAt?:source.capturedOn?:source.externalId?:"已收存")},sources.size)
+      if(!value.relatedRecords.isNullOrEmpty())sections+=DetailSection("关联消费",links=value.relatedRecords.orEmpty().map{DetailLink(it.kind.wireValue,it.id,it.title,it.supporting)})
       val revision=value.revision;val occurredOn=value.occurredOn;val timeZone=value.timeZone;val mealType=value.mealType
       val seed=if(revision!=null&&occurredOn!=null&&timeZone!=null&&mealType!=null)EditSeed.Meal(value.mealId,revision.toInt(),occurredOn,timeZone,mealType.wireValue,value.note) else null
       RecordDetail(title,null,value.revision?.toInt(),sections,seed,presentation=DetailPresentation.Meal,heroSupporting=listOfNotNull(value.mealType?.wireValue?.let(::mealTypeLabel),value.occurredOn).joinToString(" · "))
@@ -593,11 +608,12 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       val entry=value.moneyEntry;val purchase=value.purchase;val meals=value.meals.orEmpty();val items=value.purchaseItems.orEmpty();val sources=value.sources.orEmpty()
       val title=when(domain){LifeDomain.Money->entry?.counterparty?:entry?.category?:"收支详情";else->purchase?.merchant?:meals.firstOrNull()?.items?.joinToString("、"){it.name}?.takeIf(String::isNotBlank)?:"消费详情"}
       val sections=mutableListOf(DetailSection("概要",listOfNotNull(DetailFact("状态",value.state.wireValue),DetailFact("日期",value.occurredOn),DetailFact("时区",value.timeZone),value.note?.let{DetailFact("备注",it)})))
-      entry?.let{sections+=DetailSection("金额",listOfNotNull(DetailFact("金额","${it.currency} ${it.amount}"),DetailFact("类型",it.entryType.wireValue),it.counterparty?.let{item->DetailFact("交易方",item)},it.category?.let{item->DetailFact("分类",item)},it.paymentMethod?.let{item->DetailFact("支付方式",item.wireValue)}))}
+      entry?.let{sections+=DetailSection("金额",listOfNotNull(DetailFact("金额","${it.currency} ${it.amount}"),DetailFact("类型",when(it.entryType.wireValue){"expense"->"支出";"refund"->"退款";else->"收入"}),it.counterparty?.let{item->DetailFact("交易方",item)},it.category?.let{item->DetailFact("分类",item)},it.paymentMethod?.let{item->DetailFact("支付方式",item.wireValue)}))}
       purchase?.let{sections+=DetailSection("消费",listOfNotNull(it.merchant?.let{item->DetailFact("商家",item)},it.amount?.let{amount->DetailFact("金额","${it.currency} $amount")},it.scene?.let{item->DetailFact("场景",item)},it.channelNameRaw?.let{item->DetailFact("渠道",item)},it.rating?.let{item->DetailFact("评分","$item/5")}))}
-      if(items.isNotEmpty())sections+=DetailSection("购买明细",items.take(50).map{item->DetailFact(item.rawName,listOfNotNull(item.quantity?.let{amount->listOfNotNull(amount,item.unit).joinToString(" ")},item.lineAmount?.let{"金额 $it"}).joinToString(" · ").ifBlank{"已记录"})},items.size)
-      if(meals.isNotEmpty())sections+=DetailSection("关联餐次",itemCount=meals.size,links=meals.take(20).map{meal->DetailLink("meal",meal.id,mealTypeLabel(meal.mealType.wireValue),"${meal.occurredOn} · ${meal.items.joinToString("、"){it.name}}")})
+      if(items.isNotEmpty())sections+=DetailSection("购买明细",items.map{item->DetailFact(item.rawName,listOfNotNull(item.quantity?.let{amount->listOfNotNull(amount,item.unit).joinToString(" ")},item.lineAmount?.let{"金额 $it"}).joinToString(" · ").ifBlank{"已记录"})},items.size)
+      if(meals.isNotEmpty())sections+=DetailSection("关联餐次",itemCount=meals.size,links=meals.map{meal->DetailLink("meal",meal.id,mealTypeLabel(meal.mealType.wireValue),"${meal.occurredOn} · ${meal.items.joinToString("、"){it.name}}")})
       if(sources.isNotEmpty())sections+=DetailSection("来源",sources.take(20).map{source->DetailFact(source.kind,source.capturedAt?:source.capturedOn?:source.externalId?:"已收存")},sources.size)
+      if(!value.relatedRecords.isNullOrEmpty())sections+=DetailSection("关联记录",links=value.relatedRecords.orEmpty().map{DetailLink(it.kind.wireValue,it.id,it.title,it.supporting)})
       val seed=entry?.let{EditSeed.Money(value.recordId,value.revision.toInt(),it.amount,it.currency,it.occurredOn,it.timeZone,it.category,it.counterparty,it.note?:value.note)}
       val actions=buildList{
         if(entry?.entryType?.wireValue=="expense"&&entry.currency=="CNY")add(DetailAction("记录这笔交易的退款",CaptureSeed(CaptureKind.Refund,date=LocalDate.now().toString(),secondary=entry.id,contextKind="money_entry",contextId=entry.id,contextLabel=listOfNotNull(entry.counterparty,entry.category,"CNY ${entry.amount}").joinToString(" · "))))
@@ -616,7 +632,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     }
     return when(value){
       is HealthRecordResultDtoMeasurement->{val fact=value.fact;val label=fact.label?:healthMetricLabel(fact.metric.wireValue);val shown=healthValueText(fact.value,fact.unit);build(label,fact.revision,listOfNotNull(fact.occurredAt?.let{DetailFact("测量时间",localDateTime(it,fact.timeZone)?:it)},DetailFact("发生日期",fact.occurredOn),DetailFact("数据精度",if(fact.autofilled)"推导值" else "原始值"),fact.note?.let{DetailFact("备注",it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue,if(value.raw==null)EditSeed.Health(fact.id,fact.revision.toInt(),fact.metric.wireValue,fact.value,fact.unit,fact.occurredOn,fact.timeZone,fact.label,fact.note) else null,DetailPresentation.HealthMetric,"$shown ${unitLabel(fact.unit)}",fact.occurredOn)}
-      is HealthRecordResultDtoObservation->{val fact=value.fact;val label=healthMetricLabel(fact.metricKey.wireValue);val shown=healthValueText(fact.value,fact.unit);val related=fact.relatedObservations.map{item->DetailFact(healthMetricLabel(item.metricKey.wireValue),"${healthValueText(item.value,item.unit)} ${unitLabel(item.unit)}${if(item.autofilled)" · 计算" else " · 设备"}")};build(label,fact.revision,listOfNotNull(fact.occurredAt?.let{DetailFact("测量时间",localDateTime(it,fact.timeZone)?:it)},DetailFact("发生日期",fact.occurredOn),DetailFact("数据性质",if(fact.autofilled)"根据体重、阻抗和档案计算" else "设备直接上报"),fact.originalField?.let{DetailFact("原字段",it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue,presentation=DetailPresentation.HealthMetric,heroValue="$shown ${unitLabel(fact.unit)}",heroSupporting=fact.occurredOn,extra=listOf(DetailSection("本次测量全部指标",related,related.size)))}
+      is HealthRecordResultDtoObservation->{val fact=value.fact;val label=healthMetricLabel(fact.metricKey.wireValue);val shown=healthValueText(fact.value,fact.unit);val related=fact.relatedObservations.map{item->DetailFact(healthMetricLabel(item.metricKey.wireValue),"${healthValueText(item.value,item.unit)} ${unitLabel(item.unit)}${if(item.autofilled)" · 计算" else " · 设备"}")};build(label,fact.revision,listOfNotNull(fact.occurredAt?.let{DetailFact("测量时间",localDateTime(it,fact.timeZone)?:it)},DetailFact("发生日期",fact.occurredOn),DetailFact("数据性质",if(fact.autofilled)"根据体重、阻抗和档案计算" else "设备直接上报"),fact.originalField?.let{DetailFact("原字段",it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue,presentation=DetailPresentation.HealthMetric,heroValue="$shown ${unitLabel(fact.unit)}",heroSupporting=fact.occurredOn,extra=listOf(DetailSection("本次测量全部指标",itemCount=related.size,links=fact.relatedObservations.filter{it.id!=fact.id}.map{item->DetailLink("health_record",item.id,healthMetricLabel(item.metricKey.wireValue),"${healthValueText(item.value,item.unit)} ${unitLabel(item.unit)}${if(item.autofilled)" · 计算" else " · 设备"}")})))}
       is HealthRecordResultDtoDailyWellbeing->{val fact=value.fact;build("每日感受",fact.revision,listOfNotNull(DetailFact("日期",fact.occurredOn),fact.moodScore?.let{DetailFact("心情","$it/10")},fact.energyLevel?.let{DetailFact("精力","$it/10")},fact.sleepQuality?.let{DetailFact("睡眠质量","$it/10")},fact.morningErection?.let{DetailFact("晨间状态",if(it)"是" else "否")},fact.notes?.let{DetailFact("备注",it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue,presentation=DetailPresentation.Habit,heroValue=fact.moodScore?.let{"$it / 10"}?:"已记录",heroSupporting=fact.occurredOn)}
       is HealthRecordResultDtoSleepSession->{val fact=value.fact;build("睡眠",fact.revision,listOfNotNull(DetailFact("醒来日期",fact.wakeDate),fact.deepMinutes?.let{DetailFact("深睡","$it 分钟")},fact.lightMinutes?.let{DetailFact("浅睡","$it 分钟")},fact.remMinutes?.let{DetailFact("REM","$it 分钟")},fact.awakeMinutes?.let{DetailFact("清醒","$it 分钟")},fact.startedAt?.let{DetailFact("入睡",localDateTime(it,fact.timeZone)?:it)},fact.endedAt?.let{DetailFact("醒来",localDateTime(it,fact.timeZone)?:it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue,presentation=DetailPresentation.Sleep,heroValue=if(fact.totalMinutes>=60)"${fact.totalMinutes/60} 小时 ${fact.totalMinutes%60} 分" else "${fact.totalMinutes} 分钟",heroSupporting="${fact.wakeDate} · 睡眠结构")}
       is HealthRecordResultDtoWorkoutSession->{

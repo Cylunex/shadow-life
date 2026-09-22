@@ -83,7 +83,7 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
             {nav.popBackStack()},detail,capture
           )
           LifeDomain.Travel->TravelWorkspaceScreen(
-            viewModel.workspaceOverview,viewModel.workspace,{viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,capture,route.tab
+            viewModel.workspaceOverview,viewModel.workspace,{viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,capture,route.tab,viewModel::selectTravelTrip,{seed->openComposer(seed)},viewModel.submit,viewModel::saveTravelDay,viewModel::editAgain
           )
           else->WorkspaceScreen(domain,viewModel.workspaceOverview,viewModel.workspace,viewModel.deviceSyncStatus,viewModel.queueStatus,SamsungHealthBridge.available(),{viewModel.loadWorkspace(domain,it)},{viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,capture,onHealthSync,onSamsungSync,onScale,{nav.navigate(SettingsRoute)})
         }
@@ -109,10 +109,12 @@ private fun defaultCaptureSeed(kind:CaptureKind)=CaptureSeed(kind=kind,date=java
 
 private fun openPlanningRelated(nav:androidx.navigation.NavHostController,viewModel:NativeLifeViewModel,kind:String,id:String){
   when(kind){
+    "travel_workspace"->{viewModel.selectTravelTrip(id);nav.navigate(WorkspaceRoute(LifeDomain.Travel.name,"itinerary"))}
     "trip"->{viewModel.loadDetail(LifeDomain.Travel,id);nav.navigate(DetailRoute(LifeDomain.Travel.name,id,"旅程详情"))}
     "library_item"->{viewModel.loadDetail(LifeDomain.Library,id);nav.navigate(DetailRoute(LifeDomain.Library.name,id,"资料详情"))}
     "money_entry"->{viewModel.loadDetail(LifeDomain.Money,id);nav.navigate(DetailRoute(LifeDomain.Money.name,id,"交易详情"))}
-    "meal"->{viewModel.loadDetail(LifeDomain.Meals,id);nav.navigate(DetailRoute(LifeDomain.Meals.name,id,"餐次详情"))}
+    "health_record"->{viewModel.loadDetail(LifeDomain.Health,id);nav.navigate(DetailRoute(LifeDomain.Health.name,id,"健康详情"))}
+    "purchase","meal"->{viewModel.loadDetail(LifeDomain.Meals,id);nav.navigate(DetailRoute(LifeDomain.Meals.name,id,"餐次详情"))}
     "owned_item"->nav.navigate(OwnedItemDetailRoute(id))
   }
 }

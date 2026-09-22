@@ -12,3 +12,11 @@ test("money detail correction preserves the current fact and expected revision",
 test("meal detail correction uses the meal revision instead of a consumption record",()=>{const detail={meal_id:"meal_12345678",revision:2,occurred_on:"2026-09-08",time_zone:"Asia/Shanghai",meal_type:"lunch",note:"面"},fields={...initialEditableFields(detail),mealType:"dinner" as const,reason:"补正餐次"},built=correctionCommand(detail,fields);assert.equal(built.capability,"life.correct_meal");assert.deepEqual(capabilityRegistry[built.capability].inputSchema.parse(built.input),{meal_id:"meal_12345678",expected_revision:2,occurred_on:"2026-09-08",time_zone:"Asia/Shanghai",meal_type:"dinner",note:"面",reason:"补正餐次"});});
 
 test("manual health detail correction keeps its measurement identity and revision",()=>{const detail={kind:"measurement",fact:{id:"health_12345678",metric:"weight",value:"69.000000",unit:"kg",label:"晨起",occurred_on:"2026-09-10",time_zone:"Asia/Shanghai",note:"空腹",revision:1},source:null,raw:null},fields={...initialEditableFields(detail),healthValue:"68.8",reason:"秤面读数核对"},built=correctionCommand(detail,fields);assert.equal(built.capability,"health.correct_measurement");assert.deepEqual(capabilityRegistry[built.capability].inputSchema.parse(built.input),{measurement_id:"health_12345678",expected_revision:1,metric:"weight",value:"68.8",unit:"kg",label:"晨起",occurred_on:"2026-09-10",time_zone:"Asia/Shanghai",note:"空腹",reason:"秤面读数核对"});});
+
+test("detail links retain actual identities for payments, meals, refunds and measurement groups",async()=>{
+  const {recordRelations}=await import("../src/record-detail.js");
+  const links=recordRelations({payments:[{id:"money_original",record_id:"record_original",amount:"12.30",currency:"CNY"}],meals:[{id:"meal_example",occurred_on:"2026-09-22",items:[{name:"米饭"}]}],related_records:[{domain:"money",kind:"money_entry",id:"record_refund",title:"退款",supporting:"CNY 2.30"}],fact:{related_observations:[{id:"obs_weight",metric_key:"weight",value:"60",unit:"kg"}]}});
+  assert.equal(links.length,4);
+  assert.deepEqual(links.map(link=>selectionFromLocation(link.href)?.id),["record_original","meal_example","record_refund","obs_weight"]);
+  assert.equal(recordRelations({related_records:[{domain:"invalid",id:"not-visible"}]}).length,0);
+});

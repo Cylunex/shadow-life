@@ -89,9 +89,14 @@ export class CommandController {
     return this.submit(command,input,key);
   }
 
+  private request(...args:Parameters<typeof fetch>):ReturnType<typeof fetch>{
+    const fetcher=this.fetcher;
+    return fetcher(...args);
+  }
+
   private async recover(command:StoredCommand,key:string):Promise<ExecutionResult|undefined> {
     let response:Response;
-    try{response=await this.fetcher(`/api/operations/by-command/${encodeURIComponent(command.commandId)}`,{headers:this.headers()});}
+    try{response=await this.request(`/api/operations/by-command/${encodeURIComponent(command.commandId)}`,{headers:this.headers()});}
     catch{this.markUnknown(key,command);throw new Error("网络不可用，上一笔操作的结果仍未知；请恢复网络后重试。");}
     if(response.ok){
       const result=this.parseReceipt(await response.json(),command);
@@ -106,7 +111,7 @@ export class CommandController {
     this.write(key,{...command,state:"pending",updatedAt:new Date().toISOString()});
     let response:Response;
     try{
-      response=await this.fetcher(`/api/commands/${command.capability}`,{method:"POST",headers:this.headers(),body:JSON.stringify({protocol:"shadow.command",capability:command.capability,command_id:command.commandId,input})});
+      response=await this.request(`/api/commands/${command.capability}`,{method:"POST",headers:this.headers(),body:JSON.stringify({protocol:"shadow.command",capability:command.capability,command_id:command.commandId,input})});
     }catch{
       this.markUnknown(key,command);
       throw new Error("提交后连接中断，结果尚未确认；再次点击会先查询并重放原操作，不会创建新操作。");
