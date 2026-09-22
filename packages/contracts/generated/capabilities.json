@@ -2,7 +2,7 @@
   "capabilities": {
     "life.record_meal": {
       "name": "life.record_meal",
-      "description": "记录一餐，并可在同一事务保存具有独立发生日期和时区的明确付款。",
+      "description": "记录实际吃下的一餐，可关联独立付款。购买或赠品不证明摄入；未知营养与时刻省略，估算需 estimate=true 和 evidence_note。订单、商家和多张图片一起录入优先用 life.record_dining。",
       "possible_effects": [
         "life.meal.write",
         "money.entry.write",
@@ -65,6 +65,7 @@
                   "maxLength": 500
                 },
                 "quantity": {
+                  "description": "Decimal string paired with unit. Omit unknown quantities; do not send null or invent grams.",
                   "type": "string",
                   "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                 },
@@ -123,9 +124,11 @@
                 },
                 "estimate": {
                   "default": false,
+                  "description": "Set true for estimated amounts or nutrition; evidence_note is then required. Unknown nutrition may be omitted.",
                   "type": "boolean"
                 },
                 "evidence_note": {
+                  "description": "Basis and uncertainty of an estimate; required when estimate=true.",
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 500
@@ -238,7 +241,8 @@
             "required": [
               "kind"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "description": "Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image."
           }
         },
         "required": [
@@ -263,7 +267,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -319,6 +324,7 @@
                       "maxLength": 500
                     },
                     "quantity": {
+                      "description": "Decimal string paired with unit. Omit unknown quantities; do not send null or invent grams.",
                       "type": "string",
                       "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                     },
@@ -377,9 +383,11 @@
                     },
                     "estimate": {
                       "default": false,
+                      "description": "Set true for estimated amounts or nutrition; evidence_note is then required. Unknown nutrition may be omitted.",
                       "type": "boolean"
                     },
                     "evidence_note": {
+                      "description": "Basis and uncertainty of an estimate; required when estimate=true.",
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 500
@@ -492,7 +500,8 @@
                 "required": [
                   "kind"
                 ],
-                "additionalProperties": false
+                "additionalProperties": false,
+                "description": "Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image."
               }
             },
             "required": [
@@ -609,7 +618,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -759,7 +769,7 @@
     },
     "life.record_purchase": {
       "name": "life.record_purchase",
-      "description": "记录消费内容，可选保存独立发生时间的支付。",
+      "description": "记录购买商品与可选付款，不代表已吃下或库存入库。未知单项金额省略而非 null；实际摄入另记并关联，避免重复付款。",
       "possible_effects": [
         "life.purchase.write",
         "money.entry.write"
@@ -834,7 +844,8 @@
             "required": [
               "kind"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "description": "Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image."
           },
           "scene": {
             "type": "string",
@@ -993,7 +1004,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -1062,7 +1074,8 @@
                 "required": [
                   "kind"
                 ],
-                "additionalProperties": false
+                "additionalProperties": false,
+                "description": "Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image."
               },
               "scene": {
                 "type": "string",
@@ -1313,7 +1326,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -1463,7 +1477,7 @@
     },
     "life.record_dining": {
       "name": "life.record_dining",
-      "description": "一次提交原子保存用餐、消费、付款、到访与全部来源。",
+      "description": "原子记录实际用餐、购买明细、独立付款和多张原图。consumed_items 只放确认吃下的内容，purchased_items 放订单内容；赠品不自动计摄入，sources 用上传返回的 asset_version_id 和正确角色。核验全部原图时，用回执 consumption_record_id 调 life.get_record；meal_id 用于核对实际摄入。",
       "possible_effects": [
         "life.meal.write",
         "life.purchase.write",
@@ -1528,6 +1542,7 @@
                   "maxLength": 500
                 },
                 "quantity": {
+                  "description": "Decimal string paired with unit. Omit unknown quantities; do not send null or invent grams.",
                   "type": "string",
                   "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                 },
@@ -1586,9 +1601,11 @@
                 },
                 "estimate": {
                   "default": false,
+                  "description": "Set true for estimated amounts or nutrition; evidence_note is then required. Unknown nutrition may be omitted.",
                   "type": "boolean"
                 },
                 "evidence_note": {
+                  "description": "Basis and uncertainty of an estimate; required when estimate=true.",
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 500
@@ -1622,6 +1639,7 @@
                   "maxLength": 500
                 },
                 "quantity": {
+                  "description": "Decimal string paired with unit. Omit unknown quantities; do not send null or invent grams.",
                   "type": "string",
                   "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                 },
@@ -1680,9 +1698,11 @@
                 },
                 "estimate": {
                   "default": false,
+                  "description": "Set true for estimated amounts or nutrition; evidence_note is then required. Unknown nutrition may be omitted.",
                   "type": "boolean"
                 },
                 "evidence_note": {
+                  "description": "Basis and uncertainty of an estimate; required when estimate=true.",
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 500
@@ -1930,7 +1950,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -1986,6 +2007,7 @@
                       "maxLength": 500
                     },
                     "quantity": {
+                      "description": "Decimal string paired with unit. Omit unknown quantities; do not send null or invent grams.",
                       "type": "string",
                       "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                     },
@@ -2044,9 +2066,11 @@
                     },
                     "estimate": {
                       "default": false,
+                      "description": "Set true for estimated amounts or nutrition; evidence_note is then required. Unknown nutrition may be omitted.",
                       "type": "boolean"
                     },
                     "evidence_note": {
+                      "description": "Basis and uncertainty of an estimate; required when estimate=true.",
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 500
@@ -2080,6 +2104,7 @@
                       "maxLength": 500
                     },
                     "quantity": {
+                      "description": "Decimal string paired with unit. Omit unknown quantities; do not send null or invent grams.",
                       "type": "string",
                       "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                     },
@@ -2138,9 +2163,11 @@
                     },
                     "estimate": {
                       "default": false,
+                      "description": "Set true for estimated amounts or nutrition; evidence_note is then required. Unknown nutrition may be omitted.",
                       "type": "boolean"
                     },
                     "evidence_note": {
+                      "description": "Basis and uncertainty of an estimate; required when estimate=true.",
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 500
@@ -2480,7 +2507,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -2709,7 +2737,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -2875,7 +2904,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -3062,6 +3092,7 @@
                 "maxLength": 500
               },
               "quantity": {
+                "description": "Decimal string paired with unit. Omit unknown quantities; do not send null or invent grams.",
                 "type": "string",
                 "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
               },
@@ -3120,9 +3151,11 @@
               },
               "estimate": {
                 "default": false,
+                "description": "Set true for estimated amounts or nutrition; evidence_note is then required. Unknown nutrition may be omitted.",
                 "type": "boolean"
               },
               "evidence_note": {
+                "description": "Basis and uncertainty of an estimate; required when estimate=true.",
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 500
@@ -3162,7 +3195,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -3194,6 +3228,7 @@
                     "maxLength": 500
                   },
                   "quantity": {
+                    "description": "Decimal string paired with unit. Omit unknown quantities; do not send null or invent grams.",
                     "type": "string",
                     "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                   },
@@ -3252,9 +3287,11 @@
                   },
                   "estimate": {
                     "default": false,
+                    "description": "Set true for estimated amounts or nutrition; evidence_note is then required. Unknown nutrition may be omitted.",
                     "type": "boolean"
                   },
                   "evidence_note": {
+                    "description": "Basis and uncertainty of an estimate; required when estimate=true.",
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 500
@@ -3386,7 +3423,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -3582,7 +3620,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -3715,7 +3754,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -3963,7 +4003,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -4147,7 +4188,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -4297,7 +4339,7 @@
     },
     "life.attach_meal_source": {
       "name": "life.attach_meal_source",
-      "description": "追加或替换餐照、订单截图等来源证据。",
+      "description": "为既有餐次关联原图；source.asset_version_id 来自上传结果，使用最新 expected_meal_revision。餐照用 meal_photo、订单用 order_screenshot，其余证据用 evidence。",
       "possible_effects": [
         "life.meal.write",
         "library.source.link"
@@ -4361,7 +4403,8 @@
             "required": [
               "kind"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "description": "Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image."
           },
           "role": {
             "default": "evidence",
@@ -4396,7 +4439,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -4454,7 +4498,8 @@
                 "required": [
                   "kind"
                 ],
-                "additionalProperties": false
+                "additionalProperties": false,
+                "description": "Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image."
               },
               "role": {
                 "default": "evidence",
@@ -4581,7 +4626,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -4782,7 +4828,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -4920,7 +4967,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -5070,7 +5118,7 @@
     },
     "life.correct_intake": {
       "name": "life.correct_intake",
-      "description": "按预期版本修正一条饮食明细并保留修正原因。",
+      "description": "先 life.get_record 查 item_id 与当前 revision，再修正饮食明细并保留原因；不创建第二餐模拟编辑。",
       "possible_effects": [
         "life.meal.write"
       ],
@@ -5107,6 +5155,7 @@
                 "maxLength": 500
               },
               "quantity": {
+                "description": "Decimal string paired with unit. Omit unknown quantities; do not send null or invent grams.",
                 "type": "string",
                 "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
               },
@@ -5165,9 +5214,11 @@
               },
               "estimate": {
                 "default": false,
+                "description": "Set true for estimated amounts or nutrition; evidence_note is then required. Unknown nutrition may be omitted.",
                 "type": "boolean"
               },
               "evidence_note": {
+                "description": "Basis and uncertainty of an estimate; required when estimate=true.",
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 500
@@ -5207,7 +5258,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -5239,6 +5291,7 @@
                     "maxLength": 500
                   },
                   "quantity": {
+                    "description": "Decimal string paired with unit. Omit unknown quantities; do not send null or invent grams.",
                     "type": "string",
                     "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                   },
@@ -5297,9 +5350,11 @@
                   },
                   "estimate": {
                     "default": false,
+                    "description": "Set true for estimated amounts or nutrition; evidence_note is then required. Unknown nutrition may be omitted.",
                     "type": "boolean"
                   },
                   "evidence_note": {
+                    "description": "Basis and uncertainty of an estimate; required when estimate=true.",
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 500
@@ -5431,7 +5486,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -5691,7 +5747,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -5888,7 +5945,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -6210,7 +6268,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -6469,7 +6528,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -6666,7 +6726,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -6799,7 +6860,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -6998,7 +7060,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -7133,7 +7196,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -7329,6 +7393,7 @@
                   "maxLength": 500
                 },
                 "quantity": {
+                  "description": "Decimal string paired with unit. Omit unknown quantities; do not send null or invent grams.",
                   "type": "string",
                   "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                 },
@@ -7387,9 +7452,11 @@
                 },
                 "estimate": {
                   "default": false,
+                  "description": "Set true for estimated amounts or nutrition; evidence_note is then required. Unknown nutrition may be omitted.",
                   "type": "boolean"
                 },
                 "evidence_note": {
+                  "description": "Basis and uncertainty of an estimate; required when estimate=true.",
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 500
@@ -7423,7 +7490,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -7464,6 +7532,7 @@
                       "maxLength": 500
                     },
                     "quantity": {
+                      "description": "Decimal string paired with unit. Omit unknown quantities; do not send null or invent grams.",
                       "type": "string",
                       "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                     },
@@ -7522,9 +7591,11 @@
                     },
                     "estimate": {
                       "default": false,
+                      "description": "Set true for estimated amounts or nutrition; evidence_note is then required. Unknown nutrition may be omitted.",
                       "type": "boolean"
                     },
                     "evidence_note": {
+                      "description": "Basis and uncertainty of an estimate; required when estimate=true.",
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 500
@@ -7650,7 +7721,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -7946,7 +8018,8 @@
             "required": [
               "kind"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "description": "Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image."
           }
         },
         "required": [
@@ -7971,7 +8044,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -8110,7 +8184,8 @@
                 "required": [
                   "kind"
                 ],
-                "additionalProperties": false
+                "additionalProperties": false,
+                "description": "Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image."
               }
             },
             "required": [
@@ -8227,7 +8302,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -8481,7 +8557,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -8672,7 +8749,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -8872,6 +8950,7 @@
                   "maxLength": 500
                 },
                 "quantity": {
+                  "description": "Decimal string paired with unit. Omit unknown quantities; do not send null or invent grams.",
                   "type": "string",
                   "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                 },
@@ -8930,9 +9009,11 @@
                 },
                 "estimate": {
                   "default": false,
+                  "description": "Set true for estimated amounts or nutrition; evidence_note is then required. Unknown nutrition may be omitted.",
                   "type": "boolean"
                 },
                 "evidence_note": {
+                  "description": "Basis and uncertainty of an estimate; required when estimate=true.",
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 500
@@ -8986,7 +9067,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -9031,6 +9113,7 @@
                       "maxLength": 500
                     },
                     "quantity": {
+                      "description": "Decimal string paired with unit. Omit unknown quantities; do not send null or invent grams.",
                       "type": "string",
                       "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                     },
@@ -9089,9 +9172,11 @@
                     },
                     "estimate": {
                       "default": false,
+                      "description": "Set true for estimated amounts or nutrition; evidence_note is then required. Unknown nutrition may be omitted.",
                       "type": "boolean"
                     },
                     "evidence_note": {
+                      "description": "Basis and uncertainty of an estimate; required when estimate=true.",
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 500
@@ -9237,7 +9322,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -9465,7 +9551,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -9630,7 +9717,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -9854,7 +9942,8 @@
             "required": [
               "kind"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "description": "Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image."
           },
           "entry_type": {
             "type": "string",
@@ -9921,7 +10010,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -9990,7 +10080,8 @@
                 "required": [
                   "kind"
                 ],
-                "additionalProperties": false
+                "additionalProperties": false,
+                "description": "Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image."
               },
               "entry_type": {
                 "type": "string",
@@ -10149,7 +10240,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -10373,7 +10465,8 @@
             "required": [
               "kind"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "description": "Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image."
           },
           "original_entry_id": {
             "type": "string",
@@ -10411,7 +10504,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -10480,7 +10574,8 @@
                 "required": [
                   "kind"
                 ],
-                "additionalProperties": false
+                "additionalProperties": false,
+                "description": "Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image."
               },
               "original_entry_id": {
                 "type": "string",
@@ -10610,7 +10705,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -10864,7 +10960,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -11055,7 +11152,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -11251,7 +11349,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -11384,7 +11483,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -11595,7 +11695,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -11743,7 +11844,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -12032,7 +12134,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -12258,7 +12361,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -12492,7 +12596,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -12663,7 +12768,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -12938,7 +13044,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -13150,7 +13257,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -13409,7 +13517,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -13605,7 +13714,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -13811,7 +13921,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -13954,7 +14065,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -14258,7 +14370,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -14499,7 +14612,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -14742,7 +14856,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -14922,7 +15037,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -15146,7 +15262,8 @@
             "required": [
               "kind"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "description": "Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image."
           },
           "metric": {
             "type": "string",
@@ -15200,7 +15317,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -15269,7 +15387,8 @@
                 "required": [
                   "kind"
                 ],
-                "additionalProperties": false
+                "additionalProperties": false,
+                "description": "Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image."
               },
               "metric": {
                 "type": "string",
@@ -15415,7 +15534,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -15664,7 +15784,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -15850,7 +15971,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -16115,7 +16237,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -16317,7 +16440,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -16608,7 +16732,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -16836,7 +16961,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -17200,7 +17326,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -17501,7 +17628,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -17724,7 +17852,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -17884,7 +18013,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -18187,7 +18317,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -18427,7 +18558,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -18635,7 +18767,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -18780,7 +18913,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -19005,7 +19139,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -19167,7 +19302,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -19504,7 +19640,8 @@
             "required": [
               "kind"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "description": "Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image."
           }
         },
         "required": [
@@ -19530,7 +19667,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -19710,7 +19848,8 @@
                 "required": [
                   "kind"
                 ],
-                "additionalProperties": false
+                "additionalProperties": false,
+                "description": "Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image."
               }
             },
             "required": [
@@ -19828,7 +19967,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -20112,7 +20252,8 @@
             "required": [
               "kind"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "description": "Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image."
           },
           "reason": {
             "type": "string",
@@ -20145,7 +20286,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -20273,7 +20415,8 @@
                 "required": [
                   "kind"
                 ],
-                "additionalProperties": false
+                "additionalProperties": false,
+                "description": "Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image."
               },
               "reason": {
                 "type": "string",
@@ -20398,7 +20541,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -20594,7 +20738,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -20727,7 +20872,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -20988,7 +21134,8 @@
             "required": [
               "kind"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "description": "Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image."
           }
         },
         "required": [
@@ -21014,7 +21161,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -21119,7 +21267,8 @@
                 "required": [
                   "kind"
                 ],
-                "additionalProperties": false
+                "additionalProperties": false,
+                "description": "Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image."
               }
             },
             "required": [
@@ -21237,7 +21386,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -21462,7 +21612,8 @@
             "required": [
               "kind"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "description": "Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image."
           },
           "place_name": {
             "type": "string",
@@ -21514,7 +21665,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -21583,7 +21735,8 @@
                 "required": [
                   "kind"
                 ],
-                "additionalProperties": false
+                "additionalProperties": false,
+                "description": "Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image."
               },
               "place_name": {
                 "type": "string",
@@ -21727,7 +21880,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -21952,7 +22106,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -22114,7 +22269,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -22345,7 +22501,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -22513,7 +22670,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -22718,7 +22876,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -22860,7 +23019,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -23054,7 +23214,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -23185,7 +23346,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -23373,7 +23535,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -23498,7 +23661,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -23710,7 +23874,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -23859,7 +24024,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -24105,7 +24271,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -24288,7 +24455,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -24483,7 +24651,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -24615,7 +24784,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -24805,7 +24975,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -24932,7 +25103,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -25172,7 +25344,8 @@
             "required": [
               "kind"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "description": "Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image."
           }
         },
         "required": [
@@ -25196,7 +25369,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -25280,7 +25454,8 @@
                 "required": [
                   "kind"
                 ],
-                "additionalProperties": false
+                "additionalProperties": false,
+                "description": "Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image."
               }
             },
             "required": [
@@ -25396,7 +25571,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -25619,7 +25795,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -25779,7 +25956,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -26006,7 +26184,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -26170,7 +26349,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -26376,7 +26556,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -26519,7 +26700,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -26723,7 +26905,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -26864,7 +27047,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -27048,7 +27232,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -27169,7 +27354,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -27359,7 +27545,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -27486,7 +27673,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -27676,7 +27864,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -27803,7 +27992,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -27999,7 +28189,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -28132,7 +28323,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -28390,7 +28582,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -28585,7 +28778,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -28826,7 +29020,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -29004,7 +29199,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -29247,7 +29443,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -29422,7 +29619,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -29606,7 +29804,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -29727,7 +29926,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -30027,7 +30227,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -30259,7 +30460,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -30456,7 +30658,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -30590,7 +30793,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -30790,7 +30994,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -30927,7 +31132,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -31130,7 +31336,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -31270,7 +31477,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -31482,7 +31690,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -31631,7 +31840,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -31938,7 +32148,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -32180,7 +32391,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -32421,7 +32633,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -32597,7 +32810,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -32831,7 +33045,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -32997,7 +33212,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -33334,7 +33550,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -33602,7 +33819,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -33833,7 +34051,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -33999,7 +34218,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -34279,7 +34499,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -34495,7 +34716,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -34720,7 +34942,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -34882,7 +35105,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -35086,7 +35310,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -35226,7 +35451,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -35566,7 +35792,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -35842,7 +36069,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -36046,7 +36274,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "input": {
             "type": "object",
@@ -36187,7 +36416,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",
@@ -37553,8 +37783,9 @@
         "type": "object",
         "properties": {
           "q": {
+            "default": "",
+            "description": "Search text. Omit only when both from_on and to_on_exclusive define a bounded date window.",
             "type": "string",
-            "minLength": 1,
             "maxLength": 200
           },
           "types": {
@@ -37604,8 +37835,9 @@
         "type": "object",
         "properties": {
           "q": {
+            "default": "",
+            "description": "Search text. Omit only when both from_on and to_on_exclusive define a bounded date window.",
             "type": "string",
-            "minLength": 1,
             "maxLength": 200
           },
           "types": {
@@ -39223,6 +39455,7 @@
                             "maxLength": 500
                           },
                           "quantity": {
+                            "description": "Decimal string paired with unit. Omit unknown quantities; do not send null or invent grams.",
                             "type": "string",
                             "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                           },
@@ -39281,9 +39514,11 @@
                           },
                           "estimate": {
                             "default": false,
+                            "description": "Set true for estimated amounts or nutrition; evidence_note is then required. Unknown nutrition may be omitted.",
                             "type": "boolean"
                           },
                           "evidence_note": {
+                            "description": "Basis and uncertainty of an estimate; required when estimate=true.",
                             "type": "string",
                             "minLength": 1,
                             "maxLength": 500
@@ -51389,6 +51624,7 @@
                                       "maxLength": 500
                                     },
                                     "quantity": {
+                                      "description": "Decimal string paired with unit. Omit unknown quantities; do not send null or invent grams.",
                                       "type": "string",
                                       "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                                     },
@@ -51447,9 +51683,11 @@
                                     },
                                     "estimate": {
                                       "default": false,
+                                      "description": "Set true for estimated amounts or nutrition; evidence_note is then required. Unknown nutrition may be omitted.",
                                       "type": "boolean"
                                     },
                                     "evidence_note": {
+                                      "description": "Basis and uncertainty of an estimate; required when estimate=true.",
                                       "type": "string",
                                       "minLength": 1,
                                       "maxLength": 500
@@ -51968,6 +52206,290 @@
         "additionalProperties": false
       }
     },
+    "operations.find": {
+      "name": "operations.find",
+      "description": "按原 command_id 找回当前主体的执行回执；超时后先查询，未找到也不能换新键重复写入。",
+      "possible_effects": [
+        "operations.read"
+      ],
+      "idempotency": "not-applicable",
+      "status_query": "operations.get",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
+          }
+        },
+        "required": [
+          "command_id"
+        ],
+        "additionalProperties": false
+      },
+      "command_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
+          }
+        },
+        "required": [
+          "command_id"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "const": "shadow.execution-result"
+          },
+          "capability": {
+            "type": "string",
+            "enum": [
+              "life.record_meal",
+              "life.record_dining",
+              "life.correct_meal",
+              "life.add_intake",
+              "life.remove_intake",
+              "life.add_meal_payment",
+              "life.attach_meal_source",
+              "life.set_personal_alias",
+              "life.record_purchase",
+              "life.correct_intake",
+              "life.correct_purchase",
+              "life.update_purchase_items",
+              "life.void_purchase",
+              "life.link_meal_consumption",
+              "life.save_meal_template",
+              "life.record_meal_from_template",
+              "life.save_food",
+              "life.save_recipe",
+              "life.record_meal_from_recipe",
+              "money.record_entry",
+              "money.record_refund",
+              "money.correct_entry",
+              "money.void_entry",
+              "money.set_budget",
+              "money.set_recurring_plan",
+              "money.set_spending_intent",
+              "money.set_use_cycle",
+              "money.set_occurrence_state",
+              "money.stage_import",
+              "money.resolve_import_candidate",
+              "money.set_import_rule",
+              "health.record_measurement",
+              "health.correct_measurement",
+              "health.record_workout",
+              "health.ingest_raw",
+              "health.ingest_batch",
+              "health.set_source_state",
+              "health.set_plan",
+              "travel.create_trip",
+              "travel.correct_trip",
+              "travel.add_reservation",
+              "travel.correct_reservation",
+              "travel.void_reservation",
+              "travel.record_segment",
+              "travel.record_visit",
+              "travel.save_place",
+              "travel.set_day_plan",
+              "travel.set_member",
+              "travel.publish_plan",
+              "travel.start_run",
+              "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
+              "travel.restore_bundle",
+              "library.capture",
+              "library.revise",
+              "library.annotate",
+              "library.register_derivation",
+              "library.queue_processing",
+              "library.retry_processing",
+              "library.claim_processing",
+              "library.renew_processing",
+              "library.fail_processing",
+              "library.complete_processing",
+              "library.set_reading_state",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update",
+              "notifications.register_device",
+              "notifications.set_delivery_state",
+              "life.save_owned_item",
+              "life.record_owned_item_event",
+              "life.generate_review",
+              "life.save_project",
+              "life.save_action_item",
+              "life.save_meal_plan",
+              "life.build_shopping_list",
+              "life.update_shopping_item",
+              "money.record_foreign_entry",
+              "money.update_shared_allocation"
+            ]
+          },
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
+          },
+          "execution_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "status": {
+            "type": "string",
+            "const": "committed"
+          },
+          "result_kind": {
+            "type": "string",
+            "enum": [
+              "record",
+              "plan",
+              "task"
+            ]
+          },
+          "resources": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "meal",
+                    "meal_template",
+                    "food",
+                    "recipe",
+                    "personal_alias",
+                    "intake_item",
+                    "consumption_record",
+                    "purchase",
+                    "purchase_item",
+                    "money_entry",
+                    "refund",
+                    "budget",
+                    "recurring_plan",
+                    "recurring_occurrence",
+                    "spending_intent",
+                    "use_cycle",
+                    "money_import_batch",
+                    "money_import_candidate",
+                    "money_import_rule",
+                    "health_measurement",
+                    "health_workout_session",
+                    "health_raw",
+                    "health_sync_cursor",
+                    "health_plan",
+                    "trip",
+                    "trip_segment",
+                    "reservation",
+                    "visit",
+                    "place",
+                    "travel_map",
+                    "trip_track",
+                    "trip_day_plan",
+                    "trip_member",
+                    "trip_plan_version",
+                    "trip_run",
+                    "trip_stop_outcome",
+                    "library_item",
+                    "library_annotation",
+                    "library_derivation",
+                    "library_processing_job",
+                    "library_reading_state",
+                    "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
+                    "notification_installation",
+                    "notification_delivery",
+                    "owned_item",
+                    "owned_item_event",
+                    "life_review",
+                    "life_project",
+                    "action_item",
+                    "meal_plan",
+                    "shopping_list",
+                    "shopping_list_item",
+                    "money_fx_snapshot",
+                    "shared_expense_allocation",
+                    "source",
+                    "thread",
+                    "run",
+                    "task"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "revision": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "revision"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "actual_values": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "replayed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "protocol",
+          "capability",
+          "command_id",
+          "execution_id",
+          "status",
+          "result_kind",
+          "resources",
+          "actual_values",
+          "warnings",
+          "replayed"
+        ],
+        "additionalProperties": false
+      }
+    },
     "operations.get": {
       "name": "operations.get",
       "description": "Read a visible deterministic execution receipt.",
@@ -52101,7 +52623,8 @@
           },
           "command_id": {
             "type": "string",
-            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$"
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
           },
           "execution_id": {
             "type": "string",

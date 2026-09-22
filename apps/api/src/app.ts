@@ -3,7 +3,7 @@ import { bodyLimit } from "hono/body-limit";
 import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 import { createHash } from "node:crypto";
-import { agentThreadMessagesInputSchema, agentThreadMessagesResultSchema, agentThreadsResultSchema, capabilityRegistry, consumptionStatsInputSchema, dailyRecordCheckInputSchema, executionResultSchema, healthTrendInputSchema, lifeMeResultSchema, lifeRecordInputSchema, lifeSearchInputSchema, lifeTimelineInputSchema, lifeTodayInputSchema, planningAgendaInputSchema, projectDirectoryResultSchema, writeCapabilityNameSchema, type ProjectDirectoryResult } from "@shadow/contracts";
+import { agentThreadMessagesInputSchema, agentThreadMessagesResultSchema, agentThreadsResultSchema, capabilityRegistry, consumptionStatsInputSchema, dailyRecordCheckInputSchema, executionResultSchema, findOperationInputSchema, healthTrendInputSchema, lifeMeResultSchema, lifeRecordInputSchema, lifeSearchInputSchema, lifeTimelineInputSchema, lifeTodayInputSchema, planningAgendaInputSchema, projectDirectoryResultSchema, writeCapabilityNameSchema, type ProjectDirectoryResult } from "@shadow/contracts";
 import { AssetService, type PostgresUnitOfWork } from "@shadow/database";
 import type { AgentRepository } from "@shadow/database";
 import { hostRunEventSchema, runtimeEventSchema, type AgentRuntimeAdapter, type HostRunEvent, type RuntimeEvent, type RunState } from "@shadow/agent-adapter";
@@ -39,7 +39,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
       subject_id:requestContext.subjectId,
       client_id:requestContext.clientId,
       issuer:requestContext.issuer,
-      capabilities:visibleCapabilities(requestContext.effects).map((item)=>({name:item.name,description:item.description,possible_effects:item.possibleEffects}))
+      capabilities:visibleCapabilities(requestContext.effects).map((item)=>({name:item.name,description:item.description,possible_effects:item.possibleEffects,...(context.req.query("include_schemas")==="true"?{input_schema:z.toJSONSchema(item.inputSchema)}:{})}))
     });
   });
   app.get("/api/write-epochs",async context=>context.json({items:(await dependencies.unitOfWork.pool.query("select domain,epoch,stage,target_schema from write_epochs order by domain")).rows}));
@@ -83,7 +83,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
     const result = await dependencies.executor.execute(requestContext, body);
     return context.json(result, result.replayed ? 200 : 201);
   });
-  app.get("/api/operations/by-command/:commandId",async context=>context.json(await dependencies.executor.findOperationByCommand(context.get("requestContext"),context.req.param("commandId"))));
+  app.get("/api/operations/by-command/:commandId",async context=>context.json(await dependencies.executor.findOperationByCommand(context.get("requestContext"),findOperationInputSchema.parse({command_id:context.req.param("commandId")}).command_id)));
   app.get("/api/operations/:executionId", async (context) => context.json(await dependencies.executor.getOperation(context.get("requestContext"), context.req.param("executionId"))));
   app.get("/api/meals",async context=>context.json(await dependencies.queries.listMeals(context.get("requestContext"),{limit:Number(context.req.query("limit")??"20"),...(context.req.query("cursor")?{cursor:context.req.query("cursor")}:{})})));
   app.get("/api/life/foods",async context=>context.json(await dependencies.queries.foodCatalog(context.get("requestContext"),{...(context.req.query("q")?{query:context.req.query("q")} :{}),limit:Number(context.req.query("limit")??"50")})));
@@ -190,6 +190,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         if(capabilityName==="life.planning_agenda")return dependencies.queries.planningAgenda(requestContext,parsed);
         if(capabilityName==="life.meal_planning")return dependencies.queries.mealPlanning(requestContext,parsed);
         if(capabilityName==="money.foreign_entries")return dependencies.queries.foreignEntries(requestContext,parsed);
+        if(capabilityName==="operations.find")return dependencies.executor.findOperationByCommand(requestContext,(parsed as {command_id:string}).command_id);
         if(capabilityName==="operations.get")return dependencies.executor.getOperation(requestContext,(parsed as {execution_id:string}).execution_id);
         throw new KernelError(422,{protocol:"shadow.error",code:"validation",message:"Runtime requested an unsupported query capability."});
       };
@@ -219,7 +220,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         if(currentState==="started")await state("streaming");
         let result:unknown;try{result=await dispatchTool(event.capability,event.input,event.id);}catch(error){result=toolFailure(error,event.input);}
         const execution=executionResultSchema.safeParse(result);
-        if(execution.success){
+        if(execution.success&&capabilityRegistry[event.capability as keyof typeof capabilityRegistry]?.idempotency==="required"){
           await emit({id:hostId(),run_id:runId,type:"operation.committed",authority:"executor",subject_id:requestContext.subjectId,tool_call_id:event.id,capability:event.capability,command_id:execution.data.command_id,execution_id:execution.data.execution_id,result:execution.data});
           await state("committed_partial");
         }else{

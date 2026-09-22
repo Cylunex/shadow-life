@@ -92,3 +92,13 @@ test("failure at every write stage leaves no partial facts", async () => {
     assert.deepEqual(Object.values(unitOfWork.state).map((items) => items.length), [0, 0, 0, 0, 0, 0]);
   }
 });
+
+test("command-id receipt recovery is subject-bound and requires operation read authority", async () => {
+  const unitOfWork = new MemoryUnitOfWork();
+  const executor = new CommandExecutor({ unitOfWork, ids, clock, fingerprinter: sha256Fingerprinter });
+  const committed = await executor.execute(context, command);
+  assert.deepEqual(await executor.findOperationByCommand(context, command.command_id), committed);
+  await assert.rejects(executor.findOperationByCommand({ ...context, subjectId: "subject_other" }, command.command_id), (error: unknown) => error instanceof KernelError && error.status === 404);
+  await assert.rejects(executor.findOperationByCommand({ ...context, effects: new Set() }, command.command_id), (error: unknown) => error instanceof KernelError && error.status === 403);
+  assert.equal(unitOfWork.state.meals.length, 1);
+});

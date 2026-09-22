@@ -13,7 +13,7 @@ export const queryTransportRegistry:Readonly<Record<string,ReadRoute>>={
   "life.timeline":input=>get(`/api/timeline${search({domains:input.domains,limit:input.limit,cursor:input.cursor})}`),
   "life.search":input=>get(`/api/search${search({q:input.q,types:input.types,from_on:input.from_on,to_on_exclusive:input.to_on_exclusive,limit:input.limit,cursor:input.cursor})}`),
   "life.consumption_stats":input=>get(`/api/life/consumption-stats${search({from_on:input.from_on,to_on_exclusive:input.to_on_exclusive,time_zone:input.time_zone,scopes:input.scopes,categories:input.categories,merchant_rank_by:input.merchant_rank_by,item_rank_by:input.item_rank_by,currency:input.currency,limit:input.limit})}`),
-  "life.list_meals":input=>get(`/api/meals${search({limit:input.limit})}`),
+  "life.list_meals":input=>get(`/api/meals${search({limit:input.limit,cursor:input.cursor})}`),
   "life.food_catalog":input=>get(`/api/life/foods${search({q:input.query,limit:input.limit})}`),
   "money.summarize":()=>get("/api/money/summary"),
   "money.records":input=>get(`/api/money${search({q:input.query,limit:input.limit,cursor:input.cursor})}`),
@@ -42,6 +42,7 @@ export const queryTransportRegistry:Readonly<Record<string,ReadRoute>>={
   "life.planning_agenda":input=>get(`/api/planning/agenda${search({from_on:input.from_on,to_on_exclusive:input.to_on_exclusive,time_zone:input.time_zone,limit:input.limit})}`),
   "life.meal_planning":input=>get(`/api/life/meal-planning${search({limit:input.limit})}`),
   "money.foreign_entries":input=>get(`/api/money/foreign${search({trip_id:input.trip_id,limit:input.limit})}`),
+  "operations.find":input=>get(`/api/operations/by-command/${encodeURIComponent(input.command_id)}`),
   "operations.get":input=>get(`/api/operations/${encodeURIComponent(input.execution_id)}`)
 };
 

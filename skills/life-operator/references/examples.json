@@ -1,0 +1,137 @@
+[
+  {
+    "scenario": "Actual meal with unknown nutrition and clock time",
+    "capability": "life.record_meal",
+    "arguments": {
+      "command_id": "cmd_example_meal_0001",
+      "input": {
+        "occurred_on": "2026-09-22",
+        "time_zone": "Asia/Shanghai",
+        "meal_type": "breakfast",
+        "items": [
+          {
+            "name": "鸡蛋",
+            "quantity": "2",
+            "unit": "个"
+          }
+        ],
+        "source": {
+          "kind": "text",
+          "captured_on": "2026-09-22",
+          "original_text": "早餐吃了两个鸡蛋"
+        }
+      }
+    }
+  },
+  {
+    "scenario": "Confirmed dining with order/payment and two uploaded originals; a listed gift is not consumed",
+    "capability": "life.record_dining",
+    "arguments": {
+      "command_id": "cmd_example_dining_0001",
+      "input": {
+        "occurred_on": "2026-09-22",
+        "occurred_at": "2026-09-22T12:26:00+08:00",
+        "time_zone": "Asia/Shanghai",
+        "meal_type": "lunch",
+        "merchant_name_raw": "示例面馆",
+        "scene": "delivery",
+        "consumed_items": [
+          {
+            "name": "牛肉面",
+            "quantity": "1",
+            "unit": "份",
+            "consumed_fraction": "0.5"
+          }
+        ],
+        "purchased_items": [
+          {
+            "quantity": "1",
+            "unit": "份",
+            "raw_name": "牛肉面"
+          },
+          {
+            "quantity": "1",
+            "unit": "瓶",
+            "raw_name": "订单列示赠品饮料（未送达，未饮用）"
+          }
+        ],
+        "payment": {
+          "amount": "18.00",
+          "currency": "CNY",
+          "occurred_on": "2026-09-22",
+          "occurred_at": "2026-09-22T11:55:00+08:00",
+          "time_zone": "Asia/Shanghai",
+          "payment_method": "alipay"
+        },
+        "sources": [
+          {
+            "kind": "image",
+            "captured_on": "2026-09-22",
+            "asset_version_id": "assetv_example_order",
+            "role": "order_screenshot"
+          },
+          {
+            "kind": "image",
+            "captured_on": "2026-09-22",
+            "asset_version_id": "assetv_example_meal",
+            "role": "meal_photo"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "scenario": "Purchase only; unknown line prices omitted",
+    "capability": "life.record_purchase",
+    "arguments": {
+      "command_id": "cmd_example_purchase_0001",
+      "input": {
+        "occurred_on": "2026-09-22",
+        "time_zone": "Asia/Shanghai",
+        "merchant_name_raw": "示例超市",
+        "items": [
+          {
+            "quantity": "1",
+            "unit": "袋",
+            "raw_name": "燕麦"
+          }
+        ],
+        "payment": {
+          "amount": "15.00",
+          "currency": "CNY",
+          "occurred_on": "2026-09-22",
+          "time_zone": "Asia/Shanghai",
+          "payment_method": "alipay"
+        },
+        "scene": "offline_purchase"
+      }
+    }
+  },
+  {
+    "scenario": "Recover a lost response using the original key",
+    "capability": "operations.find",
+    "arguments": {
+      "command_id": "cmd_example_purchase_0001"
+    }
+  },
+  {
+    "scenario": "One authoritative daily check",
+    "capability": "life.daily_record_check",
+    "arguments": {
+      "date": "2026-09-22",
+      "time_zone": "Asia/Shanghai"
+    }
+  },
+  {
+    "scenario": "Historical meal window",
+    "capability": "life.search",
+    "arguments": {
+      "types": [
+        "meals"
+      ],
+      "from_on": "2026-09-15",
+      "to_on_exclusive": "2026-09-22",
+      "limit": 30
+    }
+  }
+]

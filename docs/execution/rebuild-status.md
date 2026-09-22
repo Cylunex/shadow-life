@@ -2,6 +2,16 @@
 
 Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The table separates source modeling, usable operations, migrated production data, and actual cutover. A schema or command alone is never counted as a completed migration.
 
+## 2026-09-22: Agent usability and one maintained MCP entry
+
+- Repository MCP and operational runtime templates now share one implementation, with personal planning
+  capabilities, exact schemas, single-request discovery, bounded legacy discovery, structured errors,
+  validated local-image receipts and by-command recovery. Built-in Agent receipt queries remain reads.
+- Historical date-window search and meal cursor transport now support complete bounded record checks.
+  A reusable skill includes contract-tested examples and precise multi-domain image verification.
+- All 256 tests pass on disposable local PostgreSQL; source checks and runtime-shim validation pass.
+  Live Gateway refresh/deployment is not included. See [Agent usability delivery](agent-usability-2026-09-22.md).
+
 ## 2026-09-22: Life home and presentation hierarchy
 
 - Android now names the home destination Life (生活); Web mirrors the name. Home cards retain saved customization

@@ -131,3 +131,22 @@ test("the owner can stop an active run through the host controller",async()=>{
   const stopResponse=await app.request("/api/runs/run_00000001/stop",{method:"POST",headers:{authorization:"Bearer dev:subject_test"}});const body=await bodyPromise;
   assert.equal(stopResponse.status,200);assert.equal(finished,"interrupted");assert.match(body,/Run stopped by the user/u);
 });
+
+test("finding an earlier receipt is a query result, not a new committed operation", async () => {
+  let submitted: RuntimeToolResult | undefined, sequence = 0, lookupKey = "";
+  const receipt = { protocol: "shadow.execution-result", capability: "money.record_entry", command_id: "cmd_recovery_0001", execution_id: "execution_00000001", status: "committed", result_kind: "record", resources: [{ type: "money_entry", id: "money_00000001", revision: 1 }], actual_values: { amount: "12.30" }, warnings: [], replayed: false };
+  const runtime: AgentRuntimeAdapter = { id: "test", available: true,
+    async *run(request) { yield { id: "tool_lookup", type: "tool.requested", runId: request.runId, capability: "operations.find", input: { command_id: receipt.command_id } }; },
+    async *submitToolResult(request) { submitted = request; yield { id: "done_lookup", type: "run.completed", runId: request.runId }; }
+  };
+  const dependencies = {
+    unitOfWork: { ensurePrincipal: async () => undefined, pool: { query: async () => ({ rows: [] }) } },
+    executor: { execute: async () => { throw new Error("receipt lookup must not write"); }, findOperationByCommand: async (_context: unknown, key: string) => { lookupKey = key; return receipt; } },
+    queries: { agentPersonalContext: async () => ({ aliases: [], mealTemplates: [] }) }, developmentAuth: true,
+    agent: { repository: { assertThread: async () => undefined, addMessage: async () => undefined, conversation: async () => [], createRun: async () => undefined, heartbeat: async () => true, appendEvent: async () => ++sequence, finishRun: async () => undefined }, runtime, nextId: (type: string) => `${type}_00000001` }
+  } as unknown as Parameters<typeof createApp>[0];
+  const response = await createApp(dependencies).request("/api/threads/thread_00000001/runs", { method: "POST", headers: { authorization: "Bearer dev:subject_test", "content-type": "application/json" }, body: JSON.stringify({ text: "查看上次是否已记录" }) });
+  const body = await response.text();
+  assert.equal(lookupKey, receipt.command_id); assert.deepEqual(submitted?.result, receipt);
+  assert.match(body, /"type":"tool.result"/u); assert.doesNotMatch(body, /"type":"operation.committed"/u);
+});

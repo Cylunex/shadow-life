@@ -12,7 +12,7 @@ export const ianaTimeZone = z.string().min(1).max(64).refine((value) => {
   try { new Intl.DateTimeFormat("en", { timeZone: value }).format(); return true; } catch { return false; }
 }, "must be an IANA time zone");
 export const stableId = z.string().regex(/^[a-z][a-z0-9_]{7,127}$/u);
-export const commandId = z.string().regex(/^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$/u);
+export const commandId = z.string().regex(/^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$/u).describe("Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key.");
 export const paymentMethodSchema = z.enum(["alipay", "wechat", "jd_pay", "jd_baitiao", "huabei", "gift_card", "cash", "bank_card", "bank_transfer", "mixed", "other"]);
 
 export const sourceInputSchema = z.object({
@@ -23,7 +23,7 @@ export const sourceInputSchema = z.object({
   time_zone: ianaTimeZone.optional(),
   original_text: z.string().max(20_000).optional(),
   asset_version_id: stableId.optional()
-}).strict().superRefine((source, context) => {
+}).strict().describe("Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image.").superRefine((source, context) => {
   if (source.original_text === undefined && source.asset_version_id === undefined) context.addIssue({ code: "custom", message: "source needs original_text or asset_version_id" });
   if (source.captured_on === undefined && source.captured_at === undefined) context.addIssue({ code: "custom", message: "source needs captured_on or captured_at" });
   if (source.captured_at !== undefined && source.time_zone === undefined) context.addIssue({ code: "custom", message: "captured_at needs time_zone" });
@@ -33,7 +33,7 @@ export const intakeItemInputSchema = z.object({
   name: z.string().trim().min(1).max(200),
   food_ref_id: stableId.optional(),
   free_text: z.string().trim().min(1).max(500).optional(),
-  quantity: positiveDecimal.optional(),
+  quantity: positiveDecimal.optional().describe("Decimal string paired with unit. Omit unknown quantities; do not send null or invent grams."),
   unit: z.string().trim().min(1).max(32).optional(),
   amount_g: positiveDecimal.optional(),
   energy_kcal: canonicalDecimal.optional(),
@@ -45,8 +45,8 @@ export const intakeItemInputSchema = z.object({
   consumed_fraction: canonicalDecimal.refine(value => Number(value) <= 1, "must be at most one").optional(),
   provenance: z.enum(["manual","estimated","reference_snapshot","legacy"]).optional(),
   grouping_origin: z.enum(["actual_meal","legacy_meal_bucket"]).optional(),
-  estimate: z.boolean().default(false),
-  evidence_note: z.string().trim().min(1).max(500).optional()
+  estimate: z.boolean().default(false).describe("Set true for estimated amounts or nutrition; evidence_note is then required. Unknown nutrition may be omitted."),
+  evidence_note: z.string().trim().min(1).max(500).optional().describe("Basis and uncertainty of an estimate; required when estimate=true.")
 }).strict().superRefine((item, context) => {
   if ((item.quantity === undefined) !== (item.unit === undefined)) {
     context.addIssue({ code: "custom", message: "quantity and unit must be supplied together" });
@@ -638,7 +638,7 @@ export const dailyRecordCheckResultSchema=z.object({
 export const lifeTimelineInputSchema=z.object({domains:z.array(lifeOverviewDomainSchema).min(1).max(5).optional(),limit:z.number().int().min(1).max(100).default(30),cursor:z.string().max(1_000).optional()}).strict();
 export const lifeTimelineItemSchema=z.object({domain:lifeOverviewDomainSchema,kind:z.string(),id:stableId,happened_at:instant,title:z.string(),amount:storedAmount.optional(),currency:currencyCode.optional(),record_id:stableId.optional()}).strict();
 export const lifeTimelineResultSchema=z.object({items:z.array(lifeTimelineItemSchema),next_cursor:z.string().nullable(),as_of:instant}).strict();
-export const lifeSearchInputSchema=z.object({q:z.string().trim().min(1).max(200),types:z.array(lifeOverviewDomainSchema).min(1).max(5).optional(),from_on:localDate.optional(),to_on_exclusive:localDate.optional(),limit:z.number().int().min(1).max(100).default(30),cursor:z.string().max(1_000).optional()}).strict().refine(value=>!value.from_on||!value.to_on_exclusive||value.to_on_exclusive>value.from_on,{path:["to_on_exclusive"],message:"to_on_exclusive must be after from_on"});
+export const lifeSearchInputSchema=z.object({q:z.string().trim().max(200).default("").describe("Search text. Omit only when both from_on and to_on_exclusive define a bounded date window."),types:z.array(lifeOverviewDomainSchema).min(1).max(5).optional(),from_on:localDate.optional(),to_on_exclusive:localDate.optional(),limit:z.number().int().min(1).max(100).default(30),cursor:z.string().max(1_000).optional()}).strict().refine(value=>!value.from_on||!value.to_on_exclusive||value.to_on_exclusive>value.from_on,{path:["to_on_exclusive"],message:"to_on_exclusive must be after from_on"}).refine(value=>value.q.length>0||Boolean(value.from_on&&value.to_on_exclusive),{path:["q"],message:"provide search text or both date boundaries"});
 export const lifeSearchItemSchema=z.object({domain:lifeOverviewDomainSchema,kind:z.string(),id:stableId,title:z.string(),supporting:z.string().nullable(),happened_on:localDate,amount:storedAmount.optional(),currency:currencyCode.optional(),record_id:stableId.optional()}).strict();
 export const lifeSearchResultSchema=z.object({items:z.array(lifeSearchItemSchema),next_cursor:z.string().nullable(),as_of:instant,applied_filters:z.object({q:z.string(),types:z.array(lifeOverviewDomainSchema),from_on:localDate.nullable(),to_on_exclusive:localDate.nullable()}).strict()}).strict();
 export const consumptionScopeSchema=z.enum(["restaurant_delivery","grocery_delivery","dine_in","takeaway","physical_retail","drink_snack","other","unknown"]);
@@ -706,6 +706,7 @@ export const healthTrendResultSchema=z.object({metric_key:z.string(),points:z.ar
 export const healthSourcesInputSchema=z.object({}).strict();
 export const healthSourcesResultSchema=z.object({items:z.array(z.object({id:stableId,source_type:z.string(),instance_key:z.string(),permission_state:z.string(),sync_epoch:z.number().int().positive(),fingerprint:z.string().nullable(),cursors:z.array(z.object({device_id:z.string(),record_type:z.string(),cursor:z.string().nullable(),state:z.string(),sync_epoch:z.number().int().positive(),updated_at:instant}).strict())}).strict()),as_of:instant}).strict();
 export const getOperationInputSchema = z.object({ execution_id: stableId }).strict();
+export const findOperationInputSchema = z.object({ command_id: commandId }).strict();
 
 export type RecordMealInput = z.infer<typeof recordMealInputSchema>;
 export type LifeOverviewDomain = z.infer<typeof lifeOverviewDomainSchema>;
