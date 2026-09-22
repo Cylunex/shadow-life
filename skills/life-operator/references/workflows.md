@@ -135,3 +135,14 @@ For depletion estimates, use verified package size and comparable units; unknown
 For a map, reuse real `place_id` values from `travel.workspace`, creating missing places first. Save the
 full desired item list with `map_id` and `expected_revision` on updates. Candidate/anchor/planned states
 do not imply a visit. Actual visits and private reservation details retain their domain visibility.
+
+## Prepaid service cards (次卡 / 服务权益)
+
+- When a user records buying an N-use haircut card, car-wash card or lesson package, record its purchase/payment once, then `money.save_service_card` with the stated `total_units`, factual start date, merchant and the returned existing `purchase_record_id`. If the payment already exists, reuse it; do not record it again. Omit unknown expiry. A renewal with newly purchased units is a new card linked to its own purchase, not an edit that erases the old card's use history.
+- Search `money.service_cards` by card name/merchant or `purchase_record_id` before creating a card or recording a use. Follow `next_after_id` when more cards remain. If several cards could match “那张卡”, ask only which card.
+- Buying eight uses does not prove the user used one that day. Record `money.record_service_card_use` only for explicitly reported usage: read the card by `id`, send its current `expected_revision`, actual `occurred_on`, and positive integer `units`. No money entry is created for redemption. Record an extra payment separately only if the user reports one.
+- `total_units`, `units`, and `expected_revision` are JSON integers (unlike money's decimal strings). Start/expiry dates are inclusive. Historical uses can be added after calendar expiry if the actual use date was valid; future uses and overdraws are rejected.
+- To correct or undo a mistaken deduction, read by card `id`, select the existing `use_id`, preserve the actual date and units as appropriate, and call the use tool with the current **card** revision and a reason; `state: voided` reverses that deduction without deleting history. All card edits and use writes advance the card revision. Do not simulate a correction by making another use or changing total units.
+- `money.save_service_card` updates replace metadata; preserve existing start, expiry, merchant, purchase, unit, state and note unless the user changes them. A closed card can be reopened explicitly; expired/unusable cards still show the unconsumed units and their status.
+- Read back `money.service_cards` by `id` after writes. Confirm original purchase link, total, recorded used and remaining units. Follow `next_uses_before_id` via `uses_before_id` for older history; the balance always covers all effective uses, including those outside the displayed page.
+- Report “总共 8 次，已记录使用 1 次，剩余 7 次”. If historical usage is unknown, say “尚未记录使用” instead of asserting the user has never used it. These service uses are not dietary intake and do not belong in `money.set_use_cycle` matching rules.

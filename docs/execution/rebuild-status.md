@@ -2,6 +2,15 @@
 
 Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The table separates source modeling, usable operations, migrated production data, and actual cutover. A schema or command alone is never counted as a completed migration.
 
+## 2026-09-22: service cards and actual redemptions
+
+- Added separate prepaid service cards linked to existing purchase/payment records, with explicit use history,
+  integer balances, expiry, versioned corrections and reversible mistaken deductions. Uses never create money entries.
+- API, CLI, built-in Agent and personal MCP share the same contracts and Executor. Web Plans → 次卡 exposes card
+  editing and use history. Hermes workflow examples distinguish purchase, actual redemption and extra payment.
+- See [service card semantics](../architecture/service-cards.md). Source verification and operational rollout are
+  recorded separately; no Android APK is included in this delivery.
+
 ## 2026-09-22: Health display semantics and release history
 
 - Android Health/Meals now use labeled semantic colors, explicit reference ranges and activity goal semantics.

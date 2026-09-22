@@ -133,5 +133,50 @@
       "to_on_exclusive": "2026-09-22",
       "limit": 30
     }
+  },
+  {
+    "scenario": "Eight-use haircut card linked to an existing payment; no first use inferred",
+    "capability": "money.save_service_card",
+    "arguments": {
+      "command_id": "cmd_example_service_card_001",
+      "input": {
+        "name": "示例理发八次卡",
+        "merchant_name": "示例理发店",
+        "purchase_record_id": "record_example_card01",
+        "total_units": 8,
+        "unit_label": "次",
+        "started_on": "2026-09-22",
+        "time_zone": "Asia/Shanghai"
+      }
+    }
+  },
+  {
+    "scenario": "Explicit use consumes one entitlement without another payment",
+    "capability": "money.record_service_card_use",
+    "arguments": {
+      "command_id": "cmd_example_service_use_001",
+      "input": {
+        "card_id": "plan_example_card01",
+        "expected_revision": 1,
+        "occurred_on": "2026-09-22",
+        "units": 1
+      }
+    }
+  },
+  {
+    "scenario": "Correct a mistaken deduction by voiding the original use",
+    "capability": "money.record_service_card_use",
+    "arguments": {
+      "command_id": "cmd_example_service_void_001",
+      "input": {
+        "card_id": "plan_example_card01",
+        "expected_revision": 2,
+        "use_id": "event_example_use01",
+        "occurred_on": "2026-09-22",
+        "units": 1,
+        "state": "voided",
+        "reason": "实际没有用这张卡"
+      }
+    }
   }
 ]

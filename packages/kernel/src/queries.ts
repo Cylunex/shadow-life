@@ -5,6 +5,7 @@ import { agentContextPackInputSchema, agentContextPackResultSchema, agentMemorie
 import { lifeReviewsInputSchema, lifeReviewsResultSchema, ownedItemsInputSchema, ownedItemsResultSchema } from "@shadow/contracts";
 import { foreignEntriesInputSchema, foreignEntriesResultSchema, lifeProjectsInputSchema, lifeProjectsResultSchema, mealPlanningInputSchema, mealPlanningResultSchema, moneyPlanningResultSchema } from "@shadow/contracts";
 import { planningAgendaInputSchema, planningAgendaResultSchema } from "@shadow/contracts";
+import { serviceCardsInputSchema, serviceCardsResultSchema } from "@shadow/contracts";
 import { invalidInput, notFound, permissionDenied } from "./errors.js";
 import type { RequestContext, UnitOfWork } from "./ports.js";
 import { parseGpx, portableDocument, serializeGpx, serializeTravelBundle, serializeTripIcs, validateTravelBundleSemantics, type TravelTrackPoint } from "./travel-portable.js";
@@ -145,6 +146,11 @@ export class QueryService {
     if(sections.some(section=>section!=="money")&&!context.effects.has("life.meal.read"))throw permissionDenied("life.meal.read");
     if(sections.includes("money")&&!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");
     const value=await this.unitOfWork.read(store=>store.lifeRecord(context.subjectId,id,sections,context.effects.has("travel.trip.read")));if(value===undefined)throw notFound("life record was not found");return lifeRecordResultSchema.parse(lifeRecordWire(value));
+  }
+  async serviceCards(context:RequestContext,input:unknown){
+    if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");
+    const parsed=serviceCardsInputSchema.parse(input);
+    return serviceCardsResultSchema.parse(await this.unitOfWork.read(store=>store.serviceCards(context.subjectId,parsed)));
   }
   async moneyPlanning(context:RequestContext,period:string){if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");if(!/^(?:0{3}[1-9]|0{2}[1-9]\d|0[1-9]\d{2}|[1-9]\d{3})-(0[1-9]|1[0-2])$/u.test(period))throw invalidInput("period must be a valid YYYY-MM",["period"]);return moneyPlanningResultSchema.parse(await this.unitOfWork.read(store=>store.moneyPlanning(context.subjectId,period)));}
   async moneyImportReview(context:RequestContext,batchId:string){if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");const value=await this.unitOfWork.read(store=>store.moneyImportReview(context.subjectId,batchId));if(value===undefined)throw notFound("money import batch was not found");return moneyImportReviewResultSchema.parse(value);}

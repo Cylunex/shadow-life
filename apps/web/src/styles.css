@@ -1042,3 +1042,18 @@ button.secondary,.soft-button { color:#c3cbd3; border-color:var(--line-strong); 
 .travel-quick-actions>summary::before,.travel-more-actions>summary::before { content:"＋"; }
 .travel-quick-actions[open]>summary::before,.travel-more-actions[open]>summary::before { content:"−"; }
 .travel-more-actions .editor-launchers { margin-top:8px; }
+
+
+/* Service entitlements keep summary cards separate from the editable history. */
+.service-cards-panel .section-heading { align-items:center; flex-wrap:wrap; margin-bottom:20px; }
+.service-cards-panel .section-heading p { margin:8px 0; color:var(--muted); }
+.service-cards-panel .record-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); gap:12px; }
+.service-cards-panel .record-grid article { display:block; }
+.service-cards-panel .record-grid article h3 { margin-bottom:8px; }
+.service-cards-panel .record-grid article button { display:block; margin-top:16px; }
+.service-cards-panel .service-card-detail { display:block; margin-top:24px; }
+.service-cards-panel .service-card-detail>a { display:inline-block; margin:0 16px 12px 0; }
+.service-cards-panel .service-card-detail>.stats-card { margin-top:10px; }
+.service-cards-panel .service-card-detail .actions { flex-wrap:wrap; }
+.service-cards-panel .compact-form>button { align-self:end; }
+@media(max-width:600px) { .service-cards-panel .section-heading { align-items:start; } .service-cards-panel .section-heading>button { width:100%; } }

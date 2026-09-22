@@ -178,6 +178,46 @@ export const setRecurringPlanInputSchema = z.object({
   ended_on:localDate.optional()
 }).strict().superRefine((value,context)=>{if((value.plan_id===undefined)!==(value.expected_revision===undefined))context.addIssue({code:"custom",message:"plan_id and expected_revision must be supplied together"});if((value.amount===undefined||value.amount===null)!==(value.currency===undefined||value.currency===null))context.addIssue({code:"custom",message:"amount and currency must be supplied together"});if(value.cadence==="interval"&&value.interval_days===undefined)context.addIssue({code:"custom",path:["interval_days"],message:"interval cadence needs interval_days"});if(value.state==="ended"&&value.ended_on===undefined)context.addIssue({code:"custom",path:["ended_on"],message:"ended plan needs ended_on"});if(value.anchor_on&&value.next_due_on<value.anchor_on)context.addIssue({code:"custom",path:["next_due_on"],message:"next_due_on must not precede anchor_on"});});
 export const setSpendingIntentInputSchema=z.object({intent_id:stableId.optional(),expected_revision:z.number().int().positive().optional(),title:z.string().trim().min(1).max(200),expected_amount:storedAmount.nullable().optional(),currency:currencyCode.nullable().optional(),intended_on:localDate.optional(),state:z.enum(["planned","purchased","cancelled"]),linked_record_id:stableId.optional()}).strict().superRefine((value,context)=>{if((value.intent_id===undefined)!==(value.expected_revision===undefined))context.addIssue({code:"custom",message:"intent_id and expected_revision must be supplied together"});if((value.expected_amount==null)!==(value.currency==null))context.addIssue({code:"custom",message:"expected_amount and currency must be supplied together"});});
+// A purchased service entitlement and its actual redemptions are independent of money entries.
+export const saveServiceCardInputSchema=z.object({
+  card_id:stableId.optional(),expected_revision:z.number().int().positive().optional(),
+  name:z.string().trim().min(1).max(200),merchant_name:z.string().trim().min(1).max(200).optional(),
+  purchase_record_id:stableId.optional(),total_units:z.number().int().min(1).max(1_000_000),
+  unit_label:z.string().trim().min(1).max(8).default("次"),started_on:localDate,expires_on:localDate.optional(),
+  time_zone:ianaTimeZone.default("Asia/Shanghai"),state:z.enum(["active","closed"]).default("active"),
+  note:z.string().trim().max(2000).optional(),reason:z.string().trim().min(1).max(500).optional()
+}).strict().superRefine((value,context)=>{
+  if((value.card_id===undefined)!==(value.expected_revision===undefined))context.addIssue({code:"custom",message:"card_id and expected_revision must be supplied together"});
+  if(value.expires_on&&value.expires_on<value.started_on)context.addIssue({code:"custom",path:["expires_on"],message:"expiry must not precede start"});
+  if(value.card_id&&!value.reason)context.addIssue({code:"custom",path:["reason"],message:"editing a card needs a reason"});
+});
+export const recordServiceCardUseInputSchema=z.object({
+  card_id:stableId,expected_revision:z.number().int().positive().describe("Current card revision; every use or correction advances it."),
+  use_id:stableId.optional().describe("Existing use ID for correction or void; omit to record a new actual use."),
+  occurred_on:localDate,units:z.number().int().min(1).max(1_000_000),state:z.enum(["active","voided"]).default("active"),
+  note:z.string().trim().max(2000).optional(),reason:z.string().trim().min(1).max(500).optional()
+}).strict().superRefine((value,context)=>{
+  if(value.state==="voided"&&!value.use_id)context.addIssue({code:"custom",path:["use_id"],message:"only an existing use can be voided"});
+  if(value.use_id&&!value.reason)context.addIssue({code:"custom",path:["reason"],message:"correcting or voiding a use needs a reason"});
+});
+export const serviceCardsInputSchema=z.object({
+  id:stableId.optional(),purchase_record_id:stableId.optional(),query:z.string().trim().max(200).optional(),
+  limit:z.number().int().min(1).max(100).default(50),after_id:stableId.optional(),
+  uses_before_id:stableId.optional().describe("For one card's older use entries; returned next_uses_before_id.")
+}).strict().superRefine((value,context)=>{if(value.uses_before_id&&!value.id)context.addIssue({code:"custom",path:["id"],message:"use pagination needs a card id"});});
+export const serviceCardUseSchema=z.object({id:stableId,occurred_on:localDate,units:z.number().int().positive(),state:z.enum(["active","voided"]),note:z.string().nullable(),revision:z.number().int().positive()}).strict();
+export const serviceCardSchema=z.object({
+  id:stableId,name:z.string(),merchant_name:z.string().nullable(),purchase_record_id:stableId.nullable(),
+  total_units:z.number().int().positive(),unit_label:z.string().trim().min(1).max(8),started_on:localDate,expires_on:localDate.nullable(),
+  time_zone:ianaTimeZone,state:z.enum(["active","closed"]),note:z.string().nullable(),revision:z.number().int().positive(),
+  used_units:z.number().int().nonnegative(),remaining_units:z.number().int().nonnegative(),
+  balance_status:z.enum(["active","depleted","expired","closed"]),
+  uses:z.array(serviceCardUseSchema),next_uses_before_id:stableId.nullable()
+}).strict();
+export const serviceCardsResultSchema=z.object({items:z.array(serviceCardSchema),next_after_id:stableId.nullable(),as_of:instant}).strict();
+export type ServiceCard=z.infer<typeof serviceCardSchema>;
+export type ServiceCardsInput=z.infer<typeof serviceCardsInputSchema>;
+
 export const useCycleUnitSchema=z.enum(["g","ml","count"]);
 export const useCycleMatchModeSchema=z.enum(["none","exact_name","food_ref"]);
 export const setUseCycleInputSchema=z.object({cycle_id:stableId.optional(),expected_revision:z.number().int().positive().optional(),purchase_record_id:stableId.optional(),purchase_item_id:stableId.optional(),item_name:z.string().trim().min(1).max(200),started_on:localDate,ended_on:localDate.optional(),state:z.enum(["active","completed","discarded","replenished"]),initial_quantity:positiveDecimal.optional(),quantity_unit:useCycleUnitSchema.optional(),expected_daily_usage:positiveDecimal.optional(),replenish_threshold:positiveDecimal.optional(),replenish_lead_days:z.number().int().nonnegative().max(365).optional(),time_zone:ianaTimeZone.default("Asia/Shanghai"),match_mode:useCycleMatchModeSchema.default("none"),match_value:z.string().trim().min(1).max(200).optional(),reminder_enabled:z.boolean().default(false)}).strict().superRefine((value,context)=>{if((value.cycle_id===undefined)!==(value.expected_revision===undefined))context.addIssue({code:"custom",message:"cycle_id and expected_revision must be supplied together"});if(value.purchase_item_id!==undefined&&value.purchase_record_id===undefined)context.addIssue({code:"custom",path:["purchase_record_id"],message:"purchase_item_id needs purchase_record_id"});if(value.ended_on&&value.ended_on<value.started_on)context.addIssue({code:"custom",path:["ended_on"],message:"ended_on must not be before started_on"});if(value.state!=="active"&&!value.ended_on)context.addIssue({code:"custom",path:["ended_on"],message:"a closed use cycle needs ended_on"});if((value.initial_quantity!==undefined||value.expected_daily_usage!==undefined||value.replenish_threshold!==undefined)&&value.quantity_unit===undefined)context.addIssue({code:"custom",path:["quantity_unit"],message:"quantities need a comparable unit"});if(value.match_mode==="none"&&value.match_value!==undefined)context.addIssue({code:"custom",path:["match_value"],message:"tracking without matching must not carry match_value"});if(value.match_mode!=="none"&&value.match_value===undefined)context.addIssue({code:"custom",path:["match_value"],message:"explicit matching needs match_value"});if(value.reminder_enabled&&(value.match_mode==="none"||value.replenish_threshold===undefined&&value.replenish_lead_days===undefined))context.addIssue({code:"custom",path:["reminder_enabled"],message:"reminders need explicit matching and a threshold or lead time"});});
@@ -433,6 +473,8 @@ export const writeCommandSchemas = {
   "money.set_recurring_plan": setRecurringPlanInputSchema,
   "money.set_spending_intent":setSpendingIntentInputSchema,
   "money.set_use_cycle":setUseCycleInputSchema,
+  "money.save_service_card":saveServiceCardInputSchema,
+  "money.record_service_card_use":recordServiceCardUseInputSchema,
   "money.set_occurrence_state":setRecurringOccurrenceInputSchema,
   "money.stage_import":stageMoneyImportInputSchema,
   "money.resolve_import_candidate":resolveMoneyImportCandidateInputSchema,
@@ -502,7 +544,7 @@ export const universalCommandEnvelopeSchema = z.object({
 });
 
 export const resourceReferenceSchema = z.object({
-  type: z.enum(["meal", "meal_template", "food", "recipe", "personal_alias", "intake_item", "consumption_record", "purchase", "purchase_item", "money_entry", "refund", "budget", "recurring_plan", "recurring_occurrence", "spending_intent", "use_cycle", "money_import_batch", "money_import_candidate", "money_import_rule", "health_measurement", "health_workout_session", "health_raw", "health_sync_cursor", "health_plan", "trip", "trip_segment", "reservation", "visit", "place", "travel_map", "trip_track", "trip_day_plan", "trip_member", "trip_plan_version", "trip_run", "trip_stop_outcome", "library_item", "library_annotation", "library_derivation", "library_processing_job", "library_reading_state", "library_legacy_link", "agent_context_pack", "agent_memory", "notification_preferences", "notification", "notification_installation", "notification_delivery", "owned_item", "owned_item_event", "life_review", "life_project", "action_item", "meal_plan", "shopping_list", "shopping_list_item", "money_fx_snapshot", "shared_expense_allocation", "source", "thread", "run", "task"]),
+  type: z.enum(["meal", "meal_template", "food", "recipe", "personal_alias", "intake_item", "consumption_record", "purchase", "purchase_item", "money_entry", "refund", "budget", "recurring_plan", "recurring_occurrence", "spending_intent", "use_cycle", "service_card", "service_card_use", "money_import_batch", "money_import_candidate", "money_import_rule", "health_measurement", "health_workout_session", "health_raw", "health_sync_cursor", "health_plan", "trip", "trip_segment", "reservation", "visit", "place", "travel_map", "trip_track", "trip_day_plan", "trip_member", "trip_plan_version", "trip_run", "trip_stop_outcome", "library_item", "library_annotation", "library_derivation", "library_processing_job", "library_reading_state", "library_legacy_link", "agent_context_pack", "agent_memory", "notification_preferences", "notification", "notification_installation", "notification_delivery", "owned_item", "owned_item_event", "life_review", "life_project", "action_item", "meal_plan", "shopping_list", "shopping_list_item", "money_fx_snapshot", "shared_expense_allocation", "source", "thread", "run", "task"]),
   id: stableId,
   revision: z.number().int().positive()
 }).strict();

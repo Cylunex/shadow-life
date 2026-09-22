@@ -1,3 +1,4 @@
+import { serviceCardsResultSchema } from "../src/schemas.js";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { z } from "zod";
@@ -106,6 +107,7 @@ defineObject(z.toJSONSchema(ownedItemsResultSchema) as JsonSchema, "OwnedItemsRe
 defineObject(z.toJSONSchema(lifeReviewsResultSchema) as JsonSchema, "LifeReviewsResultDto");
 defineObject(z.toJSONSchema(agentThreadsResultSchema) as JsonSchema, "AgentThreadsResultDto");
 defineObject(z.toJSONSchema(agentThreadMessagesResultSchema) as JsonSchema, "AgentThreadMessagesResultDto");
+defineObject(z.toJSONSchema(serviceCardsResultSchema) as JsonSchema, "ServiceCardsResultDto");
 defineObject(z.toJSONSchema(moneyPlanningResultSchema) as JsonSchema, "MoneyPlanningResultDto");
 defineObject(z.toJSONSchema(mealPlanningResultSchema) as JsonSchema, "MealPlanningResultDto");
 defineObject(z.toJSONSchema(foreignEntriesResultSchema) as JsonSchema, "ForeignEntriesResultDto");

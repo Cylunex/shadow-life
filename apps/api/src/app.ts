@@ -95,6 +95,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.get("/api/health/trend",async context=>context.json(await dependencies.queries.healthTrend(context.get("requestContext"),healthTrendInputSchema.parse({metric_key:context.req.query("metric_key"),...(context.req.query("from")?{from:context.req.query("from")} :{}),...(context.req.query("to")?{to:context.req.query("to")} :{}),limit:Number(context.req.query("limit")??"100")}))));
   app.get("/api/health/sources",async context=>context.json(await dependencies.queries.healthSources(context.get("requestContext"))));
   app.get("/api/life/records/:id",async context=>{const sections=context.req.query("sections")?.split(",").filter(Boolean);const input=lifeRecordInputSchema.parse({id:context.req.param("id"),...(sections?.length?{sections}:{})});return context.json(await dependencies.queries.lifeRecord(context.get("requestContext"),input.id,input.sections));});
+  app.get("/api/money/service-cards",async context=>context.json(await dependencies.queries.serviceCards(context.get("requestContext"),{...context.req.query(),...(context.req.query("limit")?{limit:Number(context.req.query("limit"))}:{})})));
   app.get("/api/money/planning",async context=>context.json(await dependencies.queries.moneyPlanning(context.get("requestContext"),context.req.query("period")??new Date().toISOString().slice(0,7))));
   app.get("/api/money/imports/:batchId",async context=>context.json(await dependencies.queries.moneyImportReview(context.get("requestContext"),context.req.param("batchId"))));
   app.get("/api/health/daily/:date",async context=>context.json(await dependencies.queries.healthDaily(context.get("requestContext"),context.req.param("date"))));
@@ -173,6 +174,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         if(capabilityName==="health.trend")return dependencies.queries.healthTrend(requestContext,parsed as {metric_key:string;from?:string|undefined;to?:string|undefined;limit:number});
         if(capabilityName==="health.sources")return dependencies.queries.healthSources(requestContext);
         if(capabilityName==="life.get_record"){const value=parsed as {id:string;sections?:readonly ("meal"|"purchase"|"money"|"sources")[]};return dependencies.queries.lifeRecord(requestContext,value.id,value.sections);}
+        if(capabilityName==="money.service_cards")return dependencies.queries.serviceCards(requestContext,parsed);
         if(capabilityName==="money.planning")return dependencies.queries.moneyPlanning(requestContext,(parsed as {period:string}).period);
         if(capabilityName==="money.import_review")return dependencies.queries.moneyImportReview(requestContext,(parsed as {batch_id:string}).batch_id);
         if(capabilityName==="health.daily")return dependencies.queries.healthDaily(requestContext,(parsed as {date:string}).date);

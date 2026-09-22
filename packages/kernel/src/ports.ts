@@ -58,6 +58,7 @@ export interface TransactionStore {
   consumptionStatsData(subjectId:string,input:{fromOn:string;toOnExclusive:string;timeZone:string;includeMoney:boolean}):Promise<import("./consumption-stats.js").ConsumptionStatsRawData>;
   lifeRecord(subjectId:string,id:string,sections:readonly ("meal"|"purchase"|"money"|"sources")[],includeTravel?:boolean):Promise<unknown|undefined>;
   moneyPlanning(subjectId:string,period:string):Promise<unknown>;
+  serviceCards(subjectId:string,input:import("@shadow/contracts").ServiceCardsInput):Promise<unknown>;
   moneyImportReview(subjectId:string,batchId:string):Promise<unknown|undefined>;
   healthDaily(subjectId:string,date:string):Promise<unknown|undefined>;
   healthRecord(subjectId:string,id:string):Promise<unknown|undefined>;

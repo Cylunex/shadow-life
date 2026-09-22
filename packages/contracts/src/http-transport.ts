@@ -25,6 +25,7 @@ export const queryTransportRegistry:Readonly<Record<string,ReadRoute>>={
   "health.trend":input=>get(`/api/health/trend${search({metric_key:input.metric_key,from:input.from,to:input.to,limit:input.limit})}`),
   "health.sources":()=>get("/api/health/sources"),
   "life.get_record":input=>get(`/api/life/records/${encodeURIComponent(input.id)}${search({sections:input.sections})}`),
+  "money.service_cards":input=>get(`/api/money/service-cards${search(input)}`),
   "money.planning":input=>get(`/api/money/planning${search({period:input.period})}`),
   "money.import_review":input=>get(`/api/money/imports/${encodeURIComponent(input.batch_id)}`),
   "health.daily":input=>get(`/api/health/daily/${encodeURIComponent(input.date)}`),

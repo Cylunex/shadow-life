@@ -982,6 +982,64 @@ data class AgentThreadMessagesResultDto(
 )
 
 @Serializable
+enum class ServiceCardsResultDtoItemsEntryState(val wireValue: String) {
+  @SerialName("active") Active("active"),
+  @SerialName("closed") Closed("closed")
+}
+
+@Serializable
+enum class ServiceCardsResultDtoItemsEntryBalanceStatus(val wireValue: String) {
+  @SerialName("active") Active("active"),
+  @SerialName("depleted") Depleted("depleted"),
+  @SerialName("expired") Expired("expired"),
+  @SerialName("closed") Closed("closed")
+}
+
+@Serializable
+enum class ServiceCardsResultDtoItemsEntryUsesEntryState(val wireValue: String) {
+  @SerialName("active") Active("active"),
+  @SerialName("voided") Voided("voided")
+}
+
+@Serializable
+data class ServiceCardsResultDtoItemsEntryUsesEntry(
+  @SerialName("id") val id: String,
+  @SerialName("occurred_on") val occurredOn: String,
+  @SerialName("units") val units: Long,
+  @SerialName("state") val state: ServiceCardsResultDtoItemsEntryUsesEntryState,
+  @SerialName("note") val note: String?,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+data class ServiceCardsResultDtoItemsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("name") val name: String,
+  @SerialName("merchant_name") val merchantName: String?,
+  @SerialName("purchase_record_id") val purchaseRecordId: String?,
+  @SerialName("total_units") val totalUnits: Long,
+  @SerialName("unit_label") val unitLabel: String,
+  @SerialName("started_on") val startedOn: String,
+  @SerialName("expires_on") val expiresOn: String?,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("state") val state: ServiceCardsResultDtoItemsEntryState,
+  @SerialName("note") val note: String?,
+  @SerialName("revision") val revision: Long,
+  @SerialName("used_units") val usedUnits: Long,
+  @SerialName("remaining_units") val remainingUnits: Long,
+  @SerialName("balance_status") val balanceStatus: ServiceCardsResultDtoItemsEntryBalanceStatus,
+  @SerialName("uses") val uses: List<ServiceCardsResultDtoItemsEntryUsesEntry>,
+  @SerialName("next_uses_before_id") val nextUsesBeforeId: String?
+)
+
+@Serializable
+data class ServiceCardsResultDto(
+  @SerialName("items") val items: List<ServiceCardsResultDtoItemsEntry>,
+  @SerialName("next_after_id") val nextAfterId: String?,
+  @SerialName("as_of") val asOf: String
+)
+
+@Serializable
 data class MoneyPlanningResultDtoWindow(
   @SerialName("start_on") val startOn: String,
   @SerialName("end_on_exclusive") val endOnExclusive: String
