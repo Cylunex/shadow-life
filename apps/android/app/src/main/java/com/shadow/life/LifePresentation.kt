@@ -52,12 +52,19 @@ internal data class MealNutrition(
   val kcal:Double?,val protein:Double?,val fat:Double?,val carb:Double?,
   val knownItems:Int,val totalItems:Int,val estimated:Boolean,val completeMacros:Boolean
 )
+internal data class MealEnergyCoverage(val recorded:Int,val total:Int)
+internal fun mealEnergyCoverage(records:List<RecordSummary>):MealEnergyCoverage {
+  val foods=records.flatMap{it.meal?.foods.orEmpty()}
+  return MealEnergyCoverage(foods.count{it.energyKcal?.toDoubleOrNull()?.isFinite()==true},foods.size)
+}
 internal fun mealNutrition(records:List<RecordSummary>):MealNutrition {
   val foods=records.flatMap{it.meal?.foods.orEmpty()}
   fun sum(field:(MealFoodSummary)->String?):Double?=foods.mapNotNull{field(it)?.toDoubleOrNull()?.takeIf(Double::isFinite)}.takeIf{it.isNotEmpty()}?.sum()
-  return MealNutrition(sum{it.energyKcal},sum{it.proteinG},sum{it.fatG},sum{it.carbG},
+  fun zeroEnergyWithoutMacros(food:MealFoodSummary)=food.energyKcal?.toDoubleOrNull()==0.0&&listOf(food.proteinG,food.fatG,food.carbG).all{it==null||it.toDoubleOrNull()==0.0}
+  fun macroSum(field:(MealFoodSummary)->String?):Double?=foods.mapNotNull{food->field(food)?.toDoubleOrNull()?.takeIf(Double::isFinite)?:if(zeroEnergyWithoutMacros(food))0.0 else null}.takeIf{it.isNotEmpty()}?.sum()
+  return MealNutrition(sum{it.energyKcal},macroSum{it.proteinG},macroSum{it.fatG},macroSum{it.carbG},
     foods.count{it.energyKcal!=null||it.proteinG!=null||it.fatG!=null||it.carbG!=null},foods.size,foods.any{it.estimated},
-    foods.isNotEmpty()&&foods.all{it.proteinG!=null&&it.fatG!=null&&it.carbG!=null})
+    foods.isNotEmpty()&&foods.all{(it.proteinG!=null&&it.fatG!=null&&it.carbG!=null)||zeroEnergyWithoutMacros(it)})
 }
 internal fun tripPhase(trip:TravelTripSummary,today:LocalDate=LocalDate.now(ZoneId.of(trip.timeZone))):String=when{
   trip.active||today.toString() in trip.startsOn..trip.endsOn->"active"

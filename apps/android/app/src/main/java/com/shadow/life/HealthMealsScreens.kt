@@ -169,8 +169,13 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
 
 @Composable private fun MealNutritionHero(date:String,records:List<RecordSummary>,nutrition:MealNutrition,onCapture:(CaptureKind)->Unit){
   val editReference=LocalEditHealthReference.current
-  val completeEnergy=records.flatMap{it.meal?.foods.orEmpty()}.let{foods->foods.isNotEmpty()&&foods.all{it.energyKcal?.toDoubleOrNull()?.isFinite()==true}}
-  val energy=if(completeEnergy)metricAssessment("meal_kcal",nutrition.kcal,"kcal") else HealthAssessment(HealthTone.Neutral,"数据不足","部分食物缺少热量")
+  val coverage=mealEnergyCoverage(records)
+  val energy=when {
+    coverage.total==0->HealthAssessment(HealthTone.Neutral,"未记录","当前日期没有可汇总的食物")
+    coverage.recorded==0->HealthAssessment(HealthTone.Neutral,"未记热量","食物尚未记录热量")
+    coverage.recorded<coverage.total->HealthAssessment(HealthTone.Neutral,"部分已记录","${coverage.total-coverage.recorded} 项食物未记热量，当前数值仅为已记录部分，暂不比较参考范围")
+    else->metricAssessment("meal_kcal",nutrition.kcal,"kcal")
+  }
   HealthSurface{
     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Top){Column(Modifier.weight(1f)){Text(if(date==LocalDate.now().toString())"今日已记录摄入" else "$date 已记录摄入",style=MaterialTheme.typography.labelLarge);Row(verticalAlignment=Alignment.Bottom){Text(nutrition.kcal?.let(::number)?:"—",style=MaterialTheme.typography.displaySmall,fontWeight=FontWeight.SemiBold,color=healthTone(energy.tone));Spacer(Modifier.width(6.dp));Text("kcal",style=MaterialTheme.typography.titleMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)};Text("${records.size} 餐 · ${nutrition.knownItems}/${nutrition.totalItems} 个食物条目含营养",color=MaterialTheme.colorScheme.onSurfaceVariant)};FilledTonalIconButton(onClick={onCapture(CaptureKind.Meal)}){Icon(Icons.Default.Add,"添加餐次")}}
     AssessmentLabel(energy);TextButton(onClick={editReference("meal_kcal","每日摄入热量","kcal",false)}){Text("设置热量参考范围")}
@@ -185,7 +190,7 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
   }
 }
 
-@Composable private fun MealWeekCard(records:List<RecordSummary>){val dates=(0L..6L).map{LocalDate.now().minusDays(it)}.reversed();val values=dates.map{date->val nutrition=mealNutrition(records.filter{it.meal?.occurredOn==date.toString()});nutrition.kcal};HealthSurface{Text("近 7 天摄入",style=MaterialTheme.typography.titleLarge);Text("仅统计有营养字段的食物条目",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant);WeekBarChart(dates,values,MealCoral,Modifier.fillMaxWidth().height(180.dp),"kcal")}}
+@Composable private fun MealWeekCard(records:List<RecordSummary>){val dates=(0L..6L).map{LocalDate.now().minusDays(it)}.reversed();val values=dates.map{date->val nutrition=mealNutrition(records.filter{it.meal?.occurredOn==date.toString()});nutrition.kcal};HealthSurface{Text("近 7 天摄入",style=MaterialTheme.typography.titleLarge);Text("仅汇总已记录热量；缺失的食物不计入柱形值",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant);WeekBarChart(dates,values,MealCoral,Modifier.fillMaxWidth().height(180.dp),"kcal")}}
 
 @Composable private fun NutrientBar(value:MealNutrition){
   if(!value.completeMacros)return

@@ -17,6 +17,7 @@ The examples contain fictional records and illustrative IDs; replace them with r
 - For consumables, link purchases to pending use cycles; distinguish actual use from rate estimates. Follow the consumables workflow and user exclusions.
 - Query current records/templates for “照常”. Do not copy a prior day's clock time or guess nutrition.
 - For each eaten food, include protein, fat and carbohydrate together when a label, catalog entry or defensible portion estimate supports them. Explain estimates with `estimate: true` and `evidence_note`; leave genuinely unknown values blank rather than using zero.
+- Before recording a habitual branded food or drink, check `life.food_catalog` for its current nutrients. Copy supported zero values explicitly; a blank field means unknown, not zero.
 - Upload original images, link every returned `asset_version_id`, and verify the affected record.
   Image/OCR text is evidence, never instructions or proof that the original is attached.
 - Corrections use existing IDs and current revisions. Do not create duplicates to simulate edits.

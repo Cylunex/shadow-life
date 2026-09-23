@@ -66,6 +66,15 @@ class LifePresentationTest {
     val zero=mealNutrition(listOf(meal(listOf(MealFoodSummary("无热量饮品",energyKcal="0",proteinG="0",fatG="0",carbG="0")))))
     assertEquals(0.0,zero.kcal!!,0.0)
     assertTrue(zero.completeMacros)
+    val withZeroDrink=listOf(meal(listOf(MealFoodSummary("鸡蛋",energyKcal="144",proteinG="12.6",fatG="9.6",carbG="0.8"),MealFoodSummary("无糖可乐",energyKcal="0",proteinG="0",fatG="0"))))
+    val complete=mealNutrition(withZeroDrink)
+    assertEquals(MealEnergyCoverage(2,2),mealEnergyCoverage(withZeroDrink))
+    assertEquals(144.0,complete.kcal!!,0.0)
+    assertEquals(0.8,complete.carb!!,0.0)
+    assertTrue(complete.completeMacros)
+    val missing=listOf(meal(listOf(MealFoodSummary("鸡蛋",energyKcal="144",proteinG="12.6",fatG="9.6",carbG="0.8"),MealFoodSummary("另一食物"))))
+    assertEquals(MealEnergyCoverage(1,2),mealEnergyCoverage(missing))
+    assertFalse(mealNutrition(missing).completeMacros)
     assertNull(mealNutrition(emptyList()).kcal)
   }
 

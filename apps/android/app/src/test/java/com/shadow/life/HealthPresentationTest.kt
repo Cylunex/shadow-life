@@ -46,6 +46,7 @@ class HealthPresentationTest {
     assertEquals(HealthTone.Good,macroAssessment(balanced,"carb").tone)
     assertEquals(HealthTone.High,macroAssessment(balanced.copy(protein=500.0),"protein").tone)
     assertEquals(HealthTone.Neutral,macroAssessment(balanced.copy(completeMacros=false),"protein").tone)
+    assertEquals("部分已记录",macroAssessment(balanced.copy(completeMacros=false),"protein").label)
     assertEquals(HealthTone.Neutral,macroAssessment(balanced.copy(protein=0.0,carb=0.0,fat=0.0),"protein").tone)
   }
 

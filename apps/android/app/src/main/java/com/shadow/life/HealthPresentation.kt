@@ -66,7 +66,7 @@ internal fun healthSeriesKey(key:String,field:String?):String=when {
 }
 internal fun healthSeriesLabel(key:String):String=mapOf("heart_rate_daily_min" to "全天最低心率","heart_rate_daily_max" to "全天最高心率","skin_temperature" to "皮肤温度","skin_temperature_min" to "最低皮肤温度","skin_temperature_max" to "最高皮肤温度","spo2_min" to "最低血氧","spo2_max" to "最高血氧")[key]?:healthMetricLabel(key)
 internal fun macroAssessment(nutrition:MealNutrition,key:String):HealthAssessment {
-  if(!nutrition.completeMacros)return HealthAssessment(HealthTone.Neutral,"数据不足","部分食物缺少三大营养素")
+  if(!nutrition.completeMacros)return HealthAssessment(HealthTone.Neutral,if(nutrition.totalItems==0)"未记录" else "部分已记录","有食物未记录三大营养素，暂不比较供能占比")
   val total=nutrition.protein!!*4+nutrition.carb!!*4+nutrition.fat!!*9
   if(total<=0)return HealthAssessment(HealthTone.Neutral,"暂无占比","已记录供能为 0")
   val (energy,range)=when(key){"protein"->nutrition.protein*4 to (10.0 to 35.0);"carb"->nutrition.carb*4 to (45.0 to 65.0);else->nutrition.fat*9 to (20.0 to 35.0)}
