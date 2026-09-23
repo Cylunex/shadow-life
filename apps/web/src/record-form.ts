@@ -4,12 +4,12 @@ export type RecordKind="expense"|"income"|"meal"|"health";
 export type PlanKind="budget"|"habit"|"goal"|"workout";
 export type MealType="breakfast"|"lunch"|"dinner"|"snack"|"other";
 export type HealthMetric="weight"|"body_fat"|"heart_rate"|"blood_pressure_systolic"|"blood_pressure_diastolic"|"temperature"|"sleep_duration"|"steps"|"custom";
-export interface RecordFormFields { title:string; amount:string; note:string; category:string; paymentMethod:string; kind:RecordKind; planKind:PlanKind; scheduleDays:string; occurredOn:string; paymentOn:string; timeZone:string; mealType:MealType; healthMetric:HealthMetric; unit:string; }
+export interface RecordFormFields { title:string; amount:string; note:string; category:string; paymentMethod:string; kind:RecordKind; planKind:PlanKind; scheduleDays:string; occurredOn:string; paymentOn:string; timeZone:string; mealType:MealType; mealKcal:string; mealProteinG:string; mealFatG:string; mealCarbG:string; healthMetric:HealthMetric; unit:string; }
 export interface BuiltFormCommand { capability:WriteCapabilityName; input:unknown; }
 
 export const healthMetricUnits:Record<HealthMetric,string>={weight:"kg",body_fat:"%",heart_rate:"bpm",blood_pressure_systolic:"mmHg",blood_pressure_diastolic:"mmHg",temperature:"°C",sleep_duration:"min",steps:"count",custom:"unit"};
 
-export function initialRecordFields(date:string,timeZone:string):RecordFormFields{return{title:"",amount:"",note:"",category:"",paymentMethod:"",kind:"expense",planKind:"budget",scheduleDays:"1,3,5",occurredOn:date,paymentOn:date,timeZone,mealType:"other",healthMetric:"weight",unit:"kg"};}
+export function initialRecordFields(date:string,timeZone:string):RecordFormFields{return{title:"",amount:"",note:"",category:"",paymentMethod:"",kind:"expense",planKind:"budget",scheduleDays:"1,3,5",occurredOn:date,paymentOn:date,timeZone,mealType:"other",mealKcal:"",mealProteinG:"",mealFatG:"",mealCarbG:"",healthMetric:"weight",unit:"kg"};}
 
 export function buildFormCommand(tab:"record"|"plan"|"library",fields:RecordFormFields):BuiltFormCommand{
   const note=optional(fields.note),title=optional(fields.title),category=optional(fields.category),timeZone=fields.timeZone;
@@ -19,12 +19,14 @@ export function buildFormCommand(tab:"record"|"plan"|"library",fields:RecordForm
     if(fields.planKind==="goal")return{capability:"health.set_plan",input:{kind:"goal",name:fields.title.trim(),state:"active",metric_key:fields.healthMetric,target_value:decimal(fields.amount),unit:fields.unit.trim(),...(fields.occurredOn?{due_on:fields.occurredOn}:{})}};
     return{capability:"health.set_plan",input:{kind:fields.planKind,name:fields.title.trim(),state:"active",schedule:{days:scheduleDays(fields.scheduleDays)},...(fields.planKind==="workout"&&note?{detail:{note}}:{})}};
   }
-  if(fields.kind==="meal")return{capability:"life.record_meal",input:{occurred_on:fields.occurredOn,time_zone:timeZone,meal_type:fields.mealType,...(note?{note}:{}),items:[{name:fields.title.trim(),estimate:false}],...(fields.amount.trim()?{payment:{amount:cny(fields.amount),currency:"CNY",occurred_on:fields.paymentOn,time_zone:timeZone,...(fields.paymentMethod?{payment_method:fields.paymentMethod}:{})}}:{})}};
+  if(fields.kind==="meal")return{capability:"life.record_meal",input:{occurred_on:fields.occurredOn,time_zone:timeZone,meal_type:fields.mealType,...(note?{note}:{}),items:[{name:fields.title.trim(),estimate:false,...mealNutrients(fields)}],...(fields.amount.trim()?{payment:{amount:cny(fields.amount),currency:"CNY",occurred_on:fields.paymentOn,time_zone:timeZone,...(fields.paymentMethod?{payment_method:fields.paymentMethod}:{})}}:{})}};
   if(fields.kind==="health")return{capability:"health.record_measurement",input:{metric:fields.healthMetric,...(title?{label:title}:{}),value:fields.amount.trim(),unit:fields.unit.trim(),occurred_on:fields.occurredOn,time_zone:timeZone,...(note?{note}:{})}};
   return{capability:"money.record_entry",input:{entry_type:fields.kind,amount:cny(fields.amount),currency:"CNY",occurred_on:fields.occurredOn,time_zone:timeZone,...(title?{counterparty:title}:{}),...(note?{note}:{}),...(category?{category}:{}),...(fields.paymentMethod?{payment_method:fields.paymentMethod}:{})}};
 }
 
 function optional(value:string):string|undefined{return value.trim()||undefined;}
+function mealNutrients(fields:RecordFormFields):Record<string,string>{return Object.fromEntries(([ ["energy_kcal",fields.mealKcal],["protein_g",fields.mealProteinG],["fat_g",fields.mealFatG],["carb_g",fields.mealCarbG] ] as const).flatMap(([key,value])=>value.trim()?[[key,nonNegativeDecimal(value,key)]]:[]));}
+function nonNegativeDecimal(value:string,label:string):string{const trimmed=value.trim();if(!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/u.test(trimmed))throw new Error(`${label} 必须是非负数，最多 6 位小数`);return trimmed;}
 function splitTags(value:string):string[]{return value.split(/[,，]/u).map(item=>item.trim()).filter(Boolean);}
 function cny(value:string):string{const match=/^(0|[1-9]\d*)(?:\.(\d{1,2}))?$/u.exec(value.trim());if(!match)throw new Error("金额最多保留两位小数");return`${match[1]}.${(match[2]??"").padEnd(2,"0")}`;}
 function decimal(value:string):string{const result=value.trim();if(!/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/u.test(result))throw new Error("目标值必须是普通十进制数字");return result;}

@@ -70,6 +70,15 @@ import java.time.LocalDate
           OutlinedTextField(row.quantity,{value->mealRows[index]=row.copy(quantity=value)},Modifier.weight(1f),label={Text("份量")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal))
           OutlinedTextField(row.unit,{value->mealRows[index]=row.copy(unit=value)},Modifier.weight(1f),label={Text("单位")},singleLine=true)
         }
+        Text("营养（可选；按这份食物填写）",style=MaterialTheme.typography.labelMedium)
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+          OutlinedTextField(row.energyKcal,{value->mealRows[index]=row.copy(energyKcal=value)},Modifier.weight(1f),label={Text("热量 kcal")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal))
+          OutlinedTextField(row.proteinG,{value->mealRows[index]=row.copy(proteinG=value)},Modifier.weight(1f),label={Text("蛋白 g")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal))
+        }
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+          OutlinedTextField(row.fatG,{value->mealRows[index]=row.copy(fatG=value)},Modifier.weight(1f),label={Text("脂肪 g")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal))
+          OutlinedTextField(row.carbG,{value->mealRows[index]=row.copy(carbG=value)},Modifier.weight(1f),label={Text("碳水 g")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal))
+        }
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf("g","ml","份","个").forEach{unit->AssistChip(onClick={mealRows[index]=row.copy(unit=unit)},label={Text(unit)})};if(mealRows.size>1)TextButton(onClick={mealRows.removeAt(index)}){Text("移除")}}
       }}
       OutlinedButton(onClick={mealRows.add(MealDraftItem())},Modifier.fillMaxWidth()){Text("添加一种食物")}

@@ -13,6 +13,13 @@ test("meal form keeps eating and payment dates independent",()=>{
   assert.equal(built.capability,"life.record_meal");assert.deepEqual(capabilityRegistry[built.capability].inputSchema.parse(built.input),{occurred_on:"2026-09-08",time_zone:"Asia/Shanghai",meal_type:"lunch",note:"少辣",items:[{name:"牛肉面",estimate:false}],payment:{amount:"28.50",currency:"CNY",occurred_on:"2026-09-09",time_zone:"Asia/Shanghai",payment_method:"alipay"}});
 });
 
+test("meal form saves all supplied nutrients without inventing unknown values",()=>{
+  const fields={...initialRecordFields("2026-09-23","Asia/Shanghai"),kind:"meal" as const,title:"鸡蛋",mealKcal:"144",mealProteinG:"12.6",mealFatG:"9.6",mealCarbG:"0.8"};
+  const built=buildFormCommand("record",fields);
+  assert.deepEqual(capabilityRegistry[built.capability].inputSchema.parse(built.input).items,[{name:"鸡蛋",energy_kcal:"144",protein_g:"12.6",fat_g:"9.6",carb_g:"0.8",estimate:false}]);
+  assert.throws(()=>buildFormCommand("record",{...fields,mealFatG:"-1"}),/非负数/u);
+});
+
 test("health form writes a typed metric with its label, unit and note",()=>{
   const fields={...initialRecordFields("2026-09-08","Asia/Shanghai"),kind:"health" as const,title:"晨起",amount:"68.4",healthMetric:"weight" as const,unit:"kg",note:"空腹"};const built=buildFormCommand("record",fields);
   assert.equal(built.capability,"health.record_measurement");assert.deepEqual(capabilityRegistry[built.capability].inputSchema.parse(built.input),{metric:"weight",label:"晨起",value:"68.4",unit:"kg",occurred_on:"2026-09-08",time_zone:"Asia/Shanghai",note:"空腹"});

@@ -36,6 +36,9 @@ schema actually exposed by the tool; do not infer optional features from this ta
 - Unknown optional values are omitted, not `null`, empty strings or fabricated zeroes. `quantity` and
   `unit` must appear together. Unknown nutrition is valid; an estimate needs `estimate: true` and an
   `evidence_note` explaining its basis and uncertainty.
+- When a food label, catalog entry or supported portion estimate is available, record `energy_kcal`
+  and all three macros: `protein_g`, `fat_g`, `carb_g`. Do not leave fat/carbs out merely because
+  protein was available; do not derive missing macros from calories alone.
 - `occurred_on` is the factual local date. Include `time_zone`; include `occurred_at` only if the actual
   time is known, with an offset that lands on that date in the supplied zone. Purchase/payment time,
   meal time and evidence capture time may differ. Relative dates use the current conversation's date,

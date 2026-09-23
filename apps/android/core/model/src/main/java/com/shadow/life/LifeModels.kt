@@ -230,4 +230,4 @@ data class CaptureDraft(
   val contextKind:String?=null,
   val contextId:String?=null
 )
-data class MealDraftItem(val name:String="",val quantity:String="",val unit:String="")
+data class MealDraftItem(val name:String="",val quantity:String="",val unit:String="",val energyKcal:String="",val proteinG:String="",val fatG:String="",val carbG:String="")

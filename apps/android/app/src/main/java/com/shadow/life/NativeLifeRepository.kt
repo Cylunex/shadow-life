@@ -367,6 +367,14 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       if(quantity.isBlank()!=unit.isBlank())error("第 ${index+1} 种食物的份量和单位需要同时填写")
       val item=JSONObject().put("name",name).put("free_text",name).put("estimate",false)
       if(quantity.isNotBlank()){val normalized=runCatching{java.math.BigDecimal(quantity).stripTrailingZeros()}.getOrNull()?.takeIf{it>java.math.BigDecimal.ZERO}?:error("第 ${index+1} 种食物份量必须是正数");item.put("quantity",normalized.toPlainString()).put("unit",unit)}
+      listOf("energy_kcal" to row.energyKcal,"protein_g" to row.proteinG,"fat_g" to row.fatG,"carb_g" to row.carbG).forEach{(key,value)->
+        if(value.isNotBlank()){
+          val normalized=runCatching{java.math.BigDecimal(value.trim()).stripTrailingZeros()}.getOrNull()
+            ?.takeIf{it>=java.math.BigDecimal.ZERO&&it.scale()<=6}
+            ?:error("第 ${index+1} 种食物的热量和营养需为非负数，最多 6 位小数")
+          item.put(key,normalized.toPlainString())
+        }
+      }
       result.put(item)
     }
     return result
