@@ -53,9 +53,14 @@ data class InboxSnapshot(val items:List<NotificationItem>,val nextCursor:String?
 
 data class DueItem(val id:String,val title:String,val dueOn:String,val amount:String?=null,val currency:String?=null)
 data class CurrentTrip(val id:String,val title:String,val startsOn:String,val endsOn:String)
+data class TodayMealNutrition(
+  val energyKcal:String?,val proteinG:String?,val carbG:String?,val fatG:String?,
+  val totalItems:Int,val knownEnergyItems:Int,val completeMacros:Boolean
+)
 data class TodaySnapshot(
   val date:String,
   val mealCount:Int?=null,
+  val mealNutrition:TodayMealNutrition?=null,
   val healthFacts:Int?=null,
   val moneyTotals:List<MoneyTotal> = emptyList(),
   val dueItems:List<DueItem> = emptyList(),

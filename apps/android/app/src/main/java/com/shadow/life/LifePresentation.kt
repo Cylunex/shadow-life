@@ -1,6 +1,7 @@
 package com.shadow.life
 
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -13,6 +14,17 @@ internal fun healthWeek(history:List<HealthDailyOverview>,end:LocalDate=LocalDat
 }
 
 internal fun displayDecimal(value:String)=value.toBigDecimalOrNull()?.stripTrailingZeros()?.toPlainString()?:value
+internal fun todayMealMacroShares(nutrition:TodayMealNutrition?):List<Pair<String,String>>? {
+  if(nutrition?.completeMacros!=true)return null
+  val protein=nutrition.proteinG?.toBigDecimalOrNull()?:BigDecimal.ZERO
+  val carb=nutrition.carbG?.toBigDecimalOrNull()?:BigDecimal.ZERO
+  val fat=nutrition.fatG?.toBigDecimalOrNull()?:BigDecimal.ZERO
+  if(listOf(protein,carb,fat).any{it.signum()<0})return null
+  val energies=listOf("蛋白质" to protein*BigDecimal(4),"碳水" to carb*BigDecimal(4),"脂肪" to fat*BigDecimal(9))
+  val total=energies.fold(BigDecimal.ZERO){sum,(_,value)->sum+value}
+  if(total.signum()==0)return null
+  return energies.map{(label,value)->label to value.multiply(BigDecimal(100)).divide(total,1,RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()}
+}
 internal fun recordCurrency(record:RecordSummary):String?=record.trailing?.substringBefore(' ')?.takeIf{it.matches(Regex("[A-Z]{3}"))}
 internal fun recordAmount(record:RecordSummary):BigDecimal?=record.trailing?.substringAfter(' ',"")?.toBigDecimalOrNull()
 internal data class MoneyCardTotals(val expense:BigDecimal,val refund:BigDecimal,val income:BigDecimal){val net:BigDecimal get()=expense-refund}

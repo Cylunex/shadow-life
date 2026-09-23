@@ -78,6 +78,14 @@ class LifePresentationTest {
     assertNull(mealNutrition(emptyList()).kcal)
   }
 
+  @Test fun `today nutrient shares require complete macros and use energy proportions`() {
+    val complete=TodayMealNutrition("500","25","50","10",2,2,true)
+    assertEquals(listOf("蛋白质" to "25.6", "碳水" to "51.3", "脂肪" to "23.1"),todayMealMacroShares(complete))
+    assertNull(todayMealMacroShares(complete.copy(completeMacros=false)))
+    assertNull(todayMealMacroShares(complete.copy(proteinG="0",carbG="0",fatG="0")))
+    assertNull(todayMealMacroShares(null))
+  }
+
   @Test fun `trip dates describe ongoing travel without requiring an active run`() {
     val trip=TravelTripSummary("trip","旅程","2026-09-20","2026-09-22","Asia/Shanghai",null,false)
     assertEquals("planned",tripPhase(trip,LocalDate.parse("2026-09-19")))

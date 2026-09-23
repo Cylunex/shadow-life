@@ -172,7 +172,33 @@ import java.util.Locale
   }
 }
 
-@Composable private fun TodayMealsCard(value:TodaySnapshot,onClick:()->Unit){val tone=MaterialTheme.colorScheme.tertiary;PremiumTodayCard(tone,onClick){TodayCardHeader("饮食","食",tone,value.date);Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Bottom){Text(value.mealCount?.toString()?:"—",style=MaterialTheme.typography.displaySmall,fontWeight=FontWeight.SemiBold);Text(" 餐记录",Modifier.padding(bottom=5.dp),color=MaterialTheme.colorScheme.onSurfaceVariant);Spacer(Modifier.weight(1f));Text("查看全部 ›",color=tone,fontWeight=FontWeight.SemiBold)};Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){listOf("餐次","营养","图片").forEach{label->Surface(shape=RoundedCornerShape(99.dp),color=tone.copy(alpha=.12f)){Text(label,Modifier.padding(horizontal=12.dp,vertical=7.dp),style=MaterialTheme.typography.labelMedium,color=tone)}}}}}
+@Composable private fun TodayMealsCard(value:TodaySnapshot,onClick:()->Unit){
+  val tone=MaterialTheme.colorScheme.tertiary
+  val nutrition=value.mealNutrition
+  val shares=todayMealMacroShares(nutrition)
+  PremiumTodayCard(tone,onClick){
+    TodayCardHeader("饮食","食",tone,value.date)
+    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Bottom){
+      Text(value.mealCount?.toString()?:"—",style=MaterialTheme.typography.displaySmall,fontWeight=FontWeight.SemiBold)
+      Text(" 条记录",Modifier.padding(bottom=5.dp),color=MaterialTheme.colorScheme.onSurfaceVariant)
+      Spacer(Modifier.weight(1f))
+      Text("查看全部 ›",color=tone,fontWeight=FontWeight.SemiBold)
+    }
+    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Bottom){
+      Text(nutrition?.energyKcal?.let(::displayDecimal)?:"—",style=MaterialTheme.typography.headlineMedium,fontWeight=FontWeight.SemiBold,color=tone)
+      Text(" kcal · 已记录热量",Modifier.padding(bottom=3.dp),color=MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    if(shares==null){
+      Text(if(nutrition==null)"营养汇总暂不可用" else if(nutrition.totalItems==0)"尚无食物营养数据" else "营养素占比暂不可计算",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    }else{
+      Text("营养素供能占比 · 按已记录食物",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+      Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+        shares.forEach{(label,percent)->BodyFact(label,percent,"%",Modifier.weight(1f))}
+      }
+    }
+    if(nutrition!=null&&nutrition.knownEnergyItems<nutrition.totalItems)Text("${nutrition.knownEnergyItems}/${nutrition.totalItems} 个食物条目记录了热量",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+  }
+}
 
 @Composable private fun PremiumTodayCard(tone:Color,onClick:()->Unit,content:@Composable ColumnScope.()->Unit){
   val shape=RoundedCornerShape(25.dp);val surface=MaterialTheme.colorScheme.surface;val variant=MaterialTheme.colorScheme.surfaceVariant

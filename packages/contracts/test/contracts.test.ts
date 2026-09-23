@@ -58,6 +58,13 @@ test("today attention remains bounded and defaults safely for older read rows",(
   const tooMany=Array.from({length:21},(_,index)=>({id:`plan_${String(index).padStart(8,"0")}`,due_on:"2026-09-10",state:"pending",title:"事项",amount:null,currency:null}));assert.equal(lifeTodayResultSchema.safeParse({date:"2026-09-10",domains:{money:{entries:0,totals:[],due_items:tooMany,freshness:null}},as_of:"2026-09-10T00:00:00Z"}).success,false);
 });
 
+test("today meal nutrition keeps missing energy separate from zero and requires complete coverage",()=>{
+  const base={date:"2026-09-10",domains:{meals:{count:1,freshness:null,nutrition:{energy_kcal:"0",protein_g:"0",carb_g:"0",fat_g:"0",total_items:1,known_energy_items:1,complete_macros:true}}},as_of:"2026-09-10T00:00:00Z"};
+  assert.equal(lifeTodayResultSchema.safeParse(base).success,true);
+  assert.equal(lifeTodayResultSchema.safeParse({...base,domains:{meals:{...base.domains.meals,nutrition:{...base.domains.meals.nutrition,energy_kcal:null,known_energy_items:0,complete_macros:false}}}}).success,true);
+  assert.equal(lifeTodayResultSchema.safeParse({...base,domains:{meals:{...base.domains.meals,nutrition:{...base.domains.meals.nutrition,energy_kcal:"-1"}}}}).success,false);
+});
+
 test("money import is staged separately from candidate accounting decisions",()=>{assert.deepEqual(capabilityRegistry["money.stage_import"].resolveEffects(),["money.entry.write"]);assert.equal(capabilityRegistry["money.resolve_import_candidate"].inputSchema.safeParse({candidate_id:"import_candidate_12345678",expected_revision:1,decision:"ignore",corrections:{amount:"1.00"},reason:"忽略重复交易"}).success,false);assert.equal(capabilityRegistry["money.resolve_import_candidate"].inputSchema.safeParse({candidate_id:"import_candidate_12345678",expected_revision:1,decision:"confirm",corrections:{entry_type:"expense",amount:"18.00",currency:"CNY",occurred_on:"2026-09-10",time_zone:"Asia/Shanghai"},reason:"核对原始账单"}).success,true);assert.equal(capabilityRegistry["money.set_import_rule"].inputSchema.safeParse({match_value:"退款平台",replacements:{entry_type:"refund"},state:"active"}).success,false);assert.equal(capabilityRegistry["money.set_import_rule"].inputSchema.safeParse({match_value:"社区超市",replacements:{category:"日用"},state:"active"}).success,true);});
 
 test("domain money summaries expose only canonical entry types",()=>{

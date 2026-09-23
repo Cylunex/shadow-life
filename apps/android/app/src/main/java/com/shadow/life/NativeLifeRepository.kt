@@ -47,7 +47,9 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     val domains=result.domains
     val health=if(domains.health==null)TodayHealthSummary(HealthSummaryState.NotAuthorized) else healthSummary(date)
     return TodaySnapshot(
-      date=result.date,mealCount=domains.meals?.count?.toInt(),healthFacts=domains.health?.facts?.toInt(),
+      date=result.date,mealCount=domains.meals?.count?.toInt(),
+      mealNutrition=domains.meals?.nutrition?.let{TodayMealNutrition(it.energyKcal,it.proteinG,it.carbG,it.fatG,it.totalItems.toInt(),it.knownEnergyItems.toInt(),it.completeMacros)},
+      healthFacts=domains.health?.facts?.toInt(),
       moneyTotals=domains.money?.totals?.map{MoneyTotal(it.currency,it.netSpending,it.income)}.orEmpty(),
       dueItems=domains.money?.dueItems?.map{DueItem(it.id,it.title,it.dueOn,it.amount,it.currency)}.orEmpty(),
       currentTrips=domains.travel?.currentTrips?.map{CurrentTrip(it.id,it.title,it.startsOn,it.endsOn)}.orEmpty(),

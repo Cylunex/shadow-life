@@ -38817,6 +38817,78 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "nutrition": {
+                    "type": "object",
+                    "properties": {
+                      "energy_kcal": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "protein_g": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "carb_g": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "fat_g": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "total_items": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "known_energy_items": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "complete_macros": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "energy_kcal",
+                      "protein_g",
+                      "carb_g",
+                      "fat_g",
+                      "total_items",
+                      "known_energy_items",
+                      "complete_macros"
+                    ],
+                    "additionalProperties": false
                   }
                 },
                 "required": [

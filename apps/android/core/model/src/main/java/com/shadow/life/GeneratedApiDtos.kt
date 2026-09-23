@@ -189,9 +189,21 @@ data class NotificationsResultDto(
 )
 
 @Serializable
+data class LifeTodayResultDtoDomainsMealsNutrition(
+  @SerialName("energy_kcal") val energyKcal: String?,
+  @SerialName("protein_g") val proteinG: String?,
+  @SerialName("carb_g") val carbG: String?,
+  @SerialName("fat_g") val fatG: String?,
+  @SerialName("total_items") val totalItems: Long,
+  @SerialName("known_energy_items") val knownEnergyItems: Long,
+  @SerialName("complete_macros") val completeMacros: Boolean
+)
+
+@Serializable
 data class LifeTodayResultDtoDomainsMeals(
   @SerialName("count") val count: Long,
-  @SerialName("freshness") val freshness: String?
+  @SerialName("freshness") val freshness: String?,
+  @SerialName("nutrition") val nutrition: LifeTodayResultDtoDomainsMealsNutrition? = null
 )
 
 @Serializable
