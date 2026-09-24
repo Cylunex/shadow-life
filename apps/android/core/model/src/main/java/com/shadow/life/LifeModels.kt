@@ -120,7 +120,7 @@ data class TravelTrackSummary(val id:String,val tripId:String,val name:String,va
 data class TravelSegmentSummary(val id:String,val tripId:String,val mode:String,val origin:String,val destination:String,val startsAt:String?,val distanceKm:String?)
 sealed interface WorkspaceOverview { val asOf:String
   data class Meals(val mealPlans:Int,val shoppingLists:Int,val openShoppingItems:Int,override val asOf:String,
-    val plans:List<MealPlanningResultDtoMealPlansEntry> = emptyList(),val lists:List<MealPlanningResultDtoShoppingListsEntry> = emptyList()):WorkspaceOverview
+    val plans:List<MealPlanningResultDtoMealPlansEntry> = emptyList(),val lists:List<MealPlanningResultDtoShoppingListsEntry> = emptyList(),val stockLots:List<MealPlanningResultDtoStockLotsEntry> = emptyList(),val stockTruncated:Boolean=false):WorkspaceOverview
   data class Money(
     val period:String,val budgets:List<BudgetProgress>,val recurringPlans:Int,val openOccurrences:Int,val spendingIntents:Int,
     val recurring:List<MoneyRecurringSummary> = emptyList(),val occurrences:List<MoneyOccurrenceSummary> = emptyList(),val intents:List<MoneyIntentSummary> = emptyList(),val useCycles:List<MoneyUseCycleSummary> = emptyList(),
@@ -132,7 +132,7 @@ sealed interface WorkspaceOverview { val asOf:String
   data class Health(
     val sources:Int,val sourcesNeedingAttention:Int,val streams:Int,val summary:TodayHealthSummary,
     val metrics:List<HealthMetricTrend> = emptyList(),val daily:HealthDailyOverview?=null,
-    val history:List<HealthDailyOverview> = emptyList(),val sleepInsights:HealthSleepInsightsResultDto?=null,override val asOf:String
+    val history:List<HealthDailyOverview> = emptyList(),val sleepInsights:HealthSleepInsightsResultDto?=null,val progression:List<HealthProgression>?=null,override val asOf:String
   ):WorkspaceOverview
   data class Travel(
     val trips:Int,val places:Int,val maps:Int,val activeRun:Boolean,
@@ -142,9 +142,10 @@ sealed interface WorkspaceOverview { val asOf:String
   ):WorkspaceOverview
   data class Library(val visibleItems:Int,override val asOf:String):WorkspaceOverview
 }
+data class HealthProgression(val id:String,val title:String,val status:String,val reason:String,val nextDurationMinutes:Int?,val evidence:List<String>)
 data class BudgetProgress(val title:String,val amount:String,val currency:String,val spent:String)
 data class ProjectMilestone(val id:String,val title:String,val dueOn:String?,val state:String,val position:Int)
-data class ProjectAction(val id:String,val title:String,val dueOn:String?,val state:String,val revision:Int,val sourceState:String?)
+data class ProjectAction(val id:String,val title:String,val dueOn:String?,val state:String,val revision:Int,val sourceState:String?,val scheduledAt:String?=null,val scheduledTimeZone:String?=null)
 data class PlanningLink(val kind:String,val id:String,val revision:Int,val role:String,val title:String?=null)
 data class PlanSummary(
   val id:String,val title:String,val goal:String?,val state:String,val dueOn:String?,val revision:Int,val actions:Int,
@@ -157,7 +158,7 @@ data class OwnedItemPurchase(val purchaseItemId:String,val purchaseId:String,val
 data class OwnedItemEvent(val id:String,val kind:String,val occurredOn:String,val note:String,val revision:Int,val cost:String?,val documentTitle:String?,val costEntryId:String?=null,val documentId:String?=null)
 data class OwnedItemSummary(
   val id:String,val name:String,val state:String,val location:String?,val warrantyEndsOn:String?,val returnBy:String?,val revision:Int,val documents:Int,val events:Int,
-  val startedOn:String?=null,val updatedAt:String?=null,val purchase:OwnedItemPurchase?=null,
+  val startedOn:String?=null,val updatedAt:String?=null,val purchase:OwnedItemPurchase?=null,val locationPath:List<String>?=null,
   val documentItems:List<PlanningLink> = emptyList(),val eventItems:List<OwnedItemEvent> = emptyList()
 )
 data class ReviewEvidence(val kind:String,val id:String,val revision:Int)

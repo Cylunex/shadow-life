@@ -802,6 +802,8 @@ data class LifeProjectsResultDtoItemsEntryActionsEntry(
   @SerialName("id") val id: String,
   @SerialName("title") val title: String,
   @SerialName("due_on") val dueOn: String?,
+  @SerialName("scheduled_at") val scheduledAt: String?,
+  @SerialName("scheduled_time_zone") val scheduledTimeZone: String?,
   @SerialName("state") val state: LifeProjectsResultDtoItemsEntryActionsEntryState,
   @SerialName("recurring_occurrence_id") val recurringOccurrenceId: String? = null,
   @SerialName("health_habit_id") val healthHabitId: String? = null,
@@ -902,6 +904,7 @@ data class OwnedItemsResultDtoItemsEntry(
   @SerialName("name") val name: String,
   @SerialName("ownership_state") val ownershipState: OwnedItemsResultDtoItemsEntryOwnershipState,
   @SerialName("location") val location: String?,
+  @SerialName("location_path") val locationPath: List<String>?,
   @SerialName("started_on") val startedOn: String?,
   @SerialName("warranty_ends_on") val warrantyEndsOn: String?,
   @SerialName("return_by") val returnBy: String?,
@@ -1370,6 +1373,17 @@ data class MealPlanningResultDtoMealPlansEntry(
 )
 
 @Serializable
+data class MealPlanningResultDtoStockLotsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("name") val name: String,
+  @SerialName("quantity") val quantity: String,
+  @SerialName("unit") val unit: String,
+  @SerialName("expires_on") val expiresOn: String?,
+  @SerialName("note") val note: String?,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
 enum class MealPlanningResultDtoShoppingListsEntryState(val wireValue: String) {
   @SerialName("open") Open("open"),
   @SerialName("completed") Completed("completed"),
@@ -1411,6 +1425,8 @@ data class MealPlanningResultDtoShoppingListsEntry(
 @Serializable
 data class MealPlanningResultDto(
   @SerialName("meal_plans") val mealPlans: List<MealPlanningResultDtoMealPlansEntry>,
+  @SerialName("stock_lots") val stockLots: List<MealPlanningResultDtoStockLotsEntry>,
+  @SerialName("stock_truncated") val stockTruncated: Boolean,
   @SerialName("shopping_lists") val shoppingLists: List<MealPlanningResultDtoShoppingListsEntry>,
   @SerialName("as_of") val asOf: String
 )

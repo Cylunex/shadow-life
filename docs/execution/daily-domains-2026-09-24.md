@@ -1,0 +1,24 @@
+# Daily domains delivery (2026-09-24)
+
+This source batch strengthens four existing Life domains through the common Executor. It does not deploy, import historical rows, build a signed APK, or invoke a paid model.
+
+## Product and data semantics
+
+- **Health:** `health.workout_progression` reads at most 20 owner scoped plans and the two latest effective, plan linked sessions. No sessions produce `no_execution`. One session, missing or zero duration, missing RPE, different exercise types, or two sessions on the same date produce `missing_data` with no next duration. Two comparable sessions with RPE at most 7 allow a bounded 5% increase of 1–5 minutes; higher effort holds the last duration. The response cites the exact session IDs, dates, revisions, duration, and RPE. It does not mark the plan completed or modify it. This is a duration rule, not a strength load prescription or medical assessment. Web and native Health show its explanation and evidence.
+- **Meals:** Web accepts pasted schema.org Recipe JSON-LD or HTML containing it; Android accepts pasted JSON-LD. Both preview fields and require the user to correct ingredient quantities and units before the explicit save command. HTTP(S) source URL is stored on the versioned recipe and returned by the catalog. No third party page is fetched, and no imported nutrition is invented. The local food stock command stores owner scoped, revision checked batches with quantity, exact unit, expiry and prior snapshots. Shopping state and purchase links never update stock. Web and Android distinguish unknown stock, enough stock, and a known shortage by exact name and unit, excluding batches that expire before the meal plan ends. A result over 100 batches stays unknown rather than understating stock.
+- **Items:** `location_path` stores up to five ordered location parts alongside the legacy location note. The item ID and authenticated detail read remain stable when the item moves. Web details include linked purchase, documents, events, warranty, a canonical deep link, and a locally rendered QR code containing only that link. Native item details display the structured location and retain the existing purchase, warranty, and event links. Scanning the code opens the authenticated Web detail.
+- **Projects:** an action may have one instant and IANA time zone on its due date. The contract rejects a scheduled instant on another local date. Status writes that omit a schedule retain it; changing the date clears it. Web action creation and Android project details expose the optional time. Web project and action drafts are restored from an account scoped browser key after a reload; native entry uses saved Compose state. All action writes still use the Executor and expected revision on update.
+
+## Reference design
+
+- [wger routine documentation](https://github.com/wger-project/docs/blob/master/docs/manual/routines.rst) ties advancement to logged execution. This batch similarly refuses progression on unexecuted plans.
+- [Tandoor feature documentation](https://docs.tandoor.dev/) describes recipe import, planning, and shopping, while [Grocy food guidance](https://github.com/grocy/grocy-docs/blob/master/tutorials/food.md) separates stock units and expiry. Life keeps imported recipes, planned meals, purchases, and actual stock distinct.
+- [Homebox](https://github.com/sysadminsmedia/homebox/blob/main/README.md) uses item locations and warranty/maintenance links; its [0.26 release](https://github.com/sysadminsmedia/homebox/releases) includes QR scanning. Life encodes a stable item ID in its label instead of a changeable location.
+- [Super Productivity](https://github.com/super-productivity/super-productivity) documents timeboxing and daily tasks. Life adds an optional time to an existing project action without creating a second completion path.
+
+## Verification and limits
+
+- Contracts generation, dependency boundaries, TypeScript typechecking, Web build, Android `:app:compileDebugKotlin`, focused recipe and progression tests, HTTP route test, and the fresh PostgreSQL domain integration test cover the new path. The full isolated PostgreSQL/Node suite passed 284/284. Android Kotlin compilation and debug unit tests passed with the local SDK; no APK was packaged.
+- Stock quantities are manually maintained. A completed meal does not decrement a batch, and different units are not converted. The availability check is a planning hint, not a reservation across lists.
+- Source import currently supports structured Recipe JSON-LD through a local paste path. Arbitrary web pages, OCR, unit extraction from free text, and external URL fetching are outside this batch. Unparsed ingredient rows require manual correction.
+- QR scan, Android process death recovery, and physical device behavior need device acceptance. Browser draft storage remains local to the account and browser; it is not synchronized across devices.

@@ -613,6 +613,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -708,6 +709,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -1406,6 +1408,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -1501,6 +1504,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -2593,6 +2597,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -2688,6 +2693,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -2996,6 +3002,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -3091,6 +3098,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -3521,6 +3529,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -3616,6 +3625,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -3858,6 +3868,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -3953,6 +3964,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -4298,6 +4310,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -4393,6 +4406,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -4742,6 +4756,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -4837,6 +4852,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -5089,6 +5105,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -5184,6 +5201,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -5614,6 +5632,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -5709,6 +5728,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -6079,6 +6099,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -6174,6 +6195,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -6668,6 +6690,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -6763,6 +6786,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -7006,6 +7030,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -7101,6 +7126,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -7348,6 +7374,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -7443,6 +7470,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -7879,6 +7907,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -7974,6 +8003,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -8466,6 +8496,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -8561,6 +8592,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -8919,6 +8951,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -9014,6 +9047,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -9212,6 +9246,18 @@
             "minLength": 1,
             "maxLength": 20000
           },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "state": {
             "default": "active",
             "type": "string",
@@ -9375,6 +9421,18 @@
                 "minLength": 1,
                 "maxLength": 20000
               },
+              "source_url": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "format": "uri"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "state": {
                 "default": "active",
                 "type": "string",
@@ -9498,6 +9556,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -9593,6 +9652,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -9899,6 +9959,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -9994,6 +10055,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -10428,6 +10490,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -10523,6 +10586,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -10899,6 +10963,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -10994,6 +11059,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -11352,6 +11418,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -11447,6 +11514,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -11689,6 +11757,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -11784,6 +11853,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -12056,6 +12126,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -12151,6 +12222,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -12579,6 +12651,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -12674,6 +12747,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -12992,6 +13066,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -13087,6 +13162,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -13442,6 +13518,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -13537,6 +13614,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -13839,6 +13917,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -13934,6 +14013,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -14524,6 +14604,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -14619,6 +14700,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -15053,6 +15135,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -15148,6 +15231,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -15516,6 +15600,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -15611,6 +15696,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -15873,6 +15959,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -15968,6 +16055,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -16426,6 +16514,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -16521,6 +16610,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -16857,6 +16947,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -16952,6 +17043,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -17360,6 +17452,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -17455,6 +17548,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -17803,6 +17897,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -17898,6 +17993,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -18278,6 +18374,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -18373,6 +18470,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -18805,6 +18903,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -18900,6 +18999,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -19478,6 +19578,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -19573,6 +19674,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -19869,6 +19971,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -19964,6 +20067,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -20420,6 +20524,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -20515,6 +20620,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -20781,6 +20887,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -20876,6 +20983,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -21176,6 +21284,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -21271,6 +21380,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -21847,6 +21957,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -21942,6 +22053,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -22427,6 +22539,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -22522,6 +22635,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -22764,6 +22878,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -22859,6 +22974,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -23284,6 +23400,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -23379,6 +23496,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -23784,6 +23902,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -23879,6 +23998,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -24179,6 +24299,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -24274,6 +24395,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -24586,6 +24708,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -24681,6 +24804,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -24941,6 +25065,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -25036,6 +25161,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -25274,6 +25400,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -25369,6 +25496,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -25595,6 +25723,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -25690,6 +25819,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -25964,6 +26094,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -26059,6 +26190,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -26401,6 +26533,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -26496,6 +26629,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -26736,6 +26870,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -26831,6 +26966,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -27061,6 +27197,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -27156,6 +27293,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -27535,6 +27673,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -27630,6 +27769,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -27926,6 +28066,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -28021,6 +28162,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -28325,6 +28467,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -28420,6 +28563,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -28682,6 +28826,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -28777,6 +28922,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -29035,6 +29181,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -29130,6 +29277,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -29348,6 +29496,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -29443,6 +29592,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -29673,6 +29823,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -29768,6 +29919,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -29998,6 +30150,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -30093,6 +30246,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -30335,6 +30489,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -30430,6 +30585,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -30796,6 +30952,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -30891,6 +31048,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -31223,6 +31381,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -31318,6 +31477,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -31649,6 +31809,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -31744,6 +31905,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -31962,6 +32124,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -32057,6 +32220,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -32502,6 +32666,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -32597,6 +32762,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -32841,6 +33007,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -32936,6 +33103,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -33186,6 +33354,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -33281,6 +33450,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -33537,6 +33707,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -33632,6 +33803,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -33906,6 +34078,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -34001,6 +34174,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -34122,6 +34296,23 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "location_path": {
+            "anyOf": [
+              {
+                "minItems": 1,
+                "maxItems": 5,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                }
               },
               {
                 "type": "null"
@@ -34273,6 +34464,23 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 200
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "location_path": {
+                "anyOf": [
+                  {
+                    "minItems": 1,
+                    "maxItems": 5,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 80
+                    }
                   },
                   {
                     "type": "null"
@@ -34463,6 +34671,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -34558,6 +34767,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -34888,6 +35098,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -34983,6 +35194,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -35296,6 +35508,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -35391,6 +35604,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -35909,6 +36123,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -36004,6 +36219,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -36113,6 +36329,30 @@
               }
             ]
           },
+          "scheduled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scheduled_time_zone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "state": {
             "default": "open",
             "type": "string",
@@ -36182,6 +36422,30 @@
                     "type": "string",
                     "format": "date",
                     "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "scheduled_at": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "scheduled_time_zone": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
                   },
                   {
                     "type": "null"
@@ -36314,6 +36578,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -36409,6 +36674,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -36818,6 +37084,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -36913,6 +37180,410 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
+                    "money_fx_snapshot",
+                    "shared_expense_allocation",
+                    "source",
+                    "thread",
+                    "run",
+                    "task"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "revision": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "revision"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "actual_values": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "replayed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "protocol",
+          "capability",
+          "command_id",
+          "execution_id",
+          "status",
+          "result_kind",
+          "resources",
+          "actual_values",
+          "warnings",
+          "replayed"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "life.set_food_stock": {
+      "name": "life.set_food_stock",
+      "description": "显式维护本人食品库存批次；购买状态不会自动改变库存。",
+      "possible_effects": [
+        "life.meal_plan.write"
+      ],
+      "idempotency": "required",
+      "status_query": "operations.get",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "lot_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "quantity": {
+            "type": "string",
+            "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "expires_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "quantity",
+          "unit"
+        ],
+        "additionalProperties": false
+      },
+      "command_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "const": "shadow.command"
+          },
+          "capability": {
+            "type": "string",
+            "const": "life.set_food_stock"
+          },
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
+          },
+          "input": {
+            "type": "object",
+            "properties": {
+              "lot_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{7,127}$"
+              },
+              "expected_revision": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "quantity": {
+                "type": "string",
+                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+              },
+              "unit": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32
+              },
+              "expires_on": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "note": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "name",
+              "quantity",
+              "unit"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "protocol",
+          "capability",
+          "command_id",
+          "input"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "const": "shadow.execution-result"
+          },
+          "capability": {
+            "type": "string",
+            "enum": [
+              "life.record_meal",
+              "life.record_dining",
+              "life.correct_meal",
+              "life.add_intake",
+              "life.remove_intake",
+              "life.add_meal_payment",
+              "life.attach_meal_source",
+              "life.set_personal_alias",
+              "life.record_purchase",
+              "life.correct_intake",
+              "life.correct_purchase",
+              "life.update_purchase_items",
+              "life.void_purchase",
+              "life.link_meal_consumption",
+              "life.save_meal_template",
+              "life.record_meal_from_template",
+              "life.save_food",
+              "life.save_recipe",
+              "life.record_meal_from_recipe",
+              "money.record_entry",
+              "money.record_refund",
+              "money.correct_entry",
+              "money.void_entry",
+              "money.set_budget",
+              "money.set_recurring_plan",
+              "money.set_spending_intent",
+              "money.set_use_cycle",
+              "money.record_consumable_use",
+              "money.save_service_card",
+              "money.record_service_card_use",
+              "money.set_occurrence_state",
+              "money.stage_import",
+              "money.resolve_import_candidate",
+              "money.set_import_rule",
+              "health.record_measurement",
+              "health.correct_measurement",
+              "health.record_workout",
+              "health.ingest_raw",
+              "health.ingest_batch",
+              "health.set_source_state",
+              "health.set_plan",
+              "travel.create_trip",
+              "travel.correct_trip",
+              "travel.add_reservation",
+              "travel.correct_reservation",
+              "travel.void_reservation",
+              "travel.record_segment",
+              "travel.record_visit",
+              "travel.save_place",
+              "travel.set_day_plan",
+              "travel.set_member",
+              "travel.publish_plan",
+              "travel.start_run",
+              "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
+              "travel.restore_bundle",
+              "library.capture",
+              "library.revise",
+              "library.annotate",
+              "library.register_derivation",
+              "library.queue_processing",
+              "library.retry_processing",
+              "library.claim_processing",
+              "library.renew_processing",
+              "library.fail_processing",
+              "library.complete_processing",
+              "library.set_reading_state",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update",
+              "notifications.register_device",
+              "notifications.set_delivery_state",
+              "life.save_owned_item",
+              "life.record_owned_item_event",
+              "life.generate_review",
+              "life.save_project",
+              "life.save_action_item",
+              "life.save_meal_plan",
+              "life.set_food_stock",
+              "life.build_shopping_list",
+              "life.update_shopping_item",
+              "money.record_foreign_entry",
+              "money.update_shared_allocation"
+            ]
+          },
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
+          },
+          "execution_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "status": {
+            "type": "string",
+            "const": "committed"
+          },
+          "result_kind": {
+            "type": "string",
+            "enum": [
+              "record",
+              "plan",
+              "task"
+            ]
+          },
+          "resources": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "meal",
+                    "meal_template",
+                    "food",
+                    "recipe",
+                    "personal_alias",
+                    "intake_item",
+                    "consumption_record",
+                    "purchase",
+                    "purchase_item",
+                    "money_entry",
+                    "refund",
+                    "budget",
+                    "recurring_plan",
+                    "recurring_occurrence",
+                    "spending_intent",
+                    "use_cycle",
+                    "service_card",
+                    "service_card_use",
+                    "consumable_use",
+                    "money_import_batch",
+                    "money_import_candidate",
+                    "money_import_rule",
+                    "health_measurement",
+                    "health_workout_session",
+                    "health_raw",
+                    "health_sync_cursor",
+                    "health_plan",
+                    "trip",
+                    "trip_segment",
+                    "reservation",
+                    "visit",
+                    "place",
+                    "travel_map",
+                    "trip_track",
+                    "trip_day_plan",
+                    "trip_member",
+                    "trip_plan_version",
+                    "trip_run",
+                    "trip_stop_outcome",
+                    "library_item",
+                    "library_annotation",
+                    "library_derivation",
+                    "library_processing_job",
+                    "library_reading_state",
+                    "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
+                    "notification_installation",
+                    "notification_delivery",
+                    "owned_item",
+                    "owned_item_event",
+                    "life_review",
+                    "life_project",
+                    "action_item",
+                    "meal_plan",
+                    "shopping_list",
+                    "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -37213,6 +37884,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -37308,6 +37980,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -37565,6 +38238,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -37660,6 +38334,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -38189,6 +38864,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -38284,6 +38960,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -38542,6 +39219,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -38637,6 +39315,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -41624,6 +42303,17 @@
                     "null"
                   ]
                 },
+                "source_url": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "state": {
                   "type": "string",
                   "enum": [
@@ -41753,6 +42443,7 @@
                 "title",
                 "servings",
                 "instructions",
+                "source_url",
                 "state",
                 "revision",
                 "items"
@@ -44904,6 +45595,165 @@
           "recorded_days",
           "latest_on",
           "truncated",
+          "as_of"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "health.workout_progression": {
+      "name": "health.workout_progression",
+      "description": "根据关联计划的实际训练和强度给出有证据的下一次时长建议；数据不足时不推断。",
+      "possible_effects": [
+        "health.measurement.read"
+      ],
+      "idempotency": "not-applicable",
+      "status_query": "operations.get",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "plan_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          }
+        },
+        "additionalProperties": false
+      },
+      "command_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "plan_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          }
+        },
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "plans": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "revision": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "no_execution",
+                    "missing_data",
+                    "hold",
+                    "increase_duration"
+                  ]
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "next_duration_minutes": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "evidence": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                      },
+                      "occurred_on": {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      "session_type": {
+                        "type": "string"
+                      },
+                      "duration_minutes": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "rpe": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 10
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "revision": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "occurred_on",
+                      "session_type",
+                      "duration_minutes",
+                      "rpe",
+                      "revision"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "revision",
+                "status",
+                "reason",
+                "next_duration_minutes",
+                "evidence"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+          }
+        },
+        "required": [
+          "plans",
           "as_of"
         ],
         "additionalProperties": false
@@ -53048,6 +53898,19 @@
                     "null"
                   ]
                 },
+                "location_path": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "started_on": {
                   "anyOf": [
                     {
@@ -53332,6 +54195,7 @@
                 "name",
                 "ownership_state",
                 "location",
+                "location_path",
                 "started_on",
                 "warranty_ends_on",
                 "return_by",
@@ -53783,6 +54647,30 @@
                           }
                         ]
                       },
+                      "scheduled_at": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "scheduled_time_zone": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 64
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
                       "state": {
                         "type": "string",
                         "enum": [
@@ -53834,6 +54722,8 @@
                       "id",
                       "title",
                       "due_on",
+                      "scheduled_at",
+                      "scheduled_time_zone",
                       "state",
                       "revision",
                       "updated_at"
@@ -54460,6 +55350,64 @@
               "additionalProperties": false
             }
           },
+          "stock_lots": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "string",
+                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                },
+                "unit": {
+                  "type": "string"
+                },
+                "expires_on": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "note": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "revision": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "quantity",
+                "unit",
+                "expires_on",
+                "note",
+                "revision"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "stock_truncated": {
+            "type": "boolean"
+          },
           "shopping_lists": {
             "type": "array",
             "items": {
@@ -54601,6 +55549,8 @@
         },
         "required": [
           "meal_plans",
+          "stock_lots",
+          "stock_truncated",
           "shopping_lists",
           "as_of"
         ],
@@ -55044,6 +55994,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -55139,6 +56090,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
@@ -55332,6 +56284,7 @@
               "life.save_project",
               "life.save_action_item",
               "life.save_meal_plan",
+              "life.set_food_stock",
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
@@ -55427,6 +56380,7 @@
                     "meal_plan",
                     "shopping_list",
                     "shopping_list_item",
+                    "food_stock_lot",
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",

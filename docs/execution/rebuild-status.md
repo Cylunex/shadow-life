@@ -1,5 +1,10 @@
 # Rebuild status
 
+## 2026-09-24: daily domains strengthening
+
+- Health progression uses only comparable executed sessions; missing evidence produces no next target. Recipe source import has local preview and explicit save, while food stock is manually versioned with expiry and conservative shopping gaps. Owned items gain structured locations and authenticated QR links. Project actions gain optional local-day times and browser draft recovery. Web and Android have usable entries.
+- See [daily domains delivery](daily-domains-2026-09-24.md) for semantics, validation, reference projects and device/external limits. No deployment or signed APK is part of this batch.
+
 ## 2026-09-24: Travel planning assist
 
 - Web Travel can add saved places to a selected day, suggest a geometric order within unconstrained draft blocks,

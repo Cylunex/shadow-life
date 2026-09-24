@@ -1,3 +1,4 @@
+import { workoutProgressionInputSchema } from "@shadow/contracts";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { streamSSE } from "hono/streaming";
@@ -93,6 +94,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.get("/api/timeline",async context=>{const domains=context.req.query("domains")?.split(",").filter(Boolean),cursor=context.req.query("cursor");return context.json(await dependencies.queries.lifeTimeline(context.get("requestContext"),lifeTimelineInputSchema.parse({...(domains?.length?{domains}:{}),limit:Number(context.req.query("limit")??"30"),...(cursor?{cursor}:{})})));});
   app.get("/api/money/summary", async (context) => context.json(await dependencies.queries.summarizeMoney(context.get("requestContext"))));
   app.get("/api/health/releases",async context=>context.json(await dependencies.queries.healthReleaseHistory(context.get("requestContext"),healthReleaseHistoryInputSchema.parse({from:context.req.query("from"),to:context.req.query("to"),limit:Number(context.req.query("limit")??"1000")}))));
+  app.get("/api/health/workout-progression",async context=>context.json(await dependencies.queries.workoutProgression(context.get("requestContext"),workoutProgressionInputSchema.parse({...(context.req.query("plan_id")?{plan_id:context.req.query("plan_id")}: {})}))));
   app.get("/api/health/trend",async context=>context.json(await dependencies.queries.healthTrend(context.get("requestContext"),healthTrendInputSchema.parse({metric_key:context.req.query("metric_key"),...(context.req.query("from")?{from:context.req.query("from")} :{}),...(context.req.query("to")?{to:context.req.query("to")} :{}),limit:Number(context.req.query("limit")??"100")}))));
   app.get("/api/health/sources",async context=>context.json(await dependencies.queries.healthSources(context.get("requestContext"))));
   app.get("/api/life/records/:id",async context=>{const sections=context.req.query("sections")?.split(",").filter(Boolean);const input=lifeRecordInputSchema.parse({id:context.req.param("id"),...(sections?.length?{sections}:{})});return context.json(await dependencies.queries.lifeRecord(context.get("requestContext"),input.id,input.sections));});
@@ -173,6 +175,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         if(capabilityName==="money.summarize")return dependencies.queries.summarizeMoney(requestContext);
         if(capabilityName==="money.records"||capabilityName==="health.records"||capabilityName==="travel.records"||capabilityName==="library.records")return dependencies.queries.listDomain(requestContext,capabilityName.split(".")[0] as "money"|"health"|"travel"|"library",parsed as {query?:string|undefined;limit?:number|undefined;cursor?:string|undefined});
         if(capabilityName==="health.release_history")return dependencies.queries.healthReleaseHistory(requestContext,parsed);
+        if(capabilityName==="health.workout_progression")return dependencies.queries.workoutProgression(requestContext,parsed);
         if(capabilityName==="health.trend")return dependencies.queries.healthTrend(requestContext,parsed as {metric_key:string;from?:string|undefined;to?:string|undefined;limit:number});
         if(capabilityName==="health.sources")return dependencies.queries.healthSources(requestContext);
         if(capabilityName==="life.get_record"){const value=parsed as {id:string;sections?:readonly ("meal"|"purchase"|"money"|"sources")[]};return dependencies.queries.lifeRecord(requestContext,value.id,value.sections);}

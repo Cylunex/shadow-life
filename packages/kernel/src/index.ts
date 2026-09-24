@@ -20,3 +20,5 @@ export * from "./service-cards.js";
 export * from "./sleep-insights.js";
 
 export * from "./consumable-usage.js";
+
+export * from "./workout-progression.js";

@@ -152,7 +152,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         mealPlans=result.mealPlans.size,
         shoppingLists=result.shoppingLists.size,
         openShoppingItems=result.shoppingLists.sumOf{list->list.items.count{it.state.wireValue=="needed"}},
-        asOf=result.asOf,plans=result.mealPlans,lists=result.shoppingLists
+        asOf=result.asOf,plans=result.mealPlans,lists=result.shoppingLists,stockLots=result.stockLots,stockTruncated=result.stockTruncated
       )
     }
     LifeDomain.Money->{
@@ -236,12 +236,12 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     startsOn=item.startsOn,updatedAt=item.updatedAt,
     milestones=item.milestones.sortedBy{it.position}.map{milestone->ProjectMilestone(milestone.id,milestone.title,milestone.dueOn,milestone.state.wireValue,milestone.position.toInt())},
     links=item.links.map{link->PlanningLink(link.refKind.wireValue,link.refId,link.refRevision.toInt(),link.role)},
-    actionItems=item.actions.map{action->ProjectAction(action.id,action.title,action.dueOn,action.state.wireValue,action.revision.toInt(),action.sourceState)}
+    actionItems=item.actions.map{action->ProjectAction(action.id,action.title,action.dueOn,action.state.wireValue,action.revision.toInt(),action.sourceState,action.scheduledAt,action.scheduledTimeZone)}
   )
 
   private fun ownedItemSummary(item:OwnedItemsResultDtoItemsEntry)=OwnedItemSummary(
     id=item.id,name=item.name,state=item.ownershipState.wireValue,location=item.location,warrantyEndsOn=item.warrantyEndsOn,returnBy=item.returnBy,
-    revision=item.revision.toInt(),documents=item.documents.size,events=item.events.size,startedOn=item.startedOn,updatedAt=item.updatedAt,
+    revision=item.revision.toInt(),documents=item.documents.size,events=item.events.size,startedOn=item.startedOn,updatedAt=item.updatedAt,locationPath=item.locationPath,
     purchase=item.purchase?.let{purchase->OwnedItemPurchase(purchase.purchaseItemId,purchase.purchaseId,purchase.recordId,purchase.rawName,purchase.quantity,purchase.unit,purchase.lineAmount)},
     documentItems=item.documents.map{document->PlanningLink("library_item",document.libraryItemId,document.libraryRevision.toInt(),document.role.wireValue,document.title)},
     eventItems=item.events.map{event->OwnedItemEvent(event.id,event.eventKind.wireValue,event.occurredOn,event.note,event.revision.toInt(),event.costAmount?.let{amount->listOfNotNull(event.costCurrency,amount).joinToString(" ")},event.documentTitle,event.costEntryId,event.documentLibraryItemId)}
@@ -321,6 +321,19 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   suspend fun updateShoppingItem(item:MealPlanningResultDtoShoppingListsEntryItemsEntry,state:String):OperationReceipt=withContext(Dispatchers.IO){
     require(state in setOf("needed","bought","skipped")){"不支持的清单状态"}
     enqueueCommand("life.update_shopping_item",JSONObject().put("shopping_item_id",item.id).put("expected_revision",item.revision).put("state",state))
+  }
+  suspend fun saveImportedRecipe(title:String,servings:String,ingredientLines:String,instructions:String,sourceUrl:String):OperationReceipt=withContext(Dispatchers.IO){
+    val lines=ingredientLines.lines().map(String::trim).filter(String::isNotBlank)
+    require(lines.isNotEmpty()&&lines.size<=100){"请核对至少一项原料"}
+    val items=JSONArray();lines.forEach{line->val parts=line.split("|",limit=3).map(String::trim);require(parts.size==3&&parts.all(String::isNotBlank)){"每项原料请按 名称|数量|单位 校对"};items.put(JSONObject().put("name",parts[0]).put("quantity",parts[1]).put("unit",parts[2]).put("estimate",false))}
+    enqueueCommand("life.save_recipe",JSONObject().put("title",title.trim()).put("servings",servings.trim()).put("items",items).put("instructions",instructions.trim().takeIf(String::isNotBlank)).put("source_url",sourceUrl.trim().takeIf(String::isNotBlank)).put("state","active"))
+  }
+  suspend fun saveProjectAction(projectId:String,title:String,date:String,time:String):OperationReceipt=withContext(Dispatchers.IO){
+    val zone=ZoneId.systemDefault();val scheduled=if(time.isBlank())null else java.time.LocalDateTime.parse("${date}T${time}").let{local->val zoned=local.atZone(zone);require(zoned.toLocalDateTime()==local){"所选时间在本地时区不存在"};zoned.toInstant().toString()}
+    enqueueCommand("life.save_action_item",JSONObject().put("project_id",projectId).put("title",title.trim()).put("due_on",date.ifBlank{null}).put("state","open").apply{if(scheduled!=null){put("scheduled_at",scheduled);put("scheduled_time_zone",zone.id)}})
+  }
+  suspend fun setFoodStock(lot:MealPlanningResultDtoStockLotsEntry?,name:String,quantity:String,unit:String,expiresOn:String?):OperationReceipt=withContext(Dispatchers.IO){
+    enqueueCommand("life.set_food_stock",JSONObject().apply{lot?.let{put("lot_id",it.id).put("expected_revision",it.revision)};put("name",name.trim());put("quantity",quantity.trim());put("unit",unit.trim());put("expires_on",expiresOn?.takeIf(String::isNotBlank))})
   }
   suspend fun setBudget(draft:NativeBudgetDraft):OperationReceipt=withContext(Dispatchers.IO){enqueueCommand("money.set_budget",budgetPayload(draft))}
   suspend fun setRecurringPlan(draft:NativeRecurringDraft):OperationReceipt=withContext(Dispatchers.IO){enqueueCommand("money.set_recurring_plan",recurringPayload(draft,ZoneId.systemDefault()))}
@@ -465,6 +478,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     val today=LocalDate.now();val from=today.minusDays(89)
     val sourcesRequest=async{wireJson.decodeFromString<HealthSourcesResultDto>(getText("/api/health/sources"))}
     val dailyRequests=(0L..6L).map{offset->val date=today.minusDays(offset);date to async{partialRequest{wireJson.decodeFromString<HealthDailyResultDto>(getText("/api/health/daily/$date"))}}}
+    val progressionRequest=if(requestedMetrics==null)async{partialRequest{val response=JSONObject(getText("/api/health/workout-progression"));response.optJSONArray("plans").objects().map{plan->HealthProgression(plan.getString("id"),plan.getString("title"),plan.getString("status"),plan.getString("reason"),plan.optInt("next_duration_minutes").takeUnless{plan.isNull("next_duration_minutes")},plan.optJSONArray("evidence").objects().map{evidence->"${evidence.optString("occurred_on")} · ${evidence.optString("duration_minutes","?")} 分钟 / RPE ${evidence.optString("rpe","?")}"})}}} else null
     val sleepInsightsRequest=if(requestedMetrics==null)async{partialRequest{wireJson.decodeFromString<HealthSleepInsightsResultDto>(getText("/api/health/sleep-insights?to=$today&days=30"))}} else null
     val metricKeys=requestedMetrics?:listOf(
       "weight" to "体重","height" to "身高","bmi" to "BMI","body_fat" to "体脂率","fat_mass" to "脂肪量","lean_mass" to "去脂体重",
@@ -498,7 +512,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     WorkspaceOverview.Health(
       sources=deviceSources.size,
       sourcesNeedingAttention=deviceSources.count{source->healthSourceNeedsAttention(source.sourceType,source.permissionState,source.cursors.map{it.state})},
-      streams=deviceSources.sumOf{it.cursors.size},summary=summary,metrics=metrics,daily=daily,history=history,sleepInsights=sleepInsightsRequest?.await()?.getOrNull(),asOf=sources.asOf
+      streams=deviceSources.sumOf{it.cursors.size},summary=summary,metrics=metrics,daily=daily,history=history,sleepInsights=sleepInsightsRequest?.await()?.getOrNull(),progression=progressionRequest?.await()?.getOrNull(),asOf=sources.asOf
     )
   }
 
