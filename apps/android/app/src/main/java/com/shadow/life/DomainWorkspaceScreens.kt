@@ -1,5 +1,7 @@
 package com.shadow.life
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -42,12 +44,14 @@ import kotlin.math.abs
   onOccurrence:(MoneyPlanningResultDtoOccurrencesEntry,String)->Unit,onResetPlanning:()->Unit,
   cardsState:LoadState<ServiceCardsResultDto>,selectedCard:LoadState<ServiceCardsResultDtoItemsEntry>?,cardSubmit:SubmitState,
   onLoadCards:(String)->Unit,onMoreCards:()->Unit,onOpenCard:(String)->Unit,onCloseCard:()->Unit,onOlderUses:()->Unit,
-  onSaveCard:(NativeServiceCardDraft)->Unit,onCardUse:(NativeServiceCardUseDraft)->Unit,onResetCard:()->Unit
+  onSaveCard:(NativeServiceCardDraft)->Unit,onCardUse:(NativeServiceCardUseDraft)->Unit,onResetCard:()->Unit,
+  importMonth:LoadState<MoneyImportMonthSummary>,importReview:LoadState<MoneyImportReviewSummary>?,importSubmit:SubmitState,onLoadImportMonth:(String)->Unit,onOpenImportBatch:(String)->Unit,onResolveImport:(MoneyImportCandidateSummary,String,String,String,String,String,String)->Unit
 ){
-  var tab by rememberSaveable(initialTab){mutableStateOf(initialTab.takeIf{it in setOf("overview","details","budgets","recurring","intents","supplies","cards")}?:"overview")};var query by rememberSaveable{mutableStateOf("")}
+  var tab by rememberSaveable(initialTab){mutableStateOf(initialTab.takeIf{it in setOf("overview","details","budgets","recurring","intents","supplies","cards","reconcile")}?:"overview")};var query by rememberSaveable{mutableStateOf("")}
   val workspaceScroll=rememberLazyListState()
   LaunchedEffect(tab){workspaceScroll.scrollToItem(0)}
   LaunchedEffect(tab){if(tab=="cards")onLoadCards("")}
+  LaunchedEffect(tab){if(tab=="reconcile")onLoadImportMonth(LocalDate.now().toString().take(7))}
   val overview=(overviewState as? LoadState.Ready)?.value as? WorkspaceOverview.Money
   val records=(recordsState as? LoadState.Ready)?.value?.items.orEmpty()
   var selectedCurrency by rememberSaveable{mutableStateOf<String?>(null)}
@@ -59,10 +63,11 @@ import kotlin.math.abs
     title={Column{Text("消费");Text(overview?.period?.let{"$it · 收支与预算"}?:"正在读取账目",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}},
     navigationIcon={IconButton(onClick=onBack){Text("‹",style=MaterialTheme.typography.headlineLarge)}},actions={FilledTonalIconButton(onClick={onCapture(CaptureKind.Expense)}){Icon(Icons.Default.Add,"记一笔")}}
   )}){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),state=workspaceScroll,contentPadding=PaddingValues(20.dp,10.dp,20.dp,28.dp),verticalArrangement=Arrangement.spacedBy(18.dp)){
-    item{WorkspaceTabs(tab,{tab=it},listOf("overview" to "概览","details" to "明细","budgets" to "预算","recurring" to "订阅","intents" to "想买","supplies" to "消耗品","cards" to "次卡"))}
+    item{WorkspaceTabs(tab,{tab=it},listOf("overview" to "概览","details" to "明细","reconcile" to "核对","budgets" to "预算","recurring" to "订阅","intents" to "想买","supplies" to "消耗品","cards" to "次卡"))}
     item{StateContent(overviewState,onRetry){} }
     if(tab=="cards")item{NativeServiceCardsSection(cardsState,selectedCard,cardSubmit,records,onLoadCards,onSearch,onMoreCards,onOpenCard,onCloseCard,onOlderUses,onSaveCard,onCardUse,onResetCard)}
-    if(overview!=null&&tab!="cards")when(tab){
+    if(tab=="reconcile")item{NativeMoneyImportSection(importMonth,importReview,importSubmit,onLoadImportMonth,onOpenImportBatch,onResolveImport)}
+    if(overview!=null&&tab!="cards"&&tab!="reconcile")when(tab){
       "budgets"->item{NativeBudgetSection(overview,planningState,onSaveBudget,onResetPlanning)}
       "recurring"->item{NativeRecurringSection(overview,planningState,onSaveRecurring,onOccurrence,onResetPlanning)}
       "intents"->item{NativeSpendingIntentSection(overview,planningState,records,onSearch,onSaveIntent,onResetPlanning)}
@@ -159,13 +164,20 @@ private fun useCycleLine(item:MoneyUseCycleSummary)=if(item.usageState=="pending
 @Composable private fun MoneyRecordCard(record:RecordSummary,onClick:()->Unit){Surface(Modifier.fillMaxWidth().clickable(role=Role.Button,onClick=onClick),shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surface,border=androidx.compose.foundation.BorderStroke(1.dp,MaterialTheme.colorScheme.outline.copy(alpha=.55f))){Row(Modifier.padding(15.dp),verticalAlignment=Alignment.CenterVertically){Surface(Modifier.size(42.dp),shape=RoundedCornerShape(14.dp),color=(if(record.subtype=="income")MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary).copy(alpha=.13f)){Box(contentAlignment=Alignment.Center){Text(if(record.subtype=="income")"入" else if(record.subtype=="refund")"退" else "支")}};Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(record.title,style=MaterialTheme.typography.titleMedium,maxLines=1,overflow=TextOverflow.Ellipsis);Text(listOfNotNull(record.supporting,statusUi(record.subtype.orEmpty())).joinToString(" · "),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};Text(record.trailing.orEmpty(),style=MaterialTheme.typography.titleMedium,color=if(record.subtype=="income"||record.subtype=="refund")MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)}}}
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun TravelWorkspaceScreen(overviewState:LoadState<WorkspaceOverview>,recordsState:LoadState<RecordPage>,onRetry:()->Unit,onLoadMore:()->Unit,onBack:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onCapture:(CaptureKind)->Unit,initialTab:String="overview",onSelectTrip:(String)->Unit,onVisit:(CaptureSeed)->Unit,submitState:SubmitState,onSaveDay:(TravelDayDraft)->Unit,onReset:()->Unit){
+@Composable fun TravelWorkspaceScreen(overviewState:LoadState<WorkspaceOverview>,recordsState:LoadState<RecordPage>,onRetry:()->Unit,onLoadMore:()->Unit,onBack:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onCapture:(CaptureKind)->Unit,initialTab:String="overview",onSelectTrip:(String)->Unit,onVisit:(CaptureSeed)->Unit,submitState:SubmitState,onSaveDay:(TravelDayDraft)->Unit,onReset:()->Unit,onSaveChecklist:(String,Int?,List<TravelChecklistItemSummary>)->Unit,offlineItinerary:LoadState<NativeOfflineItinerary>?,onPrepareOffline:(String)->Unit){
   var tab by rememberSaveable(initialTab){mutableStateOf(initialTab.takeIf{it in setOf("overview","map","itinerary","places","records") }?:"overview")}
   val value=(overviewState as? LoadState.Ready)?.value as? WorkspaceOverview.Travel
   val trip=value?.tripItems?.firstOrNull{it.id==value.selectedTripId}?:value?.tripItems?.firstOrNull()
   var selectedDate by rememberSaveable{mutableStateOf<String?>(null)}
   var selectedDateTripId by rememberSaveable{mutableStateOf<String?>(null)}
   var editingDay by rememberSaveable(trip?.id){mutableStateOf(false)}
+  var checklistTitle by rememberSaveable(trip?.id){mutableStateOf("")}
+  var exportError by remember{mutableStateOf<String?>(null)}
+  val context=LocalContext.current
+  val exportLauncher=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/html")){uri->
+    val prepared=(offlineItinerary as? LoadState.Ready)?.value
+    if(uri!=null&&prepared!=null&&prepared.tripId==trip?.id)runCatching{context.contentResolver.openOutputStream(uri)?.use{it.write(prepared.html.toByteArray(Charsets.UTF_8))}?:error("无法写入所选文件")}.onFailure{exportError=it.message?:"保存行程单失败"}
+  }
   val days=value?.days.orEmpty().filter{it.tripId==trip?.id}
   val dates=trip?.let{travelDates(it,days)}.orEmpty()
   val date=travelSelectedDate(dates,selectedDate.takeIf{selectedDateTripId==trip?.id},LocalDate.now(java.time.ZoneId.of(trip?.timeZone?:"UTC")).toString())
@@ -182,6 +194,8 @@ private fun useCycleLine(item:MoneyUseCycleSummary)=if(item.usageState=="pending
             if(trip==null)item{EmptyState("先新建旅程，再安排每天的地点")}
             else{
               item{Text(trip.title,style=MaterialTheme.typography.headlineSmall);Text("${trip.startsOn} — ${trip.endsOn} · ${trip.timeZone}",color=MaterialTheme.colorScheme.onSurfaceVariant)}
+              item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){OutlinedButton(onClick={onPrepareOffline(trip.id)}){Text("生成离线行程单")};val prepared=(offlineItinerary as? LoadState.Ready)?.value?.takeIf{it.tripId==trip.id};if(prepared!=null)Button(onClick={exportLauncher.launch(prepared.filename)}){Text("保存到文件")}};Text("保存后的 HTML 可从文件应用离线打开；包含全部日期、可见预订、交通、清单与实际到访。",style=MaterialTheme.typography.bodySmall);if(offlineItinerary is LoadState.Failed)Text(offlineItinerary.message,color=MaterialTheme.colorScheme.error);exportError?.let{Text(it,color=MaterialTheme.colorScheme.error)}}
+              item{LifeCard{Text("旅程清单",style=MaterialTheme.typography.titleLarge);Text("准备事项不等于实际到访",color=MaterialTheme.colorScheme.onSurfaceVariant);value.checklist?.items?.forEach{entry->Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Checkbox(checked=entry.state=="packed",onCheckedChange={checked->onSaveChecklist(trip.id,value.checklist?.revision,value.checklist?.items.orEmpty().map{if(it.id==entry.id)it.copy(state=if(checked)"packed" else "needed") else it})});Text(entry.title,Modifier.weight(1f));TextButton(onClick={onSaveChecklist(trip.id,value.checklist?.revision,value.checklist?.items.orEmpty().filterNot{it.id==entry.id})}){Text("移除")}}};Row(verticalAlignment=Alignment.CenterVertically){OutlinedTextField(checklistTitle,{checklistTitle=it},Modifier.weight(1f),label={Text("准备事项")},singleLine=true);TextButton(enabled=checklistTitle.isNotBlank(),onClick={onSaveChecklist(trip.id,value.checklist?.revision,value.checklist?.items.orEmpty()+TravelChecklistItemSummary("",checklistTitle.trim(),"needed",null));checklistTitle=""}){Text("添加")}};if(submitState is SubmitState.Rejected)Text(submitState.message,color=MaterialTheme.colorScheme.error)}}
               item{TravelDatePicker(dates,date,days,{selectedDate=it;selectedDateTripId=trip.id})}
               item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Button(onClick={selectedDate=date;selectedDateTripId=trip.id;onReset();editingDay=true}){Text(if(day==null)"安排当天" else "调整当天")};OutlinedButton(onClick={onDetail(LifeDomain.Travel,trip.id,trip.title)}){Text("预订与详情")}}}
               val ids=day?.stops.orEmpty().mapNotNull{it.placeId}.toSet()

@@ -582,6 +582,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -685,6 +686,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -1377,6 +1379,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -1480,6 +1483,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -2566,6 +2570,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -2669,6 +2674,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -2971,6 +2977,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -3074,6 +3081,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -3498,6 +3506,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -3601,6 +3610,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -3837,6 +3847,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -3940,6 +3951,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -4279,6 +4291,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -4382,6 +4395,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -4725,6 +4739,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -4828,6 +4843,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -5074,6 +5090,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -5177,6 +5194,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -5601,6 +5619,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -5704,6 +5723,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -6068,6 +6088,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -6171,6 +6192,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -6659,6 +6681,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -6762,6 +6785,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -6999,6 +7023,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -7102,6 +7127,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -7343,6 +7369,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -7446,6 +7473,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -7876,6 +7904,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -7979,6 +8008,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -8465,6 +8495,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -8568,6 +8599,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -8920,6 +8952,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -9023,6 +9056,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -9525,6 +9559,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -9628,6 +9663,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -9928,6 +9964,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -10031,6 +10068,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -10459,6 +10497,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -10562,6 +10601,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -10932,6 +10972,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -11035,6 +11076,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -11387,6 +11429,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -11490,6 +11533,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -11726,6 +11770,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -11829,6 +11874,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -12095,6 +12141,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -12198,6 +12245,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -12620,6 +12668,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -12723,6 +12772,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -13035,6 +13085,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -13138,6 +13189,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -13487,6 +13539,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -13590,6 +13643,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -13886,6 +13940,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -13989,6 +14044,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -14573,6 +14629,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -14676,6 +14733,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -15104,6 +15162,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -15207,6 +15266,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -15569,6 +15629,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -15672,6 +15733,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -15928,6 +15990,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -16031,6 +16094,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -16483,6 +16547,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -16586,6 +16651,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -16916,6 +16982,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -17019,6 +17086,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -17421,6 +17489,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -17524,6 +17593,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -17866,6 +17936,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -17969,6 +18040,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -18343,6 +18415,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -18446,6 +18519,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -18872,6 +18946,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -18975,6 +19050,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -19547,6 +19623,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -19650,6 +19727,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -19940,6 +20018,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -20043,6 +20122,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -20493,6 +20573,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -20596,6 +20677,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -20856,6 +20938,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -20959,6 +21042,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -21253,6 +21337,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -21356,6 +21441,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -21926,6 +22012,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -22029,6 +22116,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -22508,6 +22596,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -22611,6 +22700,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -22847,6 +22937,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -22950,6 +23041,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -23369,6 +23461,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -23472,6 +23565,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -23871,6 +23965,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -23974,6 +24069,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -24268,6 +24364,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -24371,6 +24468,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -24677,6 +24775,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -24780,6 +24879,418 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
+                    "trip_member",
+                    "trip_plan_version",
+                    "trip_run",
+                    "trip_stop_outcome",
+                    "library_item",
+                    "library_annotation",
+                    "library_derivation",
+                    "library_processing_job",
+                    "library_reading_state",
+                    "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
+                    "notification_installation",
+                    "notification_delivery",
+                    "owned_item",
+                    "owned_item_event",
+                    "life_review",
+                    "life_project",
+                    "action_item",
+                    "meal_plan",
+                    "shopping_list",
+                    "shopping_list_item",
+                    "food_stock_lot",
+                    "money_fx_snapshot",
+                    "shared_expense_allocation",
+                    "source",
+                    "thread",
+                    "run",
+                    "task"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "revision": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "revision"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "actual_values": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "replayed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "protocol",
+          "capability",
+          "command_id",
+          "execution_id",
+          "status",
+          "result_kind",
+          "resources",
+          "actual_values",
+          "warnings",
+          "replayed"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "travel.set_checklist": {
+      "name": "travel.set_checklist",
+      "description": "按版本维护旅程清单，计划状态与实际到访独立。",
+      "possible_effects": [
+        "travel.trip.write"
+      ],
+      "idempotency": "required",
+      "status_query": "operations.get",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "trip_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "items": {
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "needed",
+                    "packed",
+                    "skipped"
+                  ]
+                },
+                "note": {
+                  "type": "string",
+                  "maxLength": 1000
+                }
+              },
+              "required": [
+                "title",
+                "state"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "trip_id",
+          "items",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "command_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "const": "shadow.command"
+          },
+          "capability": {
+            "type": "string",
+            "const": "travel.set_checklist"
+          },
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
+          },
+          "input": {
+            "type": "object",
+            "properties": {
+              "trip_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{7,127}$"
+              },
+              "expected_revision": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "items": {
+                "maxItems": 200,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                    },
+                    "title": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "needed",
+                        "packed",
+                        "skipped"
+                      ]
+                    },
+                    "note": {
+                      "type": "string",
+                      "maxLength": 1000
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "state"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "required": [
+              "trip_id",
+              "items",
+              "reason"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "protocol",
+          "capability",
+          "command_id",
+          "input"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "const": "shadow.execution-result"
+          },
+          "capability": {
+            "type": "string",
+            "enum": [
+              "life.record_meal",
+              "life.record_dining",
+              "life.correct_meal",
+              "life.add_intake",
+              "life.remove_intake",
+              "life.add_meal_payment",
+              "life.attach_meal_source",
+              "life.set_personal_alias",
+              "life.record_purchase",
+              "life.correct_intake",
+              "life.correct_purchase",
+              "life.update_purchase_items",
+              "life.void_purchase",
+              "life.link_meal_consumption",
+              "life.save_meal_template",
+              "life.record_meal_from_template",
+              "life.save_food",
+              "life.save_recipe",
+              "life.record_meal_from_recipe",
+              "money.record_entry",
+              "money.record_refund",
+              "money.correct_entry",
+              "money.void_entry",
+              "money.set_budget",
+              "money.set_recurring_plan",
+              "money.set_spending_intent",
+              "money.set_use_cycle",
+              "money.record_consumable_use",
+              "money.save_service_card",
+              "money.record_service_card_use",
+              "money.set_occurrence_state",
+              "money.stage_import",
+              "money.resolve_import_candidate",
+              "money.set_import_rule",
+              "health.record_measurement",
+              "health.correct_measurement",
+              "health.record_workout",
+              "health.ingest_raw",
+              "health.ingest_batch",
+              "health.set_source_state",
+              "health.set_plan",
+              "travel.create_trip",
+              "travel.correct_trip",
+              "travel.add_reservation",
+              "travel.correct_reservation",
+              "travel.void_reservation",
+              "travel.record_segment",
+              "travel.record_visit",
+              "travel.save_place",
+              "travel.set_day_plan",
+              "travel.set_checklist",
+              "travel.set_member",
+              "travel.publish_plan",
+              "travel.start_run",
+              "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
+              "travel.restore_bundle",
+              "library.capture",
+              "library.revise",
+              "library.annotate",
+              "library.register_derivation",
+              "library.queue_processing",
+              "library.retry_processing",
+              "library.claim_processing",
+              "library.renew_processing",
+              "library.fail_processing",
+              "library.complete_processing",
+              "library.set_reading_state",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update",
+              "notifications.register_device",
+              "notifications.set_delivery_state",
+              "life.save_owned_item",
+              "life.record_owned_item_event",
+              "life.generate_review",
+              "life.save_project",
+              "life.save_action_item",
+              "life.save_meal_plan",
+              "life.set_food_stock",
+              "life.build_shopping_list",
+              "life.update_shopping_item",
+              "money.record_foreign_entry",
+              "money.update_shared_allocation"
+            ]
+          },
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
+          },
+          "execution_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "status": {
+            "type": "string",
+            "const": "committed"
+          },
+          "result_kind": {
+            "type": "string",
+            "enum": [
+              "record",
+              "plan",
+              "task"
+            ]
+          },
+          "resources": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "meal",
+                    "meal_template",
+                    "food",
+                    "recipe",
+                    "personal_alias",
+                    "intake_item",
+                    "consumption_record",
+                    "purchase",
+                    "purchase_item",
+                    "money_entry",
+                    "refund",
+                    "budget",
+                    "recurring_plan",
+                    "recurring_occurrence",
+                    "spending_intent",
+                    "use_cycle",
+                    "service_card",
+                    "service_card_use",
+                    "consumable_use",
+                    "money_import_batch",
+                    "money_import_candidate",
+                    "money_import_rule",
+                    "health_measurement",
+                    "health_workout_session",
+                    "health_raw",
+                    "health_sync_cursor",
+                    "health_plan",
+                    "trip",
+                    "trip_segment",
+                    "reservation",
+                    "visit",
+                    "place",
+                    "travel_map",
+                    "trip_track",
+                    "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -25034,6 +25545,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -25137,6 +25649,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -25369,6 +25882,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -25472,6 +25986,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -25692,6 +26207,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -25795,6 +26311,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -26063,6 +26580,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -26166,6 +26684,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -26502,6 +27021,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -26605,6 +27125,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -26839,6 +27360,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -26942,6 +27464,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -27166,6 +27689,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -27269,6 +27793,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -27642,6 +28167,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -27745,6 +28271,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -27881,6 +28408,34 @@
               "maxLength": 64
             }
           },
+          "document_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_processing_job_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
           "reason": {
             "type": "string",
             "minLength": 1,
@@ -27949,6 +28504,34 @@
                   "minLength": 1,
                   "maxLength": 64
                 }
+              },
+              "document_date": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "category": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "source_processing_job_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{7,127}$"
               },
               "reason": {
                 "type": "string",
@@ -28035,6 +28618,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -28138,6 +28722,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -28436,6 +29021,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -28539,6 +29125,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -28795,6 +29382,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -28898,6 +29486,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -29013,7 +29602,8 @@
             "enum": [
               "text_extract",
               "ocr",
-              "transcript"
+              "transcript",
+              "vision"
             ]
           },
           "requested_processor": {
@@ -29063,7 +29653,8 @@
                 "enum": [
                   "text_extract",
                   "ocr",
-                  "transcript"
+                  "transcript",
+                  "vision"
                 ]
               },
               "requested_processor": {
@@ -29150,6 +29741,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -29253,6 +29845,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -29465,6 +30058,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -29568,6 +30162,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -29792,6 +30387,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -29895,6 +30491,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -30119,6 +30716,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -30222,6 +30820,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -30458,6 +31057,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -30561,6 +31161,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -30703,6 +31304,89 @@
               ],
               "additionalProperties": false
             }
+          },
+          "suggestion": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "document_date": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "category": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "summary": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 5000
+              },
+              "content": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 30000
+              },
+              "locators": {
+                "maxItems": 50,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "page": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 8
+                    },
+                    "quote": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 300
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "page",
+                    "quote"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "title",
+              "document_date",
+              "category",
+              "summary",
+              "content",
+              "locators"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -30807,6 +31491,89 @@
                   ],
                   "additionalProperties": false
                 }
+              },
+              "suggestion": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "document_date": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "category": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "summary": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 5000
+                  },
+                  "content": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 30000
+                  },
+                  "locators": {
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "page": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 8
+                        },
+                        "quote": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 300
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "page",
+                        "quote"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "title",
+                  "document_date",
+                  "category",
+                  "summary",
+                  "content",
+                  "locators"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [
@@ -30921,6 +31688,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -31024,6 +31792,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -31350,6 +32119,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -31453,6 +32223,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -31778,6 +32549,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -31881,6 +32653,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -32093,6 +32866,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -32196,6 +32970,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -32635,6 +33410,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -32738,6 +33514,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -32976,6 +33753,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -33079,6 +33857,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -33323,6 +34102,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -33426,6 +34206,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -33676,6 +34457,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -33779,6 +34561,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -34047,6 +34830,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -34150,6 +34934,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -34640,6 +35425,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -34743,6 +35529,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -35067,6 +35854,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -35170,6 +35958,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -35477,6 +36266,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -35580,6 +36370,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -36092,6 +36883,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -36195,6 +36987,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -36547,6 +37340,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -36650,6 +37444,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -37053,6 +37848,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -37156,6 +37952,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -37456,6 +38253,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -37559,6 +38357,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -37853,6 +38652,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -37956,6 +38756,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -38207,6 +39008,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -38310,6 +39112,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -38833,6 +39636,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -38936,6 +39740,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -39188,6 +39993,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -39291,6 +40097,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -40593,7 +41400,9 @@
                     "money",
                     "health",
                     "travel",
-                    "library"
+                    "library",
+                    "items",
+                    "plans"
                   ]
                 },
                 "kind": {
@@ -40607,6 +41416,11 @@
                   "type": "string",
                   "format": "date-time",
                   "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                },
+                "happened_on": {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
                 },
                 "title": {
                   "type": "string"
@@ -40649,6 +41463,410 @@
         "required": [
           "items",
           "next_cursor",
+          "as_of"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "life.day": {
+      "name": "life.day",
+      "description": "按用户本地日期分页读取授权的跨领域真实记录和计数。",
+      "possible_effects": [
+        "life.meal.read",
+        "money.entry.read",
+        "health.measurement.read",
+        "travel.trip.read",
+        "library.item.read",
+        "life.item.read",
+        "life.project.read"
+      ],
+      "idempotency": "not-applicable",
+      "status_query": "operations.get",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "time_zone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "limit": {
+            "default": 30,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "cursor": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "date",
+          "time_zone",
+          "limit"
+        ],
+        "additionalProperties": false
+      },
+      "command_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "time_zone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "limit": {
+            "default": 30,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "cursor": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "date",
+          "time_zone",
+          "limit"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "time_zone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "authorized_domains": {
+            "maxItems": 7,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "meals",
+                "money",
+                "health",
+                "travel",
+                "library",
+                "items",
+                "plans"
+              ]
+            }
+          },
+          "items": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "domain": {
+                  "type": "string",
+                  "enum": [
+                    "meals",
+                    "money",
+                    "health",
+                    "travel",
+                    "library",
+                    "items",
+                    "plans"
+                  ]
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "happened_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                },
+                "happened_on": {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "string",
+                  "pattern": "^(?:0|[1-9]\\d{0,17})(?:\\.\\d{1,6})?$"
+                },
+                "currency": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{3}$"
+                },
+                "record_id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "related": {
+                  "maxItems": 20,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "domain": {
+                        "type": "string",
+                        "enum": [
+                          "meals",
+                          "money",
+                          "travel",
+                          "library",
+                          "items"
+                        ]
+                      },
+                      "kind": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                      },
+                      "title": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "domain",
+                      "kind",
+                      "id",
+                      "title"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "domain",
+                "kind",
+                "id",
+                "happened_at",
+                "title",
+                "related"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+          }
+        },
+        "required": [
+          "date",
+          "time_zone",
+          "authorized_domains",
+          "items",
+          "total",
+          "next_cursor",
+          "as_of"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "life.memories": {
+      "name": "life.memories",
+      "description": "从过去五年当日的授权原始记录生成有来源的确定性回忆。",
+      "possible_effects": [
+        "life.meal.read",
+        "money.entry.read",
+        "health.measurement.read",
+        "travel.trip.read",
+        "library.item.read",
+        "life.item.read",
+        "life.project.read"
+      ],
+      "idempotency": "not-applicable",
+      "status_query": "operations.get",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "time_zone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "date",
+          "time_zone"
+        ],
+        "additionalProperties": false
+      },
+      "command_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "time_zone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "date",
+          "time_zone"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "time_zone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "authorized_domains": {
+            "maxItems": 7,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "meals",
+                "money",
+                "health",
+                "travel",
+                "library",
+                "items",
+                "plans"
+              ]
+            }
+          },
+          "items": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "domain": {
+                  "type": "string",
+                  "enum": [
+                    "meals",
+                    "money",
+                    "health",
+                    "travel",
+                    "library",
+                    "items",
+                    "plans"
+                  ]
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "happened_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                },
+                "happened_on": {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "string",
+                  "pattern": "^(?:0|[1-9]\\d{0,17})(?:\\.\\d{1,6})?$"
+                },
+                "currency": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{3}$"
+                },
+                "record_id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "years_ago": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 5
+                }
+              },
+              "required": [
+                "domain",
+                "kind",
+                "id",
+                "happened_at",
+                "title",
+                "years_ago"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+          }
+        },
+        "required": [
+          "date",
+          "time_zone",
+          "authorized_domains",
+          "items",
           "as_of"
         ],
         "additionalProperties": false
@@ -48652,6 +49870,161 @@
         "additionalProperties": false
       }
     },
+    "money.import_month": {
+      "name": "money.import_month",
+      "description": "按账单候选发生月读取批次和未确认、重复、未分类、退款待关联数量。",
+      "possible_effects": [
+        "money.entry.read"
+      ],
+      "idempotency": "not-applicable",
+      "status_query": "operations.get",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "period": {
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+          }
+        },
+        "required": [
+          "period"
+        ],
+        "additionalProperties": false
+      },
+      "command_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "period": {
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+          }
+        },
+        "required": [
+          "period"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "period": {
+            "type": "string"
+          },
+          "batches": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "source_name": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "review",
+                    "completed"
+                  ]
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                },
+                "total": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "unconfirmed": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "duplicates": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "uncategorized": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "refunds_unlinked": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "id",
+                "source_name",
+                "status",
+                "created_at",
+                "total",
+                "unconfirmed",
+                "duplicates",
+                "uncategorized",
+                "refunds_unlinked"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "unconfirmed": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "duplicates": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "uncategorized": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "refunds_unlinked": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "unconfirmed",
+              "duplicates",
+              "uncategorized",
+              "refunds_unlinked"
+            ],
+            "additionalProperties": false
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+          }
+        },
+        "required": [
+          "period",
+          "batches",
+          "totals",
+          "as_of"
+        ],
+        "additionalProperties": false
+      }
+    },
     "health.daily": {
       "name": "health.daily",
       "description": "读取指定日期可追溯的健康日汇总。",
@@ -51185,6 +52558,75 @@
               }
             ]
           },
+          "checklist": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                  },
+                  "trip_id": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "items": {
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "needed",
+                            "packed",
+                            "skipped"
+                          ]
+                        },
+                        "note": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "title",
+                        "state",
+                        "note"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "id",
+                  "trip_id",
+                  "revision",
+                  "items"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "active_run": {
             "anyOf": [
               {
@@ -51641,6 +53083,7 @@
           "visits",
           "trips",
           "selected_trip_id",
+          "checklist",
           "active_run",
           "tracks",
           "day_plans",
@@ -52296,6 +53739,35 @@
                     "type": "string"
                   }
                 },
+                "document_date": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "category": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "source_processing_job_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "reason": {
                   "type": [
                     "string",
@@ -52314,6 +53786,9 @@
                 "text",
                 "url",
                 "tags",
+                "document_date",
+                "category",
+                "source_processing_job_id",
                 "reason",
                 "created_at"
               ],
@@ -52614,7 +54089,8 @@
                   "enum": [
                     "text_extract",
                     "ocr",
-                    "transcript"
+                    "transcript",
+                    "vision"
                   ]
                 },
                 "requested_processor": {
@@ -52649,6 +54125,96 @@
                   "type": [
                     "string",
                     "null"
+                  ]
+                },
+                "suggestion": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "title": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 300
+                        },
+                        "document_date": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "category": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 80
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "summary": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 5000
+                        },
+                        "content": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 30000
+                        },
+                        "locators": {
+                          "maxItems": 50,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "page": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 8
+                              },
+                              "quote": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 300
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "page",
+                              "quote"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "title",
+                        "document_date",
+                        "category",
+                        "summary",
+                        "content",
+                        "locators"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 },
                 "last_error": {
@@ -52714,6 +54280,7 @@
                 "attempts",
                 "derived_asset_version_id",
                 "processor_version",
+                "suggestion",
                 "last_error",
                 "started_at",
                 "finished_at",
@@ -53053,7 +54620,8 @@
             "enum": [
               "text_extract",
               "ocr",
-              "transcript"
+              "transcript",
+              "vision"
             ]
           },
           "limit": {
@@ -53077,7 +54645,8 @@
             "enum": [
               "text_extract",
               "ocr",
-              "transcript"
+              "transcript",
+              "vision"
             ]
           },
           "limit": {
@@ -53119,7 +54688,8 @@
                   "enum": [
                     "text_extract",
                     "ocr",
-                    "transcript"
+                    "transcript",
+                    "vision"
                   ]
                 },
                 "requested_processor": {
@@ -55963,6 +57533,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -56066,6 +57637,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",
@@ -56253,6 +57825,7 @@
               "travel.record_visit",
               "travel.save_place",
               "travel.set_day_plan",
+              "travel.set_checklist",
               "travel.set_member",
               "travel.publish_plan",
               "travel.start_run",
@@ -56356,6 +57929,7 @@
                     "travel_map",
                     "trip_track",
                     "trip_day_plan",
+                    "trip_checklist",
                     "trip_member",
                     "trip_plan_version",
                     "trip_run",

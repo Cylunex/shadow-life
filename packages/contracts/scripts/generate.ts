@@ -1,4 +1,5 @@
 import { serviceCardsResultSchema } from "../src/schemas.js";
+import { lifeDayResultSchema, lifeMemoriesResultSchema } from "../src/schemas.js";
 import { healthSleepInsightsResultSchema } from "../src/schemas.js";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -99,6 +100,8 @@ defineObject(z.toJSONSchema(planningAgendaResultSchema) as JsonSchema, "Planning
 defineObject(z.toJSONSchema(notificationsResultSchema) as JsonSchema, "NotificationsResultDto");
 defineObject(z.toJSONSchema(lifeTodayResultSchema) as JsonSchema, "LifeTodayResultDto");
 defineObject(z.toJSONSchema(lifeTimelineResultSchema) as JsonSchema, "LifeTimelineResultDto");
+defineObject(z.toJSONSchema(lifeDayResultSchema) as JsonSchema, "LifeDayResultDto");
+defineObject(z.toJSONSchema(lifeMemoriesResultSchema) as JsonSchema, "LifeMemoriesResultDto");
 defineObject(z.toJSONSchema(lifeSearchResultSchema) as JsonSchema, "LifeSearchResultDto");
 defineObject(z.toJSONSchema(consumptionStatsResultSchema) as JsonSchema, "ConsumptionStatsResultDto");
 defineObject(z.toJSONSchema(listMealsResultSchema) as JsonSchema, "ListMealsResultDto");

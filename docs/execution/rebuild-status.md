@@ -1,9 +1,18 @@
 # Rebuild status
 
+## 2026-09-24: integrated day view and same-day memories
+
+- The daily domains and Money/Travel/Library workspaces are merged. A bounded `life.day` read now counts and pages visible facts across domains by a selected local date; `life.memories` reads actual records from the same date in the preceding five years. Existing explicit cross-domain links open their sources in Web and Android.
+- Library vision output now becomes a normal revisable source-linked revision when the initial record has not been edited. It does not create Money or Health facts. See [integration delivery](life-integrated-experience-2026-09-24.md) for semantics, references, validation and limits.
+
 ## 2026-09-24: daily domains strengthening
 
 - Health progression uses only comparable executed sessions; missing evidence produces no next target. Recipe source import has local preview and explicit save, while food stock is manually versioned with expiry and conservative shopping gaps. Owned items gain structured locations and authenticated QR links. Project actions gain optional local-day times and browser draft recovery. Web and Android have usable entries.
 - See [daily domains delivery](daily-domains-2026-09-24.md) for semantics, validation, reference projects and device/external limits. No deployment or signed APK is part of this batch.
+
+## 2026-09-24: Money / Travel / Library record workspaces
+
+Monthly Money import reconciliation, versioned Travel checklists with downloadable offline itineraries, and Library vision processing are implemented for Web and Android. The Library processor is verified with a local stub; no real visual model endpoint or production content was used. See [delivery details](money-travel-library-records-2026-09-24.md).
 
 ## 2026-09-24: Travel planning assist
 

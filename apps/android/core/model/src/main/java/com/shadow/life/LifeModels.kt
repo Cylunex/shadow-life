@@ -79,6 +79,9 @@ data class TodayHealthSummary(
 data class MoneyTotal(val currency:String,val netSpending:String,val income:String)
 data class TimelineItem(val domain:LifeDomain,val kind:String,val id:String,val happenedAt:String,val title:String,val amount:String?=null,val currency:String?=null,val recordId:String?=null)
 data class TimelinePage(val items:List<TimelineItem>,val nextCursor:String?,val asOf:String)
+data class DayRelated(val domain:String,val kind:String,val id:String,val title:String)
+data class DayEntry(val domain:String,val kind:String,val id:String,val recordId:String?,val date:String,val title:String,val amount:String?,val currency:String?,val yearsAgo:Int=0,val related:List<DayRelated> = emptyList())
+data class DayPage(val date:String,val items:List<DayEntry>,val total:Int,val nextCursor:String?,val asOf:String,val authorizedDomains:List<String>)
 data class MealFoodSummary(
   val name:String,val quantity:String?=null,val unit:String?=null,
   val energyKcal:String?=null,val proteinG:String?=null,val fatG:String?=null,val carbG:String?=null,
@@ -115,6 +118,8 @@ data class TravelMapSummary(val id:String,val title:String,val description:Strin
 data class TravelTripSummary(val id:String,val title:String,val startsOn:String,val endsOn:String,val timeZone:String,val visibility:String?,val active:Boolean)
 data class TravelStopSummary(val id:String,val title:String,val startsAt:String?,val placeId:String?,val note:String?)
 data class TravelDaySummary(val id:String,val tripId:String,val date:String,val stops:List<TravelStopSummary>,val revision:Int?=null)
+data class TravelChecklistItemSummary(val id:String,val title:String,val state:String,val note:String?)
+data class TravelChecklistSummary(val revision:Int,val items:List<TravelChecklistItemSummary>)
 data class TravelTrackPoint(val latitude:Double,val longitude:Double)
 data class TravelTrackSummary(val id:String,val tripId:String,val name:String,val points:List<TravelTrackPoint>)
 data class TravelSegmentSummary(val id:String,val tripId:String,val mode:String,val origin:String,val destination:String,val startsAt:String?,val distanceKm:String?)
@@ -138,12 +143,16 @@ sealed interface WorkspaceOverview { val asOf:String
     val trips:Int,val places:Int,val maps:Int,val activeRun:Boolean,
     val tripItems:List<TravelTripSummary> = emptyList(),val placeItems:List<TravelPlaceSummary> = emptyList(),val visitItems:List<TravelVisitSummary> = emptyList(),val mapItems:List<TravelMapSummary> = emptyList(),
     val days:List<TravelDaySummary> = emptyList(),val tracks:List<TravelTrackSummary> = emptyList(),val segments:List<TravelSegmentSummary> = emptyList(),
-    val selectedTripId:String?=null,override val asOf:String
+    val selectedTripId:String?=null,override val asOf:String,val checklist:TravelChecklistSummary?=null
   ):WorkspaceOverview
   data class Library(val visibleItems:Int,override val asOf:String):WorkspaceOverview
 }
 data class HealthProgression(val id:String,val title:String,val status:String,val reason:String,val nextDurationMinutes:Int?,val evidence:List<String>)
 data class BudgetProgress(val title:String,val amount:String,val currency:String,val spent:String)
+data class MoneyImportBatchSummary(val id:String,val name:String,val total:Int,val unconfirmed:Int,val duplicates:Int,val uncategorized:Int,val refundsUnlinked:Int)
+data class MoneyImportMonthSummary(val period:String,val unconfirmed:Int,val duplicates:Int,val uncategorized:Int,val refundsUnlinked:Int,val batches:List<MoneyImportBatchSummary>)
+data class MoneyImportCandidateSummary(val id:String,val revision:Int,val position:Int,val status:String,val raw:String,val entryType:String,val amount:String,val occurredOn:String,val timeZone:String,val counterparty:String,val category:String,val duplicateOf:String?,val appliedRules:List<String>)
+data class MoneyImportReviewSummary(val batchId:String,val candidates:List<MoneyImportCandidateSummary>,val rules:Map<String,String>)
 data class ProjectMilestone(val id:String,val title:String,val dueOn:String?,val state:String,val position:Int)
 data class ProjectAction(val id:String,val title:String,val dueOn:String?,val state:String,val revision:Int,val sourceState:String?,val scheduledAt:String?=null,val scheduledTimeZone:String?=null)
 data class PlanningLink(val kind:String,val id:String,val revision:Int,val role:String,val title:String?=null)
@@ -188,13 +197,14 @@ sealed interface EditSeed { val domain:LifeDomain;val detailId:String
   data class Money(override val detailId:String,val revision:Int,val amount:String,val currency:String,val occurredOn:String,val timeZone:String,val category:String?,val counterparty:String?,val note:String?):EditSeed{override val domain=LifeDomain.Money}
   data class Health(override val detailId:String,val revision:Int,val metric:String,val value:String,val unit:String,val occurredOn:String,val timeZone:String,val label:String?,val note:String?):EditSeed{override val domain=LifeDomain.Health}
   data class Trip(override val detailId:String,val revision:Int,val title:String,val startsOn:String,val endsOn:String,val timeZone:String,val note:String?):EditSeed{override val domain=LifeDomain.Travel}
-  data class Library(override val detailId:String,val revision:Int,val title:String,val text:String?,val url:String?,val tags:List<String>):EditSeed{override val domain=LifeDomain.Library}
+  data class Library(override val detailId:String,val revision:Int,val title:String,val text:String?,val url:String?,val tags:List<String>,val documentDate:String?=null,val category:String?=null,val sourceProcessingJobId:String?=null):EditSeed{override val domain=LifeDomain.Library}
 }
 data class CorrectionDraft(val primary:String,val secondary:String,val note:String,val date:String,val option:String,val reason:String)
 enum class DetailPresentation { Generic, Meal, Money, HealthMetric, Workout, Sleep, Activity, Habit, Travel, Library }
 data class RecordDetail(
   val title:String,val state:String?,val revision:Int?,val sections:List<DetailSection>,val editSeed:EditSeed?=null,val actions:List<DetailAction> = emptyList(),
-  val presentation:DetailPresentation=DetailPresentation.Generic,val heroValue:String?=null,val heroSupporting:String?=null,val travelSchedule:TravelDetailSchedule?=null
+  val presentation:DetailPresentation=DetailPresentation.Generic,val heroValue:String?=null,val heroSupporting:String?=null,val travelSchedule:TravelDetailSchedule?=null,
+  val libraryVisionSourceAssetId:String?=null,val libraryVisionRetryJobId:String?=null
 )
 
 @Serializable data object TodayRoute

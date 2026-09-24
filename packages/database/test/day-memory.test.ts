@@ -1,0 +1,33 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { mealInput, pgOnly, reviewFixture } from "./review-fixture.js";
+
+test("day and memories page the same authorized facts by local date",pgOnly,async t=>{
+  const f=await reviewFixture(t);
+  for(let index=0;index<3;index++)await f.run("life.record_meal",{...mealInput,note:`合成餐次 ${index}`,occurred_on:"2025-09-10"});
+  const item=await f.run("life.save_owned_item",{name:"相机",ownership_state:"owned",started_on:"2025-09-10",documents:[]});
+  const first=await f.queries.lifeDay(f.context,{date:"2025-09-10",time_zone:"Asia/Shanghai",limit:2});
+  assert.equal(first.total,4);assert.equal(first.items.length,2);assert.ok(first.next_cursor);
+  const second=await f.queries.lifeDay(f.context,{date:"2025-09-10",time_zone:"Asia/Shanghai",limit:2,cursor:first.next_cursor});
+  assert.equal(second.items.length,2);assert.deepEqual(new Set([...first.items,...second.items].map(value=>value.id)).size,4);
+  assert.equal([...first.items,...second.items].some(value=>value.id===item.actual_values.owned_item_id),true);
+  const cropped=await f.queries.lifeDay({...f.context,effects:new Set(["life.meal.read"])},{date:"2025-09-10",time_zone:"Asia/Shanghai",limit:10});
+  assert.equal(cropped.total,3);assert.equal(cropped.items.every(value=>value.domain==="meals"),true);
+  const memories=await f.queries.lifeMemories(f.context,{date:"2026-09-10",time_zone:"Asia/Shanghai"});
+  assert.equal(memories.items.length,4);assert.equal(memories.items.every(value=>value.years_ago===1),true);
+  const empty=await f.queries.lifeMemories(f.context,{date:"2026-09-11",time_zone:"Asia/Shanghai"});
+  assert.deepEqual(empty.items,[]);
+  const linkedMeal=await f.run("life.record_meal",{...mealInput,occurred_on:"2025-09-12",payment:{amount:"20.00",currency:"CNY",occurred_on:"2025-09-12",time_zone:"Asia/Shanghai"}});
+  const linked=await f.queries.lifeDay(f.context,{date:"2025-09-12",time_zone:"Asia/Shanghai",limit:10});
+  const mealRow=linked.items.find(value=>value.id===linkedMeal.actual_values.meal_id);
+  assert.equal(mealRow?.related[0]?.domain,"money");
+  assert.equal(linked.items.find(value=>value.id===mealRow?.related[0]?.id)?.related[0]?.id,linkedMeal.actual_values.meal_id);
+  const hiddenMoney=await f.queries.lifeDay({...f.context,effects:new Set(["life.meal.read"])},{date:"2025-09-12",time_zone:"Asia/Shanghai",limit:10});
+  assert.equal(hiddenMoney.items[0]?.related.length,0);
+  const timed=await f.run("life.record_meal",{...mealInput,occurred_on:"2025-09-11",occurred_at:"2025-09-10T23:30:00Z"});
+  const inUtc=await f.queries.lifeDay(f.context,{date:"2025-09-10",time_zone:"UTC",limit:20});
+  const inShanghai=await f.queries.lifeDay(f.context,{date:"2025-09-11",time_zone:"Asia/Shanghai",limit:20});
+  assert.equal(inUtc.items.some(value=>value.id===timed.actual_values.meal_id),true);
+  assert.equal(inShanghai.items.some(value=>value.id===timed.actual_values.meal_id),true);
+  await assert.rejects(()=>f.queries.lifeDay(f.context,{date:"2025-09-10",time_zone:"Asia/Shanghai",limit:2,cursor:first.next_cursor?.slice(0,-1)+"x"}),/cursor/u);
+});

@@ -54,13 +54,15 @@ export interface TransactionStore {
   healthSources(subjectId:string):Promise<unknown>;
   lifeToday(subjectId:string,date:string,timeZone:string,domains:readonly LifeOverviewDomain[]):Promise<unknown>;
   dailyRecordCheck(subjectId:string,date:string,timeZone:string):Promise<DailyRecordCheckRawData>;
-  lifeTimeline(subjectId:string,domains:readonly LifeOverviewDomain[],options:{includePurchase?:boolean;limit:number;asOf?:string;before?:{at:string;domain:LifeOverviewDomain;kind:string;id:string}}):Promise<{items:readonly LifeTimelineItem[];hasMore:boolean;asOf:string}>;
+  lifeTimeline(subjectId:string,domains:readonly LifeOverviewDomain[],options:{includePurchase?:boolean;includeItems?:boolean;includePlans?:boolean;date?:string;timeZone?:string;limit:number;asOf?:string;before?:{at:string;domain:string;kind:string;id:string}}):Promise<{items:readonly LifeTimelineItem[];hasMore:boolean;asOf:string;total:number}>;
+  lifeDayLinks(subjectId:string,items:readonly LifeTimelineItem[],effects:ReadonlySet<string>):Promise<Record<string,Array<{domain:"meals"|"money"|"travel"|"library"|"items";kind:string;id:string;title:string}>>>;
   lifeSearch(subjectId:string,domains:readonly LifeOverviewDomain[],options:{includePurchase?:boolean;query:string;fromOn?:string;toOnExclusive?:string;limit:number;asOf?:string;before?:{on:string;domain:LifeOverviewDomain;kind:string;id:string}}):Promise<{items:readonly import("@shadow/contracts").LifeSearchItem[];hasMore:boolean;asOf:string}>;
   consumptionStatsData(subjectId:string,input:{fromOn:string;toOnExclusive:string;timeZone:string;includeMoney:boolean}):Promise<import("./consumption-stats.js").ConsumptionStatsRawData>;
   lifeRecord(subjectId:string,id:string,sections:readonly ("meal"|"purchase"|"money"|"sources")[],includeTravel?:boolean):Promise<unknown|undefined>;
   moneyPlanning(subjectId:string,period:string):Promise<unknown>;
   serviceCards(subjectId:string,input:import("@shadow/contracts").ServiceCardsInput):Promise<unknown>;
   moneyImportReview(subjectId:string,batchId:string):Promise<unknown|undefined>;
+  moneyImportMonth(subjectId:string,period:string):Promise<unknown>;
   healthDaily(subjectId:string,date:string):Promise<unknown|undefined>;
   healthSleepNights(subjectId:string,from:string,to:string):Promise<import("./sleep-insights.js").SleepInsightNight[]>;
   healthRecord(subjectId:string,id:string):Promise<unknown|undefined>;

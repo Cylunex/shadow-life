@@ -303,7 +303,9 @@ enum class LifeTimelineResultDtoItemsEntryDomain(val wireValue: String) {
   @SerialName("money") Money("money"),
   @SerialName("health") Health("health"),
   @SerialName("travel") Travel("travel"),
-  @SerialName("library") Library("library")
+  @SerialName("library") Library("library"),
+  @SerialName("items") Items("items"),
+  @SerialName("plans") Plans("plans")
 }
 
 @Serializable
@@ -312,6 +314,7 @@ data class LifeTimelineResultDtoItemsEntry(
   @SerialName("kind") val kind: String,
   @SerialName("id") val id: String,
   @SerialName("happened_at") val happenedAt: String,
+  @SerialName("happened_on") val happenedOn: String? = null,
   @SerialName("title") val title: String,
   @SerialName("amount") val amount: String? = null,
   @SerialName("currency") val currency: String? = null,
@@ -322,6 +325,115 @@ data class LifeTimelineResultDtoItemsEntry(
 data class LifeTimelineResultDto(
   @SerialName("items") val items: List<LifeTimelineResultDtoItemsEntry>,
   @SerialName("next_cursor") val nextCursor: String?,
+  @SerialName("as_of") val asOf: String
+)
+
+@Serializable
+enum class LifeDayResultDtoAuthorizedDomainsEntry(val wireValue: String) {
+  @SerialName("meals") Meals("meals"),
+  @SerialName("money") Money("money"),
+  @SerialName("health") Health("health"),
+  @SerialName("travel") Travel("travel"),
+  @SerialName("library") Library("library"),
+  @SerialName("items") Items("items"),
+  @SerialName("plans") Plans("plans")
+}
+
+@Serializable
+enum class LifeDayResultDtoItemsEntryDomain(val wireValue: String) {
+  @SerialName("meals") Meals("meals"),
+  @SerialName("money") Money("money"),
+  @SerialName("health") Health("health"),
+  @SerialName("travel") Travel("travel"),
+  @SerialName("library") Library("library"),
+  @SerialName("items") Items("items"),
+  @SerialName("plans") Plans("plans")
+}
+
+@Serializable
+enum class LifeDayResultDtoItemsEntryRelatedEntryDomain(val wireValue: String) {
+  @SerialName("meals") Meals("meals"),
+  @SerialName("money") Money("money"),
+  @SerialName("travel") Travel("travel"),
+  @SerialName("library") Library("library"),
+  @SerialName("items") Items("items")
+}
+
+@Serializable
+data class LifeDayResultDtoItemsEntryRelatedEntry(
+  @SerialName("domain") val domain: LifeDayResultDtoItemsEntryRelatedEntryDomain,
+  @SerialName("kind") val kind: String,
+  @SerialName("id") val id: String,
+  @SerialName("title") val title: String
+)
+
+@Serializable
+data class LifeDayResultDtoItemsEntry(
+  @SerialName("domain") val domain: LifeDayResultDtoItemsEntryDomain,
+  @SerialName("kind") val kind: String,
+  @SerialName("id") val id: String,
+  @SerialName("happened_at") val happenedAt: String,
+  @SerialName("happened_on") val happenedOn: String? = null,
+  @SerialName("title") val title: String,
+  @SerialName("amount") val amount: String? = null,
+  @SerialName("currency") val currency: String? = null,
+  @SerialName("record_id") val recordId: String? = null,
+  @SerialName("related") val related: List<LifeDayResultDtoItemsEntryRelatedEntry>
+)
+
+@Serializable
+data class LifeDayResultDto(
+  @SerialName("date") val date: String,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("authorized_domains") val authorizedDomains: List<LifeDayResultDtoAuthorizedDomainsEntry>,
+  @SerialName("items") val items: List<LifeDayResultDtoItemsEntry>,
+  @SerialName("total") val total: Long,
+  @SerialName("next_cursor") val nextCursor: String?,
+  @SerialName("as_of") val asOf: String
+)
+
+@Serializable
+enum class LifeMemoriesResultDtoAuthorizedDomainsEntry(val wireValue: String) {
+  @SerialName("meals") Meals("meals"),
+  @SerialName("money") Money("money"),
+  @SerialName("health") Health("health"),
+  @SerialName("travel") Travel("travel"),
+  @SerialName("library") Library("library"),
+  @SerialName("items") Items("items"),
+  @SerialName("plans") Plans("plans")
+}
+
+@Serializable
+enum class LifeMemoriesResultDtoItemsEntryDomain(val wireValue: String) {
+  @SerialName("meals") Meals("meals"),
+  @SerialName("money") Money("money"),
+  @SerialName("health") Health("health"),
+  @SerialName("travel") Travel("travel"),
+  @SerialName("library") Library("library"),
+  @SerialName("items") Items("items"),
+  @SerialName("plans") Plans("plans")
+}
+
+@Serializable
+data class LifeMemoriesResultDtoItemsEntry(
+  @SerialName("domain") val domain: LifeMemoriesResultDtoItemsEntryDomain,
+  @SerialName("kind") val kind: String,
+  @SerialName("id") val id: String,
+  @SerialName("happened_at") val happenedAt: String,
+  @SerialName("happened_on") val happenedOn: String? = null,
+  @SerialName("title") val title: String,
+  @SerialName("amount") val amount: String? = null,
+  @SerialName("currency") val currency: String? = null,
+  @SerialName("record_id") val recordId: String? = null,
+  @SerialName("years_ago") val yearsAgo: Long
+)
+
+@Serializable
+data class LifeMemoriesResultDto(
+  @SerialName("date") val date: String,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("authorized_domains") val authorizedDomains: List<LifeMemoriesResultDtoAuthorizedDomainsEntry>,
+  @SerialName("items") val items: List<LifeMemoriesResultDtoItemsEntry>,
   @SerialName("as_of") val asOf: String
 )
 
@@ -1605,6 +1717,29 @@ data class TravelWorkspaceResultDtoTripsEntry(
 )
 
 @Serializable
+enum class TravelWorkspaceResultDtoChecklistItemsEntryState(val wireValue: String) {
+  @SerialName("needed") Needed("needed"),
+  @SerialName("packed") Packed("packed"),
+  @SerialName("skipped") Skipped("skipped")
+}
+
+@Serializable
+data class TravelWorkspaceResultDtoChecklistItemsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("title") val title: String,
+  @SerialName("state") val state: TravelWorkspaceResultDtoChecklistItemsEntryState,
+  @SerialName("note") val note: String?
+)
+
+@Serializable
+data class TravelWorkspaceResultDtoChecklist(
+  @SerialName("id") val id: String,
+  @SerialName("trip_id") val tripId: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("items") val items: List<TravelWorkspaceResultDtoChecklistItemsEntry>
+)
+
+@Serializable
 data class TravelWorkspaceResultDtoActiveRunPlanSnapshotDaysEntryItemsEntry(
   @SerialName("stop_id") val stopId: String,
   @SerialName("title") val title: String,
@@ -1733,6 +1868,7 @@ data class TravelWorkspaceResultDto(
   @SerialName("visits") val visits: List<TravelWorkspaceResultDtoVisitsEntry>,
   @SerialName("trips") val trips: List<TravelWorkspaceResultDtoTripsEntry>,
   @SerialName("selected_trip_id") val selectedTripId: String?,
+  @SerialName("checklist") val checklist: TravelWorkspaceResultDtoChecklist?,
   @SerialName("active_run") val activeRun: TravelWorkspaceResultDtoActiveRun?,
   @SerialName("tracks") val tracks: List<TravelWorkspaceResultDtoTracksEntry>,
   @SerialName("day_plans") val dayPlans: List<TravelWorkspaceResultDtoDayPlansEntry>,
@@ -1823,6 +1959,9 @@ data class LibraryItemResultDtoRevisionsEntry(
   @SerialName("text") val text: String?,
   @SerialName("url") val url: String?,
   @SerialName("tags") val tags: List<String>,
+  @SerialName("document_date") val documentDate: String?,
+  @SerialName("category") val category: String?,
+  @SerialName("source_processing_job_id") val sourceProcessingJobId: String?,
   @SerialName("reason") val reason: String?,
   @SerialName("created_at") val createdAt: String
 )
@@ -1891,7 +2030,8 @@ data class LibraryItemResultDtoProofsEntry(
 enum class LibraryItemResultDtoProcessingJobsEntryKind(val wireValue: String) {
   @SerialName("text_extract") TextExtract("text_extract"),
   @SerialName("ocr") Ocr("ocr"),
-  @SerialName("transcript") Transcript("transcript")
+  @SerialName("transcript") Transcript("transcript"),
+  @SerialName("vision") Vision("vision")
 }
 
 @Serializable
@@ -1901,6 +2041,22 @@ enum class LibraryItemResultDtoProcessingJobsEntryState(val wireValue: String) {
   @SerialName("completed") Completed("completed"),
   @SerialName("failed") Failed("failed")
 }
+
+@Serializable
+data class LibraryItemResultDtoProcessingJobsEntrySuggestionLocatorsEntry(
+  @SerialName("page") val page: Long,
+  @SerialName("quote") val quote: String?
+)
+
+@Serializable
+data class LibraryItemResultDtoProcessingJobsEntrySuggestion(
+  @SerialName("title") val title: String,
+  @SerialName("document_date") val documentDate: String?,
+  @SerialName("category") val category: String?,
+  @SerialName("summary") val summary: String,
+  @SerialName("content") val content: String,
+  @SerialName("locators") val locators: List<LibraryItemResultDtoProcessingJobsEntrySuggestionLocatorsEntry>
+)
 
 @Serializable
 data class LibraryItemResultDtoProcessingJobsEntry(
@@ -1913,6 +2069,7 @@ data class LibraryItemResultDtoProcessingJobsEntry(
   @SerialName("attempts") val attempts: Long,
   @SerialName("derived_asset_version_id") val derivedAssetVersionId: String?,
   @SerialName("processor_version") val processorVersion: String?,
+  @SerialName("suggestion") val suggestion: LibraryItemResultDtoProcessingJobsEntrySuggestion?,
   @SerialName("last_error") val lastError: String?,
   @SerialName("started_at") val startedAt: String?,
   @SerialName("finished_at") val finishedAt: String?,

@@ -5,10 +5,12 @@ import { previewTravelPortableInputSchema, previewTravelPortableResultSchema, tr
 import { healthSleepInsightsInputSchema, healthSleepInsightsResultSchema } from "@shadow/contracts";
 import { buildSleepInsights } from "./sleep-insights.js";
 import { libraryItemResultSchema, libraryProcessingQueueInputSchema, libraryProcessingQueueResultSchema } from "@shadow/contracts";
+import { moneyImportMonthInputSchema, moneyImportMonthResultSchema } from "@shadow/contracts";
 import { agentContextPackInputSchema, agentContextPackResultSchema, agentMemoriesInputSchema, agentMemoriesResultSchema, notificationsInputSchema, notificationsResultSchema } from "@shadow/contracts";
 import { lifeReviewsInputSchema, lifeReviewsResultSchema, ownedItemsInputSchema, ownedItemsResultSchema } from "@shadow/contracts";
 import { foreignEntriesInputSchema, foreignEntriesResultSchema, lifeProjectsInputSchema, lifeProjectsResultSchema, mealPlanningInputSchema, mealPlanningResultSchema, moneyPlanningResultSchema } from "@shadow/contracts";
 import { planningAgendaInputSchema, planningAgendaResultSchema } from "@shadow/contracts";
+import { lifeDayInputSchema, lifeDayResultSchema, lifeMemoriesInputSchema, lifeMemoriesResultSchema } from "@shadow/contracts";
 import { serviceCardsInputSchema, serviceCardsResultSchema } from "@shadow/contracts";
 import { invalidInput, notFound, permissionDenied } from "./errors.js";
 import type { RequestContext, UnitOfWork } from "./ports.js";
@@ -19,7 +21,7 @@ import { buildDailyRecordCheck } from "./daily-record-check.js";
 type Domain="money"|"health"|"travel"|"library";
 type Cursor={domain:Domain;query:string;at:string;kind:string;id:string;as_of:string};
 type LifeRecordSection="meal"|"purchase"|"money"|"sources";
-type TimelineCursor={domains:string;at:string;domain:LifeOverviewDomain;kind:string;id:string;as_of:string};
+type TimelineCursor={domains:string;at:string;domain:string;kind:string;id:string;as_of:string};
 type SearchCursor={signature:string;on:string;domain:LifeOverviewDomain;kind:string;id:string;as_of:string};
 type NotificationCursor={at:string;id:string;as_of:string};
 type MealCursor={on:string;at:string;id:string;as_of:string};
@@ -133,6 +135,25 @@ export class QueryService {
     const page=await this.unitOfWork.read(store=>store.lifeTimeline(context.subjectId,domains,{includePurchase:context.effects.has("life.meal.read"),limit:parsed.data.limit,...(before?{asOf:before.as_of,before:{at:before.at,domain:before.domain,kind:before.kind,id:before.id}}:{})})),last=page.items.at(-1),next=page.hasMore&&last?Buffer.from(JSON.stringify({domains:signature,at:last.happened_at,domain:last.domain,kind:last.kind,id:last.id,as_of:page.asOf} satisfies TimelineCursor)).toString("base64url"):null;
     return lifeTimelineResultSchema.parse({items:page.items,next_cursor:next,as_of:page.asOf});
   }
+  async lifeDay(context:RequestContext,input:unknown){
+    const parsed=lifeDayInputSchema.parse(input),domains=this.overviewDomains(context);
+    const signature=`${parsed.date}|${parsed.time_zone}|${domains.join(",")}|${context.effects.has("life.item.read")}|${context.effects.has("life.project.read")}`;
+    let before:{signature:string;at:string;domain:string;kind:string;id:string;as_of:string}|undefined;
+    if(parsed.cursor){try{before=JSON.parse(Buffer.from(parsed.cursor,"base64url").toString("utf8"));}catch{throw invalidInput("day cursor is invalid",["cursor"]);}if(!before||before.signature!==signature||!before.at||!before.domain||!before.kind||!before.id||!before.as_of)throw invalidInput("day cursor does not match this query",["cursor"]);}
+    const {page,links}=await this.unitOfWork.read(async store=>{const page=await store.lifeTimeline(context.subjectId,domains,{limit:parsed.limit,date:parsed.date,timeZone:parsed.time_zone,includePurchase:context.effects.has("life.meal.read"),includeItems:context.effects.has("life.item.read"),includePlans:context.effects.has("life.project.read"),...(before?{asOf:before.as_of,before:{at:before.at,domain:before.domain,kind:before.kind,id:before.id}}:{})});return{page,links:await store.lifeDayLinks(context.subjectId,page.items,context.effects)};});
+    const last=page.items.at(-1),next=page.hasMore&&last?Buffer.from(JSON.stringify({signature,at:last.happened_at,domain:last.domain,kind:last.kind,id:last.id,as_of:page.asOf})).toString("base64url"):null;
+    return lifeDayResultSchema.parse({date:parsed.date,time_zone:parsed.time_zone,authorized_domains:[...domains,...(context.effects.has("life.item.read")?["items"]:[]),...(context.effects.has("life.project.read")?["plans"]:[])],items:page.items.map(item=>({...item,related:links[`${item.domain}:${item.id}`]??[]})),total:page.total,next_cursor:next,as_of:page.asOf});
+  }
+  async lifeMemories(context:RequestContext,input:unknown){
+    const parsed=lifeMemoriesInputSchema.parse(input),domains=this.overviewDomains(context),year=Number(parsed.date.slice(0,4)),suffix=parsed.date.slice(4);
+    const groups=await Promise.all(Array.from({length:5},(_,index)=>index+1).map(async yearsAgo=>{
+      const day=`${year-yearsAgo}${suffix}`;
+      if(Number.isNaN(Date.parse(`${day}T12:00:00Z`))||new Date(`${day}T12:00:00Z`).toISOString().slice(0,10)!==day)return [];
+      const page=await this.unitOfWork.read(store=>store.lifeTimeline(context.subjectId,domains,{limit:20,date:day,timeZone:parsed.time_zone,includePurchase:context.effects.has("life.meal.read"),includeItems:context.effects.has("life.item.read"),includePlans:context.effects.has("life.project.read")}));
+      return page.items.map(item=>({...item,years_ago:yearsAgo}));
+    }));
+    return lifeMemoriesResultSchema.parse({date:parsed.date,time_zone:parsed.time_zone,authorized_domains:[...domains,...(context.effects.has("life.item.read")?["items"]:[]),...(context.effects.has("life.project.read")?["plans"]:[])],items:groups.flat().slice(0,100),as_of:new Date().toISOString()});
+  }
   async lifeSearch(context:RequestContext,input:unknown){
     const parsed=lifeSearchInputSchema.safeParse(input);if(!parsed.success)throw invalidInput("search query is invalid",parsed.error.issues.map(issue=>issue.path.join(".")));
     const domains=this.overviewDomains(context,parsed.data.types),signature=JSON.stringify({q:parsed.data.q.toLocaleLowerCase(),types:domains,from_on:parsed.data.from_on??null,to_on_exclusive:parsed.data.to_on_exclusive??null});let before:SearchCursor|undefined;
@@ -159,6 +180,7 @@ export class QueryService {
   }
   async moneyPlanning(context:RequestContext,period:string){if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");if(!/^(?:0{3}[1-9]|0{2}[1-9]\d|0[1-9]\d{2}|[1-9]\d{3})-(0[1-9]|1[0-2])$/u.test(period))throw invalidInput("period must be a valid YYYY-MM",["period"]);return moneyPlanningResultSchema.parse(await this.unitOfWork.read(store=>store.moneyPlanning(context.subjectId,period)));}
   async moneyImportReview(context:RequestContext,batchId:string){if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");const value=await this.unitOfWork.read(store=>store.moneyImportReview(context.subjectId,batchId));if(value===undefined)throw notFound("money import batch was not found");return moneyImportReviewResultSchema.parse(value);}
+  async moneyImportMonth(context:RequestContext,input:unknown){if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");const {period}=moneyImportMonthInputSchema.parse(input);return moneyImportMonthResultSchema.parse(await this.unitOfWork.read(store=>store.moneyImportMonth(context.subjectId,period)));}
   async healthDaily(context:RequestContext,date:string){if(!context.effects.has("health.measurement.read"))throw permissionDenied("health.measurement.read");const value=await this.unitOfWork.read(store=>store.healthDaily(context.subjectId,date));if(value===undefined)throw notFound("health day was not found");const wire=JSON.parse(JSON.stringify(value)) as Record<string,unknown>;return healthDailyResultSchema.parse({occurred_on:wire.occurred_on,algorithm_version:wire.algorithm_version,result:wire.result,source_set_hash:wire.source_set_hash,revision:wire.revision,updated_at:new Date(String(wire.updated_at)).toISOString()});}
   async healthSleepInsights(context:RequestContext,input:unknown){if(!context.effects.has("health.measurement.read"))throw permissionDenied("health.measurement.read");const parsed=healthSleepInsightsInputSchema.parse(input);const end=new Date(`${parsed.to}T00:00:00.000Z`);const from=new Date(end.getTime()-(parsed.days-1)*86_400_000).toISOString().slice(0,10);const rows=await this.unitOfWork.read(store=>store.healthSleepNights(context.subjectId,from,parsed.to));return healthSleepInsightsResultSchema.parse(buildSleepInsights(rows,from,parsed.to));}
   async healthRecord(context:RequestContext,id:string){if(!context.effects.has("health.measurement.read"))throw permissionDenied("health.measurement.read");const value=await this.unitOfWork.read(store=>store.healthRecord(context.subjectId,id));if(value===undefined)throw notFound("health record was not found");return healthRecordResultSchema.parse(healthRecordWire(value));}
