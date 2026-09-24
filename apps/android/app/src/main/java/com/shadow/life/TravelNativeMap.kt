@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -72,21 +73,21 @@ internal fun providerConfigured(provider:TravelMapProvider)=when(provider){
 }
 
 @Composable internal fun TravelNativeMap(
-  provider:TravelMapProvider,markers:List<TravelMapMarker>,tracks:List<TravelTrackSummary>,modifier:Modifier=Modifier,routes:List<List<TravelMapPoint>> = emptyList(),satellite:Boolean=false
+  provider:TravelMapProvider,markers:List<TravelMapMarker>,tracks:List<TravelTrackSummary>,modifier:Modifier=Modifier,routes:List<List<TravelMapPoint>> = emptyList(),satellite:Boolean=false,onGestureActive:(Boolean)->Unit={}
 ){
   val context=LocalContext.current
   val configured=providerConfigured(provider)
   Box(modifier.clip(RoundedCornerShape(24.dp))){
     when{
       !configured->TravelMapCanvas(markers,tracks,Modifier.fillMaxSize(),routes)
-      provider==TravelMapProvider.Amap->AmapSurface(markers,tracks,routes,satellite,Modifier.fillMaxSize())
-      else->GoogleMapSurface(markers,tracks,routes,satellite,Modifier.fillMaxSize())
+      provider==TravelMapProvider.Amap->AmapSurface(markers,tracks,routes,satellite,Modifier.fillMaxSize(),onGestureActive)
+      else->GoogleMapSurface(markers,tracks,routes,satellite,Modifier.fillMaxSize(),onGestureActive)
     }
     if(!configured){Surface(Modifier.align(Alignment.BottomCenter).padding(12.dp),shape=RoundedCornerShape(14.dp),color=MaterialTheme.colorScheme.surface.copy(alpha=.94f)){Text("${provider.label}密钥未配置，当前显示坐标预览",Modifier.padding(horizontal=12.dp,vertical=8.dp),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
   }
 }
 
-@Composable private fun AmapSurface(markers:List<TravelMapMarker>,tracks:List<TravelTrackSummary>,routes:List<List<TravelMapPoint>>,satellite:Boolean,modifier:Modifier){
+@Composable private fun AmapSurface(markers:List<TravelMapMarker>,tracks:List<TravelTrackSummary>,routes:List<List<TravelMapPoint>>,satellite:Boolean,modifier:Modifier,onGestureActive:(Boolean)->Unit){
   val context=LocalContext.current
   val lifecycle=LocalLifecycleOwner.current.lifecycle
   val renderState=remember{TravelMapRenderState()}
@@ -95,11 +96,12 @@ internal fun providerConfigured(provider:TravelMapProvider)=when(provider){
     MapsInitializer.updatePrivacyAgree(context.applicationContext,true)
     MapsInitializer.setSupportRecycleView(true)
     when(preferredAmapSurface()){
-      AmapSurfaceKind.Texture->AMapTextureView(context).apply{layoutParams=ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT);onCreate(Bundle());isNestedScrollingEnabled=nativeMapNestedScrollingEnabled();installMapGestureIsolation()}
+      AmapSurfaceKind.Texture->AMapTextureView(context).apply{layoutParams=ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT);onCreate(Bundle());isNestedScrollingEnabled=nativeMapNestedScrollingEnabled()}
     }
   }
+  val touchFrame=remember(context,mapView){MapGestureFrame(context).apply{addView(mapView)}}
   DisposableEffect(lifecycle,mapView){var destroyed=false;fun pause(){if(!destroyed)mapView.onPause()};fun destroy(){if(!destroyed){mapView.onDestroy();destroyed=true}};val observer=LifecycleEventObserver{_,event->when(event){Lifecycle.Event.ON_RESUME->if(!destroyed)mapView.onResume();Lifecycle.Event.ON_PAUSE->pause();Lifecycle.Event.ON_DESTROY->destroy();else->{}}};lifecycle.addObserver(observer);if(lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))mapView.onResume();onDispose{lifecycle.removeObserver(observer);mapView.parent?.requestDisallowInterceptTouchEvent(false);pause();destroy()}}
-  AndroidView(modifier=modifier,factory={mapView},update={view->val content=TravelMapContent(markers,tracks,routes,satellite);if(renderState.content!=content){renderAmap(context,view.map,markers,tracks,routes,satellite,view);renderState.content=content}})
+  AndroidView(modifier=modifier,factory={touchFrame},update={frame->frame.onGestureActive=onGestureActive;val content=TravelMapContent(markers,tracks,routes,satellite);if(renderState.content!=content){renderAmap(context,mapView.map,markers,tracks,routes,satellite,mapView);renderState.content=content}})
 }
 
 private fun renderAmap(context:Context,map:AMap,markers:List<TravelMapMarker>,tracks:List<TravelTrackSummary>,routes:List<List<TravelMapPoint>>,satellite:Boolean,view:AMapTextureView){
@@ -118,22 +120,45 @@ internal fun preferredAmapSurface()=AmapSurfaceKind.Texture
 internal fun defaultTravelMapZoom()=15.5f
 internal fun nativeMapNestedScrollingEnabled()=false
 internal fun shouldDisallowMapParentIntercept(actionMasked:Int)=actionMasked!=MotionEvent.ACTION_UP&&actionMasked!=MotionEvent.ACTION_CANCEL
-private fun View.installMapGestureIsolation(){setOnTouchListener{view,event->view.parent?.requestDisallowInterceptTouchEvent(shouldDisallowMapParentIntercept(event.actionMasked));false}}
+internal class MapGestureFrame(context:Context):FrameLayout(context){
+  var onGestureActive:(Boolean)->Unit={}
+  override fun dispatchTouchEvent(event:MotionEvent):Boolean{
+    if(event.actionMasked==MotionEvent.ACTION_DOWN){onGestureActive(true);requestDisallowInterceptTouchEvent(true)}
+    val handled=super.dispatchTouchEvent(event)
+    if(!shouldDisallowMapParentIntercept(event.actionMasked)){onGestureActive(false);requestDisallowInterceptTouchEvent(false)}
+    return handled
+  }
+  override fun onDetachedFromWindow(){onGestureActive(false);super.onDetachedFromWindow()}
+}
 
-@Composable private fun GoogleMapSurface(markers:List<TravelMapMarker>,tracks:List<TravelTrackSummary>,routes:List<List<TravelMapPoint>>,satellite:Boolean,modifier:Modifier){
+@Composable private fun GoogleMapSurface(markers:List<TravelMapMarker>,tracks:List<TravelTrackSummary>,routes:List<List<TravelMapPoint>>,satellite:Boolean,modifier:Modifier,onGestureActive:(Boolean)->Unit){
   val context=LocalContext.current
   val lifecycle=LocalLifecycleOwner.current.lifecycle
   val renderState=remember{TravelMapRenderState()}
-  val mapView=remember(context){GoogleMapView(context).apply{layoutParams=ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT);onCreate(Bundle());isNestedScrollingEnabled=nativeMapNestedScrollingEnabled();installMapGestureIsolation()}}
+  val mapView=remember(context){GoogleMapView(context).apply{layoutParams=ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT);onCreate(Bundle());isNestedScrollingEnabled=nativeMapNestedScrollingEnabled()}}
+  val touchFrame=remember(context,mapView){MapGestureFrame(context).apply{addView(mapView)}}
   DisposableEffect(lifecycle,mapView){var destroyed=false;fun pause(){if(!destroyed)mapView.onPause()};fun destroy(){if(!destroyed){mapView.onDestroy();destroyed=true}};val observer=LifecycleEventObserver{_,event->when(event){Lifecycle.Event.ON_RESUME->if(!destroyed)mapView.onResume();Lifecycle.Event.ON_PAUSE->pause();Lifecycle.Event.ON_DESTROY->destroy();else->{}}};lifecycle.addObserver(observer);if(lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))mapView.onResume();onDispose{lifecycle.removeObserver(observer);mapView.parent?.requestDisallowInterceptTouchEvent(false);pause();destroy()}}
-  AndroidView(modifier=modifier,factory={mapView},update={view->val content=TravelMapContent(markers,tracks,routes,satellite);if(renderState.content!=content){view.getMapAsync{map->
+  AndroidView(modifier=modifier,factory={touchFrame},update={frame->frame.onGestureActive=onGestureActive;val content=TravelMapContent(markers,tracks,routes,satellite);if(renderState.content!=content){renderState.content=content;mapView.getMapAsync{map->
+    if(renderState.content!=content)return@getMapAsync
     map.mapType=if(satellite)GoogleMapApi.MAP_TYPE_SATELLITE else GoogleMapApi.MAP_TYPE_NORMAL;map.uiSettings.isZoomControlsEnabled=true;map.uiSettings.isCompassEnabled=true;map.uiSettings.isScrollGesturesEnabled=true;map.uiSettings.isZoomGesturesEnabled=true;map.clear();val bounds=LatLngBounds.Builder();var count=0;var firstPoint:GoogleLatLng?=null
     fun include(point:GoogleLatLng){bounds.include(point);count++;if(firstPoint==null)firstPoint=point}
     markers.forEach{item->val point=GoogleLatLng(item.latitude,item.longitude);include(point);val options=GoogleMarkerOptions().position(point).title(listOfNotNull(item.label,item.title).joinToString(" ")).snippet(item.supporting);if(item.label!=null)options.icon(BitmapDescriptorFactory.fromBitmap(numberedMarker(item.label)));map.addMarker(options)}
     tracks.forEach{track->val points=sampleTrack(track.points).map{GoogleLatLng(it.latitude,it.longitude)};points.forEach(::include);if(points.size>1)map.addPolyline(GooglePolylineOptions().addAll(points).width(9f).color(0xff56d6c9.toInt()))}
     routes.forEach{route->if(route.size>1)map.addPolyline(GooglePolylineOptions().addAll(route.map{GoogleLatLng(it.latitude,it.longitude)}).width(8f).color(0xffe68c3f.toInt()).pattern(listOf(Dash(18f),Gap(12f))))}
-    firstPoint?.let{point->view.post{runCatching{if(count>1)map.animateCamera(GoogleCameraUpdateFactory.newLatLngBounds(bounds.build(),72)) else map.animateCamera(GoogleCameraUpdateFactory.newLatLngZoom(point,defaultTravelMapZoom()))}}}
-  };renderState.content=content}})
+    firstPoint?.let{point->
+      fun fit(){
+        if(renderState.content!=content||mapView.width<=0||mapView.height<=0)return
+        val camera=if(count>1)GoogleCameraUpdateFactory.newLatLngBounds(bounds.build(),mapView.width,mapView.height,72) else GoogleCameraUpdateFactory.newLatLngZoom(point,defaultTravelMapZoom())
+        map.moveCamera(camera)
+      }
+      if(mapView.width>0&&mapView.height>0)mapView.post(::fit)
+      else mapView.addOnLayoutChangeListener(object:View.OnLayoutChangeListener{
+        override fun onLayoutChange(view:View,left:Int,top:Int,right:Int,bottom:Int,oldLeft:Int,oldTop:Int,oldRight:Int,oldBottom:Int){
+          if(right>left&&bottom>top){mapView.removeOnLayoutChangeListener(this);mapView.post(::fit)}
+        }
+      })
+    }
+  }}})
 }
 
 private fun numberedMarker(label:String):Bitmap{val bitmap=Bitmap.createBitmap(116,116,Bitmap.Config.ARGB_8888);val canvas=Canvas(bitmap);val paint=Paint(Paint.ANTI_ALIAS_FLAG);paint.color=Color.WHITE;canvas.drawCircle(58f,55f,52f,paint);paint.color=0xffd56832.toInt();canvas.drawCircle(58f,55f,46f,paint);paint.color=Color.WHITE;paint.textAlign=Paint.Align.CENTER;paint.textSize=if(label.length>3)29f else 38f;paint.isFakeBoldText=true;canvas.drawText(label.take(6),58f,68f,paint);return bitmap}

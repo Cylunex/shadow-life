@@ -173,6 +173,7 @@ private fun useCycleLine(item:MoneyUseCycleSummary)=if(item.usageState=="pending
   var selectedDate by rememberSaveable{mutableStateOf<String?>(null)}
   var selectedDateTripId by rememberSaveable{mutableStateOf<String?>(null)}
   var editingDay by rememberSaveable(trip?.id){mutableStateOf(false)}
+  var mapGestureActive by remember{mutableStateOf(false)}
   var checklistTitle by rememberSaveable(trip?.id){mutableStateOf("")}
   var exportError by remember{mutableStateOf<String?>(null)}
   val context=LocalContext.current
@@ -185,13 +186,13 @@ private fun useCycleLine(item:MoneyUseCycleSummary)=if(item.usageState=="pending
   val date=travelSelectedDate(dates,selectedDate.takeIf{selectedDateTripId==trip?.id},LocalDate.now(java.time.ZoneId.of(trip?.timeZone?:"UTC")).toString())
   val day=days.firstOrNull{it.date==date}
   Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text("旅行")},navigationIcon={IconButton(onClick=onBack){Text("‹",style=MaterialTheme.typography.headlineLarge)}},actions={FilledTonalIconButton(onClick={onCapture(CaptureKind.Trip)}){Icon(Icons.Default.Add,"新建旅行")}})}){padding->
-    LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp,10.dp,20.dp,28.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
+    LazyColumn(Modifier.fillMaxSize().padding(padding),userScrollEnabled=!mapGestureActive,contentPadding=PaddingValues(20.dp,10.dp,20.dp,28.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
       item{WorkspaceTabs(tab,{tab=it},listOf("overview" to "概览","itinerary" to "行程","map" to "地图","places" to "地点","records" to "记录"))}
       item{StateContent(overviewState,onRetry){} }
       if(value!=null){
         if(value.tripItems.isNotEmpty())item{Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){value.tripItems.forEach{candidate->FilterChip(candidate.id==trip?.id,{if(candidate.id!=trip?.id)onSelectTrip(candidate.id)},label={Text(candidate.title)})}}}
         when(tab){
-          "map"->item{TravelMapWorkspace(value,trip,days,date)}
+          "map"->item{TravelMapWorkspace(value,trip,days,dates,date,{selectedDate=it;selectedDateTripId=trip?.id},{mapGestureActive=it})}
           "itinerary"->{
             if(trip==null)item{EmptyState("先新建旅程，再安排每天的地点")}
             else{
@@ -201,7 +202,7 @@ private fun useCycleLine(item:MoneyUseCycleSummary)=if(item.usageState=="pending
               item{TravelDatePicker(dates,date,days,{selectedDate=it;selectedDateTripId=trip.id})}
               item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Button(onClick={selectedDate=date;selectedDateTripId=trip.id;onReset();editingDay=true}){Text(if(day==null)"安排当天" else "调整当天")};OutlinedButton(onClick={onDetail(LifeDomain.Travel,trip.id,trip.title)}){Text("预订与详情")}}}
               val dayMap=travelDayMap(day,value.placeItems)
-              if(dayMap.markers.isNotEmpty())item{Column(verticalArrangement=Arrangement.spacedBy(5.dp)){TravelNativeMap(TravelMapProvider.Google,dayMap.markers,emptyList(),Modifier.fillMaxWidth().height(280.dp),dayMap.routes);Text("编号为日程顺序；橙色虚线仅示意连续地点，不是道路导航，也不代表已到访。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
+              if(dayMap.markers.isNotEmpty())item{Column(verticalArrangement=Arrangement.spacedBy(5.dp)){TravelNativeMap(TravelMapProvider.Google,dayMap.markers,emptyList(),Modifier.fillMaxWidth().height(280.dp),dayMap.routes,onGestureActive={mapGestureActive=it});Text("编号为日程顺序；橙色虚线仅示意连续地点，不是道路导航，也不代表已到访。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
               travelDayContent(day,date,trip.timeZone,value.placeItems){stop->onVisit(CaptureSeed(CaptureKind.Visit,primary=stop.title,date=LocalDate.now(java.time.ZoneId.of(trip.timeZone)).toString(),option=trip.timeZone,contextKind="trip",contextId=trip.id,contextLabel=trip.title))}
               val segments=value.segments.filter{it.tripId==trip.id&&(it.startsAt==null||runCatching{java.time.Instant.parse(it.startsAt).atZone(java.time.ZoneId.of(trip.timeZone)).toLocalDate().toString()==date}.getOrDefault(false))}
               if(segments.isNotEmpty())item{Text("当天交通与待定交通",style=MaterialTheme.typography.titleLarge)}
@@ -220,60 +221,7 @@ private fun useCycleLine(item:MoneyUseCycleSummary)=if(item.usageState=="pending
 
 @Composable private fun TravelHero(value:WorkspaceOverview.Travel,onDetail:(LifeDomain,String,String)->Unit,onCapture:(CaptureKind)->Unit){val trip=value.tripItems.firstOrNull{it.id==value.selectedTripId}?:value.tripItems.firstOrNull{it.active}?:value.tripItems.firstOrNull{it.endsOn>=LocalDate.now().toString()}?:value.tripItems.firstOrNull();LifeCard(onClick=trip?.let{{onDetail(LifeDomain.Travel,it.id,it.title)}}){Text(if(trip?.active==true)"正在旅行" else "下一段旅程",color=MaterialTheme.colorScheme.primary,style=MaterialTheme.typography.labelLarge);Text(trip?.title?:"还没有旅程",style=MaterialTheme.typography.headlineLarge,fontWeight=FontWeight.SemiBold);Text(trip?.let{"${it.startsOn} — ${it.endsOn}"}?:"先建立旅程，再把地点、支出和资料放进来",color=MaterialTheme.colorScheme.onSurfaceVariant);Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Button(onClick={if(trip!=null)onDetail(LifeDomain.Travel,trip.id,trip.title) else onCapture(CaptureKind.Trip)}){Text(if(trip!=null)"查看旅程" else "建立旅程")};OutlinedButton(onClick={onCapture(CaptureKind.Visit)}){Text("记到访")}}}}
 @Composable private fun TravelMapPreview(value:WorkspaceOverview.Travel,onOpen:()->Unit){val markers=travelMapMarkers(value,value.placeItems,true);LifeSection("旅行地图",action={TextButton(onClick=onOpen){Text("打开地图")}}){LifeCard(onClick=onOpen){TravelMapCanvas(markers,value.tracks,Modifier.fillMaxWidth().height(190.dp));Text("${markers.size} 个有坐标足迹 · ${value.tracks.size} 条轨迹",color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
-@Composable private fun TravelMapWorkspace(value:WorkspaceOverview.Travel,trip:TravelTripSummary?,days:List<TravelDaySummary>,selectedDate:String?){
-  val context=LocalContext.current
-  var scope by rememberSaveable(trip?.id){mutableStateOf("day")}
-  var selectedMap by rememberSaveable{mutableStateOf<String?>(null)}
-  var providerName by rememberSaveable{mutableStateOf(TravelMapPreference.provider(context).name)}
-  var satellite by rememberSaveable{mutableStateOf(false)}
-  var showMarkers by rememberSaveable{mutableStateOf(true)}
-  var showRoutes by rememberSaveable{mutableStateOf(true)}
-  var amapConsent by remember{mutableStateOf(TravelMapPreference.hasAmapConsent(context))}
-  var showAmapConsent by remember{mutableStateOf(false)}
-  val provider=TravelMapProvider.entries.firstOrNull{it.name==providerName}?:TravelMapProvider.Google
-  val dayMap=travelDayMap(days.firstOrNull{it.date==selectedDate},value.placeItems)
-  val allMarkers=days.sortedBy{it.date}.flatMapIndexed{index,day->travelDayMap(day,value.placeItems,"${index+1}").markers}.groupBy{Triple(it.title,it.latitude,it.longitude)}.values.map{samePlace->samePlace.first().copy(label=samePlace.mapNotNull{it.label}.joinToString("/").take(6),supporting="日程 ${samePlace.mapNotNull{it.label}.joinToString("、")}")}
-  val selected=value.mapItems.firstOrNull{it.id==selectedMap}
-  val placeIds=selected?.items?.map{it.placeId}?.toSet()
-  val themePlaces=if(placeIds==null)value.placeItems else value.placeItems.filter{it.id in placeIds}
-  val markers=when(scope){"day"->dayMap.markers;"all"->allMarkers;else->travelMapMarkers(value,themePlaces,selectedMap==null)}
-  val shownTracks=if(scope=="theme"&&selectedMap==null)value.tracks else emptyList()
-  val routes=if(scope=="day")dayMap.routes else emptyList()
-  val displayMarkers=if(showMarkers)markers else emptyList()
-  val displayRoutes=if(showRoutes)routes else emptyList()
-  fun selectProvider(next:TravelMapProvider){if(next==TravelMapProvider.Amap&&!amapConsent&&providerConfigured(next))showAmapConsent=true else{providerName=next.name;TravelMapPreference.setProvider(context,next)}}
-  LaunchedEffect(provider,amapConsent){if(provider==TravelMapProvider.Amap&&!amapConsent&&providerConfigured(provider))showAmapConsent=true}
-  if(showAmapConsent)AlertDialog(onDismissRequest={showAmapConsent=false},title={Text("启用高德地图")},text={Text("高德地图 SDK 会联网加载地图服务。首次使用前需要同意高德地图隐私政策；不同意仍可切换 Google 地图或查看本地坐标预览。")},confirmButton={Button(onClick={TravelMapPreference.setAmapConsent(context,true);amapConsent=true;providerName=TravelMapProvider.Amap.name;TravelMapPreference.setProvider(context,TravelMapProvider.Amap);showAmapConsent=false}){Text("同意并启用")}},dismissButton={TextButton(onClick={showAmapConsent=false;providerName=TravelMapProvider.Google.name;TravelMapPreference.setProvider(context,TravelMapProvider.Google)}){Text("暂不使用")}})
-  Column(verticalArrangement=Arrangement.spacedBy(14.dp)){
-    Text("旅行地图",style=MaterialTheme.typography.headlineSmall)
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-      if(trip!=null){FilterChip(scope=="day",{scope="day"},label={Text("当天 ${selectedDate.orEmpty()}")});FilterChip(scope=="all",{scope="all"},label={Text("全程地点")})}
-      FilterChip(scope=="theme",{scope="theme"},label={Text("足迹与主题地图")})
-    }
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){TravelMapProvider.entries.forEach{item->FilterChip(provider==item,{selectProvider(item)},label={Text(item.label+if(providerConfigured(item))"" else " · 待配置")})}}
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){FilterChip(satellite,{satellite=!satellite},label={Text(if(satellite)"卫星图" else "标准图")});FilterChip(showMarkers,{showMarkers=!showMarkers},label={Text("地点标记")});if(scope=="day")FilterChip(showRoutes,{showRoutes=!showRoutes},label={Text("示意路线")})}
-    if(provider==TravelMapProvider.Amap&&!amapConsent&&providerConfigured(provider))Box(Modifier.fillMaxWidth().height(360.dp)){TravelMapCanvas(displayMarkers,shownTracks,Modifier.fillMaxSize(),displayRoutes);Surface(Modifier.align(Alignment.BottomCenter).padding(12.dp),shape=RoundedCornerShape(14.dp),color=MaterialTheme.colorScheme.surface.copy(alpha=.94f)){TextButton(onClick={showAmapConsent=true}){Text("同意隐私说明后加载高德地图")}}}
-    else TravelNativeMap(provider,displayMarkers,shownTracks,Modifier.fillMaxWidth().height(480.dp),displayRoutes,satellite)
-    Text(if(scope=="day")"编号为日程顺序；橙色虚线只示意连续地点，未知地理停留点和备选点会断开，未定位的餐饮休息会跳过。不是道路导航，也不代表已到访。" else if(scope=="all")"汇总当前旅程日程地点，不代表实际到访。" else "主题地图和导入轨迹与行程计划分别保存。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-    if(scope!="theme"){
-      val visibleDays=if(scope=="day")days.filter{it.date==selectedDate} else days.sortedBy{it.date}
-      var expanded by rememberSaveable(scope,selectedDate){mutableStateOf(false)}
-      val stops=visibleDays.flatMap{day->day.stops.mapIndexed{index,stop->Triple(day.date,index+1,stop)}}
-      LifeCard{
-        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(if(scope=="day")"当天地点" else "全程地点",style=MaterialTheme.typography.titleMedium);Text("${markers.size} 个可定位停留点 · ${stops.size} 项日程",color=MaterialTheme.colorScheme.onSurfaceVariant)};TextButton(onClick={expanded=!expanded}){Text(if(expanded)"收起" else "展开")}}
-        if(expanded){stops.forEach{(date,number,stop)->val place=value.placeItems.firstOrNull{it.id==stop.placeId};val located=place?.latitude!=null&&place.longitude!=null;Row(Modifier.fillMaxWidth().padding(vertical=6.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){Text("$number.",color=MaterialTheme.colorScheme.primary);Column{Text("$date · ${stop.title}");Text(if(located)"${place.name} · ${if(Regex("备选|可选|候选|弹性|视情况|如果有时间|自由活动").containsMatchIn("${stop.title} ${stop.note.orEmpty()}"))"弹性备选" else "计划地点"}" else "未关联可定位地点",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
-          if(scope=="day")routes.flatMap{route->route.zipWithNext()}.forEachIndexed{index,(origin,destination)->TextButton(onClick={runCatching{context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(googleDirectionsUrl(origin,destination))))}}){Text("在 Google 地图查看第 ${index+1} 段道路路线 ↗")}}
-        }
-      }
-    }
-    if(scope=="theme"){
-      Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){FilterChip(selectedMap==null,{selectedMap=null},label={Text("全部足迹 ${markers.size}")});value.mapItems.forEach{map->FilterChip(selectedMap==map.id,{selectedMap=map.id},label={Text("${map.title} ${map.items.size}")})}}
-      value.mapItems.forEach{map->LifeCard(onClick={selectedMap=map.id}){Row(Modifier.fillMaxWidth()){Column(Modifier.weight(1f)){Text(map.title,style=MaterialTheme.typography.titleMedium);Text(map.description?:"没有简介",color=MaterialTheme.colorScheme.onSurfaceVariant)};DomainStatusLabel(map.state)};Text("${map.items.size} 个地点",color=MaterialTheme.colorScheme.secondary)}}
-    }
-    if(markers.isEmpty()&&shownTracks.isEmpty())Text("当前范围没有带经纬度的地点；可在日程中关联已保存地点。",color=MaterialTheme.colorScheme.onSurfaceVariant)
-  }
-}
-private fun travelMapMarkers(value:WorkspaceOverview.Travel,places:List<TravelPlaceSummary>,includeVisits:Boolean):List<TravelMapMarker>{val placeMarkers=places.mapNotNull{place->val latitude=place.latitude;val longitude=place.longitude;if(latitude!=null&&longitude!=null)TravelMapMarker("place:${place.id}",place.name,latitude,longitude,place.favorite,place.address) else null};val visits=if(includeVisits)value.visitItems.mapNotNull{visit->val latitude=visit.latitude;val longitude=visit.longitude;if(latitude!=null&&longitude!=null)TravelMapMarker("visit:${visit.id}",visit.placeName,latitude,longitude,false,"到访 ${visit.occurredOn}") else null} else emptyList();return(placeMarkers+visits).distinctBy{"${"%.5f".format(java.util.Locale.ROOT,it.latitude)},${"%.5f".format(java.util.Locale.ROOT,it.longitude)}:${it.title}"}}
+internal fun travelMapMarkers(value:WorkspaceOverview.Travel,places:List<TravelPlaceSummary>,includeVisits:Boolean):List<TravelMapMarker>{val placeMarkers=places.mapNotNull{place->val latitude=place.latitude;val longitude=place.longitude;if(latitude!=null&&longitude!=null)TravelMapMarker("place:${place.id}",place.name,latitude,longitude,place.favorite,place.address) else null};val visits=if(includeVisits)value.visitItems.mapNotNull{visit->val latitude=visit.latitude;val longitude=visit.longitude;if(latitude!=null&&longitude!=null)TravelMapMarker("visit:${visit.id}",visit.placeName,latitude,longitude,false,"到访 ${visit.occurredOn}") else null} else emptyList();return(placeMarkers+visits).distinctBy{"${"%.5f".format(java.util.Locale.ROOT,it.latitude)},${"%.5f".format(java.util.Locale.ROOT,it.longitude)}:${it.title}"}}
 @Composable internal fun TravelMapCanvas(markers:List<TravelMapMarker>,tracks:List<TravelTrackSummary>,modifier:Modifier,routes:List<List<TravelMapPoint>> = emptyList()){
   val markerCoordinates=markers.map{it.latitude to it.longitude}
   val coords:List<Pair<Double,Double>> = markerCoordinates+tracks.flatMap{track->track.points.map{point->point.latitude to point.longitude}}+routes.flatten().map{it.latitude to it.longitude}

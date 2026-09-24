@@ -155,9 +155,21 @@ select { width:100%; border:1px solid #bac5b6; border-radius:12px; background:#f
 .travel-map-shell { position:relative; min-height:520px; overflow:hidden; overscroll-behavior:contain; touch-action:none; border:1px solid #d4dbd0; border-radius:14px; background:#e9eee8; isolation:isolate; }
 .travel-map-itinerary { margin-top:10px; border:1px solid #d4dbd0; border-radius:14px; background:#fff; }
 .travel-map-controls { display:flex; flex-wrap:wrap; gap:8px; }
+.travel-map-day-tabs { display:flex; gap:8px; overflow-x:auto; overscroll-behavior-x:contain; margin:10px 0; padding-bottom:4px; }
+.travel-map-day-tabs button { flex:none; display:grid; gap:2px; min-width:90px; border:1px solid #cbd8ce; border-radius:10px; padding:8px 10px; background:#fff; color:#284339; font-weight:700; }
+.travel-map-day-tabs button.active { background:#245c43; border-color:#245c43; color:#fff; }
+.travel-map-day-tabs small { font-size:11px; font-weight:500; }
+.map-board.expanded { position:fixed; inset:0; z-index:1000; display:flex; flex-direction:column; width:100vw; height:100dvh; margin:0; padding:12px; overflow:hidden; border-radius:0; box-sizing:border-box; }
+.map-board.expanded .panel-heading,.map-board.expanded .travel-map-day-tabs { flex:none; }
+.map-board.expanded .travel-map-shell { flex:1; min-height:0; }
+.map-board.expanded .travel-map-itinerary { flex:none; max-height:38dvh; overflow:hidden; }
+.map-board.expanded .travel-map-itinerary { color:#243b2d; background:#fff; }
+.map-board.expanded .travel-map-stop-scroll { max-height:calc(38dvh - 60px); }
+.map-board.expanded>small,.map-board.expanded>p { display:none; }
+.travel-map-stop-scroll { max-height:340px; overflow:auto; overscroll-behavior:contain; touch-action:pan-y; }
 .travel-map-itinerary summary { cursor:pointer; padding:14px 16px; font-weight:750; }
 .travel-map-itinerary summary span { float:right; color:#667168; font-size:12px; font-weight:500; }
-.travel-map-itinerary section { max-height:340px; overflow:auto; padding:0 16px 12px; }
+.travel-map-itinerary section { padding:0 16px 12px; }
 .travel-map-itinerary h4 { margin:10px 0; }
 .travel-map-itinerary ol { list-style:none; padding:0; margin:0; }
 .travel-map-itinerary li { display:flex; justify-content:space-between; gap:10px; padding:9px 0; border-top:1px solid #edf1ec; }

@@ -20,6 +20,7 @@ export function itineraryDates(trip:Pick<TravelTrip,"starts_on"|"ends_on">,plans
   const dates=Number.isFinite(count)?Array.from({length:count+1},(_,index)=>new Date(start+index*86_400_000).toISOString().slice(0,10)):[];
   return [...new Set([...dates,...plans.map(plan=>plan.plan_date)])].sort();
 }
+export function tripDayPlans(plans:readonly TravelDayPlan[],tripId:string):TravelDayPlan[]{return plans.filter(plan=>plan.trip_id===tripId).sort((left,right)=>left.plan_date.localeCompare(right.plan_date));}
 export function selectedItineraryDate(dates:readonly string[],selected:string|undefined,today:string):string|undefined{return selected&&dates.includes(selected)?selected:dates.includes(today)?today:dates[0];}
 export function placesForDay(places:readonly TravelPlace[],plan:TravelDayPlan|undefined):TravelPlace[]{const byId=new Map(places.map(place=>[place.id,place]));return [...new Set(plan?.items.map(item=>item.place_id).filter(Boolean)??[])].flatMap(id=>{const place=byId.get(id!);return place?[place]:[];});}
 export function placesForTrip(places:readonly TravelPlace[],plans:readonly TravelDayPlan[]):TravelPlace[]{const ids=new Set(plans.flatMap(plan=>plan.items.map(item=>item.place_id).filter((id):id is string=>Boolean(id))));return places.filter(place=>ids.has(place.id));}

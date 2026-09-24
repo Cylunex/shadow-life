@@ -24,7 +24,7 @@ class TravelNativeMapTest {
     assertFalse(nativeMapNestedScrollingEnabled())
   }
 
-  @Test fun mapGestureKeepsTheOuterListStillUntilTheGestureEnds(){
+  @Test fun mapGestureRequestsParentIsolationUntilTheGestureEnds(){
     assertTrue(shouldDisallowMapParentIntercept(MotionEvent.ACTION_DOWN))
     assertTrue(shouldDisallowMapParentIntercept(MotionEvent.ACTION_MOVE))
     assertTrue(shouldDisallowMapParentIntercept(MotionEvent.ACTION_POINTER_DOWN))
