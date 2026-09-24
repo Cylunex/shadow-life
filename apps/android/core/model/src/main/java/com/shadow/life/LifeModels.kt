@@ -126,7 +126,8 @@ sealed interface WorkspaceOverview { val asOf:String
     val recurring:List<MoneyRecurringSummary> = emptyList(),val occurrences:List<MoneyOccurrenceSummary> = emptyList(),val intents:List<MoneyIntentSummary> = emptyList(),val useCycles:List<MoneyUseCycleSummary> = emptyList(),
     override val asOf:String,val budgetDetails:List<MoneyPlanningResultDtoBudgetsEntry> = emptyList(),
     val recurringDetails:List<MoneyPlanningResultDtoRecurringPlansEntry> = emptyList(),val occurrenceDetails:List<MoneyPlanningResultDtoOccurrencesEntry> = emptyList(),
-    val intentDetails:List<MoneyPlanningResultDtoSpendingIntentsEntry> = emptyList()
+    val intentDetails:List<MoneyPlanningResultDtoSpendingIntentsEntry> = emptyList(),
+    val useCycleDetails:List<MoneyPlanningResultDtoUseCyclesEntry> = emptyList()
   ):WorkspaceOverview
   data class Health(
     val sources:Int,val sourcesNeedingAttention:Int,val streams:Int,val summary:TodayHealthSummary,

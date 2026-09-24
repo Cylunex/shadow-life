@@ -80,7 +80,7 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
           )}
           LifeDomain.Money->MoneyWorkspaceScreen(
             viewModel.workspaceOverview,viewModel.workspace,{viewModel.loadWorkspace(domain,it)},{viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,
-            {nav.popBackStack()},detail,capture,route.tab,viewModel.moneyPlanningSubmit,viewModel::setBudget,viewModel::setRecurringPlan,viewModel::setSpendingIntent,viewModel::setOccurrenceState,viewModel::resetMoneyPlanningSubmit,
+            {nav.popBackStack()},detail,capture,route.tab,viewModel.moneyPlanningSubmit,viewModel::setBudget,viewModel::setRecurringPlan,viewModel::setSpendingIntent,viewModel::setUseCycle,viewModel::recordConsumableUse,viewModel::setOccurrenceState,viewModel::resetMoneyPlanningSubmit,
             viewModel.serviceCards,viewModel.selectedServiceCard,viewModel.serviceCardSubmit,viewModel::loadServiceCards,viewModel::loadMoreServiceCards,viewModel::openServiceCard,viewModel::closeServiceCard,viewModel::loadOlderServiceCardUses,viewModel::saveServiceCard,viewModel::recordServiceCardUse,viewModel::resetServiceCardSubmit
           )
           LifeDomain.Travel->TravelWorkspaceScreen(

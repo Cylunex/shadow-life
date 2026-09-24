@@ -168,7 +168,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         occurrences=result.occurrences.map{occurrence->val plan=result.recurringPlans.firstOrNull{it.id==occurrence.planId};MoneyOccurrenceSummary(occurrence.id,plan?.title?:"周期事项",occurrence.effectiveDueOn,occurrence.state.wireValue,plan?.amount,plan?.currency)},
         intents=result.spendingIntents.map{MoneyIntentSummary(it.id,it.title,it.expectedAmount,it.currency,it.intendedOn,it.state.wireValue)},
         useCycles=result.useCycles.map{MoneyUseCycleSummary(it.id,it.itemName,it.remainingQuantity,it.quantityLabel?:it.quantityUnit?.wireValue,it.balanceStatus.wireValue,it.projectedDepletionOn,it.matchedIntakes.toInt(),it.usageState?.wireValue?:"in_use",it.estimatedRemainingQuantity,it.consumedQuantity,it.matchMode.wireValue)},
-        asOf=result.asOf,budgetDetails=result.budgets,recurringDetails=result.recurringPlans,occurrenceDetails=result.occurrences,intentDetails=result.spendingIntents
+        asOf=result.asOf,budgetDetails=result.budgets,recurringDetails=result.recurringPlans,occurrenceDetails=result.occurrences,intentDetails=result.spendingIntents,useCycleDetails=result.useCycles
       )
     }
     LifeDomain.Health->healthOverview()
@@ -325,6 +325,8 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   suspend fun setBudget(draft:NativeBudgetDraft):OperationReceipt=withContext(Dispatchers.IO){enqueueCommand("money.set_budget",budgetPayload(draft))}
   suspend fun setRecurringPlan(draft:NativeRecurringDraft):OperationReceipt=withContext(Dispatchers.IO){enqueueCommand("money.set_recurring_plan",recurringPayload(draft,ZoneId.systemDefault()))}
   suspend fun setSpendingIntent(draft:NativeSpendingIntentDraft):OperationReceipt=withContext(Dispatchers.IO){enqueueCommand("money.set_spending_intent",spendingIntentPayload(draft))}
+  suspend fun setUseCycle(draft:NativeUseCycleDraft):OperationReceipt=withContext(Dispatchers.IO){enqueueCommand("money.set_use_cycle",useCyclePayload(draft,ZoneId.systemDefault()))}
+  suspend fun recordConsumableUse(draft:NativeConsumableUseDraft):OperationReceipt=withContext(Dispatchers.IO){enqueueCommand("money.record_consumable_use",consumableUsePayload(draft))}
   suspend fun setOccurrenceState(item:MoneyPlanningResultDtoOccurrencesEntry,state:String):OperationReceipt=withContext(Dispatchers.IO){
     require(state in setOf("pending","handled","dismissed","snoozed")){"不支持的周期状态"}
     enqueueCommand("money.set_occurrence_state",JSONObject().put("occurrence_id",item.id).put("expected_revision",item.revision).put("state",state).apply{if(state=="snoozed")put("snoozed_until",java.time.Instant.now().plusSeconds(86_400).toString())})

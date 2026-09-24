@@ -3,8 +3,9 @@
 ## 2026-09-24: native planning and service-card actions
 
 - Android Meals now edits and copies meal plans, builds shopping lists and updates item states. Money adds editable
-  budgets, recurring plans and occurrences, spending intents tied to recorded purchases, plus prepaid service-card
-  creation, use history and corrections. Health body trends keep per-account display preferences.
+  budgets, recurring plans and occurrences, spending intents tied to recorded purchases, consumable use cycles and
+  actual use entries, plus prepaid service-card creation, use history and corrections. Health body trends keep
+  per-account display preferences.
 - Writes reuse the existing offline command queue and refresh after commit. See [native planning follow-up](native-planning-follow-up-2026-09-24.md)
   for the old-project comparison, scope and remaining increments.
 

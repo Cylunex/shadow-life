@@ -103,6 +103,8 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
   fun setBudget(draft:NativeBudgetDraft)=moneyPlanningWrite{repository.setBudget(draft)}
   fun setRecurringPlan(draft:NativeRecurringDraft)=moneyPlanningWrite{repository.setRecurringPlan(draft)}
   fun setSpendingIntent(draft:NativeSpendingIntentDraft)=moneyPlanningWrite{repository.setSpendingIntent(draft)}
+  fun setUseCycle(draft:NativeUseCycleDraft)=moneyPlanningWrite{repository.setUseCycle(draft)}
+  fun recordConsumableUse(draft:NativeConsumableUseDraft)=moneyPlanningWrite{repository.recordConsumableUse(draft)}
   fun setOccurrenceState(item:MoneyPlanningResultDtoOccurrencesEntry,state:String)=moneyPlanningWrite{repository.setOccurrenceState(item,state)}
   fun resetMoneyPlanningSubmit(){moneyPlanningSubmit=SubmitState.Editing}
   fun loadServiceCards(query:String=""){
