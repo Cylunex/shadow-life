@@ -17,7 +17,11 @@ class TravelNativeMapTest {
   }
 
   @Test fun nativeMapStartsAtOneKilometerScale(){
-    assertEquals(14f,defaultTravelMapZoom())
+    assertEquals(15.5f,defaultTravelMapZoom())
+  }
+
+  @Test fun nativeMapDoesNotForwardNestedScrollToTheOuterList(){
+    assertFalse(nativeMapNestedScrollingEnabled())
   }
 
   @Test fun mapGestureKeepsTheOuterListStillUntilTheGestureEnds(){

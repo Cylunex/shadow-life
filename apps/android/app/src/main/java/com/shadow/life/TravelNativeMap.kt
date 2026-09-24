@@ -89,7 +89,7 @@ internal fun providerConfigured(provider:TravelMapProvider)=when(provider){
     MapsInitializer.updatePrivacyAgree(context.applicationContext,true)
     MapsInitializer.setSupportRecycleView(true)
     when(preferredAmapSurface()){
-      AmapSurfaceKind.Texture->AMapTextureView(context).apply{layoutParams=ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT);onCreate(Bundle());isNestedScrollingEnabled=true;installMapGestureIsolation()}
+      AmapSurfaceKind.Texture->AMapTextureView(context).apply{layoutParams=ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT);onCreate(Bundle());isNestedScrollingEnabled=nativeMapNestedScrollingEnabled();installMapGestureIsolation()}
     }
   }
   DisposableEffect(lifecycle,mapView){var destroyed=false;fun pause(){if(!destroyed)mapView.onPause()};fun destroy(){if(!destroyed){mapView.onDestroy();destroyed=true}};val observer=LifecycleEventObserver{_,event->when(event){Lifecycle.Event.ON_RESUME->if(!destroyed)mapView.onResume();Lifecycle.Event.ON_PAUSE->pause();Lifecycle.Event.ON_DESTROY->destroy();else->{}}};lifecycle.addObserver(observer);if(lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))mapView.onResume();onDispose{lifecycle.removeObserver(observer);mapView.parent?.requestDisallowInterceptTouchEvent(false);pause();destroy()}}
@@ -108,7 +108,8 @@ private fun renderAmap(context:Context,map:AMap,markers:List<TravelMapMarker>,tr
 internal fun preferredAmapMapType():Int=AMap.MAP_TYPE_NORMAL
 internal enum class AmapSurfaceKind{Texture}
 internal fun preferredAmapSurface()=AmapSurfaceKind.Texture
-internal fun defaultTravelMapZoom()=14f
+internal fun defaultTravelMapZoom()=15.5f
+internal fun nativeMapNestedScrollingEnabled()=false
 internal fun shouldDisallowMapParentIntercept(actionMasked:Int)=actionMasked!=MotionEvent.ACTION_UP&&actionMasked!=MotionEvent.ACTION_CANCEL
 private fun View.installMapGestureIsolation(){setOnTouchListener{view,event->view.parent?.requestDisallowInterceptTouchEvent(shouldDisallowMapParentIntercept(event.actionMasked));false}}
 
@@ -116,7 +117,7 @@ private fun View.installMapGestureIsolation(){setOnTouchListener{view,event->vie
   val context=LocalContext.current
   val lifecycle=LocalLifecycleOwner.current.lifecycle
   val renderState=remember{TravelMapRenderState()}
-  val mapView=remember(context){GoogleMapView(context).apply{layoutParams=ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT);onCreate(Bundle());isNestedScrollingEnabled=true;installMapGestureIsolation()}}
+  val mapView=remember(context){GoogleMapView(context).apply{layoutParams=ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT);onCreate(Bundle());isNestedScrollingEnabled=nativeMapNestedScrollingEnabled();installMapGestureIsolation()}}
   DisposableEffect(lifecycle,mapView){var destroyed=false;fun pause(){if(!destroyed)mapView.onPause()};fun destroy(){if(!destroyed){mapView.onDestroy();destroyed=true}};val observer=LifecycleEventObserver{_,event->when(event){Lifecycle.Event.ON_RESUME->if(!destroyed)mapView.onResume();Lifecycle.Event.ON_PAUSE->pause();Lifecycle.Event.ON_DESTROY->destroy();else->{}}};lifecycle.addObserver(observer);if(lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))mapView.onResume();onDispose{lifecycle.removeObserver(observer);mapView.parent?.requestDisallowInterceptTouchEvent(false);pause();destroy()}}
   AndroidView(modifier=modifier,factory={mapView},update={view->val content=TravelMapContent(markers,tracks);if(renderState.content!=content){view.getMapAsync{map->
     map.uiSettings.isZoomControlsEnabled=true;map.uiSettings.isCompassEnabled=true;map.uiSettings.isScrollGesturesEnabled=true;map.uiSettings.isZoomGesturesEnabled=true;map.clear();var firstPoint:GoogleLatLng?=null

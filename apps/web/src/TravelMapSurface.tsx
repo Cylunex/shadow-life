@@ -13,7 +13,7 @@ export function TravelMapSurface({places,tracks,dayPlan}:{places:readonly Travel
     let disposed=false,map:AMap.Map|undefined;
     loadAMap().then(api=>{
       if(disposed||!containerRef.current)return;
-      map=new api.Map(containerRef.current,{viewMode:"2D",zoom:places.length?11:4,center:initialCenter(places),mapStyle:"amap://styles/normal",showLabel:true,pitch:0});
+      map=new api.Map(containerRef.current,{viewMode:"2D",zoom:places.length?15.5:4,center:initialCenter(places),mapStyle:"amap://styles/normal",showLabel:true,pitch:0,dragEnable:true,zoomEnable:true,doubleClickZoom:true,scrollWheel:true,touchZoom:true,touchZoomCenter:0});
       apiRef.current=api;mapRef.current=map;setStatus("ready");
     }).catch(caught=>{if(!disposed){setMessage("地图暂时无法连接");setStatus("error");}});
     return()=>{disposed=true;map?.destroy();mapRef.current=null;apiRef.current=null;};
@@ -37,7 +37,7 @@ export function TravelMapSurface({places,tracks,dayPlan}:{places:readonly Travel
     });
     const itineraryLines=dayRoute.lines.map(line=>new api.Polyline({path:line.map(wgs84ToGcj02).map(point=>new api.LngLat(point.longitude,point.latitude)),strokeColor:"#e68c3f",strokeWeight:4,strokeOpacity:.88,zIndex:70}));
     const overlays:Array<AMap.Marker|AMap.Polyline>=[...markers,...lines,...itineraryLines];overlaysRef.current=overlays;
-    if(overlays.length){map.add(overlays);map.setFitView(overlays,false,[48,48,48,48],15);}
+    if(overlays.length){map.add(overlays);map.setFitView(overlays,false,[48,48,48,48],15.5);}
   },[places,status,tracks,dayPlan]);
   return <div className="travel-map-shell">
     <div ref={containerRef} className="life-amap-container" aria-label="高德旅行地图"/>
