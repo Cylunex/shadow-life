@@ -20,4 +20,18 @@ export function itineraryDates(trip:Pick<TravelTrip,"starts_on"|"ends_on">,plans
 }
 export function selectedItineraryDate(dates:readonly string[],selected:string|undefined,today:string):string|undefined{return selected&&dates.includes(selected)?selected:dates.includes(today)?today:dates[0];}
 export function placesForDay(places:readonly TravelPlace[],plan:TravelDayPlan|undefined):TravelPlace[]{const byId=new Map(places.map(place=>[place.id,place]));return [...new Set(plan?.items.map(item=>item.place_id).filter(Boolean)??[])].flatMap(id=>{const place=byId.get(id!);return place?[place]:[];});}
+export function routeForDay(places:readonly TravelPlace[],plan:TravelDayPlan|undefined):{lines:Array<Array<{latitude:number;longitude:number}>>;stopNumbers:Map<string,number[]>}{
+  const byId=new Map(places.map(place=>[place.id,place]));
+  const lines:Array<Array<{latitude:number;longitude:number}>>=[],stopNumbers=new Map<string,number[]>();
+  let line:Array<{latitude:number;longitude:number}>=[];
+  const finish=()=>{if(line.length>1)lines.push(line);line=[];};
+  plan?.items.forEach((stop,index)=>{
+    const place=stop.place_id?byId.get(stop.place_id):undefined;
+    if(!place||!hasPlaceCoordinates(place)){finish();return;}
+    stopNumbers.set(place.id,[...(stopNumbers.get(place.id)??[]),index+1]);
+    line.push({latitude:Number(place.latitude),longitude:Number(place.longitude)});
+  });
+  finish();
+  return{lines,stopNumbers};
+}
 export function hasPlaceCoordinates(place:Pick<TravelPlace,"latitude"|"longitude">):boolean{return place.latitude!==null&&place.longitude!==null&&place.latitude.trim()!==""&&place.longitude.trim()!==""&&Number.isFinite(Number(place.latitude))&&Number.isFinite(Number(place.longitude))&&Math.abs(Number(place.latitude))<=90&&Math.abs(Number(place.longitude))<=180;}

@@ -23,3 +23,14 @@ test("a day map follows itinerary order without leaking the other days or fabric
   assert.deepEqual(placesForDay([place],undefined),[]);
   assert.deepEqual(placePlot([place]).map(({x,y})=>[x,y]),[[50,50]]);
 });
+test("day map numbers repeated places and breaks lines at unlocated stops",async()=>{
+  const {routeForDay}=await import("../src/travel-workspace.js");
+  const located=(id:string,longitude:string)=>({id,name:id,address:null,latitude:"30",longitude,favorite:false,tags:[],revision:1});
+  const places=[located("a","120"),located("b","121"),located("c","122"),{...located("unknown","123"),latitude:null}];
+  const plan={id:"day",trip_id:"trip",plan_date:"2026-10-01",revision:1,items:[{stop_id:"1",title:"A",place_id:"a"},{stop_id:"2",title:"B",place_id:"b"},{stop_id:"3",title:"Missing",place_id:"unknown"},{stop_id:"4",title:"C",place_id:"c"},{stop_id:"5",title:"A again",place_id:"a"}]};
+  const result=routeForDay(places,plan);
+  assert.deepEqual(result.lines,[[{latitude:30,longitude:120},{latitude:30,longitude:121}],[{latitude:30,longitude:122},{latitude:30,longitude:120}]]);
+  assert.deepEqual(result.stopNumbers.get("a"),[1,5]);
+  assert.equal(result.stopNumbers.has("unknown"),false);
+  assert.deepEqual(routeForDay(places,undefined).lines,[]);
+});

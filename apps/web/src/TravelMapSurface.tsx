@@ -1,14 +1,14 @@
 import {useEffect,useRef,useState} from "react";
 import {isAMapConfigured,loadAMap} from "./amap-runtime.js";
 import {sampleTrack,wgs84ToGcj02} from "./travel-coordinates.js";
-import {hasPlaceCoordinates,placePlot,type TravelPlace,type TravelWorkspace} from "./travel-workspace.js";
+import {hasPlaceCoordinates,placePlot,routeForDay,type TravelDayPlan,type TravelPlace,type TravelWorkspace} from "./travel-workspace.js";
 
 type TravelTrack=TravelWorkspace["tracks"][number];
 
-export function TravelMapSurface({places,tracks}:{places:readonly TravelPlace[];tracks:readonly TravelTrack[]}){
+export function TravelMapSurface({places,tracks,dayPlan}:{places:readonly TravelPlace[];tracks:readonly TravelTrack[];dayPlan?:TravelDayPlan|undefined}){
   const containerRef=useRef<HTMLDivElement>(null),mapRef=useRef<AMap.Map|null>(null),apiRef=useRef<typeof AMap|null>(null),overlaysRef=useRef<Array<AMap.Marker|AMap.Polyline>>([]);
   const[status,setStatus]=useState<"loading"|"ready"|"error">(isAMapConfigured()?"loading":"error"),[message,setMessage]=useState(isAMapConfigured()?"正在加载高德地图…":"地图暂不可用");
-  const fallback=placePlot(places);
+  const fallback=placePlot(places),dayRoute=routeForDay(places,dayPlan);
   useEffect(()=>{
     let disposed=false,map:AMap.Map|undefined;
     loadAMap().then(api=>{
@@ -28,20 +28,21 @@ export function TravelMapSurface({places,tracks}:{places:readonly TravelPlace[];
     if(overlaysRef.current.length)map.remove(overlaysRef.current);
     const markers=locatedPlaces(places).map(place=>{
       const point=wgs84ToGcj02(place);
-      const content=document.createElement("button");content.type="button";content.className="life-map-marker";content.title=place.address??place.name;content.textContent=place.favorite?`★ ${place.name}`:place.name;
+      const content=document.createElement("button");content.type="button";content.className="life-map-marker";content.title=place.address??place.name;const numbers=dayRoute.stopNumbers.get(place.id);content.textContent=`${numbers?.length?`${numbers.join("/")}. `:""}${place.favorite?"★ ":""}${place.name}`;
       return new api.Marker({position:[point.longitude,point.latitude],anchor:"bottom-center",content,title:place.name});
     });
     const lines=tracks.flatMap(track=>{
       const points=sampleTrack(track.points.filter(validPoint)).map(wgs84ToGcj02).map(point=>new api.LngLat(point.longitude,point.latitude));
       return points.length>1?[new api.Polyline({path:points,strokeColor:"#1677d2",strokeWeight:6,strokeOpacity:.82,borderWeight:2,outlineColor:"#ffffff",lineJoin:"round",lineCap:"round",showDir:true,zIndex:80})]:[];
     });
-    const overlays:Array<AMap.Marker|AMap.Polyline>=[...markers,...lines];overlaysRef.current=overlays;
+    const itineraryLines=dayRoute.lines.map(line=>new api.Polyline({path:line.map(wgs84ToGcj02).map(point=>new api.LngLat(point.longitude,point.latitude)),strokeColor:"#e68c3f",strokeWeight:4,strokeOpacity:.88,zIndex:70}));
+    const overlays:Array<AMap.Marker|AMap.Polyline>=[...markers,...lines,...itineraryLines];overlaysRef.current=overlays;
     if(overlays.length){map.add(overlays);map.setFitView(overlays,false,[48,48,48,48],15);}
-  },[places,status,tracks]);
+  },[places,status,tracks,dayPlan]);
   return <div className="travel-map-shell">
     <div ref={containerRef} className="life-amap-container" aria-label="高德旅行地图"/>
     {status!=="ready"&&<div className={`life-map-state ${status}`}><b>{status==="loading"?"地图加载中":message}</b><span>{status==="error"?"仍可浏览日程和已保存地点。":"正在加载当天地图。"}</span>{status==="error"&&<button type="button" onClick={()=>location.reload()}>重新加载</button>}</div>}
-    {status==="error"&&fallback.length>0&&<div className="coordinate-map map-fallback" aria-label="地图加载失败时的地点坐标预览">{fallback.map(point=><span key={point.id} style={{left:`${point.x}%`,top:`${point.y}%`}} title={point.address??point.name}><i/>{point.name}</span>)}</div>}
+    {status==="error"&&fallback.length>0&&<div className="coordinate-map map-fallback" aria-label="地图加载失败时的地点坐标预览">{fallback.map(point=><span key={point.id} style={{left:`${point.x}%`,top:`${point.y}%`}} title={point.address??point.name}><i/>{dayRoute.stopNumbers.get(point.id)?.join("/")??""} {point.name}</span>)}</div>}
     <span className="life-map-badge">{status==="ready"?"高德地图":"地点预览"}</span>
   </div>;
 }

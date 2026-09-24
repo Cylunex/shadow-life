@@ -1,5 +1,14 @@
 # Rebuild status
 
+## 2026-09-24: Travel planning assist
+
+- Web Travel can add saved places to a selected day, suggest a geometric order within unconstrained draft blocks,
+  save an empty day, and show numbered stops with broken-at-unknown straight connectors on the day map.
+  Fixed-time, anchor, completed and unlocated stops retain their positions. Existing
+  Executor, permissions, idempotency and day-plan revision checks remain the write path.
+- See [the legacy comparison](travel-feature-recheck-2026-09-24.md) for verification and remaining real-data,
+  external-service, device and product-code work.
+
 ## 2026-09-24: native planning and service-card actions
 
 - Android Meals now edits and copies meal plans, builds shopping lists and updates item states. Money adds editable

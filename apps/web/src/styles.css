@@ -1007,6 +1007,9 @@ button.secondary,.soft-button { color:#c3cbd3; border-color:var(--line-strong); 
 .itinerary-stops time { color:var(--primary,#58d6b1); }
 .itinerary-empty { padding:30px 18px; border:1px dashed var(--line); border-radius:18px; color:var(--muted); }
 .travel-planning .travel-grid { grid-template-columns:1fr; }
+.travel-plan-assist { display:flex; align-items:end; flex-wrap:wrap; gap:10px; margin:14px 0 8px; }
+.travel-plan-assist label { min-width:min(100%,220px); flex:1; }
+.travel-plan-assist button { min-height:42px; }
 .stop-editor-actions { display:flex; align-items:center; flex-wrap:wrap; gap:6px; }
 .record-hero { padding:22px; margin:16px 0; background:var(--surface,#111a25); border:1px solid var(--line); border-radius:22px; }
 .record-hero h2 { margin:8px 0; overflow-wrap:anywhere; }
