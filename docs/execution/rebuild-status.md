@@ -1,5 +1,13 @@
 # Rebuild status
 
+## 2026-09-24: native planning and service-card actions
+
+- Android Meals now edits and copies meal plans, builds shopping lists and updates item states. Money adds editable
+  budgets, recurring plans and occurrences, spending intents tied to recorded purchases, plus prepaid service-card
+  creation, use history and corrections. Health body trends keep per-account display preferences.
+- Writes reuse the existing offline command queue and refresh after commit. See [native planning follow-up](native-planning-follow-up-2026-09-24.md)
+  for the old-project comparison, scope and remaining increments.
+
 ## 2026-09-24: legacy sleep insight recheck
 
 - Compared the old Health sleep quality statistics with the current Life daily projection and native screen. Added a bounded, owner-scoped `health.sleep_insights` read capability and a 30-day native summary. Bedtime regularity requires at least three nights with start times; missing stage and interval evidence stays unknown. See [the comparison](legacy-feature-recheck-2026-09-24.md).
@@ -10,8 +18,8 @@ Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The tab
 
 - Added separate prepaid service cards linked to existing purchase/payment records, with explicit use history,
   integer balances, expiry, versioned corrections and reversible mistaken deductions. Uses never create money entries.
-- API, CLI, built-in Agent and personal MCP share the same contracts and Executor. Web Plans → 次卡 exposes card
-  editing and use history. Hermes workflow examples distinguish purchase, actual redemption and extra payment.
+- API, CLI, built-in Agent and personal MCP share the same contracts and Executor. Web Plans → 次卡 and Android
+  Money → 次卡 expose card editing and use history. Hermes workflow examples distinguish purchase, actual redemption and extra payment.
 - See [service card semantics](../architecture/service-cards.md). Source verification and operational rollout are
   recorded separately; no Android APK is included in this delivery.
 

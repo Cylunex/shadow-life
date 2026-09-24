@@ -70,17 +70,18 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
         val capture:(CaptureKind)->Unit={kind->openComposer(defaultCaptureSeed(kind))}
         when(domain){
           LifeDomain.Health->HealthReferenceProvider(session.accountId,scaleSettings){HealthWorkspaceScreen(
-            viewModel.workspaceOverview,viewModel.workspace,viewModel.deviceSyncStatus,viewModel.queueStatus,SamsungHealthBridge.available(),
+            session.accountId,viewModel.workspaceOverview,viewModel.workspace,viewModel.deviceSyncStatus,viewModel.queueStatus,SamsungHealthBridge.available(),
             {viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,capture,onHealthSync,onSamsungSync,onScale,
             {nav.navigate(SettingsRoute)},{viewModel.loadWorkspace(LifeDomain.Meals);nav.navigate(WorkspaceRoute(LifeDomain.Meals.name))},route.tab,viewModel.releaseHistory,viewModel::loadReleaseHistory
           )}
           LifeDomain.Meals->HealthReferenceProvider(session.accountId,scaleSettings){MealsWorkspaceScreen(
             viewModel.workspaceOverview,viewModel.workspace,viewModel.assetPreviews,viewModel::loadAssetPreview,
-            {viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,{date,type->openComposer(defaultCaptureSeed(CaptureKind.Meal).copy(date=date,option=type))},{record->pendingMealPhoto=record;mealPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))},viewModel.mealPhotoSubmit,{viewModel.loadConsumptionStats();nav.navigate(ConsumptionStatsRoute)}
+            {viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,{date,type->openComposer(defaultCaptureSeed(CaptureKind.Meal).copy(date=date,option=type))},{record->pendingMealPhoto=record;mealPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))},viewModel.mealPhotoSubmit,{viewModel.loadConsumptionStats();nav.navigate(ConsumptionStatsRoute)},viewModel.mealPlanningSubmit,viewModel::saveMealPlan,viewModel::buildShoppingList,viewModel::updateShoppingItem,viewModel::resetMealPlanningSubmit
           )}
           LifeDomain.Money->MoneyWorkspaceScreen(
             viewModel.workspaceOverview,viewModel.workspace,{viewModel.loadWorkspace(domain,it)},{viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,
-            {nav.popBackStack()},detail,capture,route.tab
+            {nav.popBackStack()},detail,capture,route.tab,viewModel.moneyPlanningSubmit,viewModel::setBudget,viewModel::setRecurringPlan,viewModel::setSpendingIntent,viewModel::setOccurrenceState,viewModel::resetMoneyPlanningSubmit,
+            viewModel.serviceCards,viewModel.selectedServiceCard,viewModel.serviceCardSubmit,viewModel::loadServiceCards,viewModel::loadMoreServiceCards,viewModel::openServiceCard,viewModel::closeServiceCard,viewModel::loadOlderServiceCardUses,viewModel::saveServiceCard,viewModel::recordServiceCardUse,viewModel::resetServiceCardSubmit
           )
           LifeDomain.Travel->TravelWorkspaceScreen(
             viewModel.workspaceOverview,viewModel.workspace,{viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,capture,route.tab,viewModel::selectTravelTrip,{seed->openComposer(seed)},viewModel.submit,viewModel::saveTravelDay,viewModel::editAgain

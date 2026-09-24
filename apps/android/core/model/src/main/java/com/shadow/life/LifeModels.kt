@@ -88,7 +88,7 @@ data class MealCardSummary(
   val mealType:String,val occurredOn:String,val occurredAt:String?,val timeZone:String,val note:String?,
   val foods:List<MealFoodSummary>,val photoAssetVersionId:String?=null
 )
-data class RecordSummary(val domain:LifeDomain,val kind:String,val id:String,val title:String,val supporting:String?,val trailing:String?,val revision:Int?,val detailId:String?=null,val subtype:String?=null,val meal:MealCardSummary?=null)
+data class RecordSummary(val domain:LifeDomain,val kind:String,val id:String,val title:String,val supporting:String?,val trailing:String?,val revision:Int?,val detailId:String?=null,val subtype:String?=null,val meal:MealCardSummary?=null,val recordState:String?=null)
 data class RecordPage(val items:List<RecordSummary>,val nextCursor:String?,val asOf:String)
 data class HealthTrendPoint(val id:String,val occurredOn:String,val value:Double,val valueText:String,val unit:String,val sourceKind:String,val revision:Int,val occurredAt:String?=null,val originalField:String?=null)
 data class HealthMetricTrend(val key:String,val label:String,val points:List<HealthTrendPoint>,val coveragePoints:Int,val truncated:Boolean,val unavailable:Boolean=false)
@@ -119,11 +119,14 @@ data class TravelTrackPoint(val latitude:Double,val longitude:Double)
 data class TravelTrackSummary(val id:String,val tripId:String,val name:String,val points:List<TravelTrackPoint>)
 data class TravelSegmentSummary(val id:String,val tripId:String,val mode:String,val origin:String,val destination:String,val startsAt:String?,val distanceKm:String?)
 sealed interface WorkspaceOverview { val asOf:String
-  data class Meals(val mealPlans:Int,val shoppingLists:Int,val openShoppingItems:Int,override val asOf:String):WorkspaceOverview
+  data class Meals(val mealPlans:Int,val shoppingLists:Int,val openShoppingItems:Int,override val asOf:String,
+    val plans:List<MealPlanningResultDtoMealPlansEntry> = emptyList(),val lists:List<MealPlanningResultDtoShoppingListsEntry> = emptyList()):WorkspaceOverview
   data class Money(
     val period:String,val budgets:List<BudgetProgress>,val recurringPlans:Int,val openOccurrences:Int,val spendingIntents:Int,
     val recurring:List<MoneyRecurringSummary> = emptyList(),val occurrences:List<MoneyOccurrenceSummary> = emptyList(),val intents:List<MoneyIntentSummary> = emptyList(),val useCycles:List<MoneyUseCycleSummary> = emptyList(),
-    override val asOf:String
+    override val asOf:String,val budgetDetails:List<MoneyPlanningResultDtoBudgetsEntry> = emptyList(),
+    val recurringDetails:List<MoneyPlanningResultDtoRecurringPlansEntry> = emptyList(),val occurrenceDetails:List<MoneyPlanningResultDtoOccurrencesEntry> = emptyList(),
+    val intentDetails:List<MoneyPlanningResultDtoSpendingIntentsEntry> = emptyList()
   ):WorkspaceOverview
   data class Health(
     val sources:Int,val sourcesNeedingAttention:Int,val streams:Int,val summary:TodayHealthSummary,

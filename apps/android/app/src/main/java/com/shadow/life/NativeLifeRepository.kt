@@ -141,7 +141,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     val result=wireJson.decodeFromString<DomainRecordsResultDto>(getText("/api/$apiDomain?$params"))
     return RecordPage(result.items.map{item->
       val trailing=item.amount?.let{value->listOfNotNull(item.currency,value).joinToString(" ")}
-      RecordSummary(domain,item.kind,item.id,item.title,item.supporting,trailing,item.revision?.toInt(),item.recordId,item.entryType?.wireValue)
+      RecordSummary(domain,item.kind,item.id,item.title,item.supporting,trailing,item.revision?.toInt(),item.recordId,item.entryType?.wireValue,recordState=item.state)
     },result.nextCursor,result.asOf)
   }
 
@@ -152,7 +152,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         mealPlans=result.mealPlans.size,
         shoppingLists=result.shoppingLists.size,
         openShoppingItems=result.shoppingLists.sumOf{list->list.items.count{it.state.wireValue=="needed"}},
-        asOf=result.asOf
+        asOf=result.asOf,plans=result.mealPlans,lists=result.shoppingLists
       )
     }
     LifeDomain.Money->{
@@ -168,7 +168,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         occurrences=result.occurrences.map{occurrence->val plan=result.recurringPlans.firstOrNull{it.id==occurrence.planId};MoneyOccurrenceSummary(occurrence.id,plan?.title?:"周期事项",occurrence.effectiveDueOn,occurrence.state.wireValue,plan?.amount,plan?.currency)},
         intents=result.spendingIntents.map{MoneyIntentSummary(it.id,it.title,it.expectedAmount,it.currency,it.intendedOn,it.state.wireValue)},
         useCycles=result.useCycles.map{MoneyUseCycleSummary(it.id,it.itemName,it.remainingQuantity,it.quantityLabel?:it.quantityUnit?.wireValue,it.balanceStatus.wireValue,it.projectedDepletionOn,it.matchedIntakes.toInt(),it.usageState?.wireValue?:"in_use",it.estimatedRemainingQuantity,it.consumedQuantity,it.matchMode.wireValue)},
-        asOf=result.asOf
+        asOf=result.asOf,budgetDetails=result.budgets,recurringDetails=result.recurringPlans,occurrenceDetails=result.occurrences,intentDetails=result.spendingIntents
       )
     }
     LifeDomain.Health->healthOverview()
@@ -308,6 +308,31 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       put("items",JSONArray().apply{draft.stops.forEach{stop->put(JSONObject().put("stop_id",stop.id).put("title",stop.title).apply{stop.startsAt?.let{put("starts_at",it)};stop.placeId?.let{put("place_id",it)};stop.note?.let{put("note",it)}})}})
     })
   }
+
+  suspend fun saveMealPlan(draft:NativeMealPlanDraft):OperationReceipt=withContext(Dispatchers.IO){
+    enqueueCommand("life.save_meal_plan",mealPlanPayload(draft,ZoneId.systemDefault()))
+  }
+  suspend fun buildShoppingList(plan:MealPlanningResultDtoMealPlansEntry,extraNames:String):OperationReceipt=withContext(Dispatchers.IO){
+    val extras=extraNames.lines().map(String::trim).filter(String::isNotEmpty)
+    require(extras.size<=50){"补充采购品最多 50 项"}
+    require(extras.all{it.length<=200}){"每项名称不能超过 200 字"}
+    enqueueCommand("life.build_shopping_list",JSONObject().put("meal_plan_id",plan.id).put("expected_meal_plan_revision",plan.revision).put("title","${plan.title.take(190)}购物清单").put("extras",JSONArray().apply{extras.forEach{put(JSONObject().put("name",it))}}))
+  }
+  suspend fun updateShoppingItem(item:MealPlanningResultDtoShoppingListsEntryItemsEntry,state:String):OperationReceipt=withContext(Dispatchers.IO){
+    require(state in setOf("needed","bought","skipped")){"不支持的清单状态"}
+    enqueueCommand("life.update_shopping_item",JSONObject().put("shopping_item_id",item.id).put("expected_revision",item.revision).put("state",state))
+  }
+  suspend fun setBudget(draft:NativeBudgetDraft):OperationReceipt=withContext(Dispatchers.IO){enqueueCommand("money.set_budget",budgetPayload(draft))}
+  suspend fun setRecurringPlan(draft:NativeRecurringDraft):OperationReceipt=withContext(Dispatchers.IO){enqueueCommand("money.set_recurring_plan",recurringPayload(draft,ZoneId.systemDefault()))}
+  suspend fun setSpendingIntent(draft:NativeSpendingIntentDraft):OperationReceipt=withContext(Dispatchers.IO){enqueueCommand("money.set_spending_intent",spendingIntentPayload(draft))}
+  suspend fun setOccurrenceState(item:MoneyPlanningResultDtoOccurrencesEntry,state:String):OperationReceipt=withContext(Dispatchers.IO){
+    require(state in setOf("pending","handled","dismissed","snoozed")){"不支持的周期状态"}
+    enqueueCommand("money.set_occurrence_state",JSONObject().put("occurrence_id",item.id).put("expected_revision",item.revision).put("state",state).apply{if(state=="snoozed")put("snoozed_until",java.time.Instant.now().plusSeconds(86_400).toString())})
+  }
+  suspend fun serviceCards(query:String="",afterId:String?=null):ServiceCardsResultDto=wireJson.decodeFromString(getText("/api/money/service-cards?limit=50&query=${encode(query)}${afterId?.let{"&after_id=${encode(it)}"}.orEmpty()}"))
+  suspend fun serviceCard(id:String,usesBeforeId:String?=null):ServiceCardsResultDtoItemsEntry?=wireJson.decodeFromString<ServiceCardsResultDto>(getText("/api/money/service-cards?id=${encode(id)}${usesBeforeId?.let{"&uses_before_id=${encode(it)}"}.orEmpty()}")).items.firstOrNull()
+  suspend fun saveServiceCard(draft:NativeServiceCardDraft):OperationReceipt=withContext(Dispatchers.IO){enqueueCommand("money.save_service_card",serviceCardPayload(draft,ZoneId.systemDefault()))}
+  suspend fun recordServiceCardUse(draft:NativeServiceCardUseDraft):OperationReceipt=withContext(Dispatchers.IO){enqueueCommand("money.record_service_card_use",serviceCardUsePayload(draft))}
 
   suspend fun enqueue(draft:CaptureDraft):OperationReceipt=withContext(Dispatchers.IO){
     val input=when(draft.kind){

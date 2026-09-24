@@ -36,11 +36,17 @@ import kotlin.math.abs
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun MoneyWorkspaceScreen(
   overviewState:LoadState<WorkspaceOverview>,recordsState:LoadState<RecordPage>,onSearch:(String)->Unit,onRetry:()->Unit,onLoadMore:()->Unit,
-  onBack:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onCapture:(CaptureKind)->Unit,initialTab:String="overview"
+  onBack:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onCapture:(CaptureKind)->Unit,initialTab:String="overview",
+  planningState:SubmitState,onSaveBudget:(NativeBudgetDraft)->Unit,onSaveRecurring:(NativeRecurringDraft)->Unit,onSaveIntent:(NativeSpendingIntentDraft)->Unit,
+  onOccurrence:(MoneyPlanningResultDtoOccurrencesEntry,String)->Unit,onResetPlanning:()->Unit,
+  cardsState:LoadState<ServiceCardsResultDto>,selectedCard:LoadState<ServiceCardsResultDtoItemsEntry>?,cardSubmit:SubmitState,
+  onLoadCards:(String)->Unit,onMoreCards:()->Unit,onOpenCard:(String)->Unit,onCloseCard:()->Unit,onOlderUses:()->Unit,
+  onSaveCard:(NativeServiceCardDraft)->Unit,onCardUse:(NativeServiceCardUseDraft)->Unit,onResetCard:()->Unit
 ){
-  var tab by rememberSaveable(initialTab){mutableStateOf(initialTab.takeIf{it in setOf("overview","details","budgets","recurring","supplies")}?:"overview")};var query by rememberSaveable{mutableStateOf("")}
+  var tab by rememberSaveable(initialTab){mutableStateOf(initialTab.takeIf{it in setOf("overview","details","budgets","recurring","intents","supplies","cards")}?:"overview")};var query by rememberSaveable{mutableStateOf("")}
   val workspaceScroll=rememberLazyListState()
   LaunchedEffect(tab){workspaceScroll.scrollToItem(0)}
+  LaunchedEffect(tab){if(tab=="cards")onLoadCards("")}
   val overview=(overviewState as? LoadState.Ready)?.value as? WorkspaceOverview.Money
   val records=(recordsState as? LoadState.Ready)?.value?.items.orEmpty()
   var selectedCurrency by rememberSaveable{mutableStateOf<String?>(null)}
@@ -52,11 +58,13 @@ import kotlin.math.abs
     title={Column{Text("消费");Text(overview?.period?.let{"$it · 收支与预算"}?:"正在读取账目",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}},
     navigationIcon={IconButton(onClick=onBack){Text("‹",style=MaterialTheme.typography.headlineLarge)}},actions={FilledTonalIconButton(onClick={onCapture(CaptureKind.Expense)}){Icon(Icons.Default.Add,"记一笔")}}
   )}){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),state=workspaceScroll,contentPadding=PaddingValues(20.dp,10.dp,20.dp,28.dp),verticalArrangement=Arrangement.spacedBy(18.dp)){
-    item{WorkspaceTabs(tab,{tab=it},listOf("overview" to "概览","details" to "明细","budgets" to "预算","recurring" to "订阅","supplies" to "消耗品"))}
+    item{WorkspaceTabs(tab,{tab=it},listOf("overview" to "概览","details" to "明细","budgets" to "预算","recurring" to "订阅","intents" to "想买","supplies" to "消耗品","cards" to "次卡"))}
     item{StateContent(overviewState,onRetry){} }
-    if(overview!=null)when(tab){
-      "budgets"->item{BudgetWorkspace(overview)}
-      "recurring"->item{RecurringWorkspace(overview)}
+    if(tab=="cards")item{NativeServiceCardsSection(cardsState,selectedCard,cardSubmit,records,onLoadCards,onSearch,onMoreCards,onOpenCard,onCloseCard,onOlderUses,onSaveCard,onCardUse,onResetCard)}
+    if(overview!=null&&tab!="cards")when(tab){
+      "budgets"->item{NativeBudgetSection(overview,planningState,onSaveBudget,onResetPlanning)}
+      "recurring"->item{NativeRecurringSection(overview,planningState,onSaveRecurring,onOccurrence,onResetPlanning)}
+      "intents"->item{NativeSpendingIntentSection(overview,planningState,records,onSearch,onSaveIntent,onResetPlanning)}
       "supplies"->item{UseCycleWorkspace(overview)}
       "details"->{item{MoneySearch(query,{query=it},{onSearch(query)},onCapture)};if(recordsState is LoadState.Ready)item{MoneyRecordList(records,onDetail)};if(recordsState is LoadState.Ready&&recordsState.value.nextCursor!=null)item{LoadMoreButton("加载更多明细",onLoadMore)}}
       else->{
@@ -138,11 +146,9 @@ import kotlin.math.abs
 }
 
 @Composable private fun BudgetPreview(value:WorkspaceOverview.Money,onOpen:()->Unit){LifeSection("预算",action={TextButton(onClick=onOpen){Text("完整预算")}}){if(value.budgets.isEmpty())EmptyState("本月还没有预算") else value.budgets.take(2).forEach{BudgetCard(it)}}}
-@Composable private fun BudgetWorkspace(value:WorkspaceOverview.Money){Column(verticalArrangement=Arrangement.spacedBy(14.dp)){Text("${value.period} 预算",style=MaterialTheme.typography.headlineSmall);if(value.budgets.isEmpty())EmptyState("还没有预算；记录仍会正常保留") else value.budgets.forEach{BudgetCard(it)};Text("预算按该月已确认的支出计算。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
 @Composable private fun BudgetCard(value:BudgetProgress){val amount=value.amount.toDoubleOrNull()?:0.0;val spent=value.spent.toDoubleOrNull()?:0.0;val ratio=if(amount>0)(spent/amount).toFloat().coerceIn(0f,1f) else 0f;LifeCard{Row(Modifier.fillMaxWidth()){Column(Modifier.weight(1f)){Text(value.title,style=MaterialTheme.typography.titleMedium);Text("${value.currency} ${value.spent} / ${value.amount}",color=MaterialTheme.colorScheme.onSurfaceVariant)};Text(if(spent>amount)"超支" else "剩余 ${moneyNumber((amount-spent).coerceAtLeast(0.0))}",color=if(spent>amount)MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)};LinearProgressIndicator({ratio},Modifier.fillMaxWidth().height(9.dp),color=if(spent>amount)MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary,trackColor=MaterialTheme.colorScheme.surfaceVariant)}}
 
 @Composable private fun RecurringPreview(value:WorkspaceOverview.Money,onOpen:()->Unit){LifeSection("订阅与周期费用",action={TextButton(onClick=onOpen){Text("全部")}}){LifeCard(onClick=onOpen){Text("${value.recurringPlans} 个周期计划",style=MaterialTheme.typography.titleLarge);Text("${value.openOccurrences} 项待处理 · ${value.spendingIntents} 个消费意向",color=MaterialTheme.colorScheme.onSurfaceVariant);value.recurring.firstOrNull()?.let{Text("最近：${it.title} · ${it.nextDueOn}",color=MaterialTheme.colorScheme.secondary)}}}}
-@Composable private fun RecurringWorkspace(value:WorkspaceOverview.Money){Column(verticalArrangement=Arrangement.spacedBy(14.dp)){Text("周期费用",style=MaterialTheme.typography.headlineSmall);if(value.recurring.isEmpty())EmptyState("没有周期费用") else value.recurring.forEach{item->LifeCard{Row(Modifier.fillMaxWidth()){Column(Modifier.weight(1f)){Text(item.title,style=MaterialTheme.typography.titleMedium);Text("${cadenceLabel(item.cadence)} · 下次 ${item.nextDueOn}",color=MaterialTheme.colorScheme.onSurfaceVariant)};Text(item.amount?.let{"${item.currency} $it"}?:"金额未定")};DomainStatusLabel(item.state)}};if(value.occurrences.isNotEmpty()){Text("待处理",style=MaterialTheme.typography.titleLarge);value.occurrences.filter{it.state in setOf("pending","reminded","snoozed")}.forEach{item->LifeCard{Text(item.title,style=MaterialTheme.typography.titleMedium);Text("${item.dueOn} · ${statusUi(item.state)}",color=MaterialTheme.colorScheme.onSurfaceVariant)}}};if(value.intents.isNotEmpty()){Text("消费意向",style=MaterialTheme.typography.titleLarge);value.intents.forEach{item->LifeCard{Text(item.title,style=MaterialTheme.typography.titleMedium);Text(listOfNotNull(item.intendedOn,item.expectedAmount?.let{"${item.currency.orEmpty()} $it"}).joinToString(" · ").ifBlank{"未设置日期与金额"},color=MaterialTheme.colorScheme.onSurfaceVariant)}}}}}
 @Composable private fun UseCyclePreview(value:WorkspaceOverview.Money,onOpen:()->Unit){LifeSection("消耗品余量",action={TextButton(onClick=onOpen){Text("全部")}}){if(value.useCycles.isEmpty())EmptyState("没有正在追踪的消耗品") else LifeCard(onClick=onOpen){Text("${value.useCycles.size} 个使用周期",style=MaterialTheme.typography.titleLarge);value.useCycles.first().let{Text(useCycleLine(it),color=if(it.balanceStatus in setOf("replenish_now","depleted","needs_specification"))MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)}}}}
 @Composable private fun UseCycleWorkspace(value:WorkspaceOverview.Money){Column(verticalArrangement=Arrangement.spacedBy(14.dp)){Text("消耗品余量",style=MaterialTheme.typography.headlineSmall);if(value.useCycles.isEmpty())EmptyState("没有使用周期；不启用提醒也可只做追踪") else value.useCycles.forEach{item->LifeCard{Text(item.title,style=MaterialTheme.typography.titleMedium);Text(useCycleLine(item),color=if(item.balanceStatus in setOf("replenish_now","depleted","needs_specification"))MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant);Text(if(item.usageState=="pending")"尚未确认开封日期与当前余量" else if(item.matchMode!="none")"匹配 ${item.matchedIntakes} 条已确认摄入" else "已记录使用 ${item.consumed?:"未知"} ${item.unit.orEmpty()}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}}
 private fun useCycleLine(item:MoneyUseCycleSummary)=if(item.usageState=="pending")"待启用 / 未记开封" else when(item.balanceStatus){"needs_specification"->"待补规格，不预测提醒日期";"replenish_now"->"已到补货阈值 · 剩余 ${item.remaining.orEmpty()} ${item.unit.orEmpty()}";"depleted"->"已耗尽";else->listOfNotNull(item.remaining?.let{"按记录剩余 $it ${item.unit.orEmpty()}"},item.estimatedRemaining?.let{"日用量估算剩余 $it ${item.unit.orEmpty()}"},item.projectedDepletionOn?.let{"预计 $it 耗尽"}).joinToString(" · ").ifBlank{statusUi(item.balanceStatus)}}
