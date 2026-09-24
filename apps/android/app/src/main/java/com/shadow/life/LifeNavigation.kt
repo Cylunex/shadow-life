@@ -103,7 +103,7 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
   }}
   statusMessage?.let{message->AlertDialog(onDismissRequest=onDismissStatus,confirmButton={TextButton(onClick=onDismissStatus){Text("知道了")}},text={Text(message)})}
   if(pendingShare!=null)ShareIngressDialog(pendingShare,viewModel.shareImport,{onAcceptShare(pendingShare)},onDiscardShare)
-  LifeComposerHost(composerOpen,composerSeed,viewModel.submit,viewModel.assistant,viewModel.assistantHistory,viewModel.refundCandidates,viewModel::loadOlderAssistantMessages,viewModel::loadRefundCandidates,{composerOpen=false;composerSeed=null;viewModel.editAgain();viewModel.clearAssistant()},{viewModel.submit(it)},viewModel::askLife,viewModel::editAgain)
+  LifeComposerHost(composerOpen,composerSeed,viewModel.submit,viewModel.assistant,viewModel.assistantHistory,viewModel.assistantThreads,viewModel.currentAssistantThreadId,viewModel.refundCandidates,viewModel::loadOlderAssistantMessages,viewModel::selectAssistantThread,viewModel::startNewAssistantThread,viewModel::loadRefundCandidates,{composerOpen=false;composerSeed=null;viewModel.editAgain();viewModel.clearAssistant()},{viewModel.submit(it)},viewModel::askLife,viewModel::editAgain)
 }
 
 private fun defaultCaptureSeed(kind:CaptureKind)=CaptureSeed(kind=kind,date=java.time.LocalDate.now().toString(),option=when(kind){CaptureKind.Expense->"expense";CaptureKind.Purchase->"offline_purchase";CaptureKind.Meal->"other";CaptureKind.Health->"weight";CaptureKind.OwnedItem->"owned";CaptureKind.Project->"active";CaptureKind.Library->"note";else->""})

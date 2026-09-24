@@ -300,8 +300,8 @@ button { background:linear-gradient(135deg,#3477e6,#215bc3); box-shadow:0 7px 16
 .layer-scrim { position:absolute; inset:0; width:100%; height:100%; border:0; border-radius:0; background:rgba(15,28,47,.38); box-shadow:none; backdrop-filter:blur(7px); }
 .quick-sheet,.assistant-sheet { position:relative; z-index:1; width:min(680px,calc(100% - 24px)); max-height:min(84vh,760px); overflow:auto; padding:12px 26px 30px; border:1px solid rgba(255,255,255,.9); border-radius:30px 30px 0 0; background:#fafdff; box-shadow:0 -22px 70px rgba(20,43,76,.2); }
 .assistant-sheet { width:min(820px,calc(100% - 24px)); }
-.assistant-sheet>section>div:first-child { display:grid; gap:9px; max-height:45vh; overflow:auto; padding:4px; }
-.assistant-sheet>section>div:first-child p { margin:0; padding:13px 15px; border-radius:16px; background:#edf4ff; white-space:pre-wrap; }
+.assistant-transcript { display:grid; gap:9px; max-height:45vh; overflow:auto; padding:4px; }
+.assistant-transcript p { margin:0; padding:13px 15px; border-radius:16px; background:#edf4ff; white-space:pre-wrap; }
 .sheet-handle { width:42px; height:5px; margin:0 auto 14px; border-radius:99px; background:#d2dce9; }
 .quick-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
 .object-picker { display:grid; gap:9px; min-width:0; }
@@ -351,7 +351,7 @@ button { background:linear-gradient(135deg,#3477e6,#215bc3); box-shadow:0 7px 16
   body{background:radial-gradient(circle at 12% 0,#193659 0,transparent 30rem),radial-gradient(circle at 90% 16%,#173c35 0,transparent 24rem),#0d1725}
   .top-nav,.icon-button,.section-nav button{background:rgba(20,34,51,.88);border-color:#344960}.section-nav button.active{background:#3477e6;border-color:transparent}.today-hero{background:linear-gradient(125deg,#182b43,#183958)}
   .quick-strip button,.quick-grid button,.summary-card{background:rgba(21,35,53,.94);border-color:#30435a}.activity-card,.attention,.workspace-intro,form,.receipt,.error,.health-panel,.import-panel,.record-browser,.workout-panel,.food-panel,.travel-panel,.library-panel,.owned-items,.life-reviews,.life-projects,.meal-planning,.foreign-money,.notification-panel{border-color:#31435b;background:var(--surface)}
-  input,textarea,select,.picker-options button{color:var(--ink);border-color:#3a4d64;background:#111f31}.picker-options button.selected{background:#193657}.quick-sheet,.assistant-sheet{background:#101d2d;border-color:#33475f}.assistant-sheet>section>div:first-child p{background:#192d47}.activity-list li,.action-list li,.meal-entry-list li{border-color:#2b3c52}.soft-button,button.secondary{color:#8db7f4;border-color:#3f5d80;background:#172b44}.health-card,.candidate,.map-board,.transit-card,.map-list,.travel-form,.track-form,.library-upload,.legacy-form,.library-list,.catalog-form,.import-form,.detail-edit,.workout-form,.travel-basics,.shopping-card,.plan-card,.project-builder{background:#142338;border-color:#30435b}.host-message,.reference-chip{color:#a9c8f5;background:#193657}
+  input,textarea,select,.picker-options button{color:var(--ink);border-color:#3a4d64;background:#111f31}.picker-options button.selected{background:#193657}.quick-sheet,.assistant-sheet{background:#101d2d;border-color:#33475f}.assistant-transcript p{background:#192d47}.activity-list li,.action-list li,.meal-entry-list li{border-color:#2b3c52}.soft-button,button.secondary{color:#8db7f4;border-color:#3f5d80;background:#172b44}.health-card,.candidate,.map-board,.transit-card,.map-list,.travel-form,.track-form,.library-upload,.legacy-form,.library-list,.catalog-form,.import-form,.detail-edit,.workout-form,.travel-basics,.shopping-card,.plan-card,.project-builder{background:#142338;border-color:#30435b}.host-message,.reference-chip{color:#a9c8f5;background:#193657}
   .health-card p,.health-card dt,.trend-summary,.trend-list time,.trend-list small,.source-list small,.source-list ul,.import-panel>p,.import-summary span,.import-summary code,.candidate details,.import-rules>p,.import-rules article small,.record-browser>p,.record-list small,.record-detail>code,.detail-grid dt,.workout-panel>p,.workout-history span,.food-panel>p,.catalog-list span,.attention>p,.attention-grid span,.map-board>small,.travel-form>small,.track-form>small,.map-list>ul span,.library-upload small,.library-list span,.library-reader small,.notification-panel span,.notification-panel small{color:var(--muted)}
   .trend-list li,.source-list>li,.import-rules,.import-rules article,.record-list li,.detail-grid>div,.workout-history li,.catalog-list li,.attention-grid li,.place-choice,.map-list>ul button,.bundle-restore,.library-list button,.library-reader,.library-reader li,.notification-panel>ul>li{border-color:#2b3c52}.record-list li,.review-list pre,.library-reader blockquote{background:#142338}
 }
@@ -512,7 +512,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .layer-scrim { background:rgba(3,7,11,.68); backdrop-filter:blur(12px); }
 .quick-sheet,.assistant-sheet { border-color:var(--line-strong); background:linear-gradient(180deg,#111a26,#0b121b); box-shadow:0 -24px 80px rgba(0,0,0,.52); }
 .sheet-handle { background:#3d4a58; }
-.assistant-sheet>section>div:first-child p { color:#dce5ed; background:#141f2d; }
+.assistant-transcript p { color:#dce5ed; background:#141f2d; }
 .picker-options button { color:var(--ink); border-color:var(--line); background:#0f1823; }
 .picker-options button.selected { color:#b9f2ed; border-color:rgba(85,222,211,.3); background:rgba(42,119,119,.2); }
 .reference-chip,.host-message { color:#a9eae5; background:rgba(41,117,117,.18); }
@@ -982,7 +982,7 @@ button.secondary,.soft-button { color:#c3cbd3; border-color:var(--line-strong); 
 .quick-add { color:#04130c; border-color:rgba(156,250,197,.55); background:linear-gradient(145deg,#75efb3,#36bd78); box-shadow:0 10px 30px rgba(54,189,120,.25),0 0 0 1px rgba(101,230,169,.18); }
 .quick-sheet,.assistant-sheet { border-color:var(--line-strong); background:linear-gradient(180deg,#0e1216,#07090c); box-shadow:0 -26px 86px rgba(0,0,0,.68); }
 .sheet-handle { background:#424951; }
-.assistant-sheet>section>div:first-child p { color:#e1e6eb; background:#11161c; }
+.assistant-transcript p { color:#e1e6eb; background:#11161c; }
 .asset-preview { background:#050709; }
 .status { color:#bdc5cd; background:#1a1f25; }
 .technical-note,.unknown-value { color:#747e88; }
@@ -1060,3 +1060,9 @@ button.secondary,.soft-button { color:#c3cbd3; border-color:var(--line-strong); 
 .consumables-panel .stats-card{display:block;min-width:0}.consumables-panel .stats-card p{margin:.65rem 0}.consumables-panel .actions{display:flex;flex-wrap:wrap;gap:.5rem;margin:1rem 0}.consumables-panel details{margin-top:.8rem}.consumables-panel li{margin:.6rem 0}.consumables-panel form{scroll-margin-top:1rem}.consumables-panel .panel-heading{flex-wrap:wrap}
 
 .app-shell{overflow-anchor:none}
+
+.assistant-thread-toolbar { display:flex; align-items:end; gap:12px; margin:12px 0 18px; }
+.assistant-thread-toolbar label { flex:1; min-width:0; }
+.assistant-thread-toolbar select { width:100%; margin-top:6px; }
+.assistant-thread-toolbar button { flex:none; }
+@media(max-width:480px) { .assistant-thread-toolbar { align-items:stretch; flex-direction:column; } .assistant-thread-toolbar button { align-self:flex-start; } }

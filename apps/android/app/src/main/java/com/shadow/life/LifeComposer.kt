@@ -1,6 +1,7 @@
 package com.shadow.life
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -14,20 +15,25 @@ import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun LifeComposerHost(open:Boolean,initialSeed:CaptureSeed?,submitState:SubmitState,assistantState:LoadState<AssistantReply>?,historyState:LoadState<AssistantConversation>?,refundCandidates:LoadState<RecordPage>,onLoadOlder:()->Unit,onLoadRefundCandidates:(String)->Unit,onDismiss:()->Unit,onSubmit:(CaptureDraft)->Unit,onAsk:(String)->Unit,onReset:()->Unit){
+@Composable fun LifeComposerHost(open:Boolean,initialSeed:CaptureSeed?,submitState:SubmitState,assistantState:LoadState<AssistantReply>?,historyState:LoadState<AssistantConversation>?,threadState:LoadState<List<AssistantThreadSummary>>,selectedThreadId:String?,refundCandidates:LoadState<RecordPage>,onLoadOlder:()->Unit,onSelectThread:(String)->Unit,onNewThread:()->Unit,onLoadRefundCandidates:(String)->Unit,onDismiss:()->Unit,onSubmit:(CaptureDraft)->Unit,onAsk:(String)->Unit,onReset:()->Unit){
   if(!open)return
   var mode by rememberSaveable(initialSeed?.contextId,initialSeed?.kind){mutableStateOf(initialSeed?.kind)}
   ModalBottomSheet(onDismissRequest=onDismiss,containerColor=MaterialTheme.colorScheme.surface,dragHandle={BottomSheetDefaults.DragHandle()}){
     Column(Modifier.fillMaxWidth().imePadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(start=20.dp,end=20.dp,bottom=20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)){
       Text(if(mode==null)"Life" else "记录${mode?.label}",style=MaterialTheme.typography.headlineMedium)
-      if(mode==null)ComposerStart(assistantState,historyState,onLoadOlder,onAsk,onChoose={mode=it;if(it==CaptureKind.Refund)onLoadRefundCandidates("")}) else CaptureForm(mode!!,initialSeed?.takeIf{it.kind==mode},submitState,refundCandidates,onLoadRefundCandidates,onSubmit,onBack={onReset();mode=null},onDone={onDismiss();onReset();mode=null})
+      if(mode==null)ComposerStart(assistantState,historyState,threadState,selectedThreadId,onLoadOlder,onSelectThread,onNewThread,onAsk,onChoose={mode=it;if(it==CaptureKind.Refund)onLoadRefundCandidates("")}) else CaptureForm(mode!!,initialSeed?.takeIf{it.kind==mode},submitState,refundCandidates,onLoadRefundCandidates,onSubmit,onBack={onReset();mode=null},onDone={onDismiss();onReset();mode=null})
     }
   }
 }
 
-@Composable private fun ComposerStart(assistantState:LoadState<AssistantReply>?,historyState:LoadState<AssistantConversation>?,onLoadOlder:()->Unit,onAsk:(String)->Unit,onChoose:(CaptureKind)->Unit){
+@Composable private fun ComposerStart(assistantState:LoadState<AssistantReply>?,historyState:LoadState<AssistantConversation>?,threadState:LoadState<List<AssistantThreadSummary>>,selectedThreadId:String?,onLoadOlder:()->Unit,onSelectThread:(String)->Unit,onNewThread:()->Unit,onAsk:(String)->Unit,onChoose:(CaptureKind)->Unit){
   var message by rememberSaveable{mutableStateOf("")}
   Text("直接告诉 Life 你要记录、查找或安排什么；也可以选择完整表单。",color=MaterialTheme.colorScheme.onSurfaceVariant)
+  Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically){
+    FilterChip(selected=selectedThreadId==null,onClick=onNewThread,enabled=assistantState !is LoadState.Loading,label={Text("新对话")})
+    if(threadState is LoadState.Ready)threadState.value.forEach{thread->FilterChip(selected=selectedThreadId==thread.id,onClick={onSelectThread(thread.id)},enabled=assistantState !is LoadState.Loading,label={Text(thread.title.ifBlank{"未命名对话"}.take(18))})}
+  }
+  if(threadState is LoadState.Failed)Text(threadState.message,color=MaterialTheme.colorScheme.error)
   when(historyState){
     is LoadState.Ready->{if(historyState.value.nextCursor!=null)TextButton(onClick=onLoadOlder){Text("加载更早消息")};historyState.value.items.forEach{item->Surface(Modifier.fillMaxWidth(),shape=MaterialTheme.shapes.large,color=if(item.role=="user")MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant){Column(Modifier.padding(14.dp)){Text(if(item.role=="user")"你" else "Life",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(item.content)}}}}
     is LoadState.Failed->Text(historyState.message,color=MaterialTheme.colorScheme.error)
