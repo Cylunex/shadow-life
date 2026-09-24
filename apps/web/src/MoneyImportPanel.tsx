@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   disableImportRuleCommand,
   initialCandidateFields,
@@ -10,9 +10,11 @@ import {
   type MoneyImportRule
 } from "./money-import.js";
 import type { Execute } from "./command-controller.js";
+import { formatInTimeZone } from "./travel-time.js";
 
 export function MoneyImportPanel({enabled,headers,execute,timeZone}:{enabled:boolean;headers:HeadersInit;execute:Execute;timeZone:string}){
-  const [period,setPeriod]=useState(new Date().toISOString().slice(0,7));
+  const [period,setPeriod]=useState(()=>formatInTimeZone(new Date(),timeZone).slice(0,7));
+  const monthRequest=useRef(0);
   const [month,setMonth]=useState<{batches:Array<{id:string;source_name:string;status:string;created_at:string;total:number;unconfirmed:number;duplicates:number;uncategorized:number;refunds_unlinked:number}>;totals:{unconfirmed:number;duplicates:number;uncategorized:number;refunds_unlinked:number}}>();
   const [filter,setFilter]=useState<"all"|"unconfirmed"|"duplicates"|"uncategorized"|"refunds">("all");
   const [format,setFormat]=useState<"csv"|"json"|"markdown">("csv");
@@ -21,7 +23,7 @@ export function MoneyImportPanel({enabled,headers,execute,timeZone}:{enabled:boo
   const [review,setReview]=useState<MoneyImportReview>();
   const [pending,setPending]=useState(false);
   const [error,setError]=useState<string>();
-  async function loadMonth(value=period){const response=await fetch(`/api/money/import-month?period=${encodeURIComponent(value)}`,{headers});if(!response.ok)throw new Error(`读取月度核对失败（HTTP ${response.status}）`);setMonth(await response.json());}
+  async function loadMonth(value=period){const request=++monthRequest.current;const response=await fetch(`/api/money/import-month?period=${encodeURIComponent(value)}`,{headers});if(!response.ok)throw new Error(`读取月度核对失败（HTTP ${response.status}）`);const result=await response.json();if(request===monthRequest.current)setMonth(result);}
   useEffect(()=>{if(enabled)void loadMonth().catch(error=>setError(error instanceof Error?error.message:"读取月度核对失败"));},[enabled,period]);
   async function refresh(batchId:string){setReview(await loadMoneyImportReview(fetch,headers,batchId));await loadMonth();}
   async function stage(event:FormEvent){event.preventDefault();setPending(true);setError(undefined);try{const result=await execute("money.stage_import",{format,source_name:sourceName,content,time_zone:timeZone},"money-import:stage"),batchId=String(result.actual_values.batch_id);await refresh(batchId);}catch(caught){setError(caught instanceof Error?caught.message:"导入失败");}finally{setPending(false);}}
@@ -31,7 +33,7 @@ export function MoneyImportPanel({enabled,headers,execute,timeZone}:{enabled:boo
   return <section className="import-panel">
     <div className="panel-heading"><div><span className="eyebrow">LEDGER</span><h2>账单导入复核</h2></div>{review&&<span className={`status ${review.batch.status}`}>{review.batch.status==="completed"?"已完成":"待复核"}</span>}</div>
     <p>解析只生成候选；逐条确认后才写入账目。原始行与精确金额不会被规则自动改写。按发生月核对；缺日期的候选按导入月归入待处理。</p>
-    <section className="import-summary"><label>核对月份<input type="month" value={period} onChange={event=>setPeriod(event.target.value)}/></label>{month&&<><span>未确认 {month.totals.unconfirmed} · 疑似重复 {month.totals.duplicates} · 未分类 {month.totals.uncategorized} · 退款待关联 {month.totals.refunds_unlinked}</span><div>{month.batches.map(batch=><button type="button" className="secondary" key={batch.id} onClick={()=>void refresh(batch.id)}>{batch.source_name} · {batch.total} 行 · 待处理 {batch.unconfirmed}</button>)}</div></>}</section>
+    <section className="import-summary"><label>核对月份<input type="month" value={period} onChange={event=>setPeriod(event.target.value)}/></label>{month&&<><span>未确认 {month.totals.unconfirmed} · 疑似重复 {month.totals.duplicates} · 未分类 {month.totals.uncategorized} · 退款待关联 {month.totals.refunds_unlinked}</span><div>{month.batches.map(batch=><button type="button" className="secondary" key={batch.id} onClick={()=>void refresh(batch.id).catch(caught=>setError(caught instanceof Error?caught.message:"读取导入复核失败"))}>{batch.source_name} · {batch.total} 行 · 待处理 {batch.unconfirmed}</button>)}</div></>}</section>
     <form className="import-form" onSubmit={stage}><label>格式<select value={format} onChange={event=>setFormat(event.target.value as typeof format)}><option value="csv">CSV</option><option value="json">JSON</option><option value="markdown">Markdown 表格</option></select></label><label>来源名称<input required value={sourceName} onChange={event=>setSourceName(event.target.value)}/></label><label className="full">账单内容<textarea required value={content} onChange={event=>setContent(event.target.value)} placeholder="粘贴平台导出的原始账单内容"/></label><button disabled={pending}>{pending?"解析中…":"生成复核候选"}</button></form>
     {error&&<p className="inline-error">{error}</p>}
     {review&&<><div className="import-summary"><b>{review.batch.source_name}</b><span>共 {review.batch.total} · 待确认 {review.batch.pending} · 无效 {review.batch.invalid} · 已确认 {review.batch.confirmed} · 已忽略 {review.batch.ignored}</span><code>{review.batch.id}</code></div><div className="panel-actions">{(["all","unconfirmed","duplicates","uncategorized","refunds"] as const).map(value=><button key={value} type="button" className={filter===value?"":"secondary"} onClick={()=>setFilter(value)}>{({all:"全部",unconfirmed:"未确认",duplicates:"疑似重复",uncategorized:"未分类",refunds:"退款待关联"})[value]}</button>)}</div><div className="candidate-list">{review.candidates.filter(candidate=>filter==="all"||filter==="unconfirmed"&&["pending","invalid"].includes(candidate.status)||filter==="duplicates"&&Boolean(candidate.duplicate_of_record_id)&&["pending","invalid"].includes(candidate.status)||filter==="uncategorized"&&!candidate.proposed.category&&["pending","invalid"].includes(candidate.status)||filter==="refunds"&&candidate.proposed.entry_type==="refund"&&["pending","invalid"].includes(candidate.status)).map(candidate=><CandidateEditor key={`${candidate.id}:${candidate.revision}`} candidate={candidate} rules={review.rules} pending={pending} timeZone={timeZone} resolve={resolve}/>)}</div><RuleList rules={review.rules} pending={pending} disableRule={disableRule}/></>}
