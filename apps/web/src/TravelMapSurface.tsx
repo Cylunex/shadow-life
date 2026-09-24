@@ -5,12 +5,14 @@ import {hasPlaceCoordinates,placePlot,routeForDay,type TravelDayPlan,type Travel
 
 type TravelTrack=TravelWorkspace["tracks"][number];
 type Overlay=google.maps.Marker|google.maps.Polyline;
+type RoadRoute={path:google.maps.LatLngLiteral[];distanceMeters:number;durationMillis:number};
 const mapFitPadding={top:56,right:100,bottom:72,left:52};
 
 export function TravelMapSurface({places,tracks,dayPlan,allPlans}:{places:readonly TravelPlace[];tracks:readonly TravelTrack[];dayPlan?:TravelDayPlan|undefined;allPlans?:readonly TravelDayPlan[]|undefined}){
-  const containerRef=useRef<HTMLDivElement>(null),mapRef=useRef<google.maps.Map|null>(null),overlaysRef=useRef<Overlay[]>([]),boundsRef=useRef<google.maps.LatLngBounds|null>(null),fitInputRef=useRef<{places:readonly TravelPlace[];tracks:readonly TravelTrack[];dayPlan?:TravelDayPlan|undefined;allPlans?:readonly TravelDayPlan[]|undefined}|null>(null);
+  const containerRef=useRef<HTMLDivElement>(null),mapRef=useRef<google.maps.Map|null>(null),overlaysRef=useRef<Overlay[]>([]),boundsRef=useRef<google.maps.LatLngBounds|null>(null),fitInputRef=useRef<{places:readonly TravelPlace[];tracks:readonly TravelTrack[];dayPlan?:TravelDayPlan|undefined;allPlans?:readonly TravelDayPlan[]|undefined}|null>(null),roadCacheRef=useRef(new Map<string,Promise<RoadRoute|null>>());
   const[status,setStatus]=useState<"loading"|"ready"|"error">(isGoogleMapsConfigured()?"loading":"error"),[message,setMessage]=useState(isGoogleMapsConfigured()?"正在加载 Google 地图…":"Google 地图尚未配置");
   const[satellite,setSatellite]=useState(false),[showMarkers,setShowMarkers]=useState(true),[showRoutes,setShowRoutes]=useState(true);
+  const[roadStatus,setRoadStatus]=useState<string|null>(null);
   const fallback=placePlot(places),dayRoute=routeForDay(places,dayPlan);
   useEffect(()=>{
     let disposed=false;
@@ -23,6 +25,7 @@ export function TravelMapSurface({places,tracks,dayPlan,allPlans}:{places:readon
   },[]);
   useEffect(()=>{
     const map=mapRef.current;if(!map||status!=="ready")return;
+    let disposed=false;
     overlaysRef.current.forEach(overlay=>overlay.setMap(null));
     const labels=new Map<string,string[]>();
     if(dayPlan)for(const[id,numbers]of dayRoute.stopNumbers)labels.set(id,numbers.map(String));
@@ -31,13 +34,34 @@ export function TravelMapSurface({places,tracks,dayPlan,allPlans}:{places:readon
     const markers=showMarkers?locatedPlaces(places).map(place=>{const label=labels.get(place.id)?.join("/").slice(0,8);return new google.maps.Marker({map,position:{lat:place.latitude,lng:place.longitude},title:`${labels.get(place.id)?.join("、")??""} ${place.name}${place.address?` · ${place.address}`:""}`.trim(),...(label?{label}:{})});}):[];
     const lines=tracks.flatMap(track=>{const points=sampleTrack(track.points.filter(validPoint));return points.length>1?[new google.maps.Polyline({map,path:points.map(point=>({lat:point.latitude,lng:point.longitude})),strokeColor:"#1677d2",strokeWeight:5,strokeOpacity:.82})]:[];});
     const scopedRoutes=allPlans?allPlans.flatMap(plan=>routeForDay(places,plan).lines):dayRoute.lines;
-    const routeLines=showRoutes?scopedRoutes.map(line=>new google.maps.Polyline({map,path:line.map(point=>({lat:point.latitude,lng:point.longitude})),strokeColor:"#e68c3f",strokeWeight:4,strokeOpacity:.9,icons:[{icon:{path:"M 0,-1 0,1",strokeOpacity:1,scale:3},offset:"0",repeat:"18px"}]})):[];
-    overlaysRef.current=[...markers,...lines,...routeLines];
+    overlaysRef.current=[...markers,...lines];
+    if(showRoutes&&scopedRoutes.length){
+      setRoadStatus("正在计算驾车道路路线…");
+      void (async()=>{
+        const {Route}=await google.maps.importLibrary("routes") as google.maps.RoutesLibrary;
+        const results=await Promise.all(scopedRoutes.map(line=>{
+          const key=line.map(point=>`${point.latitude},${point.longitude}`).join(";");
+          const cached=roadCacheRef.current.get(key);if(cached)return cached;
+          const pending=Route.computeRoutes({origin:{lat:line[0]!.latitude,lng:line[0]!.longitude},destination:{lat:line.at(-1)!.latitude,lng:line.at(-1)!.longitude},intermediates:line.slice(1,-1).map(point=>({location:{lat:point.latitude,lng:point.longitude}})),travelMode:"DRIVING",fields:["path","distanceMeters","durationMillis"]}).then(({routes})=>{
+            const route=routes?.[0];const path=route?.path?.map(point=>({lat:point.lat,lng:point.lng}));
+            return path&&path.length>1?{path,distanceMeters:route?.distanceMeters??0,durationMillis:route?.durationMillis??0}:null;
+          }).catch(()=>{roadCacheRef.current.delete(key);return null;});
+          roadCacheRef.current.set(key,pending);return pending;
+        }));
+        if(disposed)return;
+        const available=results.filter((route):route is RoadRoute=>route!==null);
+        const routeLines=available.map(route=>new google.maps.Polyline({map,path:route.path,strokeColor:"#e68c3f",strokeWeight:5,strokeOpacity:.92}));
+        overlaysRef.current.push(...routeLines);
+        const missing=results.length-available.length;
+        setRoadStatus(available.length?`驾车道路路线 · ${(available.reduce((sum,route)=>sum+route.distanceMeters,0)/1000).toFixed(1)} 公里 · 约 ${Math.round(available.reduce((sum,route)=>sum+route.durationMillis,0)/60000)} 分钟${missing?` · ${missing} 段无可用道路`:""}`:"没有可用的驾车道路路线");
+      })().catch(()=>{if(!disposed)setRoadStatus("道路路线暂时无法连接");});
+    }else setRoadStatus(null);
     const bounds=new google.maps.LatLngBounds();for(const place of locatedPlaces(places))bounds.extend({lat:place.latitude,lng:place.longitude});for(const track of tracks)for(const point of sampleTrack(track.points.filter(validPoint)))bounds.extend({lat:point.latitude,lng:point.longitude});
     boundsRef.current=bounds.isEmpty()?null:bounds;
     const prior=fitInputRef.current,shouldFit=!prior||prior.places!==places||prior.tracks!==tracks||prior.dayPlan!==dayPlan||prior.allPlans!==allPlans;
     fitInputRef.current={places,tracks,dayPlan,allPlans};
     if(shouldFit&&!bounds.isEmpty()){if(bounds.getNorthEast().equals(bounds.getSouthWest())){map.setCenter(bounds.getCenter());map.setZoom(15);}else{map.fitBounds(bounds,mapFitPadding);google.maps.event.addListenerOnce(map,"idle",()=>{if((map.getZoom()??0)>15)map.setZoom(15);});}}
+    return()=>{disposed=true;};
   },[places,tracks,dayPlan,allPlans,status,satellite,showMarkers,showRoutes]);
   useEffect(()=>{if(status!=="ready"||!containerRef.current)return;const observer=new ResizeObserver(()=>{const map=mapRef.current,bounds=boundsRef.current;if(map&&bounds)map.fitBounds(bounds,mapFitPadding);});observer.observe(containerRef.current);return()=>observer.disconnect();},[status]);
   return <div className="travel-map-shell">
@@ -45,7 +69,7 @@ export function TravelMapSurface({places,tracks,dayPlan,allPlans}:{places:readon
     {status==="ready"&&<div className="life-map-controls"><button type="button" onClick={()=>setSatellite(value=>!value)} aria-pressed={satellite}>{satellite?"标准":"卫星"}</button><button type="button" onClick={()=>{const map=mapRef.current,bounds=boundsRef.current;if(map&&bounds)map.fitBounds(bounds,mapFitPadding);}} disabled={!boundsRef.current}>聚焦</button><button type="button" onClick={()=>setShowMarkers(value=>!value)} aria-pressed={showMarkers}>标记{showMarkers?"开":"关"}</button><button type="button" onClick={()=>setShowRoutes(value=>!value)} aria-pressed={showRoutes}>路线{showRoutes?"开":"关"}</button></div>}
     {status!=="ready"&&<div className={`life-map-state ${status}`}><b>{status==="loading"?"地图加载中":message}</b><span>{status==="error"?"仍可浏览日程和已保存地点。":"正在加载旅行地图。"}</span>{status==="error"&&isGoogleMapsConfigured()&&<button type="button" onClick={()=>location.reload()}>重新加载</button>}</div>}
     {status==="error"&&fallback.length>0&&<div className="coordinate-map map-fallback" aria-label="地图不可用时的地点坐标预览">{fallback.map(point=><span key={point.id} style={{left:`${point.x}%`,top:`${point.y}%`}} title={point.address??point.name}><i/>{dayRoute.stopNumbers.get(point.id)?.join("/")??""} {point.name}</span>)}</div>}
-    <span className="life-map-badge">{status==="ready"?"Google 地图":"地点预览"}</span>
+    <span className="life-map-badge">{status==="ready"?(roadStatus??"Google 地图"):"地点预览"}</span>
   </div>;
 }
 

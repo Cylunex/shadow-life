@@ -44,8 +44,6 @@ import com.google.android.gms.maps.model.LatLng as GoogleLatLng
 import com.google.android.gms.maps.model.MarkerOptions as GoogleMarkerOptions
 import com.google.android.gms.maps.model.PolylineOptions as GooglePolylineOptions
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
-import com.google.android.gms.maps.model.Dash
-import com.google.android.gms.maps.model.Gap
 import com.google.android.gms.maps.model.LatLngBounds
 
 internal enum class TravelMapProvider(val label:String){Amap("高德地图"),Google("Google 地图")}
@@ -144,7 +142,7 @@ internal class MapGestureFrame(context:Context):FrameLayout(context){
     fun include(point:GoogleLatLng){bounds.include(point);count++;if(firstPoint==null)firstPoint=point}
     markers.forEach{item->val point=GoogleLatLng(item.latitude,item.longitude);include(point);val options=GoogleMarkerOptions().position(point).title(listOfNotNull(item.label,item.title).joinToString(" ")).snippet(item.supporting);if(item.label!=null)options.icon(BitmapDescriptorFactory.fromBitmap(numberedMarker(item.label)));map.addMarker(options)}
     tracks.forEach{track->val points=sampleTrack(track.points).map{GoogleLatLng(it.latitude,it.longitude)};points.forEach(::include);if(points.size>1)map.addPolyline(GooglePolylineOptions().addAll(points).width(9f).color(0xff56d6c9.toInt()))}
-    routes.forEach{route->if(route.size>1)map.addPolyline(GooglePolylineOptions().addAll(route.map{GoogleLatLng(it.latitude,it.longitude)}).width(8f).color(0xffe68c3f.toInt()).pattern(listOf(Dash(18f),Gap(12f))))}
+    routes.forEach{route->if(route.size>1)map.addPolyline(GooglePolylineOptions().addAll(route.map{GoogleLatLng(it.latitude,it.longitude)}).width(8f).color(0xffe68c3f.toInt()))}
     firstPoint?.let{point->
       fun fit(){
         if(renderState.content!=content||mapView.width<=0||mapView.height<=0)return
