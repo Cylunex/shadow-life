@@ -6,7 +6,9 @@ export interface TravelStop {stop_id:string;title:string;starts_at?:string;place
 export interface TravelRun {id:string;trip_id:string;plan_version_id:string;state:string;plan_snapshot:{days:Array<{plan_date:string;items:Array<Omit<TravelStop,"plan_date">>}>};outcomes:Array<{stop_id:string;state:"arrived"|"skipped";revision:number}>;}
 export interface TravelDayPlan {id:string;trip_id:string;plan_date:string;items:Array<Omit<TravelStop,"plan_date">>;revision:number;}
 export interface TravelSegment {id:string;trip_id:string;mode:string;origin:string;destination:string;starts_at:string|null;ends_at:string|null;distance_km:string|null;note:string|null;visibility:"shared"|"private";revision:number;}
-export interface TravelWorkspace {places:TravelPlace[];maps:TravelMap[];trips:TravelTrip[];selected_trip_id:string|null;active_run:TravelRun|null;tracks:Array<{id:string;name:string;points:Array<{latitude:number;longitude:number}>;original_sha256:string}>;day_plans:TravelDayPlan[];segments:TravelSegment[];as_of:string;}
+export interface TravelChecklistItem{id:string;title:string;state:"needed"|"packed"|"skipped";note:string|null;}
+export interface TravelChecklist{id:string;trip_id:string;revision:number;items:TravelChecklistItem[];}
+export interface TravelWorkspace {places:TravelPlace[];maps:TravelMap[];trips:TravelTrip[];selected_trip_id:string|null;checklist:TravelChecklist|null;active_run:TravelRun|null;tracks:Array<{id:string;name:string;points:Array<{latitude:number;longitude:number}>;original_sha256:string}>;day_plans:TravelDayPlan[];segments:TravelSegment[];as_of:string;}
 
 export function nextTravelStop(run:TravelRun|null):TravelStop|null{if(!run)return null;const completed=new Set(run.outcomes.map(item=>item.stop_id)),stops=run.plan_snapshot.days.flatMap(day=>day.items.map(item=>({...item,plan_date:day.plan_date})));return stops.find(stop=>!completed.has(stop.stop_id))??null;}
 

@@ -3,6 +3,7 @@ import { CommandExecutor, KernelError, sha256Fingerprinter, systemClock, uuidIds
 import { PostgresUnitOfWork } from "./postgres.js";
 import type { Pool } from "pg";
 import { AssetService } from "./asset-service.js";
+import { configuredVisionProcessor, visionProcessorName, type VisionProcessor } from "./vision-processor.js";
 
 const textMediaTypes=new Set(["text/plain","text/markdown","application/json"]);
 
@@ -14,11 +15,11 @@ export function splitLibraryText(text:string,maxCharacters=4_000):Array<{text:st
   return snippets;
 }
 
-export async function processPendingLibrary(pool:Pool,limit=20):Promise<Array<{job_id:string;state:"completed"|"failed"|"superseded";error?:string}>>{
+export async function processPendingLibrary(pool:Pool,limit=20,vision:VisionProcessor=configuredVisionProcessor()):Promise<Array<{job_id:string;state:"completed"|"failed"|"superseded";error?:string}>>{
   if(!Number.isInteger(limit)||limit<1||limit>100)throw new RangeError("library processing limit must be between 1 and 100");
   // Reading candidates grants no ownership. Claim each immediately before doing its work;
   // simultaneous dispatchers resolve their race in the same public Executor transaction.
-  const candidates=await pool.query<{id:string;subject_id:string;source_asset_version_id:string;attempts:number}>("select id,subject_id,source_asset_version_id,attempts from library_processing_jobs where kind='text_extract' and requested_processor='builtin-text-v1' and (state='queued' or (state='running' and lease_expires_at<=clock_timestamp())) order by updated_at,id limit $1",[limit]);
+  const candidates=await pool.query<{id:string;subject_id:string;source_asset_version_id:string;attempts:number;kind:string}>("select id,subject_id,source_asset_version_id,attempts,kind from library_processing_jobs where ((kind='text_extract' and requested_processor='builtin-text-v1') or (kind='vision' and requested_processor=$2)) and (state='queued' or (state='running' and lease_expires_at<=clock_timestamp())) order by updated_at,id limit $1",[limit,visionProcessorName]);
   const executor=new CommandExecutor({unitOfWork:new PostgresUnitOfWork(pool),ids:uuidIds,clock:systemClock,fingerprinter:sha256Fingerprinter});
   const assets=new AssetService(pool),results:Array<{job_id:string;state:"completed"|"failed"|"superseded";error?:string}>=[];
   for(const job of candidates.rows){
@@ -32,12 +33,20 @@ export async function processPendingLibrary(pool:Pool,limit=20):Promise<Array<{j
     try{
       const source=(await pool.query<{bytes:Buffer;media_type:string}>("select blob.bytes,asset.media_type from asset_blobs blob join asset_versions version on version.id=blob.asset_version_id join assets asset on asset.id=version.asset_id where version.id=$1 and asset.subject_id=$2",[job.source_asset_version_id,job.subject_id])).rows[0];
       if(!source)throw new Error("fixed original asset is unavailable");
-      if(!textMediaTypes.has(source.media_type))throw new Error(`builtin-text-v1 does not support ${source.media_type}`);
-      if(source.bytes.length>1_000_000)throw new Error("text original exceeds the 1000000 byte processing limit");
-      const text=new TextDecoder("utf-8",{fatal:true}).decode(source.bytes),snippets=splitLibraryText(text);
-      if(!snippets.length)throw new Error("text original contains no readable content");
-      const derived=await assets.store(job.subject_id,"text/plain",Buffer.from(text,"utf8"),{sourceVersionId:job.source_asset_version_id,processor:"builtin-text-v1",kind:"text_extract"});
-      await execute("library.complete_processing",{job_id:job.id,attempt,derived_asset_version_id:derived.asset_version_id,processor_version:"builtin-text-v1",snippets});
+      let text:string,snippets:Array<{text:string;locator:Record<string,unknown>}>,suggestion:Awaited<ReturnType<VisionProcessor["process"]>>["candidate"]|undefined,processorVersion="builtin-text-v1";
+      if(job.kind==="vision"){
+        const result=await vision.process(source.bytes,source.media_type);suggestion=result.candidate;processorVersion=result.processorVersion;
+        text=[suggestion.title,suggestion.document_date,suggestion.category,suggestion.summary,suggestion.content].filter(Boolean).join("\n");
+        snippets=[...splitLibraryText(text).map(part=>({text:part.text,locator:{source:"vision_candidate",...part.locator}})),...suggestion.locators.filter(item=>item.quote).map(item=>({text:item.quote!,locator:{page:item.page,source:"vision_quote"}}))];
+      }else{
+        if(!textMediaTypes.has(source.media_type))throw new Error(`builtin-text-v1 does not support ${source.media_type}`);
+        if(source.bytes.length>1_000_000)throw new Error("text original exceeds the 1000000 byte processing limit");
+        text=new TextDecoder("utf-8",{fatal:true}).decode(source.bytes);snippets=splitLibraryText(text);
+      }
+      if(!snippets.length)throw new Error("original contains no readable content");
+      if(snippets.length>500)throw new Error("extracted text exceeds the 500 snippet limit");
+      const derived=await assets.store(job.subject_id,"text/plain",Buffer.from(text,"utf8"),{sourceVersionId:job.source_asset_version_id,processor:processorVersion,kind:job.kind});
+      await execute("library.complete_processing",{job_id:job.id,attempt,derived_asset_version_id:derived.asset_version_id,processor_version:processorVersion,snippets,...(suggestion?{suggestion}:{})});
       results.push({job_id:job.id,state:"completed"});
     }catch(error){
       const message=(error instanceof Error?error.message:"library processing failed").slice(0,2_000);

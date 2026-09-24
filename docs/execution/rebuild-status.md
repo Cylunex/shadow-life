@@ -1,5 +1,9 @@
 # Rebuild status
 
+## 2026-09-24: Money / Travel / Library record workspaces
+
+Monthly Money import reconciliation, versioned Travel checklists with downloadable offline itineraries, and Library vision candidates with explicit human confirmation are implemented for Web and Android. The Library processor is verified with a local stub; no real visual model endpoint or production content was used. See [delivery details](money-travel-library-records-2026-09-24.md).
+
 ## 2026-09-24: Travel planning assist
 
 - Web Travel can add saved places to a selected day, suggest a geometric order within unconstrained draft blocks,

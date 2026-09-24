@@ -60,6 +60,7 @@ export interface TransactionStore {
   moneyPlanning(subjectId:string,period:string):Promise<unknown>;
   serviceCards(subjectId:string,input:import("@shadow/contracts").ServiceCardsInput):Promise<unknown>;
   moneyImportReview(subjectId:string,batchId:string):Promise<unknown|undefined>;
+  moneyImportMonth(subjectId:string,period:string):Promise<unknown>;
   healthDaily(subjectId:string,date:string):Promise<unknown|undefined>;
   healthSleepNights(subjectId:string,from:string,to:string):Promise<import("./sleep-insights.js").SleepInsightNight[]>;
   healthRecord(subjectId:string,id:string):Promise<unknown|undefined>;

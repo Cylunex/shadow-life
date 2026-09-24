@@ -218,7 +218,7 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun DetailScreen(title:String,state:LoadState<RecordDetail>,submitState:SubmitState,onRetry:()->Unit,onBack:()->Unit,onLink:(DetailLink)->Unit,onAction:(DetailAction)->Unit,onCorrect:(EditSeed,CorrectionDraft)->Unit,onReset:()->Unit){
+@Composable fun DetailScreen(title:String,state:LoadState<RecordDetail>,submitState:SubmitState,onRetry:()->Unit,onBack:()->Unit,onLink:(DetailLink)->Unit,onAction:(DetailAction)->Unit,onCorrect:(EditSeed,CorrectionDraft)->Unit,onReset:()->Unit,onQueueLibraryVision:(String)->Unit,onRetryLibraryVision:(String)->Unit){
   var editing by rememberSaveable(title){mutableStateOf(false)}
   var travelDate by rememberSaveable(title){mutableStateOf<String?>(null)}
   var showActions by rememberSaveable(title){mutableStateOf(false)}
@@ -246,7 +246,10 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
         }
 
         if(detail.actions.isNotEmpty())item{Column(Modifier.fillMaxWidth().padding(top=14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){(if(showActions)detail.actions else detail.actions.take(2)).forEach{action->OutlinedButton(onClick={onAction(action)},Modifier.fillMaxWidth().heightIn(min=52.dp)){Text(action.label)}};if(detail.actions.size>2)TextButton(onClick={showActions=!showActions}){Text(if(showActions)"收起操作" else "更多操作（${detail.actions.size}）")}}}
-        detail.editSeed?.let{seed->item{OutlinedButton(onClick={onReset();editing=true},Modifier.fillMaxWidth().padding(top=8.dp).heightIn(min=52.dp)){Text("更正记录")}}}
+        detail.libraryVisionSourceAssetId?.let{assetId->item{OutlinedButton(onClick={onQueueLibraryVision(assetId)},Modifier.fillMaxWidth().padding(top=8.dp),enabled=submitState !is SubmitState.Sending){Text("开始视觉理解")}}}
+        detail.libraryVisionRetryJobId?.let{jobId->item{OutlinedButton(onClick={onRetryLibraryVision(jobId)},Modifier.fillMaxWidth().padding(top=8.dp),enabled=submitState !is SubmitState.Sending){Text("重试视觉理解")}}}
+        if(detail.libraryVisionSourceAssetId!=null||detail.libraryVisionRetryJobId!=null)item{when(submitState){is SubmitState.Rejected->Text(submitState.message,color=MaterialTheme.colorScheme.error);is SubmitState.Saved->Text("命令已保存，刷新详情查看处理状态");else->Unit}}
+        detail.editSeed?.let{seed->item{OutlinedButton(onClick={onReset();editing=true},Modifier.fillMaxWidth().padding(top=8.dp).heightIn(min=52.dp)){Text(if(seed is EditSeed.Library&&seed.sourceProcessingJobId!=null)"核对视觉候选" else "更正记录")}}}
         detail.revision?.let{revision->item{Text("记录版本 $revision",Modifier.padding(top=16.dp),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
 
       }
@@ -280,19 +283,19 @@ private fun detailGlyph(value:DetailPresentation)=when(value){DetailPresentation
   var primary by rememberSaveable(seed.detailId){mutableStateOf(when(seed){is EditSeed.Meal->"";is EditSeed.Money->seed.amount;is EditSeed.Health->seed.value;is EditSeed.Trip->seed.title;is EditSeed.Library->seed.title})}
   var secondary by rememberSaveable(seed.detailId){mutableStateOf(when(seed){is EditSeed.Meal->"";is EditSeed.Money->seed.category.orEmpty();is EditSeed.Health->seed.unit;is EditSeed.Trip->seed.endsOn;is EditSeed.Library->seed.text?:seed.url.orEmpty()})}
   var note by rememberSaveable(seed.detailId){mutableStateOf(when(seed){is EditSeed.Meal->seed.note.orEmpty();is EditSeed.Money->seed.note.orEmpty();is EditSeed.Health->seed.note.orEmpty();is EditSeed.Trip->seed.note.orEmpty();is EditSeed.Library->""})}
-  var date by rememberSaveable(seed.detailId){mutableStateOf(when(seed){is EditSeed.Meal->seed.occurredOn;is EditSeed.Money->seed.occurredOn;is EditSeed.Health->seed.occurredOn;is EditSeed.Trip->seed.startsOn;is EditSeed.Library->LocalDate.now().toString()})}
-  var option by rememberSaveable(seed.detailId){mutableStateOf(when(seed){is EditSeed.Meal->seed.mealType;is EditSeed.Money->seed.counterparty.orEmpty();is EditSeed.Health->seed.label.orEmpty();is EditSeed.Trip,is EditSeed.Library->""})}
+  var date by rememberSaveable(seed.detailId){mutableStateOf(when(seed){is EditSeed.Meal->seed.occurredOn;is EditSeed.Money->seed.occurredOn;is EditSeed.Health->seed.occurredOn;is EditSeed.Trip->seed.startsOn;is EditSeed.Library->seed.documentDate.orEmpty()})}
+  var option by rememberSaveable(seed.detailId){mutableStateOf(when(seed){is EditSeed.Meal->seed.mealType;is EditSeed.Money->seed.counterparty.orEmpty();is EditSeed.Health->seed.label.orEmpty();is EditSeed.Trip->"";is EditSeed.Library->seed.category.orEmpty()})}
   var reason by rememberSaveable(seed.detailId){mutableStateOf("")}
   ModalBottomSheet(onDismissRequest=onDismiss,containerColor=MaterialTheme.colorScheme.surface){Column(Modifier.fillMaxWidth().imePadding().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(start=20.dp,end=20.dp,bottom=28.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
-    Text("更正${seed.domain.label()}",style=MaterialTheme.typography.headlineMedium)
+    Text(if(seed is EditSeed.Library&&seed.sourceProcessingJobId!=null)"核对视觉候选" else "更正${seed.domain.label()}",style=MaterialTheme.typography.headlineMedium)
     if(seed is EditSeed.Meal)FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)){listOf("breakfast" to "早餐","lunch" to "午餐","dinner" to "晚餐","snack" to "加餐","other" to "其他").forEach{(value,label)->FilterChip(option==value,{option=value},{Text(label)})}}
     if(seed !is EditSeed.Meal)OutlinedTextField(primary,{primary=it},Modifier.fillMaxWidth(),label={Text(when(seed){is EditSeed.Money->"金额";is EditSeed.Health->"数值";is EditSeed.Trip,is EditSeed.Library->"标题";else->"内容"})},singleLine=true)
     if(seed !is EditSeed.Meal)OutlinedTextField(secondary,{secondary=it},Modifier.fillMaxWidth(),label={Text(when(seed){is EditSeed.Money->"分类（可选）";is EditSeed.Health->"单位";is EditSeed.Trip->"结束日期";is EditSeed.Library->"正文或链接";else->"补充"})},minLines=if(seed is EditSeed.Library)4 else 1)
     if(seed is EditSeed.Money||seed is EditSeed.Health)OutlinedTextField(option,{option=it},Modifier.fillMaxWidth(),label={Text(if(seed is EditSeed.Money)"交易方（可选）" else "标签（可选)")})
-    if(seed !is EditSeed.Library)OutlinedTextField(date,{date=it},Modifier.fillMaxWidth(),label={Text(if(seed is EditSeed.Trip)"开始日期" else "发生日期")},singleLine=true)
+    if(seed is EditSeed.Library){OutlinedTextField(date,{date=it},Modifier.fillMaxWidth(),label={Text("资料日期（可选，YYYY-MM-DD）")},singleLine=true);OutlinedTextField(option,{option=it},Modifier.fillMaxWidth(),label={Text("分类（可选）")},singleLine=true)}else OutlinedTextField(date,{date=it},Modifier.fillMaxWidth(),label={Text(if(seed is EditSeed.Trip)"开始日期" else "发生日期")},singleLine=true)
     if(seed !is EditSeed.Library)OutlinedTextField(note,{note=it},Modifier.fillMaxWidth(),label={Text("备注（可选）")},minLines=2)
     OutlinedTextField(reason,{reason=it},Modifier.fillMaxWidth(),label={Text("更正说明（可选）")},minLines=2,supportingText={Text("留空时会记录为“用户在详情中更正”")})
-    when(state){is SubmitState.Rejected->Text(state.message,color=MaterialTheme.colorScheme.error);is SubmitState.Saved->TaskResultCard(state.receipt,onDismiss);else->Button(onClick={onSubmit(CorrectionDraft(primary,secondary,note,date,option,reason))},enabled=state !is SubmitState.Sending&&primaryValid(seed,primary,secondary),modifier=Modifier.fillMaxWidth().heightIn(min=56.dp)){Text(if(state is SubmitState.Sending)"正在保存…" else "保存更正")}}
+    when(state){is SubmitState.Rejected->Text(state.message,color=MaterialTheme.colorScheme.error);is SubmitState.Saved->TaskResultCard(state.receipt,onDismiss);else->Button(onClick={onSubmit(CorrectionDraft(primary,secondary,note,date,option,reason))},enabled=state !is SubmitState.Sending&&primaryValid(seed,primary,secondary),modifier=Modifier.fillMaxWidth().heightIn(min=56.dp)){Text(if(state is SubmitState.Sending)"正在保存…" else if(seed is EditSeed.Library&&seed.sourceProcessingJobId!=null)"确认候选" else "保存更正")}}
   }}
 }
 
