@@ -24,5 +24,5 @@ function amapConfig(propertiesFile:string|undefined):AMapBuildConfig{
 
 export default defineConfig(({mode})=>{
   const environment=loadEnv(mode,process.cwd(),"");
-  return{define:{__SHADOW_AMAP_CONFIG__:JSON.stringify(amapConfig(environment.AMAP_PROPERTIES_FILE))},plugins:[react()],server:{proxy:{"/api":"http://127.0.0.1:8787"}}};
+  return{define:{__SHADOW_AMAP_CONFIG__:JSON.stringify(amapConfig(environment.AMAP_PROPERTIES_FILE)),__SHADOW_GOOGLE_MAPS_KEY__:JSON.stringify(environment.GOOGLE_MAPS_WEB_API_KEY??"")},plugins:[react()],server:{proxy:{"/api":"http://127.0.0.1:8787"}}};
 });

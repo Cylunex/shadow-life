@@ -34,3 +34,12 @@ test("day map numbers repeated places and breaks lines at unlocated stops",async
   assert.equal(result.stopNumbers.has("unknown"),false);
   assert.deepEqual(routeForDay(places,undefined).lines,[]);
 });
+test("trip map includes only its planned places and optional stops never connect routes",async()=>{
+  const {placesForTrip,routeForDay,googleDirectionsUrl}=await import("../src/travel-workspace.js");
+  const place=(id:string,longitude:string)=>({id,name:id,address:null,latitude:"13",longitude,favorite:false,tags:[],revision:1});
+  const places=[place("hotel","100"),place("market","101"),place("option","102"),place("other-trip","103")];
+  const plan={id:"day",trip_id:"thailand",plan_date:"2026-09-25",revision:1,items:[{stop_id:"a",title:"酒店",place_id:"hotel"},{stop_id:"meal",title:"早餐休息"},{stop_id:"b",title:"夜市",place_id:"market"},{stop_id:"c",title:"弹性备选",place_id:"option"},{stop_id:"d",title:"返回酒店",place_id:"hotel"}]};
+  assert.deepEqual(placesForTrip(places,[plan]).map(item=>item.id),["hotel","market","option"]);
+  const route=routeForDay(places,plan);assert.deepEqual(route.lines,[[{latitude:13,longitude:100},{latitude:13,longitude:101}]]);assert.deepEqual(route.stopNumbers.get("option"),[4]);
+  assert.equal(googleDirectionsUrl(route.lines[0]![0]!,route.lines[0]![1]!).startsWith("https://www.google.com/maps/dir/?api=1&origin=13%2C100&destination=13%2C101"),true);
+});

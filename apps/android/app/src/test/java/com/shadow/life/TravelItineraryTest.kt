@@ -27,4 +27,15 @@ class TravelItineraryTest {
     assertTrue(runCatching{travelStopInstant("2026-11-01","01:30","America/New_York")}.isFailure)
     assertTrue(runCatching{travelStopInstant("2026-03-08","02:30","America/New_York")}.isFailure)
   }
+  @Test fun optionalAndUnlocatedStopsKeepMarkersButBreakIllustrativeRoutes(){
+    val places=listOf("hotel","market","option","temple").mapIndexed{index,id->TravelPlaceSummary(id,id,null,13.0,100.0+index,emptyList(),false)}
+    val day=TravelDaySummary("day",trip.id,"2026-10-01",listOf(
+      TravelStopSummary("a","酒店",null,"hotel",null),TravelStopSummary("d","早餐休息",null,null,null),TravelStopSummary("b","夜市",null,"market",null),
+      TravelStopSummary("c","弹性备选",null,"option",null),
+      TravelStopSummary("e","寺庙",null,"temple",null)))
+    val result=travelDayMap(day,places)
+    assertEquals(listOf("1","3","4","5"),result.markers.map{it.label})
+    assertEquals(listOf(listOf(TravelMapPoint(13.0,100.0),TravelMapPoint(13.0,101.0))),result.routes)
+    assertEquals("https://www.google.com/maps/dir/?api=1&origin=13.0%2C100.0&destination=13.0%2C101.0",googleDirectionsUrl(result.routes[0][0],result.routes[0][1]))
+  }
 }

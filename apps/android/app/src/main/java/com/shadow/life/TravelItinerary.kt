@@ -12,6 +12,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -28,6 +30,25 @@ internal fun newTravelStopId():String="stop_${java.util.UUID.randomUUID().toStri
 internal fun travelSelectedDate(dates:List<String>,selected:String?,today:String):String? = selected?.takeIf{it in dates}?:today.takeIf{it in dates}?:dates.firstOrNull()
 internal fun travelTime(value:String?,zone:String):String = value?.let{runCatching{Instant.parse(it).atZone(ZoneId.of(zone)).format(DateTimeFormatter.ofPattern("HH:mm"))}.getOrDefault(it)}?:"时间待定"
 internal fun travelLabel(value:String):String = mapOf("walk" to "步行","bike" to "骑行","taxi" to "出租车","car" to "驾车","bus" to "公交","metro" to "地铁","rail" to "铁路","flight" to "航班","hotel" to "住宿","restaurant" to "餐厅","activity" to "活动","ferry" to "轮渡","other" to "其他","planned" to "计划中","confirmed" to "已确认","cancelled" to "已取消","active" to "进行中","completed" to "已完成","arrived" to "已到达","skipped" to "已跳过","owner" to "创建者","editor" to "可编辑","viewer" to "可查看","shared" to "共享","private" to "私密")[value]?:value
+
+internal data class TravelDayMap(val markers:List<TravelMapMarker>,val routes:List<List<TravelMapPoint>>)
+internal fun googleDirectionsUrl(origin:TravelMapPoint,destination:TravelMapPoint):String{
+  fun encoded(point:TravelMapPoint)=URLEncoder.encode("${point.latitude},${point.longitude}",StandardCharsets.UTF_8.name())
+  return "https://www.google.com/maps/dir/?api=1&origin=${encoded(origin)}&destination=${encoded(destination)}"
+}
+internal fun travelDayMap(day:TravelDaySummary?,places:List<TravelPlaceSummary>,dayLabel:String?=null):TravelDayMap{
+  val byId=places.associateBy{it.id};val markers=mutableListOf<TravelMapMarker>();val routes=mutableListOf<List<TravelMapPoint>>();var segment=mutableListOf<TravelMapPoint>()
+  fun finish(){if(segment.size>1)routes+=segment.toList();segment=mutableListOf()}
+  day?.stops.orEmpty().forEachIndexed{index,stop->
+    val place=stop.placeId?.let(byId::get);val latitude=place?.latitude;val longitude=place?.longitude
+    if(latitude==null||longitude==null||!latitude.isFinite()||!longitude.isFinite()||kotlin.math.abs(latitude)>90||kotlin.math.abs(longitude)>180){if(place==null&&Regex("早餐|午餐|晚餐|用餐|休息|整理行李|收拾行李").containsMatchIn(stop.title)&&!Regex("备选|可选|候选|弹性|视情况|如果有时间|自由活动").containsMatchIn("${stop.title} ${stop.note.orEmpty()}"))return@forEachIndexed;finish();return@forEachIndexed}
+    val label=listOfNotNull(dayLabel,(index+1).toString()).joinToString("-")
+    markers+=TravelMapMarker("${day?.id}:${stop.id}",place.name,latitude,longitude,place.favorite,place.address,label)
+    if(Regex("备选|可选|候选|弹性|视情况|如果有时间|自由活动").containsMatchIn("${stop.title} ${stop.note.orEmpty()}")){finish();return@forEachIndexed}
+    segment+=TravelMapPoint(latitude,longitude)
+  }
+  finish();return TravelDayMap(markers,routes)
+}
 
 @Composable internal fun TravelDatePicker(dates:List<String>,selected:String?,days:List<TravelDaySummary>,onSelect:(String)->Unit){
   LazyRow(horizontalArrangement=Arrangement.spacedBy(8.dp)){

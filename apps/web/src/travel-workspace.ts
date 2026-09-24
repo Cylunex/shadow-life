@@ -22,6 +22,10 @@ export function itineraryDates(trip:Pick<TravelTrip,"starts_on"|"ends_on">,plans
 }
 export function selectedItineraryDate(dates:readonly string[],selected:string|undefined,today:string):string|undefined{return selected&&dates.includes(selected)?selected:dates.includes(today)?today:dates[0];}
 export function placesForDay(places:readonly TravelPlace[],plan:TravelDayPlan|undefined):TravelPlace[]{const byId=new Map(places.map(place=>[place.id,place]));return [...new Set(plan?.items.map(item=>item.place_id).filter(Boolean)??[])].flatMap(id=>{const place=byId.get(id!);return place?[place]:[];});}
+export function placesForTrip(places:readonly TravelPlace[],plans:readonly TravelDayPlan[]):TravelPlace[]{const ids=new Set(plans.flatMap(plan=>plan.items.map(item=>item.place_id).filter((id):id is string=>Boolean(id))));return places.filter(place=>ids.has(place.id));}
+export function isOptionalTravelStop(stop:Pick<TravelStop,"title"|"note">):boolean{return /(?:备选|可选|候选|弹性|视情况|如果有时间|自由活动)/.test(`${stop.title} ${stop.note??""}`);}
+export function isNonSpatialTravelStop(stop:Pick<TravelStop,"title"|"note">):boolean{return /(?:早餐|午餐|晚餐|用餐|休息|整理行李|收拾行李)/.test(stop.title)&&!isOptionalTravelStop(stop);}
+export function googleDirectionsUrl(origin:{latitude:number;longitude:number},destination:{latitude:number;longitude:number}):string{const url=new URL("https://www.google.com/maps/dir/");url.search=new URLSearchParams({api:"1",origin:`${origin.latitude},${origin.longitude}`,destination:`${destination.latitude},${destination.longitude}`}).toString();return url.toString();}
 export function routeForDay(places:readonly TravelPlace[],plan:TravelDayPlan|undefined):{lines:Array<Array<{latitude:number;longitude:number}>>;stopNumbers:Map<string,number[]>}{
   const byId=new Map(places.map(place=>[place.id,place]));
   const lines:Array<Array<{latitude:number;longitude:number}>>=[],stopNumbers=new Map<string,number[]>();
@@ -29,8 +33,9 @@ export function routeForDay(places:readonly TravelPlace[],plan:TravelDayPlan|und
   const finish=()=>{if(line.length>1)lines.push(line);line=[];};
   plan?.items.forEach((stop,index)=>{
     const place=stop.place_id?byId.get(stop.place_id):undefined;
-    if(!place||!hasPlaceCoordinates(place)){finish();return;}
+    if(!place||!hasPlaceCoordinates(place)){if(!place&&isNonSpatialTravelStop(stop))return;finish();return;}
     stopNumbers.set(place.id,[...(stopNumbers.get(place.id)??[]),index+1]);
+    if(isOptionalTravelStop(stop)){finish();return;}
     line.push({latitude:Number(place.latitude),longitude:Number(place.longitude)});
   });
   finish();

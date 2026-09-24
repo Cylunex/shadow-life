@@ -15,8 +15,8 @@ fun configuredProperty(name:String,fallback:String):String {
   providers.gradleProperty(name).orNull?.takeIf{it.isNotBlank()}?.let{return it}
   androidLocalProperties.getProperty(name)?.takeIf{it.isNotBlank()}?.let{return it}
   val aliases=when(name){
-    "AMAP_MAPS_API_KEY"->listOf(name,"amap-key")
-    "GOOGLE_MAPS_API_KEY"->listOf(name,"googlemap-apikey")
+    "AMAP_MAPS_API_KEY"->listOf(name,"amap-key","amap_key")
+    "GOOGLE_MAPS_API_KEY"->listOf(name,"googlemap-apikey","googlemap_apikey")
     else->listOf(name)
   }
   return aliases.firstNotNullOfOrNull{externalMapProperties.getProperty(it)?.takeIf(String::isNotBlank)}?:fallback

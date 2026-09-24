@@ -1,5 +1,9 @@
 # Rebuild status
 
+## 2026-09-24: Google travel maps for international trips
+
+- Web and Android Travel maps now scope markers to the selected trip, offer day/all views, show numbered planned stops and illustrative straight segments, and keep optional or unlocated stops out of connectors. Each connected leg can open Google Maps road directions. Browser and native Google keys use separate restricted configuration paths; missing keys show a coordinate preview. See [Google travel map delivery](google-travel-map-2026-09-24.md). Production deployment, Android APK and live Google map acceptance are separate release steps.
+
 ## 2026-09-24: integrated day view and same-day memories
 
 - The daily domains and Money/Travel/Library workspaces are merged. A bounded `life.day` read now counts and pages visible facts across domains by a selected local date; `life.memories` reads actual records from the same date in the preceding five years. Existing explicit cross-domain links open their sources in Web and Android.
