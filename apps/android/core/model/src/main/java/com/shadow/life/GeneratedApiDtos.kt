@@ -3337,3 +3337,21 @@ data class HealthDailyResultDto(
   @SerialName("revision") val revision: Long,
   @SerialName("updated_at") val updatedAt: String
 )
+
+@Serializable
+data class HealthSleepInsightsResultDto(
+  @SerialName("from") val from: String,
+  @SerialName("to") val to: String,
+  @SerialName("nights") val nights: Long,
+  @SerialName("bedtime_nights") val bedtimeNights: Long,
+  @SerialName("average_minutes") val averageMinutes: Long?,
+  @SerialName("at_least_seven_hours") val atLeastSevenHours: Long,
+  @SerialName("average_efficiency_percent") val averageEfficiencyPercent: Long?,
+  @SerialName("efficiency_nights") val efficiencyNights: Long,
+  @SerialName("deep_percent") val deepPercent: Long?,
+  @SerialName("rem_percent") val remPercent: Long?,
+  @SerialName("average_bedtime") val averageBedtime: String?,
+  @SerialName("bedtime_variation_minutes") val bedtimeVariationMinutes: Long?,
+  @SerialName("source_types") val sourceTypes: List<String>,
+  @SerialName("as_of") val asOf: String
+)

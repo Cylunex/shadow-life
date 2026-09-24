@@ -19,7 +19,7 @@ export const personalOperatorTools: ReadonlySet<CapabilityName> = new Set<Capabi
   "life.today", "life.timeline", "life.search", "life.daily_record_check", "life.consumption_stats", "life.list_meals",
   "life.food_catalog", "life.get_record", "life.owned_items", "life.reviews",
   "money.summarize", "money.records", "money.planning",
-  "health.records", "health.get_record", "health.trend", "health.sources", "health.daily",
+  "health.records", "health.get_record", "health.trend", "health.sources", "health.daily", "health.sleep_insights",
   "travel.records", "travel.get_trip", "travel.workspace",
   "library.records", "library.get_item", "agent.memories", "notifications.list", "operations.get",
   "operations.find", "life.projects", "life.planning_agenda", "life.meal_planning", "money.foreign_entries",

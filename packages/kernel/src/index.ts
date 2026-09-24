@@ -17,5 +17,6 @@ export * from "./consumption-stats.js";
 export * from "./daily-record-check.js";
 export * from "./use-cycles.js";
 export * from "./service-cards.js";
+export * from "./sleep-insights.js";
 
 export * from "./consumable-usage.js";

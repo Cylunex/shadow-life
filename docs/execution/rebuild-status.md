@@ -1,5 +1,9 @@
 # Rebuild status
 
+## 2026-09-24: legacy sleep insight recheck
+
+- Compared the old Health sleep quality statistics with the current Life daily projection and native screen. Added a bounded, owner-scoped `health.sleep_insights` read capability and a 30-day native summary. Bedtime regularity requires at least three nights with start times; missing stage and interval evidence stays unknown. See [the comparison](legacy-feature-recheck-2026-09-24.md).
+
 Design baseline: `shadow-life-migration-gap-design-2026-09-08.md` SLG-1. The table separates source modeling, usable operations, migrated production data, and actual cutover. A schema or command alone is never counted as a completed migration.
 
 ## 2026-09-22: service cards and actual redemptions

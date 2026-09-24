@@ -438,6 +438,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     val today=LocalDate.now();val from=today.minusDays(89)
     val sourcesRequest=async{wireJson.decodeFromString<HealthSourcesResultDto>(getText("/api/health/sources"))}
     val dailyRequests=(0L..6L).map{offset->val date=today.minusDays(offset);date to async{partialRequest{wireJson.decodeFromString<HealthDailyResultDto>(getText("/api/health/daily/$date"))}}}
+    val sleepInsightsRequest=if(requestedMetrics==null)async{partialRequest{wireJson.decodeFromString<HealthSleepInsightsResultDto>(getText("/api/health/sleep-insights?to=$today&days=30"))}} else null
     val metricKeys=requestedMetrics?:listOf(
       "weight" to "体重","height" to "身高","bmi" to "BMI","body_fat" to "体脂率","fat_mass" to "脂肪量","lean_mass" to "去脂体重",
       "skeletal_muscle" to "骨骼肌","muscle_mass" to "肌肉量","muscle_rate" to "肌肉率",
@@ -470,7 +471,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     WorkspaceOverview.Health(
       sources=deviceSources.size,
       sourcesNeedingAttention=deviceSources.count{source->healthSourceNeedsAttention(source.sourceType,source.permissionState,source.cursors.map{it.state})},
-      streams=deviceSources.sumOf{it.cursors.size},summary=summary,metrics=metrics,daily=daily,history=history,asOf=sources.asOf
+      streams=deviceSources.sumOf{it.cursors.size},summary=summary,metrics=metrics,daily=daily,history=history,sleepInsights=sleepInsightsRequest?.await()?.getOrNull(),asOf=sources.asOf
     )
   }
 

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createHash } from "node:crypto";
 import { agentThreadMessagesInputSchema, agentThreadMessagesResultSchema, agentThreadsResultSchema, capabilityRegistry, consumptionStatsInputSchema, dailyRecordCheckInputSchema, executionResultSchema, findOperationInputSchema, healthReleaseHistoryInputSchema, healthTrendInputSchema, lifeMeResultSchema, lifeRecordInputSchema, lifeSearchInputSchema, lifeTimelineInputSchema, lifeTodayInputSchema, planningAgendaInputSchema, projectDirectoryResultSchema, writeCapabilityNameSchema, type ProjectDirectoryResult } from "@shadow/contracts";
 import { AssetService, type PostgresUnitOfWork } from "@shadow/database";
+import { healthSleepInsightsInputSchema } from "@shadow/contracts";
 import type { AgentRepository } from "@shadow/database";
 import { hostRunEventSchema, runtimeEventSchema, type AgentRuntimeAdapter, type HostRunEvent, type RuntimeEvent, type RunState } from "@shadow/agent-adapter";
 import { CommandExecutor, KernelError, QueryService } from "@shadow/kernel";
@@ -99,6 +100,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.get("/api/money/planning",async context=>context.json(await dependencies.queries.moneyPlanning(context.get("requestContext"),context.req.query("period")??new Date().toISOString().slice(0,7))));
   app.get("/api/money/imports/:batchId",async context=>context.json(await dependencies.queries.moneyImportReview(context.get("requestContext"),context.req.param("batchId"))));
   app.get("/api/health/daily/:date",async context=>context.json(await dependencies.queries.healthDaily(context.get("requestContext"),context.req.param("date"))));
+  app.get("/api/health/sleep-insights",async context=>context.json(await dependencies.queries.healthSleepInsights(context.get("requestContext"),healthSleepInsightsInputSchema.parse({to:context.req.query("to"),days:Number(context.req.query("days")??"30")}))));
   app.get("/api/health/records/:id",async context=>context.json(await dependencies.queries.healthRecord(context.get("requestContext"),context.req.param("id"))));
   app.get("/api/travel/trips/:id",async context=>context.json(await dependencies.queries.travelTrip(context.get("requestContext"),context.req.param("id"))));
   app.get("/api/travel/workspace",async context=>context.json(await dependencies.queries.travelWorkspace(context.get("requestContext"),context.req.query("trip_id")?{trip_id:context.req.query("trip_id")} :{})));
@@ -178,6 +180,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         if(capabilityName==="money.planning")return dependencies.queries.moneyPlanning(requestContext,(parsed as {period:string}).period);
         if(capabilityName==="money.import_review")return dependencies.queries.moneyImportReview(requestContext,(parsed as {batch_id:string}).batch_id);
         if(capabilityName==="health.daily")return dependencies.queries.healthDaily(requestContext,(parsed as {date:string}).date);
+        if(capabilityName==="health.sleep_insights")return dependencies.queries.healthSleepInsights(requestContext,parsed);
         if(capabilityName==="health.get_record")return dependencies.queries.healthRecord(requestContext,(parsed as {id:string}).id);
         if(capabilityName==="travel.get_trip")return dependencies.queries.travelTrip(requestContext,(parsed as {id:string}).id);
         if(capabilityName==="travel.workspace")return dependencies.queries.travelWorkspace(requestContext,parsed);

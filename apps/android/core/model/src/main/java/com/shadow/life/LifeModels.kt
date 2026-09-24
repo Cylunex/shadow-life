@@ -128,7 +128,7 @@ sealed interface WorkspaceOverview { val asOf:String
   data class Health(
     val sources:Int,val sourcesNeedingAttention:Int,val streams:Int,val summary:TodayHealthSummary,
     val metrics:List<HealthMetricTrend> = emptyList(),val daily:HealthDailyOverview?=null,
-    val history:List<HealthDailyOverview> = emptyList(),override val asOf:String
+    val history:List<HealthDailyOverview> = emptyList(),val sleepInsights:HealthSleepInsightsResultDto?=null,override val asOf:String
   ):WorkspaceOverview
   data class Travel(
     val trips:Int,val places:Int,val maps:Int,val activeRun:Boolean,
