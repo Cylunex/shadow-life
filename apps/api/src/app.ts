@@ -1,4 +1,4 @@
-import { workoutProgressionInputSchema } from "@shadow/contracts";
+import { agentDiscoveryInstructions, workoutProgressionInputSchema } from "@shadow/contracts";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { streamSSE } from "hono/streaming";
@@ -9,7 +9,7 @@ import { AssetService, visionAvailability, type PostgresUnitOfWork } from "@shad
 import { healthSleepInsightsInputSchema } from "@shadow/contracts";
 import type { AgentRepository } from "@shadow/database";
 import { hostRunEventSchema, runtimeEventSchema, type AgentRuntimeAdapter, type HostRunEvent, type RuntimeEvent, type RunState } from "@shadow/agent-adapter";
-import { CommandExecutor, KernelError, QueryService, permissionDenied } from "@shadow/kernel";
+import { agentCatalogRevision, CommandExecutor, KernelError, QueryService, permissionDenied } from "@shadow/kernel";
 import { authMiddleware } from "./auth.js";
 import { installWebSessionRoutes, type WebSessionOptions } from "./web-session.js";
 
@@ -27,26 +27,44 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   });
 
   app.use("/api/*", authMiddleware({ development: dependencies.developmentAuth,...dependencies.auth }));
+  app.use("/api/agent/*", async (context, next) => { context.header("Cache-Control", "no-store"); await next(); });
   app.use("/api/commands/*", bodyLimit({ maxSize: 1024 * 1024, onError: (context) => context.json({ protocol: "shadow.error", code: "validation", message: "Command body is too large." }, 413) }));
   app.use("/api/travel/portable/preview",bodyLimit({maxSize:1024*1024,onError:context=>context.json({protocol:"shadow.error",code:"validation",message:"Portable travel input is too large."},413)}));
   app.use("/api/life/daily-record-check",bodyLimit({maxSize:64*1024,onError:context=>context.json({protocol:"shadow.error",code:"validation",message:"Daily record check input is too large."},413)}));
+  app.use("/api/agent/tools/validate", bodyLimit({ maxSize: 1024 * 1024, onError: context => context.json({ protocol: "shadow.error", code: "validation", message: "Tool input is too large." }, 413) }));
   app.use("/api/assets",bodyLimit({maxSize:20*1024*1024,onError:context=>context.json({protocol:"shadow.error",code:"validation",message:"Asset is too large."},413)}));
   app.get("/api/me",context=>{const value=context.get("requestContext");context.header("Cache-Control","no-store");return context.json(lifeMeResultSchema.parse({issuer:value.issuer??"shadow:unknown",oidc_sub:value.oidcSubject??value.actorId,life_subject_id:value.subjectId,environment_id:value.environmentId??"default",display_name:value.displayName??null,effects:[...value.effects].sort(),authorization_revision:value.authorizationRevision??1}));});
   app.get("/api/project-links",context=>{context.header("Cache-Control","private, max-age=300");return context.json(projectDirectoryResultSchema.parse(dependencies.projectLinks??{schema_version:1,catalog_revision:"empty",items:[]}));});
   app.get("/api/search",async context=>context.json(await dependencies.queries.lifeSearch(context.get("requestContext"),lifeSearchInputSchema.parse({q:context.req.query("q"),...(context.req.query("types")?{types:context.req.query("types")!.split(",").filter(Boolean)}:{}),...(context.req.query("from_on")?{from_on:context.req.query("from_on")} :{}),...(context.req.query("to_on_exclusive")?{to_on_exclusive:context.req.query("to_on_exclusive")} :{}),limit:Number(context.req.query("limit")??"30"),...(context.req.query("cursor")?{cursor:context.req.query("cursor")} :{})}))));
   app.get("/api/life/consumption-stats",async context=>context.json(await dependencies.queries.consumptionStats(context.get("requestContext"),consumptionStatsInputSchema.parse({from_on:context.req.query("from_on"),to_on_exclusive:context.req.query("to_on_exclusive"),time_zone:context.req.query("time_zone"),...(context.req.query("scopes")?{scopes:context.req.query("scopes")!.split(",").filter(Boolean)}:{}),...(context.req.query("categories")?{categories:context.req.query("categories")!.split(",").filter(Boolean)}:{}),...(context.req.query("merchant_rank_by")?{merchant_rank_by:context.req.query("merchant_rank_by")}:{}),...(context.req.query("item_rank_by")?{item_rank_by:context.req.query("item_rank_by")}:{}),...(context.req.query("currency")?{currency:context.req.query("currency")}:{}),limit:Number(context.req.query("limit")??"20")}))));
   app.get("/api/capabilities", (context) => {
+    context.header("Cache-Control", "no-store");
     const requestContext=context.get("requestContext");
     return context.json({
+      catalog_revision: agentCatalogRevision,
       subject_id:requestContext.subjectId,
       client_id:requestContext.clientId,
       issuer:requestContext.issuer,
       capabilities:visibleCapabilities(requestContext.effects).map((item)=>({name:item.name,description:item.description,possible_effects:item.possibleEffects,...(context.req.query("include_schemas")==="true"?{input_schema:z.toJSONSchema(item.inputSchema)}:{})}))
     });
   });
+  app.get("/api/agent/discover", context => {
+    const query = context.req.query();
+    const boolean = (name: string) => query[name] === undefined ? false : z.enum(["true", "false"]).parse(query[name]) === "true";
+    return context.json(dependencies.queries.agentDiscover(context.get("requestContext"), {
+      query: query.query ?? "", ...(query.profile ? { profile: query.profile } : {}), ...(query.scenario ? { scenario: query.scenario } : {}), ...(query.names ? { names: query.names.split(",") } : {}),
+      read_only: boolean("read_only"), include_schemas: boolean("include_schemas"), offset: Number(query.offset ?? 0), limit: Number(query.limit ?? 10)
+    }));
+  });
+  app.get("/api/agent/glossary", context => context.json(dependencies.queries.agentGlossary(context.get("requestContext"), { query: context.req.query("query") ?? "", ...(context.req.query("scenario") ? { scenario: context.req.query("scenario") } : {}), ...(context.req.query("profile") ? { profile: context.req.query("profile") } : {}), limit: Number(context.req.query("limit") ?? 20) })));
+  app.get("/api/agent/scenarios", context => context.json(dependencies.queries.agentScenarios(context.get("requestContext"), { ...(context.req.query("scenario") ? { scenario: context.req.query("scenario") } : {}), ...(context.req.query("profile") ? { profile: context.req.query("profile") } : {}) })));
+  app.get("/api/agent/catalog", context => { context.header("Cache-Control", "no-store"); return context.json(dependencies.queries.agentCatalog(context.get("requestContext"), context.req.query())); });
+  app.post("/api/agent/tools/validate", async context => { context.header("Cache-Control", "no-store"); return context.json(dependencies.queries.validateAgentTool(context.get("requestContext"), await context.req.json())); });
   app.get("/api/write-epochs",async context=>context.json({items:(await dependencies.unitOfWork.pool.query("select domain,epoch,stage,target_schema from write_epochs order by domain")).rows}));
   app.get("/api/capabilities/:name", (context) => {
-    const capability = capabilityRegistry[context.req.param("name") as keyof typeof capabilityRegistry];
+    context.header("Cache-Control", "no-store");
+    const name = context.req.param("name");
+    const capability = Object.hasOwn(capabilityRegistry, name) ? capabilityRegistry[name as keyof typeof capabilityRegistry] : undefined;
     return capability === undefined||!capability.possibleEffects.some(effect=>context.get("requestContext").effects.has(effect)) ? context.json({ protocol: "shadow.error", code: "not_found", message: "Capability not found." }, 404) : context.json({ name: capability.name, description: capability.description, possible_effects: capability.possibleEffects, input_schema: z.toJSONSchema(capability.inputSchema), result_schema: z.toJSONSchema(capability.resultSchema) });
   });
   app.post("/api/commands/batch", async (context) => {
@@ -151,6 +169,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
     const history=await repository.conversation(requestContext.subjectId,threadId);
 
     const capabilityProfile=visibleCapabilities(requestContext.effects).map(item=>item.name);
+    const discoveryContext={catalogRevision:agentCatalogRevision,instructions:agentDiscoveryInstructions,tools:visibleCapabilities(requestContext.effects).filter(item=>["agent.discover","agent.glossary","agent.scenarios"].includes(item.name)).map(item=>({name:item.name,description:item.description,inputSchema:z.toJSONSchema(item.inputSchema)}))};
     return streamSSE(context,async(stream)=>{
       const controller=new AbortController(),startedAt=Date.now(),seenRuntimeEvents=new Set<string>();
       let assistant="",terminal:"awaiting_input"|"completed"|"interrupted"|undefined,runtimeEventCount=0,toolCallCount=0,hostEventCount=0,currentState:RunState="started";
@@ -169,6 +188,10 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         if(!capability||!capability.possibleEffects.some(effect=>requestContext.effects.has(effect)))throw new KernelError(403,{protocol:"shadow.error",code:"permission_denied",message:"Runtime requested a capability that is not visible."});
         if(capability.idempotency==="required"){const callKey=createHash("sha256").update(`${runId}:${callId}`).digest("hex");return dependencies.executor.execute({...requestContext,agentRun:{runId,ownerId:repository.ownerId,toolCallId:callId}},{protocol:"shadow.command",capability:capabilityName,command_id:`cmd_agent_${callKey}`,input});}
         const parsed=capability.inputSchema.parse(input);
+        if(capabilityName==="agent.discover")return dependencies.queries.agentDiscover(requestContext,parsed);
+        if(capabilityName==="agent.glossary")return dependencies.queries.agentGlossary(requestContext,parsed);
+        if(capabilityName==="agent.scenarios")return dependencies.queries.agentScenarios(requestContext,parsed);
+        if(capabilityName==="agent.catalog")return dependencies.queries.agentCatalog(requestContext,parsed);
         if(capabilityName==="life.list_meals")return dependencies.queries.listMeals(requestContext,parsed);
         if(capabilityName==="life.food_catalog")return dependencies.queries.foodCatalog(requestContext,parsed);
         if(capabilityName==="life.today")return dependencies.queries.lifeToday(requestContext,parsed);
@@ -249,7 +272,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
       }};
       try{
         await state("started");
-        await consume(runtime.run({threadId,runId,messageId,text:body.text.trim(),history,personalContext,contextPack,capabilityProfile},controller.signal));
+        await consume(runtime.run({threadId,runId,messageId,text:body.text.trim(),history,personalContext,contextPack,capabilityProfile,discoveryContext},controller.signal));
         if(!terminal){const reason=controller.signal.aborted?abortReason(controller.signal):"Runtime ended without a terminal event.";terminal="interrupted";await state("interrupted",{reason});}
         await repository.finishRun(runId,terminal,terminal==="interrupted"?"Run was interrupted.":undefined,assistant?{id:nextId("message"),content:assistant}:undefined);
       }catch(error){

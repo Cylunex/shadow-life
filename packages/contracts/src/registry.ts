@@ -3,6 +3,7 @@ import { setFoodStockInputSchema } from "./schemas.js";
 import { recordConsumableUseInputSchema, saveServiceCardInputSchema, recordServiceCardUseInputSchema, serviceCardsInputSchema, serviceCardsResultSchema } from "./schemas.js";
 import { healthSleepInsightsInputSchema, healthSleepInsightsResultSchema } from "./schemas.js";
 import { z } from "zod";
+import { agentCatalogInputSchema, agentCatalogSnapshotSchema, agentDiscoverInputSchema, agentDiscoverResultSchema, agentGlossaryInputSchema, agentGlossaryResultSchema, agentScenariosInputSchema, agentScenariosResultSchema } from "./agent-schemas.js";
 import { addIntakeInputSchema, annotateLibraryItemInputSchema, addMealPaymentInputSchema, addReservationInputSchema, attachMealSourceInputSchema, captureLibraryItemInputSchema, commandId, consumptionStatsInputSchema, consumptionStatsResultSchema, correctHealthMeasurementInputSchema, correctIntakeInputSchema, correctMealInputSchema, correctMoneyEntryInputSchema, correctPurchaseInputSchema, correctReservationInputSchema, correctTripInputSchema, createTripInputSchema, dailyRecordCheckInputSchema, dailyRecordCheckResultSchema, domainRecordsInputSchema, domainRecordsResultSchema, executionResultSchema, foodCatalogInputSchema, foodCatalogResultSchema, getOperationInputSchema, findOperationInputSchema, healthReleaseHistoryInputSchema, healthReleaseHistoryResultSchema, healthDailyInputSchema, healthDailyResultSchema, healthRecordResultSchema, healthSourcesInputSchema, healthSourcesResultSchema, healthTrendInputSchema, healthTrendResultSchema, importTravelTrackInputSchema, ingestHealthBatchInputSchema, ingestHealthRawInputSchema, lifeRecordInputSchema, lifeRecordResultSchema, lifeSearchInputSchema, lifeSearchResultSchema, lifeTimelineInputSchema, lifeTimelineResultSchema, lifeTodayInputSchema, lifeTodayResultSchema, linkMealConsumptionInputSchema, listMealsInputSchema, listMealsResultSchema, moneyImportReviewInputSchema, moneyImportReviewResultSchema, moneyPlanningInputSchema, moneyPlanningResultSchema, moneySummaryInputSchema, moneySummarySchema, notificationsResultSchema, publishTripPlanInputSchema, recordDiningInputSchema, recordHealthMeasurementInputSchema, recordMealCommandEnvelopeSchema, recordMealFromRecipeInputSchema, recordMealFromTemplateInputSchema, recordMealInputSchema, recordMoneyEntryInputSchema, recordPurchaseInputSchema, recordRefundInputSchema, recordTripSegmentInputSchema, recordVisitInputSchema, recordWorkoutInputSchema, registerLibraryDerivationInputSchema, removeIntakeInputSchema, resolveMoneyImportCandidateInputSchema, resourceDetailInputSchema, saveFoodInputSchema, saveMealTemplateInputSchema, savePlaceInputSchema, saveRecipeInputSchema, saveTravelMapInputSchema, setBudgetInputSchema, setHealthPlanInputSchema, setHealthSourceStateInputSchema, setMoneyImportRuleInputSchema, setPersonalAliasInputSchema, setRecurringOccurrenceInputSchema, setRecurringPlanInputSchema, setSpendingIntentInputSchema, setTripDayPlanInputSchema, setTripMemberInputSchema, setTripStopOutcomeInputSchema, setUseCycleInputSchema, stageMoneyImportInputSchema, startTripRunInputSchema, travelExportInputSchema, travelExportResultSchema, travelTripResultSchema, travelWorkspaceInputSchema, travelWorkspaceResultSchema, reviseLibraryItemInputSchema, voidRecordInputSchema, voidReservationInputSchema } from "./schemas.js";
 import { previewTravelPortableInputSchema, previewTravelPortableResultSchema, restoreTravelBundleInputSchema } from "./schemas.js";
 import { renewLibraryProcessingInputSchema, claimLibraryProcessingInputSchema, completeLibraryProcessingInputSchema, failLibraryProcessingInputSchema, libraryItemResultSchema, libraryProcessingQueueInputSchema, libraryProcessingQueueResultSchema, queueLibraryProcessingInputSchema, retryLibraryProcessingInputSchema, setLibraryReadingStateInputSchema } from "./schemas.js";
@@ -21,7 +22,7 @@ function contextEffects(value:{object_refs?:readonly {kind:string}[];evidence_re
 const reviewDomainEffect={money:"money.entry.read",meals:"life.meal.read",health:"health.measurement.read",items:"life.item.read",library:"library.item.read"} as const;
 const projectRefEffect={trip:"travel.trip.read",health_plan:"health.measurement.read",recurring_plan:"money.entry.read",owned_item:"life.item.read",library_item:"library.item.read",money_entry:"money.entry.read",meal:"life.meal.read",recipe:"life.meal.read"} as const;
 
-export const capabilityRegistry = {
+const domainCapabilityRegistry = {
   "life.record_meal": {
     name: "life.record_meal",
     description: "记录实际吃下的一餐，可关联独立付款。购买或赠品不证明摄入；未知营养与时刻省略，估算需 estimate=true 和 evidence_note。订单、商家和多张图片一起录入优先用 life.record_dining。",
@@ -191,4 +192,16 @@ export const capabilityRegistry = {
   }
 } as const;
 
+const discoveryEffects = [...new Set(Object.values(domainCapabilityRegistry).flatMap(item => [...item.possibleEffects]))];
+const discovery = <const Name extends string, Input extends z.ZodType, Result extends z.ZodType>(name: Name, description: string, inputSchema: Input, resultSchema: Result) => ({
+  name, description, inputSchema, commandSchema: inputSchema, resultSchema, possibleEffects: discoveryEffects,
+  idempotency: "not-applicable" as const, statusQuery: "operations.get", resolveEffects: () => [] as readonly string[]
+});
+export const capabilityRegistry = {
+  ...domainCapabilityRegistry,
+  "agent.discover": discovery("agent.discover", "按业务术语、任务或场景检索当前获准工具；先发现再执行。返回使用口径、示例和可选 Schema，不读取或写入生活事实。", agentDiscoverInputSchema, agentDiscoverResultSchema),
+  "agent.glossary": discovery("agent.glossary", "查询生活业务术语、同义词、统计口径及事实边界；个人实体别名通过返回的目录工具查询。", agentGlossaryInputSchema, agentGlossaryResultSchema),
+  "agent.scenarios": discovery("agent.scenarios", "列出日常、消费、健康、旅行、资料和规划场景下当前获准工具与操作指引；场景不授予额外权限。", agentScenariosInputSchema, agentScenariosResultSchema),
+  "agent.catalog": { name: "agent.catalog", description: "导出当前获准业务术语、场景与完整合同的目录快照，用于调试、差异比较和发布核对；日常任务优先用 agent.discover。", inputSchema: agentCatalogInputSchema, commandSchema: agentCatalogInputSchema, resultSchema: agentCatalogSnapshotSchema, possibleEffects: discoveryEffects, idempotency: "not-applicable" as const, statusQuery: "operations.get", resolveEffects: () => [] as readonly string[] }
+};
 export type CapabilityName = keyof typeof capabilityRegistry;

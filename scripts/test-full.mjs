@@ -15,5 +15,6 @@ for(const root of roots)discover(root);
 tests.sort();
 
 if(!tests.length)throw new Error("no test files discovered");
-const result=spawnSync(process.execPath,["--import","tsx","--test","--test-concurrency=1",...tests],{stdio:"inherit",env:process.env});
+// The root invocation must use the same JSX transform as the Web package tests.
+const result=spawnSync(process.execPath,["--import","tsx","--test","--test-concurrency=1",...tests],{stdio:"inherit",env:{...process.env,TSX_TSCONFIG_PATH:process.env.TSX_TSCONFIG_PATH??join(import.meta.dirname,"../apps/web/tsconfig.json")}});
 process.exit(result.status??1);

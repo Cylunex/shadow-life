@@ -29,6 +29,7 @@ export interface RuntimeRequest {
   readonly personalContext?: { readonly aliases:readonly unknown[]; readonly mealTemplates:readonly unknown[]; readonly memories?:readonly unknown[] };
   readonly contextPack?: unknown;
   readonly capabilityProfile: readonly string[];
+  readonly discoveryContext?: { readonly catalogRevision: string; readonly instructions: readonly string[]; readonly tools: readonly { readonly name: string; readonly description: string; readonly inputSchema: unknown }[] };
 }
 
 export interface RuntimeToolResult {

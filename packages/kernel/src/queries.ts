@@ -1,4 +1,5 @@
 import { buildWorkoutProgression } from "./workout-progression.js";
+import { discoverAgentCapabilities, exportAgentCatalog, queryAgentGlossary, queryAgentScenarios, validateAgentTool } from "./agent-catalog.js";
 import { workoutProgressionInputSchema, workoutProgressionResultSchema } from "@shadow/contracts";
 import { healthReleaseHistoryInputSchema, healthReleaseHistoryResultSchema, consumptionStatsInputSchema, dailyRecordCheckInputSchema, domainRecordsResultSchema, foodCatalogInputSchema, foodCatalogResultSchema, healthDailyResultSchema, healthRecordResultSchema, healthSourcesResultSchema, healthTrendResultSchema, lifeRecordResultSchema, lifeSearchInputSchema, lifeSearchResultSchema, lifeTimelineInputSchema, lifeTimelineResultSchema, lifeTodayInputSchema, lifeTodayResultSchema, listMealsInputSchema, listMealsResultSchema, moneyImportReviewResultSchema, moneySummarySchema, travelExportInputSchema, travelExportResultSchema, travelTripResultSchema, travelWorkspaceInputSchema, travelWorkspaceResultSchema, type DomainRecordSummary, type LifeOverviewDomain, type MoneySummary } from "@shadow/contracts";
 import { previewTravelPortableInputSchema, previewTravelPortableResultSchema, travelBundleSchema } from "@shadow/contracts";
@@ -109,6 +110,11 @@ function travelTripWire(raw:unknown):unknown{
 
 export class QueryService {
   constructor(private readonly unitOfWork:UnitOfWork) {}
+  agentDiscover(context: RequestContext, input: unknown = {}) { return discoverAgentCapabilities(context, input); }
+  agentGlossary(context: RequestContext, input: unknown = {}) { return queryAgentGlossary(context, input); }
+  agentScenarios(context: RequestContext, input: unknown = {}) { return queryAgentScenarios(context, input); }
+  agentCatalog(context: RequestContext, input: unknown = {}) { return exportAgentCatalog(context, input); }
+  validateAgentTool(context: RequestContext, input: unknown) { return validateAgentTool(context, input); }
   async listMeals(context:RequestContext,input:unknown={}){
     if(!context.effects.has("life.meal.read"))throw permissionDenied("life.meal.read");const parsed=listMealsInputSchema.safeParse(input);if(!parsed.success)throw invalidInput("meal list query is invalid",parsed.error.issues.map(issue=>issue.path.join(".")));let before:MealCursor|undefined;
     if(parsed.data.cursor){try{before=JSON.parse(Buffer.from(parsed.data.cursor,"base64url").toString("utf8")) as MealCursor;}catch{throw invalidInput("meal cursor is invalid",["cursor"]);}if(!before.on||!before.at||!before.id||!before.as_of)throw invalidInput("meal cursor is invalid",["cursor"]);}

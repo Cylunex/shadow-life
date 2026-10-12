@@ -22,6 +22,7 @@
     "test:android-health": "node scripts/test-health-policy.mjs",
     "eval:agent": "node scripts/eval-agent.mjs",
     "mcp": "pnpm --filter @shadow/mcp start",
+    "catalog:diff": "node --import tsx scripts/agent-catalog.ts",
     "import:dry-run": "pnpm --filter @shadow/legacy-importer dry-run",
     "migration": "pnpm --filter @shadow/legacy-importer migration",
     "migration:mapping": "pnpm --filter @shadow/legacy-importer mapping"

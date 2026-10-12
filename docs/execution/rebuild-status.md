@@ -1,5 +1,16 @@
 # Rebuild status
 
+## 2026-10-12: semantic discovery, scenarios and debugging
+
+- Life owns an authorized business glossary, task-ranked capability discovery, six scenario bundles and
+  generated catalog snapshots. HTTP, CLI, MCP and the built-in assistant share the same contracts and QueryService.
+- Web adds a lazy-loaded tool catalog/debugger and explicit purchase ratings, repeat intentions and experience
+  notes. Ordinary writes keep the existing Executor, command recovery and revision checks. Catalog comparison
+  is read-only and follows the existing whole-release lifecycle.
+- All 313 tests pass with a disposable UTF-8 PostgreSQL cluster; contracts, boundaries, TypeScript, package tests
+  and Web build pass. Desktop and narrow-screen preview is checked. See [delivery evidence](agent-semantic-catalog-2026-10-12.md).
+  No deployment, APK, production data or paid model call is included.
+
 ## 2026-09-24: Google travel maps for international trips
 
 - Web and Android Travel maps now scope markers to the selected trip, offer day/all views, show numbered planned stops and illustrative straight segments, and keep optional or unlocated stops out of connectors. Each connected leg can open Google Maps road directions. Browser and native Google keys use separate restricted configuration paths; missing keys show a coordinate preview. See [Google travel map delivery](google-travel-map-2026-09-24.md). Production deployment, Android APK and live Google map acceptance are separate release steps.

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { buildCapabilityHttpRequest, capabilityRegistry, commandId, operationErrorSchema, parseCapabilityResult, type CapabilityName } from "@shadow/contracts";
+import { buildCapabilityHttpRequest, capabilityRegistry, commandId, operationErrorSchema, parseCapabilityResult, type AgentScenarioName, type CapabilityName } from "@shadow/contracts";
 import { profileAllows, type McpProfile } from "./profile.js";
 
 export class ToolFailure extends Error {
@@ -11,6 +11,7 @@ export interface ClientOptions {
   token?: string;
   proxySecret?: string;
   profile: McpProfile;
+  scenario?: AgentScenarioName;
   timeoutMs?: number;
   fetch?: typeof fetch;
 }
@@ -27,7 +28,7 @@ export class LifeClient {
     this.api = options.api.replace(/\/$/u, "");
     if (!options.token && !options.proxySecret) throw new Error("SHADOW_ACCESS_TOKEN or SHADOW_PROXY_AUTH_SECRET is required");
   }
-  allows(name: string): name is CapabilityName { return isCapability(name) && profileAllows(this.options.profile, name); }
+  allows(name: string): name is CapabilityName { return isCapability(name) && profileAllows(this.options.profile, name, this.options.scenario); }
 
   async request(path: string, init: RequestInit = {}, write = false): Promise<unknown> {
     try {
@@ -72,6 +73,13 @@ export class LifeClient {
   }
 
   async call(name: CapabilityName, args: unknown): Promise<unknown> {
+    if (!this.allows(name)) throw new ToolFailure({ protocol: "shadow.error", code: "permission_denied", message: "The tool is unavailable in this profile/scenario." });
+    if (["agent.discover", "agent.glossary", "agent.scenarios", "agent.catalog"].includes(name)) {
+      // Profile is narrowing metadata, never authority. The adapter owns its configured scope.
+      const value = z.record(z.string(), z.unknown()).parse(args);
+      args = { ...value, profile: this.options.profile,
+        ...(this.options.scenario ? { scenario: this.options.scenario } : {}) };
+    }
     const request = buildCapabilityHttpRequest(this.api, name, args);
     const write = capabilityRegistry[name].idempotency === "required";
     const body = await this.request(request.url.slice(this.api.length), { method: request.method, headers: { "content-type": "application/json" }, ...(request.body ? { body: request.body } : {}) }, write);

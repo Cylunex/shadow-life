@@ -39,6 +39,18 @@ MIME. Assets use the existing content-addressed API; upload is separate from lin
 
 ## Discovery and recovery
 
+Use `agent.discover` for authorized task/term matching, `agent.glossary` for business meanings and
+`agent.scenarios` for six task bundles. `agent.catalog` exports the complete authorized contract snapshot
+for debugging/comparison. Schemas are omitted by default in discovery; set `include_schemas: true` when
+constructing an input. Follow `next_offset` until it is null. `total`/`truncated` describe catalog matches,
+never a count of saved life facts.
+
+Optional `SHADOW_MCP_SCENARIO` narrows the process to `daily`, `spending`, `health`, `travel`, `library`
+or `planning`. Receipt lookup and discovery remain available. Scenario and profile settings do not grant
+API effects; discovery input cannot override the configured MCP scope. Refresh/reconnect persistent
+gateways after installing this revision. Web has the same catalog and a parameter-validation/execution
+panel. See [semantic catalog](../architecture/agent-semantic-catalog.md) for snapshots and debugging.
+
 `GET /api/capabilities?include_schemas=true` returns authorized schemas in one request. The default
 catalog stays compact. Older APIs remain usable via schema discovery with at most four concurrent reads.
 MCP refreshes on each `tools/list`; it does not advertise live catalog-change notifications. A persistent

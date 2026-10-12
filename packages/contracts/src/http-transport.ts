@@ -8,6 +8,10 @@ const get=(path:string):ReturnType<ReadRoute>=>({method:"GET",path});
 const post=(path:string,input:unknown):ReturnType<ReadRoute>=>({method:"POST",path,body:JSON.stringify(input)});
 
 export const queryTransportRegistry:Readonly<Record<string,ReadRoute>>={
+  "agent.discover":input=>get(`/api/agent/discover${search(input)}`),
+  "agent.glossary":input=>get(`/api/agent/glossary${search(input)}`),
+  "agent.scenarios":input=>get(`/api/agent/scenarios${search(input)}`),
+  "agent.catalog":input=>get(`/api/agent/catalog${search(input)}`),
   "life.today":input=>get(`/api/today${search({date:input.date,time_zone:input.time_zone,domains:input.domains})}`),
   "life.daily_record_check":input=>post("/api/life/daily-record-check",input),
   "life.timeline":input=>get(`/api/timeline${search({domains:input.domains,limit:input.limit,cursor:input.cursor})}`),

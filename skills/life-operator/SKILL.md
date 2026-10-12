@@ -11,6 +11,12 @@ Use the `shadow-life` MCP as the authoritative record service. Read
 The examples contain fictional records and illustrative IDs; replace them with real tool results.
 
 - Execute ordinary requested recording and corrections directly; ask only for a necessary missing fact.
+- Use `agent.discover` to find tools by business term or scenario before guessing input shapes;
+  `agent.glossary` explains fact boundaries and `agent.scenarios` lists authorized task bundles.
+  Follow discovery `next_offset` for more matches. Discovery results never prove a record was saved.
+- Explicit ratings, repeat intentions and experience notes can be saved with `life.correct_purchase`
+  after reading the purchase and its current revision. Preserve unchanged raw metadata and dates.
+  Unspecified ratings and repeat intentions stay unknown; shared agreements are explicit Library notes.
 - Keep purchases, payments, actual intake, visits and plans distinct. For confirmed dining with order
   details or multiple images, prefer `life.record_dining` so related facts commit together.
 - For 次卡/理发卡/洗车卡/课时包, track the purchased entitlement and explicit uses separately; see the service-card workflow. Never infer first use from purchase or duplicate its payment.

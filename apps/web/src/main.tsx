@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { lazy, Suspense, StrictMode, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import type { ExecutionResult } from "@shadow/contracts";
 import "./styles.css";
@@ -21,6 +21,7 @@ import { ForeignMoneyPanel } from "./ForeignMoneyPanel.js";
 import { ConsumptionStatsPanel } from "./ConsumptionStatsPanel.js";
 import { ServiceCardsPanel } from "./ServiceCardsPanel.js";
 import { UseCyclePanel } from "./UseCyclePanel.js";
+const AgentToolsPanel = lazy(() => import("./AgentToolsPanel.js").then(module => ({ default: module.AgentToolsPanel })));
 import { CommandController, type CommandStorage } from "./command-controller.js";
 import { formatMoneyAmount } from "./money-display.js";
 import appIcon from "./assets/shadow-life-icon.png";
@@ -38,6 +39,7 @@ const persistentStorage=browserStorage("localStorage"),ephemeralStorage=browserS
 const commandController=new CommandController(fetch,writeHeaders,persistentStorage,`shadow-life:${location.origin}${location.pathname}`,ephemeralStorage);
 const command=commandController.execute;
 function App(){
+  const [toolsOpen, setToolsOpen] = useState(new URLSearchParams(window.location.search).get("tools") === "1");
   const initialTab=new URLSearchParams(window.location.search).get("tab");
   const [tab,setTab]=useState<Tab>(initialTab==="record"||initialTab==="plan"||initialTab==="library"?initialTab:"today");
   const [assistantOpen,setAssistantOpen]=useState(initialTab==="assistant");
@@ -63,6 +65,7 @@ function App(){
   const [fields,setFields]=useState<RecordFormFields>(()=>initialRecordFields(today(),zone()));
   async function load(){setLoadState("loading");try{const loaded=await loadDashboard(fetch,auth,{date:today(),timeZone:zone()});commandController.setIdentity(loaded.identity.issuer,loaded.identity.subjectId,loaded.identity.clientId);setIdentityKey(`${loaded.identity.issuer}:${loaded.identity.subjectId}:${loaded.identity.clientId}`);epochHeader=loaded.epochHeader;setData(loaded.data);setTodayData(loaded.today);setTimeline(loaded.timeline?.items??[]);setTimelineCursor(loaded.timeline?.next_cursor??null);setHealthWorkspace(loaded.health);setCapabilities(loaded.capabilities);setFields(current=>!loaded.capabilities.includes("money.set_budget")&&loaded.capabilities.includes("health.set_plan")&&current.planKind==="budget"?{...current,planKind:"goal"}:current);const labels:Record<DashboardDomain|"today"|"timeline",string>={meals:"饮食",money:"账目",health:"健康",travel:"旅行",library:"资料",today:"生活概览",timeline:"时间线"},messages=(Object.entries(loaded.errors) as [DashboardDomain|"today"|"timeline",string][]).map(([domain,message])=>`${labels[domain]}：${message}`);setReadError(messages.length?messages.join("；"):undefined);setLoadState(messages.length||!loaded.today?"partial":"ready");}catch(caught){setReadError(caught instanceof Error?caught.message:"读取失败");setLoadState("error");}}
   useEffect(()=>{void load()},[]);
+  useEffect(()=>{const query=new URLSearchParams(location.search);if(toolsOpen)query.set("tools","1");else query.delete("tools");history.replaceState(null,"",`${location.pathname}?${query}${location.hash}`);},[toolsOpen]);
   useLayoutEffect(()=>{const previous=history.scrollRestoration;history.scrollRestoration="manual";return()=>{history.scrollRestoration=previous;};},[]);
   useLayoutEffect(()=>{window.scrollTo({top:0,left:0,behavior:"instant"});},[tab,section]);
   useEffect(()=>{if(tab==="today")return;const available=workspaceSections[tab].map(item=>item[0] as string);if(!available.includes(section))setSection(available[0]!);},[tab,section]);
@@ -74,7 +77,7 @@ function App(){
   async function selectHealthMetric(metric:HealthMetric){setHealthMetric(metric);try{const trend=await loadHealthTrend(fetch,auth,metric);setHealthWorkspace(current=>{const errors={...(current?.errors??{})};delete errors.trend;return{...current,trend,errors};});}catch(caught){setHealthWorkspace(current=>({...current,errors:{...(current?.errors??{}),trend:caught instanceof Error?caught.message:"读取失败"}}));}}
   const visible=new Set(capabilities),hasHealthWorkspace=visible.has("health.daily")||visible.has("health.trend")||visible.has("health.sources"),selection=selectionFromLocation(window.location.search),header=headerCopy(tab);
   return <main className="app-shell">
-    <header className={`app-header header-${tab}`}><div className="brand-lockup"><img src={appIcon} alt=""/><div><span className="eyebrow">SHADOW LIFE</span><h1>{header.title}</h1><p>{header.subtitle}</p></div></div><div className="header-actions"><span className="date-chip">{formatToday()}</span><button type="button" className="icon-button assistant-button" aria-label="打开生活助手" onClick={()=>setAssistantOpen(true)}><AppIcon name="assistant"/><span className="activity-dot"/></button></div>{readError?.includes("登录")&&<a href="/auth/login">重新登录</a>}</header>
+    <header className={`app-header header-${tab}`}><div className="brand-lockup"><img src={appIcon} alt=""/><div><span className="eyebrow">SHADOW LIFE</span><h1>{header.title}</h1><p>{header.subtitle}</p></div></div><div className="header-actions"><span className="date-chip">{formatToday()}</span>{visible.has("agent.discover")&&<button type="button" className="agent-tools-entry" onClick={()=>setToolsOpen(true)}>能力目录</button>}<button type="button" className="icon-button assistant-button" aria-label="打开生活助手" onClick={()=>setAssistantOpen(true)}><AppIcon name="assistant"/><span className="activity-dot"/></button></div>{readError?.includes("登录")&&<a href="/auth/login">重新登录</a>}</header>
     <nav className="top-nav" aria-label="主要导航"><NavButton value="today" current={tab} set={navigate} icon="today" label="生活"/><NavButton value="record" current={tab} set={navigate} icon="record" label="记录"/><span className="nav-gap" aria-hidden="true"/><NavButton value="plan" current={tab} set={navigate} icon="plan" label="计划"/><NavButton value="library" current={tab} set={navigate} icon="library" label="资料"/></nav>
     {tab!=="today"&&<nav className="section-nav" aria-label={`${tab}二级导航`}>{workspaceSections[tab].map(([value,label])=><button type="button" key={value} className={section===value?"active":""} onClick={()=>setSection(value)}>{label}</button>)}</nav>}
     {readError&&<aside className="error">{readError}</aside>}
@@ -85,6 +88,7 @@ function App(){
     <button type="button" className="quick-add" aria-label="快速新增" onClick={()=>openCapture()}><AppIcon name="add"/></button>
     {quickOpen&&<CaptureSheet kind={captureKind} setKind={kind=>{setCaptureKind(kind);setFields({...initialRecordFields(today(),zone()),kind});setCaptureMessage(undefined);setCaptureError(undefined);}} fields={fields} setFields={setFields} pending={pending} save={saveCapture} message={captureMessage} error={captureError} onClose={()=>setQuickOpen(false)} onBack={()=>{setCaptureKind(undefined);setCaptureMessage(undefined);setCaptureError(undefined);}} onRecords={()=>{setQuickOpen(false);navigate("record","timeline");}} onLibrary={()=>{setQuickOpen(false);navigate("library","browse");}}/>}
     {assistantOpen&&<div className="assistant-layer" role="dialog" aria-modal="true" aria-label="生活助手"><button type="button" className="layer-scrim" aria-label="关闭助手" onClick={()=>setAssistantOpen(false)}/><section className="assistant-sheet"><div className="sheet-handle"/><div className="panel-heading"><div><span className="eyebrow">SHADOW ASSISTANT</span><h2>生活助手</h2></div><button type="button" className="icon-button" aria-label="关闭" onClick={()=>setAssistantOpen(false)}>×</button></div><Assistant key={identityKey} selection={selection} canAttach={visible.has("agent.create_context_pack")} identityKey={identityKey}/></section></div>}
+    {toolsOpen&&visible.has("agent.discover")&&<Suspense fallback={<p role="status">正在打开能力目录…</p>}><AgentToolsPanel key={identityKey} headers={auth} execute={command} onClose={()=>setToolsOpen(false)} onChanged={load}/></Suspense>}
     {error&&<aside className="error">{error}</aside>}{result&&<section className="receipt"><b>已保存</b><p>内容已经写入对应工作空间，列表也已刷新。</p></section>}
   </main>;
 }
