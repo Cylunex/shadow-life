@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "3a24e9a0c9297a0147721214423c5836334a0e70caa16c8f32db7017cc976487",
+  "catalog_revision": "0a8739cf8652b1283c3da6bcb7b26556d389f8bddd21b856c27cba225fb7251f",
   "terms": [
     {
       "id": "intake",
@@ -74,6 +74,28 @@
         "money.records",
         "money.summarize",
         "life.consumption_stats"
+      ],
+      "lookup_tools": []
+    },
+    {
+      "id": "money-void",
+      "title": "误录账目作废",
+      "aliases": [
+        "作废",
+        "撤销账目",
+        "删除重复账目",
+        "误录",
+        "重复入账"
+      ],
+      "definition": "将错误的金额记录软作废，不计入有效汇总。",
+      "boundaries": [
+        "先核对精确记录和当前修订，只作废误录条目。",
+        "历史记录仍可搜索，统计有效账目时只计 confirmed。"
+      ],
+      "capabilities": [
+        "money.void_entry",
+        "life.get_record",
+        "money.records"
       ],
       "lookup_tools": []
     },
@@ -419,6 +441,7 @@
         "money.record_entry",
         "money.record_refund",
         "money.correct_entry",
+        "money.void_entry",
         "money.records",
         "money.summarize",
         "life.consumption_stats",
@@ -39087,7 +39110,9 @@
       "possible_effects": [
         "money.entry.write"
       ],
-      "scenarios": [],
+      "scenarios": [
+        "spending"
+      ],
       "input_schema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",

@@ -56,6 +56,8 @@ test("scenarios and personal profiles narrow capabilities without granting autho
   assert.equal(profileAllows("personal-money-void", "money.void_entry"), true);
   assert.equal(profileAllows("personal-money-void", "life.void_purchase"), false);
   assert.equal(profileAllows("personal-money-void", "money.stage_import"), false);
+  assert.equal(discoverAgentCapabilities(all, { profile: "personal-money-void", query: "账目作废" }).capabilities[0]?.name, "money.void_entry");
+  assert.ok(!discoverAgentCapabilities(all, { profile: "personal", query: "账目作废" }).capabilities.some(item => item.name === "money.void_entry"));
   assert.equal(profileAllows("personal", "agent.discover", "travel"), true);
 });
 
