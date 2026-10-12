@@ -58084,6 +58084,7 @@
             "type": "string",
             "enum": [
               "personal",
+              "personal-money-void",
               "authorized"
             ]
           },
@@ -58150,6 +58151,7 @@
             "type": "string",
             "enum": [
               "personal",
+              "personal-money-void",
               "authorized"
             ]
           },
@@ -58416,6 +58418,7 @@
             "type": "string",
             "enum": [
               "personal",
+              "personal-money-void",
               "authorized"
             ]
           },
@@ -58456,6 +58459,7 @@
             "type": "string",
             "enum": [
               "personal",
+              "personal-money-void",
               "authorized"
             ]
           },
@@ -58618,6 +58622,7 @@
             "type": "string",
             "enum": [
               "personal",
+              "personal-money-void",
               "authorized"
             ]
           }
@@ -58643,6 +58648,7 @@
             "type": "string",
             "enum": [
               "personal",
+              "personal-money-void",
               "authorized"
             ]
           }
@@ -58757,6 +58763,7 @@
             "type": "string",
             "enum": [
               "personal",
+              "personal-money-void",
               "authorized"
             ]
           },
@@ -58782,6 +58789,7 @@
             "type": "string",
             "enum": [
               "personal",
+              "personal-money-void",
               "authorized"
             ]
           },

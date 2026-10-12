@@ -23,13 +23,13 @@ Stdout is JSON-RPC only. No development auth, production URL or credential is em
 | `SHADOW_API_URL` | Life API base URL; development default is loopback |
 | `SHADOW_ACCESS_TOKEN` | Existing Life access token; API owns subject/effect checks |
 | `SHADOW_PROXY_AUTH_SECRET` | Alternative for an already configured trusted local proxy deployment; never distribute to ordinary clients |
-| `SHADOW_MCP_PROFILE` | `personal` by default; `authorized` exposes the server-visible full catalog for explicitly configured operator clients |
+| `SHADOW_MCP_PROFILE` | `personal` by default; `personal-money-void` adds only `money.void_entry` for a specifically configured personal client; `authorized` exposes the server-visible full catalog for explicitly configured operator clients |
 | `SHADOW_MEDIA_ROOTS` | Optional absolute media-cache roots, separated by the platform path delimiter; omitted means no local image tool |
 | `SHADOW_MCP_TIMEOUT_MS` | Per-request deadline, default 30000 ms, maximum 120000 ms |
 
 If both authentication variables are present, Bearer takes precedence. Requests never follow redirects
 with credentials. The personal profile permits ordinary personal writes/reads, including plans, shopping,
-food references, manual health plans and travel day planning. It excludes void operations, device ingestion,
+food references, manual health plans and travel day planning. The default profile excludes void operations; `personal-money-void` permits only money-entry voids, not other void operations, device ingestion,
 membership changes, processor administration and external delivery controls. Existing domain permissions
 still apply to every call; adding a tool to this profile does not grant API authority.
 

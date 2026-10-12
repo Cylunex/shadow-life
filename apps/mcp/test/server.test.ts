@@ -30,6 +30,17 @@ test("one discovery request exposes real idempotency schema and only server-visi
   assert.equal(result.tools[1].annotations.readOnlyHint, true);
 });
 
+test("money void is visible only in the explicitly selected personal profile", async () => {
+  const fetcher: typeof fetch = async () => json(catalog(["money.void_entry", "life.void_purchase", "money.stage_import"]));
+  const personal = new LifeClient({ api: "https://life.example.com", token: "test-token", profile: "personal", fetch: fetcher });
+  const moneyVoid = new LifeClient({ api: "https://life.example.com", token: "test-token", profile: "personal-money-void", fetch: fetcher });
+  assert.deepEqual((await personal.listTools()).map(tool => tool.name), []);
+  const tools = await moneyVoid.listTools();
+  assert.deepEqual(tools.map(tool => tool.name), ["money.void_entry"]);
+  assert.deepEqual(tools[0]?.inputSchema.required, ["command_id", "input"]);
+  assert.deepEqual(tools[0]?.inputSchema.properties.input.required, ["record_id", "expected_revision", "reason"]);
+});
+
 test("old API fallback has bounded concurrency and catalog refresh drops revoked visibility", async () => {
   let active = 0, peak = 0, lists = 0;
   const names: CapabilityName[] = ["life.record_meal", "life.record_purchase", "life.record_dining", "life.today", "life.list_meals", "money.summarize"];

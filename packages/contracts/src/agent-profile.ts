@@ -32,9 +32,9 @@ export const personalOperatorTools: ReadonlySet<CapabilityName> = new Set<Capabi
   "money.record_foreign_entry", "health.set_plan", "travel.set_day_plan",
 ]);
 
-export type McpProfile = "personal" | "authorized";
+export type McpProfile = "personal" | "personal-money-void" | "authorized";
 export function profileAllows(profile: McpProfile, name: CapabilityName, scenario?: AgentScenarioName): boolean {
-  const inProfile = profile === "authorized" || personalOperatorTools.has(name);
+  const inProfile = profile === "authorized" || personalOperatorTools.has(name) || profile === "personal-money-void" && name === "money.void_entry";
   const common = name.startsWith("agent.") && ["agent.discover", "agent.glossary", "agent.scenarios", "agent.catalog"].includes(name) || name === "operations.find" || name === "operations.get";
   return inProfile && (!scenario || common || agentScenarios.find(item => item.name === scenario)?.capabilities.includes(name) === true);
 }

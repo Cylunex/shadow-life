@@ -52,6 +52,10 @@ test("scenarios and personal profiles narrow capabilities without granting autho
   assert.ok(!travel.capabilities.some(item => item.name === "money.record_entry"));
   assert.equal(discoverAgentCapabilities(context(["money.entry.read"]), { scenario: "travel", profile: "authorized" }).total, 0);
   assert.equal(profileAllows("personal", "life.void_purchase"), false);
+  assert.equal(profileAllows("personal", "money.void_entry"), false);
+  assert.equal(profileAllows("personal-money-void", "money.void_entry"), true);
+  assert.equal(profileAllows("personal-money-void", "life.void_purchase"), false);
+  assert.equal(profileAllows("personal-money-void", "money.stage_import"), false);
   assert.equal(profileAllows("personal", "agent.discover", "travel"), true);
 });
 

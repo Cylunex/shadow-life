@@ -6,7 +6,7 @@ import { createMcpServer } from "./server.js";
 
 assertCompleteQueryTransport();
 const profile = process.env.SHADOW_MCP_PROFILE ?? "personal";
-if (profile !== "personal" && profile !== "authorized") throw new Error("SHADOW_MCP_PROFILE must be personal or authorized");
+if (profile !== "personal" && profile !== "personal-money-void" && profile !== "authorized") throw new Error("SHADOW_MCP_PROFILE must be personal, personal-money-void or authorized");
 const roots = (process.env.SHADOW_MEDIA_ROOTS ?? "").split(delimiter).filter(Boolean);
 if (roots.some(root => !isAbsolute(root))) throw new Error("SHADOW_MEDIA_ROOTS must contain absolute directories");
 const timeoutMs = Number(process.env.SHADOW_MCP_TIMEOUT_MS ?? 30_000);

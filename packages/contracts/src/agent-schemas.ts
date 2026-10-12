@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const agentScenarioNameSchema = z.enum(["daily", "spending", "health", "travel", "library", "planning"]);
-export const agentProfileSchema = z.enum(["personal", "authorized"]);
+export const agentProfileSchema = z.enum(["personal", "personal-money-void", "authorized"]);
 export const agentCatalogInputSchema = z.object({ profile: agentProfileSchema.optional(), scenario: agentScenarioNameSchema.optional() }).strict();
 export const agentDiscoverInputSchema = z.object({
   query: z.string().trim().max(200).default(""),

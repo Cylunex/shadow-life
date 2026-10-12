@@ -14,5 +14,6 @@ For prepaid service cards, link money.save_service_card to the existing purchase
 Use stable cmd_ keys. On outcome_unknown call operations.find with the original command_id, then retry identical input/key only if needed. Never replace the key to bypass a conflict.
 Read the affected object after a correction or image association; use receipt resource IDs and current revisions. For dining, get consumption_record_id to verify all images and meal_id to verify intake.
 Use life.search with dates for history; follow next_cursor until the requested page range is complete. Rankings use life.consumption_stats with explicit period, unit and currency.
+Before voiding a mistaken money entry, read its exact record and current revision, confirm which entry is wrong, then call money.void_entry with a reason and stable command_id. Read back state=voided. Voided entries remain in history; count only confirmed entries as active.
 Daily checks use life.daily_record_check once for the requested local date/time zone; only confirmed_omissions/actionable_messages justify an omission. Weekly checks cover every requested date.
 If a tool is absent, refresh the MCP catalog or report unavailable. Never use retired services, shell or SQL to substitute for Life.`;

@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "5352d61a209fb16bdf972cd74d5bca1da04f2181abe6136ff934a454cfc779b3",
+  "catalog_revision": "3a24e9a0c9297a0147721214423c5836334a0e70caa16c8f32db7017cc976487",
   "terms": [
     {
       "id": "intake",
@@ -591,6 +591,7 @@
             "type": "string",
             "enum": [
               "personal",
+              "personal-money-void",
               "authorized"
             ]
           },
@@ -1210,6 +1211,7 @@
             "type": "string",
             "enum": [
               "personal",
+              "personal-money-void",
               "authorized"
             ]
           },
@@ -1609,6 +1611,7 @@
             "type": "string",
             "enum": [
               "personal",
+              "personal-money-void",
               "authorized"
             ]
           },
@@ -2230,6 +2233,7 @@
             "type": "string",
             "enum": [
               "personal",
+              "personal-money-void",
               "authorized"
             ]
           }
