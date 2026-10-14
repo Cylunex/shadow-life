@@ -72,6 +72,25 @@ Every page remains permission-filtered, bounded and bound to its query snapshot.
 
 ## Verification and rollout
 
+个人 Agent 的目标、规划材料与跨会话恢复使用新增 foundation 工具；完整语义见
+[数据底座](../architecture/personal-agent-foundation.md)。HTTP 读取统一为
+`POST /api/agent/foundation/{intentions,workspace,objects,tasks,learning,changes,export}`，
+写入仍为 `/api/commands/<capability>`。CLI 和 MCP 直接使用合同名称。
+
+先读 `agent.workspace` 的场景、日期与时区，分清事实、计划、明确意图和观察。
+材料不完整时沿专用查询继续，不能把缺失当作零；常规保存直接调用现有领域命令。
+明确偏好使用 `agent.set_intention`，带 scope 和有效期；模型观察使用 `agent.save_learning`，
+附真实依据、环境、工作流版本和限制。`agent.objects` 以返回的引用展开当前关系和来源。
+
+跨 Agent 继续时先读 `agent.tasks`，用当前 revision 保存检查点；需要领取时请求短期租约并保留
+服务端 token。超时查询原命令回执。变化轮询先 `agent.set_subscription`，调用 `agent.changes`，
+完成处理后通过 `agent.ack_changes` 的 expected_cursor/cursor 确认；消费者互不占用进度。
+轮询不会自动发送消息；invalidated_refs 要重新查询。首次接入先读当前数据，日志不回填既往事件。
+
+`agent.export` 用 next_offset 连续读取，检查 total_is_exact、has_more 和截断；原件另行下载。
+`agent.restore` 校验后创建新副本，不能直接覆盖旧数据或复制执行租约。
+隔离新增验收使用 `pnpm test:foundation:offline`，完整验收使用 `pnpm test:full:offline`。
+
 ```sh
 pnpm check
 pnpm --filter @shadow/mcp test

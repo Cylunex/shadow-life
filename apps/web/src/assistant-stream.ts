@@ -1,3 +1,4 @@
+import { foundationQueries } from "@shadow/contracts";
 import { agentContextResultSchema, type AgentContextResult } from "@shadow/contracts";
 export type AssistantRunState="started"|"streaming"|"awaiting_input"|"committed_partial"|"completed"|"interrupted";
 
@@ -11,15 +12,22 @@ export interface AssistantView {
   lastSequence:number;
   contextQueries:Map<string,AgentContextResult>;
   contextUnavailable:boolean;
+  foundationQueries:Map<string,{capability:string;result:any}>;
 }
 
-export function createAssistantView():AssistantView{return{answer:"",receipts:new Map(),contextQueries:new Map(),contextUnavailable:false,lastSequence:0};}
+export function createAssistantView():AssistantView{return{answer:"",receipts:new Map(),foundationQueries:new Map(),contextQueries:new Map(),contextUnavailable:false,lastSequence:0};}
 
 export function applyAssistantEvent(view:AssistantView,value:unknown,sequence=0):void{
   if(value===null||typeof value!=="object")return;
   const event=value as Record<string,unknown>,type=event.type;
   if(typeof event.run_id==="string")view.runId=event.run_id;
   if(Number.isInteger(sequence)&&sequence>view.lastSequence)view.lastSequence=sequence;
+  if(type==="tool.result"&&event.authority==="host"&&typeof event.capability==="string"&&event.capability in foundationQueries&&typeof event.tool_call_id==="string"){
+    const key=`${String(event.run_id)}:${event.tool_call_id}`;
+    if(event.outcome==="returned"){const parsed=foundationQueries[event.capability as keyof typeof foundationQueries].result.safeParse(event.result);if(parsed.success)view.foundationQueries.set(key,{capability:event.capability,result:parsed.data});}
+    else{view.foundationQueries.delete(key);view.contextUnavailable=true;}
+    return;
+  }
   if(type==="tool.result"&&event.authority==="host"&&event.capability==="agent.context"&&typeof event.tool_call_id==="string"){
     const key=`${String(event.run_id)}:${event.tool_call_id}`;
     if(event.outcome==="returned"){

@@ -14,6 +14,21 @@ The examples contain fictional records and illustrative IDs; replace them with r
 - Use `agent.discover` to find tools by business term or scenario before guessing input shapes;
   `agent.glossary` explains fact boundaries and `agent.scenarios` lists authorized task bundles.
   Follow discovery `next_offset` for more matches. Discovery results never prove a record was saved.
+- For personal planning, read `agent.workspace` with scenario, exact dates and time zone. Keep facts,
+  plans, explicit intentions, task state and derived observations distinct. Follow dedicated reads when
+  coverage is incomplete; use `agent.objects` for returned business references and relationships.
+- Save the user's explicit preferences, constraints or goals with `agent.set_intention`, including scope
+  and validity. Save model observations separately with `agent.save_learning`, verifiable business
+  references/receipts, environment, workflow revision and limitations. Recheck evidence before reuse.
+- Resume persistent work from `agent.tasks`; save current/next steps and missing material with current
+  revision. A claimed running task requires the server lease token, and task completion alone never
+  proves a business action succeeded. Recover unknown commands with `operations.find` first.
+- For authorized change polling, configure `agent.set_subscription`, read `agent.changes` and acknowledge
+  its cursor with `agent.ack_changes` after processing. Keep consumer progress separate; requery
+  invalidated references. Polling is not authorization to notify anyone or take an external action.
+- Exports are paginated and exclude original asset bytes. `agent.restore` creates validated new copies
+  without overwriting existing records or restoring leases. Use discovered schemas for these tools;
+  see [foundation semantics](../../docs/architecture/personal-agent-foundation.md).
 - Explicit ratings, repeat intentions and experience notes can be saved with `life.correct_purchase`
   after reading the purchase and its current revision. Preserve unchanged raw metadata and dates.
   Unspecified ratings and repeat intentions stay unknown; shared agreements are explicit Library notes.

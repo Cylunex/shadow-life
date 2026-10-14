@@ -1,3 +1,4 @@
+import { foundationKinds } from "@shadow/contracts";
 import { z } from "zod";
 import { buildCapabilityHttpRequest, capabilityRegistry, commandId, operationErrorSchema, parseCapabilityResult, type AgentScenarioName, type CapabilityName } from "@shadow/contracts";
 import { profileAllows, type McpProfile } from "./profile.js";
@@ -74,11 +75,23 @@ export class LifeClient {
 
   async call(name: CapabilityName, args: unknown): Promise<unknown> {
     if (!this.allows(name)) throw new ToolFailure({ protocol: "shadow.error", code: "permission_denied", message: "The tool is unavailable in this profile/scenario." });
-    if (["agent.context", "agent.discover", "agent.glossary", "agent.scenarios", "agent.catalog"].includes(name)) {
+    if (["agent.context", "agent.discover", "agent.glossary", "agent.scenarios", "agent.catalog", "agent.intentions", "agent.workspace", "agent.objects", "agent.tasks", "agent.learning", "agent.changes", "agent.export"].includes(name)) {
       // Profile is narrowing metadata, never authority. The adapter owns its configured scope.
       const value = z.record(z.string(), z.unknown()).parse(args);
       args = { ...value, profile: this.options.profile,
         ...(this.options.scenario ? { scenario: this.options.scenario } : {}) };
+    }
+    if(this.options.scenario && ["agent.set_intention","agent.save_task","agent.save_learning","agent.set_subscription","agent.restore"].includes(name)){
+      const wrapper=z.object({input:z.record(z.string(),z.unknown())}).passthrough().parse(args);
+      wrapper.input=capabilityRegistry[name].inputSchema.parse(wrapper.input) as Record<string,unknown>;
+      const scopes=name==="agent.restore"?(wrapper.input.entries as Array<{scope?:string}>??[]).map(entry=>entry.scope):[wrapper.input.scope];
+      const payloads=name==="agent.restore"?(wrapper.input.entries as Array<Record<string,any>>):[wrapper.input];
+      if(payloads.some(payload=>[...(payload.object_refs as Array<{kind:string}>??[]),...(payload.project_ref?[payload.project_ref]:[])].some((ref:any)=>!foundationKinds[this.options.scenario!]!.includes(ref.kind))))throw new ToolFailure({protocol:"shadow.error",code:"permission_denied",message:"Evidence outside the configured scenario is unavailable."});
+      if(scopes.some(scope=>scope!==this.options.scenario&&scope!=="global"))throw new ToolFailure({protocol:"shadow.error",code:"permission_denied",message:"Writing outside the configured scenario is unavailable."});
+    }
+    if(this.options.scenario&&name==="agent.ack_changes"){
+      const wrapper=z.object({input:z.object({consumer:z.string()}).passthrough()}).passthrough().parse(args);
+      await this.call("agent.changes",{consumer:wrapper.input.consumer,limit:1});
     }
     const request = buildCapabilityHttpRequest(this.api, name, args);
     const write = capabilityRegistry[name].idempotency === "required";

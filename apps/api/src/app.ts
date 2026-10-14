@@ -4,6 +4,7 @@ import { bodyLimit } from "hono/body-limit";
 import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 import { createHash } from "node:crypto";
+import { foundationQueries, type FoundationQueryName } from "@shadow/contracts";
 import { agentThreadMessagesInputSchema, agentThreadMessagesResultSchema, agentThreadsResultSchema, capabilityRegistry, consumptionStatsInputSchema, dailyRecordCheckInputSchema, executionResultSchema, findOperationInputSchema, healthReleaseHistoryInputSchema, healthTrendInputSchema, lifeMeResultSchema, lifeRecordInputSchema, lifeSearchInputSchema, lifeTimelineInputSchema, lifeTodayInputSchema, planningAgendaInputSchema, projectDirectoryResultSchema, writeCapabilityNameSchema, type ProjectDirectoryResult } from "@shadow/contracts";
 import { AssetService, visionAvailability, type PostgresUnitOfWork } from "@shadow/database";
 import { healthSleepInsightsInputSchema } from "@shadow/contracts";
@@ -133,6 +134,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.get("/api/library/items/:id",async context=>context.json(await dependencies.queries.libraryItem(context.get("requestContext"),context.req.param("id"))));
   app.get("/api/library/vision-status",async context=>{if(!context.get("requestContext").effects.has("library.item.read"))throw permissionDenied("library.item.read");return context.json(visionAvailability());});
   app.get("/api/library/processing",async context=>context.json(await dependencies.queries.libraryProcessingQueue(context.get("requestContext"),{...(context.req.query("kind")?{kind:context.req.query("kind")}:{}),limit:Number(context.req.query("limit")??"20")})));
+  app.post("/api/agent/foundation/:name",async context=>{const name=`agent.${context.req.param("name")}`;if(!(name in foundationQueries))throw new KernelError(404,{protocol:"shadow.error",code:"not_found",message:"Unknown personal data query"});return context.json(await dependencies.queries.foundation(context.get("requestContext"),name as FoundationQueryName,await context.req.json()));});
   app.post("/api/agent/context",async context=>context.json(await dependencies.queries.agentContext(context.get("requestContext"),await context.req.json())));
   app.get("/api/agent/context-packs/:id",async context=>context.json(await dependencies.queries.agentContextPack(context.get("requestContext"),{context_pack_id:context.req.param("id")},context.req.query("thread_id"))));
   app.get("/api/agent/memories",async context=>context.json(await dependencies.queries.agentMemories(context.get("requestContext"),{...(context.req.query("category")?{category:context.req.query("category")}:{}),limit:Number(context.req.query("limit")??"50")})));
@@ -223,6 +225,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         if(capabilityName==="travel.preview_portable")return dependencies.queries.previewTravelPortable(requestContext,parsed);
         if(capabilityName==="library.get_item")return dependencies.queries.libraryItem(requestContext,(parsed as {id:string}).id);
         if(capabilityName==="library.processing_queue")return dependencies.queries.libraryProcessingQueue(requestContext,parsed);
+        if(capabilityName in foundationQueries)return dependencies.queries.foundation(requestContext,capabilityName as FoundationQueryName,parsed);
         if(capabilityName==="agent.context")return dependencies.queries.agentContext(requestContext,parsed);
         if(capabilityName==="agent.get_context_pack")return dependencies.queries.agentContextPack(requestContext,parsed,threadId);
         if(capabilityName==="agent.memories")return dependencies.queries.agentMemories(requestContext,parsed);
@@ -268,7 +271,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
           await state("committed_partial");
         }else{
           const rejected=isRuntimeToolError(result);
-          await emit({id:hostId(),run_id:runId,type:"tool.result",authority:"host",tool_call_id:event.id,capability:event.capability,outcome:rejected?"rejected":"returned",result});
+          await emit({id:hostId(),run_id:runId,type:"tool.result",authority:"host",tool_call_id:event.id,capability:event.capability,outcome:rejected?"rejected":"returned",...(!rejected&&event.capability in foundationQueries?{query_input:capabilityRegistry[event.capability as keyof typeof capabilityRegistry].inputSchema.parse(event.input)}:{}),result});
         }
         const runtimeResult=serializedSize(result)<=1024*1024?result:{protocol:"shadow.runtime-tool-error",code:"outcome_unknown",message:"Tool result exceeded the Runtime transfer limit.",retryable:false};
         await consume(runtime.submitToolResult({protocol:"shadow.runtime-tool-result",threadId,runId,toolCallId:event.id,capability:event.capability,result:runtimeResult},controller.signal));return;
@@ -288,9 +291,14 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   });
   const visibleRunEvents=async(requestContext:RequestContext,events:Array<{payload:unknown}>)=>Promise.all(events.map(async event=>{
     const payload=event.payload as Record<string,unknown>|null;
-    if(payload?.type!=="tool.result"||payload.capability!=="agent.context"||payload.outcome!=="returned")return event;
-    if(await dependencies.queries.revalidateAgentContext(requestContext,payload.result))return event;
-    return {...event,payload:{...payload,outcome:"rejected",result:{protocol:"shadow.error",code:"not_found",message:"本次查询的记录已变更或当前不可见，请重新查询。"}}};
+    if(payload?.type!=="tool.result"||payload.outcome!=="returned")return event;
+    if(typeof payload.capability==="string"&&payload.capability in foundationQueries){
+      if(await dependencies.queries.revalidateFoundation(requestContext,payload.capability as FoundationQueryName,payload.query_input,payload.result))return event;
+    }else if(payload.capability==="agent.context"){
+      if(await dependencies.queries.revalidateAgentContext(requestContext,payload.result))return event;
+    }else return event;
+    const {query_input:removed,...safe}=payload;
+    return {...event,payload:{...safe,outcome:"rejected",result:{protocol:"shadow.error",code:"not_found",message:"本次查询的记录已变更或当前不可见，请重新查询。"}}};
   }));
   app.get("/api/runs/:runId",async context=>{if(!dependencies.agent)return context.json({protocol:"shadow.error",code:"not_found",message:"Run not found."},404);const requestContext=context.get("requestContext"),runId=context.req.param("runId"),run=await dependencies.agent.repository.run(requestContext.subjectId,runId);if(!run)return context.json({protocol:"shadow.error",code:"not_found",message:"Run not found."},404);const after=Number(context.req.query("after")??"0"),safeAfter=Number.isInteger(after)&&after>=0?after:0;return context.json({run,events:await visibleRunEvents(requestContext,await dependencies.agent.repository.events(requestContext.subjectId,runId,safeAfter))});});
   app.post("/api/runs/:runId/stop",async context=>{

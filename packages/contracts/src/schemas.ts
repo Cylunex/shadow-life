@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { foundationWriteSchemas } from "./foundation-schemas.js";
 
 export const canonicalDecimal = z.string().regex(/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/u, "must be a canonical non-negative decimal");
 export const positiveDecimal = canonicalDecimal.refine((value) => BigInt(value.replace(".", "")) > 0n, "must be greater than zero");
@@ -453,6 +454,7 @@ export const foreignEntriesResultSchema=z.object({items:z.array(z.object({
 }).strict()).max(100),as_of:instant}).strict();
 
 export const writeCommandSchemas = {
+  ...foundationWriteSchemas,
   "life.record_meal": recordMealInputSchema,
   "life.record_dining":recordDiningInputSchema,
   "life.correct_meal":correctMealInputSchema,
@@ -554,7 +556,7 @@ export const universalCommandEnvelopeSchema = z.object({
 });
 
 export const resourceReferenceSchema = z.object({
-  type: z.enum(["meal", "meal_template", "food", "recipe", "personal_alias", "intake_item", "consumption_record", "purchase", "purchase_item", "money_entry", "refund", "budget", "recurring_plan", "recurring_occurrence", "spending_intent", "use_cycle", "service_card", "service_card_use", "consumable_use", "money_import_batch", "money_import_candidate", "money_import_rule", "health_measurement", "health_workout_session", "health_raw", "health_sync_cursor", "health_plan", "trip", "trip_segment", "reservation", "visit", "place", "travel_map", "trip_track", "trip_day_plan", "trip_checklist", "trip_member", "trip_plan_version", "trip_run", "trip_stop_outcome", "library_item", "library_annotation", "library_derivation", "library_processing_job", "library_reading_state", "library_legacy_link", "agent_context_pack", "agent_memory", "notification_preferences", "notification", "notification_installation", "notification_delivery", "owned_item", "owned_item_event", "life_review", "life_project", "action_item", "meal_plan", "shopping_list", "shopping_list_item", "food_stock_lot", "money_fx_snapshot", "shared_expense_allocation", "source", "thread", "run", "task"]),
+  type: z.enum(["agent_intention", "agent_task", "agent_learning", "agent_subscription", "meal", "meal_template", "food", "recipe", "personal_alias", "intake_item", "consumption_record", "purchase", "purchase_item", "money_entry", "refund", "budget", "recurring_plan", "recurring_occurrence", "spending_intent", "use_cycle", "service_card", "service_card_use", "consumable_use", "money_import_batch", "money_import_candidate", "money_import_rule", "health_measurement", "health_workout_session", "health_raw", "health_sync_cursor", "health_plan", "trip", "trip_segment", "reservation", "visit", "place", "travel_map", "trip_track", "trip_day_plan", "trip_checklist", "trip_member", "trip_plan_version", "trip_run", "trip_stop_outcome", "library_item", "library_annotation", "library_derivation", "library_processing_job", "library_reading_state", "library_legacy_link", "agent_context_pack", "agent_memory", "notification_preferences", "notification", "notification_installation", "notification_delivery", "owned_item", "owned_item_event", "life_review", "life_project", "action_item", "meal_plan", "shopping_list", "shopping_list_item", "food_stock_lot", "money_fx_snapshot", "shared_expense_allocation", "source", "thread", "run", "task"]),
   id: stableId,
   revision: z.number().int().positive()
 }).strict();

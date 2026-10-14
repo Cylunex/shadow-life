@@ -9,6 +9,7 @@ const post=(path:string,input:unknown):ReturnType<ReadRoute>=>({method:"POST",pa
 
 export const queryTransportRegistry:Readonly<Record<string,ReadRoute>>={
   "agent.context":input=>post("/api/agent/context",input),
+  ...Object.fromEntries(["intentions","workspace","objects","tasks","learning","changes","export"].map(name=>[`agent.${name}`,(input:unknown)=>post(`/api/agent/foundation/${name}`,input)])),
   "agent.discover":input=>get(`/api/agent/discover${search(input)}`),
   "agent.glossary":input=>get(`/api/agent/glossary${search(input)}`),
   "agent.scenarios":input=>get(`/api/agent/scenarios${search(input)}`),

@@ -9,6 +9,7 @@ import { createHash } from "node:crypto";
 import { buildAgentCatalogDocument } from "../src/agent-catalog.js";
 import { agentThreadMessagesResultSchema, agentThreadsResultSchema, consumptionStatsResultSchema, domainRecordsResultSchema, foreignEntriesResultSchema, healthReleaseHistoryResultSchema, healthDailyResultSchema, healthRecordResultSchema, healthSourcesResultSchema, libraryItemResultSchema, lifeProjectsResultSchema, lifeRecordResultSchema, lifeReviewsResultSchema, lifeSearchResultSchema, lifeTimelineResultSchema, lifeTodayResultSchema, listMealsResultSchema, mealPlanningResultSchema, moneyPlanningResultSchema, notificationsResultSchema, ownedItemsResultSchema, planningAgendaResultSchema, projectDirectoryResultSchema, travelTripResultSchema, travelWorkspaceResultSchema } from "../src/schemas.js";
 
+import { foundationListSchema } from "../src/foundation-schemas.js";
 const output = resolve(import.meta.dirname, "../generated");
 await mkdir(output, { recursive: true });
 const registry = Object.fromEntries(Object.values(capabilityRegistry).map((capability) => [capability.name, {
@@ -100,6 +101,7 @@ function defineObject(schema: JsonSchema, name: string,options?:{exclude?:Readon
   const serialName=options?.serialName?`@SerialName(${JSON.stringify(options.serialName)})\n`:"";
   kotlinDefinitions.push(`@Serializable\n${serialName}data class ${name}(\n${fields.join(",\n")}\n)${options?.extends?`: ${options.extends}`:""}`);
 }
+defineObject(z.toJSONSchema(foundationListSchema) as JsonSchema, "FoundationListDto");
 defineObject(z.toJSONSchema(domainRecordsResultSchema) as JsonSchema, "DomainRecordsResultDto");
 defineObject(z.toJSONSchema(planningAgendaResultSchema) as JsonSchema, "PlanningAgendaResultDto");
 defineObject(z.toJSONSchema(notificationsResultSchema) as JsonSchema, "NotificationsResultDto");

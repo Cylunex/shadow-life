@@ -209,6 +209,7 @@ data class RecordDetail(
 
 @Serializable data object TodayRoute
 @Serializable data object RecordsRoute
+@Serializable data object PersonalAgentRoute
 @Serializable data object PlansRoute
 @Serializable data object LibraryRoute
 @Serializable data class WorkspaceRoute(val domain:String,val tab:String="")

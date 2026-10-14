@@ -4,6 +4,7 @@ import type { AgentScenarioName } from "./agent-schemas.js";
 
 /** Explicit personal operations only; server effects still authorize every call. */
 export const personalOperatorTools: ReadonlySet<CapabilityName> = new Set<CapabilityName>([
+  "agent.restore", "agent.intentions", "agent.workspace", "agent.objects", "agent.tasks", "agent.learning", "agent.changes", "agent.export", "agent.set_intention", "agent.save_task", "agent.save_learning", "agent.set_subscription", "agent.ack_changes",
   "agent.context", "agent.discover", "agent.glossary", "agent.scenarios", "agent.catalog", "life.day", "life.memories", "life.set_food_stock",
   "life.record_meal", "life.record_purchase", "life.record_dining",
   "life.correct_meal", "life.add_intake", "life.remove_intake", "life.correct_intake",
@@ -35,6 +36,6 @@ export const personalOperatorTools: ReadonlySet<CapabilityName> = new Set<Capabi
 export type McpProfile = "personal" | "personal-money-void" | "authorized";
 export function profileAllows(profile: McpProfile, name: CapabilityName, scenario?: AgentScenarioName): boolean {
   const inProfile = profile === "authorized" || personalOperatorTools.has(name) || profile === "personal-money-void" && name === "money.void_entry";
-  const common = name.startsWith("agent.") && ["agent.context", "agent.discover", "agent.glossary", "agent.scenarios", "agent.catalog"].includes(name) || name === "operations.find" || name === "operations.get";
+  const common = name.startsWith("agent.") && ["agent.context", "agent.discover", "agent.glossary", "agent.scenarios", "agent.catalog", "agent.intentions", "agent.workspace", "agent.objects", "agent.tasks", "agent.learning", "agent.changes", "agent.export", "agent.set_intention", "agent.save_task", "agent.save_learning", "agent.set_subscription", "agent.ack_changes", "agent.restore"].includes(name) || name === "operations.find" || name === "operations.get";
   return inProfile && (!scenario || common || agentScenarios.find(item => item.name === scenario)?.capabilities.includes(name) === true);
 }

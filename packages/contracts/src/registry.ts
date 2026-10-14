@@ -4,6 +4,7 @@ import { setFoodStockInputSchema } from "./schemas.js";
 import { recordConsumableUseInputSchema, saveServiceCardInputSchema, recordServiceCardUseInputSchema, serviceCardsInputSchema, serviceCardsResultSchema } from "./schemas.js";
 import { healthSleepInsightsInputSchema, healthSleepInsightsResultSchema } from "./schemas.js";
 import { z } from "zod";
+import { foundationEffects, foundationWriteSchemas, foundationQueries } from "./foundation-schemas.js";
 import { agentCatalogInputSchema, agentCatalogSnapshotSchema, agentDiscoverInputSchema, agentDiscoverResultSchema, agentGlossaryInputSchema, agentGlossaryResultSchema, agentScenariosInputSchema, agentScenariosResultSchema } from "./agent-schemas.js";
 import { addIntakeInputSchema, annotateLibraryItemInputSchema, addMealPaymentInputSchema, addReservationInputSchema, attachMealSourceInputSchema, captureLibraryItemInputSchema, commandId, consumptionStatsInputSchema, consumptionStatsResultSchema, correctHealthMeasurementInputSchema, correctIntakeInputSchema, correctMealInputSchema, correctMoneyEntryInputSchema, correctPurchaseInputSchema, correctReservationInputSchema, correctTripInputSchema, createTripInputSchema, dailyRecordCheckInputSchema, dailyRecordCheckResultSchema, domainRecordsInputSchema, domainRecordsResultSchema, executionResultSchema, foodCatalogInputSchema, foodCatalogResultSchema, getOperationInputSchema, findOperationInputSchema, healthReleaseHistoryInputSchema, healthReleaseHistoryResultSchema, healthDailyInputSchema, healthDailyResultSchema, healthRecordResultSchema, healthSourcesInputSchema, healthSourcesResultSchema, healthTrendInputSchema, healthTrendResultSchema, importTravelTrackInputSchema, ingestHealthBatchInputSchema, ingestHealthRawInputSchema, lifeRecordInputSchema, lifeRecordResultSchema, lifeSearchInputSchema, lifeSearchResultSchema, lifeTimelineInputSchema, lifeTimelineResultSchema, lifeTodayInputSchema, lifeTodayResultSchema, linkMealConsumptionInputSchema, listMealsInputSchema, listMealsResultSchema, moneyImportReviewInputSchema, moneyImportReviewResultSchema, moneyPlanningInputSchema, moneyPlanningResultSchema, moneySummaryInputSchema, moneySummarySchema, notificationsResultSchema, publishTripPlanInputSchema, recordDiningInputSchema, recordHealthMeasurementInputSchema, recordMealCommandEnvelopeSchema, recordMealFromRecipeInputSchema, recordMealFromTemplateInputSchema, recordMealInputSchema, recordMoneyEntryInputSchema, recordPurchaseInputSchema, recordRefundInputSchema, recordTripSegmentInputSchema, recordVisitInputSchema, recordWorkoutInputSchema, registerLibraryDerivationInputSchema, removeIntakeInputSchema, resolveMoneyImportCandidateInputSchema, resourceDetailInputSchema, saveFoodInputSchema, saveMealTemplateInputSchema, savePlaceInputSchema, saveRecipeInputSchema, saveTravelMapInputSchema, setBudgetInputSchema, setHealthPlanInputSchema, setHealthSourceStateInputSchema, setMoneyImportRuleInputSchema, setPersonalAliasInputSchema, setRecurringOccurrenceInputSchema, setRecurringPlanInputSchema, setSpendingIntentInputSchema, setTripDayPlanInputSchema, setTripMemberInputSchema, setTripStopOutcomeInputSchema, setUseCycleInputSchema, stageMoneyImportInputSchema, startTripRunInputSchema, travelExportInputSchema, travelExportResultSchema, travelTripResultSchema, travelWorkspaceInputSchema, travelWorkspaceResultSchema, reviseLibraryItemInputSchema, voidRecordInputSchema, voidReservationInputSchema } from "./schemas.js";
 import { previewTravelPortableInputSchema, previewTravelPortableResultSchema, restoreTravelBundleInputSchema } from "./schemas.js";
@@ -22,6 +23,28 @@ function write(name: string, description: string, inputSchema: any, effects: rea
 function contextEffects(value:{object_refs?:readonly {kind:string}[];evidence_refs?:readonly {kind:string}[]}):string[]{const refs=value.object_refs??value.evidence_refs??[],effects=new Set<string>(["agent.run"]);for(const ref of refs){if(ref.kind==="meal"||ref.kind==="purchase")effects.add("life.meal.read");else if(ref.kind==="money_entry")effects.add("money.entry.read");else if(ref.kind==="health_measurement"||ref.kind==="health_workout")effects.add("health.measurement.read");else if(ref.kind==="trip")effects.add("travel.trip.read");else if(ref.kind==="library_item")effects.add("library.item.read");}return[...effects].sort();}
 const reviewDomainEffect={money:"money.entry.read",meals:"life.meal.read",health:"health.measurement.read",items:"life.item.read",library:"library.item.read"} as const;
 const projectRefEffect={trip:"travel.trip.read",health_plan:"health.measurement.read",recurring_plan:"money.entry.read",owned_item:"life.item.read",library_item:"library.item.read",money_entry:"money.entry.read",meal:"life.meal.read",recipe:"life.meal.read"} as const;
+
+const personalRefEffects: Record<string,string> = foundationEffects;
+const personalEffects=(input:any)=>[...new Set(["agent.run",...(input.object_refs??[]).map((ref:any)=>personalRefEffects[ref.kind]),...(input.project_ref?[personalRefEffects[input.project_ref.kind]]:[])])];
+const foundationDescriptions:Record<string,string>={
+  "agent.set_intention":"保存用户明确的目标、偏好或临时限制，包含场景和生效日期。时间上限用 minutes，预算用精确金额与币种；观察另用 save_learning。更正必须读取当前修订。",
+  "agent.save_task":"保存跨会话任务检查点、下一步、缺失材料和真实操作回执。task_key 标识同一任务；运行时 claim_seconds 返回独占 lease_token，续写需原 token 和当前修订。任务完成不代表餐次或支付发生。",
+  "agent.save_learning":"保存有证据的观察或做事经验，记录环境、流程版本、适用范围与限制；成功经验需真实操作回执。派生内容不更新业务事实或明确偏好。",
+  "agent.set_subscription":"保存消费者关注的场景或稳定对象；变化读取只通知数据发生变化，不发送外部消息，也不自动执行支付。",
+  "agent.ack_changes":"按 expected_cursor 比较并推进一个消费者的变化游标；其他消费者独立，重复读取不等于再次执行业务操作。",
+  "agent.restore":"将导出的个人目标、任务或经验作为新副本原子恢复，最多五十项，证据必须仍可读取；保留已有记录，拒绝复制活动租约。",
+  "agent.workspace":"按明确日期窗口取得个人规划上下文：有效目标偏好、实际记录、项目与行动、餐单库存、设备来源、未完成任务和有证据的经验。全结果处于一致数据库快照，字节预算截断保持未知。",
+  "agent.intentions":"读取指定日期和场景下有效的个人目标、明确偏好和限制；可包含未生效及归档项用于更正，日期范围不隐式补为今天。",
+  "agent.objects":"按精确对象修订或字面查询、个人别名查找对象，按明确关系展开至两步。权限在读取前过滤；来源更正或作废返回不可用，相似名字只返回候选，关联需明确身份。",
+  "agent.tasks":"读取跨 Agent 的任务检查点、当前步骤、下一步和依据是否仍有效；调用现有回执读取确认已完成写入。",
+  "agent.learning":"按日期、场景、环境与流程版本读取带依据的观察和经验，旧修订或不可读依据不进入结果；这种推导不等同于生活事实。",
+  "agent.changes":"按消费者的独立游标读取有权限的变化和失效引用；每次重新验证当前来源，has_more 包含后续扫描，游标不是业务记录数量。",
+  "agent.export":"分页导出个人意图、任务、经验、订阅、修订历史或来源元数据。原件字节通过受保护资产下载，结果明确 original_assets_included=false。"
+};
+const foundationCapabilityRegistry = {
+  ...Object.fromEntries(Object.entries(foundationWriteSchemas).map(([name,schema])=>[name,{...write(name,foundationDescriptions[name]!,schema,["agent.run"]),resolveEffects:personalEffects}])),
+  ...Object.fromEntries(Object.entries(foundationQueries).map(([name,schema])=>[name,{name,description:foundationDescriptions[name]!,inputSchema:schema.input,commandSchema:schema.input,resultSchema:schema.result,possibleEffects:["agent.run"],resolveEffects:()=>["agent.run"],idempotency:"not-applicable" as const,statusQuery:"operations.get"}]))
+} as unknown as Record<keyof typeof foundationWriteSchemas|keyof typeof foundationQueries, {name:string;description:string;inputSchema:any;commandSchema:any;resultSchema:any;possibleEffects:readonly string[];resolveEffects:(input:any)=>readonly string[];idempotency:"required"|"not-applicable";statusQuery:string}>;
 
 const domainCapabilityRegistry = {
   "life.record_meal": {
@@ -200,6 +223,7 @@ const discovery = <const Name extends string, Input extends z.ZodType, Result ex
   idempotency: "not-applicable" as const, statusQuery: "operations.get", resolveEffects: () => [] as readonly string[]
 });
 export const capabilityRegistry = {
+  ...foundationCapabilityRegistry,
   ...domainCapabilityRegistry,
   "agent.discover": discovery("agent.discover", "按业务术语、任务或场景检索当前获准工具；先发现再执行。返回使用口径、示例和可选 Schema，不读取或写入生活事实。", agentDiscoverInputSchema, agentDiscoverResultSchema),
   "agent.glossary": discovery("agent.glossary", "查询生活业务术语、同义词、统计口径及事实边界；个人实体别名通过返回的目录工具查询。", agentGlossaryInputSchema, agentGlossaryResultSchema),

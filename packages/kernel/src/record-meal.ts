@@ -36,9 +36,9 @@ export class CommandExecutor {
       if(context.agentRun)await store.assertAgentRun(context.subjectId,context.agentRun.runId,context.agentRun.ownerId);
       await store.assertWriteDomains(writeDomains(effects),context.writeEpochs);
       const executionId = this.dependencies.ids.next("exec");
-      const written = await store.executeDomainWrite({ subjectId: context.subjectId, command, nextId: (type) => this.dependencies.ids.next(type as Parameters<IdGenerator["next"]>[0]) });
+      const written = await store.executeDomainWrite({ subjectId: context.subjectId, command, context, nextId: (type) => this.dependencies.ids.next(type as Parameters<IdGenerator["next"]>[0]) });
       const result = executionResultSchema.parse({ protocol: "shadow.execution-result", capability: command.capability, command_id: command.command_id, execution_id: executionId, status: "committed", result_kind: command.capability.includes("budget") || command.capability.includes("plan") ? "plan" : "record", resources: written.resources, actual_values: written.actualValues, warnings: written.warnings ?? [], replayed: false });
-      await store.insertOperation({...(context.agentRun?{agentRunId:context.agentRun.runId,agentToolCallId:context.agentRun.toolCallId}:{}), executionId, subjectId: context.subjectId, commandId: command.command_id, capability: command.capability, fingerprint, result });
+      await store.insertOperation({...(context.agentRun?{agentRunId:context.agentRun.runId,agentToolCallId:context.agentRun.toolCallId}:{}), actorId: context.actorId, clientId: context.clientId, executionId, subjectId: context.subjectId, commandId: command.command_id, capability: command.capability, fingerprint, result });
       const aggregateId = written.resources[0]!.id;
       await store.insertOutbox({ id: this.dependencies.ids.next("event"), subjectId: context.subjectId, eventType: `${command.capability}.committed`, aggregateId, payload: { execution_id: executionId, resources: written.resources, actual_values:written.actualValues } });
       return result;
@@ -123,6 +123,7 @@ export class CommandExecutor {
         replayed: false
       });
       const operation: StoredOperation = {
+        actorId: context.actorId, clientId: context.clientId,
         ...(context.agentRun?{agentRunId:context.agentRun.runId,agentToolCallId:context.agentRun.toolCallId}:{}),
         executionId,
         subjectId: context.subjectId,

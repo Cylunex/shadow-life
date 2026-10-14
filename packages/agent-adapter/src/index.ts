@@ -15,7 +15,7 @@ const hostEventBase={id:z.string().min(1),run_id:z.string().min(1)};
 export const hostRunEventSchema=z.discriminatedUnion("type",[
   z.object({...hostEventBase,type:z.literal("run.state"),state:runStateSchema,reason:z.string().min(1).optional(),fields:z.array(z.string().min(1)).optional(),prompt:z.string().min(1).optional()}).strict(),
   z.object({...hostEventBase,type:z.literal("message.delta"),text:z.string(),runtime_event_id:z.string().min(1)}).strict(),
-  z.object({...hostEventBase,type:z.literal("tool.result"),authority:z.literal("host").optional(),tool_call_id:z.string().min(1),capability:z.string().min(1),outcome:z.enum(["returned","rejected"]),result:z.unknown()}).strict(),
+  z.object({...hostEventBase,type:z.literal("tool.result"),authority:z.literal("host").optional(),tool_call_id:z.string().min(1),capability:z.string().min(1),outcome:z.enum(["returned","rejected"]),query_input:z.unknown().optional(),result:z.unknown()}).strict(),
   z.object({...hostEventBase,type:z.literal("operation.committed"),authority:z.literal("executor"),subject_id:z.string().min(1),tool_call_id:z.string().min(1),capability:z.string().min(1),command_id:z.string().min(1),execution_id:z.string().min(1),result:z.unknown()}).strict()
 ]);
 export type HostRunEvent=z.infer<typeof hostRunEventSchema>;

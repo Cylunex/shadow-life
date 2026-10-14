@@ -1,3 +1,4 @@
+import { createFoundationStore, writeFoundation } from "./foundation.js";
 import { agentRefsAvailable } from "./agent-refs.js";
 import { readAgentContext } from "./agent-context.js";
 import { setFoodStockInputSchema } from "@shadow/contracts";
@@ -100,6 +101,7 @@ function storeFor(database: Database | Transaction): TransactionStore {
     return proposedId;
   }
   return {
+    foundation: createFoundationStore(database),
     async assertAgentRun(subjectId,runId,ownerId){
       await database.execute(sql`select id from runs where id=${runId} for share`);
       const valid=await database.execute(sql`select run.id from runs run join threads thread on thread.id=run.thread_id where run.id=${runId} and thread.subject_id=${subjectId} and run.owner_id=${ownerId} and run.status='running' and run.lease_expires_at>clock_timestamp() and run.stop_requested_at is null`);
@@ -125,7 +127,7 @@ function storeFor(database: Database | Transaction): TransactionStore {
     },
     async linkMealSource(mealId, sourceId) { await database.insert(schema.mealSourceLinks).values({ mealId, sourceId }); },
     async insertOperation(value) {
-      await database.insert(schema.operations).values({ executionId: value.executionId, subjectId: value.subjectId, commandId: value.commandId, capability: value.capability, fingerprint: value.fingerprint, result: value.result,agentRunId:value.agentRunId,agentToolCallId:value.agentToolCallId });
+      await database.insert(schema.operations).values({ executionId: value.executionId, subjectId: value.subjectId, commandId: value.commandId, capability: value.capability, fingerprint: value.fingerprint, result: value.result,actorId:value.actorId,clientId:value.clientId,agentRunId:value.agentRunId,agentToolCallId:value.agentToolCallId });
     },
     async insertOutbox(value) { await database.insert(schema.outbox).values(value); },
     async getOperationByExecutionId(subjectId, executionId) {
@@ -162,7 +164,8 @@ function storeFor(database: Database | Transaction): TransactionStore {
       const totals=rows.map(row=>({currency:row.currency,gross_expense:trimNumeric(row.gross)!,refund:trimNumeric(row.refund)!,net_spending:trimNumeric(row.netSpending)!,income:trimNumeric(row.income)!,net_cashflow:trimNumeric(row.netCashflow)!,entries:row.entries}));const cny=totals.find(row=>row.currency==="CNY");
       return { currency: "CNY", expense_total: moneyNumeric(cny?.gross_expense??"0"), entries: cny?.entries??0, as_of:new Date().toISOString(), totals };
     },
-    async executeDomainWrite({ subjectId, command, nextId }) {
+    async executeDomainWrite({ subjectId, command, nextId, context }) {
+      if (context) { const result=await writeFoundation(database,subjectId,command.capability,command.input,nextId,context); if(result)return result as Awaited<ReturnType<TransactionStore["executeDomainWrite"]>>; }
       const lockLibraryAttempt=async(jobId:string,attempt:number)=>{
         // Check the wall clock after acquiring the lock, including time spent waiting.
         await database.execute(sql`select id from library_processing_jobs where id=${jobId} and subject_id=${subjectId} for update`);
@@ -921,6 +924,7 @@ export class PostgresUnitOfWork implements UnitOfWork {
     return this.database.transaction((transaction) => work(storeFor(transaction)));
   }
   read<T>(work: (store: TransactionStore) => Promise<T>): Promise<T> { return work(storeFor(this.database)); }
+  snapshot<T>(work:(store:TransactionStore)=>Promise<T>):Promise<T>{return this.database.transaction(transaction=>work(storeFor(transaction)),{isolationLevel:"repeatable read",accessMode:"read only"});}
   async ensurePrincipal(subjectId: string): Promise<void> { await this.database.insert(schema.principals).values({ id: subjectId }).onConflictDoNothing(); }
   async close(): Promise<void> { await this.pool.end(); }
 }

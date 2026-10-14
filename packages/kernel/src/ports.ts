@@ -19,6 +19,8 @@ export interface RequestContext {
 }
 
 export interface StoredOperation {
+  readonly actorId?: string;
+  readonly clientId?: string;
   readonly agentRunId?:string;
   readonly agentToolCallId?:string;
   readonly executionId: string;
@@ -31,6 +33,7 @@ export interface StoredOperation {
 }
 
 export interface TransactionStore {
+  readonly foundation?: import("./foundation.js").FoundationStore;
   assertAgentRun(subjectId:string,runId:string,ownerId:string):Promise<void>;
   lockCommand(subjectId: string, commandId: string): Promise<void>;
   assertWriteDomains(domains:readonly ("health"|"ledger")[],expected?:Readonly<Partial<Record<"health"|"ledger",number>>>):Promise<void>;
@@ -46,7 +49,7 @@ export interface TransactionStore {
   listMeals(subjectId:string,options:{limit:number;includeMoney:boolean;asOf?:string;before?:{on:string;at:string;id:string}}):Promise<{items:readonly (MealView&{_page_at:string})[];hasMore:boolean;asOf:string}>;
   foodCatalog(subjectId:string,query:string|undefined,limit:number):Promise<unknown>;
   summarizeMoney(subjectId: string): Promise<MoneySummary>;
-  executeDomainWrite(value: { subjectId: string; command: UniversalCommandEnvelope; nextId(type: string): string }): Promise<{ resources: ExecutionResult["resources"]; actualValues: ExecutionResult["actual_values"]; warnings?: string[] }>;
+  executeDomainWrite(value: { subjectId: string; command: UniversalCommandEnvelope; context?: RequestContext; nextId(type: string): string }): Promise<{ resources: ExecutionResult["resources"]; actualValues: ExecutionResult["actual_values"]; warnings?: string[] }>;
   listDomain(subjectId:string,domain:"money"|"health"|"travel"|"library",options:{includePurchase?:boolean;query?:string;limit:number;asOf?:string;before?:{at:string;kind:string;id:string}}):Promise<{items:readonly DomainRecordPageItem[];hasMore:boolean;asOf:string}>;
   healthReleaseHistory(subjectId:string,input:{from:string;to:string;limit:number}):Promise<unknown>;
   workoutProgressionPlans(subjectId:string,planId?:string):Promise<import("./workout-progression.js").WorkoutProgressionPlan[]>;
@@ -86,6 +89,7 @@ export interface TransactionStore {
 }
 
 export interface UnitOfWork {
+  snapshot?<T>(work: (store: TransactionStore) => Promise<T>): Promise<T>;
   transaction<T>(work: (store: TransactionStore) => Promise<T>): Promise<T>;
   read<T>(work: (store: TransactionStore) => Promise<T>): Promise<T>;
 }

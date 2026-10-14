@@ -10,6 +10,24 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 
 @Serializable
+data class FoundationListDtoTruncation(
+  @SerialName("truncated") val truncated: Boolean,
+  @SerialName("result_bytes") val resultBytes: Long,
+  @SerialName("byte_budget") val byteBudget: Long
+)
+
+@Serializable
+data class FoundationListDto(
+  @SerialName("items") val items: List<JsonObject>,
+  @SerialName("truncation") val truncation: FoundationListDtoTruncation,
+  @SerialName("as_of") val asOf: String,
+  @SerialName("total") val total: Long,
+  @SerialName("total_is_exact") val totalIsExact: Boolean,
+  @SerialName("has_more") val hasMore: Boolean,
+  @SerialName("next_offset") val nextOffset: Long?
+)
+
+@Serializable
 enum class DomainRecordsResultDtoItemsEntryEntryType(val wireValue: String) {
   @SerialName("expense") Expense("expense"),
   @SerialName("income") Income("income"),

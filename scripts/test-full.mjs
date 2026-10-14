@@ -12,6 +12,7 @@ function discover(directory){
   }
 }
 for(const root of roots)discover(root);
+tests.push("scripts/fixtures/personal-foundation-mcp.test.ts");
 tests.sort();
 
 if(!tests.length)throw new Error("no test files discovered");

@@ -1,3 +1,5 @@
+import { queryFoundation } from "./foundation.js";
+import type { FoundationQueryName } from "@shadow/contracts";
 import { queryAgentContext, revalidateAgentContext } from "./agent-context.js";
 import { buildWorkoutProgression } from "./workout-progression.js";
 import { discoverAgentCapabilities, exportAgentCatalog, queryAgentGlossary, queryAgentScenarios, validateAgentTool } from "./agent-catalog.js";
@@ -110,6 +112,11 @@ function travelTripWire(raw:unknown):unknown{
 }
 
 export class QueryService {
+  async foundation(context:RequestContext,name:FoundationQueryName,input:unknown){return queryFoundation(this.unitOfWork,context,name,input);}
+  async revalidateFoundation(context:RequestContext,name:FoundationQueryName,input:unknown,result:unknown):Promise<boolean>{
+    const strip=(value:unknown):unknown=>Array.isArray(value)?value.map(strip):value&&typeof value==="object"?Object.fromEntries(Object.entries(value).filter(([key])=>!["as_of","result_bytes"].includes(key)).map(([key,item])=>[key,strip(item)])):value;
+    try{return JSON.stringify(strip(await this.foundation(context,name,input)))===JSON.stringify(strip(result));}catch{return false;}
+  }
   constructor(private readonly unitOfWork:UnitOfWork) {}
   revalidateAgentContext(context:RequestContext,value:unknown){return revalidateAgentContext(this.unitOfWork,context,value);}
   agentContext(context:RequestContext,input:unknown){return queryAgentContext(this.unitOfWork,context,input);}

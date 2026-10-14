@@ -460,16 +460,29 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     return result
   }
 
-  private suspend fun getText(path:String):String=withContext(Dispatchers.IO){
+  private suspend fun getText(path:String,body:JSONObject?=null):String=withContext(Dispatchers.IO){
     val session=app.sessions.active()?:error("请先登录 Shadow Life")
     when(val fresh=app.sessions.fresh(session.accountId,context)){
       SessionRefresh.ReauthRequired->error("会话已失效，请重新登录")
       SessionRefresh.Retryable->error("暂时无法刷新会话，请稍后重试")
       is SessionRefresh.Ready->{
-        val connection=(URL(fresh.value.session.apiBase+path).openConnection() as HttpURLConnection).apply{requestMethod="GET";connectTimeout=10_000;readTimeout=20_000;setRequestProperty("Authorization","Bearer ${fresh.value.accessToken}");setRequestProperty("Accept","application/json")}
-        try{val code=connection.responseCode;val text=(if(code in 200..299)connection.inputStream else connection.errorStream)?.bufferedReader()?.use{it.readText()}.orEmpty();if(code !in 200..299){val message=runCatching{JSONObject(text).optString("message")}.getOrNull().orEmpty();error(message.ifBlank{"请求失败（HTTP $code）"})};text}finally{connection.disconnect()}
+        val connection=(URL(fresh.value.session.apiBase+path).openConnection() as HttpURLConnection).apply{requestMethod=if(body==null)"GET" else "POST";connectTimeout=10_000;readTimeout=20_000;setRequestProperty("Authorization","Bearer ${fresh.value.accessToken}");setRequestProperty("Accept","application/json")}
+        try{if(body!=null){connection.doOutput=true;connection.setRequestProperty("Content-Type","application/json");connection.outputStream.use{it.write(body.toString().toByteArray(Charsets.UTF_8))}};val code=connection.responseCode;val text=(if(code in 200..299)connection.inputStream else connection.errorStream)?.bufferedReader()?.use{it.readText()}.orEmpty();if(code !in 200..299){val message=runCatching{JSONObject(text).optString("message")}.getOrNull().orEmpty();error(message.ifBlank{"请求失败（HTTP $code）"})};text}finally{connection.disconnect()}
       }
     }
+  }
+
+  suspend fun personalFoundation(kind:String,on:String,offset:Int=0):FoundationListDto {
+    require(kind in setOf("intentions","tasks","learning"))
+    val input=JSONObject().put("limit",30).put("offset",offset)
+    if(kind!="tasks")input.put("on",on)
+    if(kind=="intentions")input.put("include_inactive",true)
+    if(kind=="tasks")input.put("include_terminal",true)
+    return wireJson.decodeFromString(getText("/api/agent/foundation/$kind",input))
+  }
+  suspend fun savePersonalFoundation(capability:String,input:JSONObject,expectedAccountId:String):OperationReceipt=withContext(Dispatchers.IO){
+    require(capability in setOf("agent.set_intention","agent.save_task","agent.save_learning"))
+    enqueueCommand(capability,input,expectedAccountId=expectedAccountId)
   }
 
   suspend fun assetPreview(versionId:String):ByteArray=withContext(Dispatchers.IO){
@@ -748,8 +761,8 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     }
   }
 
-  private suspend fun enqueueCommand(capability:String,input:JSONObject,stableCommandId:String?=null):OperationReceipt{
-    val session=app.sessions.active()?:error("请先登录 Shadow Life");val commandId=stableCommandId?:"cmd_android_${UUID.randomUUID().toString().replace("-","")}";val body=JSONObject().put("protocol","shadow.command").put("capability",capability).put("command_id",commandId).put("input",input).toString();app.queue.enqueueCommand(session,commandId,capability,body);SyncScheduler.schedule(context,session.accountId);return OperationReceipt(capability,commandId,queued=true)
+  private suspend fun enqueueCommand(capability:String,input:JSONObject,stableCommandId:String?=null,expectedAccountId:String?=null):OperationReceipt{
+    val session=app.sessions.active()?:error("请先登录 Shadow Life");if(expectedAccountId!=null&&session.accountId!=expectedAccountId)error("账号已切换，请在当前账号重新输入");val commandId=stableCommandId?:"cmd_android_${UUID.randomUUID().toString().replace("-","")}";val body=JSONObject().put("protocol","shadow.command").put("capability",capability).put("command_id",commandId).put("input",input).toString();app.queue.enqueueCommand(session,commandId,capability,body);SyncScheduler.schedule(context,session.accountId);return OperationReceipt(capability,commandId,queued=true)
   }
 
   private suspend fun <T> partialRequest(block:suspend()->T):Result<T> = try{Result.success(block())}catch(error:CancellationException){throw error}catch(error:Exception){Result.failure(error)}
