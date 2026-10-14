@@ -23,3 +23,5 @@ export * from "./consumable-usage.js";
 
 export * from "./workout-progression.js";
 export * from "./agent-catalog.js";
+
+export * from "./agent-context.js";

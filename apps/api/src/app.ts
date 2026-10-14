@@ -9,7 +9,7 @@ import { AssetService, visionAvailability, type PostgresUnitOfWork } from "@shad
 import { healthSleepInsightsInputSchema } from "@shadow/contracts";
 import type { AgentRepository } from "@shadow/database";
 import { hostRunEventSchema, runtimeEventSchema, type AgentRuntimeAdapter, type HostRunEvent, type RuntimeEvent, type RunState } from "@shadow/agent-adapter";
-import { agentCatalogRevision, CommandExecutor, KernelError, QueryService, permissionDenied } from "@shadow/kernel";
+import { agentCatalogRevision, CommandExecutor, KernelError, QueryService, permissionDenied, type RequestContext } from "@shadow/kernel";
 import { authMiddleware } from "./auth.js";
 import { installWebSessionRoutes, type WebSessionOptions } from "./web-session.js";
 
@@ -31,6 +31,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.use("/api/commands/*", bodyLimit({ maxSize: 1024 * 1024, onError: (context) => context.json({ protocol: "shadow.error", code: "validation", message: "Command body is too large." }, 413) }));
   app.use("/api/travel/portable/preview",bodyLimit({maxSize:1024*1024,onError:context=>context.json({protocol:"shadow.error",code:"validation",message:"Portable travel input is too large."},413)}));
   app.use("/api/life/daily-record-check",bodyLimit({maxSize:64*1024,onError:context=>context.json({protocol:"shadow.error",code:"validation",message:"Daily record check input is too large."},413)}));
+  app.use("/api/agent/context",bodyLimit({maxSize:16*1024,onError:context=>context.json({protocol:"shadow.error",code:"validation",message:"Context input is too large."},413)}));
   app.use("/api/agent/tools/validate", bodyLimit({ maxSize: 1024 * 1024, onError: context => context.json({ protocol: "shadow.error", code: "validation", message: "Tool input is too large." }, 413) }));
   app.use("/api/assets",bodyLimit({maxSize:20*1024*1024,onError:context=>context.json({protocol:"shadow.error",code:"validation",message:"Asset is too large."},413)}));
   app.get("/api/me",context=>{const value=context.get("requestContext");context.header("Cache-Control","no-store");return context.json(lifeMeResultSchema.parse({issuer:value.issuer??"shadow:unknown",oidc_sub:value.oidcSubject??value.actorId,life_subject_id:value.subjectId,environment_id:value.environmentId??"default",display_name:value.displayName??null,effects:[...value.effects].sort(),authorization_revision:value.authorizationRevision??1}));});
@@ -132,6 +133,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.get("/api/library/items/:id",async context=>context.json(await dependencies.queries.libraryItem(context.get("requestContext"),context.req.param("id"))));
   app.get("/api/library/vision-status",async context=>{if(!context.get("requestContext").effects.has("library.item.read"))throw permissionDenied("library.item.read");return context.json(visionAvailability());});
   app.get("/api/library/processing",async context=>context.json(await dependencies.queries.libraryProcessingQueue(context.get("requestContext"),{...(context.req.query("kind")?{kind:context.req.query("kind")}:{}),limit:Number(context.req.query("limit")??"20")})));
+  app.post("/api/agent/context",async context=>context.json(await dependencies.queries.agentContext(context.get("requestContext"),await context.req.json())));
   app.get("/api/agent/context-packs/:id",async context=>context.json(await dependencies.queries.agentContextPack(context.get("requestContext"),{context_pack_id:context.req.param("id")},context.req.query("thread_id"))));
   app.get("/api/agent/memories",async context=>context.json(await dependencies.queries.agentMemories(context.get("requestContext"),{...(context.req.query("category")?{category:context.req.query("category")}:{}),limit:Number(context.req.query("limit")??"50")})));
   app.get("/api/notifications",async context=>context.json(await dependencies.queries.notifications(context.get("requestContext"),{limit:Number(context.req.query("limit")??"50"),...(context.req.query("cursor")?{cursor:context.req.query("cursor")}:{})})));
@@ -221,6 +223,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         if(capabilityName==="travel.preview_portable")return dependencies.queries.previewTravelPortable(requestContext,parsed);
         if(capabilityName==="library.get_item")return dependencies.queries.libraryItem(requestContext,(parsed as {id:string}).id);
         if(capabilityName==="library.processing_queue")return dependencies.queries.libraryProcessingQueue(requestContext,parsed);
+        if(capabilityName==="agent.context")return dependencies.queries.agentContext(requestContext,parsed);
         if(capabilityName==="agent.get_context_pack")return dependencies.queries.agentContextPack(requestContext,parsed,threadId);
         if(capabilityName==="agent.memories")return dependencies.queries.agentMemories(requestContext,parsed);
         if(capabilityName==="notifications.list")return dependencies.queries.notifications(requestContext,parsed);
@@ -258,14 +261,14 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         }
         if(++toolCallCount>20)throw new Error("Runtime tool-call limit exceeded.");
         if(currentState==="started")await state("streaming");
-        let result:unknown;try{result=await dispatchTool(event.capability,event.input,event.id);}catch(error){result=toolFailure(error,event.input);}
+        let result:unknown;try{result=await dispatchTool(event.capability,event.input,event.id);}catch(error){result=toolFailure(error,event.input,capabilityRegistry[event.capability as keyof typeof capabilityRegistry]?.idempotency==="not-applicable");}
         const execution=executionResultSchema.safeParse(result);
         if(execution.success&&capabilityRegistry[event.capability as keyof typeof capabilityRegistry]?.idempotency==="required"){
           await emit({id:hostId(),run_id:runId,type:"operation.committed",authority:"executor",subject_id:requestContext.subjectId,tool_call_id:event.id,capability:event.capability,command_id:execution.data.command_id,execution_id:execution.data.execution_id,result:execution.data});
           await state("committed_partial");
         }else{
           const rejected=isRuntimeToolError(result);
-          await emit({id:hostId(),run_id:runId,type:"tool.result",tool_call_id:event.id,capability:event.capability,outcome:rejected?"rejected":"returned",result});
+          await emit({id:hostId(),run_id:runId,type:"tool.result",authority:"host",tool_call_id:event.id,capability:event.capability,outcome:rejected?"rejected":"returned",result});
         }
         const runtimeResult=serializedSize(result)<=1024*1024?result:{protocol:"shadow.runtime-tool-error",code:"outcome_unknown",message:"Tool result exceeded the Runtime transfer limit.",retryable:false};
         await consume(runtime.submitToolResult({protocol:"shadow.runtime-tool-result",threadId,runId,toolCallId:event.id,capability:event.capability,result:runtimeResult},controller.signal));return;
@@ -283,7 +286,13 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
       }finally{clearInterval(heartbeat);clearTimeout(deadline);activeRuns.delete(runId);}
     });
   });
-  app.get("/api/runs/:runId",async context=>{if(!dependencies.agent)return context.json({protocol:"shadow.error",code:"not_found",message:"Run not found."},404);const requestContext=context.get("requestContext"),runId=context.req.param("runId"),run=await dependencies.agent.repository.run(requestContext.subjectId,runId);if(!run)return context.json({protocol:"shadow.error",code:"not_found",message:"Run not found."},404);const after=Number(context.req.query("after")??"0"),safeAfter=Number.isInteger(after)&&after>=0?after:0;return context.json({run,events:await dependencies.agent.repository.events(requestContext.subjectId,runId,safeAfter)});});
+  const visibleRunEvents=async(requestContext:RequestContext,events:Array<{payload:unknown}>)=>Promise.all(events.map(async event=>{
+    const payload=event.payload as Record<string,unknown>|null;
+    if(payload?.type!=="tool.result"||payload.capability!=="agent.context"||payload.outcome!=="returned")return event;
+    if(await dependencies.queries.revalidateAgentContext(requestContext,payload.result))return event;
+    return {...event,payload:{...payload,outcome:"rejected",result:{protocol:"shadow.error",code:"not_found",message:"本次查询的记录已变更或当前不可见，请重新查询。"}}};
+  }));
+  app.get("/api/runs/:runId",async context=>{if(!dependencies.agent)return context.json({protocol:"shadow.error",code:"not_found",message:"Run not found."},404);const requestContext=context.get("requestContext"),runId=context.req.param("runId"),run=await dependencies.agent.repository.run(requestContext.subjectId,runId);if(!run)return context.json({protocol:"shadow.error",code:"not_found",message:"Run not found."},404);const after=Number(context.req.query("after")??"0"),safeAfter=Number.isInteger(after)&&after>=0?after:0;return context.json({run,events:await visibleRunEvents(requestContext,await dependencies.agent.repository.events(requestContext.subjectId,runId,safeAfter))});});
   app.post("/api/runs/:runId/stop",async context=>{
     if(!dependencies.agent)return context.json({protocol:"shadow.error",code:"not_found",message:"Run not found."},404);
     const requestContext=context.get("requestContext"),runId=context.req.param("runId"),status=await dependencies.agent.repository.requestStop(requestContext.subjectId,runId);
@@ -291,22 +300,23 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
     const active=activeRuns.get(runId);if(active?.subjectId===requestContext.subjectId&&!active.controller.signal.aborted)active.controller.abort("stopped_by_user");
     return context.json({run_id:runId,status});
   });
-  app.get("/api/runs/:runId/events", async(context)=>{if(!dependencies.agent)return context.json({items:[]});const after=Number(context.req.query("after")??"0");return context.json({items:await dependencies.agent.repository.events(context.get("requestContext").subjectId,context.req.param("runId"),Number.isInteger(after)&&after>=0?after:0)});});
+  app.get("/api/runs/:runId/events", async(context)=>{if(!dependencies.agent)return context.json({items:[]});const after=Number(context.req.query("after")??"0");return context.json({items:await visibleRunEvents(context.get("requestContext"),await dependencies.agent.repository.events(context.get("requestContext").subjectId,context.req.param("runId"),Number.isInteger(after)&&after>=0?after:0))});});
 
   app.onError((error, context) => {
     if (error instanceof KernelError) return context.json(error.detail, error.status as 400);
     if (error instanceof z.ZodError) return context.json({ protocol: "shadow.error", code: "validation", message: "Command validation failed.", fields: error.issues.map((issue) => issue.path.join(".")) }, 422);
     if (error instanceof SyntaxError) return context.json({ protocol: "shadow.error", code: "validation", message: "Command body must be valid JSON." }, 400);
+    if(context.req.path==="/api/agent/context")return context.json({protocol:"shadow.error",code:"temporarily_unavailable",message:"Task context query is unavailable; no empty success or write is claimed."},500);
     console.error(error);
     return context.json({ protocol: "shadow.error", code: "outcome_unknown", message: "The request outcome could not be established." }, 500);
   });
   return app;
 }
 
-function toolFailure(error:unknown,input?:unknown):Record<string,unknown>{
+function toolFailure(error:unknown,input?:unknown,readOnly=false):Record<string,unknown>{
   if(error instanceof z.ZodError){const fields=error.issues.map(issue=>issue.path.join(".")).filter(Boolean),missing=error.issues.some(issue=>issue.code==="invalid_type"&&valueAt(input,issue.path)===undefined);return{protocol:"shadow.runtime-tool-error",code:missing?"missing_fact":"validation",message:missing?"缺少完成操作所需的事实，请只追问这些字段。":"工具参数不符合合同，请根据字段错误修正后继续。",fields,retryable:true};}
   if(error instanceof KernelError)return{...error.detail,protocol:"shadow.runtime-tool-error",retryable:error.detail.code==="missing_fact"||error.detail.code==="validation"||error.detail.code==="conflict"};
-  return{protocol:"shadow.runtime-tool-error",code:"outcome_unknown",message:error instanceof Error?error.message:"Tool execution failed",retryable:false};
+  return{protocol:"shadow.runtime-tool-error",code:readOnly?"temporarily_unavailable":"outcome_unknown",message:readOnly?"Tool query is unavailable; no empty success is claimed.":"Tool execution outcome is unknown.",retryable:false};
 }
 function valueAt(value:unknown,path:readonly PropertyKey[]):unknown{let current=value;for(const key of path){if(current===null||typeof current!=="object")return undefined;current=(current as Record<PropertyKey,unknown>)[key];}return current;}
 function serializedSize(value:unknown):number{try{return Buffer.byteLength(JSON.stringify(value));}catch{return Number.POSITIVE_INFINITY;}}

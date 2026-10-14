@@ -1,3 +1,4 @@
+import { queryAgentContext, revalidateAgentContext } from "./agent-context.js";
 import { buildWorkoutProgression } from "./workout-progression.js";
 import { discoverAgentCapabilities, exportAgentCatalog, queryAgentGlossary, queryAgentScenarios, validateAgentTool } from "./agent-catalog.js";
 import { workoutProgressionInputSchema, workoutProgressionResultSchema } from "@shadow/contracts";
@@ -110,6 +111,8 @@ function travelTripWire(raw:unknown):unknown{
 
 export class QueryService {
   constructor(private readonly unitOfWork:UnitOfWork) {}
+  revalidateAgentContext(context:RequestContext,value:unknown){return revalidateAgentContext(this.unitOfWork,context,value);}
+  agentContext(context:RequestContext,input:unknown){return queryAgentContext(this.unitOfWork,context,input);}
   agentDiscover(context: RequestContext, input: unknown = {}) { return discoverAgentCapabilities(context, input); }
   agentGlossary(context: RequestContext, input: unknown = {}) { return queryAgentGlossary(context, input); }
   agentScenarios(context: RequestContext, input: unknown = {}) { return queryAgentScenarios(context, input); }

@@ -1,3 +1,5 @@
+import { agentRefsAvailable } from "./agent-refs.js";
+import { readAgentContext } from "./agent-context.js";
 import { setFoodStockInputSchema } from "@shadow/contracts";
 import { moneyTitle } from "./money-title.js";
 import { eq, and, sql, desc, inArray } from "drizzle-orm";
@@ -75,20 +77,6 @@ function remapPlanSnapshot(value:unknown,places:ReadonlyMap<string,string>):unkn
 // Current facts require their current effective revision. Library revisions are immutable and
 // independently addressable, so a historical revision remains usable while the item is active.
 // This predicate is shared by writes and reads and evaluates visibility in the same SQL snapshot.
-function agentRefsAvailable(subjectId:string,refs:ReturnType<typeof sql>){
-  return sql`not exists (
-    select 1 from jsonb_to_recordset(${refs}) ref(kind text,id text,revision integer)
-    where not case ref.kind
-      when 'meal' then exists(select 1 from meals where id=ref.id and subject_id=${subjectId} and revision=ref.revision and state='active')
-      when 'purchase' then exists(select 1 from purchases p join consumption_records r on r.id=p.record_id where p.id=ref.id and p.subject_id=${subjectId} and p.revision=ref.revision and r.state='confirmed')
-      when 'money_entry' then exists(select 1 from money_entries e join consumption_records r on r.id=e.record_id where e.id=ref.id and e.subject_id=${subjectId} and e.revision=ref.revision and r.state='confirmed')
-      when 'health_measurement' then exists(select 1 from health_measurements where id=ref.id and subject_id=${subjectId} and revision=ref.revision and effective)
-      when 'health_workout' then exists(select 1 from health_workout_sessions where id=ref.id and subject_id=${subjectId} and revision=ref.revision and effective)
-      when 'trip' then exists(select 1 from trips t where t.id=ref.id and t.revision=ref.revision and (t.subject_id=${subjectId} or exists(select 1 from trip_members m where m.trip_id=t.id and m.subject_id=${subjectId})))
-      when 'library_item' then exists(select 1 from library_items i join library_revisions r on r.item_id=i.id where i.id=ref.id and i.subject_id=${subjectId} and i.state='active' and r.revision=ref.revision)
-      else false end
-  )`;
-}
 
 async function moneyRelations(database:Database|Transaction,entryId:string){
   const fx=await database.execute(sql`select to_jsonb(fx)||jsonb_build_object('original_amount',original_amount::text,'base_amount',base_amount::text,'rate',rate::text) value from money_fx_snapshots fx where money_entry_id=${entryId}`);
@@ -844,6 +832,7 @@ function storeFor(database: Database | Transaction): TransactionStore {
       const result=await database.execute(sql`select id,thread_id,object_refs,case when valid_from is null then null else to_char(valid_from at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') end valid_from,case when valid_to is null then null else to_char(valid_to at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') end valid_to,to_char(expires_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') expires_at,state,to_char(created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') created_at from agent_context_packs where id=${id} and subject_id=${subjectId} and state='active' and expires_at>now() and (thread_id is null or thread_id=${threadId??null}) and ${agentRefsAvailable(subjectId,sql`object_refs`)}`);
       return result.rows[0];
     },
+    async agentContext(subjectId,options){return readAgentContext(database,subjectId,options);},
     async agentMemories(subjectId,category,limit){
       const [result,clock]=await Promise.all([database.execute<Record<string,unknown>>(sql`select id,category,memory_key,value,evidence_refs,algorithm_version,state,revision,to_char(updated_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') updated_at from user_memories where subject_id=${subjectId} and state='active' and (${category??null}::text is null or category=${category??null}) and ${agentRefsAvailable(subjectId,sql`evidence_refs`)} order by updated_at desc,id desc limit ${limit}`),database.execute(sql`select to_char(clock_timestamp() at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as_of`)]);
       return {items:result.rows.filter(memory=>{

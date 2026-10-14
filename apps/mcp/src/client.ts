@@ -74,7 +74,7 @@ export class LifeClient {
 
   async call(name: CapabilityName, args: unknown): Promise<unknown> {
     if (!this.allows(name)) throw new ToolFailure({ protocol: "shadow.error", code: "permission_denied", message: "The tool is unavailable in this profile/scenario." });
-    if (["agent.discover", "agent.glossary", "agent.scenarios", "agent.catalog"].includes(name)) {
+    if (["agent.context", "agent.discover", "agent.glossary", "agent.scenarios", "agent.catalog"].includes(name)) {
       // Profile is narrowing metadata, never authority. The adapter owns its configured scope.
       const value = z.record(z.string(), z.unknown()).parse(args);
       args = { ...value, profile: this.options.profile,

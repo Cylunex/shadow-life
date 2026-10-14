@@ -32,3 +32,4 @@ Health/Ledger write epoch. Request bodies never choose their owner or permission
 
 消耗品购买关联、实际使用和估算边界见 [消耗品使用](docs/architecture/consumable-usage.md)。
 Agent 业务术语、权限过滤发现、场景工具包和合同快照见 [业务语义与能力目录](docs/architecture/agent-semantic-catalog.md)。
+Agent 任务上下文、来源和离线评测见 [任务上下文设计](docs/architecture/agent-task-context.md)。

@@ -1,0 +1,15 @@
+{
+  "fixture_version": "life-context-v1",
+  "runtime": "none",
+  "model_success_rate": null,
+  "path": "existing life.search + agent.memories",
+  "requests": 2,
+  "retrieval_match_rate": 1,
+  "source_validity_rate": null,
+  "result_bytes": 639,
+  "duration_ms": 9.693583999999987,
+  "limitations": [
+    "search result has no revision-pinned source",
+    "recent memory injects unrelated travel preference"
+  ]
+}

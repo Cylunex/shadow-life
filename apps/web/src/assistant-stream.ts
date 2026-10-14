@@ -1,3 +1,4 @@
+import { agentContextResultSchema, type AgentContextResult } from "@shadow/contracts";
 export type AssistantRunState="started"|"streaming"|"awaiting_input"|"committed_partial"|"completed"|"interrupted";
 
 export interface AssistantView {
@@ -8,15 +9,29 @@ export interface AssistantView {
   reason?:string;
   receipts:Map<string,string>;
   lastSequence:number;
+  contextQueries:Map<string,AgentContextResult>;
+  contextUnavailable:boolean;
 }
 
-export function createAssistantView():AssistantView{return{answer:"",receipts:new Map(),lastSequence:0};}
+export function createAssistantView():AssistantView{return{answer:"",receipts:new Map(),contextQueries:new Map(),contextUnavailable:false,lastSequence:0};}
 
 export function applyAssistantEvent(view:AssistantView,value:unknown,sequence=0):void{
   if(value===null||typeof value!=="object")return;
   const event=value as Record<string,unknown>,type=event.type;
   if(typeof event.run_id==="string")view.runId=event.run_id;
   if(Number.isInteger(sequence)&&sequence>view.lastSequence)view.lastSequence=sequence;
+  if(type==="tool.result"&&event.authority==="host"&&event.capability==="agent.context"&&typeof event.tool_call_id==="string"){
+    const key=`${String(event.run_id)}:${event.tool_call_id}`;
+    if(event.outcome==="returned"){
+      const parsed=agentContextResultSchema.safeParse(event.result);
+      if(parsed.success)view.contextQueries.set(key,parsed.data);
+    }else{
+      view.contextQueries.delete(key);
+      const error=event.result as {code?:unknown}|undefined;
+      if(error?.code==="not_found"||error?.code==="permission_denied")view.contextUnavailable=true;
+    }
+    return;
+  }
   if(type==="message.delta"&&typeof event.text==="string"){view.answer+=event.text;return;}
   if(type==="run.state"&&isRunState(event.state)){
     view.state=event.state;

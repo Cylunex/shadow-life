@@ -90,3 +90,52 @@ each persistent Gateway and verify its own `tools/list` contains `life.daily_rec
 prove the Gateway's cached catalog changed. Verify scheduled tasks through the scheduler's real execution
 path only when the user has authorized that run and any external notification; a manual/direct run is
 not equivalent evidence. No source check claims live Gateway or scheduler acceptance.
+
+## 按任务读取上下文与打开来源
+
+使用只读 `agent.context` 查询明确场景、日期、查询词或稳定来源。示例：
+
+```json
+{
+  "scenario": "daily",
+  "query": "米饭",
+  "from_on": "2026-09-10",
+  "to_on_exclusive": "2026-09-11",
+  "time_zone": "Asia/Shanghai",
+  "response_format": "concise"
+}
+```
+
+这是字面查询词，Agent 应先把历史问题转成准确日期和领域条件。日期需两个端点，结束日不含；
+未知营养、睡眠、金额和时刻保留未知。不能把购买说成进餐，不能跨币种相加。
+HTTP 使用 `POST /api/agent/context`；CLI 继续使用共同 typed transport：
+
+```sh
+pnpm --filter @shadow/cli start query agent.context context-query.json
+```
+
+调用 MCP `agent.context` 直接提交上述对象，不包 command_id/input。固定 profile/scenario 由
+MCP 进程覆盖，不能靠调用参数扩大。返回记录的 ref 包含当前修订；Library 可以指定不可变
+历史修订。详细正文用返回的 detail.capability/input 读取。
+
+默认最多 20 条，concise 不返回长正文；detailed 增加有界摘录和领域事实。
+若 truncation.truncated=true，用原参数及 continuation.next_offset 继续，或缩小日期/查询范围。
+每页重新读取当前事实，并发更正后可以重新查并按 ref 去重；列表长度不是业务总数。
+用户正常使用助手无需选择技术预算或复制 ID。
+
+Web 助手的“依据记录”展示“本次查询的来源”，由 Host 结果产生，模型文字不能制造来源。
+点击可打开既有详情；Library 历史正文保留指定修订。变更/不可见来源会提示重新查询。
+来源与“已保存”是不同语义，写入保存仍只认 Executor 回执。
+
+本机离线验收（需 Node 24、pnpm 11、本机 initdb/pg_ctl，命令自动销毁合成数据库）：
+
+```sh
+pnpm eval:agent:offline --baseline
+pnpm eval:agent:offline
+pnpm test:full:offline
+```
+
+设置 SHADOW_EVAL_REPORT 可写出 JSON 报告；设置 SHADOW_TEST_PG_BIN 可指定本机 PostgreSQL
+工具目录。未授权真实模型调用时只运行 offline；`eval:agent:model --allow-model` 需要另行设置
+SHADOW_EVAL_MODEL、SHADOW_EVAL_RUNTIME_URL（可选 SHADOW_EVAL_RUNTIME_TOKEN），结果不能当作
+生产验收或全量真实模型成功率。详细边界见 [设计说明](../architecture/agent-task-context.md)。

@@ -8,6 +8,7 @@ const get=(path:string):ReturnType<ReadRoute>=>({method:"GET",path});
 const post=(path:string,input:unknown):ReturnType<ReadRoute>=>({method:"POST",path,body:JSON.stringify(input)});
 
 export const queryTransportRegistry:Readonly<Record<string,ReadRoute>>={
+  "agent.context":input=>post("/api/agent/context",input),
   "agent.discover":input=>get(`/api/agent/discover${search(input)}`),
   "agent.glossary":input=>get(`/api/agent/glossary${search(input)}`),
   "agent.scenarios":input=>get(`/api/agent/scenarios${search(input)}`),

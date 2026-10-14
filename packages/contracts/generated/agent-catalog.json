@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "0a8739cf8652b1283c3da6bcb7b26556d389f8bddd21b856c27cba225fb7251f",
+  "catalog_revision": "04e219eee11aff58a216d49bf5f1ee3e4823b09a42c148e5c7c60edbf38bc731",
   "terms": [
     {
       "id": "intake",
@@ -415,6 +415,9 @@
       "title": "日常记录",
       "description": "记录吃饭、购买、测量和日常生活，核对记录完整性。",
       "capabilities": [
+        "agent.context",
+        "life.get_record",
+        "health.get_record",
         "life.record_meal",
         "life.record_dining",
         "life.record_purchase",
@@ -438,6 +441,7 @@
       "title": "消费复盘",
       "description": "查询支出与退款、消费排名、体验评价、次卡和消耗品。",
       "capabilities": [
+        "agent.context",
         "money.record_entry",
         "money.record_refund",
         "money.correct_entry",
@@ -467,6 +471,7 @@
       "title": "健康记录",
       "description": "记录测量与实际训练，查询睡眠、趋势和设备来源。",
       "capabilities": [
+        "agent.context",
         "health.record_measurement",
         "health.correct_measurement",
         "health.record_workout",
@@ -489,6 +494,7 @@
       "title": "旅行规划",
       "description": "组织旅程、候选地点、日程、预订与实际到访。",
       "capabilities": [
+        "agent.context",
         "travel.create_trip",
         "travel.correct_trip",
         "travel.save_place",
@@ -514,6 +520,7 @@
       "title": "资料与回忆",
       "description": "保存笔记、原件和体验感受，检索资料与往年今日。",
       "capabilities": [
+        "agent.context",
         "library.capture",
         "library.revise",
         "library.annotate",
@@ -535,6 +542,8 @@
       "title": "生活规划",
       "description": "管理项目、行动项、餐单购物清单、预算和周期事项。",
       "capabilities": [
+        "agent.context",
+        "life.get_record",
         "life.projects",
         "life.save_project",
         "life.save_action_item",
@@ -827,6 +836,693 @@
           "capabilities"
         ],
         "additionalProperties": false
+      },
+      "matched_terms": []
+    },
+    {
+      "name": "agent.context",
+      "description": "按显式任务条件读取获准的当前生活事实、相关偏好和有效聚合；来源带修订，UTF-8 JSON 有界。缺失保持未知，购买、进餐和支付分开；日期端点需完整。",
+      "domain": "agent",
+      "mode": "read",
+      "possible_effects": [
+        "agent.run"
+      ],
+      "scenarios": [
+        "daily",
+        "spending",
+        "health",
+        "travel",
+        "library",
+        "planning"
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "scenario": {
+            "description": "Narrows record kinds: daily=meal/purchase/measurement, spending=purchase/money, health=measurement/workout, travel=trip, library=library_item, planning=meal/purchase/money. Never grants effects.",
+            "type": "string",
+            "enum": [
+              "daily",
+              "spending",
+              "health",
+              "travel",
+              "library",
+              "planning"
+            ]
+          },
+          "profile": {
+            "description": "Additional narrowing only; MCP owns the configured profile.",
+            "type": "string",
+            "enum": [
+              "personal",
+              "personal-money-void",
+              "authorized"
+            ]
+          },
+          "query": {
+            "description": "Literal case-insensitive substring of names, notes and source text; no natural-language classifier or SQL wildcard syntax.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "from_on": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "to_on_exclusive": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "time_zone": {
+            "default": "Asia/Shanghai",
+            "description": "Timestamps use this local date; date-only facts retain their stored date. Library uses document_date or local creation date; trips use starts_on.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "object_refs": {
+            "default": [],
+            "description": "Exact current effective revisions; Library permits immutable historical revisions. Unavailable references fail uniformly. With other filters, their intersection is returned.",
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "meal",
+                    "purchase",
+                    "money_entry",
+                    "health_measurement",
+                    "health_workout",
+                    "trip",
+                    "library_item"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "revision": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "kind",
+                "id",
+                "revision"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "memory_keys": {
+            "default": [],
+            "description": "Exact preference/aggregate keys, still restricted to the selected scenario and readable evidence.",
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          "response_format": {
+            "default": "concise",
+            "type": "string",
+            "enum": [
+              "concise",
+              "detailed"
+            ]
+          },
+          "limit": {
+            "default": 20,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "byte_budget": {
+            "default": 16000,
+            "description": "Actual UTF-8 JSON bytes, including metadata and continuation; whole records only.",
+            "type": "integer",
+            "minimum": 2048,
+            "maximum": 65536
+          },
+          "offset": {
+            "default": 0,
+            "description": "Continue with the same filters and next_offset. Each page revalidates current facts and is a fresh snapshot.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          }
+        },
+        "required": [
+          "time_zone",
+          "object_refs",
+          "memory_keys",
+          "response_format",
+          "limit",
+          "byte_budget",
+          "offset"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+          },
+          "time_zone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "range": {
+            "type": "object",
+            "properties": {
+              "from_on": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "to_on_exclusive": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "from_on",
+              "to_on_exclusive"
+            ],
+            "additionalProperties": false
+          },
+          "response_format": {
+            "type": "string",
+            "enum": [
+              "concise",
+              "detailed"
+            ]
+          },
+          "records": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "ref": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "meal",
+                        "purchase",
+                        "money_entry",
+                        "health_measurement",
+                        "health_workout",
+                        "trip",
+                        "library_item"
+                      ]
+                    },
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "id",
+                    "revision"
+                  ],
+                  "additionalProperties": false
+                },
+                "domain": {
+                  "type": "string",
+                  "enum": [
+                    "meals",
+                    "money",
+                    "health",
+                    "travel",
+                    "library"
+                  ]
+                },
+                "title": {
+                  "type": "string",
+                  "maxLength": 300
+                },
+                "happened_on": {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                },
+                "occurred_at": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "time_zone": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "source_type": {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                "amount": {
+                  "type": "string",
+                  "pattern": "^(?:0|[1-9]\\d{0,17})(?:\\.\\d{1,6})?$"
+                },
+                "currency": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{3}$"
+                },
+                "excerpt": {
+                  "type": "string",
+                  "maxLength": 2000
+                },
+                "facts": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {
+                    "$ref": "#/$defs/__schema0"
+                  }
+                },
+                "detail": {
+                  "type": "object",
+                  "properties": {
+                    "capability": {
+                      "type": "string",
+                      "enum": [
+                        "life.get_record",
+                        "health.get_record",
+                        "travel.get_trip",
+                        "library.get_item"
+                      ]
+                    },
+                    "input": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {
+                        "$ref": "#/$defs/__schema1"
+                      }
+                    }
+                  },
+                  "required": [
+                    "capability",
+                    "input"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ref",
+                "domain",
+                "title",
+                "happened_on",
+                "occurred_at",
+                "time_zone",
+                "source_type",
+                "detail"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "memories": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "category": {
+                  "type": "string",
+                  "enum": [
+                    "explicit_preference",
+                    "deterministic_aggregate"
+                  ]
+                },
+                "memory_key": {
+                  "type": "string"
+                },
+                "value": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "evidence_refs": {
+                  "maxItems": 20,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "meal",
+                          "purchase",
+                          "money_entry",
+                          "health_measurement",
+                          "health_workout",
+                          "trip",
+                          "library_item"
+                        ]
+                      },
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                      },
+                      "revision": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "id",
+                      "revision"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "algorithm_version": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "state": {
+                  "type": "string",
+                  "const": "active"
+                },
+                "revision": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "updated_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                }
+              },
+              "required": [
+                "id",
+                "category",
+                "memory_key",
+                "value",
+                "evidence_refs",
+                "algorithm_version",
+                "state",
+                "revision",
+                "updated_at"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "coverage": {
+            "type": "object",
+            "properties": {
+              "authorized_kinds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "meal",
+                    "purchase",
+                    "money_entry",
+                    "health_measurement",
+                    "health_workout",
+                    "trip",
+                    "library_item"
+                  ]
+                }
+              },
+              "matched_records": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "returned_records": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "matched_memories": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "unknown": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "complete": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "authorized_kinds",
+              "matched_records",
+              "returned_records",
+              "matched_memories",
+              "unknown",
+              "complete"
+            ],
+            "additionalProperties": false
+          },
+          "truncation": {
+            "type": "object",
+            "properties": {
+              "truncated": {
+                "type": "boolean"
+              },
+              "reasons": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "limit",
+                    "byte_budget",
+                    "offset_limit",
+                    "oversized_record",
+                    "memory_limit"
+                  ]
+                }
+              },
+              "omitted_records": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "omitted_memories": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "result_bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "byte_budget": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "truncated",
+              "reasons",
+              "omitted_records",
+              "omitted_memories",
+              "result_bytes",
+              "byte_budget"
+            ],
+            "additionalProperties": false
+          },
+          "continuation": {
+            "type": "object",
+            "properties": {
+              "capability": {
+                "type": "string",
+                "const": "agent.context"
+              },
+              "next_offset": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "instruction": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "capability",
+              "next_offset",
+              "instruction"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "as_of",
+          "time_zone",
+          "range",
+          "response_format",
+          "records",
+          "memories",
+          "coverage",
+          "truncation",
+          "continuation"
+        ],
+        "additionalProperties": false,
+        "$defs": {
+          "__schema0": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema0"
+                }
+              },
+              {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "$ref": "#/$defs/__schema0"
+                }
+              }
+            ]
+          },
+          "__schema1": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema1"
+                }
+              },
+              {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "$ref": "#/$defs/__schema1"
+                }
+              }
+            ]
+          },
+          "__schema2": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema2"
+                }
+              },
+              {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "$ref": "#/$defs/__schema2"
+                }
+              }
+            ]
+          }
+        }
       },
       "matched_terms": []
     },
@@ -3824,6 +4520,7 @@
         "health.measurement.read"
       ],
       "scenarios": [
+        "daily",
         "health"
       ],
       "input_schema": {
@@ -18962,8 +19659,10 @@
         "money.entry.read"
       ],
       "scenarios": [
+        "daily",
         "spending",
-        "library"
+        "library",
+        "planning"
       ],
       "input_schema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",

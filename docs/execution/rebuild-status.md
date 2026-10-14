@@ -1,5 +1,16 @@
 # Rebuild status
 
+## 2026-10-13：任务上下文、Web 来源与离线 Agent 评测
+
+- P1 新增共同只读 `agent.context`，按明确场景、字面查询、日期、稳定来源与记忆键检索；
+  权限在排序限量前过滤，来源修订、摘要、记忆、覆盖数量和数据库时点处于同一 SQL 快照。
+  HTTP、CLI、MCP 与内置 Agent 共用合同，结果按实际 UTF-8 JSON 字节有界。
+- P2 Web 用 Host 查询事件生成“本次查询的来源”，可打开原有领域详情和 Library 指定历史修订；
+  点击和断线恢复重新校验来源，模型文字不产生可信来源或保存回执。
+- P3 自动销毁的本机 PostgreSQL 与合成数据覆盖 18 类检索/恢复场景，独立报告检索和来源指标。
+  真实模型观察另设 opt-in 命令，本批未执行；生产发布、Gateway 刷新和 Android 仍为后续范围。
+- 验证结果与口径见 [交付证据](agent-task-context-2026-10-13.md)。
+
 ## 2026-10-12: semantic discovery, scenarios and debugging
 
 - Life owns an authorized business glossary, task-ranked capability discovery, six scenario bundles and

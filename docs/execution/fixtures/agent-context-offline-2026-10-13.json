@@ -1,0 +1,170 @@
+{
+  "status": "passed",
+  "fixture_version": "life-context-v1",
+  "runtime": "offline-controlled-v1",
+  "model": null,
+  "real_model_success_rate": null,
+  "cases": [
+    {
+      "name": "新会话查询历史午餐",
+      "passed": true,
+      "duration_ms": 57.03562499999998,
+      "requests": 2,
+      "result_bytes": 2322,
+      "call_errors": 0
+    },
+    {
+      "name": "饭店购买与实际进餐",
+      "passed": true,
+      "duration_ms": 27.15787499999999,
+      "requests": 3,
+      "result_bytes": 3838,
+      "call_errors": 0
+    },
+    {
+      "name": "账目更正",
+      "passed": true,
+      "duration_ms": 17.369083000000046,
+      "requests": 2,
+      "result_bytes": 1246,
+      "call_errors": 1
+    },
+    {
+      "name": "作废账目",
+      "passed": true,
+      "duration_ms": 10.676707999999962,
+      "requests": 2,
+      "result_bytes": 831,
+      "call_errors": 1
+    },
+    {
+      "name": "Library 历史修订",
+      "passed": true,
+      "duration_ms": 10.688166999999908,
+      "requests": 1,
+      "result_bytes": 1321,
+      "call_errors": 0
+    },
+    {
+      "name": "证据失效",
+      "passed": true,
+      "duration_ms": 30.49095800000009,
+      "requests": 4,
+      "result_bytes": 4507,
+      "call_errors": 1
+    },
+    {
+      "name": "偏好更新和归档",
+      "passed": true,
+      "duration_ms": 17.77116699999999,
+      "requests": 2,
+      "result_bytes": 3928,
+      "call_errors": 0
+    },
+    {
+      "name": "权限撤回",
+      "passed": true,
+      "duration_ms": 5.087709000000018,
+      "requests": 3,
+      "result_bytes": 1599,
+      "call_errors": 1
+    },
+    {
+      "name": "不同账户",
+      "passed": true,
+      "duration_ms": 6.5333329999999705,
+      "requests": 2,
+      "result_bytes": 882,
+      "call_errors": 1
+    },
+    {
+      "name": "MCP 固定场景",
+      "passed": true,
+      "duration_ms": 3.8630829999999605,
+      "requests": 2,
+      "result_bytes": 1040,
+      "call_errors": 1
+    },
+    {
+      "name": "多币种",
+      "passed": true,
+      "duration_ms": 11.824166999999989,
+      "requests": 1,
+      "result_bytes": 1670,
+      "call_errors": 0
+    },
+    {
+      "name": "跨时区与纯日期",
+      "passed": true,
+      "duration_ms": 15.277249999999867,
+      "requests": 2,
+      "result_bytes": 2412,
+      "call_errors": 0
+    },
+    {
+      "name": "未同步睡眠或健康数据",
+      "passed": true,
+      "duration_ms": 2.576291000000083,
+      "requests": 1,
+      "result_bytes": 845,
+      "call_errors": 0
+    },
+    {
+      "name": "查询失败",
+      "passed": true,
+      "duration_ms": 3.0218750000001364,
+      "requests": 1,
+      "result_bytes": 0,
+      "call_errors": 1
+    },
+    {
+      "name": "无依据问题",
+      "passed": true,
+      "duration_ms": 5.856291999999939,
+      "requests": 1,
+      "result_bytes": 898,
+      "call_errors": 0
+    },
+    {
+      "name": "大记录集",
+      "passed": true,
+      "duration_ms": 125.61145800000008,
+      "requests": 10,
+      "result_bytes": 29052,
+      "call_errors": 0
+    },
+    {
+      "name": "中文和多字节预算",
+      "passed": true,
+      "duration_ms": 19.17520800000011,
+      "requests": 3,
+      "result_bytes": 14700,
+      "call_errors": 0
+    },
+    {
+      "name": "写入成功后超时、断线续读",
+      "passed": true,
+      "duration_ms": 13.258625000000166,
+      "requests": 1,
+      "result_bytes": 1198,
+      "call_errors": 0
+    }
+  ],
+  "metrics": {
+    "requests": 43,
+    "result_bytes": 72289,
+    "call_errors": 7,
+    "mcp_calls": 41,
+    "mcp_errors": 8,
+    "expected_matches": 5,
+    "retrieved_matches": 5,
+    "source_checks": 94,
+    "valid_sources": 94,
+    "validation_requests": 28,
+    "forbidden_data_leaks": 0,
+    "stale_facts": 0,
+    "retrieval_match_rate": 1,
+    "source_validity_rate": 1
+  },
+  "claim": "Tool, transport, Host and receipt invariants on synthetic data only; no model quality or production claim."
+}
