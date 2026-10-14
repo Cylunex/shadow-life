@@ -23,6 +23,8 @@ The examples contain fictional records and illustrative IDs; replace them with r
 - Resume persistent work from `agent.tasks`; save current/next steps and missing material with current
   revision. A claimed running task requires the server lease token, and task completion alone never
   proves a business action succeeded. Recover unknown commands with `operations.find` first.
+  Read the current lease before resuming: only its owning client receives the token. Other clients
+  wait until expiry or release before claiming; preserve current references and receipt IDs.
 - For authorized change polling, configure `agent.set_subscription`, read `agent.changes` and acknowledge
   its cursor with `agent.ack_changes` after processing. Keep consumer progress separate; requery
   invalidated references. Polling is not authorization to notify anyone or take an external action.

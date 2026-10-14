@@ -14,7 +14,7 @@ import { agentCatalogRevision, CommandExecutor, KernelError, QueryService, permi
 import { authMiddleware } from "./auth.js";
 import { installWebSessionRoutes, type WebSessionOptions } from "./web-session.js";
 
-export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; executor: CommandExecutor; queries: QueryService; developmentAuth: boolean; projectLinks?:ProjectDirectoryResult; auth?:{issuer?:string;audience?:string;jwksUrl?:string;webOrigin?:string;proxyAuth?:{secret:string;subjectId:string}}; webSession?:WebSessionOptions; agent?: { repository: AgentRepository; runtime: AgentRuntimeAdapter; nextId(type: "thread"|"message"|"run"): string } }) {
+export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; executor: CommandExecutor; queries: QueryService; developmentAuth: boolean; projectLinks?:ProjectDirectoryResult; auth?:{issuer?:string;audience?:string;jwksUrl?:string;webOrigin?:string;proxyAuth?:{secret:string;subjectId:string;clientIds?:readonly string[]}}; webSession?:WebSessionOptions; agent?: { repository: AgentRepository; runtime: AgentRuntimeAdapter; nextId(type: "thread"|"message"|"run"): string } }) {
   const app = new Hono();
   app.use("*",async(context,next)=>{const started=Date.now(),requestId=safeRequestId(context.req.header("x-request-id"));try{await next();}finally{context.header("X-Request-Id",requestId);const path=new URL(context.req.url).pathname;if(path.startsWith("/api/")||path.startsWith("/auth/"))console.log(JSON.stringify({event:"http.request",request_id:requestId,method:context.req.method,route:requestLogRoute(path),status:context.res.status,duration_ms:Date.now()-started}));}});
   const assets=new AssetService(dependencies.unitOfWork.pool);

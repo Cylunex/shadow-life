@@ -37,6 +37,8 @@ Web 的查询来源来自 Host 的成功工具事件。点击读取当前对象�
 
 两个客户端通过修订检查竞争同一检查点。`claim_seconds` 为 15–300 秒；领取方由可信 client_id 决定。有效租约更新必须带匹配 token；到期重新领取产生新 token，普通检查点更新不延长租约。waiting、completed 等释放租约。未知写入结果继续使用原 command_id 经 `operations.find` 恢复。
 
+任务读取返回租约持有客户端、截止时刻和当前是否有效；仅持有客户端可取得 token，其他客户端看到 null。Web/Android 自动携带自己取得的 token，其他客户端的有效租约展示等待提示。写入在取得行锁后重新检查实际到期时刻，避免锁等待导致把已经到期的租约当成有效。
+
 Migration 0047 在原业务表和新表上安装延迟到提交时的变化日志触发器。事务在提交阶段串行分配 sequence，避免较晚提交的数据落在已确认游标之前；事务中同一对象修订去重。此日志只含对象引用，消费时重新核对当前权限、场景与修订；可见但已更正或作废的业务对象返回 invalidated_refs，客户端重新查询。设备来源状态更新也推进来源修订。
 
 consumer 在同一主体内唯一；订阅可以按场景或明确业务对象过滤。消费者分别保存确认进度，确认使用 expected_cursor CAS，不能倒退或超出已有日志。扫描最多 500 条后可返回空 items 和更大的 cursor，此时仍需确认游标并按 has_more 继续；内部 Outbox 的 delivered_at 不参与此进度。订阅与轮询不会发送通知或自动执行外部动作。
@@ -48,6 +50,8 @@ consumer 在同一主体内唯一；订阅可以按场景或明确业务对象�
 observation 的结果只能是 observed；workflow_experience 可记录 succeeded/failed，成功经验必须关联真实领域操作回执。每项都有 environment、workflow_revision、limitations 和可选失效日期；检索可按环境和版本过滤。依据不能递归引用其他 Agent 记忆，写入时检查真实业务对象和回执。依据更正或权限收回后，失效经验不会继续作为可用知识返回；任务保留可见的旧引用并标记 evidence_current=false，便于重新检查。
 
 写入来源使用可信 actor_id/client_id、trace/run/tool 信息；请求正文及 MCP 自报客户端名称不能伪造权限。经验内容的推理质量仍需要真实任务评测，存在回执不代表任何自然语言结论都正确。
+
+已有可信代理部署可在服务端配置 `SHADOW_PROXY_CLIENT_IDS`，MCP 用 `SHADOW_PROXY_CLIENT_ID` 声明该配置中的运行时标识。API 只有在内部代理密钥正确且标识获准时接受 `X-Shadow-Proxy-Client-Id`；普通 Bearer 仍使用已验证 token 的 client_id。这个标识用于同一代理信任域内的来源与租约区分，不增加领域权限，也不能隔离掌握同一内部密钥的管理员。浏览器反向代理必须清除外部传入的该标头，普通网页继续使用原代理标识。
 
 `agent.export` 分页导出 intentions/tasks/learning/subscriptions/history/sources，并显示是否完整；历史扫描上限 10000，超过时 total_is_exact=false。原始图片、文件字节不在 JSON 中，必须另行下载保存。Web 可导出当前意图、任务或经验类别。恢复接受一次 1–50 项，校验后在一个事务中创建新副本；不覆盖已有内容、不复制活跃租约、不恢复身份或权限，跨主体引用需要在目标主体中重新取得有效依据。它是个人 Agent 数据迁移入口，不能替代全库备份或原件归档。
 

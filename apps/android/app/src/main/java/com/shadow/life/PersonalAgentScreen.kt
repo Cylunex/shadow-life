@@ -56,6 +56,7 @@ private val personalLabels=mapOf("global" to "全部场景","daily" to "日常",
     }else{
       result.put("task_key",item?.field("task_key")?:"personal.${UUID.randomUUID()}").put("title",text.trim()).put("state",taskState).put("current_step",step).put("next_step",next)
       result.put("missing",JSONArray(missing.lines().map(String::trim).filter(String::isNotBlank)))
+      old?.optJSONObject("lease")?.optString("token")?.takeIf{it.isNotBlank()&&it!="null"}?.let{result.put("lease_token",it)}
     }
     return result
   }
@@ -100,8 +101,10 @@ private val personalLabels=mapOf("global" to "全部场景","daily" to "日常",
           if(item.field("limitations").isNotBlank())Text(item.field("limitations"))
           if(item.field("valid_from").isNotBlank()||item.field("valid_to_exclusive").isNotBlank())Text("${item.field("valid_from").ifBlank{"长期"}} — ${item.field("valid_to_exclusive").ifBlank{"无结束日期"}}")
           if(item.field("evidence_current")=="false")Text("依据已变更，请重新读取相关记录。")
+          val lease=item["lease"] as? JsonObject
+          if(lease?.field("active")=="true")Text("助手正在处理，可接手时间：${lease.field("expires_at")}")
           Text("更新于 ${item.field("updated_at")} · 修订 ${item.field("revision")}",style=MaterialTheme.typography.bodySmall)
-          Row{if(tab!="learning")TextButton(onClick={edit(item)}){Text("更正")};if(tab!="tasks"&&item.field("state")!="archived")TextButton(enabled=!busy,onClick={onSave(if(tab=="intentions")"agent.set_intention" else "agent.save_learning",input(item,true))}){Text("归档")}}
+          Row{if(tab!="learning")TextButton(enabled=!busy&&(lease?.field("active")!="true"||lease.field("token").let{it.isNotBlank()&&it!="null"}),onClick={edit(item)}){Text("更正")};if(tab!="tasks"&&item.field("state")!="archived")TextButton(enabled=!busy,onClick={onSave(if(tab=="intentions")"agent.set_intention" else "agent.save_learning",input(item,true))}){Text("归档")}}
         }}}
         state.value.nextOffset?.let{offset->TextButton(onClick={onLoad(tab,on,offset.toInt())}){Text("继续加载")}}
       }

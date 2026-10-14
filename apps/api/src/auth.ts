@@ -12,7 +12,7 @@ export const supportedLifeEffects = new Set(["life.meal.write", "life.meal.read"
 const developmentEffects = supportedLifeEffects;
 
 const knownEffects = developmentEffects;
-export type AuthOptions={development:boolean;issuer?:string;audience?:string;jwksUrl?:string;webOrigin?:string;environmentId?:string;allowedClients?:readonly string[];identitySubjects?:Readonly<Record<string,string>>;clientSubjects?:Readonly<Record<string,string>>;clientEffects?:Readonly<Record<string,ReadonlySet<string>>>;proxyAuth?:{secret:string;subjectId:string}};
+export type AuthOptions={development:boolean;issuer?:string;audience?:string;jwksUrl?:string;webOrigin?:string;environmentId?:string;allowedClients?:readonly string[];identitySubjects?:Readonly<Record<string,string>>;clientSubjects?:Readonly<Record<string,string>>;clientEffects?:Readonly<Record<string,ReadonlySet<string>>>;proxyAuth?:{secret:string;subjectId:string;clientIds?:readonly string[]}};
 const jwksCache=new Map<string,ReturnType<typeof createRemoteJWKSet>>();
 function claimString(payload:JWTPayload,key:string):string|undefined{const value=payload[key];return typeof value==="string"?value:undefined;}
 function effectsFrom(payload:JWTPayload):ReadonlySet<string>{
@@ -41,10 +41,13 @@ function invalidToken(){return{protocol:"shadow.error",code:"invalid_token",mess
 export function authMiddleware(options: AuthOptions): MiddlewareHandler {
   if (options.development && process.env.NODE_ENV === "production") throw new Error("SHADOW_DEV_AUTH cannot run in production");
   if(options.proxyAuth&&(!/^[a-z][a-z0-9_]{7,127}$/u.test(options.proxyAuth.subjectId)||options.proxyAuth.secret.length<32))throw new Error("Trusted proxy auth requires a valid subject and a secret of at least 32 characters");
+  if(options.proxyAuth?.clientIds?.some(id=>!/^client_[A-Za-z0-9_.:-]{1,193}$/u.test(id)))throw new Error("Trusted proxy client identifiers are invalid");
   return async (context, next) => {
     if(options.proxyAuth&&sameSecret(context.req.header("x-shadow-proxy-secret"),options.proxyAuth.secret)){
+      const clientId=context.req.header("x-shadow-proxy-client-id")??"client_trusted_proxy";
+      if(clientId!=="client_trusted_proxy"&&!options.proxyAuth.clientIds?.includes(clientId))return context.json({protocol:"shadow.error",code:"permission_denied",message:"The trusted proxy client is not configured."},403);
       let epochs;try{epochs=writeEpochs(context.req.header("x-shadow-write-epochs"));}catch{return context.json({protocol:"shadow.error",code:"validation",message:"x-shadow-write-epochs is invalid."},422);}
-      const subjectId=options.proxyAuth.subjectId;context.set("requestContext",{actorId:subjectId,subjectId,clientId:"client_trusted_proxy",issuer:"shadow:trusted-proxy",environmentId:options.environmentId??"default",authorizationRevision:1,effects:developmentEffects,traceId:context.req.header("x-request-id")??crypto.randomUUID(),...(epochs?{writeEpochs:epochs}:{})});await next();return;
+      const subjectId=options.proxyAuth.subjectId;context.set("requestContext",{actorId:subjectId,subjectId,clientId,issuer:"shadow:trusted-proxy",environmentId:options.environmentId??"default",authorizationRevision:1,effects:developmentEffects,traceId:context.req.header("x-request-id")??crypto.randomUUID(),...(epochs?{writeEpochs:epochs}:{})});await next();return;
     }
     const headerAuthorization=context.req.header("authorization"),cookieToken=getCookie(context,"shadow_access_token"),authorization=headerAuthorization??(cookieToken?`Bearer ${cookieToken}`:"");
     if(options.development&&authorization.startsWith("Bearer dev:")){

@@ -10,7 +10,7 @@ export function foundationWriteEffects(input: unknown): string[] {
   const value = input as {object_refs?: FoundationRef[]; project_ref?: FoundationRef};
   return [...new Set(['agent.run', ...(value.object_refs ?? []).map(ref => foundationEffects[ref.kind]), ...(value.project_ref ? [foundationEffects[value.project_ref.kind]] : [])])];
 }
-export interface FoundationOptions { kinds: FoundationRef['kind'][]; scenario?: string; effects: string[]; }
+export interface FoundationOptions { kinds: FoundationRef['kind'][]; scenario?: string; effects: string[]; clientId?:string; }
 export interface FoundationStore {
   now(): Promise<string>;
   read(name: FoundationQueryName, subjectId: string, input: any, options: FoundationOptions): Promise<any>;
@@ -24,7 +24,7 @@ export async function queryFoundation(unitOfWork: UnitOfWork, context: RequestCo
   if (!context.effects.has('agent.run')) throw permissionDenied('agent.run');
   const input = foundationQueries[name].input.parse(untrusted) as any;
   const kinds = foundationReadKinds(context, input.scenario);
-  const options: FoundationOptions = {kinds, effects: [...context.effects], ...(input.scenario ? {scenario: input.scenario} : {})};
+  const options: FoundationOptions = {kinds, effects: [...context.effects],clientId:context.clientId,...(input.scenario ? {scenario: input.scenario} : {})};
   for (const ref of input.object_refs ?? []) if (!kinds.includes(foundationRefSchema.parse(ref).kind)) throw notFound('Requested object is unavailable');
   if (!unitOfWork.snapshot) throw retryableNotApplied('Consistent personal context reads are unavailable.');
   return unitOfWork.snapshot(async store => {

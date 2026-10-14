@@ -24,3 +24,22 @@ test('HTTP and actual MCP calls share personal data and cannot widen fixed scena
   const response=await app.request('/api/agent/foundation/workspace',{method:'POST',headers:{authorization:`Bearer dev:${context.subjectId}`,'content-type':'application/json'},body:JSON.stringify({scenario:'planning',from_on:'2026-10-14',to_on_exclusive:'2026-10-17'})});
   assert.equal(response.status,200);assert.equal((await response.json() as any).intentions[0].statement,'做饭半小时');
 });
+
+test('configured proxy MCP clients retain identity across sessions and fence task claims',pgOnly,async t=>{
+  const {unitOfWork,executor,queries,context}=await reviewFixture(t),secret='fixture-proxy-secret-of-at-least-32-characters';
+  const app=createApp({unitOfWork,executor,queries,developmentAuth:false,auth:{proxyAuth:{secret,subjectId:context.subjectId,clientIds:['client_hermes','client_openclaw']}}});
+  const fetcher=((url:string,init:RequestInit)=>app.request(new URL(url).pathname+new URL(url).search,init)) as typeof fetch;
+  const client=(id:string)=>new LifeClient({api:'https://life.example.com',proxySecret:secret,proxyClientId:id,profile:'personal',fetch:fetcher});
+  const hermes=client('client_hermes'),openclaw=client('client_openclaw');
+  const input={task_key:'integration',title:'跨会话恢复',scope:'planning',state:'running',claim_seconds:15,next_step:'核对接口'};
+  const receipt=await hermes.call('agent.save_task',{command_id:'cmd_fixture_claim',input}) as any;
+  const resumed=await client('client_hermes').call('agent.tasks',{id:receipt.actual_values.id}) as any;
+  assert.equal(resumed.items[0].lease.token,receipt.actual_values.lease_token);
+  assert.equal(resumed.items[0].provenance.client_id,'client_hermes');
+  const other=await openclaw.call('agent.tasks',{id:receipt.actual_values.id}) as any;
+  assert.equal(other.items[0].lease.token,null);
+  await assert.rejects(()=>openclaw.call('agent.save_task',{command_id:'cmd_fixture_compete',input:{...input,id:receipt.actual_values.id,expected_revision:1,reason:'竞争'}}),/claimed/);
+  await hermes.call('agent.save_task',{command_id:'cmd_fixture_release',input:{...input,id:receipt.actual_values.id,expected_revision:1,lease_token:resumed.items[0].lease.token,claim_seconds:undefined,state:'waiting',reason:'交接'}});
+  const taken=await openclaw.call('agent.save_task',{command_id:'cmd_fixture_takeover',input:{...input,id:receipt.actual_values.id,expected_revision:2,reason:'接手'}}) as any;
+  assert.equal(taken.actual_values.revision,3);
+});

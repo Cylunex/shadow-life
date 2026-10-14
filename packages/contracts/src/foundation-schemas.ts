@@ -21,9 +21,9 @@ export const foundationEffects: Record<FoundationRef['kind'], string> = {
   agent_intention: 'agent.run', agent_task: 'agent.run', agent_learning: 'agent.run', agent_subscription: 'agent.run'
 };
 export const foundationKinds: Record<string, FoundationRef['kind'][]> = {
-  daily: ['meal', 'purchase', 'health_measurement', 'health_observation', 'health_sleep', 'health_activity', 'health_habit', 'health_source', 'action_item'], spending: ['purchase', 'money_entry', 'owned_item'],
-  health: ['health_measurement', 'health_workout', 'health_observation', 'health_sleep', 'health_activity', 'health_habit', 'health_source'], travel: ['trip', 'reservation', 'place'], library: ['library_item', 'source'],
-  planning: ['meal', 'purchase', 'money_entry', 'health_measurement', 'health_workout', 'health_observation', 'health_sleep', 'health_activity', 'health_habit', 'health_source', 'library_item', 'life_project', 'action_item', 'meal_plan', 'food_stock_lot', 'recipe', 'food', 'owned_item', 'trip', 'reservation', 'place']
+  daily: ['source', 'meal', 'purchase', 'health_measurement', 'health_observation', 'health_sleep', 'health_activity', 'health_habit', 'health_source', 'action_item'], spending: ['source', 'purchase', 'money_entry', 'owned_item'],
+  health: ['health_measurement', 'health_workout', 'health_observation', 'health_sleep', 'health_activity', 'health_habit', 'health_source'], travel: ['source', 'trip', 'reservation', 'place'], library: ['library_item', 'source'],
+  planning: ['source', 'meal', 'purchase', 'money_entry', 'health_measurement', 'health_workout', 'health_observation', 'health_sleep', 'health_activity', 'health_habit', 'health_source', 'library_item', 'life_project', 'action_item', 'meal_plan', 'food_stock_lot', 'recipe', 'food', 'owned_item', 'trip', 'reservation', 'place']
 };
 
 const refs = z.array(foundationRefSchema).max(20).default([]).refine(items => items.every(item => !item.kind.startsWith('agent_')) && new Set(items.map(item => `${item.kind}:${item.id}`)).size === items.length, 'Evidence must be distinct business objects; recursive memory references are not evidence');

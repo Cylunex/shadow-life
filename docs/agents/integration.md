@@ -23,6 +23,7 @@ Stdout is JSON-RPC only. No development auth, production URL or credential is em
 | `SHADOW_API_URL` | Life API base URL; development default is loopback |
 | `SHADOW_ACCESS_TOKEN` | Existing Life access token; API owns subject/effect checks |
 | `SHADOW_PROXY_AUTH_SECRET` | Alternative for an already configured trusted local proxy deployment; never distribute to ordinary clients |
+| `SHADOW_PROXY_CLIENT_ID` | Optional server-allowlisted runtime identity for existing trusted proxy authentication; Bearer identity remains token-owned |
 | `SHADOW_MCP_PROFILE` | `personal` by default; `personal-money-void` adds only `money.void_entry` for a specifically configured personal client; `authorized` exposes the server-visible full catalog for explicitly configured operator clients |
 | `SHADOW_MEDIA_ROOTS` | Optional absolute media-cache roots, separated by the platform path delimiter; omitted means no local image tool |
 | `SHADOW_MCP_TIMEOUT_MS` | Per-request deadline, default 30000 ms, maximum 120000 ms |
@@ -86,6 +87,11 @@ Every page remains permission-filtered, bounded and bound to its query snapshot.
 服务端 token。超时查询原命令回执。变化轮询先 `agent.set_subscription`，调用 `agent.changes`，
 完成处理后通过 `agent.ack_changes` 的 expected_cursor/cursor 确认；消费者互不占用进度。
 轮询不会自动发送消息；invalidated_refs 要重新查询。首次接入先读当前数据，日志不回填既往事件。
+
+任务读取的 lease 返回持有客户端、expires_at 和 active，token 只向同一可信客户端返回。
+新会话应读取当前任务和租约；其他客户端需等到期或由持有者释放，再用当前修订领取。
+代理部署设置服务端 `SHADOW_PROXY_CLIENT_IDS` 后，分别在运行时 MCP 启动配置设置
+`SHADOW_PROXY_CLIENT_ID`；网页 Nginx 清除 `X-Shadow-Proxy-Client-Id`，避免外部标头伪造来源。
 
 `agent.export` 用 next_offset 连续读取，检查 total_is_exact、has_more 和截断；原件另行下载。
 `agent.restore` 校验后创建新副本，不能直接覆盖旧数据或复制执行租约。

@@ -14,7 +14,8 @@ if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 120_000) throw 
 const client = new LifeClient({ api: process.env.SHADOW_API_URL ?? "http://127.0.0.1:8787", profile, timeoutMs,
   ...(process.env.SHADOW_MCP_SCENARIO ? { scenario: agentScenarioNameSchema.parse(process.env.SHADOW_MCP_SCENARIO) } : {}),
   ...(process.env.SHADOW_ACCESS_TOKEN ? { token: process.env.SHADOW_ACCESS_TOKEN } : {}),
-  ...(process.env.SHADOW_PROXY_AUTH_SECRET ? { proxySecret: process.env.SHADOW_PROXY_AUTH_SECRET } : {})
+  ...(process.env.SHADOW_PROXY_AUTH_SECRET ? { proxySecret: process.env.SHADOW_PROXY_AUTH_SECRET } : {}),
+  ...(process.env.SHADOW_PROXY_CLIENT_ID ? { proxyClientId: process.env.SHADOW_PROXY_CLIENT_ID } : {})
 });
 const handleLine = createMcpServer(client, roots.map(root => resolve(root)));
 const lines = createInterface({ input: process.stdin, crlfDelay: Infinity });

@@ -11,6 +11,7 @@ export interface ClientOptions {
   api: string;
   token?: string;
   proxySecret?: string;
+  proxyClientId?: string;
   profile: McpProfile;
   scenario?: AgentScenarioName;
   timeoutMs?: number;
@@ -28,6 +29,7 @@ export class LifeClient {
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new Error("SHADOW_API_URL must be an HTTP(S) URL without credentials, query or fragment");
     this.api = options.api.replace(/\/$/u, "");
     if (!options.token && !options.proxySecret) throw new Error("SHADOW_ACCESS_TOKEN or SHADOW_PROXY_AUTH_SECRET is required");
+    if(options.proxyClientId&&!/^client_[A-Za-z0-9_.:-]{1,193}$/u.test(options.proxyClientId))throw new Error("SHADOW_PROXY_CLIENT_ID is invalid");
   }
   allows(name: string): name is CapabilityName { return isCapability(name) && profileAllows(this.options.profile, name, this.options.scenario); }
 
@@ -35,7 +37,7 @@ export class LifeClient {
     try {
       const response = await (this.options.fetch ?? fetch)(`${this.api}${path}`, {
         ...init, redirect: "error", signal: AbortSignal.timeout(this.options.timeoutMs ?? 30_000),
-        headers: { ...(this.options.token ? { authorization: `Bearer ${this.options.token}` } : { "x-shadow-proxy-secret": this.options.proxySecret! }), ...init.headers }
+        headers: { ...init.headers,...(this.options.token ? { authorization: `Bearer ${this.options.token}` } : { "x-shadow-proxy-secret": this.options.proxySecret!,...(this.options.proxyClientId?{"x-shadow-proxy-client-id":this.options.proxyClientId}:{}) }) }
       });
       let body: unknown;
       try { body = await response.json(); } catch { /* Never echo proxy HTML or arbitrary upstream bodies. */ }

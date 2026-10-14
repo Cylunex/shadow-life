@@ -19,6 +19,19 @@ test("client write epochs are parsed before execution",async()=>{const app=new H
 
 test("trusted proxy auth accepts only the configured internal secret",async()=>{const app=new Hono();app.use("/api/*",authMiddleware({development:false,proxyAuth:{secret:"proxy-secret-that-is-at-least-32-characters",subjectId:"subject_personal"}}));app.get("/api/context",context=>context.json(context.get("requestContext")));assert.equal((await app.request("/api/context")).status,401);assert.equal((await app.request("/api/context",{headers:{"x-shadow-proxy-secret":"wrong-secret"}})).status,401);const response=await app.request("/api/context",{headers:{"x-shadow-proxy-secret":"proxy-secret-that-is-at-least-32-characters"}});assert.equal(response.status,200);const body=await response.json() as Record<string,unknown>;assert.equal(body.actorId,"subject_personal");assert.equal(body.subjectId,"subject_personal");assert.equal(body.clientId,"client_trusted_proxy");assert.equal(typeof body.traceId,"string");});
 
+test('proxy runtime attribution requires the internal secret and a configured client',async()=>{
+  const app=new Hono(),secret='proxy-secret-that-is-at-least-32-characters';
+  app.use('/api/*',authMiddleware({development:true,proxyAuth:{secret,subjectId:'subject_personal',clientIds:['client_hermes','client_openclaw']}}));
+  app.get('/api/context',context=>context.json(context.get('requestContext')));
+  const identity={'x-shadow-proxy-client-id':'client_hermes'};
+  assert.equal((await app.request('/api/context',{headers:identity})).status,401);
+  const valid=await app.request('/api/context',{headers:{...identity,'x-shadow-proxy-secret':secret}});
+  assert.equal((await valid.json() as any).clientId,'client_hermes');
+  assert.equal((await app.request('/api/context',{headers:{'x-shadow-proxy-secret':secret,'x-shadow-proxy-client-id':'client_forged'}})).status,403);
+  const bearer=await app.request('/api/context',{headers:{...identity,authorization:'Bearer dev:subject_personal'}});
+  assert.equal((await bearer.json() as any).clientId,'client_development');
+});
+
 test("RFC 9068 claims use a server-owned opaque-subject mapping",()=>{const now=Math.floor(Date.now()/1000),context=verifiedIdentityContext({iss:"https://identity.example.com",sub:"opaque.Pairwise/Subject",aud:"life-api",exp:now+300,iat:now,jti:"token-1",client_id:"life-android",effects:["life.meal.read","unknown.effect"],name:"测试用户"},{typ:"at+jwt",alg:"RS256"},{issuer:"https://identity.example.com",environmentId:"test",allowedClients:["life-android"],identitySubjects:{"opaque.Pairwise/Subject":"subject_personal"}});assert.equal(context.actorId,"opaque.Pairwise/Subject");assert.equal(context.subjectId,"subject_personal");assert.deepEqual([...context.effects],["life.meal.read"]);assert.equal(context.displayName,"测试用户");});
 
 test("single-user native clients receive only their server-owned subject and effect policy",()=>{const now=Math.floor(Date.now()/1000),options={issuer:"https://identity.example.com",environmentId:"production",allowedClients:["life-android"],clientSubjects:{"life-android":"subject_personal"},clientEffects:{"life-android":new Set(["life.meal.read","health.measurement.read"])}};const context=verifiedIdentityContext({iss:"https://identity.example.com",sub:"new-pairwise-subject",aud:"life-api",exp:now+300,iat:now,jti:"token-2",client_id:"life-android",scope:"openid profile offline_access"},{typ:"at+jwt",alg:"RS256"},options);assert.equal(context.actorId,"new-pairwise-subject");assert.equal(context.subjectId,"subject_personal");assert.deepEqual([...context.effects],["life.meal.read","health.measurement.read"]);const narrowed=verifiedIdentityContext({iss:"https://identity.example.com",sub:"new-pairwise-subject",aud:"life-api",exp:now+300,iat:now,jti:"token-3",client_id:"life-android",effects:["life.meal.read","money.entry.write"]},{typ:"at+jwt",alg:"RS256"},options);assert.deepEqual([...narrowed.effects],["life.meal.read"]);});

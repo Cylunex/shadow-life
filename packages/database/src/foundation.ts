@@ -110,7 +110,8 @@ export function createFoundationStore(database: Database): FoundationStore {
       and (${input.environment??null}::text is null or data->>'environment'=${input.environment??''})
       and (${input.workflow_revision??null}::text is null or data->>'workflow_revision'=${input.workflow_revision??''})
       and (${table==='agent_learning'?current:sql`true`})`;
-    const query=await database.execute(sql`with selected as (select id,data,revision,${timestamp('updated_at')} updated_at,${current} evidence_current from ${sql.identifier(table)} where ${predicate}),page as(select * from selected order by updated_at desc,id desc limit ${input.limit??30} offset ${input.offset??0}) select (select count(*)::int from selected) total,coalesce((select jsonb_agg(data||jsonb_build_object('id',id,'revision',revision,'updated_at',updated_at,'evidence_current',evidence_current) order by updated_at desc,id desc) from page),'[]'::jsonb) items`);
+    const lease=table==='agent_tasks'?sql`case when lease_token is not null then jsonb_build_object('client_id',lease_client_id,'expires_at',${timestamp('lease_expires_at')},'active',lease_expires_at>clock_timestamp(),'token',case when lease_client_id=${options.clientId??''} then lease_token else null end) else null end`:sql`null::jsonb`;
+    const query=await database.execute(sql`with selected as (select id,data,revision,${lease} lease,${timestamp('updated_at')} updated_at,${current} evidence_current from ${sql.identifier(table)} where ${predicate}),page as(select * from selected order by updated_at desc,id desc limit ${input.limit??30} offset ${input.offset??0}) select (select count(*)::int from selected) total,coalesce((select jsonb_agg(data||jsonb_build_object('id',id,'revision',revision,'updated_at',updated_at,'evidence_current',evidence_current)||case when lease is not null then jsonb_build_object('lease',lease) else '{}'::jsonb end order by updated_at desc,id desc) from page),'[]'::jsonb) items`);
     const value=query.rows[0],offset=input.offset??0,limit=input.limit??30;
     return {...value,total_is_exact:true,has_more:offset+limit<value.total,next_offset:offset+limit<value.total&&offset+limit<=10000?offset+limit:null,as_of:await now()};
   }
@@ -135,6 +136,8 @@ export function createFoundationStore(database: Database): FoundationStore {
         union all select 'owned_item',o.id,'purchase',p.id,'purchase' from owned_items o join purchase_items i on i.id=o.purchase_item_id join purchases p on p.id=i.purchase_id where o.subject_id=${subject} and (o.id=any(${array(ids)}) or p.id=any(${array(ids)}))
         union all select 'library_item',id,'source',source_id,'original' from library_items where subject_id=${subject} and source_id is not null and (id=any(${array(ids)}) or source_id=any(${array(ids)}))
         union all select 'reservation',id,'source',source_id,'original' from reservations where subject_id=${subject} and source_id is not null and (id=any(${array(ids)}) or source_id=any(${array(ids)}))
+        union all select 'meal',l.meal_id,'source',l.source_id,'original' from meal_source_links l join meals m on m.id=l.meal_id where m.subject_id=${subject} and (l.meal_id=any(${array(ids)}) or l.source_id=any(${array(ids)}))
+        union all select 'purchase',l.purchase_id,'source',l.source_id,'original' from purchase_source_links l join purchases p on p.id=l.purchase_id where p.subject_id=${subject} and (l.purchase_id=any(${array(ids)}) or l.source_id=any(${array(ids)}))
         limit 501
       `)).rows;
       if(links.length>500)truncated=true;
@@ -232,6 +235,8 @@ export async function writeFoundation(database:Database,subject:string,capabilit
   await database.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${subject}:${table}:${table==='agent_subscriptions'?'consumer':input.scope}:${key}`},7))`);
   const rows=(await database.execute(sql`select *,${table==='agent_tasks'?sql`lease_expires_at>clock_timestamp()`:sql`false`} lease_active from ${sql.identifier(table)} where subject_id=${subject} and ${input.id?sql`id=${input.id}`:sql`${table==='agent_subscriptions'?sql`true`:sql`scope=${input.scope}`} and business_key=${key}`} for update`)).rows;
   const before=rows[0];
+  // Re-evaluate expiry only after acquiring the row lock; lock waits may outlive the lease.
+  if(before&&table==='agent_tasks')before.lease_active=(await database.execute(sql`select lease_expires_at>clock_timestamp() lease_active from agent_tasks where id=${before.id}`)).rows[0].lease_active;
   const collision=(await database.execute(sql`select id from ${sql.identifier(table)} where subject_id=${subject} and ${table==='agent_subscriptions'?sql`true`:sql`scope=${input.scope}`} and business_key=${key} and id<>${input.id??''}`)).rows[0];
   if(input.id&&collision)throw conflict('Key already belongs to another object');
   if(input.id&&(!before||before.revision!==input.expected_revision))throw conflict('Object revision changed or is unavailable');

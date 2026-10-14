@@ -34,6 +34,9 @@ test('source relations and evidence are owner, permission and revision checked',
   assert.equal(exportedSources.items.length,1);
   assert.equal(exportedSources.items[0].original_text,'合成午餐来源');
   assert.equal(exportedSources.original_assets_included,false);
+  const original=await queries.foundation(context,'agent.objects',{object_refs:[ref],scenario:'daily',depth:1}) as any;
+  assert(original.nodes.some((node:any)=>node.ref.kind==='source'&&node.data.original_text==='合成午餐来源'));
+  assert(original.edges.some((edge:any)=>edge.relation==='original'));
   assert.equal((await queries.foundation({...context,effects:new Set(['agent.run','library.asset.read'])},'agent.export',{section:'sources',on:'2026-10-14'}) as any).items.length,0);
   await run('agent.save_learning',{key:'lunch-note',scope:'daily',kind:'observation',statement:'已记录这顿午饭',object_refs:[ref],environment:'offline',workflow_revision:'test',outcome:'observed',limitations:'仅一条合成记录'});
   assert.equal((await queries.foundation(context,'agent.learning',{on:'2026-10-14'}) as any).items.length,1);
@@ -51,12 +54,31 @@ test('cross-runtime checkpoints claim once, replay receipts and recover after re
   const input={task_key:'dinners',scope:'planning',title:'安排晚饭',state:'running',current_step:'选择餐单',next_step:'核对食材',claim_seconds:60};
   const envelope=command('agent.save_task',input),saved=await executor.execute(context,envelope);
   assert.equal((await executor.execute(context,envelope)).replayed,true);
+  const ownRead=await queries.foundation(context,'agent.tasks',{}) as any;
+  assert.equal(ownRead.items[0].lease.token,saved.actual_values.lease_token);
   const other={...context,clientId:'another-runtime'};
+  const otherRead=await queries.foundation(other,'agent.tasks',{}) as any;
+  assert.equal(otherRead.items[0].lease.active,true);
+  assert.equal(otherRead.items[0].lease.token,null);
   await assert.rejects(()=>run('agent.save_task',{...input,id:saved.actual_values.id,expected_revision:1,reason:'另一运行时接手'},other),/claimed/);
   await run('agent.save_task',{...input,id:saved.actual_values.id,expected_revision:1,lease_token:saved.actual_values.lease_token,state:'waiting',claim_seconds:undefined,reason:'等待材料'});
   await run('agent.save_task',{...input,id:saved.actual_values.id,expected_revision:2,reason:'接手检查点'},other);
   const tasks=await queries.foundation(other,'agent.tasks',{}) as any;assert.equal(tasks.items[0].next_step,'核对食材');assert.equal(tasks.items[0].provenance.client_id,'another-runtime');
   const attribution=await pool.query('select client_id from operations where execution_id=$1',[saved.execution_id]);assert.equal(attribution.rows[0].client_id,context.clientId);
+});
+
+test('task takeover evaluates lease expiry after a row lock wait',pgOnly,async t=>{
+  const {run,pool,context}=await reviewFixture(t);
+  const input={task_key:'locked-task',scope:'planning',title:'锁等待恢复',state:'running',claim_seconds:15};
+  const saved=await run('agent.save_task',input);
+  await pool.query("update agent_tasks set lease_expires_at=clock_timestamp()+interval '200 milliseconds' where id=$1",[saved.actual_values.id]);
+  const blocker=await pool.connect();
+  try{
+    await blocker.query('begin');await blocker.query('select id from agent_tasks where id=$1 for update',[saved.actual_values.id]);
+    const takeover=run('agent.save_task',{...input,id:saved.actual_values.id,expected_revision:1,reason:'租约在锁等待期间过期'},{...context,clientId:'client_takeover'});
+    await new Promise(resolve=>setTimeout(resolve,350));await blocker.query('commit');
+    const receipt=await takeover;assert.equal(receipt.actual_values.revision,2);assert.notEqual(receipt.actual_values.lease_token,saved.actual_values.lease_token);
+  }finally{await blocker.query('rollback');blocker.release();}
 });
 
 test('durable changes consumers advance independently and filter revoked data',pgOnly,async t=>{
