@@ -57,7 +57,7 @@ observation 的结果只能是 observed；workflow_experience 可记录 succeede
 
 ## 验证与发布边界
 
-见 [本批交付记录](../execution/personal-agent-foundation-2026-10-14.md)。本地实现不触发生产迁移、服务部署、APK 构建或通知。真实 Hermes/OpenClaw Gateway、付费模型和真机仍须在明确的发布任务中分别验证。
+初次本地实现见 [交付记录](../execution/personal-agent-foundation-2026-10-14.md)。后续经用户授权的服务发布、真实 Hermes/OpenClaw 接入、独立会话读取和任务恢复已完成，见 [复查与发布验收](../execution/personal-agent-foundation-review-2026-10-14.md)。普通源码任务仍不自动触发生产迁移、服务部署、APK 构建或通知；模型会话通过不代表聊天平台投递或真机验收。
 
 ## 参考与取舍
 
