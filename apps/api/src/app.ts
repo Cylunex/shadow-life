@@ -1,4 +1,4 @@
-import { agentDiscoveryInstructions, workoutProgressionInputSchema } from "@shadow/contracts";
+import { runEventsPageResultSchema, runPageInputSchema, runPageResultSchema, threadRunsResultSchema, agentDiscoveryInstructions, workoutProgressionInputSchema } from "@shadow/contracts";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { streamSSE } from "hono/streaming";
@@ -170,6 +170,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
     const [baseContext,memoryContext]=await Promise.all([dependencies.queries.agentPersonalContext(requestContext),dependencies.queries.agentMemories?.(requestContext)??Promise.resolve({items:[]})]);
     const personalContext={...baseContext,memories:(memoryContext as {items:unknown[]}).items},messageId=nextId("message"),runId=nextId("run");
     await repository.createRun(threadId,runId,{id:messageId,content:body.text.trim()});
+    context.header("X-Shadow-Run-Id",runId);
     const history=await repository.conversation(requestContext.subjectId,threadId);
 
     const capabilityProfile=visibleCapabilities(requestContext.effects).map(item=>item.name);
@@ -242,6 +243,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
       };
       const consume=async(events:AsyncIterable<RuntimeEvent>):Promise<void>=>{for await(const rawEvent of events){
         const event=runtimeEventSchema.parse(rawEvent);
+        if(event.runId!==runId)throw new Error("Runtime returned an event for a different run.");
         if(terminal)return;
         if(++runtimeEventCount>200)throw new Error("Runtime event limit exceeded.");
         if(Date.now()-startedAt>120_000)throw new Error("Runtime deadline exceeded.");
@@ -264,6 +266,8 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         }
         if(++toolCallCount>20)throw new Error("Runtime tool-call limit exceeded.");
         if(currentState==="started")await state("streaming");
+        const selectedCapability=capabilityRegistry[event.capability as keyof typeof capabilityRegistry];
+        if(selectedCapability&&selectedCapability.possibleEffects.some(effect=>requestContext.effects.has(effect)))await emit({id:hostId(),run_id:runId,type:"tool.started",authority:"host",tool_call_id:event.id,capability:event.capability,mode:selectedCapability.idempotency==="required"?"write":"read"});
         let result:unknown;try{result=await dispatchTool(event.capability,event.input,event.id);}catch(error){result=toolFailure(error,event.input,capabilityRegistry[event.capability as keyof typeof capabilityRegistry]?.idempotency==="not-applicable");}
         const execution=executionResultSchema.safeParse(result);
         if(execution.success&&capabilityRegistry[event.capability as keyof typeof capabilityRegistry]?.idempotency==="required"){
@@ -289,8 +293,12 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
       }finally{clearInterval(heartbeat);clearTimeout(deadline);activeRuns.delete(runId);}
     });
   });
-  const visibleRunEvents=async(requestContext:RequestContext,events:Array<{payload:unknown}>)=>Promise.all(events.map(async event=>{
+  const visibleRunEvents=async<T extends {payload:unknown}>(requestContext:RequestContext,events:T[])=>Promise.all(events.map(async event=>{
     const payload=event.payload as Record<string,unknown>|null;
+    if(typeof payload?.capability==="string"){
+      const capability=capabilityRegistry[payload.capability as keyof typeof capabilityRegistry];
+      if(!capability||!capability.possibleEffects.some(effect=>requestContext.effects.has(effect)))return {...event,payload:{id:payload.id,run_id:payload.run_id,type:"event.redacted"}};
+    }
     if(payload?.type!=="tool.result"||payload.outcome!=="returned")return event;
     if(typeof payload.capability==="string"&&payload.capability in foundationQueries){
       if(await dependencies.queries.revalidateFoundation(requestContext,payload.capability as FoundationQueryName,payload.query_input,payload.result))return event;
@@ -300,15 +308,36 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
     const {query_input:removed,...safe}=payload;
     return {...event,payload:{...safe,outcome:"rejected",result:{protocol:"shadow.error",code:"not_found",message:"本次查询的记录已变更或当前不可见，请重新查询。"}}};
   }));
-  app.get("/api/runs/:runId",async context=>{if(!dependencies.agent)return context.json({protocol:"shadow.error",code:"not_found",message:"Run not found."},404);const requestContext=context.get("requestContext"),runId=context.req.param("runId"),run=await dependencies.agent.repository.run(requestContext.subjectId,runId);if(!run)return context.json({protocol:"shadow.error",code:"not_found",message:"Run not found."},404);const after=Number(context.req.query("after")??"0"),safeAfter=Number.isInteger(after)&&after>=0?after:0;return context.json({run,events:await visibleRunEvents(requestContext,await dependencies.agent.repository.events(requestContext.subjectId,runId,safeAfter))});});
+  app.get("/api/threads/:threadId/runs",async context=>{
+    const requestContext=context.get("requestContext");if(!requestContext.effects.has("agent.run"))throw permissionDenied("agent.run");
+    return context.json(threadRunsResultSchema.parse({items:dependencies.agent?await dependencies.agent.repository.listRuns(requestContext.subjectId,context.req.param("threadId")):[]}));
+  });
+  app.get("/api/runs/:runId",async context=>{
+    if(!dependencies.agent)return context.json({protocol:"shadow.error",code:"not_found",message:"Run not found."},404);
+    const requestContext=context.get("requestContext");if(!requestContext.effects.has("agent.run"))throw permissionDenied("agent.run");
+    const runId=context.req.param("runId"),run=await dependencies.agent.repository.run(requestContext.subjectId,runId);
+    if(!run)return context.json({protocol:"shadow.error",code:"not_found",message:"Run not found."},404);
+    const input=runPageInputSchema.parse({after:Number(context.req.query("after")??"0"),limit:Number(context.req.query("limit")??"1000")});
+    const events=await visibleRunEvents(requestContext,await dependencies.agent.repository.events(requestContext.subjectId,runId,input.after,input.limit,run.last_sequence));
+    const next=events.at(-1)?.sequence??input.after;
+    return context.json(runPageResultSchema.parse({run,events,next_after:next,has_more:next<run.last_sequence}));
+  });
   app.post("/api/runs/:runId/stop",async context=>{
     if(!dependencies.agent)return context.json({protocol:"shadow.error",code:"not_found",message:"Run not found."},404);
-    const requestContext=context.get("requestContext"),runId=context.req.param("runId"),status=await dependencies.agent.repository.requestStop(requestContext.subjectId,runId);
+    const requestContext=context.get("requestContext");if(!requestContext.effects.has("agent.run"))throw permissionDenied("agent.run");const runId=context.req.param("runId"),status=await dependencies.agent.repository.requestStop(requestContext.subjectId,runId);
     if(!status)return context.json({protocol:"shadow.error",code:"not_found",message:"Run not found."},404);
     const active=activeRuns.get(runId);if(active?.subjectId===requestContext.subjectId&&!active.controller.signal.aborted)active.controller.abort("stopped_by_user");
     return context.json({run_id:runId,status});
   });
-  app.get("/api/runs/:runId/events", async(context)=>{if(!dependencies.agent)return context.json({items:[]});const after=Number(context.req.query("after")??"0");return context.json({items:await visibleRunEvents(context.get("requestContext"),await dependencies.agent.repository.events(context.get("requestContext").subjectId,context.req.param("runId"),Number.isInteger(after)&&after>=0?after:0))});});
+  app.get("/api/runs/:runId/events",async context=>{
+    if(!dependencies.agent)return context.json({items:[],next_after:0,has_more:false});
+    const requestContext=context.get("requestContext");if(!requestContext.effects.has("agent.run"))throw permissionDenied("agent.run");
+    const runId=context.req.param("runId"),run=await dependencies.agent.repository.run(requestContext.subjectId,runId);
+    if(!run)return context.json({items:[],next_after:0,has_more:false});
+    const input=runPageInputSchema.parse({after:Number(context.req.query("after")??"0"),limit:Number(context.req.query("limit")??"1000")});
+    const items=await visibleRunEvents(requestContext,await dependencies.agent.repository.events(requestContext.subjectId,runId,input.after,input.limit,run.last_sequence)),next=items.at(-1)?.sequence??input.after;
+    return context.json(runEventsPageResultSchema.parse({items,next_after:next,has_more:next<run.last_sequence}));
+  });
 
   app.onError((error, context) => {
     if (error instanceof KernelError) return context.json(error.detail, error.status as 400);

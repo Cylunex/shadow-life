@@ -29,10 +29,12 @@
     "catalog:diff": "node --import tsx scripts/agent-catalog.ts",
     "import:dry-run": "pnpm --filter @shadow/legacy-importer dry-run",
     "migration": "pnpm --filter @shadow/legacy-importer migration",
-    "migration:mapping": "pnpm --filter @shadow/legacy-importer mapping"
+    "migration:mapping": "pnpm --filter @shadow/legacy-importer mapping",
+    "test:web:offline": "node --import tsx scripts/test-web-snapshots-offline.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",
+    "playwright": "1.62.1",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   }

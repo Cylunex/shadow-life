@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "exports": { ".": "./src/index.ts" },
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "drill:normalize-health": "node --import tsx src/migration-health-drill.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -13,7 +15,10 @@
     "@shadow/contracts": "workspace:*",
     "@shadow/kernel": "workspace:*",
     "drizzle-orm": "^0.44.7",
+    "parse5": "8.0.0",
     "pg": "^8.16.3"
   },
-  "devDependencies": { "@types/pg": "^8.15.6" }
+  "devDependencies": {
+    "@types/pg": "^8.15.6"
+  }
 }

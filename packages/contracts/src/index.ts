@@ -8,3 +8,5 @@ export * from "./agent-profile.js";
 export * from "./agent-catalog-diff.js";
 
 export * from "./agent-context-schemas.js";
+
+export * from "./run-schemas.js";

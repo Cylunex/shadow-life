@@ -8,6 +8,9 @@ contracts and deterministic execution receipts.
 Read [ARCHITECTURE.md](ARCHITECTURE.md) and [the rebuild status](docs/execution/rebuild-status.md) before
 changing boundaries or extending scope.
 
+Web Library accepts uploaded HTML snapshots with protected originals and searchable text. The assistant can
+recover an existing run after a disconnect or refresh. See the [usage guide](docs/guides/web-snapshots-and-assistant-recovery.md).
+
 ## Development
 
 Use Node 24 and pnpm 11. PostgreSQL is required for the integration journey.

@@ -1,6 +1,6 @@
 import { executionResultSchema, type ExecutionResult, type WriteCapabilityName } from "@shadow/contracts";
 
-export type Execute = (capability: WriteCapabilityName, input: unknown, scope: string) => Promise<ExecutionResult>;
+export type Execute = (capability: WriteCapabilityName, input: unknown, scope: string, durableCommandId?:string) => Promise<ExecutionResult>;
 
 type CommandState = "pending" | "unknown";
 type StoredCommand = {
@@ -55,20 +55,20 @@ export class CommandController {
     this.identity=next;
   }
 
-  readonly execute: Execute = async (capability, input, scope) => {
+  readonly execute: Execute = async (capability, input, scope, durableCommandId) => {
     const identity=this.identity;
     if(!identity)throw new Error("会话身份仍在初始化，请稍后重试；本次没有提交。");
     const key=this.key(scope,identity);
     const running=this.inFlight.get(key);
     if(running)return running;
-    const run=()=>this.executeOne(capability,input,scope,key,identity).finally(()=>this.inFlight.delete(key));
+    const run=()=>this.executeOne(capability,input,scope,key,identity,durableCommandId).finally(()=>this.inFlight.delete(key));
     const locks=typeof navigator!=="undefined"?navigator.locks:undefined;
     const operation:Promise<ExecutionResult>=(async()=>locks?await locks.request(`shadow-life:${key}`,async()=>await run()):await run())();
     this.inFlight.set(key,operation);
     return operation;
   };
 
-  private async executeOne(capability:WriteCapabilityName,input:unknown,scope:string,key:string,identity:{issuer:string;subjectId:string;clientId:string}):Promise<ExecutionResult> {
+  private async executeOne(capability:WriteCapabilityName,input:unknown,scope:string,key:string,identity:{issuer:string;subjectId:string;clientId:string},durableCommandId?:string):Promise<ExecutionResult> {
     const inputDigest=await digest(stableJson(input));
     const previous=await this.read(key,identity,scope);
     if(previous){
@@ -83,7 +83,7 @@ export class CommandController {
     }
 
     const now=new Date().toISOString();
-    const command:StoredCommand={version:2,...identity,capability,inputDigest,commandId:`cmd_web_${crypto.randomUUID()}`,intentId:`intent_web_${crypto.randomUUID()}`,state:"pending",createdAt:now,updatedAt:now};
+    const command:StoredCommand={version:2,...identity,capability,inputDigest,commandId:durableCommandId??`cmd_web_${crypto.randomUUID()}`,intentId:`intent_web_${crypto.randomUUID()}`,state:"pending",createdAt:now,updatedAt:now};
     this.write(key,command);
     this.writeDraft(key,{version:1,...identity,commandId:command.commandId,inputDigest,expiresAt:new Date(Date.now()+DRAFT_TTL_MS).toISOString(),input});
     return this.submit(command,input,key);

@@ -3,6 +3,12 @@ import test from "node:test";
 import { capabilityRegistry, commandEnvelopeSchema, diningSceneSchema, domainRecordsResultSchema, healthObservationPayloadSchema, healthSourcesResultSchema, lifeTimelineInputSchema, lifeTodayInputSchema, lifeTodayResultSchema, moneyPlanningInputSchema, projectDirectoryResultSchema, publishTripPlanInputSchema, recordDiningInputSchema, recordMealInputSchema, setHealthPlanInputSchema, setHealthSourceStateInputSchema, setRecurringPlanInputSchema, setTripDayPlanInputSchema, setTripStopOutcomeInputSchema, universalCommandEnvelopeSchema } from "../src/index.js";
 import { healthTrendResultSchema, setUseCycleInputSchema, updatePurchaseItemsInputSchema } from "../src/index.js";
 
+test("library reading URLs accept HTTP and HTTPS and reject executable schemes",()=>{
+  const capture=capabilityRegistry["library.capture"].inputSchema;
+  for(const url of ["https://example.com/article","http://example.com/article"])assert.equal(capture.safeParse({title:"网页",item_type:"link",url}).success,true);
+  for(const url of ["javascript:alert(1)","data:text/html,<script>1</script>","file:///tmp/page.html"])assert.equal(capture.safeParse({title:"网页",item_type:"link",url}).success,false);
+});
+
 const meal = {
   occurred_on: "2026-09-08",
   time_zone: "Asia/Shanghai",

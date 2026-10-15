@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "f193ec3a7e05bbeb367e011038c309ca4bcb44b3eb6cd8113dfa364a4f3da38a",
+  "catalog_revision": "f5126efb9e9bf068219edd8d1ed18ed2aef4428abecb24cdf49f659de188b185",
   "terms": [
     {
       "id": "personal_intent",
@@ -15033,7 +15033,7 @@
           "url": {
             "type": "string",
             "maxLength": 2000,
-            "format": "uri"
+            "pattern": "^https?:\\/\\/"
           },
           "tags": {
             "default": [],
@@ -15799,6 +15799,11 @@
               "locators"
             ],
             "additionalProperties": false
+          },
+          "extracted_text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100000
           }
         },
         "required": [
@@ -18967,7 +18972,7 @@
           "url": {
             "type": "string",
             "maxLength": 2000,
-            "format": "uri"
+            "pattern": "^https?:\\/\\/"
           },
           "tags": {
             "default": [],

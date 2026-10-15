@@ -33988,7 +33988,7 @@
           "url": {
             "type": "string",
             "maxLength": 2000,
-            "format": "uri"
+            "pattern": "^https?:\\/\\/"
           },
           "tags": {
             "default": [],
@@ -34098,7 +34098,7 @@
               "url": {
                 "type": "string",
                 "maxLength": 2000,
-                "format": "uri"
+                "pattern": "^https?:\\/\\/"
               },
               "tags": {
                 "default": [],
@@ -34474,7 +34474,7 @@
           "url": {
             "type": "string",
             "maxLength": 2000,
-            "format": "uri"
+            "pattern": "^https?:\\/\\/"
           },
           "tags": {
             "default": [],
@@ -34571,7 +34571,7 @@
               "url": {
                 "type": "string",
                 "maxLength": 2000,
-                "format": "uri"
+                "pattern": "^https?:\\/\\/"
               },
               "tags": {
                 "default": [],
@@ -37545,6 +37545,11 @@
               "locators"
             ],
             "additionalProperties": false
+          },
+          "extracted_text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100000
           }
         },
         "required": [
@@ -37732,6 +37737,11 @@
                   "locators"
                 ],
                 "additionalProperties": false
+              },
+              "extracted_text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100000
               }
             },
             "required": [

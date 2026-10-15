@@ -5,5 +5,5 @@
   "type": "module",
   "exports": { ".": "./src/index.ts" },
   "scripts": { "typecheck": "tsc -p tsconfig.json --noEmit", "test": "node --import tsx --test test/*.test.ts" },
-  "dependencies": { "zod": "^4.1.12" }
+  "dependencies": { "@shadow/contracts": "workspace:*", "zod": "^4.1.12" }
 }

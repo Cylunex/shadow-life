@@ -1125,3 +1125,7 @@ button.secondary,.soft-button { color:#c3cbd3; border-color:var(--line-strong); 
 .personal-agent-panel .foundation-editor{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:1rem}
 .foundation-editor h3,.foundation-editor .panel-actions{grid-column:1/-1}.foundation-list{display:grid;gap:1rem;margin-block:1rem}.foundation-list h3{white-space:pre-wrap;overflow-wrap:anywhere}
 @media(max-width:560px){.personal-agent-panel .panel-actions>label{width:100%;min-width:0}.personal-agent-panel .panel-actions>button{min-height:44px}.personal-agent-panel .panel-heading>button{width:100%}}
+
+.assistant-activities{list-style:none;padding:0;display:flex;flex-wrap:wrap;gap:.5rem;margin:1rem 0}.assistant-activities li{border:1px solid var(--line);border-radius:12px;padding:.5rem .75rem;font-size:.85rem;overflow-wrap:anywhere}.assistant-activities li[data-state="running"]{border-style:dashed}.assistant-transcript p{white-space:pre-wrap;overflow-wrap:anywhere}.library-reader details{margin:1rem 0}.library-reader blockquote{overflow-wrap:anywhere}
+
+.library-search button{white-space:nowrap;flex-shrink:0}.library-reader pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;line-height:1.8;color:var(--ink)}

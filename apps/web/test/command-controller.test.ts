@@ -19,6 +19,15 @@ test("successful receipts clear the minimal journal and a later click is a new i
   assert.equal(posts,2);assert.equal(first.command_id,firstCommand);assert.notEqual(second.command_id,first.command_id);assert.equal(journal.values.size,0);assert.equal(drafts.values.size,0);
 });
 
+test("a persisted upload workflow keeps its command identity even after journal cleanup",async()=>{
+  const journal=new MemoryStorage(),ids:string[]=[],fetcher=(async(_input:string|URL|Request,init?:RequestInit)=>{const body=JSON.parse(String(init?.body));ids.push(body.command_id);return Response.json(result(body.command_id));}) as typeof fetch;
+  await controller(fetcher,journal).execute("money.record_entry",{amount:"12.00"},"upload-workflow","cmd_upload_fixed");
+  // Simulate refresh between receipt delivery/cleanup and workflow-stage persistence.
+  await controller(fetcher,journal).execute("money.record_entry",{amount:"12.00"},"upload-workflow","cmd_upload_fixed");
+  await controller(fetcher,journal).execute("money.record_entry",{amount:"12.00"},"upload-new-copy","cmd_upload_new_copy");
+  assert.deepEqual(ids,["cmd_upload_fixed","cmd_upload_fixed","cmd_upload_new_copy"]);
+});
+
 test("coalesces concurrent clicks into one command",async()=>{
   const journal=new MemoryStorage();let posts=0;
   const fetcher=(async(_input:string|URL|Request,init?:RequestInit)=>{posts+=1;const body=JSON.parse(String(init?.body)) as {command_id:string};await Promise.resolve();return Response.json(result(body.command_id),{status:201});}) as typeof fetch;

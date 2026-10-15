@@ -75,6 +75,13 @@ export class AgentRepository {
       return(await c.query<StoredRun>("select r.id,r.thread_id,r.status,r.error,r.started_at::text,r.finished_at::text,coalesce((select max(sequence) from run_events where run_id=r.id),0)::int last_sequence from runs r where r.id=$1",[runId])).rows[0];
     });
   }
-  async events(subjectId:string,runId:string,after=0):Promise<StoredRunEvent[]>{const result=await this.pool.query<StoredRunEvent>("select e.sequence,e.event_type,e.payload,e.created_at::text from run_events e join runs r on r.id=e.run_id join threads t on t.id=r.thread_id where e.run_id=$1 and t.subject_id=$2 and e.sequence>$3 order by e.sequence",[runId,subjectId,after]);return result.rows;}
+  async events(subjectId:string,runId:string,after=0,limit=1000,through=2147483647):Promise<StoredRunEvent[]>{const result=await this.pool.query<StoredRunEvent>("select e.sequence,e.event_type,e.payload,e.created_at::text from run_events e join runs r on r.id=e.run_id join threads t on t.id=r.thread_id where e.run_id=$1 and t.subject_id=$2 and e.sequence>$3 and e.sequence<=$5 order by e.sequence limit $4",[runId,subjectId,after,Math.min(1000,Math.max(1,limit)),through]);return result.rows;}
+  async listRuns(subjectId:string,threadId:string):Promise<StoredRun[]>{
+    return this.transaction(async c=>{
+      const thread=await c.query("select id from threads where id=$1 and subject_id=$2 for no key update",[threadId,subjectId]);if(!thread.rowCount)return[];
+      await this.recoverThread(c,threadId);
+      return(await c.query<StoredRun>("select r.id,r.thread_id,r.status,r.error,r.started_at::text,r.finished_at::text,coalesce((select max(sequence) from run_events where run_id=r.id),0)::int last_sequence from runs r where r.thread_id=$1 order by r.started_at desc,r.id desc limit 20",[threadId])).rows;
+    });
+  }
   async listThreads(subjectId:string):Promise<unknown[]>{return(await this.pool.query("select t.id,t.title,to_char(t.created_at at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') created_at,to_char(t.updated_at at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') updated_at,(select content from messages where thread_id=t.id order by created_at desc,id desc limit 1) last_message from threads t where subject_id=$1 order by updated_at desc,t.id desc limit 100",[subjectId])).rows;}
 }

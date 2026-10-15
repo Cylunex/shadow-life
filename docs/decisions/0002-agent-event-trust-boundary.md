@@ -20,3 +20,9 @@ also end in a persisted typed interruption.
 The Host bounds Runtime events, tool calls, answer size, individual event size, transferred tool-result size,
 and wall-clock duration. The run owner can request cancellation through the Host. Event persistence remains
 authoritative when writing the live SSE connection fails.
+
+The Host now also emits `tool.started` without full tool arguments. Recovery can replace an event whose
+capability is no longer visible with `event.redacted`, retaining its sequence without exposing its result.
+Public Host event schemas live in contracts; the adapter re-exports them for compatibility. Run pages expose
+a bounded cursor and high-water mark, and clients drain committed receipts before accepting a final state.
+See [snapshot and recovery architecture](../architecture/web-snapshots-and-run-recovery.md).
