@@ -1,4 +1,5 @@
 import { z } from "zod";
+export { ChatCompletionRuntimeAdapter } from "./chat-completion.js";
 
 export const runtimeEventSchema=z.discriminatedUnion("type",[
   z.object({id:z.string().min(1).max(128),type:z.literal("message.delta"),runId:z.string().min(1),text:z.string().max(16_384)}).strict(),

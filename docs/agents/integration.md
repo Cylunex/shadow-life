@@ -6,6 +6,13 @@ outside the repository. The personal workflow skill is [life-operator](../../ski
 
 ## Start the MCP
 
+内置助手可直接接入支持 function calling 的 Chat Completions 模型。配置完整的
+`SHADOW_MODEL_URL`（完整 `/chat/completions` 地址）、`SHADOW_MODEL_API_KEY`、
+`SHADOW_MODEL_NAME`；按供应方支持情况选配 `SHADOW_MODEL_THINKING=disabled|enabled`。
+真实值仅放本地或服务器秘密环境，不能进 Git 或客户端构建。
+若配置 `SHADOW_RUNTIME_URL`，原有 NDJSON Runtime 优先；均未配置时明确显示不可用。
+详见 [内置模型适配器](../architecture/built-in-model-runtime.md)。
+
 From the Life repository, with Node 24+ and workspace dependencies installed:
 
 ```sh

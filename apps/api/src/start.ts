@@ -1,6 +1,6 @@
 import { serve } from "@hono/node-server";
 import { AgentRepository, PostgresUnitOfWork } from "@shadow/database";
-import { HttpRuntimeAdapter, UnavailableRuntimeAdapter } from "@shadow/agent-adapter";
+import { ChatCompletionRuntimeAdapter, HttpRuntimeAdapter, UnavailableRuntimeAdapter } from "@shadow/agent-adapter";
 import { CommandExecutor, QueryService, sha256Fingerprinter, systemClock, uuidIds } from "@shadow/kernel";
 import { createApp } from "./app.js";
 import { supportedLifeEffects } from "./auth.js";
@@ -10,7 +10,10 @@ const connectionString = process.env.DATABASE_URL;
 if (connectionString === undefined) throw new Error("DATABASE_URL is required");
 const unitOfWork = new PostgresUnitOfWork({ connectionString });
 const executor = new CommandExecutor({ unitOfWork, ids: uuidIds, clock: systemClock, fingerprinter: sha256Fingerprinter });
-const runtime = process.env.SHADOW_RUNTIME_URL ? new HttpRuntimeAdapter({ url: process.env.SHADOW_RUNTIME_URL, ...(process.env.SHADOW_RUNTIME_TOKEN ? { token: process.env.SHADOW_RUNTIME_TOKEN } : {}) }) : new UnavailableRuntimeAdapter();
+const modelConfigured = [process.env.SHADOW_MODEL_URL, process.env.SHADOW_MODEL_API_KEY, process.env.SHADOW_MODEL_NAME].filter(Boolean).length;
+if (modelConfigured > 0 && modelConfigured < 3) throw new Error("Complete SHADOW_MODEL_URL, SHADOW_MODEL_API_KEY and SHADOW_MODEL_NAME settings are required");
+if (process.env.SHADOW_MODEL_THINKING && !["disabled", "enabled"].includes(process.env.SHADOW_MODEL_THINKING)) throw new Error("Invalid SHADOW_MODEL_THINKING setting");
+const runtime = process.env.SHADOW_RUNTIME_URL ? new HttpRuntimeAdapter({ url: process.env.SHADOW_RUNTIME_URL, ...(process.env.SHADOW_RUNTIME_TOKEN ? { token: process.env.SHADOW_RUNTIME_TOKEN } : {}) }) : modelConfigured === 3 ? new ChatCompletionRuntimeAdapter({ url: process.env.SHADOW_MODEL_URL!, apiKey: process.env.SHADOW_MODEL_API_KEY!, model: process.env.SHADOW_MODEL_NAME!, ...(process.env.SHADOW_MODEL_THINKING ? { thinking: process.env.SHADOW_MODEL_THINKING as "disabled" | "enabled" } : {}) }) : new UnavailableRuntimeAdapter();
 function identitySubjects(value:string|undefined):Record<string,string>|undefined{if(!value)return undefined;const parsed=JSON.parse(value) as unknown;if(!parsed||typeof parsed!=="object"||Array.isArray(parsed))throw new Error("SHADOW_IDENTITY_SUBJECTS must be a JSON object");const entries=Object.entries(parsed as Record<string,unknown>);if(entries.some(([key,item])=>!key||typeof item!=="string"||!/^[a-z][a-z0-9_]{7,127}$/u.test(item)))throw new Error("SHADOW_IDENTITY_SUBJECTS contains an invalid mapping");return Object.fromEntries(entries) as Record<string,string>;}
 const subjectMap=identitySubjects(process.env.SHADOW_IDENTITY_SUBJECTS);
 const clientSubjects=identitySubjects(process.env.SHADOW_OIDC_CLIENT_SUBJECTS);
