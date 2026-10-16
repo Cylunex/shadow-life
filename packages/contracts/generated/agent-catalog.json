@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "f5126efb9e9bf068219edd8d1ed18ed2aef4428abecb24cdf49f659de188b185",
+  "catalog_revision": "2ea7e6af6ca0383db256bd344b9aca0fe727fce00caa9be612d1c251de47399f",
   "terms": [
     {
       "id": "personal_intent",
@@ -12567,7 +12567,7 @@
     },
     {
       "name": "health.record_workout",
-      "description": "记录一次手工训练执行，可明确关联训练计划，不伪造设备原始记录。",
+      "description": "记录一次手工训练执行，可明确关联训练计划；力量训练可用 detail.strength_session v1 保存实际动作快照与每组次数/秒数、每只哑铃公斤数，不伪造设备原始记录。",
       "domain": "health",
       "mode": "write",
       "possible_effects": [
@@ -13083,6 +13083,29 @@
                     "income",
                     "refund"
                   ]
+                },
+                "workout_plan": {
+                  "type": "object",
+                  "properties": {
+                    "schedule": {
+                      "$ref": "#/$defs/__schema0"
+                    },
+                    "detail": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/$defs/__schema1"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "schedule",
+                    "detail"
+                  ],
+                  "additionalProperties": false
                 }
               },
               "required": [
@@ -13117,7 +13140,71 @@
           "next_cursor",
           "as_of"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "$defs": {
+          "__schema0": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema0"
+                }
+              },
+              {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "$ref": "#/$defs/__schema0"
+                }
+              }
+            ]
+          },
+          "__schema1": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema1"
+                }
+              },
+              {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "$ref": "#/$defs/__schema1"
+                }
+              }
+            ]
+          }
+        }
       },
       "matched_terms": []
     },
@@ -13299,7 +13386,7 @@
     },
     {
       "name": "health.set_plan",
-      "description": "新建或更新习惯、目标和训练计划。",
+      "description": "新建或更新习惯、目标和训练计划。workout 可在 detail.workout_menu v1 保存部位优先级、每周主题与自选动作菜单；菜单不代表完成。",
       "domain": "health",
       "mode": "write",
       "possible_effects": [
@@ -17999,6 +18086,29 @@
                     "income",
                     "refund"
                   ]
+                },
+                "workout_plan": {
+                  "type": "object",
+                  "properties": {
+                    "schedule": {
+                      "$ref": "#/$defs/__schema0"
+                    },
+                    "detail": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/$defs/__schema1"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "schedule",
+                    "detail"
+                  ],
+                  "additionalProperties": false
                 }
               },
               "required": [
@@ -18033,7 +18143,71 @@
           "next_cursor",
           "as_of"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "$defs": {
+          "__schema0": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema0"
+                }
+              },
+              {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "$ref": "#/$defs/__schema0"
+                }
+              }
+            ]
+          },
+          "__schema1": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema1"
+                }
+              },
+              {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "$ref": "#/$defs/__schema1"
+                }
+              }
+            ]
+          }
+        }
       },
       "matched_terms": []
     },
@@ -40825,6 +40999,29 @@
                     "income",
                     "refund"
                   ]
+                },
+                "workout_plan": {
+                  "type": "object",
+                  "properties": {
+                    "schedule": {
+                      "$ref": "#/$defs/__schema0"
+                    },
+                    "detail": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/$defs/__schema1"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "schedule",
+                    "detail"
+                  ],
+                  "additionalProperties": false
                 }
               },
               "required": [
@@ -40859,7 +41056,71 @@
           "next_cursor",
           "as_of"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "$defs": {
+          "__schema0": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema0"
+                }
+              },
+              {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "$ref": "#/$defs/__schema0"
+                }
+              }
+            ]
+          },
+          "__schema1": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema1"
+                }
+              },
+              {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "$ref": "#/$defs/__schema1"
+                }
+              }
+            ]
+          }
+        }
       },
       "matched_terms": []
     },
@@ -51468,6 +51729,29 @@
                     "income",
                     "refund"
                   ]
+                },
+                "workout_plan": {
+                  "type": "object",
+                  "properties": {
+                    "schedule": {
+                      "$ref": "#/$defs/__schema0"
+                    },
+                    "detail": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/$defs/__schema1"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "schedule",
+                    "detail"
+                  ],
+                  "additionalProperties": false
                 }
               },
               "required": [
@@ -51502,7 +51786,71 @@
           "next_cursor",
           "as_of"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "$defs": {
+          "__schema0": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema0"
+                }
+              },
+              {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "$ref": "#/$defs/__schema0"
+                }
+              }
+            ]
+          },
+          "__schema1": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema1"
+                }
+              },
+              {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "$ref": "#/$defs/__schema1"
+                }
+              }
+            ]
+          }
+        }
       },
       "matched_terms": []
     },

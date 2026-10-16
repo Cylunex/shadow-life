@@ -35,6 +35,12 @@ enum class DomainRecordsResultDtoItemsEntryEntryType(val wireValue: String) {
 }
 
 @Serializable
+data class DomainRecordsResultDtoItemsEntryWorkoutPlan(
+  @SerialName("schedule") val schedule: JsonElement,
+  @SerialName("detail") val detail: JsonElement?
+)
+
+@Serializable
 data class DomainRecordsResultDtoItemsEntry(
   @SerialName("kind") val kind: String,
   @SerialName("id") val id: String,
@@ -46,7 +52,8 @@ data class DomainRecordsResultDtoItemsEntry(
   @SerialName("record_id") val recordId: String?,
   @SerialName("amount") val amount: String?,
   @SerialName("currency") val currency: String?,
-  @SerialName("entry_type") val entryType: DomainRecordsResultDtoItemsEntryEntryType? = null
+  @SerialName("entry_type") val entryType: DomainRecordsResultDtoItemsEntryEntryType? = null,
+  @SerialName("workout_plan") val workoutPlan: DomainRecordsResultDtoItemsEntryWorkoutPlan? = null
 )
 
 @Serializable

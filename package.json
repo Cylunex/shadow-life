@@ -30,6 +30,7 @@
     "import:dry-run": "pnpm --filter @shadow/legacy-importer dry-run",
     "migration": "pnpm --filter @shadow/legacy-importer migration",
     "migration:mapping": "pnpm --filter @shadow/legacy-importer mapping",
+    "test:workout:offline": "node --import tsx scripts/test-workout-menu-offline.mjs",
     "test:web:offline": "node --import tsx scripts/test-web-snapshots-offline.mjs"
   },
   "devDependencies": {

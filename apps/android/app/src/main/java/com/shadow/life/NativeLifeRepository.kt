@@ -472,6 +472,21 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     }
   }
 
+  private fun trainingPlanObject(value:JsonElement?,legacyKey:String):JSONObject=when(value){null,JsonNull->JSONObject();is JsonObject->JSONObject(value.toString());else->JSONObject("{\"$legacyKey\":$value}")}
+  internal suspend fun trainingPlans():List<NativeTrainingPlan>{
+    val plans=mutableListOf<NativeTrainingPlan>();val seen=mutableSetOf<String>();var cursor:String?=null
+    do{
+      val page=wireJson.decodeFromString<DomainRecordsResultDto>(getText("/api/health?q=workout_plan&limit=100${cursor?.let{"&cursor=${encode(it)}"}.orEmpty()}"))
+      page.items.filter{it.kind=="workout_plan"&&it.state=="active"&&it.workoutPlan!=null}.forEach{item->val plan=item.workoutPlan!!;plans+=NativeTrainingPlan(item.id,item.title,item.revision!!.toInt(),trainingPlanObject(plan.schedule,"legacy_schedule"),trainingPlanObject(plan.detail,"legacy_detail"))}
+      cursor=page.nextCursor
+      cursor?.let{require(seen.size<100&&seen.add(it)){"训练计划分页异常，请重试"}}
+    }while(cursor!=null)
+    return plans
+  }
+  internal suspend fun saveTraining(capability:String,input:JSONObject,expectedAccountId:String):OperationReceipt=withContext(Dispatchers.IO){
+    require(capability in setOf("health.set_plan","health.record_workout"));enqueueCommand(capability,input,expectedAccountId=expectedAccountId)
+  }
+
   suspend fun personalFoundation(kind:String,on:String,offset:Int=0):FoundationListDto {
     require(kind in setOf("intentions","tasks","learning"))
     val input=JSONObject().put("limit",30).put("offset",offset)

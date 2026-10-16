@@ -10,3 +10,6 @@ export * from "./agent-catalog-diff.js";
 export * from "./agent-context-schemas.js";
 
 export * from "./run-schemas.js";
+
+export * from "./workout-menu.js";
+export * from "./home-workout.js";

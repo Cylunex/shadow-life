@@ -1,0 +1,48 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {mkdir,mkdtemp,writeFile} from 'node:fs/promises';
+import {join,resolve} from 'node:path';
+import {tmpdir} from 'node:os';
+import {withOfflinePostgres} from './offline-postgres.mjs';
+import {PostgresUnitOfWork,migrate} from '../packages/database/src/index.ts';
+import {CommandExecutor,QueryService,sha256Fingerprinter,systemClock,uuidIds} from '../packages/kernel/src/index.ts';
+import {createApp} from '../apps/api/src/app.ts';
+import {chromium} from 'playwright';
+const root=resolve(import.meta.dirname,'..'),require=createRequire(`${root}/apps/api/package.json`),{serve}=require('@hono/node-server');
+const webRequire=createRequire(`${root}/apps/web/package.json`),{createServer}=await import(webRequire.resolve('vite')),{default:react}=await import(webRequire.resolve('@vitejs/plugin-react'));
+const output=process.env.SHADOW_WEB_TEST_ARTIFACTS??await mkdtemp(join(tmpdir(),'life-workout-menu-'));await mkdir(output,{recursive:true});
+await withOfflinePostgres(async url=>{
+  const unitOfWork=new PostgresUnitOfWork({connectionString:url}),pool=unitOfWork.pool;let browser,web,server;
+  try{
+    await migrate(pool);await pool.query("update write_epochs set stage='life',epoch=epoch+1");await unitOfWork.ensurePrincipal('subject_example');
+    const executor=new CommandExecutor({unitOfWork,ids:uuidIds,clock:systemClock,fingerprinter:sha256Fingerprinter}),queries=new QueryService(unitOfWork);
+    const app=createApp({unitOfWork,executor,queries,developmentAuth:true});
+    server=serve({fetch:app.fetch,hostname:'127.0.0.1',port:0});await new Promise(resolve=>server.listening?resolve():server.once('listening',resolve));
+    web=await createServer({root:`${root}/apps/web`,configFile:false,envFile:false,plugins:[react()],define:{__SHADOW_AMAP_CONFIG__:'null',__SHADOW_GOOGLE_MAPS_KEY__:'""'},server:{host:'127.0.0.1',port:0,proxy:{'/api':{target:`http://127.0.0.1:${server.address().port}`}}}});await web.listen();
+    browser=await chromium.launch({headless:true,...(process.env.SHADOW_TEST_BROWSER_EXECUTABLE?{executablePath:process.env.SHADOW_TEST_BROWSER_EXECUTABLE}:{channel:'chrome'})});
+    const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',error=>errors.push(error.message));
+    const origin=web.resolvedUrls.local[0];await page.goto(`${origin}?tab=record&section=health`);
+    const menu=page.getByRole('region',{name:'自选训练动作菜单'});await menu.waitFor();
+    await menu.getByLabel('器械',{exact:true}).selectOption('dumbbell');await menu.getByLabel('难度',{exact:true}).selectOption('easy');
+    assert.equal(await menu.locator('.menu-exercises article').count(),2);
+    await menu.locator('.menu-exercises article').filter({has:page.getByRole('heading',{name:'哑铃地板卧推',exact:true})}).getByRole('button',{name:'加入今天'}).click();
+    await menu.getByRole('button',{name:'腰腹',exact:true}).click();await menu.getByLabel('器械',{exact:true}).selectOption('bodyweight');
+    await menu.locator('.menu-exercises article').filter({has:page.getByRole('heading',{name:'鸟狗式',exact:true})}).getByRole('button',{name:'加入今天'}).click();
+    assert.equal(await menu.getByRole('button',{name:'记录实际完成'}).isDisabled(),true);
+    assert.equal((await pool.query('select count(*)::int n from health_workout_sessions')).rows[0].n,0);
+    await menu.locator('summary').click();await menu.getByRole('button',{name:'保存为新计划'}).click();await menu.getByRole('status').filter({hasText:'动作菜单已保存'}).waitFor();
+    assert.equal((await pool.query('select count(*)::int n from workout_plans')).rows[0].n,1);
+    assert.equal((await pool.query('select count(*)::int n from health_workout_sessions')).rows[0].n,0);
+    await menu.getByLabel('哑铃地板卧推实际次数').fill('10,8');await menu.getByLabel('每只哑铃公斤（选填）').fill('4.5');
+    await page.screenshot({path:join(output,'workout-menu-desktop.png'),fullPage:true});
+    await page.setViewportSize({width:390,height:844});await menu.locator('.menu-focus').scrollIntoViewIfNeeded();await page.screenshot({path:join(output,'workout-menu-mobile.png')});await menu.getByRole('region',{name:'今天的组合'}).scrollIntoViewIfNeeded();await page.screenshot({path:join(output,'workout-menu-actual-mobile.png')});
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),'mobile must not overflow');
+    await menu.getByRole('button',{name:'记录实际完成'}).click();await menu.getByRole('status').filter({hasText:'已记录填写了实际次数或秒数的动作'}).waitFor();
+    const rows=(await pool.query('select plan_id,detail,duration_minutes,calories_kcal from health_workout_sessions')).rows;
+    assert.equal(rows.length,1);assert.ok(rows[0].plan_id);assert.equal(rows[0].detail.strength_session.exercises.length,1);assert.equal(rows[0].detail.strength_session.focus,'chest','browsing core does not rewrite the chosen theme');assert.equal(rows[0].detail.strength_session.exercises[0].exercise.id,'floor_press');assert.deepEqual(rows[0].detail.strength_session.exercises[0].sets,[{reps:10,load_kg:'4.5'},{reps:8,load_kg:'4.5'}]);assert.equal(rows[0].duration_minutes,null);assert.equal(rows[0].calories_kcal,null);
+    await page.reload();await menu.getByLabel('动作菜单',{exact:true}).selectOption(rows[0].plan_id);await menu.getByRole('button',{name:'背肩',exact:true}).click();await menu.getByLabel('器械',{exact:true}).selectOption('dumbbell');
+    await menu.getByRole('heading',{name:'站姿俯身反向飞鸟',exact:true}).waitFor();assert.equal(await menu.getByLabel('哑铃地板卧推实际次数').count(),0,'actual draft not replayed after reload');
+    await menu.locator('.menu-focus').scrollIntoViewIfNeeded();await page.screenshot({path:join(output,'workout-menu-restored-mobile.png')});assert.deepEqual(errors,[]);
+    await writeFile(join(output,'result.json'),JSON.stringify({passed:true,cases:['filters','choice is not execution','menu save has no facts','partial actual sets only','load snapshot','reload saved plan','mobile no overflow'],pageErrors:errors},null,2));console.log(`PASS workout menu browser checks. Artifacts: ${output}`);
+  }finally{if(browser)await browser.close();if(web)await web.close();if(server)await new Promise(resolve=>server.close(resolve));await unitOfWork.close();}
+});

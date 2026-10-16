@@ -73,7 +73,7 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
           LifeDomain.Health->HealthReferenceProvider(session.accountId,scaleSettings){HealthWorkspaceScreen(
             session.accountId,viewModel.workspaceOverview,viewModel.workspace,viewModel.deviceSyncStatus,viewModel.queueStatus,SamsungHealthBridge.available(),
             {viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,capture,onHealthSync,onSamsungSync,onScale,
-            {nav.navigate(SettingsRoute)},{viewModel.loadWorkspace(LifeDomain.Meals);nav.navigate(WorkspaceRoute(LifeDomain.Meals.name))},route.tab,viewModel.releaseHistory,viewModel::loadReleaseHistory
+            {nav.navigate(SettingsRoute)},{viewModel.loadWorkspace(LifeDomain.Meals);nav.navigate(WorkspaceRoute(LifeDomain.Meals.name))},route.tab,viewModel.releaseHistory,viewModel::loadReleaseHistory,{TrainingMenuWorkspace(session.accountId,viewModel.trainingPlans,viewModel.trainingSubmit,viewModel::refreshTrainingPlans,viewModel::saveTraining,viewModel::resetTrainingSubmit)}
           )}
           LifeDomain.Meals->HealthReferenceProvider(session.accountId,scaleSettings){MealsWorkspaceScreen(
             viewModel.workspaceOverview,viewModel.workspace,viewModel.assetPreviews,viewModel::loadAssetPreview,

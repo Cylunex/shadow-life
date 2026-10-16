@@ -1,0 +1,475 @@
+{
+  "version": 1,
+  "priorities": [
+    "chest",
+    "core",
+    "back_shoulders",
+    "arms",
+    "legs"
+  ],
+  "days": [
+    {
+      "weekday": 1,
+      "focus": "chest",
+      "secondary": [
+        "core"
+      ]
+    },
+    {
+      "weekday": 2,
+      "focus": "core",
+      "secondary": [
+        "back_shoulders"
+      ]
+    },
+    {
+      "weekday": 4,
+      "focus": "chest",
+      "secondary": [
+        "core"
+      ]
+    }
+  ],
+  "exercises": [
+    {
+      "id": "wall_pushup",
+      "name": "墙面俯卧撑",
+      "focus": "chest",
+      "equipment": "bodyweight",
+      "difficulty": "easy",
+      "unit": "reps",
+      "guidance": "双手扶墙，身体保持一条线，胸靠近墙再推回。",
+      "caution": "墙面和脚下防滑；肩部不适时缩小幅度。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "incline_pushup",
+      "name": "高位俯卧撑",
+      "focus": "chest",
+      "equipment": "bodyweight",
+      "difficulty": "easy",
+      "unit": "reps",
+      "guidance": "双手撑牢固台面，收住腰腹，胸向台面下降。",
+      "caution": "只用不会滑动、翻倒的台面。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "knee_pushup",
+      "name": "跪姿俯卧撑",
+      "focus": "chest",
+      "equipment": "bodyweight",
+      "difficulty": "easy",
+      "unit": "reps",
+      "guidance": "膝盖垫软垫，膝到肩保持直线，肘向斜后方弯。",
+      "caution": "不要塌腰或把肘完全向两侧打开。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "pushup",
+      "name": "标准俯卧撑",
+      "focus": "chest",
+      "equipment": "bodyweight",
+      "difficulty": "moderate",
+      "unit": "reps",
+      "guidance": "身体整体下降和推起，保持肩、髋、脚踝成线。",
+      "caution": "塌腰或耸肩时退回高位版本。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "pause_pushup",
+      "name": "底部停顿俯卧撑",
+      "focus": "chest",
+      "equipment": "bodyweight",
+      "difficulty": "challenging",
+      "unit": "reps",
+      "guidance": "标准俯卧撑底部短暂停顿，再平稳推起。",
+      "caution": "先掌握标准版；不追求贴地或力竭。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "slow_pushup",
+      "name": "慢下放俯卧撑",
+      "focus": "chest",
+      "equipment": "bodyweight",
+      "difficulty": "challenging",
+      "unit": "reps",
+      "guidance": "用约三秒下降，保持身体稳定再推回。",
+      "caution": "难度来自控制；腰部失稳时结束。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "floor_press",
+      "name": "哑铃地板卧推",
+      "focus": "chest",
+      "equipment": "dumbbell",
+      "difficulty": "easy",
+      "unit": "reps",
+      "guidance": "屈膝仰卧，上臂轻触地板后推起，前臂大致竖直。",
+      "caution": "哑铃先放腿旁再就位，避免砸地反弹。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "neutral_press",
+      "name": "对握地板卧推",
+      "focus": "chest",
+      "equipment": "dumbbell",
+      "difficulty": "easy",
+      "unit": "reps",
+      "guidance": "掌心相对，肘靠身体一些，在地板上平稳推举。",
+      "caution": "用肩关节舒适的肘角度，不锁死肘。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "squeeze_press",
+      "name": "哑铃挤压卧推",
+      "focus": "chest",
+      "equipment": "dumbbell",
+      "difficulty": "moderate",
+      "unit": "reps",
+      "guidance": "地板仰卧，两只哑铃靠拢，轻轻向内夹并推起。",
+      "caution": "哑铃接触面须稳定；手腕保持直线。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "floor_fly",
+      "name": "哑铃地板飞鸟",
+      "focus": "chest",
+      "equipment": "dumbbell",
+      "difficulty": "moderate",
+      "unit": "reps",
+      "guidance": "仰卧屈膝，肘微弯，双臂沿弧线打开再合拢。",
+      "caution": "比卧推用更轻重量；上臂触地即止，肩痛就停。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "heel_slide",
+      "name": "仰卧脚跟滑动",
+      "focus": "core",
+      "equipment": "bodyweight",
+      "difficulty": "easy",
+      "unit": "reps",
+      "guidance": "屈膝仰卧，一只脚跟缓慢滑远再收回，交替进行。",
+      "caution": "保持自然腰位与呼吸；腰开始拱起前收回。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "dead_bug_arms",
+      "name": "仰卧交替抬臂",
+      "focus": "core",
+      "equipment": "bodyweight",
+      "difficulty": "easy",
+      "unit": "reps",
+      "guidance": "双脚踩地、手臂向上，一侧手臂缓慢向头顶放低再回。",
+      "caution": "以腰背不拱起的幅度为限。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "dead_bug",
+      "name": "死虫式",
+      "focus": "core",
+      "equipment": "bodyweight",
+      "difficulty": "moderate",
+      "unit": "reps",
+      "guidance": "仰卧抬腿屈膝，对侧手脚缓慢伸远，再交替。",
+      "caution": "伸展越远越难；先单动腿，别憋气或顶腰。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "bird_dog",
+      "name": "鸟狗式",
+      "focus": "core",
+      "equipment": "bodyweight",
+      "difficulty": "easy",
+      "unit": "reps",
+      "guidance": "四点支撑，对侧手脚向远处伸直，骨盆保持水平。",
+      "caution": "先只伸一条腿；不抬高到腰部反弓。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "knee_plank",
+      "name": "跪姿平板支撑",
+      "focus": "core",
+      "equipment": "bodyweight",
+      "difficulty": "easy",
+      "unit": "seconds",
+      "guidance": "前臂和膝盖支撑，收住腰腹，保持正常呼吸。",
+      "caution": "腰不舒服就缩短时间或换仰卧动作。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "plank",
+      "name": "前臂平板支撑",
+      "focus": "core",
+      "equipment": "bodyweight",
+      "difficulty": "moderate",
+      "unit": "seconds",
+      "guidance": "前臂与脚尖支撑，身体保持一线，均匀呼吸。",
+      "caution": "不塌腰，不用长时间硬撑来升级。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "knee_side_plank",
+      "name": "屈膝侧桥",
+      "focus": "core",
+      "equipment": "bodyweight",
+      "difficulty": "easy",
+      "unit": "seconds",
+      "guidance": "侧卧屈膝，肘在肩下，抬髋使肩髋膝成线。",
+      "caution": "左右分别练；肩或腰不适则停止。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "side_plank",
+      "name": "直腿侧桥",
+      "focus": "core",
+      "equipment": "bodyweight",
+      "difficulty": "challenging",
+      "unit": "seconds",
+      "guidance": "前臂和脚侧支撑，抬髋保持身体侧面一线。",
+      "caution": "先能稳定完成屈膝版；不转腰、不憋气。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "suitcase_hold",
+      "name": "单侧哑铃静态提握",
+      "focus": "core",
+      "equipment": "dumbbell",
+      "difficulty": "moderate",
+      "unit": "seconds",
+      "guidance": "站直，单手提哑铃，保持肩和骨盆水平，然后换侧。",
+      "caution": "从轻重量短时间开始；不侧弯、不耸肩。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "dead_bug_hold",
+      "name": "哑铃持握死虫式",
+      "focus": "core",
+      "equipment": "dumbbell",
+      "difficulty": "challenging",
+      "unit": "reps",
+      "guidance": "双手轻哑铃稳定在胸上方，仅双腿交替缓慢伸出。",
+      "caution": "先掌握徒手死虫；哑铃不过头，不让腰拱起。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "supported_row",
+      "name": "单手支撑哑铃划船",
+      "focus": "back_shoulders",
+      "equipment": "dumbbell",
+      "difficulty": "easy",
+      "unit": "reps",
+      "guidance": "一手扶牢固台面，髋向后折，另一手将哑铃拉向髋旁。",
+      "caution": "支撑物稳固，腰背中立；后腰不舒服时跳过。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "wide_row",
+      "name": "支撑式宽肘划船",
+      "focus": "back_shoulders",
+      "equipment": "dumbbell",
+      "difficulty": "moderate",
+      "unit": "reps",
+      "guidance": "一手支撑，另一侧肘稍向外，拉向下胸附近。",
+      "caution": "重量轻于普通划船，不扭转躯干。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "reverse_fly",
+      "name": "站姿俯身反向飞鸟",
+      "focus": "back_shoulders",
+      "equipment": "dumbbell",
+      "difficulty": "moderate",
+      "unit": "reps",
+      "guidance": "屈膝折髋、腰背中立，肘微弯，双臂向侧方展开。",
+      "caution": "主要练后肩上背；轻重量，不甩动，后腰不适时跳过。",
+      "source_url": "https://www.mayoclinic.org/healthy-lifestyle/fitness/multimedia/reverse-fly/vid-20084679"
+    },
+    {
+      "id": "lateral_raise",
+      "name": "哑铃侧平举",
+      "focus": "back_shoulders",
+      "equipment": "dumbbell",
+      "difficulty": "easy",
+      "unit": "reps",
+      "guidance": "手臂在身体略前侧抬起，肘微弯，缓慢放回。",
+      "caution": "用轻重量，不耸肩，抬到舒适高度即可。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "scaption",
+      "name": "哑铃斜前平举",
+      "focus": "back_shoulders",
+      "equipment": "dumbbell",
+      "difficulty": "moderate",
+      "unit": "reps",
+      "guidance": "拇指朝上，双臂在身体斜前方缓慢抬起。",
+      "caution": "不借腰后仰；肩夹痛则停止。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "shoulder_press",
+      "name": "坐姿哑铃推举",
+      "focus": "back_shoulders",
+      "equipment": "dumbbell",
+      "difficulty": "challenging",
+      "unit": "reps",
+      "guidance": "坐在牢固椅上，哑铃从肩附近平稳向上推。",
+      "caution": "躯干保持稳定；不以顶腰换取高度，肩腰不适跳过。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "wall_slide",
+      "name": "靠墙滑臂",
+      "focus": "back_shoulders",
+      "equipment": "bodyweight",
+      "difficulty": "easy",
+      "unit": "reps",
+      "guidance": "背靠墙，手臂沿墙在舒适范围内上滑再回。",
+      "caution": "用于轻量控制练习，不强迫手臂贴墙。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "prone_w",
+      "name": "俯卧 W 提臂",
+      "focus": "back_shoulders",
+      "equipment": "bodyweight",
+      "difficulty": "moderate",
+      "unit": "reps",
+      "guidance": "俯卧额头垫毛巾，手臂呈 W 形，轻轻离地再回。",
+      "caution": "胸腹不离地、不仰头；后腰不舒服则跳过。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "curl",
+      "name": "哑铃弯举",
+      "focus": "arms",
+      "equipment": "dumbbell",
+      "difficulty": "easy",
+      "unit": "reps",
+      "guidance": "上臂贴近身体，屈肘抬起哑铃，缓慢下放。",
+      "caution": "不甩腰，肘位置基本不动。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "hammer_curl",
+      "name": "锤式弯举",
+      "focus": "arms",
+      "equipment": "dumbbell",
+      "difficulty": "easy",
+      "unit": "reps",
+      "guidance": "掌心相对，上臂稳定，交替或同时屈肘。",
+      "caution": "手腕保持直线，不耸肩借力。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "concentration_curl",
+      "name": "坐姿集中弯举",
+      "focus": "arms",
+      "equipment": "dumbbell",
+      "difficulty": "moderate",
+      "unit": "reps",
+      "guidance": "坐稳，肘贴大腿内侧，单手控制弯举。",
+      "caution": "不压在膝关节上，保持腰背舒适。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "lying_extension",
+      "name": "仰卧哑铃臂屈伸",
+      "focus": "arms",
+      "equipment": "dumbbell",
+      "difficulty": "moderate",
+      "unit": "reps",
+      "guidance": "地板仰卧，上臂大致竖直，弯肘再伸直。",
+      "caution": "用轻重量，哑铃不落向脸，肘痛即停。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "close_pushup",
+      "name": "窄距俯卧撑",
+      "focus": "arms",
+      "equipment": "bodyweight",
+      "difficulty": "challenging",
+      "unit": "reps",
+      "guidance": "双手略窄于肩，肘靠躯干，稳定下降再推起。",
+      "caution": "可先高位做；无需钻石手型，腕肘不适则换动作。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "self_curl",
+      "name": "徒手自抗阻弯举",
+      "focus": "arms",
+      "equipment": "bodyweight",
+      "difficulty": "easy",
+      "unit": "reps",
+      "guidance": "一手在另一侧前臂施加轻阻力，缓慢弯举，再换边。",
+      "caution": "阻力平稳可控，肘腕不疼；不突然对抗。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "sit_stand",
+      "name": "椅子坐站",
+      "focus": "legs",
+      "equipment": "bodyweight",
+      "difficulty": "easy",
+      "unit": "reps",
+      "guidance": "从牢固椅子起身再缓慢坐下，膝盖顺着脚尖方向。",
+      "caution": "椅子靠墙防滑，不向后砸坐。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "squat",
+      "name": "徒手深蹲",
+      "focus": "legs",
+      "equipment": "bodyweight",
+      "difficulty": "easy",
+      "unit": "reps",
+      "guidance": "脚掌踩稳，髋膝一起弯曲，在可控深度站起。",
+      "caution": "不追求蹲深；保持腰背舒适。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "goblet_squat",
+      "name": "哑铃高脚杯深蹲",
+      "focus": "legs",
+      "equipment": "dumbbell",
+      "difficulty": "moderate",
+      "unit": "reps",
+      "guidance": "双手将一只哑铃抱在胸前，稳定下蹲再站起。",
+      "caution": "先熟悉徒手版，重量不妨碍腰背稳定。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "bridge",
+      "name": "臀桥",
+      "focus": "legs",
+      "equipment": "bodyweight",
+      "difficulty": "easy",
+      "unit": "reps",
+      "guidance": "屈膝仰卧、脚掌踩地，臀部发力抬髋再放回。",
+      "caution": "抬至肩髋膝大致成线，不顶腰或追求高度。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "split_squat",
+      "name": "原地分腿蹲",
+      "focus": "legs",
+      "equipment": "dumbbell",
+      "difficulty": "challenging",
+      "unit": "reps",
+      "guidance": "前后分腿，双手提轻哑铃，身体平稳上下。",
+      "caution": "先徒手扶稳练；脚踝、膝、腰不适时跳过。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    },
+    {
+      "id": "calf_raise",
+      "name": "站姿提踵",
+      "focus": "legs",
+      "equipment": "bodyweight",
+      "difficulty": "easy",
+      "unit": "reps",
+      "guidance": "扶稳台面，缓慢踮脚再下放。",
+      "caution": "地面平整，脚踝舒适，避免弹跳。",
+      "source_url": "https://www.acefitness.org/resources/everyone/exercise-library/"
+    }
+  ]
+}

@@ -11,6 +11,9 @@ changing boundaries or extending scope.
 Web Library accepts uploaded HTML snapshots with protected originals and searchable text. The assistant can
 recover an existing run after a disconnect or refresh. See the [usage guide](docs/guides/web-snapshots-and-assistant-recovery.md).
 
+Home strength training supports themed exercise menus, bodyweight/dumbbell filters and actual sets in Web and Android.
+See the [workout menu guide](docs/guides/workout-menu.md).
+
 ## Development
 
 Use Node 24 and pnpm 11. PostgreSQL is required for the integration journey.

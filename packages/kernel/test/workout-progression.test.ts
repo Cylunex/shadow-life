@@ -12,3 +12,7 @@ test("training progression requires actual comparable execution",()=>{
   assert.equal(plan([session("a",30,8),session("b",30,6)]).status,"hold");
   assert.equal(plan([session("a",32,6),session("b",30,6)]).next_duration_minutes,34);
 });
+
+test("strength sessions do not progress by adding duration",()=>{
+  for(const type of ["strength_training","weight_training","力量训练"]){const result=plan([session("a",30,6,type),session("b",30,6,type)]);assert.equal(result.status,"missing_data");assert.equal(result.next_duration_minutes,null);assert.match(result.reason,/组数、次数、重量/u);}
+});

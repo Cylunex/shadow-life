@@ -48,7 +48,7 @@ import java.math.RoundingMode
 import java.time.LocalDate
 import kotlin.math.abs
 
-private val healthTabs=listOf("overview" to "健康","body" to "身体","activity" to "运动","sleep" to "睡眠","release" to "起飞")
+private val healthTabs=listOf("overview" to "健康","body" to "身体","activity" to "运动","training" to "训练","sleep" to "睡眠","release" to "起飞")
 private val mealOrder=listOf("breakfast","lunch","dinner","snack","other")
 private val ActivityGreen:Color @Composable get()=if(MaterialTheme.colorScheme.background.luminance()<.5f)Color(0xFF7CEB52) else Color(0xFF346A23)
 private val ActivityBlue:Color @Composable get()=if(MaterialTheme.colorScheme.background.luminance()<.5f)Color(0xFF48A9FF) else Color(0xFF286899)
@@ -61,7 +61,7 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
 @Composable fun HealthWorkspaceScreen(
   accountId:String,overviewState:LoadState<WorkspaceOverview>,recordsState:LoadState<RecordPage>,deviceStatus:DeviceSyncStatus,queueState:LoadState<QueueSummary>,samsungAvailable:Boolean,
   onRetry:()->Unit,onLoadMore:()->Unit,onBack:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onCapture:(CaptureKind)->Unit,
-  onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onSettings:()->Unit,onMeals:()->Unit,initialTab:String="overview",releaseState:LoadState<HealthReleaseHistoryResultDto>,onReleaseLoad:(String,String)->Unit
+  onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onSettings:()->Unit,onMeals:()->Unit,initialTab:String="overview",releaseState:LoadState<HealthReleaseHistoryResultDto>,onReleaseLoad:(String,String)->Unit,trainingContent:@Composable ()->Unit={}
 ){
   var tab by rememberSaveable(initialTab){mutableStateOf(initialTab.takeIf{value->healthTabs.any{it.first==value}}?:"overview")}
   val context=LocalContext.current
@@ -79,13 +79,14 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
     LazyColumn(Modifier.fillMaxSize().padding(padding),state=workspaceScroll,contentPadding=PaddingValues(horizontal=20.dp,vertical=10.dp),verticalArrangement=Arrangement.spacedBy(18.dp)){
       item{Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){healthTabs.forEach{(key,label)->FilterChip(selected=tab==key,onClick={tab=key},label={Text(label)})};FilterChip(selected=false,onClick=onMeals,label={Text("饮食")})}}
       item{StateContent(overviewState,onRetry){} }
+      if(tab=="training")item{trainingContent()}
       if(tab=="release")item{ReleaseHistoryWorkspace(releaseState,onReleaseLoad,onDetail)}
       if(overview!=null){
         when(tab){
           "body"->item{BodyMetricsWorkspace(overview.metrics,hiddenMetrics,::toggleMetric,onDetail,onCapture)}
           "activity"->{item{ActivityWorkspace(overview.history,onDetail,onCapture)};item{HealthSurface{Text("下一次训练",style=MaterialTheme.typography.titleLarge);when(val suggestions=overview.progression){null->Text("建议暂时不可读取");else->if(suggestions.isEmpty())Text("尚无进行中的训练计划") else suggestions.forEach{plan->Text(plan.title,style=MaterialTheme.typography.titleMedium);Text(plan.reason);if(plan.status in setOf("increase_duration","hold"))plan.nextDurationMinutes?.let{Text("${it} 分钟")};plan.evidence.forEach{Text(it,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}}}}
           "sleep"->item{SleepWorkspace(overview.history,overview.sleepInsights)}
-          "release"->Unit
+          "release","training"->Unit
           else->{item{DailyActivityHero(overview.daily,onCapture)};item{HealthOverviewCards(overview,{tab=it},onMeals)};item{BodyCompositionStrip(overview.metrics.filterNot{it.key in hiddenMetrics}){tab="body"}}}
         }
         item{CompactDeviceStatus(deviceStatus,queueState,samsungAvailable,onHealthSync,onSamsungSync,onScale,onSettings)}
