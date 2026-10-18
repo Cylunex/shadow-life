@@ -208,6 +208,7 @@ data class RecordDetail(
 )
 
 @Serializable data object TodayRoute
+@Serializable data object TrainingRoute
 @Serializable data object RecordsRoute
 @Serializable data object PersonalAgentRoute
 @Serializable data object PlansRoute

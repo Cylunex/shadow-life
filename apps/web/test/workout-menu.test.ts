@@ -6,7 +6,7 @@ const plan:MenuPlan={id:"health_plan_testmenu",kind:"workout_plan",title:"旧计
 test("menu save preserves legacy metadata and optimistic revision",()=>{
   const command=buildMenuPlan(homeWorkoutMenu,"自选菜单",plan);
   assert.equal(command.plan_id,plan.id);assert.equal(command.expected_revision,3);
-  assert.deepEqual(command.schedule,{days:[1,2,4],time_zone:"Asia/Shanghai"});
+  assert.deepEqual(command.schedule,{days:[1],time_zone:"Asia/Shanghai"});
   assert.deepEqual((command.detail as Record<string,unknown>).custom,{a:1});
   assert.deepEqual(menuForPlan(plan),homeWorkoutMenu);
   const opaque=buildMenuPlan(homeWorkoutMenu,"旧版数组",{...plan,workout_plan:{schedule:[1,2,4],detail:"旧版字符串备注"}});

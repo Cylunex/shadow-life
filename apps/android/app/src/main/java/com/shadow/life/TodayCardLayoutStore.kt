@@ -3,6 +3,7 @@ package com.shadow.life
 import android.content.Context
 
 enum class TodayCardKind(val key:String,val title:String,val description:String){
+  Training("training","训练计划","今日主题、自选动作与逐组记录"),
   Focus("focus","生活概览","正在进行的旅程与生活记录入口"),
   Scale("scale","小米体脂秤","直接开启接收并查看本次结果"),
   Health("health","健康总览","当天活动与近 7 天步数趋势"),
@@ -22,9 +23,9 @@ enum class TodayCardKind(val key:String,val title:String,val description:String)
   DeviceSync("device_sync","其他数据源","Samsung Health 与小米体脂秤")
 }
 
-// Saved layouts keep their stable keys and order; only new/reset layouts use this sequence.
+// Saved layouts keep stable keys and order; training is introduced once by the store.
 val defaultTodayCards=listOf(
-  TodayCardKind.Focus,TodayCardKind.QuickCapture,TodayCardKind.Health,
+  TodayCardKind.Training,TodayCardKind.Focus,TodayCardKind.QuickCapture,TodayCardKind.Health,
   TodayCardKind.Meals,TodayCardKind.Money,TodayCardKind.Travel,
   TodayCardKind.Plans,TodayCardKind.Items,TodayCardKind.Library,TodayCardKind.Scale
 )
@@ -43,7 +44,17 @@ internal fun moveTodayCard(cards:List<TodayCardKind>,from:Int,to:Int):List<Today
 class TodayCardLayoutStore(context:Context,private val accountId:String){
   private val preferences=context.applicationContext.getSharedPreferences("life_today_cards",Context.MODE_PRIVATE)
   private val storageKey="cards:$accountId"
-  fun current():List<TodayCardKind> = decodeTodayCards(preferences.getString(storageKey,null))
-  fun save(cards:List<TodayCardKind>){preferences.edit().putString(storageKey,cards.distinct().joinToString(","){it.key}).apply()}
+  fun current():List<TodayCardKind> {
+    val cards=decodeTodayCards(preferences.getString(storageKey,null))
+    // Introduce the new entry once, then respect later hiding and reordering.
+    if(preferences.getBoolean("training-introduced:$accountId",false))return cards
+    val migrated=introduceTrainingCard(cards)
+    save(migrated)
+    return migrated
+  }
+  fun save(cards:List<TodayCardKind>){preferences.edit().putString(storageKey,cards.distinct().joinToString(","){it.key}).putBoolean("training-introduced:$accountId",true).apply()}
   fun reset():List<TodayCardKind> = defaultTodayCards.also(::save)
 }
+
+internal fun introduceTrainingCard(cards:List<TodayCardKind>):List<TodayCardKind> =
+  if(TodayCardKind.Training in cards)cards else listOf(TodayCardKind.Training)+cards

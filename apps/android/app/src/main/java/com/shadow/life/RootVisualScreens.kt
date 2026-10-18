@@ -48,10 +48,11 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @OptIn(ExperimentalLayoutApi::class)
-@Composable fun TodayVisualScreen(
+@Composable internal fun TodayVisualScreen(
   accountId:String,state:LoadState<TodaySnapshot>,healthState:LoadState<WorkspaceOverview.Health>,deviceStatus:DeviceSyncStatus,queueState:LoadState<QueueSummary>,samsungAvailable:Boolean,onRetry:()->Unit,
   onWorkspace:(LifeDomain,String)->Unit,onItems:()->Unit,onPlans:()->Unit,onLibrary:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onRecords:()->Unit,onInbox:()->Unit,onFeatures:()->Unit,onCapture:(CaptureKind)->Unit,
-  onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onProjects:()->Unit,onSettings:()->Unit
+  onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onProjects:()->Unit,onSettings:()->Unit,
+  trainingState:LoadState<List<NativeTrainingPlan>> = LoadState.Loading,onTraining:()->Unit = {onWorkspace(LifeDomain.Health,"training")}
 ){
   val context=LocalContext.current
   val layoutStore=remember(context,accountId){TodayCardLayoutStore(context,accountId)}
@@ -65,6 +66,7 @@ import java.util.Locale
     item{StateContent(state,onRetry){} }
     if(cards.isEmpty())item{EmptyState("首页还没有卡片","添加卡片"){editCards=true}}
     cards.forEach{card->when(card){
+      TodayCardKind.Training->item(key=card.key){TodayTrainingCard(trainingState,onTraining)}
       TodayCardKind.Focus->today?.let{item(key=card.key){TodayFocusCard(it,{domain->onWorkspace(domain,"")},onDetail)}}
       TodayCardKind.Scale->item(key=card.key){TodayScaleReceiver(deviceStatus,queueState,onScale,onSettings)}
       TodayCardKind.Health->today?.let{item(key=card.key){Column(verticalArrangement=Arrangement.spacedBy(10.dp)){TodayHealthOverviewCard(it,health){onWorkspace(LifeDomain.Health,"overview")};if(healthState is LoadState.Failed)SectionError("健康趋势暂未加载",onRetry);if(healthState is LoadState.Loading)LinearProgressIndicator(Modifier.fillMaxWidth())}}}

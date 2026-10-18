@@ -483,8 +483,8 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     }while(cursor!=null)
     return plans
   }
-  internal suspend fun saveTraining(capability:String,input:JSONObject,expectedAccountId:String):OperationReceipt=withContext(Dispatchers.IO){
-    require(capability in setOf("health.set_plan","health.record_workout"));enqueueCommand(capability,input,expectedAccountId=expectedAccountId)
+  internal suspend fun saveTraining(capability:String,input:JSONObject,expectedAccountId:String,commandId:String?):OperationReceipt=withContext(Dispatchers.IO){
+    require(capability in setOf("health.set_plan","health.record_workout"));enqueueCommand(capability,input,stableCommandId=commandId,expectedAccountId=expectedAccountId)
   }
 
   suspend fun personalFoundation(kind:String,on:String,offset:Int=0):FoundationListDto {

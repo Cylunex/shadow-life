@@ -21,7 +21,7 @@ export function menuForPlan(plan?: MenuPlan): WorkoutMenu {
 }
 export function buildMenuPlan(menu: WorkoutMenu, name: string, plan?: MenuPlan) {
   return setHealthPlanInputSchema.parse({kind:"workout",name,state:"active",...(plan?{plan_id:plan.id,expected_revision:plan.revision}:{}),
-    schedule:{...preserveLegacy(plan?.workout_plan.schedule,"legacy_schedule"),days:menu.days.map(day=>day.weekday)},
+    schedule:{...preserveLegacy(plan?.workout_plan.schedule,"legacy_schedule"),days:Array.isArray(objectValue(plan?.workout_plan.schedule).days)?objectValue(plan?.workout_plan.schedule).days:menu.days.map(day=>day.weekday)},
     detail:{...preserveLegacy(plan?.workout_plan.detail,"legacy_detail"),workout_menu:workoutMenuSchema.parse(menu)}});
 }
 export type ActualExerciseDraft = {exercise:WorkoutExercise; values:string; load:string};
