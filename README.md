@@ -33,6 +33,8 @@ The Runtime/Host trust split and resumable run states are defined in
 Run `SHADOW_ACCESS_TOKEN=... pnpm mcp` for the personal MCP profile. See
 [Agent integration](docs/agents/integration.md) and the reusable
 [Life operator skill](skills/life-operator/SKILL.md) for recording, corrections, images and recovery.
+An optional compact MCP toolset discovers inputs on demand; see the integration guide and
+[related projects and improvement priorities](docs/research/related-projects-2026-10-22.md).
 Production startup requires the OIDC verification, accepted-client list, explicit opaque-subject mapping and
 browser PKCE settings shown in `.env.example`; Web uses a protected same-origin session cookie and does not ask
 the user to paste a token. Android uses the separate `com.shadow.life` public client, requests the Life API

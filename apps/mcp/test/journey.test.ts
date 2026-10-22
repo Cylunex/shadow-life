@@ -7,8 +7,9 @@ import { reviewFixture, pgOnly, mealInput } from "../../../packages/database/tes
 import { LifeClient } from "../src/client.js";
 import { createMcpServer } from "../src/server.js";
 import { createApp } from "../../api/src/app.js";
+import { capabilityRegistry, type CapabilityName } from "@shadow/contracts";
 
-test("MCP image-backed dining survives a lost response, replays once, and reads an exact historical window", pgOnly, async t => {
+for (const toolset of ["full", "compact"] as const) test(`${toolset} MCP image-backed dining survives a lost response, replays once, and reads an exact historical window`, pgOnly, async t => {
   const fixture = await reviewFixture(t);
   const app = createApp({ ...fixture, developmentAuth: true });
   let dropDiningResponse = true, diningPosts = 0;
@@ -21,8 +22,20 @@ test("MCP image-backed dining survives a lost response, replays once, and reads 
     return response;
   } });
   const root = await mkdtemp(join(tmpdir(), "life-dining-test-")); t.after(() => rm(root, { recursive: true, force: true }));
-  const handler = createMcpServer(client, [root]);
-  const call = async (name: string, args: unknown): Promise<any> => handler(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }));
+  const handler = createMcpServer(client, [root], toolset);
+  const call = async (name: string, args: unknown): Promise<any> => {
+    if (toolset === "compact" && name !== "assets.upload_local_image" && name !== "operations.find") {
+      const write = capabilityRegistry[name as CapabilityName].idempotency === "required";
+      args = write ? { capability: name, ...args as object } : { capability: name, input: args };
+      name = write ? "life.command" : "life.query";
+    }
+    return handler(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }));
+  };
+  const query = async (name: string, args: unknown) => {
+    const response = await call(name, args);
+    assert.equal(response.result.isError, undefined, JSON.stringify(response));
+    return response.result.structuredContent;
+  };
   const files = [Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=', 'base64'), Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64')];
   const versions: string[] = [];
   for (let i = 0; i < files.length; i++) {
@@ -42,7 +55,7 @@ test("MCP image-backed dining survives a lost response, replays once, and reads 
   assert.equal(replay.result.structuredContent.replayed, true);
   assert.equal(replay.result.structuredContent.execution_id, recovered.result.structuredContent.execution_id);
   const mealId = String(recovered.result.structuredContent.actual_values.meal_id);
-  const detail = await client.call("life.get_record", { id: String(recovered.result.structuredContent.actual_values.consumption_record_id) });
+  const detail = await query("life.get_record", { id: String(recovered.result.structuredContent.actual_values.consumption_record_id) });
   for (const version of versions) assert.ok(JSON.stringify(detail).includes(version));
   const intakes = (await fixture.pool.query("select name from intake_items where meal_id=$1 and effective", [mealId])).rows;
   assert.deepEqual(intakes.map(item => item.name), ["牛肉面"]);
@@ -50,9 +63,9 @@ test("MCP image-backed dining survives a lost response, replays once, and reads 
   assert.equal((await fixture.pool.query("select count(*)::int as count from meals")).rows[0].count, 1);
   await fixture.run("life.record_meal", { ...mealInput, occurred_on: "2026-09-21" });
   await fixture.run("life.record_meal", { ...mealInput, occurred_on: "2026-09-23" });
-  const filtered: any = await client.call("life.search", { types: ["meals"], from_on: "2026-09-22", to_on_exclusive: "2026-09-23", limit: 1 });
+  const filtered: any = await query("life.search", { types: ["meals"], from_on: "2026-09-22", to_on_exclusive: "2026-09-23", limit: 1 });
   assert.deepEqual(filtered.items.map((item: any) => item.id), [mealId]);
-  const first: any = await client.call("life.list_meals", { limit: 1 });
-  const second: any = await client.call("life.list_meals", { limit: 1, cursor: first.next_cursor });
+  const first: any = await query("life.list_meals", { limit: 1 });
+  const second: any = await query("life.list_meals", { limit: 1, cursor: first.next_cursor });
   assert.ok(first.next_cursor); assert.notEqual(first.items[0].id, second.items[0].id);
 });

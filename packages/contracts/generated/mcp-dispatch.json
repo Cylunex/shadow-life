@@ -1,0 +1,58 @@
+{
+  "life.query": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "capability": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "description": "Exact capability name returned by agent.discover."
+      },
+      "input": {
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {},
+        "description": "Input matching the discovered input_schema. Do not nest another input or command_id here."
+      }
+    },
+    "required": [
+      "capability",
+      "input"
+    ],
+    "additionalProperties": false
+  },
+  "life.command": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "capability": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "description": "Exact capability name returned by agent.discover."
+      },
+      "command_id": {
+        "type": "string",
+        "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+        "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
+      },
+      "input": {
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {},
+        "description": "Input matching the discovered input_schema. Do not nest another input or command_id here."
+      }
+    },
+    "required": [
+      "capability",
+      "command_id",
+      "input"
+    ],
+    "additionalProperties": false
+  }
+}

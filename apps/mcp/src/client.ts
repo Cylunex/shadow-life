@@ -22,6 +22,15 @@ const catalogSchema = z.object({ capabilities: z.array(z.object({
 })) });
 export const isCapability = (name: string): name is CapabilityName => Object.hasOwn(capabilityRegistry, name);
 
+export function capabilityTool(name: CapabilityName, schema: Record<string, unknown>) {
+  const capability = capabilityRegistry[name], write = capability.idempotency === "required";
+  return {
+    name, description: capability.description,
+    inputSchema: write ? { type: "object", additionalProperties: false, required: ["command_id", "input"], properties: { command_id: z.toJSONSchema(commandId), input: schema } } : schema,
+    annotations: { readOnlyHint: !write, idempotentHint: true, openWorldHint: false, ...(write ? {} : { destructiveHint: false }) }
+  };
+}
+
 export class LifeClient {
   readonly api: string;
   constructor(readonly options: ClientOptions) {
@@ -55,21 +64,20 @@ export class LifeClient {
     }
   }
 
+  async listCapabilities(includeSchemas = false) {
+    const catalog = catalogSchema.parse(await this.request(`/api/capabilities${includeSchemas ? "?include_schemas=true" : ""}`));
+    return catalog.capabilities.filter(item => this.allows(item.name));
+  }
+
   async listTools() {
-    const catalog = catalogSchema.parse(await this.request("/api/capabilities?include_schemas=true"));
-    const visible = catalog.capabilities.filter(item => this.allows(item.name));
+    const visible = await this.listCapabilities(true);
     const tools = [];
     // Old servers omit input_schema; bound legacy discovery to four requests at a time.
     for (let offset = 0; offset < visible.length; offset += 4) {
       tools.push(...await Promise.all(visible.slice(offset, offset + 4).map(async item => {
-        const name = item.name as CapabilityName, capability = capabilityRegistry[name];
+        const name = item.name as CapabilityName;
         const schema = item.input_schema ?? z.object({ input_schema: z.record(z.string(), z.unknown()) }).parse(await this.request(`/api/capabilities/${encodeURIComponent(name)}`)).input_schema;
-        const write = capability.idempotency === "required";
-        return {
-          name, description: capability.description,
-          inputSchema: write ? { type: "object", additionalProperties: false, required: ["command_id", "input"], properties: { command_id: z.toJSONSchema(commandId), input: schema } } : schema,
-          annotations: { readOnlyHint: !write, idempotentHint: true, openWorldHint: false, ...(write ? {} : { destructiveHint: false }) }
-        };
+        return capabilityTool(name, schema);
       })));
     }
     return tools;

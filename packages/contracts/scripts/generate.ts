@@ -8,6 +8,7 @@ import { z } from "zod";
 import { capabilityRegistry } from "../src/registry.js";
 import { createHash } from "node:crypto";
 import { buildAgentCatalogDocument } from "../src/agent-catalog.js";
+import { mcpCommandInputSchema, mcpQueryInputSchema } from "../src/mcp-schemas.js";
 import { agentThreadMessagesResultSchema, agentThreadsResultSchema, consumptionStatsResultSchema, domainRecordsResultSchema, foreignEntriesResultSchema, healthReleaseHistoryResultSchema, healthDailyResultSchema, healthRecordResultSchema, healthSourcesResultSchema, libraryItemResultSchema, lifeProjectsResultSchema, lifeRecordResultSchema, lifeReviewsResultSchema, lifeSearchResultSchema, lifeTimelineResultSchema, lifeTodayResultSchema, listMealsResultSchema, mealPlanningResultSchema, moneyPlanningResultSchema, notificationsResultSchema, ownedItemsResultSchema, planningAgendaResultSchema, projectDirectoryResultSchema, travelTripResultSchema, travelWorkspaceResultSchema } from "../src/schemas.js";
 
 import { foundationListSchema } from "../src/foundation-schemas.js";
@@ -27,6 +28,8 @@ const target = resolve(output, "capabilities.json");
 const content = `${JSON.stringify({ capabilities: registry }, null, 2)}\n`;
 const catalogDocument = buildAgentCatalogDocument();
 const catalogTarget = resolve(output, "agent-catalog.json");
+const mcpTarget = resolve(output, "mcp-dispatch.json");
+const mcpContent = `${JSON.stringify({ "life.query": z.toJSONSchema(mcpQueryInputSchema), "life.command": z.toJSONSchema(mcpCommandInputSchema) }, null, 2)}\n`;
 const catalogContent = `${JSON.stringify({ catalog_revision: createHash("sha256").update(JSON.stringify(catalogDocument)).digest("hex"), ...catalogDocument, capabilities: catalogDocument.capabilities.map(item => ({ ...item, matched_terms: [] })) }, null, 2)}\n`;
 type JsonSchema = {
   type?: string | string[];
@@ -141,11 +144,13 @@ if (process.argv.includes("--check")) {
   const current = await readFile(target, "utf8").catch(() => "");
   const kotlinCurrent = await readFile(kotlinTarget, "utf8").catch(() => "");
   const catalogCurrent = await readFile(catalogTarget, "utf8").catch(() => "");
-  if (current !== content || kotlinCurrent !== kotlinContent || catalogCurrent !== catalogContent) { console.error("Generated contracts are stale. Run pnpm --filter @shadow/contracts generate."); process.exit(1); }
+  const mcpCurrent = await readFile(mcpTarget, "utf8").catch(() => "");
+  if (current !== content || kotlinCurrent !== kotlinContent || catalogCurrent !== catalogContent || mcpCurrent !== mcpContent) { console.error("Generated contracts are stale. Run pnpm --filter @shadow/contracts generate."); process.exit(1); }
 } else {
   await mkdir(resolve(workoutTarget,".."),{recursive:true});
   await writeFile(workoutTarget,workoutContent);
   await writeFile(target, content);
   await writeFile(kotlinTarget, kotlinContent);
   await writeFile(catalogTarget, catalogContent);
+  await writeFile(mcpTarget, mcpContent);
 }

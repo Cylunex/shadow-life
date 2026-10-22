@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "2ea7e6af6ca0383db256bd344b9aca0fe727fce00caa9be612d1c251de47399f",
+  "catalog_revision": "ad553b1ffe7488003ec34295b486cd448901312ce308e289b855a5142d0d336d",
   "terms": [
     {
       "id": "personal_intent",
@@ -314,6 +314,37 @@
         "health.records"
       ],
       "lookup_tools": []
+    },
+    {
+      "id": "workout",
+      "title": "训练计划与实际训练",
+      "aliases": [
+        "训练",
+        "锻炼",
+        "练了",
+        "健身",
+        "哑铃",
+        "徒手",
+        "组数",
+        "次数",
+        "训练进度"
+      ],
+      "definition": "训练菜单和计划与实际完成的动作、组数和重量分别记录；进度查询引用已执行训练。",
+      "boundaries": [
+        "计划和菜单不证明已经练过，只记录明确完成的组。",
+        "时长进度规则不用于力量训练自动加重量或次数；没有可比执行数据不生成建议。"
+      ],
+      "capabilities": [
+        "health.set_plan",
+        "health.record_workout",
+        "health.workout_progression",
+        "health.records",
+        "health.get_record"
+      ],
+      "lookup_tools": [
+        "health.records",
+        "health.workout_progression"
+      ]
     },
     {
       "id": "visit",

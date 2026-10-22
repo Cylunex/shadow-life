@@ -2,6 +2,7 @@ import { z } from "zod";
 import { LifeClient, toolError } from "./client.js";
 import { uploadLocalImage, uploadTool } from "./media.js";
 import { operatorInstructions } from "./profile.js";
+import { compactCommandTool, compactEntrypoints, compactInstructions, compactQueryTool, listCompactTools, resolveCompactCall, type McpToolset } from "./compact.js";
 
 const requestSchema = z.object({ jsonrpc: z.literal("2.0"), id: z.union([z.string(), z.number().int()]).optional(), method: z.string(), params: z.unknown().optional() });
 const callSchema = z.object({ name: z.string(), arguments: z.unknown().optional() });
@@ -9,7 +10,7 @@ const initializationSchema = z.object({ protocolVersion: z.string(), capabilitie
 const versions = ["2025-06-18", "2025-03-26", "2024-11-05"];
 const rpcError = (id: string | number | null, code: number, message: string) => ({ jsonrpc: "2.0", id, error: { code, message } });
 
-export function createMcpServer(client: LifeClient, mediaRoots: readonly string[] = []) {
+export function createMcpServer(client: LifeClient, mediaRoots: readonly string[] = [], toolset: McpToolset = "full") {
   return async function handleLine(line: string): Promise<unknown | undefined> {
     if (!line.trim()) return;
     let raw: unknown;
@@ -23,11 +24,15 @@ export function createMcpServer(client: LifeClient, mediaRoots: readonly string[
     try {
       if (message.method === "initialize") {
         const input = initializationSchema.parse(message.params);
-        return result({ protocolVersion: versions.includes(input.protocolVersion) ? input.protocolVersion : versions[0], capabilities: { tools: { listChanged: false } }, serverInfo: { name: "shadow-life", version: "0.3.0" }, instructions: operatorInstructions });
+        return result({ protocolVersion: versions.includes(input.protocolVersion) ? input.protocolVersion : versions[0], capabilities: { tools: { listChanged: false } }, serverInfo: { name: "shadow-life", version: "0.4.0" }, instructions: toolset === "compact" ? `${operatorInstructions}\n${compactInstructions}` : operatorInstructions });
       }
       if (message.method === "ping") return result({});
       if (message.method === "tools/list") {
         // Catalog is intentionally refreshed on every list; cached catalogs in gateways need a reconnect.
+        if (toolset === "compact") {
+          const { tools, canUpload } = await listCompactTools(client);
+          return result({ tools: mediaRoots.length > 0 && canUpload ? [uploadTool, ...tools] : tools });
+        }
         const tools = await client.listTools();
         const canUpload = mediaRoots.length > 0 && tools.some(tool => tool.name === "library.capture");
         return result({ tools: canUpload ? [uploadTool, ...tools] : tools });
@@ -35,11 +40,14 @@ export function createMcpServer(client: LifeClient, mediaRoots: readonly string[
       if (message.method === "tools/call") {
         const params = callSchema.parse(message.params), args = params.arguments ?? {};
         const upload = params.name === uploadTool.name && mediaRoots.length > 0;
-        if (!upload && !client.allows(params.name)) return rpcError(message.id, -32602, "Unknown tool or tool unavailable in this profile");
+        const compact = toolset === "compact" && [compactQueryTool.name, compactCommandTool.name].includes(params.name);
+        if (!upload && !compact && (!client.allows(params.name) || toolset === "compact" && !compactEntrypoints.has(params.name))) return rpcError(message.id, -32602, "Unknown tool or tool unavailable in this profile");
+        let targetName = params.name, targetArgs = args;
         try {
-          const value = upload ? await uploadLocalImage(client, mediaRoots, args) : await client.call(params.name as Parameters<LifeClient['call']>[0], args);
+          if (compact) { const target = resolveCompactCall(client, params.name, args); targetName = target.name; targetArgs = target.args; }
+          const value = upload ? await uploadLocalImage(client, mediaRoots, args) : await client.call(targetName as Parameters<LifeClient['call']>[0], targetArgs);
           return result({ content: [{ type: "text", text: JSON.stringify(value) }], structuredContent: value });
-        } catch (error) { return result(toolError(error, params.name, args)); }
+        } catch (error) { return result(toolError(error, targetName, targetArgs)); }
       }
       return rpcError(message.id, -32601, "Method not found");
     } catch (error) {

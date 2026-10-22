@@ -32,6 +32,7 @@ Stdout is JSON-RPC only. No development auth, production URL or credential is em
 | `SHADOW_PROXY_AUTH_SECRET` | Alternative for an already configured trusted local proxy deployment; never distribute to ordinary clients |
 | `SHADOW_PROXY_CLIENT_ID` | Optional server-allowlisted runtime identity for existing trusted proxy authentication; Bearer identity remains token-owned |
 | `SHADOW_MCP_PROFILE` | `personal` by default; `personal-money-void` adds only `money.void_entry` for a specifically configured personal client; `authorized` exposes the server-visible full catalog for explicitly configured operator clients |
+| `SHADOW_MCP_TOOLSET` | `full` by default; `compact` exposes discovery, one read dispatcher, one write dispatcher and receipt recovery, plus the optional image tool. Profile/scenario and API permissions still apply |
 | `SHADOW_MEDIA_ROOTS` | Optional absolute media-cache roots, separated by the platform path delimiter; omitted means no local image tool |
 | `SHADOW_MCP_TIMEOUT_MS` | Per-request deadline, default 30000 ms, maximum 120000 ms |
 
@@ -46,6 +47,48 @@ non-regular/oversized files, detect supported raster formats, and verify the ret
 MIME. Assets use the existing content-addressed API; upload is separate from linking to a business record.
 
 ## Discovery and recovery
+
+### 按需发现的精简工具入口
+
+为没有自行延迟加载工具定义的 Agent/Gateway 设置 `SHADOW_MCP_TOOLSET=compact`。
+默认 `full` 保留所有具名工具；能够自行检索并延迟加载工具的客户端也可继续使用 `full`。
+启动参数改变后需要重新连接对应 MCP 进程。完整与精简模式不能在同一进程内由调用参数切换。
+
+精简模式在完整个人权限下返回四个工具（权限不足时更少）：
+
+| 工具 | 使用方式 |
+| --- | --- |
+| `agent.discover` | 先按任务/术语或 `names` 精确发现；`include_schemas: true` 读取本次需要的参数合同 |
+| `life.query` | `{capability, input}`，只允许只读能力；包括只读 POST 和查询已有回执 |
+| `life.command` | `{capability, command_id, input}`，只允许写能力，保留稳定命令键、版本和原始执行回执 |
+| `operations.find` | `{command_id}`，直接恢复结果未知的原命令 |
+
+例如先调用 `agent.discover`，参数为
+`{"names":["health.workout_progression"],"include_schemas":true}`；
+随后调用 `life.query`，参数为
+`{"capability":"health.workout_progression","input":{}}`。
+返回的 `input_schema` 描述内层 `input`，不要再套一层 command/input。
+发现结果的 `mode` 决定调用查询还是写入入口；分页继续使用原筛选条件与 `next_offset`。
+无需完整合同的搜索先省略 `include_schemas`，选中后再按精确名称读取。
+
+领域工具名称在精简模式中作为 `capability` 参数，不直接调用。同一原则适用于查询结果的
+`detail.capability/input`：逐字复制到 `life.query`，不改 ID，不猜详情类型。
+配置媒体根目录并有对应能力时，`assets.upload_local_image` 仍直接调用；图片验证与关联流程不变。
+写入超时返回的 `recovery.tool=operations.find` 可直接执行，不需再次发现，更不能自动换命令键。
+
+MCP 的两种入口都使用 `LifeClient.call`、共同 typed HTTP transport 和原 Executor。
+查询入口拒绝写能力，写入口拒绝查询；嵌套分发、未知名称、越过 profile/scenario 的请求在本地拒绝，
+服务器继续校验每次实际调用。`life.command` 的风险注解按通用写入保守标注，不授予任何新权限。
+普通领域内写入仍直接执行，不新增审核流程。启动列举只取权限过滤元数据，不下载完整 Schema 目录。
+
+2026-10-22 的合成个人权限测量：具名工具 113 个、精简入口 4 个；`{tools}` 的 UTF-8 JSON
+从 195,494 字节降至 3,785 字节（98.06%）。不含初始化指引、可选图片工具或后续发现结果，
+不代表整个对话的 token、延迟或模型成功率提升。实际 Gateway 需独立验收。
+
+训练查询已纳入个人配置，可用“哑铃”“徒手”“组数”“训练进度”发现计划、实际训练和进度工具。
+训练菜单与实际完成组分开；时长进度规则不用于力量训练自动加重量/次数。
+
+### 共同发现与恢复语义
 
 Use `agent.discover` for authorized task/term matching, `agent.glossary` for business meanings and
 `agent.scenarios` for six task bundles. `agent.catalog` exports the complete authorized contract snapshot

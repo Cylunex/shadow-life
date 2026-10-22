@@ -14,6 +14,15 @@ The examples contain fictional records and illustrative IDs; replace them with r
 - Use `agent.discover` to find tools by business term or scenario before guessing input shapes;
   `agent.glossary` explains fact boundaries and `agent.scenarios` lists authorized task bundles.
   Follow discovery `next_offset` for more matches. Discovery results never prove a record was saved.
+- When the MCP exposes `life.query` / `life.command`, it uses the compact toolset. Discover the exact
+  capability with `include_schemas: true`; its schema describes the inner `input`. Route reads through
+  `life.query` with `{capability, input}` and writes through `life.command` with
+  `{capability, command_id, input}`. The named capabilities in these workflows remain unchanged;
+  `operations.find` and the optional `assets.upload_local_image` stay directly callable.
+  Copy returned `detail.capability/input` into the read dispatcher without changing IDs.
+- For training, discover “哑铃”, “徒手”, “组数” or “训练进度”. Use `health.set_plan` for menus/plans,
+  `health.record_workout` only for actual completed sets, and `health.workout_progression` for existing
+  execution evidence. Its duration rule cannot prescribe strength load or repetition increases.
 - For personal planning, read `agent.workspace` with scenario, exact dates and time zone. Keep facts,
   plans, explicit intentions, task state and derived observations distinct. Follow dedicated reads when
   coverage is incomplete; use `agent.objects` for returned business references and relationships.
