@@ -1055,8 +1055,60 @@ data class OwnedItemsResultDtoItemsEntry(
 )
 
 @Serializable
+enum class OwnedItemsResultDtoAttentionItemsEntryReturnWindowState(val wireValue: String) {
+  @SerialName("unknown") Unknown("unknown"),
+  @SerialName("past") Past("past"),
+  @SerialName("today") Today("today"),
+  @SerialName("soon") Soon("soon"),
+  @SerialName("later") Later("later"),
+  @SerialName("inactive") Inactive("inactive"),
+  @SerialName("empty") Empty("empty")
+}
+
+@Serializable
+data class OwnedItemsResultDtoAttentionItemsEntryReturnWindow(
+  @SerialName("state") val state: OwnedItemsResultDtoAttentionItemsEntryReturnWindowState,
+  @SerialName("days_until") val daysUntil: Long?
+)
+
+@Serializable
+enum class OwnedItemsResultDtoAttentionItemsEntryWarrantyState(val wireValue: String) {
+  @SerialName("unknown") Unknown("unknown"),
+  @SerialName("past") Past("past"),
+  @SerialName("today") Today("today"),
+  @SerialName("soon") Soon("soon"),
+  @SerialName("later") Later("later"),
+  @SerialName("inactive") Inactive("inactive"),
+  @SerialName("empty") Empty("empty")
+}
+
+@Serializable
+data class OwnedItemsResultDtoAttentionItemsEntryWarranty(
+  @SerialName("state") val state: OwnedItemsResultDtoAttentionItemsEntryWarrantyState,
+  @SerialName("days_until") val daysUntil: Long?
+)
+
+@Serializable
+data class OwnedItemsResultDtoAttentionItemsEntry(
+  @SerialName("item_id") val itemId: String,
+  @SerialName("return_window") val returnWindow: OwnedItemsResultDtoAttentionItemsEntryReturnWindow,
+  @SerialName("warranty") val warranty: OwnedItemsResultDtoAttentionItemsEntryWarranty
+)
+
+@Serializable
+data class OwnedItemsResultDtoAttention(
+  @SerialName("on") val on: String,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("return_soon_days") val returnSoonDays: Double,
+  @SerialName("warranty_soon_days") val warrantySoonDays: Double,
+  @SerialName("items") val items: List<OwnedItemsResultDtoAttentionItemsEntry>
+)
+
+@Serializable
 data class OwnedItemsResultDto(
   @SerialName("items") val items: List<OwnedItemsResultDtoItemsEntry>,
+  @SerialName("truncated") val truncated: Boolean,
+  @SerialName("attention") val attention: OwnedItemsResultDtoAttention? = null,
   @SerialName("as_of") val asOf: String
 )
 
@@ -1416,6 +1468,32 @@ data class MoneyPlanningResultDto(
 )
 
 @Serializable
+enum class MealPlanningResultDtoStockAttentionItemsEntryState(val wireValue: String) {
+  @SerialName("unknown") Unknown("unknown"),
+  @SerialName("past") Past("past"),
+  @SerialName("today") Today("today"),
+  @SerialName("soon") Soon("soon"),
+  @SerialName("later") Later("later"),
+  @SerialName("inactive") Inactive("inactive"),
+  @SerialName("empty") Empty("empty")
+}
+
+@Serializable
+data class MealPlanningResultDtoStockAttentionItemsEntry(
+  @SerialName("lot_id") val lotId: String,
+  @SerialName("state") val state: MealPlanningResultDtoStockAttentionItemsEntryState,
+  @SerialName("days_until") val daysUntil: Long?
+)
+
+@Serializable
+data class MealPlanningResultDtoStockAttention(
+  @SerialName("on") val on: String,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("soon_days") val soonDays: Double,
+  @SerialName("items") val items: List<MealPlanningResultDtoStockAttentionItemsEntry>
+)
+
+@Serializable
 enum class MealPlanningResultDtoMealPlansEntryState(val wireValue: String) {
   @SerialName("draft") Draft("draft"),
   @SerialName("active") Active("active"),
@@ -1561,6 +1639,7 @@ data class MealPlanningResultDtoShoppingListsEntry(
 
 @Serializable
 data class MealPlanningResultDto(
+  @SerialName("stock_attention") val stockAttention: MealPlanningResultDtoStockAttention? = null,
   @SerialName("meal_plans") val mealPlans: List<MealPlanningResultDtoMealPlansEntry>,
   @SerialName("stock_lots") val stockLots: List<MealPlanningResultDtoStockLotsEntry>,
   @SerialName("stock_truncated") val stockTruncated: Boolean,

@@ -679,7 +679,7 @@ button.secondary,.soft-button { color:#bdc7d2; border-color:var(--line-strong); 
 .editor-launchers button.active { color:#07130e; background:var(--primary); }
 .editor-card,.compact-form,.catalog-form,.workout-form,.travel-form,.library-upload { margin:12px 0 18px; padding:18px; border-color:var(--line); border-radius:16px; background:#0d141d; box-shadow:none; }
 .form-context,.source-guidance { color:var(--muted); font-size:12px; line-height:1.6; }
-.life-projects:not(.show-editor)>.compact-form,.life-projects:not(.show-action)>.review-range,.meal-planning:not(.show-editor)>.compact-form,.travel-panel:not(.show-tools)>.travel-grid:last-child { display:none; }
+.life-projects:not(.show-editor)>.compact-form,.life-projects:not(.show-action)>.review-range,.meal-planning:not(.show-editor)>.compact-form:not(.stock-form),.travel-panel:not(.show-tools)>.travel-grid:last-child { display:none; }
 .catalog-grid.editor-none>form { display:none; }
 .catalog-grid.editor-food>form:nth-of-type(n+2),.catalog-grid.editor-recipe>form:not(:nth-of-type(2)),.catalog-grid.editor-meal>form:not(:nth-of-type(3)) { display:none; }
 .travel-planning.editor-none>.travel-grid { display:none; }
@@ -1129,3 +1129,19 @@ button.secondary,.soft-button { color:#c3cbd3; border-color:var(--line-strong); 
 .assistant-activities{list-style:none;padding:0;display:flex;flex-wrap:wrap;gap:.5rem;margin:1rem 0}.assistant-activities li{border:1px solid var(--line);border-radius:12px;padding:.5rem .75rem;font-size:.85rem;overflow-wrap:anywhere}.assistant-activities li[data-state="running"]{border-style:dashed}.assistant-transcript p{white-space:pre-wrap;overflow-wrap:anywhere}.library-reader details{margin:1rem 0}.library-reader blockquote{overflow-wrap:anywhere}
 
 .library-search button{white-space:nowrap;flex-shrink:0}.library-reader pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;line-height:1.8;color:var(--ink)}
+
+.attention-toolbar { display:flex; align-items:end; gap:12px; flex-wrap:wrap; margin:18px 0 12px; }
+.attention-toolbar label { flex:1 1 220px; min-width:0; }
+.attention-toolbar small,.attention-toolbar p { flex-basis:100%; }
+.money-planning { min-width:0; }
+.money-planning .plan-card { display:grid; gap:8px; }
+.money-planning .plan-card p { margin:0; font-size:20px; font-variant-numeric:tabular-nums; }
+.money-planning .plan-card button { justify-self:start; }
+.money-planning .action-list li { flex-wrap:wrap; overflow-wrap:anywhere; }
+.library-list > small { display:block; margin-bottom:12px; }
+@media (max-width:640px) { .attention-toolbar label { flex-basis:100%; } .money-planning .panel-heading { align-items:stretch; flex-direction:column; } }
+
+.money-planning { padding:clamp(20px,3vw,29px); border:1px solid var(--line); border-radius:23px; background:var(--surface); }
+.stock-attention-list li { flex-wrap:wrap; }
+.money-planning > .actions { flex-wrap:wrap; }
+.money-planning button { white-space:nowrap; }

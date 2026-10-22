@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "ad553b1ffe7488003ec34295b486cd448901312ce308e289b855a5142d0d336d",
+  "catalog_revision": "1cfd715238efca2e1e82e7c5fae1b7c6055beef76546f7437140bd7c2cf6f435",
   "terms": [
     {
       "id": "personal_intent",
@@ -26586,7 +26586,7 @@
     },
     {
       "name": "life.meal_planning",
-      "description": "读取餐单快照及其购物清单；计划、买到和实际摄入保持独立。",
+      "description": "读取餐单快照、购物清单与显式食品库存；按 on/time_zone 给出未来 7 天到期、已过期、未知日期和用完状态。stock_truncated 标明库存覆盖；计划、买到和实际摄入保持独立。",
       "domain": "life",
       "mode": "read",
       "possible_effects": [
@@ -26599,6 +26599,17 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "on": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "time_zone": {
+            "default": "Asia/Shanghai",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
           "limit": {
             "default": 20,
             "type": "integer",
@@ -26607,6 +26618,7 @@
           }
         },
         "required": [
+          "time_zone",
           "limit"
         ],
         "additionalProperties": false
@@ -26615,6 +26627,74 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "stock_attention": {
+            "type": "object",
+            "properties": {
+              "on": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "time_zone": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "soon_days": {
+                "type": "number",
+                "const": 7
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "lot_id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "unknown",
+                        "past",
+                        "today",
+                        "soon",
+                        "later",
+                        "inactive",
+                        "empty"
+                      ]
+                    },
+                    "days_until": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "lot_id",
+                    "state",
+                    "days_until"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "on",
+              "time_zone",
+              "soon_days",
+              "items"
+            ],
+            "additionalProperties": false
+          },
           "meal_plans": {
             "type": "array",
             "items": {
@@ -27263,7 +27343,7 @@
     },
     {
       "name": "life.owned_items",
-      "description": "读取本人显式加入的物品、售后截止日期、资料引用和维护事件；不会把所有购买记录当作库存。",
+      "description": "读取本人显式加入的物品、售后截止日期、资料引用和维护事件；按 on/time_zone 给出退货 7 天与保修 30 天期限状态，truncated 标明列表覆盖。不会把所有购买记录当作库存。",
       "domain": "life",
       "mode": "read",
       "possible_effects": [
@@ -27276,6 +27356,17 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "on": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "time_zone": {
+            "default": "Asia/Shanghai",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
           "id": {
             "type": "string",
             "pattern": "^[a-z][a-z0-9_]{7,127}$"
@@ -27298,6 +27389,7 @@
           }
         },
         "required": [
+          "time_zone",
           "limit"
         ],
         "additionalProperties": false
@@ -27646,6 +27738,127 @@
               "additionalProperties": false
             }
           },
+          "truncated": {
+            "default": false,
+            "type": "boolean"
+          },
+          "attention": {
+            "type": "object",
+            "properties": {
+              "on": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "time_zone": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "return_soon_days": {
+                "type": "number",
+                "const": 7
+              },
+              "warranty_soon_days": {
+                "type": "number",
+                "const": 30
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "item_id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                    },
+                    "return_window": {
+                      "type": "object",
+                      "properties": {
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "unknown",
+                            "past",
+                            "today",
+                            "soon",
+                            "later",
+                            "inactive",
+                            "empty"
+                          ]
+                        },
+                        "days_until": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "state",
+                        "days_until"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "warranty": {
+                      "type": "object",
+                      "properties": {
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "unknown",
+                            "past",
+                            "today",
+                            "soon",
+                            "later",
+                            "inactive",
+                            "empty"
+                          ]
+                        },
+                        "days_until": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "state",
+                        "days_until"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "item_id",
+                    "return_window",
+                    "warranty"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "on",
+              "time_zone",
+              "return_soon_days",
+              "warranty_soon_days",
+              "items"
+            ],
+            "additionalProperties": false
+          },
           "as_of": {
             "type": "string",
             "format": "date-time",
@@ -27654,6 +27867,7 @@
         },
         "required": [
           "items",
+          "truncated",
           "as_of"
         ],
         "additionalProperties": false

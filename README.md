@@ -14,6 +14,9 @@ recover an existing run after a disconnect or refresh. See the [usage guide](doc
 Home strength training supports themed exercise menus, bodyweight/dumbbell filters and actual sets in Web and Android.
 See the [workout menu guide](docs/guides/workout-menu.md).
 
+Web includes food and item deadline filters, monthly budgets and recurring tasks, paged library search, and offline trip exports.
+See [daily workspace changes](docs/execution/daily-workspaces-2026-10-22.md) and [related project references](docs/research/daily-workspaces-2026-10-22.md).
+
 ## Development
 
 Use Node 24 and pnpm 11. PostgreSQL is required for the integration journey.
