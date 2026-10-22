@@ -41,3 +41,17 @@ test("travel MCP narrows listing, calls and metadata, even if arguments request 
   const rejected = await handle(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "money.record_entry", arguments: {} } })) as any;
   assert.equal(rejected.error.code, -32602);
 });
+
+test("invalid input returns a directly callable schema lookup without submitting a command", async () => {
+  let requests = 0;
+  const client = new LifeClient({ api: "https://life.example.com", token: "test", profile: "personal", fetch: (async () => { requests++; throw new Error("must not submit"); }) as typeof fetch });
+  for (const toolset of ["full", "compact"] as const) {
+    const handle = createMcpServer(client, [], toolset);
+    const input = { command_id: "cmd_bad_budget_amount", input: { period: "2026-10", amount: "oops", currency: "CNY" } };
+    const result = await handle(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: toolset === "full" ? { name: "money.set_budget", arguments: input } : { name: "life.command", arguments: { capability: "money.set_budget", ...input } } })) as any;
+    assert.equal(result.result.isError, true);
+    assert.deepEqual(result.result.structuredContent.recovery.schema_lookup, { tool: "agent.discover", arguments: { names: ["money.set_budget"], include_schemas: true } });
+    assert.ok(result.result.structuredContent.fields.some((field: string) => field.includes("amount")));
+  }
+  assert.equal(requests, 0);
+});

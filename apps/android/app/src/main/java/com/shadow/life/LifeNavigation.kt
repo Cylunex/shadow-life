@@ -90,7 +90,7 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
             viewModel.workspaceOverview,viewModel.workspace,{viewModel.loadWorkspace(domain,it)},{viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,
             {nav.popBackStack()},detail,capture,route.tab,viewModel.moneyPlanningSubmit,viewModel::setBudget,viewModel::setRecurringPlan,viewModel::setSpendingIntent,viewModel::setUseCycle,viewModel::recordConsumableUse,viewModel::setOccurrenceState,viewModel::resetMoneyPlanningSubmit,
             viewModel.serviceCards,viewModel.selectedServiceCard,viewModel.serviceCardSubmit,viewModel::loadServiceCards,viewModel::loadMoreServiceCards,viewModel::openServiceCard,viewModel::closeServiceCard,viewModel::loadOlderServiceCardUses,viewModel::saveServiceCard,viewModel::recordServiceCardUse,viewModel::resetServiceCardSubmit,
-            viewModel.moneyImportMonth,viewModel.moneyImportReview,viewModel.moneyImportSubmit,viewModel::loadMoneyImportMonth,viewModel::openMoneyImportBatch,viewModel::resolveMoneyImport
+            viewModel.moneyImportMonth,viewModel.moneyImportReview,viewModel.moneyImportSubmit,viewModel::loadMoneyImportMonth,viewModel::openMoneyImportBatch,viewModel::resolveMoneyImport,viewModel.moneyPeriod,viewModel::selectMoneyPeriod
           )
           LifeDomain.Travel->TravelWorkspaceScreen(
             viewModel.workspaceOverview,viewModel.workspace,{viewModel.loadWorkspace(domain)},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,capture,route.tab,viewModel::selectTravelTrip,{seed->openComposer(seed)},viewModel.submit,viewModel::saveTravelDay,viewModel::editAgain,viewModel::saveTravelChecklist,viewModel.offlineItinerary,viewModel::prepareOfflineItinerary

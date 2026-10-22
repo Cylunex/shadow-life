@@ -125,14 +125,15 @@ data class TravelTrackSummary(val id:String,val tripId:String,val name:String,va
 data class TravelSegmentSummary(val id:String,val tripId:String,val mode:String,val origin:String,val destination:String,val startsAt:String?,val distanceKm:String?)
 sealed interface WorkspaceOverview { val asOf:String
   data class Meals(val mealPlans:Int,val shoppingLists:Int,val openShoppingItems:Int,override val asOf:String,
-    val plans:List<MealPlanningResultDtoMealPlansEntry> = emptyList(),val lists:List<MealPlanningResultDtoShoppingListsEntry> = emptyList(),val stockLots:List<MealPlanningResultDtoStockLotsEntry> = emptyList(),val stockTruncated:Boolean=false):WorkspaceOverview
+    val plans:List<MealPlanningResultDtoMealPlansEntry> = emptyList(),val lists:List<MealPlanningResultDtoShoppingListsEntry> = emptyList(),val stockLots:List<MealPlanningResultDtoStockLotsEntry> = emptyList(),val stockTruncated:Boolean=false,val stockAttention:MealPlanningResultDtoStockAttention?=null):WorkspaceOverview
   data class Money(
     val period:String,val budgets:List<BudgetProgress>,val recurringPlans:Int,val openOccurrences:Int,val spendingIntents:Int,
     val recurring:List<MoneyRecurringSummary> = emptyList(),val occurrences:List<MoneyOccurrenceSummary> = emptyList(),val intents:List<MoneyIntentSummary> = emptyList(),val useCycles:List<MoneyUseCycleSummary> = emptyList(),
     override val asOf:String,val budgetDetails:List<MoneyPlanningResultDtoBudgetsEntry> = emptyList(),
     val recurringDetails:List<MoneyPlanningResultDtoRecurringPlansEntry> = emptyList(),val occurrenceDetails:List<MoneyPlanningResultDtoOccurrencesEntry> = emptyList(),
     val intentDetails:List<MoneyPlanningResultDtoSpendingIntentsEntry> = emptyList(),
-    val useCycleDetails:List<MoneyPlanningResultDtoUseCyclesEntry> = emptyList()
+    val useCycleDetails:List<MoneyPlanningResultDtoUseCyclesEntry> = emptyList(),
+    val coverage:MoneyPlanningResultDtoTruncated?=null,val limits:MoneyPlanningResultDtoLimits?=null
   ):WorkspaceOverview
   data class Health(
     val sources:Int,val sourcesNeedingAttention:Int,val streams:Int,val summary:TodayHealthSummary,
@@ -168,7 +169,8 @@ data class OwnedItemEvent(val id:String,val kind:String,val occurredOn:String,va
 data class OwnedItemSummary(
   val id:String,val name:String,val state:String,val location:String?,val warrantyEndsOn:String?,val returnBy:String?,val revision:Int,val documents:Int,val events:Int,
   val startedOn:String?=null,val updatedAt:String?=null,val purchase:OwnedItemPurchase?=null,val locationPath:List<String>?=null,
-  val documentItems:List<PlanningLink> = emptyList(),val eventItems:List<OwnedItemEvent> = emptyList()
+  val documentItems:List<PlanningLink> = emptyList(),val eventItems:List<OwnedItemEvent> = emptyList(),
+  val attention:OwnedItemsResultDtoAttentionItemsEntry?=null,val attentionOn:String?=null,val attentionZone:String?=null
 )
 data class ReviewEvidence(val kind:String,val id:String,val revision:Int)
 data class ReviewMetric(val label:String,val value:String)
@@ -178,7 +180,7 @@ data class ReviewSummary(
   val timeZone:String="",val domains:List<String> = emptyList(),val metricGroups:List<ReviewMetricGroup> = emptyList(),val coverageGroups:List<ReviewMetricGroup> = emptyList(),
   val evidence:List<ReviewEvidence> = emptyList(),val limitationItems:List<String> = emptyList()
 )
-data class PlanningWorkspace(val agenda:List<AgendaItem>,val projects:List<PlanSummary>,val ownedItems:List<OwnedItemSummary>,val reviews:List<ReviewSummary>,val truncated:Boolean,val asOf:String,val partialFailures:List<String> = emptyList())
+data class PlanningWorkspace(val agenda:List<AgendaItem>,val projects:List<PlanSummary>,val ownedItems:List<OwnedItemSummary>,val reviews:List<ReviewSummary>,val truncated:Boolean,val asOf:String,val partialFailures:List<String> = emptyList(),val ownedItemsTruncated:Boolean=false,val ownedAttention:OwnedItemsResultDtoAttention?=null)
 data class LibrarySummary(val id:String,val title:String,val itemType:String,val state:String?,val revision:Int?)
 data class LibraryPage(val items:List<LibrarySummary>,val nextCursor:String?,val asOf:String)
 data class DetailFact(val label:String,val value:String)

@@ -64,6 +64,22 @@ identity, and is later uploaded and captured by the recoverable sync worker.
 The share ingress identity survives activity/process recreation, while an explicit discard remains discarded.
 Original display names are retained in the encrypted attachment workflow and become the default library title.
 
+## Daily planning and offline travel
+
+Food stock now shows the server's expiry decisions, date/time zone and loaded coverage, with filters for
+upcoming, past, unknown and empty batches. Corrections retain the original batch/revision and notes.
+The owned-items section searches names and storage paths, filters return/warranty windows, and preserves
+unknown dates and truncated coverage in both the list and detail.
+
+Money planning supports previous/next month and return-to-current-month navigation. Budget editing keeps its
+original category identity and labels gross expense usage explicitly. Recurring occurrences show original
+and adjusted dates, unknown amounts, pending/all states and coverage; marking an occurrence handled does not
+create a payment. Offline itineraries retain out-of-range arrangements, overnight lodging, end/arrival times,
+confirmation details and distinct packed/skipped/needed checklist states.
+
+See [native and Agent delivery](../../docs/execution/native-agent-daily-2026-10-22.md) and
+[reference projects](../../docs/research/native-agent-reference-2026-10-22.md).
+
 ## Local configuration
 
 Set deployment-specific values in the user Gradle properties file or on the Gradle command line. Do not commit

@@ -1,5 +1,8 @@
 package com.shadow.life
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.lazy.LazyColumn
@@ -149,6 +152,8 @@ private fun queueStateLabel(value:String)=when(value){"pending"->"待发送";"se
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun PlansScreen(state:LoadState<PlanningWorkspace>,message:String?,onRetry:()->Unit,onProject:(PlanSummary)->Unit,onOwnedItem:(OwnedItemSummary)->Unit,onReview:(ReviewSummary)->Unit,onAgenda:(AgendaItem)->Unit,onAgendaAction:(AgendaItem,String)->Unit,onProjects:()->Unit,onSettings:()->Unit){
   var selected by rememberSaveable{mutableIntStateOf(0)}
+  var itemQuery by rememberSaveable{mutableStateOf("")}
+  var itemFilter by rememberSaveable{mutableStateOf("all")}
   RootPage("计划",onProjects,onSettings){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp,8.dp,20.dp,112.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
     item{SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()){listOf("今天","本周","项目").forEachIndexed{index,label->SegmentedButton(selected=index==selected,onClick={selected=index},shape=SegmentedButtonDefaults.itemShape(index,3)){Text(label)}}}}
     message?.let{item{Text(it,color=MaterialTheme.colorScheme.primary,style=MaterialTheme.typography.bodyMedium)}}
@@ -157,7 +162,16 @@ private fun queueStateLabel(value:String)=when(value){"pending"->"待发送";"se
       item{Text("生活项目",style=MaterialTheme.typography.titleLarge)}
       if(value.projects.isEmpty())item{EmptyState("还没有生活项目")} else items(value.projects,key={"project:${it.id}"}){plan->LifeCard(onClick={onProject(plan)}){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(plan.title,Modifier.weight(1f),style=MaterialTheme.typography.titleLarge);StatusLabel(plan.state)};plan.goal?.let{Text(it,color=MaterialTheme.colorScheme.onSurfaceVariant)};Text("${plan.actions} 项行动${plan.dueOn?.let{" · 截止 $it"}.orEmpty()}",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
       item{Text("我的物品",style=MaterialTheme.typography.titleLarge,modifier=Modifier.padding(top=10.dp))}
-      if(value.ownedItems.isEmpty())item{Text("还没有显式加入管理的物品。",color=MaterialTheme.colorScheme.onSurfaceVariant)} else items(value.ownedItems,key={"item:${it.id}"}){owned->LifeCard(onClick={onOwnedItem(owned)}){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(owned.name,Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);StatusLabel(owned.state)};Text(listOfNotNull(owned.locationPath?.joinToString(" › ")?:owned.location,owned.returnBy?.let{"退货截至 $it"},owned.warrantyEndsOn?.let{"保修截至 $it"}).joinToString(" · ").ifBlank{"${owned.documents} 份资料 · ${owned.events} 条事件"},color=MaterialTheme.colorScheme.onSurfaceVariant)}}
+      item{
+        OutlinedTextField(itemQuery,{itemQuery=it},Modifier.fillMaxWidth(),label={Text("搜索已加载物品、房间、柜子")},singleLine=true)
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)){
+          listOf("all" to "全部","owned" to "持有中","return" to "7 天内退货","warranty" to "30 天内过保","past" to "已过期限").forEach{(key,label)->FilterChip(itemFilter==key,{itemFilter=key},{Text(label)})}
+        }
+        Text(value.ownedAttention?.let{"按 ${it.on} · ${it.timeZone} 判断 · 已加载 ${value.ownedItems.size} 件"}?:"期限状态未载入",style=MaterialTheme.typography.bodySmall)
+        if(value.ownedItemsTruncated)Text("物品超过 100 件，筛选仅覆盖已加载物品；其他物品可从定位链接打开。",style=MaterialTheme.typography.bodySmall)
+      }
+      val visibleItems=visibleOwnedItems(value.ownedItems,itemQuery,itemFilter)
+      if(visibleItems.isEmpty())item{Text("当前筛选下没有已加载物品。",color=MaterialTheme.colorScheme.onSurfaceVariant)} else items(visibleItems,key={"item:${it.id}"}){owned->LifeCard(onClick={onOwnedItem(owned)}){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(owned.name,Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);StatusLabel(owned.state)};Text("退货：${deadlineLabel(owned.attention?.returnWindow?.state?.wireValue,owned.attention?.returnWindow?.daysUntil)} · 保修：${deadlineLabel(owned.attention?.warranty?.state?.wireValue,owned.attention?.warranty?.daysUntil)}",style=MaterialTheme.typography.bodySmall);Text(listOfNotNull(owned.locationPath?.joinToString(" › ")?:owned.location,owned.returnBy?.let{"退货截至 $it"},owned.warrantyEndsOn?.let{"保修截至 $it"}).joinToString(" · ").ifBlank{"${owned.documents} 份资料 · ${owned.events} 条事件"},color=MaterialTheme.colorScheme.onSurfaceVariant)}}
       item{Text("生活回顾",style=MaterialTheme.typography.titleLarge,modifier=Modifier.padding(top=10.dp))}
       if(value.reviews.isEmpty())item{Text("还没有生成可追溯回顾。",color=MaterialTheme.colorScheme.onSurfaceVariant)} else items(value.reviews,key={"review:${it.id}"}){review->LifeCard(onClick={onReview(review)}){Text("${review.fromOn} — ${review.toOn}",style=MaterialTheme.typography.titleMedium);Text("${review.metrics} 组指标 · ${review.evidence.size} 项证据",color=MaterialTheme.colorScheme.onSurfaceVariant)}}
     }}
@@ -375,7 +389,7 @@ private data class FeatureEntry(val group:String,val title:String,val subtitle:S
     item{StateContent(state,onRetry){}}
     if(owned!=null){
       item{DetailStatus(owned.state,owned.revision)}
-      item{LifeSection("物品信息"){LifeCard{PlanningFact("位置",owned.locationPath?.joinToString(" › ")?:owned.location?:"未设置");PlanningFact("开始持有",owned.startedOn?:"未设置");PlanningFact("退货截至",owned.returnBy?:"不适用");PlanningFact("保修截至",owned.warrantyEndsOn?:"未设置");owned.updatedAt?.let{PlanningFact("最近更新",it)}}}}
+      item{LifeSection("物品信息"){LifeCard{PlanningFact("位置",owned.locationPath?.joinToString(" › ")?:owned.location?:"未设置");PlanningFact("开始持有",owned.startedOn?:"未设置");PlanningFact("退货截至",owned.returnBy?:"未记录");PlanningFact("退货状态",deadlineLabel(owned.attention?.returnWindow?.state?.wireValue,owned.attention?.returnWindow?.daysUntil));PlanningFact("保修截至",owned.warrantyEndsOn?:"未记录");PlanningFact("保修状态",deadlineLabel(owned.attention?.warranty?.state?.wireValue,owned.attention?.warranty?.daysUntil));owned.attentionOn?.let{PlanningFact("判断日期","$it · ${owned.attentionZone.orEmpty()}")};owned.updatedAt?.let{PlanningFact("最近更新",it)}}}}
       owned.purchase?.let{purchase->item{LifeSection("购买来源"){LifeCard(onClick={onRelated("money_entry",purchase.recordId)}){Text(purchase.rawName,style=MaterialTheme.typography.titleMedium);Text(listOfNotNull(purchase.quantity,purchase.unit).joinToString(" ").ifBlank{"数量未记录"},color=MaterialTheme.colorScheme.onSurfaceVariant);purchase.lineAmount?.let{Text("金额 $it")};Text("查看关联交易",color=MaterialTheme.colorScheme.primary)}}}}
       item{Text("资料",style=MaterialTheme.typography.titleLarge)}
       if(owned.documentItems.isEmpty())item{EmptyState("还没有票据、说明书或保修资料")} else items(owned.documentItems,key={"document:${it.id}:${it.revision}"}){document->RelatedPlanningLink(document,onRelated)}

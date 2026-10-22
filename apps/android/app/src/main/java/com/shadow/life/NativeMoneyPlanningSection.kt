@@ -24,20 +24,21 @@ import java.time.LocalDate
   var revision by rememberSaveable{mutableStateOf<Long?>(null)}
   val busy=state is SubmitState.Sending
   Column(verticalArrangement=Arrangement.spacedBy(14.dp)){
-    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("${overview.period} 预算",style=MaterialTheme.typography.headlineSmall);TextButton(onClick={onReset();showEditor=!showEditor;category="";amount="";revision=null}){Text(if(showEditor)"收起" else "新建预算")}}
+    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("${overview.period} 预算",style=MaterialTheme.typography.headlineSmall);TextButton(onClick={onReset();showEditor=!showEditor;category="";amount="";revision=null},enabled=!busy){Text(if(showEditor)"收起" else "新建预算")}}
     PlanningWriteState(state)
     if(showEditor)LifeCard{
-      Text("按本月实际支出跟踪预算",style=MaterialTheme.typography.titleMedium)
-      OutlinedTextField(category,{category=it},Modifier.fillMaxWidth(),label={Text("分类（留空为总预算）")},singleLine=true)
+      Text("按支出原额跟踪预算，退款不冲减这里的已用额",style=MaterialTheme.typography.titleMedium)
+      OutlinedTextField(category,{category=it},Modifier.fillMaxWidth(),label={Text("分类（留空为总预算）")},singleLine=true,enabled=revision==null)
       OutlinedTextField(amount,{amount=it},Modifier.fillMaxWidth(),label={Text("金额 CNY")},singleLine=true)
       Button(onClick={onSave(NativeBudgetDraft(overview.period,category,amount,revision))},enabled=!busy&&amount.isNotBlank(),modifier=Modifier.fillMaxWidth()){Text("保存预算")}
     }
-    if(overview.budgetDetails.isEmpty())Text("本月还没有预算。",color=MaterialTheme.colorScheme.onSurfaceVariant)
+    if(overview.coverage?.budgets==true)Text("仅显示前 ${overview.limits?.budgets} 项预算。",color=MaterialTheme.colorScheme.onSurfaceVariant)
+    if(overview.budgetDetails.isEmpty())Text("所选月份还没有预算。",color=MaterialTheme.colorScheme.onSurfaceVariant)
     overview.budgetDetails.forEach{budget->LifeCard{
       Text(budget.category?:"全部消费",style=MaterialTheme.typography.titleMedium)
       Text("已用 ${budget.currency} ${budget.spent} / ${budget.amount}")
-      Text("按本月已记录的支出计算",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-      TextButton(onClick={onReset();category=budget.category.orEmpty();amount=budget.amount;revision=budget.revision;showEditor=true},enabled=!busy){Text("调整金额")}
+      Text("已用按支出原额计算，退款不冲减",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+      if(budget.currency=="CNY")TextButton(onClick={onReset();category=budget.category.orEmpty();amount=budget.amount;revision=budget.revision;showEditor=true},enabled=!busy){Text("调整金额")}
     }}
   }
 }
@@ -68,6 +69,9 @@ import java.time.LocalDate
       OutlinedTextField(dueOn,{dueOn=it},Modifier.fillMaxWidth(),label={Text("下次日期 YYYY-MM-DD")},singleLine=true)
       Button(onClick={onSave(NativeRecurringDraft(title,amount,cadence,dueOn,category,editing))},enabled=!busy&&title.isNotBlank()&&runCatching{LocalDate.parse(dueOn)}.isSuccess,modifier=Modifier.fillMaxWidth()){Text("保存周期计划")}
     }
+    Text("周期计划不等于实际付款；处理状态不会自动记账。",style=MaterialTheme.typography.bodySmall)
+    if(overview.coverage?.recurringPlans==true)Text("周期计划仅显示前 ${overview.limits?.recurringPlans} 项。")
+    if(overview.coverage?.occurrences==true)Text("期次仅显示前 ${overview.limits?.occurrences} 项。")
     if(overview.recurringDetails.isEmpty())Text("还没有周期费用计划。",color=MaterialTheme.colorScheme.onSurfaceVariant)
     overview.recurringDetails.forEach{plan->LifeCard{
       Text(plan.title,style=MaterialTheme.typography.titleMedium)
@@ -78,13 +82,17 @@ import java.time.LocalDate
         TextButton(onClick={onSave(NativeRecurringDraft(plan.title,plan.amount.orEmpty(),plan.cadence.wireValue,plan.nextDueOn,plan.category.orEmpty(),plan,if(plan.state.wireValue=="paused")"active" else "paused"))},enabled=!busy){Text(if(plan.state.wireValue=="paused")"继续" else "暂停")}
       }
     }}
-    val occurrences=overview.occurrenceDetails.filter{it.state.wireValue in setOf("pending","reminded","snoozed")}
-    if(occurrences.isNotEmpty())Text("待处理事项",style=MaterialTheme.typography.titleLarge)
+    var occurrenceFilter by rememberSaveable{mutableStateOf("pending")}
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){listOf("pending" to "待处理","all" to "全部期次").forEach{(key,label)->FilterChip(occurrenceFilter==key,{occurrenceFilter=key},{Text(label)})}}
+    val occurrences=overview.occurrenceDetails.filter{occurrenceFilter=="all"||it.state.wireValue in setOf("pending","reminded","snoozed")}
+    if(occurrences.isEmpty())Text("所选月份当前筛选下没有已加载期次。") else Text("${overview.period} 周期事项",style=MaterialTheme.typography.titleLarge)
     occurrences.forEach{item->LifeCard{
       val plan=overview.recurringDetails.firstOrNull{it.id==item.planId}
       Text(plan?.title?:"周期事项",style=MaterialTheme.typography.titleMedium)
-      Text("${item.effectiveDueOn} · ${when(item.state.wireValue){"snoozed"->"已稍后提醒";"reminded"->"已提醒";else->"待处理"}}",color=MaterialTheme.colorScheme.onSurfaceVariant)
-      Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+      Text("${item.effectiveDueOn} · ${when(item.state.wireValue){"snoozed"->"已稍后提醒";"reminded"->"已提醒";"handled"->"已处理";"dismissed"->"已忽略";else->"待处理"}}",color=MaterialTheme.colorScheme.onSurfaceVariant)
+      if(item.dueOn!=item.effectiveDueOn)Text("原定 ${item.dueOn}",style=MaterialTheme.typography.bodySmall)
+      Text(plan?.amount?.let{"计划金额 ${plan.currency} $it（非实付）"}?:"计划金额未定",style=MaterialTheme.typography.bodySmall)
+      if(item.state.wireValue in setOf("pending","reminded","snoozed"))Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){
         TextButton(onClick={onOccurrence(item,"handled")},enabled=!busy){Text("已处理")}
         TextButton(onClick={onOccurrence(item,"snoozed")},enabled=!busy){Text("明天提醒")}
         TextButton(onClick={onOccurrence(item,"dismissed")},enabled=!busy){Text("忽略本次")}
@@ -124,7 +132,7 @@ import java.time.LocalDate
       }
       Button(onClick={onSave(NativeSpendingIntentDraft(title,amount,intendedOn,editing,intentState,linkedId))},enabled=!busy&&title.isNotBlank()&&(intentState!="purchased"||linkedId!=null),modifier=Modifier.fillMaxWidth()){Text("保存")}
     }
-    if(overview.intentDetails.isEmpty())Text("本月没有购买想法。",color=MaterialTheme.colorScheme.onSurfaceVariant)
+    if(overview.intentDetails.isEmpty())Text("所选月份没有购买想法。",color=MaterialTheme.colorScheme.onSurfaceVariant)
     overview.intentDetails.forEach{item->LifeCard{
       Text(item.title,style=MaterialTheme.typography.titleMedium)
       Text(listOfNotNull(item.intendedOn,item.expectedAmount?.let{"${item.currency.orEmpty()} $it"}).joinToString(" · ").ifBlank{"未设置日期或金额"},color=MaterialTheme.colorScheme.onSurfaceVariant)

@@ -92,3 +92,28 @@ test("snapshot comparison detects contract and terminology changes independently
   assert.deepEqual(diff.terms.changed, [old.terms[0]!.id]); assert.deepEqual(diff.scenarios.removed, ["planning"]);
   assert.deepEqual(diffAgentCatalogs(old, structuredClone(old)).capabilities.changed, []);
 });
+
+test("daily task discovery ranks useful reads and recognizes bilingual whole-word phrases", () => {
+  const cases = [
+    ["看看冰箱哪些东西快过期了", "life.meal_planning"],
+    ["哪些物品快过保了，还能退货吗", "life.owned_items"],
+    ["这个月预算还剩多少", "money.planning"],
+    ["查查看还有哪些订阅要续费", "money.planning"],
+    ["show expiry food", "life.meal_planning"],
+    ["CHECK WINDOW RETURN", "life.owned_items"],
+    ["list budget monthly", "money.planning"],
+    ["帮我更新冰箱库存", "life.set_food_stock"]
+  ];
+  for (const [query, expected] of cases) {
+    const result = discoverAgentCapabilities(all, { query, profile: "personal" });
+    assert.equal(result.capabilities[0]?.name, expected, query);
+  }
+  for (const query of ["scarecrow", "postcard", "unbudgeted"]) assert.equal(discoverAgentCapabilities(all, { query }).total, 0, query);
+  assert.equal(discoverAgentCapabilities(all, { query: "ＭＯＮＥＹ．ＳＥＴ＿ＢＵＤＧＥＴ" }).capabilities[0]?.name, "money.set_budget");
+  const healthOnly = context(["health.measurement.read"]);
+  assert.equal(discoverAgentCapabilities(healthOnly, { query: "物品保修 food expiry monthly budget" }).total, 0);
+  const travelOnly = discoverAgentCapabilities(all, { query: "过保 预算", scenario: "travel", profile: "personal" });
+  assert.equal(travelOnly.total, 0);
+  const budget = queryAgentGlossary(all, { query: "monthly budget" });
+  assert.ok(budget.terms.some(term => term.id === "budget" && term.boundaries.some(line => line.includes("退款不冲减"))));
+});

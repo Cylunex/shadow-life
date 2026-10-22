@@ -125,6 +125,9 @@ export function toolError(error: unknown, name: string, args: unknown) {
     : detail.code === "retryable_not_applied" ? { action: "retry_same_command", instruction: "The server reports no write was applied; retry the same command_id and input when available." }
     : detail.code === "validation" || detail.code === "missing_fact" ? { action: "correct_input", instruction: "Correct only the listed fields. Omit unknown optional values rather than null; ask only for a necessary fact that changes business meaning." }
     : { action: "report_error", instruction: "Report the actual unavailable capability or error; do not substitute legacy services or invent success." };
-  const body = { ...detail, capability: name, recovery };
+  const schemaLookup = isCapability(name) && ["validation", "missing_fact"].includes(String(detail.code)) ? {
+    schema_lookup: { tool: "agent.discover", arguments: { names: [name], include_schemas: true } }
+  } : {};
+  const body = { ...detail, capability: name, recovery: { ...recovery, ...schemaLookup } };
   return { isError: true, content: [{ type: "text", text: JSON.stringify(body) }], structuredContent: body };
 }

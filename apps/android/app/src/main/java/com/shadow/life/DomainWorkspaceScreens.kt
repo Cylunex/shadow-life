@@ -47,7 +47,8 @@ import kotlin.math.abs
   cardsState:LoadState<ServiceCardsResultDto>,selectedCard:LoadState<ServiceCardsResultDtoItemsEntry>?,cardSubmit:SubmitState,
   onLoadCards:(String)->Unit,onMoreCards:()->Unit,onOpenCard:(String)->Unit,onCloseCard:()->Unit,onOlderUses:()->Unit,
   onSaveCard:(NativeServiceCardDraft)->Unit,onCardUse:(NativeServiceCardUseDraft)->Unit,onResetCard:()->Unit,
-  importMonth:LoadState<MoneyImportMonthSummary>,importReview:LoadState<MoneyImportReviewSummary>?,importSubmit:SubmitState,onLoadImportMonth:(String)->Unit,onOpenImportBatch:(String)->Unit,onResolveImport:(MoneyImportCandidateSummary,String,String,String,String,String,String)->Unit
+  importMonth:LoadState<MoneyImportMonthSummary>,importReview:LoadState<MoneyImportReviewSummary>?,importSubmit:SubmitState,onLoadImportMonth:(String)->Unit,onOpenImportBatch:(String)->Unit,onResolveImport:(MoneyImportCandidateSummary,String,String,String,String,String,String)->Unit,
+  planningPeriod:String,onPlanningPeriod:(String)->Unit
 ){
   var tab by rememberSaveable(initialTab){mutableStateOf(initialTab.takeIf{it in setOf("overview","details","budgets","recurring","intents","supplies","cards","reconcile")}?:"overview")};var query by rememberSaveable{mutableStateOf("")}
   val workspaceScroll=rememberLazyListState()
@@ -66,12 +67,21 @@ import kotlin.math.abs
     navigationIcon={IconButton(onClick=onBack){Text("‹",style=MaterialTheme.typography.headlineLarge)}},actions={FilledTonalIconButton(onClick={onCapture(CaptureKind.Expense)}){Icon(Icons.Default.Add,"记一笔")}}
   )}){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),state=workspaceScroll,contentPadding=PaddingValues(20.dp,10.dp,20.dp,28.dp),verticalArrangement=Arrangement.spacedBy(18.dp)){
     item{WorkspaceTabs(tab,{tab=it},listOf("overview" to "概览","details" to "明细","reconcile" to "核对","budgets" to "预算","recurring" to "订阅","intents" to "想买","supplies" to "消耗品","cards" to "次卡"))}
+    if(tab in setOf("budgets","recurring","intents","supplies"))item{
+      val month=java.time.YearMonth.parse(planningPeriod)
+      Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
+        TextButton(onClick={onPlanningPeriod(month.minusMonths(1).toString())},enabled=planningState !is SubmitState.Sending&&(month.year>1||month.monthValue>1)){Text("上月")}
+        Text(planningPeriod,style=MaterialTheme.typography.titleMedium)
+        TextButton(onClick={onPlanningPeriod(month.plusMonths(1).toString())},enabled=planningState !is SubmitState.Sending&&(month.year<9999||month.monthValue<12)){Text("下月")}
+      }
+      if(planningPeriod!=java.time.YearMonth.now().toString())TextButton(onClick={onPlanningPeriod(java.time.YearMonth.now().toString())},enabled=planningState !is SubmitState.Sending){Text("回到本月")}
+    }
     item{StateContent(overviewState,onRetry){} }
     if(tab=="cards")item{NativeServiceCardsSection(cardsState,selectedCard,cardSubmit,records,onLoadCards,onSearch,onMoreCards,onOpenCard,onCloseCard,onOlderUses,onSaveCard,onCardUse,onResetCard)}
     if(tab=="reconcile")item{NativeMoneyImportSection(importMonth,importReview,importSubmit,onLoadImportMonth,onOpenImportBatch,onResolveImport)}
     if(overview!=null&&tab!="cards"&&tab!="reconcile")when(tab){
-      "budgets"->item{NativeBudgetSection(overview,planningState,onSaveBudget,onResetPlanning)}
-      "recurring"->item{NativeRecurringSection(overview,planningState,onSaveRecurring,onOccurrence,onResetPlanning)}
+      "budgets"->item{key(overview.period){NativeBudgetSection(overview,planningState,onSaveBudget,onResetPlanning)}}
+      "recurring"->item{key(overview.period){NativeRecurringSection(overview,planningState,onSaveRecurring,onOccurrence,onResetPlanning)}}
       "intents"->item{NativeSpendingIntentSection(overview,planningState,records,onSearch,onSaveIntent,onResetPlanning)}
       "supplies"->item{NativeUseCycleSection(overview,planningState,onSaveCycle,onConsumableUse,onResetPlanning)}
       "details"->{item{MoneySearch(query,{query=it},{onSearch(query)},onCapture)};if(recordsState is LoadState.Ready)item{MoneyRecordList(records,onDetail)};if(recordsState is LoadState.Ready&&recordsState.value.nextCursor!=null)item{LoadMoreButton("加载更多明细",onLoadMore)}}

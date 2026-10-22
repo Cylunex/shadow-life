@@ -88,6 +88,25 @@ MCP 的两种入口都使用 `LifeClient.call`、共同 typed HTTP transport 和
 训练查询已纳入个人配置，可用“哑铃”“徒手”“组数”“训练进度”发现计划、实际训练和进度工具。
 训练菜单与实际完成组分开；时长进度规则不用于力量训练自动加重量/次数。
 
+### 日常问题与参数纠正
+
+可以直接用 `agent.discover` 检索“看看冰箱哪些东西快过期了”“哪些物品快过保了”
+“这个月预算还剩多少”“哪些订阅要续费”；也支持 `show expiry food`、`list budget monthly` 等
+英文短语。查看类表达优先排序对应读取工具，但不替用户执行或推断写入；明确写入仍用实际
+Schema、命令键和当前修订。`read_only: true` 是需要严格只读目录时的显式筛选。
+
+食品/物品期限以返回的日期、时区和 `attention` 为准。预算 `spent` 是支出原额，退款不冲减；
+周期计划金额不是实际付款。所有截断、游标和未知日期保持原语义。
+
+已识别能力的参数错误可能包含：
+
+```json
+{"recovery":{"action":"correct_input","schema_lookup":{"tool":"agent.discover","arguments":{"names":["money.set_budget"],"include_schemas":true}}}}
+```
+
+按 `schema_lookup` 读取当前合同，再只改错误字段。它是帮助恢复的提示，不是已经重试或保存成功；
+full 与 compact 都可直接调用 `agent.discover`。结果未知仍先查原命令回执，冲突仍先读取当前记录。
+
 ### 共同发现与恢复语义
 
 Use `agent.discover` for authorized task/term matching, `agent.glossary` for business meanings and

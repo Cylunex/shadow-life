@@ -153,18 +153,18 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     },result.nextCursor,result.asOf)
   }
 
-  suspend fun workspaceOverview(domain:LifeDomain,tripId:String?=null):WorkspaceOverview=when(domain){
+  suspend fun workspaceOverview(domain:LifeDomain,tripId:String?=null,moneyPeriod:String?=null):WorkspaceOverview=when(domain){
     LifeDomain.Meals->{
-      val result=wireJson.decodeFromString<MealPlanningResultDto>(getText("/api/life/meal-planning?limit=20"))
+      val result=wireJson.decodeFromString<MealPlanningResultDto>(getText("/api/life/meal-planning?limit=20&time_zone=${encode(ZoneId.systemDefault().id)}"))
       WorkspaceOverview.Meals(
         mealPlans=result.mealPlans.size,
         shoppingLists=result.shoppingLists.size,
         openShoppingItems=result.shoppingLists.sumOf{list->list.items.count{it.state.wireValue=="needed"}},
-        asOf=result.asOf,plans=result.mealPlans,lists=result.shoppingLists,stockLots=result.stockLots,stockTruncated=result.stockTruncated
+        asOf=result.asOf,plans=result.mealPlans,lists=result.shoppingLists,stockLots=result.stockLots,stockTruncated=result.stockTruncated,stockAttention=result.stockAttention
       )
     }
     LifeDomain.Money->{
-      val period=LocalDate.now().toString().take(7)
+      val period=moneyPeriod?.let{java.time.YearMonth.parse(it).toString()}?:LocalDate.now().toString().take(7)
       val result=wireJson.decodeFromString<MoneyPlanningResultDto>(getText("/api/money/planning?period=$period"))
       WorkspaceOverview.Money(
         period=period,
@@ -176,7 +176,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         occurrences=result.occurrences.map{occurrence->val plan=result.recurringPlans.firstOrNull{it.id==occurrence.planId};MoneyOccurrenceSummary(occurrence.id,plan?.title?:"周期事项",occurrence.effectiveDueOn,occurrence.state.wireValue,plan?.amount,plan?.currency)},
         intents=result.spendingIntents.map{MoneyIntentSummary(it.id,it.title,it.expectedAmount,it.currency,it.intendedOn,it.state.wireValue)},
         useCycles=result.useCycles.map{MoneyUseCycleSummary(it.id,it.itemName,it.remainingQuantity,it.quantityLabel?:it.quantityUnit?.wireValue,it.balanceStatus.wireValue,it.projectedDepletionOn,it.matchedIntakes.toInt(),it.usageState?.wireValue?:"in_use",it.estimatedRemainingQuantity,it.consumedQuantity,it.matchMode.wireValue)},
-        asOf=result.asOf,budgetDetails=result.budgets,recurringDetails=result.recurringPlans,occurrenceDetails=result.occurrences,intentDetails=result.spendingIntents,useCycleDetails=result.useCycles
+        asOf=result.asOf,budgetDetails=result.budgets,recurringDetails=result.recurringPlans,occurrenceDetails=result.occurrences,intentDetails=result.spendingIntents,useCycleDetails=result.useCycles,coverage=result.truncated,limits=result.limits
       )
     }
     LifeDomain.Health->healthOverview()
@@ -209,12 +209,12 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   suspend fun planning():PlanningWorkspace=coroutineScope{
     val today=LocalDate.now();val zone=ZoneId.systemDefault().id
     val agendaRequest=async{wireJson.decodeFromString<PlanningAgendaResultDto>(getText("/api/planning/agenda?from_on=$today&to_on_exclusive=${today.plusDays(7)}&time_zone=${encode(zone)}&limit=100"))}
-    val projectsRequest=async{partialRequest{wireJson.decodeFromString<LifeProjectsResultDto>(getText("/api/life/projects?limit=50"))}};val itemsRequest=async{partialRequest{wireJson.decodeFromString<OwnedItemsResultDto>(getText("/api/life/owned-items?limit=50"))}};val reviewsRequest=async{partialRequest{wireJson.decodeFromString<LifeReviewsResultDto>(getText("/api/life/reviews?limit=20"))}}
+    val projectsRequest=async{partialRequest{wireJson.decodeFromString<LifeProjectsResultDto>(getText("/api/life/projects?limit=50"))}};val itemsRequest=async{partialRequest{wireJson.decodeFromString<OwnedItemsResultDto>(getText("/api/life/owned-items?limit=100&time_zone=${encode(zone)}"))}};val reviewsRequest=async{partialRequest{wireJson.decodeFromString<LifeReviewsResultDto>(getText("/api/life/reviews?limit=20"))}}
     val agenda=agendaRequest.await();val projectsResult=projectsRequest.await();val itemsResult=itemsRequest.await();val reviewsResult=reviewsRequest.await();val projects=projectsResult.getOrNull();val items=itemsResult.getOrNull();val reviews=reviewsResult.getOrNull()
     PlanningWorkspace(
       agenda=agenda.items.map{item->AgendaItem(item.sourceKind.wireValue,item.sourceId,item.sourceKey,item.title,item.state.wireValue,item.dueOn,item.dueAt,item.target.kind.wireValue,item.target.id,item.target.projectId,item.primaryAction?.let{AgendaAction(it.capability.wireValue,it.targetId,it.expectedRevision.toInt())})},
       projects=projects?.items?.map(::projectSummary).orEmpty(),
-      ownedItems=items?.items?.map(::ownedItemSummary).orEmpty(),
+      ownedItems=items?.items?.map{ownedItemSummary(it,items.attention)}.orEmpty(),ownedItemsTruncated=items?.truncated?:false,ownedAttention=items?.attention,
       reviews=reviews?.items?.map(::reviewSummary).orEmpty(),
       truncated=agenda.truncated,asOf=agenda.asOf,
       partialFailures=listOfNotNull(
@@ -231,8 +231,8 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   }
 
   suspend fun ownedItem(id:String):OwnedItemSummary{
-    val result=wireJson.decodeFromString<OwnedItemsResultDto>(getText("/api/life/owned-items?id=${encode(id)}&limit=1"))
-    return result.items.singleOrNull()?.let(::ownedItemSummary)?:error("物品不存在或当前无权查看")
+    val result=wireJson.decodeFromString<OwnedItemsResultDto>(getText("/api/life/owned-items?id=${encode(id)}&limit=1&time_zone=${encode(ZoneId.systemDefault().id)}"))
+    return result.items.singleOrNull()?.let{ownedItemSummary(it,result.attention)}?:error("物品不存在或当前无权查看")
   }
 
   suspend fun review(id:String):ReviewSummary{
@@ -248,7 +248,8 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     actionItems=item.actions.map{action->ProjectAction(action.id,action.title,action.dueOn,action.state.wireValue,action.revision.toInt(),action.sourceState,action.scheduledAt,action.scheduledTimeZone)}
   )
 
-  private fun ownedItemSummary(item:OwnedItemsResultDtoItemsEntry)=OwnedItemSummary(
+  private fun ownedItemSummary(item:OwnedItemsResultDtoItemsEntry,attention:OwnedItemsResultDtoAttention?)=OwnedItemSummary(
+    attention=attention?.items?.firstOrNull{it.itemId==item.id},attentionOn=attention?.on,attentionZone=attention?.timeZone,
     id=item.id,name=item.name,state=item.ownershipState.wireValue,location=item.location,warrantyEndsOn=item.warrantyEndsOn,returnBy=item.returnBy,
     revision=item.revision.toInt(),documents=item.documents.size,events=item.events.size,startedOn=item.startedOn,updatedAt=item.updatedAt,locationPath=item.locationPath,
     purchase=item.purchase?.let{purchase->OwnedItemPurchase(purchase.purchaseItemId,purchase.purchaseId,purchase.recordId,purchase.rawName,purchase.quantity,purchase.unit,purchase.lineAmount)},
@@ -327,7 +328,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   suspend fun prepareOfflineItinerary(tripId:String):NativeOfflineItinerary=withContext(Dispatchers.IO){
     val detail=JSONObject(getText("/api/travel/trips/${encode(tripId)}"))
     val workspace=JSONObject(getText("/api/travel/workspace?trip_id=${encode(tripId)}"))
-    renderNativeOfflineItinerary(tripId,detail,workspace)
+    renderNativeOfflineItinerary(tripId,detail.toString(),workspace.toString())
   }
   suspend fun queueLibraryVision(itemId:String,assetVersionId:String):OperationReceipt=withContext(Dispatchers.IO){enqueueCommand("library.queue_processing",JSONObject().put("item_id",itemId).put("source_asset_version_id",assetVersionId).put("kind","vision").put("requested_processor","configured-vision-v1"))}
   suspend fun retryLibraryVision(jobId:String):OperationReceipt=withContext(Dispatchers.IO){enqueueCommand("library.retry_processing",JSONObject().put("job_id",jobId))}
@@ -371,7 +372,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     enqueueCommand("life.save_action_item",JSONObject().put("project_id",projectId).put("title",title.trim()).put("due_on",date.ifBlank{null}).put("state","open").apply{if(scheduled!=null){put("scheduled_at",scheduled);put("scheduled_time_zone",zone.id)}})
   }
   suspend fun setFoodStock(lot:MealPlanningResultDtoStockLotsEntry?,name:String,quantity:String,unit:String,expiresOn:String?):OperationReceipt=withContext(Dispatchers.IO){
-    enqueueCommand("life.set_food_stock",JSONObject().apply{lot?.let{put("lot_id",it.id).put("expected_revision",it.revision)};put("name",name.trim());put("quantity",quantity.trim());put("unit",unit.trim());put("expires_on",expiresOn?.takeIf(String::isNotBlank))})
+    enqueueCommand("life.set_food_stock",JSONObject().apply{lot?.let{put("lot_id",it.id).put("expected_revision",it.revision);it.note?.let{note->put("note",note)}};put("name",name.trim());put("quantity",quantity.trim());put("unit",unit.trim());put("expires_on",expiresOn?.takeIf(String::isNotBlank))})
   }
   suspend fun setBudget(draft:NativeBudgetDraft):OperationReceipt=withContext(Dispatchers.IO){enqueueCommand("money.set_budget",budgetPayload(draft))}
   suspend fun setRecurringPlan(draft:NativeRecurringDraft):OperationReceipt=withContext(Dispatchers.IO){enqueueCommand("money.set_recurring_plan",recurringPayload(draft,ZoneId.systemDefault()))}

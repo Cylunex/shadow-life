@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "1cfd715238efca2e1e82e7c5fae1b7c6055beef76546f7437140bd7c2cf6f435",
+  "catalog_revision": "d6754534eb89a801f30b29569a38f6135211f809fdb8f5d32b18768d07688292",
   "terms": [
     {
       "id": "personal_intent",
@@ -254,9 +254,14 @@
         "食材",
         "保质期",
         "过期",
+        "临期",
         "冰箱",
         "食品库存",
-        "库存"
+        "库存",
+        "food stock",
+        "food expiry",
+        "pantry",
+        "expiration"
       ],
       "definition": "显式维护的食品批次、余量和到期日，用于餐单与购物缺口。",
       "boundaries": [
@@ -268,7 +273,94 @@
         "life.meal_planning",
         "life.build_shopping_list"
       ],
-      "lookup_tools": []
+      "lookup_tools": [
+        "life.meal_planning"
+      ]
+    },
+    {
+      "id": "owned-item",
+      "title": "物品与售后期限",
+      "aliases": [
+        "物品",
+        "保修",
+        "过保",
+        "退货期",
+        "还能退",
+        "能退货",
+        "放在哪",
+        "存放位置",
+        "说明书",
+        "warranty",
+        "return window",
+        "owned items"
+      ],
+      "definition": "显式加入的物品、结构化位置、退货与保修期限及维护资料。",
+      "boundaries": [
+        "按返回的 on/time_zone 和 attention 判断日历日期，不用手机或模型时钟重新推断。",
+        "truncated=true 时仅代表已加载物品；没有日期不是没有保修。"
+      ],
+      "capabilities": [
+        "life.owned_items",
+        "life.save_owned_item",
+        "life.record_owned_item_event"
+      ],
+      "lookup_tools": [
+        "life.owned_items"
+      ]
+    },
+    {
+      "id": "budget",
+      "title": "预算使用",
+      "aliases": [
+        "预算",
+        "预算剩余",
+        "预算超支",
+        "monthly budget",
+        "budget"
+      ],
+      "definition": "按月份与分类查看预算和已确认支出原额。",
+      "boundaries": [
+        "spent 是支出原额，退款不冲减预算已用额。",
+        "分币种读取，覆盖截断时不声称已查完。"
+      ],
+      "capabilities": [
+        "money.planning",
+        "money.set_budget",
+        "money.summarize"
+      ],
+      "lookup_tools": [
+        "money.planning"
+      ]
+    },
+    {
+      "id": "recurring",
+      "title": "周期事项与期次",
+      "aliases": [
+        "订阅",
+        "续费",
+        "周期费用",
+        "到期账单",
+        "扣费提醒",
+        "稍后提醒",
+        "subscription",
+        "recurring",
+        "renewal"
+      ],
+      "definition": "区分周期计划、原定期次、调整后的提醒日期与已关联的实际账目。",
+      "boundaries": [
+        "处理或跳过期次不会生成支出；计划金额不代表实际付款。",
+        "未知金额保持未知；按原定月份查询时仍显示调整后的日期。"
+      ],
+      "capabilities": [
+        "money.planning",
+        "money.set_recurring_plan",
+        "money.set_occurrence_state",
+        "life.planning_agenda"
+      ],
+      "lookup_tools": [
+        "money.planning",
+        "life.planning_agenda"
+      ]
     },
     {
       "id": "measurement",

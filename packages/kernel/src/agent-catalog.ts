@@ -11,12 +11,24 @@ import { notFound } from "./errors.js";
 const catalog = buildAgentCatalogDocument();
 export const agentCatalogRevision = createHash("sha256").update(JSON.stringify(catalog)).digest("hex");
 const normalize = (text: string) => text.normalize("NFKC").toLowerCase().replace(/[\s\p{P}]/gu, "");
+const words = (text: string) => text.normalize("NFKC").toLowerCase().match(/[a-z0-9]+/gu) ?? [];
 function matches(query: string, values: readonly string[]): boolean {
-  const q = normalize(query);
+  const q = normalize(query), queryWords = new Set(words(query));
   return !q || values.some(value => {
     const candidate = normalize(value);
-    return candidate.length >= 2 && (candidate.includes(q) || q.includes(candidate));
+    if (candidate.length < 2) return false;
+    // Latin aliases match whole words, including reordered phrases; "car" must not match "card".
+    if (/^[a-z0-9\s._-]+$/iu.test(value)) {
+      const tokens = words(value);
+      return tokens.length > 0 && tokens.every(token => queryWords.has(token));
+    }
+    return candidate.includes(q) || q.includes(candidate);
   });
+}
+function isLookup(query: string): boolean {
+  const q = query.normalize("NFKC").toLowerCase();
+  if (/记录|新增|添加|修改|更新|校正|保存|设置|标记|取消|作废|删除|\b(?:add|record|update|save|set|delete|cancel)\b/u.test(q)) return false;
+  return /查看|查询|看看|哪些|多少|还剩|剩余|快过期|快过保|还能退|放在哪|\b(?:find|show|list|check|search)\b/u.test(q);
 }
 const termMatches = (query: string, term: AgentTerm) => matches(query, [term.id, term.title, ...term.aliases]);
 function visibleNames(context: RequestContext, profile: McpProfile = "authorized", scenario?: AgentScenarioName): Set<string> {
@@ -40,11 +52,15 @@ export function discoverAgentCapabilities(context: RequestContext, input: unknow
     .filter(item => !parsed.read_only || item.mode === "read")
     .map(item => {
       const matched = terms.filter(term => term.capabilities.includes(item.name));
-      const q = parsed.query.trim().toLowerCase();
+      const q = parsed.query.normalize("NFKC").trim().toLowerCase();
       const nameScore = q && item.name.toLowerCase() === q ? 100 : q && item.name.toLowerCase().includes(q) ? 60 : 0;
       const descriptionScore = q && matches(q, [item.description]) ? 30 : 0;
-      const termScore = matched.reduce((sum, term) => sum + 15 + (term.capabilities.length - term.capabilities.indexOf(item.name)) * 2, 0);
-      const score = nameScore + descriptionScore + (q ? termScore : 0);
+      const termScore = matched.reduce((sum, term) => {
+        const aliases = new Set([term.title, ...term.aliases].filter(alias => matches(q, [alias])).map(normalize));
+        return sum + 15 + (term.capabilities.length - term.capabilities.indexOf(item.name)) * 2 + Math.min(3, aliases.size) * 8;
+      }, 0);
+      const lookupScore = q && (parsed.read_only || isLookup(q)) ? matched.filter(term => term.lookup_tools.includes(item.name)).length * 25 : 0;
+      const score = nameScore + descriptionScore + (q ? termScore : 0) + lookupScore;
       return { item, matched, score };
     }).filter(item => !parsed.query || item.score > 0)
     .sort((a, b) => b.score - a.score || (a.item.name < b.item.name ? -1 : a.item.name > b.item.name ? 1 : 0));

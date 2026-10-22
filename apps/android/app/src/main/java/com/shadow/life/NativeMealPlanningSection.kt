@@ -32,10 +32,14 @@ private fun plusDays(value:String,days:Long)=LocalDate.parse(value).plusDays(day
   var entryTitle by rememberSaveable{mutableStateOf("")}
   var servings by rememberSaveable{mutableStateOf("1")}
   val entries=remember{mutableStateListOf<NativeMealPlanEntryDraft>()}
-  var editingLot by remember{mutableStateOf<MealPlanningResultDtoStockLotsEntry?>(null)};var stockName by rememberSaveable{mutableStateOf("")};var stockQuantity by rememberSaveable{mutableStateOf("")};var stockUnit by rememberSaveable{mutableStateOf("")};var stockExpiry by rememberSaveable{mutableStateOf("")}
+  var editingLotJson by rememberSaveable{mutableStateOf<String?>(null)}
+  val editingLot=remember(editingLotJson){editingLotJson?.let{kotlinx.serialization.json.Json.decodeFromString<MealPlanningResultDtoStockLotsEntry>(it)}}
+  var stockFilter by rememberSaveable{mutableStateOf("all")}
+  var showStockEditor by rememberSaveable{mutableStateOf(false)}
+  var stockName by rememberSaveable{mutableStateOf("")};var stockQuantity by rememberSaveable{mutableStateOf("")};var stockUnit by rememberSaveable{mutableStateOf("")};var stockExpiry by rememberSaveable{mutableStateOf("")}
   var importText by rememberSaveable{mutableStateOf("")};var importUrl by rememberSaveable{mutableStateOf("")};var recipePreview by rememberSaveable{mutableStateOf(false)};var recipeError by rememberSaveable{mutableStateOf<String?>(null)};var recipeTitle by rememberSaveable{mutableStateOf("")};var recipeServings by rememberSaveable{mutableStateOf("")};var recipeIngredients by rememberSaveable{mutableStateOf("")};var recipeInstructions by rememberSaveable{mutableStateOf("")}
-  var stockSubmitted by remember{mutableStateOf(false)};var recipeSubmitted by remember{mutableStateOf(false)}
-  LaunchedEffect(actionState){if(recipeSubmitted)when(actionState){is SubmitState.Saved->{importText="";importUrl="";recipePreview=false;recipeTitle="";recipeServings="";recipeIngredients="";recipeInstructions="";recipeSubmitted=false};is SubmitState.Rejected->recipeSubmitted=false;else->Unit};if(stockSubmitted)when(actionState){is SubmitState.Saved->{editingLot=null;stockName="";stockQuantity="";stockUnit="";stockExpiry="";stockSubmitted=false};is SubmitState.Rejected->stockSubmitted=false;else->Unit}}
+  var stockSubmitted by rememberSaveable{mutableStateOf(false)};var recipeSubmitted by remember{mutableStateOf(false)}
+  LaunchedEffect(actionState){if(recipeSubmitted)when(actionState){is SubmitState.Saved->{importText="";importUrl="";recipePreview=false;recipeTitle="";recipeServings="";recipeIngredients="";recipeInstructions="";recipeSubmitted=false};is SubmitState.Rejected->recipeSubmitted=false;else->Unit};if(stockSubmitted)when(actionState){is SubmitState.Saved->{editingLotJson=null;showStockEditor=false;stockName="";stockQuantity="";stockUnit="";stockExpiry="";stockSubmitted=false};is SubmitState.Rejected->stockSubmitted=false;else->Unit}}
   val busy=actionState is SubmitState.Sending
   fun open(plan:MealPlanningResultDtoMealPlansEntry?,copy:Boolean=false){
     onReset();editing=if(copy)null else plan;showEditor=true
@@ -65,6 +69,28 @@ private fun plusDays(value:String,days:Long)=LocalDate.parse(value).plusDays(day
       Button(onClick={onSave(NativeMealPlanDraft(title,startsOn,endsOn,entries.toList(),editing?.id,editing?.revision,editing?.state?.wireValue?:"active"))},enabled=!busy&&title.isNotBlank()&&entries.isNotEmpty(),modifier=Modifier.fillMaxWidth()){Text("保存餐单")}
       Text("餐单只是安排；买到和实际吃下的内容分别记录。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }
+    HorizontalDivider();Text("实际食品库存",style=MaterialTheme.typography.titleLarge)
+    Text("只填写亲自核实的库存；购物清单标记买到不会自动入库。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    TextButton(onClick={onReset();editingLotJson=null;stockName="";stockQuantity="";stockUnit="";stockExpiry="";showStockEditor=!showStockEditor},enabled=!busy){Text(if(showStockEditor)"取消编辑" else "记录库存")}
+    if(showStockEditor)LifeCard{Text(if(editingLot==null)"记录新批次" else "校正 ${editingLot.name}",style=MaterialTheme.typography.titleMedium);OutlinedTextField(stockName,{stockName=it},Modifier.fillMaxWidth(),label={Text("食品名称")});OutlinedTextField(stockQuantity,{stockQuantity=it},Modifier.fillMaxWidth(),label={Text("实际数量（可填 0）")});OutlinedTextField(stockUnit,{stockUnit=it},Modifier.fillMaxWidth(),label={Text("单位")});OutlinedTextField(stockExpiry,{stockExpiry=it},Modifier.fillMaxWidth(),label={Text("到期日 YYYY-MM-DD（可选）")});Button(onClick={stockSubmitted=true;onSetStock(editingLot,stockName,stockQuantity,stockUnit,stockExpiry.ifBlank{null})},enabled=!busy&&stockName.isNotBlank()&&stockQuantity.toBigDecimalOrNull()!=null&&stockQuantity.toBigDecimalOrNull()!!>=java.math.BigDecimal.ZERO&&stockUnit.isNotBlank()&&runCatching{stockExpiry.isBlank()||LocalDate.parse(stockExpiry)!=null}.getOrDefault(false)){Text("保存库存批次")}}
+    Text("食品期限",style=MaterialTheme.typography.titleMedium)
+    Text(overview.stockAttention?.let{"按 ${it.on} · ${it.timeZone} 判断 · 已加载 ${overview.stockLots.size} 个批次"}?:"期限状态未载入",style=MaterialTheme.typography.bodySmall)
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+      listOf("all" to "全部批次","soon" to "7 天内到期","past" to "已过期","unknown" to "日期未知","empty" to "已用完").forEach{(key,label)->FilterChip(stockFilter==key,{stockFilter=key},{Text(label)})}
+    }
+    val attention=overview.stockAttention?.items.orEmpty().associateBy{it.lotId}
+    val lots=overview.stockLots.filter{stockMatches(stockFilter,attention[it.id]?.state?.wireValue)}
+    if(lots.isEmpty())Text("当前筛选下没有已加载批次。",color=MaterialTheme.colorScheme.onSurfaceVariant)
+    lots.forEach{lot->LifeCard{
+      Text("${lot.name} · ${lot.quantity} ${lot.unit}")
+      val deadline=attention[lot.id]
+      Text(listOfNotNull(lot.expiresOn,deadlineLabel(deadline?.state?.wireValue,deadline?.daysUntil)).joinToString(" · "))
+      lot.note?.takeIf(String::isNotBlank)?.let{Text(it,style=MaterialTheme.typography.bodySmall)}
+      TextButton(onClick={onReset();editingLotJson=kotlinx.serialization.json.Json.encodeToString(MealPlanningResultDtoStockLotsEntry.serializer(),lot);showStockEditor=true;stockName=lot.name;stockQuantity=lot.quantity;stockUnit=lot.unit;stockExpiry=lot.expiresOn.orEmpty()},enabled=!busy){Text("校正")}
+    }}
+    if(overview.stockTruncated)Text("库存批次超过 100 条，缺口保持未知。")
+    if(overview.lists.isNotEmpty())HorizontalDivider()
+    HorizontalDivider();Text("已保存餐单",style=MaterialTheme.typography.titleLarge)
     if(overview.plans.isEmpty())Text("还没有餐单，可以先安排一餐。",color=MaterialTheme.colorScheme.onSurfaceVariant)
     overview.plans.forEach{plan->LifeCard{
       var extraNames by rememberSaveable(plan.id){mutableStateOf("")}
@@ -81,12 +107,8 @@ private fun plusDays(value:String,days:Long)=LocalDate.parse(value).plusDays(day
     HorizontalDivider();Text("导入食谱来源",style=MaterialTheme.typography.titleLarge)
     Text("粘贴 schema.org Recipe JSON-LD，预览并校对后再明确保存；不会直接访问来源网站。",style=MaterialTheme.typography.bodySmall)
     LifeCard{OutlinedTextField(importUrl,{importUrl=it},Modifier.fillMaxWidth(),label={Text("来源链接")});OutlinedTextField(importText,{importText=it},Modifier.fillMaxWidth(),label={Text("Recipe JSON-LD")},minLines=3);OutlinedButton(onClick={try{val value=previewRecipeImport(importText,importUrl);recipeTitle=value.title;recipeServings=value.servings;recipeIngredients=value.ingredients;recipeInstructions=value.instructions;importUrl=value.sourceUrl;recipePreview=true;recipeError=null}catch(error:Exception){recipeError=error.message?:"无法预览来源"}},enabled=importText.isNotBlank()){Text("预览并校对")};recipeError?.let{Text(it,color=MaterialTheme.colorScheme.error)};if(recipePreview){OutlinedTextField(recipeTitle,{recipeTitle=it},Modifier.fillMaxWidth(),label={Text("标题")});OutlinedTextField(recipeServings,{recipeServings=it},Modifier.fillMaxWidth(),label={Text("份数")});OutlinedTextField(recipeIngredients,{recipeIngredients=it},Modifier.fillMaxWidth(),label={Text("原料：名称|数量|单位，每行一项")},minLines=3);OutlinedTextField(recipeInstructions,{recipeInstructions=it},Modifier.fillMaxWidth(),label={Text("步骤")},minLines=2);Button(onClick={recipeSubmitted=true;onSaveRecipe(recipeTitle,recipeServings,recipeIngredients,recipeInstructions,importUrl)},enabled=!busy&&recipeTitle.isNotBlank()&&recipeServings.toBigDecimalOrNull()?.let{it>java.math.BigDecimal.ZERO}==true&&recipeIngredients.lines().filter(String::isNotBlank).all{it.split("|",limit=3).size==3}&&(importUrl.startsWith("https://")||importUrl.startsWith("http://"))){Text("保存食谱")}}}
-    HorizontalDivider();Text("实际食品库存",style=MaterialTheme.typography.titleLarge)
-    Text("只填写亲自核实的库存；购物清单标记买到不会自动入库。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-    LifeCard{OutlinedTextField(stockName,{stockName=it},Modifier.fillMaxWidth(),label={Text("食品名称")});OutlinedTextField(stockQuantity,{stockQuantity=it},Modifier.fillMaxWidth(),label={Text("实际数量（可填 0）")});OutlinedTextField(stockUnit,{stockUnit=it},Modifier.fillMaxWidth(),label={Text("单位")});OutlinedTextField(stockExpiry,{stockExpiry=it},Modifier.fillMaxWidth(),label={Text("到期日 YYYY-MM-DD（可选）")});Button(onClick={stockSubmitted=true;onSetStock(editingLot,stockName,stockQuantity,stockUnit,stockExpiry.ifBlank{null})},enabled=!busy&&stockName.isNotBlank()&&stockQuantity.toBigDecimalOrNull()!=null&&stockQuantity.toBigDecimalOrNull()!!>=java.math.BigDecimal.ZERO&&stockUnit.isNotBlank()&&runCatching{stockExpiry.isBlank()||LocalDate.parse(stockExpiry)!=null}.getOrDefault(false)){Text("保存库存批次")}}
-    overview.stockLots.forEach{lot->LifeCard{Text("${lot.name} · ${lot.quantity} ${lot.unit}");Text(lot.expiresOn?.let{"到期 $it"}?:"未记录到期日");TextButton(onClick={editingLot=lot;stockName=lot.name;stockQuantity=lot.quantity;stockUnit=lot.unit;stockExpiry=lot.expiresOn.orEmpty()}){Text("校正")}}}
-    if(overview.stockTruncated)Text("库存批次超过 100 条，缺口保持未知。")
-    if(overview.lists.isNotEmpty())HorizontalDivider()
+
+    HorizontalDivider();Text("购物清单",style=MaterialTheme.typography.titleLarge)
     overview.lists.forEach{list->LifeCard{
       Text(list.title,style=MaterialTheme.typography.titleMedium)
       Text("${list.items.count{it.state.wireValue=="needed"}} 项待买",color=MaterialTheme.colorScheme.onSurfaceVariant)
