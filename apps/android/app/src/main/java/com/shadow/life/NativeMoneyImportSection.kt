@@ -17,10 +17,12 @@ import java.time.LocalDate
     Text("月度账单核对",style=MaterialTheme.typography.headlineSmall)
     Text("原始行与精确金额保留；规则只生成可查看的候选，确认后才写入账目。",color=MaterialTheme.colorScheme.onSurfaceVariant)
     Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){OutlinedTextField(period,{period=it},Modifier.weight(1f),label={Text("月份 YYYY-MM")},singleLine=true);Button(enabled=Regex("\\d{4}-(0[1-9]|1[0-2])").matches(period),onClick={onMonth(period)}){Text("查询")}}
+    if(month is LoadState.Ready)ReadStatus(month){onMonth(month.value.period)}
     when(month){is LoadState.Loading->CircularProgressIndicator();is LoadState.Failed->Text(month.message,color=MaterialTheme.colorScheme.error);is LoadState.Ready->{val value=month.value;LifeCard{Text("${value.period} · 未确认 ${value.unconfirmed}",style=MaterialTheme.typography.titleLarge);Text("疑似重复 ${value.duplicates} · 未分类 ${value.uncategorized} · 退款待关联 ${value.refundsUnlinked}")};if(value.batches.isEmpty())Text("本月没有导入候选") else value.batches.forEach{batch->LifeCard(onClick={onBatch(batch.id)}){Text(batch.name,style=MaterialTheme.typography.titleMedium);Text("${batch.total} 行 · 未确认 ${batch.unconfirmed} · 重复 ${batch.duplicates} · 未分类 ${batch.uncategorized} · 退款 ${batch.refundsUnlinked}")}}};else->Text("暂无核对批次")}
+    if(review is LoadState.Ready)ReadStatus(review){onBatch(review.value.batchId)}
     when(review){is LoadState.Loading->CircularProgressIndicator();is LoadState.Failed->Text(review.message,color=MaterialTheme.colorScheme.error);is LoadState.Ready->{Text("批次候选",style=MaterialTheme.typography.titleLarge);review.value.candidates.forEach{candidate->MoneyImportCandidateCard(candidate,review.value.rules,submit,onResolve)}};else->Unit}
     if(submit is SubmitState.Rejected)Text(submit.message,color=MaterialTheme.colorScheme.error)
-    if(submit is SubmitState.Saved)Text("复核决定已进入加密离线队列；提交完成后自动刷新。",color=MaterialTheme.colorScheme.primary)
+    if(submit is SubmitState.Saved)Text("复核决定已进入加密离线队列；同步完成后可点击更新查看结果。",color=MaterialTheme.colorScheme.primary)
   }
 }
 

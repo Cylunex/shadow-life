@@ -140,7 +140,8 @@ private data class RoadMapResult(val key:String,val routes:List<GoogleRoadRoute>
 
 @Composable private fun TravelMapDateTabs(trip:TravelTripSummary?,dates:List<String>,days:List<TravelDaySummary>,scope:String,selectedDate:String?,onScope:(String)->Unit,onDate:(String)->Unit){
   val selectedTab=remember{BringIntoViewRequester()}
-  LaunchedEffect(trip?.id,selectedDate,scope,days){if(scope=="day"&&selectedDate in dates)selectedTab.bringIntoView()}
+  var visibleSelection by rememberSaveable{mutableStateOf("${trip?.id}:$selectedDate:$scope")}
+  LaunchedEffect(trip?.id,selectedDate,scope){val selection="${trip?.id}:$selectedDate:$scope";if(visibleSelection!=selection){visibleSelection=selection;if(scope=="day"&&selectedDate in dates)selectedTab.bringIntoView()}}
   Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically){
     if(trip!=null){
       FilterChip(scope=="all",{onScope("all")},label={Text("全部")})
@@ -153,7 +154,8 @@ private data class RoadMapResult(val key:String,val routes:List<GoogleRoadRoute>
 @Composable private fun TravelMapStopPanel(scope:String,days:List<TravelDaySummary>,dates:List<String>,selectedDate:String?,places:List<TravelPlaceSummary>,markerCount:Int,routes:List<List<TravelMapPoint>>,expanded:Boolean,onToggle:()->Unit,onGestureActive:(Boolean)->Unit){
   val context=LocalContext.current
   val stopScroll=rememberScrollState()
-  LaunchedEffect(scope,selectedDate,days){stopScroll.scrollTo(0)}
+  var scrollSelection by rememberSaveable{mutableStateOf("$scope:$selectedDate")}
+  LaunchedEffect(scope,selectedDate){val selection="$scope:$selectedDate";if(scrollSelection!=selection){scrollSelection=selection;stopScroll.scrollTo(0)}}
   val stopCount=days.sumOf{it.stops.size}
   Surface(shape=MaterialTheme.shapes.large,color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.55f)){
     Column(Modifier.fillMaxWidth().padding(12.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){

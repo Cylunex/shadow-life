@@ -39,8 +39,16 @@ import androidx.compose.ui.unit.dp
   LoadState.Loading->Box(Modifier.fillMaxWidth().padding(40.dp),contentAlignment=Alignment.Center){CircularProgressIndicator()}
   is LoadState.Empty->EmptyState(state.reason.ifBlank{empty})
   is LoadState.Failed->SectionError(state.message,onRetry)
-  is LoadState.Ready->content(state.value)
+  is LoadState.Ready->{ReadStatus(state,onRetry);content(state.value)}
 }}
+
+@Composable fun ReadStatus(state:LoadState.Ready<*>,onRefresh:()->Unit){
+  when{
+    state.refreshing->Text("正在更新，当前内容仍可浏览",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    state.refreshError!=null->SectionError("更新失败，已保留当前内容：${state.refreshError}",onRefresh)
+    state.updateAvailable->TextButton(onClick=onRefresh){Text("有新内容 · 点击更新")}
+  }
+}
 
 @Composable fun EmptyState(message:String,actionLabel:String?=null,onAction:(()->Unit)?=null){Column(Modifier.fillMaxWidth().padding(vertical=28.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(10.dp)){Text(message,color=MaterialTheme.colorScheme.onSurfaceVariant);if(actionLabel!=null&&onAction!=null)TextButton(onClick=onAction){Text(actionLabel)}}}
 @Composable fun SectionError(message:String,onRetry:()->Unit){Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.errorContainer){Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Text(message,Modifier.weight(1f),color=MaterialTheme.colorScheme.onErrorContainer);IconButton(onClick=onRetry){Icon(Icons.Default.Refresh,"重试")}}}}

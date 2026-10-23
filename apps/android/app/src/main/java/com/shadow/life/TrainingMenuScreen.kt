@@ -98,6 +98,7 @@ internal fun trainingMenuOrDefault(candidate:JSONObject?,fallback:JSONObject):JS
       linkedMapOf("today" to "今日训练","library" to "动作库","plans" to "我的计划").forEach{(key,label)->FilterChip(selected=tab==key,onClick={tab=key},label={Text(label)})}
     }
     error?.let{Text(it,color=MaterialTheme.colorScheme.error)}
+    if(state is LoadState.Ready&&state.refreshError!=null)ReadStatus(state,onLoad)
     when(submit){is SubmitState.Rejected->Text(submit.message,color=MaterialTheme.colorScheme.error);is SubmitState.Saved->Text(if(submit.receipt.queued)"已保存到同步队列；联网后同步" else "已保存");else->Unit}
     if(draft.restUntil>0){
       val remaining=trainingRestSeconds(draft.restUntil,now)

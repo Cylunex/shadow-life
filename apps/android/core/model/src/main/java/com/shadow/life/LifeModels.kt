@@ -13,7 +13,7 @@ data class AuthAttempt(val state:String,val nonce:String,val generation:Long,val
 
 sealed interface LoadState<out T> {
   data object Loading : LoadState<Nothing>
-  data class Ready<T>(val value:T,val asOf:String?=null) : LoadState<T>
+  data class Ready<T>(val value:T,val asOf:String?=null,val refreshing:Boolean=false,val refreshError:String?=null,val updateAvailable:Boolean=false) : LoadState<T>
   data class Empty(val reason:String) : LoadState<Nothing>
   data class Failed(val message:String,val retryable:Boolean=true) : LoadState<Nothing>
 }

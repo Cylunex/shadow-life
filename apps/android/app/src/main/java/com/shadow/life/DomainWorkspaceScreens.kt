@@ -52,7 +52,8 @@ import kotlin.math.abs
 ){
   var tab by rememberSaveable(initialTab){mutableStateOf(initialTab.takeIf{it in setOf("overview","details","budgets","recurring","intents","supplies","cards","reconcile")}?:"overview")};var query by rememberSaveable{mutableStateOf("")}
   val workspaceScroll=rememberLazyListState()
-  LaunchedEffect(tab){workspaceScroll.scrollToItem(0)}
+  var scrollTab by rememberSaveable{mutableStateOf(tab)}
+  LaunchedEffect(tab){if(scrollTab!=tab){scrollTab=tab;workspaceScroll.scrollToItem(0)}}
   LaunchedEffect(tab){if(tab=="cards")onLoadCards("")}
   LaunchedEffect(tab){if(tab=="reconcile")onLoadImportMonth(LocalDate.now().toString().take(7))}
   val overview=(overviewState as? LoadState.Ready)?.value as? WorkspaceOverview.Money

@@ -69,7 +69,8 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
   var hiddenMetrics by remember(accountId){mutableStateOf(visibilityStore.hidden())}
   fun toggleMetric(key:String){hiddenMetrics=if(key in hiddenMetrics)hiddenMetrics-key else hiddenMetrics+key;visibilityStore.save(hiddenMetrics)}
   val workspaceScroll=rememberLazyListState()
-  LaunchedEffect(tab){workspaceScroll.scrollToItem(0)}
+  var scrollTab by rememberSaveable{mutableStateOf(tab)}
+  LaunchedEffect(tab){if(scrollTab!=tab){scrollTab=tab;workspaceScroll.scrollToItem(0)}}
   val overview=(overviewState as? LoadState.Ready)?.value as? WorkspaceOverview.Health
   Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(
     title={Column{Text("健康");Text(healthSourceLine(overview),style=MaterialTheme.typography.labelMedium,color=healthSourceColor(overview))}},

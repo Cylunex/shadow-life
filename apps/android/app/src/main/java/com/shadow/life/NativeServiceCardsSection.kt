@@ -16,6 +16,7 @@ import java.time.LocalDate
   onSave:(NativeServiceCardDraft)->Unit,onUse:(NativeServiceCardUseDraft)->Unit,onReset:()->Unit
 ){
   var query by rememberSaveable{mutableStateOf("")}
+  var submittedQuery by rememberSaveable{mutableStateOf("")}
   var editing by remember{mutableStateOf<ServiceCardsResultDtoItemsEntry?>(null)}
   var editorOpen by rememberSaveable{mutableStateOf(false)}
   var name by rememberSaveable{mutableStateOf("")};var merchant by rememberSaveable{mutableStateOf("")}
@@ -35,7 +36,7 @@ import java.time.LocalDate
     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("次卡与服务权益",style=MaterialTheme.typography.headlineSmall);TextButton(onClick={edit(null)},enabled=!busy){Text("新增次卡")}}
     Text("理发、洗车、课时等按实际使用扣次；购买金额仍由原消费记录管理。",color=MaterialTheme.colorScheme.onSurfaceVariant)
     when(submit){is SubmitState.Sending->LinearProgressIndicator(Modifier.fillMaxWidth());is SubmitState.Rejected->Text(submit.message,color=MaterialTheme.colorScheme.error);is SubmitState.Saved->Text(if(submit.receipt.queued)"已保存，正在同步" else "已保存",color=MaterialTheme.colorScheme.primary);else->Unit}
-    OutlinedTextField(query,{query=it},Modifier.fillMaxWidth(),label={Text("搜索卡名或商家")},singleLine=true,trailingIcon={TextButton(onClick={onSearch(query)}){Text("查找")}})
+    OutlinedTextField(query,{query=it},Modifier.fillMaxWidth(),label={Text("搜索卡名或商家")},singleLine=true,trailingIcon={TextButton(onClick={submittedQuery=query.trim();onSearch(submittedQuery)}){Text("查找")}})
     if(editorOpen)LifeCard{
       Text(if(editing==null)"新增次卡" else "编辑次卡",style=MaterialTheme.typography.titleLarge)
       OutlinedTextField(name,{name=it},Modifier.fillMaxWidth(),label={Text("卡名")},singleLine=true)
@@ -55,6 +56,7 @@ import java.time.LocalDate
       OutlinedTextField(note,{note=it},Modifier.fillMaxWidth(),label={Text("备注（可选）")})
       Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Button(onClick={onSave(NativeServiceCardDraft(name,merchant,purchaseId,total,unit,start,expiry,note,editing,cardState))},enabled=!busy&&name.isNotBlank()&&total.toLongOrNull()!=null){Text("保存次卡")};TextButton(onClick={editorOpen=false}){Text("收起")}}
     }
+    if(cardsState is LoadState.Ready)ReadStatus(cardsState){onSearch(submittedQuery)}
     when(cardsState){is LoadState.Loading->LinearProgressIndicator(Modifier.fillMaxWidth());is LoadState.Failed->Text(cardsState.message,color=MaterialTheme.colorScheme.error);is LoadState.Ready->{
       if(cardsState.value.items.isEmpty())Text("还没有匹配的次卡。",color=MaterialTheme.colorScheme.onSurfaceVariant)
       cardsState.value.items.forEach{card->LifeCard{
@@ -67,6 +69,7 @@ import java.time.LocalDate
     };else->Unit}
     if(selectedState is LoadState.Loading)LinearProgressIndicator(Modifier.fillMaxWidth())
     if(selectedState is LoadState.Failed)Text(selectedState.message,color=MaterialTheme.colorScheme.error)
+    if(selectedState is LoadState.Ready)ReadStatus(selectedState){onOpen(selectedState.value.id)}
     if(selected!=null)LifeCard{
       Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(selected.name,style=MaterialTheme.typography.titleLarge);TextButton(onClick=onClose){Text("收起")}}
       Text("${selected.merchantName.orEmpty()} · ${serviceCardStatus(selected.balanceStatus.wireValue)} · 剩余 ${selected.remainingUnits} ${selected.unitLabel}")

@@ -87,6 +87,7 @@ private val personalLabels=mapOf("global" to "全部场景","daily" to "日常",
       }
       Row{Button(enabled=!busy&&text.isNotBlank(),onClick={try{onSave(if(tab=="tasks")"agent.save_task" else "agent.set_intention",input(editing));editor=false}catch(error:Exception){localError=error.message}}){Text("保存")};TextButton(onClick={editor=false}){Text("取消")}}
     }
+    if(state is LoadState.Ready)ReadStatus(state){onLoad(tab,on,0)}
     when(state){
       LoadState.Loading->CircularProgressIndicator()
       is LoadState.Failed->Text(state.message,color=MaterialTheme.colorScheme.error)
