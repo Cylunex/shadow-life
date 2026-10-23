@@ -17,6 +17,9 @@ See the [workout menu guide](docs/guides/workout-menu.md).
 Web includes food and item deadline filters, monthly budgets and recurring tasks, paged library search, and offline trip exports.
 See [daily workspace changes](docs/execution/daily-workspaces-2026-10-22.md) and [related project references](docs/research/daily-workspaces-2026-10-22.md).
 
+Health and food workspaces include a shared 7/30/90-day nutrition, weight, sleep and training review, also available to agents.
+See [health and nutrition integration](docs/research/health-nutrition-agent-2026-10-23.md) for references and scope.
+
 ## Development
 
 Use Node 24 and pnpm 11. PostgreSQL is required for the integration journey.

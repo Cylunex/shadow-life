@@ -26,3 +26,5 @@ export * from "./workout-progression.js";
 export * from "./agent-catalog.js";
 
 export * from "./agent-context.js";
+
+export * from "./wellness-review.js";

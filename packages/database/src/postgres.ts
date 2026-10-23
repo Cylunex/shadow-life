@@ -1,3 +1,4 @@
+import { readWellnessDays } from "./wellness-review.js";
 import { createFoundationStore, writeFoundation } from "./foundation.js";
 import { agentRefsAvailable } from "./agent-refs.js";
 import { readAgentContext } from "./agent-context.js";
@@ -595,12 +596,11 @@ function storeFor(database: Database | Transaction): TransactionStore {
       const result=await database.execute<Record<string,unknown>>(sql`select
         case when ${include("meals")} then (select jsonb_build_object('count',count(*)::int,'freshness',max(created_at),'nutrition',(
           select jsonb_build_object(
-            'energy_kcal',sum(item.energy_kcal)::text,'protein_g',sum(item.protein_g)::text,
-            'carb_g',sum(item.carb_g)::text,'fat_g',sum(item.fat_g)::text,
+            'energy_kcal',round(sum(item.energy_kcal * coalesce(item.consumed_fraction,1)),6)::text,'protein_g',round(sum(item.protein_g * coalesce(item.consumed_fraction,1)),6)::text,
+            'carb_g',round(sum(item.carb_g * coalesce(item.consumed_fraction,1)),6)::text,'fat_g',round(sum(item.fat_g * coalesce(item.consumed_fraction,1)),6)::text,
             'total_items',count(*)::int,'known_energy_items',count(item.energy_kcal)::int,
             'complete_macros',coalesce(bool_and(
               (item.protein_g is not null and item.carb_g is not null and item.fat_g is not null)
-              or (item.energy_kcal=0 and coalesce(item.protein_g,0)=0 and coalesce(item.carb_g,0)=0 and coalesce(item.fat_g,0)=0)
             ),false))
           from intake_items item join meals meal on meal.id=item.meal_id
           where meal.subject_id=${subjectId} and meal.occurred_on=${date}::date and item.subject_id=${subjectId} and item.effective
@@ -782,6 +782,7 @@ function storeFor(database: Database | Transaction): TransactionStore {
         group by batch.id order by batch.created_at desc,batch.id desc limit 100`);
       const batches=result.rows;return{period,batches,totals:{unconfirmed:batches.reduce((n,row)=>n+row.unconfirmed,0),duplicates:batches.reduce((n,row)=>n+row.duplicates,0),uncategorized:batches.reduce((n,row)=>n+row.uncategorized,0),refunds_unlinked:batches.reduce((n,row)=>n+row.refunds_unlinked,0)},as_of:new Date().toISOString()};
     },
+    async wellnessReviewDays(subjectId,from,to){return readWellnessDays(database,subjectId,from,to);},
     async healthDaily(subjectId,date){const result=await database.execute(sql`select subject_id,occurred_on,algorithm_version,result,source_set_hash,revision,updated_at from health_daily_summaries where subject_id=${subjectId} and occurred_on=${date} order by updated_at desc limit 1`);return result.rows[0];},
     async healthSleepNights(subjectId,from,to){const result=await database.execute<import("@shadow/kernel").SleepInsightNight>(sql`select distinct on (session.wake_date) session.wake_date::text wake_date,session.time_zone,session.started_at::text started_at,session.ended_at::text ended_at,session.total_minutes,session.deep_minutes,session.rem_minutes,coalesce(instance.source_type,'manual') source_type from health_sleep_sessions session left join health_raw_records raw on raw.id=session.raw_id left join health_source_instances instance on instance.id=raw.source_instance_id where session.subject_id=${subjectId} and session.wake_date between ${from}::date and ${to}::date and session.effective order by session.wake_date,session.total_minutes desc,session.revision desc,session.id`);return result.rows;},
     async healthRecord(subjectId,id){const result=await database.execute<{kind:string;fact:Record<string,unknown>;source:Record<string,unknown>|null;raw:Record<string,unknown>|null}>(sql`with fact as(

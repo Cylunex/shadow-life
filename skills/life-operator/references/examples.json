@@ -223,5 +223,13 @@
         "quantity": "1"
       }
     }
+  },
+  {
+    "scenario": "Health and nutrition review with explicit period and preceding comparison",
+    "capability": "life.wellness_review",
+    "arguments": {
+      "to": "2026-10-23",
+      "days": 7
+    }
   }
 ]

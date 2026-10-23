@@ -44,7 +44,7 @@ export const intakeItemInputSchema = z.object({
   carb_g: canonicalDecimal.optional(),
   fiber_g: canonicalDecimal.optional(),
   sodium_mg: canonicalDecimal.optional(),
-  consumed_fraction: canonicalDecimal.refine(value => Number(value) <= 1, "must be at most one").optional(),
+  consumed_fraction: canonicalDecimal.refine(value => Number(value) <= 1, "must be at most one").optional().describe("Fraction actually consumed of the supplied quantity and nutrient values; defaults to 1 for aggregation. Do not scale nutrients twice."),
   provenance: z.enum(["manual","estimated","reference_snapshot","legacy"]).optional(),
   grouping_origin: z.enum(["actual_meal","legacy_meal_bucket"]).optional(),
   estimate: z.boolean().default(false).describe("Set true for estimated amounts or nutrition; evidence_note is then required. Unknown nutrition may be omitted."),

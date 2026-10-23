@@ -35,3 +35,5 @@ Agent 业务术语、权限过滤发现、场景工具包和合同快照见 [业
 Agent 任务上下文、来源和离线评测见 [任务上下文设计](docs/architecture/agent-task-context.md)。
 个人意图、规划材料、跨 Agent 检查点、变化消费与经验见 [个人 Agent 数据底座](docs/architecture/personal-agent-foundation.md)。
 网页原件、受限正文提取与助手事件分页、活动及恢复见 [网页快照与运行恢复](docs/architecture/web-snapshots-and-run-recovery.md)。
+
+健康与饮食的联合复盘、覆盖口径和共同 Agent 查询见 [健康与饮食复盘](docs/architecture/wellness-review.md)。

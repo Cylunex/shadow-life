@@ -233,3 +233,12 @@ pnpm test:full:offline
 工具目录。未授权真实模型调用时只运行 offline；`eval:agent:model --allow-model` 需要另行设置
 SHADOW_EVAL_MODEL、SHADOW_EVAL_RUNTIME_URL（可选 SHADOW_EVAL_RUNTIME_TOKEN），结果不能当作
 生产验收或全量真实模型成功率。详细边界见 [设计说明](../architecture/agent-task-context.md)。
+
+## 健康与饮食复盘
+
+用 `agent.discover` 搜索“饮食复盘”并请求 schema；`life.wellness_review` 输入为
+`{"to":"2026-10-23","days":7}`（days 支持 7/30/90），返回同一快照的当前期、等长前期和逐日依据。
+完整/精简 MCP、CLI 和内置 Agent 共用该能力，需要饮食和健康两项读取权限。
+请先报告字段覆盖和估算数量，再比较均值；结合 intentions、库存和实际训练制定明确要求的计划。
+详见 [工作流](../../skills/life-operator/references/workflows.md#health-and-nutrition-review--grounded-planning)
+与 [调研和取舍](../research/health-nutrition-agent-2026-10-23.md)。

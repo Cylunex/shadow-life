@@ -20,6 +20,9 @@ The examples contain fictional records and illustrative IDs; replace them with r
   `{capability, command_id, input}`. The named capabilities in these workflows remain unchanged;
   `operations.find` and the optional `assets.upload_local_image` stay directly callable.
   Copy returned `detail.capability/input` into the read dispatcher without changing IDs.
+- For health/nutrition reviews, discover “饮食复盘” or “健康周报” and use `life.wellness_review`.
+  Report per-field coverage and estimates before comparing periods; follow the health/nutrition workflow
+  for evidence, goals, stock and requested plans. Unknown is not zero; paired days do not prove causation.
 - For training, discover “哑铃”, “徒手”, “组数” or “训练进度”. Use `health.set_plan` for menus/plans,
   `health.record_workout` only for actual completed sets, and `health.workout_progression` for existing
   execution evidence. Its duration rule cannot prescribe strength load or repetition increases.

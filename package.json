@@ -32,6 +32,7 @@
     "migration:mapping": "pnpm --filter @shadow/legacy-importer mapping",
     "test:workout:offline": "node --import tsx scripts/test-workout-menu-offline.mjs",
     "test:web:offline": "node --import tsx scripts/test-web-snapshots-offline.mjs",
+    "test:wellness:offline": "node --import tsx scripts/test-wellness-offline.mjs",
     "test:daily:web:offline": "node --import tsx scripts/test-daily-workspaces-offline.mjs"
   },
   "devDependencies": {

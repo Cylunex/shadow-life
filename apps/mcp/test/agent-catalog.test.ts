@@ -55,3 +55,9 @@ test("invalid input returns a directly callable schema lookup without submitting
   }
   assert.equal(requests, 0);
 });
+
+test("health and nutrition review is discoverable in personal MCP with exact input schema",async()=>{
+  const client=fixture(),result=await client.call("agent.discover",{query:"饮食复盘",include_schemas:true}) as any;
+  assert.equal(result.capabilities[0]?.name,"life.wellness_review");
+  assert.ok((await client.listTools()).some(tool=>tool.name==="life.wellness_review"));
+});

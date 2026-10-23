@@ -181,3 +181,31 @@ do not imply a visit. Actual visits and private reservation details retain their
   opening date, toothbrush replacement interval or grams per bag. Unknown specifications stay unknown.
 - `money.planning` lists up to 100 cycles relevant to its month, and the last 50 manual uses per
   cycle. Respect `truncated.use_cycles` and `uses_truncated`; balances use all effective facts.
+
+## Health and nutrition review → grounded planning
+
+1. Discover “饮食复盘” / “健康周报” with schemas, then call `life.wellness_review`
+   with an explicit end date and 7, 30 or 90 days. The preceding equal-length period is included.
+   In compact MCP use `life.query` with `{capability:"life.wellness_review",input:{to:"2026-10-23",days:7}}`.
+2. State dates, recorded meal days, field coverage, estimated counts and known health days before comparing.
+   A nutrient's `average_on_complete_days` only covers field-complete **recorded** items on those dates;
+   it does not establish a complete food diary. Missing fields/dates are unknown, explicit zeros are known.
+   Nutrients are multiplied once by `consumed_fraction` (default 1). Do not scale supplied nutrients twice.
+3. Read selected sleep/weight evidence with `health.get_record` using returned IDs and revisions.
+   For meal evidence, use `life.search` with `types:["meals"]`, `from_on`, `to_on_exclusive`, follow
+   `next_cursor`, then `life.get_record` on returned IDs. The date policy uses stored local dates and sleep
+   wake dates; a cross-time-zone trip is not one normalized time zone. Do not infer causal relationships,
+   TDEE, calorie deficits or medical conclusions from paired days or period differences.
+4. For “下周怎么吃 / 练”, read `agent.workspace` with explicit dates and scenario, `agent.intentions`,
+   `life.meal_planning` for recipes/stock and `health.workout_progression` for actual training evidence.
+   Respect declared dietary restrictions and valid goals; missing intentions are not invented preferences.
+   Keep purchases/spending, planned meals and actual intake separate. Only read Money/Library/Travel when
+   the task needs them and the capability is available.
+5. Save a requested meal plan through `life.save_meal_plan`; a requested shopping list through
+   `life.build_shopping_list`. Missing nutrition never blocks ordinary logging. If the user asks to correct
+   nutrition, inspect original labels/catalog entries and current revision first, then use
+   `life.correct_intake` for the supported facts; preserve unknown fields and unrelated values.
+6. Save a model observation only when requested/appropriate through `agent.save_learning`, with verified
+   business references, limits and workflow revision. A read result is not a save receipt; verify all writes
+   through the original command's committed receipt and read-back. Do not create notifications or schedules
+   merely because a review mentions a recurring habit.
