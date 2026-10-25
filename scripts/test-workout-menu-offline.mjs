@@ -4,12 +4,12 @@ import {mkdir,mkdtemp,writeFile} from 'node:fs/promises';
 import {join,resolve} from 'node:path';
 import {tmpdir} from 'node:os';
 import {withOfflinePostgres} from './offline-postgres.mjs';
-import {PostgresUnitOfWork,migrate} from '../packages/database/src/index.ts';
-import {CommandExecutor,QueryService,sha256Fingerprinter,systemClock,uuidIds} from '../packages/kernel/src/index.ts';
-import {createApp} from '../apps/api/src/app.ts';
+import {PostgresUnitOfWork,migrate} from '../server/database/src/index.ts';
+import {CommandExecutor,QueryService,sha256Fingerprinter,systemClock,uuidIds} from '../server/kernel/src/index.ts';
+import {createApp} from '../server/api/src/app.ts';
 import {chromium} from 'playwright';
-const root=resolve(import.meta.dirname,'..'),require=createRequire(`${root}/apps/api/package.json`),{serve}=require('@hono/node-server');
-const webRequire=createRequire(`${root}/apps/web/package.json`),{createServer}=await import(webRequire.resolve('vite')),{default:react}=await import(webRequire.resolve('@vitejs/plugin-react'));
+const root=resolve(import.meta.dirname,'..'),require=createRequire(`${root}/server/api/package.json`),{serve}=require('@hono/node-server');
+const webRequire=createRequire(`${root}/client/web/package.json`),{createServer}=await import(webRequire.resolve('vite')),{default:react}=await import(webRequire.resolve('@vitejs/plugin-react'));
 const output=process.env.SHADOW_WEB_TEST_ARTIFACTS??await mkdtemp(join(tmpdir(),'life-workout-menu-'));await mkdir(output,{recursive:true});
 await withOfflinePostgres(async url=>{
   const unitOfWork=new PostgresUnitOfWork({connectionString:url}),pool=unitOfWork.pool;let browser,web,server;
@@ -18,7 +18,7 @@ await withOfflinePostgres(async url=>{
     const executor=new CommandExecutor({unitOfWork,ids:uuidIds,clock:systemClock,fingerprinter:sha256Fingerprinter}),queries=new QueryService(unitOfWork);
     const app=createApp({unitOfWork,executor,queries,developmentAuth:true});
     server=serve({fetch:app.fetch,hostname:'127.0.0.1',port:0});await new Promise(resolve=>server.listening?resolve():server.once('listening',resolve));
-    web=await createServer({root:`${root}/apps/web`,configFile:false,envFile:false,plugins:[react()],define:{__SHADOW_AMAP_CONFIG__:'null',__SHADOW_GOOGLE_MAPS_KEY__:'""'},server:{host:'127.0.0.1',port:0,proxy:{'/api':{target:`http://127.0.0.1:${server.address().port}`}}}});await web.listen();
+    web=await createServer({root:`${root}/client/web`,configFile:false,envFile:false,plugins:[react()],define:{__SHADOW_AMAP_CONFIG__:'null',__SHADOW_GOOGLE_MAPS_KEY__:'""'},server:{host:'127.0.0.1',port:0,proxy:{'/api':{target:`http://127.0.0.1:${server.address().port}`}}}});await web.listen();
     browser=await chromium.launch({headless:true,...(process.env.SHADOW_TEST_BROWSER_EXECUTABLE?{executablePath:process.env.SHADOW_TEST_BROWSER_EXECUTABLE}:{channel:'chrome'})});
     const page=await browser.newPage({viewport:{width:1440,height:1000},timezoneId:'Asia/Shanghai'}),errors=[];page.on('pageerror',error=>errors.push(error.message));
     await page.clock.install({time:new Date('2026-10-19T13:15:00Z')});

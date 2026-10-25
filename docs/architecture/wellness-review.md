@@ -7,7 +7,7 @@
 
 ## 共同路径
 
-合同在 `packages/contracts/src/wellness-schemas.ts`；QueryService 校验权限和输入，调用一个
+合同在 `shared/contracts/src/wellness-schemas.ts`；QueryService 校验权限和输入，调用一个
 Store 端口。Database 使用单个 SQL 语句取得所有聚合、来源和数据库时点，避免多次请求看到
 不一致修订；Kernel 计算周期摘要。HTTP、CLI、MCP 和内置 Agent 共用同一个查询。
 MCP 默认个人 profile 以及 daily/health 场景均包含该能力，compact 模式通过 `life.query` 调用。

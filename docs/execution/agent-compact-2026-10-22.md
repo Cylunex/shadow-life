@@ -21,7 +21,7 @@ Life 已有按业务术语发现能力的 `agent.discover`，但外部 MCP 在�
 - 查询拒绝写能力，写入口拒绝只读能力；禁止未知/嵌套分发能力和越过固定配置的调用。
 - 所有业务调用仍复用 `LifeClient.call`、合同验证、typed transport 与原 Executor。
   不缓存授权、不追加权限、不修改结构化结果、原始回执或不透明分页游标。
-  分发外壳合同同样集中在 `packages/contracts/src/mcp-schemas.ts`，由生成检查校验快照；
+  分发外壳合同同样集中在 `shared/contracts/src/mcp-schemas.ts`，由生成检查校验快照；
   两个分发名称不是新的领域能力，不加入业务 registry。
 - 未知写入结果的错误标记具体领域能力，保留原 command_id 和直接可调用的回执恢复指令；
   不自动重试。普通写入继续直接完成，没有新增用户审核页面。
@@ -40,7 +40,7 @@ compact 工具。环境为个人完整可见权限、未配置媒体目录、未
 
 初始目录减少 98.06%。初始化指引、消息、业务结果和后续发现的 Schema 不在此指标内；这是
 接口大小测量，不是模型 token、整体延迟或成功率评测。发现会增加必要的查询往返。
-`apps/mcp/test/compact.test.ts` 用实际 API 检查精简目录小于完整目录的十分之一。
+`client/mcp/test/compact.test.ts` 用实际 API 检查精简目录小于完整目录的十分之一。
 
 ## 验证
 

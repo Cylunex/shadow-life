@@ -48,7 +48,7 @@ Agent 沿用 `agent.context` 和 `library.get_item`，得到普通修订与固�
 
 ## 事件、分页与恢复
 
-公开 Host 事件和分页合同维护在 `packages/contracts/src/run-schemas.ts`；Agent Adapter 保持原导出入口。
+公开 Host 事件和分页合同维护在 `shared/contracts/src/run-schemas.ts`；Agent Adapter 保持原导出入口。
 Runtime 的 NDJSON 事件合同没有增加 Host 事件，Runtime 也不能用其他 run 的事件触发调用。
 
 - `GET /api/threads/:threadId/runs`：按所有者返回最多 20 个最近 Run；读取会沿用现有过期租约恢复。

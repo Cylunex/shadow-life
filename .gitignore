@@ -6,6 +6,6 @@ dist/
 coverage/
 *.log
 .DS_Store
-apps/web/src/generated/
+client/web/src/generated/
 **/local.properties
 **/*.aar

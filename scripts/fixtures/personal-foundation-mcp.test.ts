@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createApp } from '../../apps/api/src/app.js';
-import { LifeClient } from '../../apps/mcp/src/client.js';
-import { createMcpServer } from '../../apps/mcp/src/server.js';
-import { reviewFixture, pgOnly } from '../../packages/database/test/review-fixture.js';
+import { createApp } from '../../server/api/src/app.js';
+import { LifeClient } from '../../client/mcp/src/client.js';
+import { createMcpServer } from '../../client/mcp/src/server.js';
+import { reviewFixture, pgOnly } from '../../server/database/test/review-fixture.js';
 
 test('HTTP and actual MCP calls share personal data and cannot widen fixed scenarios',pgOnly,async t=>{
   const {run,unitOfWork,executor,queries,context}=await reviewFixture(t);

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {universalCommandEnvelopeSchema,ingestHealthBatchInputSchema} from "../packages/contracts/src/index.js";
+import {universalCommandEnvelopeSchema,ingestHealthBatchInputSchema} from "../shared/contracts/src/index.js";
 
 // Read bytes emitted by the production Kotlin builder, never a JavaScript reconstruction.
 const {fixtures}=JSON.parse(readFileSync(process.argv[2]!,"utf8"));

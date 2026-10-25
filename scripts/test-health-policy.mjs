@@ -13,11 +13,11 @@ function run(args){const result=spawnSync(java,args,{cwd:root,stdio:"inherit"});
 const runtime=[dir,stdlib,json,coroutines].join(":");
 try{
   run(["-cp",compiler,"org.jetbrains.kotlin.cli.jvm.K2JVMCompiler","-no-stdlib","-no-reflect","-classpath",[stdlib,json,coroutines,jar("org.jetbrains","annotations","13.0")].join(":"),"-d",dir,
-    "apps/android/devices/src/main/java/com/shadow/life/HealthSyncPolicy.kt",
-    "apps/android/devices/src/main/java/com/shadow/life/HealthBatchCommand.kt",
-    "apps/android/devices/src/main/java/com/shadow/life/HealthSyncRound.kt",
-    "apps/android/core/model/src/main/java/com/shadow/life/HealthSyncModels.kt",
-    "apps/android/tests/HealthSyncPolicyTest.kt","apps/android/tests/HealthSyncRoundTest.kt"]);
+    "client/android/devices/src/main/java/com/shadow/life/HealthSyncPolicy.kt",
+    "client/android/devices/src/main/java/com/shadow/life/HealthBatchCommand.kt",
+    "client/android/devices/src/main/java/com/shadow/life/HealthSyncRound.kt",
+    "client/android/core/model/src/main/java/com/shadow/life/HealthSyncModels.kt",
+    "client/android/tests/HealthSyncPolicyTest.kt","client/android/tests/HealthSyncRoundTest.kt"]);
   run(["-cp",runtime,"com.shadow.life.HealthSyncPolicyTestKt"]);
   const fixtures=join(dir,"production-commands.json");
   run(["-cp",runtime,"com.shadow.life.HealthSyncRoundTestKt",fixtures]);

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildPurchaseExperience } from "../src/purchase-experience.js";
-import { pgOnly, reviewFixture } from "../../../packages/database/test/review-fixture.js";
+import { pgOnly, reviewFixture } from "../../../server/database/test/review-fixture.js";
 
 test("catalog validation leaves persistence unchanged and experience corrections preserve money, raw metadata and revision history", pgOnly, async t => {
   const { run, queries, context, pool, executor, command } = await reviewFixture(t);

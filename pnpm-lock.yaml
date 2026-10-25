@@ -21,49 +21,22 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
-  apps/api:
+  client/cli:
     dependencies:
-      '@hono/node-server':
-        specifier: ^1.19.6
-        version: 1.19.17(hono@4.13.7)
-      '@shadow/agent-adapter':
-        specifier: workspace:*
-        version: link:../../packages/agent-adapter
       '@shadow/contracts':
         specifier: workspace:*
-        version: link:../../packages/contracts
-      '@shadow/database':
+        version: link:../../shared/contracts
+
+  client/mcp:
+    dependencies:
+      '@shadow/contracts':
         specifier: workspace:*
-        version: link:../../packages/database
-      '@shadow/kernel':
-        specifier: workspace:*
-        version: link:../../packages/kernel
-      hono:
-        specifier: ^4.10.6
-        version: 4.13.7
-      jose:
-        specifier: ^6.1.0
-        version: 6.2.12
+        version: link:../../shared/contracts
       zod:
         specifier: ^4.1.12
         version: 4.5.4
 
-  apps/cli:
-    dependencies:
-      '@shadow/contracts':
-        specifier: workspace:*
-        version: link:../../packages/contracts
-
-  apps/mcp:
-    dependencies:
-      '@shadow/contracts':
-        specifier: workspace:*
-        version: link:../../packages/contracts
-      zod:
-        specifier: ^4.1.12
-        version: 4.5.4
-
-  apps/web:
+  client/web:
     dependencies:
       '@amap/amap-jsapi-loader':
         specifier: ^1.0.1
@@ -73,7 +46,7 @@ importers:
         version: 2.1.3
       '@shadow/contracts':
         specifier: workspace:*
-        version: link:../../packages/contracts
+        version: link:../../shared/contracts
       '@vitejs/plugin-react':
         specifier: ^5.1.1
         version: 5.2.0(vite@7.3.6(@types/node@24.13.3)(tsx@4.23.13))
@@ -106,58 +79,47 @@ importers:
         specifier: ^19.2.2
         version: 19.2.7(@types/react@19.2.18)
 
-  apps/worker:
+  server/agent-adapter:
     dependencies:
+      '@shadow/contracts':
+        specifier: workspace:*
+        version: link:../../shared/contracts
+      zod:
+        specifier: ^4.1.12
+        version: 4.5.4
+
+  server/api:
+    dependencies:
+      '@hono/node-server':
+        specifier: ^1.19.6
+        version: 1.19.17(hono@4.13.7)
+      '@shadow/agent-adapter':
+        specifier: workspace:*
+        version: link:../agent-adapter
+      '@shadow/contracts':
+        specifier: workspace:*
+        version: link:../../shared/contracts
       '@shadow/database':
         specifier: workspace:*
-        version: link:../../packages/database
-      pg:
-        specifier: ^8.16.3
-        version: 8.23.0
-      pg-boss:
-        specifier: ^12.7.0
-        version: 12.30.0
-    devDependencies:
-      '@types/pg':
-        specifier: ^8.15.6
-        version: 8.23.1
-
-  importers/legacy:
-    dependencies:
-      '@shadow/contracts':
+        version: link:../database
+      '@shadow/kernel':
         specifier: workspace:*
-        version: link:../../packages/contracts
-      pg:
-        specifier: ^8.16.3
-        version: 8.23.0
-      zod:
-        specifier: ^4.1.13
-        version: 4.5.4
-    devDependencies:
-      '@types/pg':
-        specifier: ^8.15.6
-        version: 8.23.1
-
-  packages/agent-adapter:
-    dependencies:
-      '@shadow/contracts':
-        specifier: workspace:*
-        version: link:../contracts
+        version: link:../kernel
+      hono:
+        specifier: ^4.10.6
+        version: 4.13.7
+      jose:
+        specifier: ^6.1.0
+        version: 6.2.12
       zod:
         specifier: ^4.1.12
         version: 4.5.4
 
-  packages/contracts:
-    dependencies:
-      zod:
-        specifier: ^4.1.12
-        version: 4.5.4
-
-  packages/database:
+  server/database:
     dependencies:
       '@shadow/contracts':
         specifier: workspace:*
-        version: link:../contracts
+        version: link:../../shared/contracts
       '@shadow/kernel':
         specifier: workspace:*
         version: link:../kernel
@@ -175,11 +137,49 @@ importers:
         specifier: ^8.15.6
         version: 8.23.1
 
-  packages/kernel:
+  server/importers/legacy:
     dependencies:
       '@shadow/contracts':
         specifier: workspace:*
-        version: link:../contracts
+        version: link:../../../shared/contracts
+      pg:
+        specifier: ^8.16.3
+        version: 8.23.0
+      zod:
+        specifier: ^4.1.13
+        version: 4.5.4
+    devDependencies:
+      '@types/pg':
+        specifier: ^8.15.6
+        version: 8.23.1
+
+  server/kernel:
+    dependencies:
+      '@shadow/contracts':
+        specifier: workspace:*
+        version: link:../../shared/contracts
+
+  server/worker:
+    dependencies:
+      '@shadow/database':
+        specifier: workspace:*
+        version: link:../database
+      pg:
+        specifier: ^8.16.3
+        version: 8.23.0
+      pg-boss:
+        specifier: ^12.7.0
+        version: 12.30.0
+    devDependencies:
+      '@types/pg':
+        specifier: ^8.15.6
+        version: 8.23.1
+
+  shared/contracts:
+    dependencies:
+      zod:
+        specifier: ^4.1.12
+        version: 4.5.4
 
 packages:
 

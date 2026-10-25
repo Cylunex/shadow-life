@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { QueryService, type UnitOfWork } from "../../../packages/kernel/src/index.js";
-import { createApp } from "../../api/src/app.js";
+import { QueryService, type UnitOfWork } from "../../../server/kernel/src/index.js";
+import { createApp } from "../../../server/api/src/app.js";
 import { runAgentTool, validateToolInput } from "../src/agent-tools.js";
 import { AgentToolsPanel } from "../src/AgentToolsPanel.js";
 

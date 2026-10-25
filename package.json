@@ -10,7 +10,7 @@
   "scripts": {
     "setup": "pnpm install --frozen-lockfile",
     "dev": "pnpm --parallel --filter @shadow/api --filter @shadow/web dev",
-    "db:migrate": "node --import tsx packages/database/src/migrate.ts",
+    "db:migrate": "node --import tsx server/database/src/migrate.ts",
     "build": "pnpm -r --if-present build",
     "check": "pnpm check:contracts && pnpm check:boundaries && pnpm check:android-boundaries && pnpm -r --if-present typecheck && pnpm -r --if-present test",
     "check:contracts": "pnpm --filter @shadow/contracts check-generated",
@@ -33,7 +33,19 @@
     "test:workout:offline": "node --import tsx scripts/test-workout-menu-offline.mjs",
     "test:web:offline": "node --import tsx scripts/test-web-snapshots-offline.mjs",
     "test:wellness:offline": "node --import tsx scripts/test-wellness-offline.mjs",
-    "test:daily:web:offline": "node --import tsx scripts/test-daily-workspaces-offline.mjs"
+    "test:daily:web:offline": "node --import tsx scripts/test-daily-workspaces-offline.mjs",
+    "dev:server": "pnpm --filter @shadow/api dev",
+    "dev:client": "pnpm --filter @shadow/web dev",
+    "dev:worker": "pnpm --filter @shadow/worker start",
+    "build:client": "pnpm --filter @shadow/web build",
+    "check:shared": "pnpm --filter @shadow/contracts check-generated:shared && pnpm --filter @shadow/contracts typecheck && pnpm --filter @shadow/contracts test",
+    "check:server": "pnpm --filter @shadow/contracts check-generated:shared && pnpm check:boundaries && pnpm -r --filter \"./server/**\" --filter @shadow/contracts --if-present typecheck && pnpm test:server",
+    "check:client": "pnpm check:contracts && pnpm check:boundaries && pnpm check:android-boundaries && pnpm -r --filter \"./client/**\" --filter @shadow/contracts --if-present typecheck && pnpm test:client",
+    "test:server": "node scripts/test-full.mjs --scope server",
+    "test:client": "node scripts/test-full.mjs --scope client",
+    "test:server:offline": "node scripts/test-offline-full.mjs --scope server",
+    "start:server": "pnpm --filter @shadow/api start",
+    "start:worker": "pnpm --filter @shadow/worker start"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",

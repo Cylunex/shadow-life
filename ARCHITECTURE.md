@@ -2,18 +2,37 @@
 
 Shadow Life is a new product kernel. It does not import or proxy the legacy Shadow services at runtime.
 
-The dependency direction is fixed:
+The single repository has three source areas: `server/` owns the API, background processing, business kernel,
+database and migration tools; `client/` owns Web, Android, CLI and MCP; `shared/` owns public contracts. Package
+names remain `@shadow/*`. A single root pnpm workspace and lockfile support scoped development and checks;
+the layout does not create independently installed repositories. See [the layout guide](docs/architecture/server-client-layout.md).
+
+The dependency direction is fixed. Arrows point to dependencies:
 
 ```text
-contracts <- kernel <- database <- api / worker
-                    <- agent-adapter
-contracts <- cli / web
+server/api -> server/kernel -> shared/contracts
+server/api -> server/database -> server/kernel
+server/api -> server/agent-adapter -> shared/contracts
+server/worker -> server/database
+client/web / client/cli / client/mcp -> shared/contracts
+client/android -> generated contract models
 ```
 
-`contracts` owns public input, result, error and capability schemas. `kernel` owns authorization effects,
-idempotency and workflows through ports. `database` implements those ports with PostgreSQL and Drizzle.
-Transport packages construct trusted request context and call the kernel Executor. They never implement a
-second write path.
+`shared/contracts` owns public input, result, error and capability schemas. `server/kernel` owns authorization
+effects, idempotency and workflows through ports. `server/database` implements those ports with PostgreSQL and
+Drizzle. Server transports construct trusted request context and call the kernel Executor. Web, Android, CLI and
+MCP use HTTP to reach that same execution path; client code does not import database or kernel implementations.
+No entry point implements a second business-success path.
+
+The API runs independently of the Web development server and does not embed the Web bundle. Browser session,
+authentication and protected asset endpoints remain API responsibilities. The worker owns background processing;
+`server/importers/legacy` is explicit migration tooling, not a runtime proxy. The existing `server/agent-adapter`
+preserves Runtime compatibility; the directory reorganization does not introduce Agent orchestration work.
+
+Contract changes retain compatibility across HTTP and all clients. The shared generator scope only emits or
+checks shared JSON snapshots. The default scope also generates Android models and resources; changes to public
+contracts require full generation and cross-side verification. Integration tests that exercise both clients and
+server adapters remain in the full suite even when excluded from a side's isolated test scope.
 
 Every write capability follows the same transaction protocol. Meals, purchases, refunds, budgets, health,
 travel and library facts commit with an Operation receipt and Outbox event. Missing payment does not block a

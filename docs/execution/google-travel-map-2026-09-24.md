@@ -6,7 +6,7 @@ Google 底图上的橙线是 Google 估算的驾车道路路线，并展示总�
 
 ## 受控配置
 
-- Android 复用 Google Maps SDK。忽略的 `apps/android/local.properties` 可设置 `GOOGLE_MAPS_API_KEY`，或通过 `SHADOW_MAP_KEYS_FILE` 指向受限的外部 Java properties 文件；兼容该文件中的 `googlemap_apikey` 别名。密钥只进入本地构建，不写入仓库。Google Cloud 中应为 Android 使用独立 key，限定 `com.shadow.life` 及实际签名证书 SHA-1，并只允许 Maps SDK for Android 与 Routes API；客户端 REST 请求携带 `X-Android-Package` 和 `X-Android-Cert`。
+- Android 复用 Google Maps SDK。忽略的 `client/android/local.properties` 可设置 `GOOGLE_MAPS_API_KEY`，或通过 `SHADOW_MAP_KEYS_FILE` 指向受限的外部 Java properties 文件；兼容该文件中的 `googlemap_apikey` 别名。密钥只进入本地构建，不写入仓库。Google Cloud 中应为 Android 使用独立 key，限定 `com.shadow.life` 及实际签名证书 SHA-1，并只允许 Maps SDK for Android 与 Routes API；客户端 REST 请求携带 `X-Android-Package` 和 `X-Android-Cert`。
 - Web 使用 `GOOGLE_MAPS_WEB_API_KEY` 构建环境变量，例如忽略的 `.env.production.local`。浏览器密钥会进入前端资源；当前按用户要求暂与 Android 复用同一 key，后续应拆分，并分别限制网站来源或 Android 应用、允许的 API 与配额。缺少密钥或加载失败时展示地点坐标预览和明确提示。
 - Google Maps Platform 需要启用 Maps JavaScript API、Maps SDK for Android、Routes API 和计费；配额由 Google Cloud 控制。路线只在会话内复用，不持久化 Google 返回的道路数据。当前 NAS 没有可用的 Google 路线接口出口，因此客户端直接请求；服务端代理与专用密钥仍需另行配置。
 

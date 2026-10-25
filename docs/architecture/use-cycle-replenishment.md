@@ -85,8 +85,8 @@ replenishment)` 唯一键写入现有通知表。重复运行不会重复提醒�
 
 按逆序执行本实现的两个回滚文件：
 
-- `packages/database/migrations/down/0039_purchase_item_detail_repair.sql`
-- `packages/database/migrations/down/0038_use_cycle_replenishment.sql`
+- `server/database/migrations/down/0039_purchase_item_detail_repair.sql`
+- `server/database/migrations/down/0038_use_cycle_replenishment.sql`
 
 先回滚 0039，再回滚 0038。0038 回滚会删除 `source_type=use_cycle` 的通知，然后移除新增字段；
 原订单、金额、摘要文本、摄入与周期基础字段均保留。

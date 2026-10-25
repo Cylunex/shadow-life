@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readdirSync,readFileSync } from "node:fs";
 import { join,resolve } from "node:path";
 
-const root=resolve(import.meta.dirname,"../apps/android");
+const root=resolve(import.meta.dirname,"../client/android");
 const settings=readFileSync(join(root,"settings.gradle.kts"),"utf8");
 for(const module of [":app",":core:model",":core:data",":core:designsystem",":devices"])assert.ok(settings.includes(`"${module}"`),`missing Android module ${module}`);
 

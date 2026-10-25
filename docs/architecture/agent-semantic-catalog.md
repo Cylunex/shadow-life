@@ -4,7 +4,7 @@ Life 已在自身 contracts、kernel、database、API 和 agent-adapter 中承�
 
 ## 单一事实来源
 
-- `packages/contracts/src/registry.ts` 是能力、输入、结果和效果的来源。
+- `shared/contracts/src/registry.ts` 是能力、输入、结果和效果的来源。
 - `agent-catalog.ts` 声明业务术语、同义词、事实边界和六类场景；场景引用已有能力。
 - `agent-profile.ts` 集中维护个人 MCP 范围，MCP 入口不复制白名单。
 - 示例直接引用 `skills/life-operator/references/examples.json`，测试以实际合同验证。

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { writeFileSync } from 'node:fs';
 import { performance } from 'node:perf_hooks';
-import { reviewFixture, mealInput } from '../../packages/database/test/review-fixture.js';
+import { reviewFixture, mealInput } from '../../server/database/test/review-fixture.js';
 
 test('record existing retrieval baseline on synthetic records', async t => {
   const { run, queries, context } = await reviewFixture(t);

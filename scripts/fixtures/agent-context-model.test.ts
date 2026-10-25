@@ -3,10 +3,10 @@ import test from 'node:test';
 import { randomUUID } from 'node:crypto';
 import { readFileSync,writeFileSync } from 'node:fs';
 import { performance } from 'node:perf_hooks';
-import { ChatCompletionRuntimeAdapter,HttpRuntimeAdapter,type AgentRuntimeAdapter } from '../../packages/agent-adapter/src/index.js';
-import { AgentRepository } from '../../packages/database/src/index.js';
-import { createApp } from '../../apps/api/src/app.js';
-import { reviewFixture,mealInput } from '../../packages/database/test/review-fixture.js';
+import { ChatCompletionRuntimeAdapter,HttpRuntimeAdapter,type AgentRuntimeAdapter } from '../../server/agent-adapter/src/index.js';
+import { AgentRepository } from '../../server/database/src/index.js';
+import { createApp } from '../../server/api/src/app.js';
+import { reviewFixture,mealInput } from '../../server/database/test/review-fixture.js';
 
 test('opt-in model retrieval observation on disposable synthetic data',async t=>{
   assert.equal(process.env.SHADOW_EVAL_MODEL_OPT_IN,'1');

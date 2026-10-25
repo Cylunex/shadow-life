@@ -37,7 +37,7 @@ test("F04: generic correction preserves FX, allocation and source-scale invarian
 
 test("F10: migration CLI update/delete/replay preserves every exact historical decimal",pgOnly,async t=>{
   const {pool,connectionString}=await reviewFixture(t),root=resolve(import.meta.dirname,"../../.."),dir=await mkdtemp(join(tmpdir(),"life-decimal-test-"));t.after(()=>rm(dir,{recursive:true,force:true}));
-  let bundle=JSON.parse(await readFile(resolve(root,"importers/legacy/fixtures/migration-bundle.json"),"utf8"));
+  let bundle=JSON.parse(await readFile(resolve(root,"server/importers/legacy/fixtures/migration-bundle.json"),"utf8"));
   bundle.target_schema_version=(await pool.query("select left(max(name),4) version from schema_migrations")).rows[0].version;
   bundle.owners={"legacy-owner":"subject_decimal_regression"};
   const money=bundle.objects[0],meal=bundle.objects[1];
@@ -46,7 +46,7 @@ test("F10: migration CLI update/delete/replay preserves every exact historical d
   const nutrientFields=["quantity","amount_g","energy_kcal","protein_g","fat_g","carb_g","fiber_g","sodium_mg","consumed_fraction"];
   for(const field of nutrientFields)meal.targets[0].data.items[0][field]=field==="consumed_fraction"?"0.123400":"9007199254740993.123456";
   const originalBundle=structuredClone(bundle);
-  async function invoke(mode:string,databaseUrl=connectionString){const file=join(dir,"bundle.json");await writeFile(file,JSON.stringify(bundle));const result=spawnSync(process.execPath,["--import","tsx","importers/legacy/src/cli.ts",mode,file],{cwd:root,env:{...process.env,DATABASE_URL:databaseUrl,SHADOW_MIGRATION_DRILL:"isolated-empty-database"},encoding:"utf8"});assert.equal(result.status,0,result.stdout+result.stderr);return JSON.parse(result.stdout);}
+  async function invoke(mode:string,databaseUrl=connectionString){const file=join(dir,"bundle.json");await writeFile(file,JSON.stringify(bundle));const result=spawnSync(process.execPath,["--import","tsx","server/importers/legacy/src/cli.ts",mode,file],{cwd:root,env:{...process.env,DATABASE_URL:databaseUrl,SHADOW_MIGRATION_DRILL:"isolated-empty-database"},encoding:"utf8"});assert.equal(result.status,0,result.stdout+result.stderr);return JSON.parse(result.stdout);}
   assert.equal((await invoke("apply")).applied,2);assert.equal((await invoke("apply")).replayed,2);
   money.source.revision="2";meal.source.revision="2";
   money.targets[0].data.amount="9007199254740994.123400";money.payload.amount=money.targets[0].data.amount;meal.targets[0].data.items[0].name="已修正合成样例";

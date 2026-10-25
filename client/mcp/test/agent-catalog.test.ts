@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { capabilityRegistry, type McpProfile } from "@shadow/contracts";
-import { QueryService, type UnitOfWork } from "../../../packages/kernel/src/index.js";
-import { createApp } from "../../api/src/app.js";
+import { QueryService, type UnitOfWork } from "../../../server/kernel/src/index.js";
+import { createApp } from "../../../server/api/src/app.js";
 import { LifeClient } from "../src/client.js";
 import { createMcpServer } from "../src/server.js";
 

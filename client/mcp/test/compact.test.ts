@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { spawn } from "node:child_process";
 import { capabilityRegistry, type CapabilityName } from "@shadow/contracts";
-import { QueryService, type UnitOfWork } from "../../../packages/kernel/src/index.js";
-import { createApp } from "../../api/src/app.js";
+import { QueryService, type UnitOfWork } from "../../../server/kernel/src/index.js";
+import { createApp } from "../../../server/api/src/app.js";
 import { LifeClient, type ClientOptions } from "../src/client.js";
 import { createMcpServer } from "../src/server.js";
 

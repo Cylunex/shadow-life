@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { reviewFixture, pgOnly } from "../../../packages/database/test/review-fixture.js";
+import { reviewFixture, pgOnly } from "../../../server/database/test/review-fixture.js";
 import { LifeClient } from "../src/client.js";
 import { createMcpServer } from "../src/server.js";
-import { createApp } from "../../api/src/app.js";
+import { createApp } from "../../../server/api/src/app.js";
 
 test("personal MCP exposes service cards and recovers a lost redemption response without double charging",pgOnly,async t=>{
   const fixture=await reviewFixture(t),app=createApp({...fixture,developmentAuth:true});let drop=true;

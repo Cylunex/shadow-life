@@ -25,11 +25,11 @@
 - 完整 PostgreSQL 旅程通过 **31 个迁移**，包含原始 checksum、已知中间版本升级、精度/退款/权限/旅行等既有断言。新增 `0030`、`0031`，历史 migration 没有改写。
 - 所有 TypeScript 项目、合同生成检查、依赖边界和 Web 生产构建通过。Web JS 461.80 KB / gzip 131.43 KB；依赖注释提示不影响构建。
 - Android `compileDebugKotlin` 通过；**13 项**纯 Kotlin 编码、代次、分页、权限与进程重启断言通过，命令入口为 `node scripts/test-health-policy.mjs`。
-- 新增正式回归：[上下文与 TTL](../../packages/database/test/agent-context-regression.test.ts)、[金额与迁移历史](../../packages/database/test/money-review-regression.test.ts)、[购物竞态与派生资产](../../packages/database/test/shopping-library-regression.test.ts)、[Health 同步](../../packages/database/test/health-sync-regression.test.ts)、[运行租约](../../packages/database/test/agent-run-regression.test.ts)、[真实 API/本地 Runtime](../../apps/api/test/review-integration.test.ts)、[Kotlin 策略](../../apps/android/tests/HealthSyncPolicyTest.kt)。
+- 新增正式回归：[上下文与 TTL](../../server/database/test/agent-context-regression.test.ts)、[金额与迁移历史](../../server/database/test/money-review-regression.test.ts)、[购物竞态与派生资产](../../server/database/test/shopping-library-regression.test.ts)、[Health 同步](../../server/database/test/health-sync-regression.test.ts)、[运行租约](../../server/database/test/agent-run-regression.test.ts)、[真实 API/本地 Runtime](../../server/api/test/review-integration.test.ts)、[Kotlin 策略](../../client/android/tests/HealthSyncPolicyTest.kt)。
 - F05 使用两个真实连接及可控父行锁屏障，明确断言双方均等待且子项尚未变更。F09 API 用两个独立 Repository/应用实例，验证另一个实例请求 stop 后由持有者心跳终止流。
 - F10 通过实际 CLI 的 apply、final-delta、删除、重放、reconcile，以及从历史快照重建的空库 restore-drill；金额 `9007199254740993.123456` 和尾零精度保持不变。
 
-复验可使用显式配置的临时 `TEST_DATABASE_URL`，直接运行 `node --import tsx --test packages/*/test/*.test.ts apps/*/test/*.test.ts importers/*/test/*.test.ts`。本环境使用已有 Node/tsx/tsc/Vite 等价执行 package scripts，没有运行触发自动安装的 `pnpm check` 或清理依赖。
+复验可使用显式配置的临时 `TEST_DATABASE_URL`，直接运行 `pnpm test:full`。本环境使用已有 Node/tsx/tsc/Vite 等价执行 package scripts，没有运行触发自动安装的 `pnpm check` 或清理依赖。
 
 ## 语义与剩余验收边界
 

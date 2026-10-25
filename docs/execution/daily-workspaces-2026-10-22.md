@@ -12,7 +12,7 @@
 | 资料 | 50 条一页连续加载、失败重试、搜索与游标绑定；取消过时列表 / 详情请求；打开资料滚动到正文，关闭回到列表 | 未提交的搜索文本不会改变当前分页条件；旧响应不得覆盖最新选择，轮询也校验当前资料身份 |
 | 旅行 | 离线 HTML 包含范围外预订 / 交通、结束 / 到达时间、逐晚住宿和不同清单符号 | 住宿按旅程时区从入住日到退房日前一晚；取消 / 退款不算当晚住宿；其他状态原样标示；未知日期不推断 |
 
-期限算法位于 `packages/kernel/src/planning-attention.ts`。`life.meal_planning` 与 `life.owned_items` 共用 QueryService：
+期限算法位于 `server/kernel/src/planning-attention.ts`。`life.meal_planning` 与 `life.owned_items` 共用 QueryService：
 
 - 输入 `on` 可选；省略时按响应 `as_of` 与 `time_zone` 求日期。时区默认 `Asia/Shanghai`，Web 传入浏览器时区。
 - 输出 `stock_attention` / `attention` 标注评估日期、时区、窗口与逐项状态，日历日差不受夏令时小时变化影响。

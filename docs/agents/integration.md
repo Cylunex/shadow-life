@@ -18,11 +18,11 @@ From the Life repository, with Node 24+ and workspace dependencies installed:
 ```sh
 SHADOW_API_URL=https://life.example.com \
 SHADOW_ACCESS_TOKEN=REPLACE_ACCESS_TOKEN \
-node --import tsx apps/mcp/src/main.ts
+node --import tsx client/mcp/src/main.ts
 ```
 
 Pass these as environment settings in the MCP client's process configuration, using the absolute path
-to `apps/mcp/src/main.ts` and the repository's `tsx` loader if the client uses a different working directory.
+to `client/mcp/src/main.ts` and the repository's `tsx` loader if the client uses a different working directory.
 Stdout is JSON-RPC only. No development auth, production URL or credential is embedded in the adapter.
 
 | Setting | Behavior |
@@ -178,7 +178,7 @@ unknown outcomes, conflicts, subject-bound receipt recovery, opaque cursors, ima
 contract validation of the shipped examples. They do not call paid models or send notifications.
 
 When deployment is explicitly requested, deploy the matching API/MCP revision, make the environment's
-launcher import `apps/mcp/src/main.ts`, and install/update the packaged workflow skill. Refresh/reconnect
+launcher import `client/mcp/src/main.ts`, and install/update the packaged workflow skill. Refresh/reconnect
 each persistent Gateway and verify its own `tools/list` contains `life.daily_record_check`,
 `operations.find` and the expected profile. Merely launching a fresh one-shot MCP process does not
 prove the Gateway's cached catalog changed. Verify scheduled tasks through the scheduler's real execution

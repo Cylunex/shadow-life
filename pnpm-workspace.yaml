@@ -1,6 +1,7 @@
 packages:
-  - apps/*
-  - packages/*
-  - importers/*
+  - server/*
+  - server/importers/*
+  - client/*
+  - shared/*
 allowBuilds:
   esbuild: true

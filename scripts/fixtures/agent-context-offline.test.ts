@@ -3,13 +3,13 @@ import test from 'node:test';
 import { writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
-import { agentContextResultSchema, type AgentContextResult } from '../../packages/contracts/src/index.js';
-import { AgentRepository } from '../../packages/database/src/index.js';
-import { reviewFixture, mealInput } from '../../packages/database/test/review-fixture.js';
-import { createApp } from '../../apps/api/src/app.js';
-import { LifeClient } from '../../apps/mcp/src/client.js';
-import { createMcpServer } from '../../apps/mcp/src/server.js';
-import type { AgentRuntimeAdapter } from '../../packages/agent-adapter/src/index.js';
+import { agentContextResultSchema, type AgentContextResult } from '../../shared/contracts/src/index.js';
+import { AgentRepository } from '../../server/database/src/index.js';
+import { reviewFixture, mealInput } from '../../server/database/test/review-fixture.js';
+import { createApp } from '../../server/api/src/app.js';
+import { LifeClient } from '../../client/mcp/src/client.js';
+import { createMcpServer } from '../../client/mcp/src/server.js';
+import type { AgentRuntimeAdapter } from '../../server/agent-adapter/src/index.js';
 
 test('offline task context retrieval and recovery invariants', async t => {
   const { pool, run, queries, context, unitOfWork, executor, command } = await reviewFixture(t);
