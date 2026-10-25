@@ -34,9 +34,9 @@ test("money void is visible only in the explicitly selected personal profile", a
   const fetcher: typeof fetch = async () => json(catalog(["money.void_entry", "life.void_purchase", "money.stage_import"]));
   const personal = new LifeClient({ api: "https://life.example.com", token: "test-token", profile: "personal", fetch: fetcher });
   const moneyVoid = new LifeClient({ api: "https://life.example.com", token: "test-token", profile: "personal-money-void", fetch: fetcher });
-  assert.deepEqual((await personal.listTools()).map(tool => tool.name), []);
+  assert.deepEqual((await personal.listTools()).map(tool => tool.name), ["money.stage_import"]);
   const tools = await moneyVoid.listTools();
-  assert.deepEqual(tools.map(tool => tool.name), ["money.void_entry"]);
+  assert.deepEqual(tools.map(tool => tool.name), ["money.void_entry", "money.stage_import"]);
   assert.deepEqual(tools[0]?.inputSchema.required, ["command_id", "input"]);
   assert.deepEqual(tools[0]?.inputSchema.properties.input.required, ["record_id", "expected_revision", "reason"]);
 });

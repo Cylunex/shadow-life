@@ -46,6 +46,12 @@ The examples contain fictional records and illustrative IDs; replace them with r
 - Explicit ratings, repeat intentions and experience notes can be saved with `life.correct_purchase`
   after reading the purchase and its current revision. Preserve unchanged raw metadata and dates.
   Unspecified ratings and repeat intentions stay unknown; shared agreements are explicit Library notes.
+- For explicitly requested statement imports, stage decoded CSV/JSON/Markdown with `money.stage_import`, read
+  `money.import_review`, then resolve candidates with current revisions. Staging is not accounting. Keep source
+  account labels stable, preserve transaction IDs, check existing and cross-platform payments, and link refunds
+  to the exact original money entry. Unknown commands recover with their original key; uncertain duplicates
+  stay pending. File reception/decryption/XLSX conversion belongs to Losna; never use SQL to bypass Life.
+  See [statement imports](../../docs/guides/recurring-bill-imports.md).
 - Keep purchases, payments, actual intake, visits and plans distinct. For confirmed dining with order
   details or multiple images, prefer `life.record_dining` so related facts commit together.
 - For 次卡/理发卡/洗车卡/课时包, track the purchased entitlement and explicit uses separately; see the service-card workflow. Never infer first use from purchase or duplicate its payment.

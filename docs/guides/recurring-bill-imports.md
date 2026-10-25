@@ -79,3 +79,12 @@ Content-Type: application/json
 今日概览和健康饮食复盘只统计活动餐次；已删除餐次及其历史条目不再影响餐数、营养和更新时间。同日存在未填写食物的餐次时，首页不能把已有条目的宏量齐全当成整日完整；缺失值继续与明确的零值区分，部分食用比例继续参与计算。
 
 参考依据与后续范围见 [研究记录](../research/data-import-references-2026-10-25.md)。Agent 与 Losna 编排、Web/Android 交互、生产导入和部署不在本次范围。
+
+## 个人 Agent 接入
+
+`personal` 与 `personal-money-void` MCP profile 均可发现和使用 `money.stage_import`、
+`money.resolve_import_candidate`、`money.import_review`、`money.import_history` 和 `money.import_month`。
+实际调用仍由服务端授权、主体、写入 epoch 和场景范围约束；没有开放导入规则管理或其他管理能力。
+
+邮件读取、附件接收、解密与 XLSX/编码转换由 Losna 完成。Life 仍接收公开合同规定的文本分片，
+所有账单沿用原 Executor、来源防重和回执。暂存只产生候选，不代表消费、收入或退款已经记入账本。
