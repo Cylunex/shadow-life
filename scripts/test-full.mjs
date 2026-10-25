@@ -8,15 +8,10 @@ const ignored=new Set(["node_modules","dist","build","coverage",".git",".gradle"
 // These exercise real server implementations through a client and belong to the
 // complete integration run, even though their fixtures remain beside the client.
 export const crossSideIntegrationTests=Object.freeze([
-  "client/mcp/test/agent-catalog.test.ts",
-  "client/mcp/test/compact.test.ts",
-  "client/mcp/test/consumables.test.ts",
-  "client/mcp/test/journey.test.ts",
-  "client/mcp/test/service-cards.test.ts",
   "client/web/test/agent-tools.test.ts",
   "client/web/test/purchase-experience-journey.test.ts"
 ]);
-const sharedIntegrationTest="scripts/fixtures/personal-foundation-mcp.test.ts";
+const serverIntegrationTest="scripts/fixtures/personal-foundation-mcp.test.ts";
 const toolsTest="scripts/test/workspace-tools.test.mjs";
 
 export function parseTestScope(args){
@@ -39,8 +34,11 @@ export function selectTestFiles(scope,root=workspaceRoot){
   }
   for(const directory of scope==="all"?["server","client","shared"]:[scope,"shared"])discover(directory);
   if(scope==="all"){
-    for(const path of [...crossSideIntegrationTests,sharedIntegrationTest])if(!existsSync(join(root,path)))throw new Error(`Integration test is missing: ${path}`);
-    tests.push(sharedIntegrationTest);
+    for(const path of crossSideIntegrationTests)if(!existsSync(join(root,path)))throw new Error(`Integration test is missing: ${path}`);
+  }
+  if(scope!=="client"){
+    if(!existsSync(join(root,serverIntegrationTest)))throw new Error(`Integration test is missing: ${serverIntegrationTest}`);
+    tests.push(serverIntegrationTest);
   }
   const selected=scope==="client"?tests.filter(path=>!crossSideIntegrationTests.includes(path)):tests;
   if(existsSync(join(root,toolsTest)))selected.push(toolsTest);

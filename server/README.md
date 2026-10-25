@@ -7,6 +7,7 @@
 | --- | --- |
 | `api/` | HTTP、认证和可信请求上下文，连接共同查询服务与 Executor |
 | `worker/` | Outbox 与后台任务处理 |
+| `mcp/` | 服务端 MCP 工具入口，经 HTTP 调用 Life API |
 | `kernel/` | 领域规则、端口、授权效果、幂等与共同 Executor |
 | `database/` | PostgreSQL / Drizzle 实现、迁移与持久化回归 |
 | `agent-adapter/` | 已有 Agent Runtime 协议适配与兼容 |
@@ -29,13 +30,17 @@ pnpm dev:server
 需要后台处理时在另一终端运行 `pnpm dev:worker`。`pnpm db:migrate` 使用当前配置的本地数据库执行迁移，
 运行前必须确认目标。服务端启动不要求同时启动 Web，API 不托管 Web 构建产物。
 
+MCP 通过根命令 `pnpm mcp` 启动，唯一实现位于 `server/mcp/src`；它需要 Life API 地址与既有鉴权配置，
+不直接连接数据库。外部 Runtime 的启动脚本只传入配置，不复制工具或业务调用代码。配置与接入方式见
+[Agent / MCP 使用说明](../docs/agents/integration.md)。
+
 ```bash
 pnpm check:server
 pnpm test:server
 pnpm test:server:offline
 ```
 
-`check:server` 包含共享 JSON 生成物、边界和相关 TypeScript 检查及服务端测试。
+`check:server` 包含共享 JSON 生成物、边界和相关 TypeScript 检查及服务端测试，MCP 测试也属于服务端范围。
 `test:server` 使用现有测试配置；需要数据库的测试必须配备测试库。`test:server:offline` 使用临时本地
 PostgreSQL 与合成数据验证服务端，不连接生产数据。共享合同和客户端到 API 的组合行为仍须执行根目录的
 `pnpm check` 与 `pnpm test:full:offline`。
@@ -43,5 +48,6 @@ PostgreSQL 与合成数据验证服务端，不连接生产数据。共享合同
 ## 兼容边界
 
 目录调整不改变 API 路由、命令身份、授权、回执或数据库迁移历史。`agent-adapter/` 只保留已有接入能力，
-本次整理不扩展 Agent 编排；相关后续工作由 Losna 接续。CLI 与 MCP 的可执行入口位于 `client/`，它们以 HTTP
-调用服务端。运行、部署、签名 APK 和真实模型调用遵守工作区约定，不随开发检查自动执行。
+本次整理不扩展 Agent 编排；相关后续工作由 Losna 接续。MCP 位于 `server/mcp`，作为服务端工具入口通过 HTTP
+调用 Life API，不导入其他服务端业务实现或直连数据库。CLI 保留在 `client/cli`，同样使用 HTTP。
+运行、部署、签名 APK 和真实模型调用遵守工作区约定，不随开发检查自动执行。

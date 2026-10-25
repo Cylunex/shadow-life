@@ -8,6 +8,7 @@ import { mkdtemp,readFile,writeFile,rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve,join } from "node:path";
 import { reviewFixture,pgOnly } from "./review-fixture.js";
+import { trackPoolShutdown } from "./pool-teardown.js";
 
 test("F04: generic correction preserves FX, allocation and source-scale invariants",pgOnly,async t=>{
   const {run,queries,context,pool,executor,command}=await reviewFixture(t);
@@ -63,7 +64,8 @@ test("F10: migration CLI update/delete/replay preserves every exact historical d
   assert.equal((await invoke("reconcile")).complete,true);
   const restoreName=`restore_${randomUUID().replaceAll("-","")}`;await pool.query(`create database "${restoreName}"`);
   const restoreUrl=new URL(connectionString);restoreUrl.pathname=`/${restoreName}`;const restore=new Pool({connectionString:restoreUrl.toString()});
-  t.after(async()=>{await restore.end();const cleanup=new Pool({connectionString:process.env.TEST_DATABASE_URL});try{await cleanup.query(`drop database "${restoreName}" with (force)`);}finally{await cleanup.end();}});
+  const closeRestore=trackPoolShutdown(restore);
+  t.after(async()=>{await closeRestore();const cleanup=new Pool({connectionString:process.env.TEST_DATABASE_URL});try{await cleanup.query(`drop database "${restoreName}"`);}finally{await cleanup.end();}});
   await migrate(restore);
   // Build the restore bundle from exact prior snapshots rather than rounded current values.
   bundle=originalBundle;bundle.objects[0].targets[0].data.amount=moneySnapshot.money_entry.amount;

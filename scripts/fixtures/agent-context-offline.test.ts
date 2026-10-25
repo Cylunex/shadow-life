@@ -7,8 +7,8 @@ import { agentContextResultSchema, type AgentContextResult } from '../../shared/
 import { AgentRepository } from '../../server/database/src/index.js';
 import { reviewFixture, mealInput } from '../../server/database/test/review-fixture.js';
 import { createApp } from '../../server/api/src/app.js';
-import { LifeClient } from '../../client/mcp/src/client.js';
-import { createMcpServer } from '../../client/mcp/src/server.js';
+import { LifeClient } from '../../server/mcp/src/client.js';
+import { createMcpServer } from '../../server/mcp/src/server.js';
 import type { AgentRuntimeAdapter } from '../../server/agent-adapter/src/index.js';
 
 test('offline task context retrieval and recovery invariants', async t => {

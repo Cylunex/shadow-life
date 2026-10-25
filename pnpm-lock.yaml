@@ -27,15 +27,6 @@ importers:
         specifier: workspace:*
         version: link:../../shared/contracts
 
-  client/mcp:
-    dependencies:
-      '@shadow/contracts':
-        specifier: workspace:*
-        version: link:../../shared/contracts
-      zod:
-        specifier: ^4.1.12
-        version: 4.5.4
-
   client/web:
     dependencies:
       '@amap/amap-jsapi-loader':
@@ -158,6 +149,15 @@ importers:
       '@shadow/contracts':
         specifier: workspace:*
         version: link:../../shared/contracts
+
+  server/mcp:
+    dependencies:
+      '@shadow/contracts':
+        specifier: workspace:*
+        version: link:../../shared/contracts
+      zod:
+        specifier: ^4.1.12
+        version: 4.5.4
 
   server/worker:
     dependencies:

@@ -6,6 +6,7 @@ import test from "node:test";
 import { Pool } from "pg";
 import { CommandExecutor, QueryService, sha256Fingerprinter, systemClock, uuidIds } from "@shadow/kernel";
 import { AgentRepository, AssetService, PostgresUnitOfWork, materializeNotifications, materializeRecurringOccurrences, migrate, normalizeHealthRaw, processPendingHealth, processPendingLibrary } from "../src/index.js";
+import { trackPoolShutdown } from "./pool-teardown.js";
 
 const connectionString = process.env.TEST_DATABASE_URL;
 async function countPoolStatements<T>(pool:Pool,work:()=>Promise<T>):Promise<{value:T;statements:number}>{
@@ -18,7 +19,8 @@ test("complete Life journey uses PostgreSQL transactions and survives replay", {
   const admin=new Pool({connectionString}),name=`journey_${randomUUID().replaceAll("-","")}`;
   await admin.query(`create database "${name}"`);const url=new URL(connectionString!);url.pathname=`/${name}`;
   const pool=new Pool({connectionString:url.toString()});
-  t.after(async()=>{await pool.end();await admin.query(`drop database "${name}" with (force)`);await admin.end();});
+  const closePool=trackPoolShutdown(pool);
+  t.after(async()=>{await closePool();try{await admin.query(`drop database "${name}"`);}finally{await admin.end();}});
   const migrationDirectory=resolve(import.meta.dirname,"../migrations");
   const initialMigrations=await Promise.all(["0001_initial.sql","0002_first_release.sql"].map(async name=>({name,contents:await readFile(resolve(migrationDirectory,name),"utf8")})));
   const intermediateInitial=initialMigrations[0]!.contents.replace("capability_version integer NOT NULL, ","");

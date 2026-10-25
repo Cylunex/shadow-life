@@ -3,6 +3,9 @@
 Life's API, CLI, built-in Agent and MCP share the public contracts and the same domain Executor.
 Use the repository MCP for Hermes, OpenClaw and other MCP clients; keep environment-specific launchers
 outside the repository. The personal workflow skill is [life-operator](../../skills/life-operator/SKILL.md).
+The MCP implementation lives in `server/mcp` as a server-side tool entry point. It calls Life's API over HTTP,
+does not connect directly to the database or import other server business implementations, and does not perform
+Agent orchestration. Web, Android and CLI remain under `client/`.
 
 ## Start the MCP
 
@@ -18,11 +21,11 @@ From the Life repository, with Node 24+ and workspace dependencies installed:
 ```sh
 SHADOW_API_URL=https://life.example.com \
 SHADOW_ACCESS_TOKEN=REPLACE_ACCESS_TOKEN \
-node --import tsx client/mcp/src/main.ts
+node --import tsx server/mcp/src/main.ts
 ```
 
 Pass these as environment settings in the MCP client's process configuration, using the absolute path
-to `client/mcp/src/main.ts` and the repository's `tsx` loader if the client uses a different working directory.
+to `server/mcp/src/main.ts` and the repository's `tsx` loader if the client uses a different working directory.
 Stdout is JSON-RPC only. No development auth, production URL or credential is embedded in the adapter.
 
 | Setting | Behavior |
@@ -178,7 +181,7 @@ unknown outcomes, conflicts, subject-bound receipt recovery, opaque cursors, ima
 contract validation of the shipped examples. They do not call paid models or send notifications.
 
 When deployment is explicitly requested, deploy the matching API/MCP revision, make the environment's
-launcher import `client/mcp/src/main.ts`, and install/update the packaged workflow skill. Refresh/reconnect
+launcher import `server/mcp/src/main.ts`, and install/update the packaged workflow skill. Refresh/reconnect
 each persistent Gateway and verify its own `tools/list` contains `life.daily_record_check`,
 `operations.find` and the expected profile. Merely launching a fresh one-shot MCP process does not
 prove the Gateway's cached catalog changed. Verify scheduled tasks through the scheduler's real execution

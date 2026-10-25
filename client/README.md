@@ -1,6 +1,6 @@
 # 客户端
 
-Web、Android、CLI 和 MCP 都通过 Life HTTP API 读取数据、提交命令和恢复回执。客户端可以管理显示状态、
+Web、Android 和 CLI 都通过 Life HTTP API 读取数据、提交命令和恢复回执。客户端可以管理显示状态、
 本地队列与传输重试，业务成功以共同 Executor 的结果为准。目录边界见[架构说明](../ARCHITECTURE.md)。
 
 | 目录 | 职责 |
@@ -8,11 +8,10 @@ Web、Android、CLI 和 MCP 都通过 Life HTTP API 读取数据、提交命令�
 | `web/` | React / Vite 浏览器应用，使用服务端浏览器会话 |
 | `android/` | Kotlin / Jetpack Compose 原生应用，独立 Gradle 项目 |
 | `cli/` | 面向 HTTP API 的命令行客户端 |
-| `mcp/` | 面向 HTTP API 的 MCP 适配器，唯一实现位于 `mcp/src` |
 
 TypeScript 客户端依赖 [`@shadow/contracts`](../shared/README.md)，Android 使用同源生成的合同模型与资源。
 客户端不直接导入 `server/kernel`、`server/database` 或数据库驱动，不复制授权、金额处理或写入成功规则。
-MCP 归类为客户端是因为它通过 HTTP 访问 Life；它不承担服务端 Agent Runtime 的职责。
+MCP 工具入口位于 [`server/mcp`](../server/README.md)，属于服务端范围，仍通过 HTTP 访问 Life API。
 
 ## 日常开发
 
@@ -33,7 +32,7 @@ pnpm build:client
 `test:client` 不包含需要服务端实现的跨端组合测试；这些测试保留在完整套件中。改动 HTTP 交互、公共合同或
 跨端恢复流程后，执行 `pnpm check` 和 `pnpm test:full:offline`。
 
-CLI 包入口为 `pnpm --filter @shadow/cli start`，后接所需命令参数；MCP 入口是 `pnpm mcp`。
+CLI 包入口为 `pnpm --filter @shadow/cli start`，后接所需命令参数。
 鉴权与既有接入方式见 [Agent / MCP 使用说明](../docs/agents/integration.md)，不要把凭据写入命令示例或提交文件。
 
 ## Android

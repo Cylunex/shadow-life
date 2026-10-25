@@ -3,6 +3,7 @@
 `contracts/` 是服务端与所有客户端的公共协议来源，包名保持 `@shadow/contracts`。
 公开输入、结果、错误、能力登记和传输映射只在 `contracts/src` 维护，不从服务端数据库或客户端界面反向生成。
 合同包不得依赖 HTTP 服务框架、数据库实现或 Agent Runtime。
+位于 `server/mcp` 的服务端工具入口也只依赖这些公共合同，通过 HTTP 调用 Life API，保持与客户端相同的协议语义。
 
 生成物包括 `contracts/generated` 下的能力、目录和 MCP JSON，以及 Android 的 Kotlin 合同模型与资源。
 生成物不手工维护；修改源定义后从仓库根目录执行：

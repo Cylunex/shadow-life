@@ -2,8 +2,8 @@
 
 Shadow Life is a new product kernel. It does not import or proxy the legacy Shadow services at runtime.
 
-The single repository has three source areas: `server/` owns the API, background processing, business kernel,
-database and migration tools; `client/` owns Web, Android, CLI and MCP; `shared/` owns public contracts. Package
+The single repository has three source areas: `server/` owns the API, background processing, MCP tooling, business
+kernel, database and migration tools; `client/` owns Web, Android and CLI; `shared/` owns public contracts. Package
 names remain `@shadow/*`. A single root pnpm workspace and lockfile support scoped development and checks;
 the layout does not create independently installed repositories. See [the layout guide](docs/architecture/server-client-layout.md).
 
@@ -14,14 +14,16 @@ server/api -> server/kernel -> shared/contracts
 server/api -> server/database -> server/kernel
 server/api -> server/agent-adapter -> shared/contracts
 server/worker -> server/database
-client/web / client/cli / client/mcp -> shared/contracts
+server/mcp -> shared/contracts
+client/web / client/cli -> shared/contracts
 client/android -> generated contract models
 ```
 
 `shared/contracts` owns public input, result, error and capability schemas. `server/kernel` owns authorization
 effects, idempotency and workflows through ports. `server/database` implements those ports with PostgreSQL and
-Drizzle. Server transports construct trusted request context and call the kernel Executor. Web, Android, CLI and
-MCP use HTTP to reach that same execution path; client code does not import database or kernel implementations.
+Drizzle. The API constructs trusted request context and calls the kernel Executor. Web, Android, CLI and the
+server-side MCP entry point use HTTP to reach that same execution path; clients and MCP do not import database or
+kernel implementations. MCP provides tools to external runtimes and does not perform Agent orchestration.
 No entry point implements a second business-success path.
 
 The API runs independently of the Web development server and does not embed the Web bundle. Browser session,

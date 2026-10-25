@@ -45,6 +45,10 @@ export function sourceBoundaryViolations(file,text,packageRoots,workspaceRoot=ro
     if(path.startsWith("shared/contracts/")&&["hono","drizzle-orm","pg","pg-boss","react","react-dom"].includes(dependency))violations.push(`${path}: contracts must stay independent of ${specifier}`);
     if(path.startsWith("server/kernel/")&&(["hono","drizzle-orm","pg","pg-boss","react","react-dom"].includes(dependency)||(target?.startsWith("server/")&&!target.startsWith("server/kernel/"))))violations.push(`${path}: kernel imported an adapter or framework: ${specifier}`);
     if(isRuntime&&side==="client"&&["drizzle-orm","pg","pg-boss"].includes(dependency))violations.push(`${path}: client runtime must not import database implementation ${specifier}`);
+    if(isRuntime&&path.startsWith("server/mcp/")){
+      if(targetSide==="server"&&!target.startsWith("server/mcp/"))violations.push(`${path}: MCP must use the HTTP API, not server implementation ${specifier}`);
+      if(["drizzle-orm","pg","pg-boss"].includes(dependency))violations.push(`${path}: MCP must not import database implementation ${specifier}`);
+    }
   }
   return [...new Set(violations)];
 }

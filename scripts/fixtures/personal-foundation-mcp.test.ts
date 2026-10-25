@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createApp } from '../../server/api/src/app.js';
-import { LifeClient } from '../../client/mcp/src/client.js';
-import { createMcpServer } from '../../client/mcp/src/server.js';
+import { LifeClient } from '../../server/mcp/src/client.js';
+import { createMcpServer } from '../../server/mcp/src/server.js';
 import { reviewFixture, pgOnly } from '../../server/database/test/review-fixture.js';
 
 test('HTTP and actual MCP calls share personal data and cannot widen fixed scenarios',pgOnly,async t=>{

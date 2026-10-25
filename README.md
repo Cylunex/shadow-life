@@ -5,7 +5,7 @@ purchases, money and refunds, budgets and recurring plans, health measurements, 
 revisioned library. HTTP, CLI, MCP, Web, Android and the optional Agent Runtime all use the same typed command
 contracts and deterministic execution receipts.
 
-The repository groups the service in [`server/`](server/README.md), applications and HTTP clients in
+The repository groups the API, worker and MCP tooling in [`server/`](server/README.md), applications and the CLI in
 [`client/`](client/README.md), and public contracts in [`shared/`](shared/README.md). They share one pnpm workspace
 and lockfile, with separate development and verification commands. Read [ARCHITECTURE.md](ARCHITECTURE.md),
 [the layout guide](docs/architecture/server-client-layout.md) and [the rebuild status](docs/execution/rebuild-status.md)
@@ -48,8 +48,8 @@ does not embed or serve the Web application. Android has its own Gradle workflow
 
 | Work | Root commands |
 | --- | --- |
-| Server | `pnpm check:server`, `pnpm test:server:offline` |
-| Web, CLI and MCP | `pnpm check:client`, `pnpm test:client`, `pnpm build:client` |
+| Server, including MCP | `pnpm check:server`, `pnpm test:server:offline` |
+| Web and CLI | `pnpm check:client`, `pnpm test:client`, `pnpm build:client` |
 | Shared contracts | `pnpm check:shared` |
 | Cross-side changes | `pnpm check`, `pnpm test:full:offline` |
 

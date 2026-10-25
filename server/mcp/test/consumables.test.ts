@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {reviewFixture,pgOnly} from "../../../server/database/test/review-fixture.js";
+import {reviewFixture,pgOnly} from "../../database/test/review-fixture.js";
 import {LifeClient} from "../src/client.js";
 import {createMcpServer} from "../src/server.js";
-import {createApp} from "../../../server/api/src/app.js";
+import {createApp} from "../../api/src/app.js";
 
 test("personal MCP purchase creates a pending cycle and exposes actual-use tools",pgOnly,async t=>{
  const fixture=await reviewFixture(t),app=createApp({...fixture,developmentAuth:true});

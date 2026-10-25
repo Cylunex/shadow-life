@@ -10,6 +10,7 @@ Life 保留一个 Git 仓库、一套 pnpm workspace 和一份根 lockfile，把
 server/
   api/                HTTP、认证、会话、共同查询与命令入口
   worker/             Outbox 与后台任务
+  mcp/                服务端 MCP 工具入口，经 HTTP 调用 Life API
   kernel/             业务规则、端口和 Executor
   database/           PostgreSQL 实现、迁移和持久化测试
   agent-adapter/      已有 Runtime 协议兼容
@@ -18,7 +19,6 @@ client/
   web/                React / Vite 浏览器客户端
   android/            Kotlin / Compose，独立 Gradle 工程
   cli/                HTTP 命令行客户端
-  mcp/                HTTP MCP 客户端
 shared/
   contracts/          公共合同源定义与生成器
 scripts/              根开发与验证入口
@@ -34,8 +34,9 @@ docs/                 架构、使用与交付记录
 不依赖 HTTP、数据库框架或 Agent Runtime。`server/database` 实现持久化端口，API 负责认证并构造可信上下文，
 通过共同 QueryService / Executor 进入业务。
 
-Web、Android、CLI 和 MCP 经 HTTP 使用该路径，不直接调用数据库或导入服务端业务实现。CLI/MCP 虽运行在
-Node.js 中，仍是远程服务的客户端。客户端本地队列、显示状态与重试不能产生独立的业务成功结果。
+Web、Android 和 CLI 经 HTTP 使用该路径，不直接调用数据库或导入服务端业务实现。
+`server/mcp` 是服务端工具入口，供外部 Runtime 经 MCP 访问 Life；它继续通过 HTTP 调用 Life API，
+不直连数据库、不导入其他服务端业务实现，也不承担 Agent 编排。客户端本地队列、显示状态与重试不能产生独立的业务成功结果。
 Worker 沿用服务端的事务、Outbox 和任务规则，不能建立另一条业务写入成功路径。
 
 API 与 Web 分别启动。API 提供浏览器会话、业务接口和受保护资源，不托管或嵌入 Web 构建产物；Web 使用自己的
@@ -54,10 +55,11 @@ Runtime 兼容，本次目录整理不扩展 Agent 编排或模型调用；Agent
 | API 开发 | `pnpm dev:server` | API 进程，需要本地数据库与运行配置 |
 | Web 开发 | `pnpm dev:client` | Web 开发服务，与 API 分开启动 |
 | 后台处理 | `pnpm dev:worker` | Worker 进程，需要本地数据库与运行配置 |
+| MCP 工具入口 | `pnpm mcp` | 服务端 MCP 进程，需要 Life API 地址与既有鉴权配置 |
 | 共享检查 | `pnpm check:shared` | shared JSON 生成物、合同类型与测试 |
 | 服务端检查 | `pnpm check:server` | shared 生成物、边界、服务端及合同类型、服务端测试 |
 | 客户端检查 | `pnpm check:client` | 完整合同生成物、边界、客户端及合同类型、客户端范围测试 |
-| 服务端测试 | `pnpm test:server` | 服务端范围；数据库测试需测试库 |
+| 服务端测试 | `pnpm test:server` | 包括 MCP 及其 API 组合测试；数据库测试需测试库 |
 | 客户端测试 | `pnpm test:client` | 客户端范围，排除显式列出的跨层组合测试 |
 | 服务端隔离回归 | `pnpm test:server:offline` | 临时本地 PostgreSQL 与合成数据 |
 | 全量检查 | `pnpm check` | 全 workspace 的生成物、边界、类型与包测试 |
@@ -92,13 +94,15 @@ pnpm check:contracts
 
 ## 跨端测试归属
 
-测试保留在对应包的原有 `test/` 目录。位于客户端但同时使用服务端实现的组合测试，由根测试发现脚本明确标为
-integration；`test:client` 排除这些场景，完整套件继续包含它们和根脚本中的 MCP 组合 fixture。测试目录位置
-不代表可以在客户端生产代码中跨边界导入服务端实现。
+测试随所属包保留在 `test/` 目录。MCP 测试位于 `server/mcp/test`，与根脚本中的 MCP 组合 fixture 一起纳入
+服务端及完整套件。位于 Web 客户端但同时使用服务端实现的组合测试，由根测试发现脚本明确标为 integration；
+`test:client` 排除这些场景，完整套件继续包含它们。测试目录位置不代表可以在客户端或 MCP 生产代码中
+跨边界导入服务端业务实现。
 
 单侧实现改动可先运行对应检查，公共合同、HTTP 交互、命令恢复和跨端数据展示改动还需完整验证。
 目录重组本身也应核对迁移路径、生成物、测试发现与导入工具，使“测试没有发现旧路径”不会被误认成通过。
-具体交付结果见 [拆分交付记录](../execution/server-client-layout-2026-10-25.md)；本设计只定义运行与验证方式。
+初次分区交付见 [拆分交付记录](../execution/server-client-layout-2026-10-25.md)，后续 MCP 归属以本设计为准；
+本设计只定义运行与验证方式。
 
 更多入口：[服务端](../../server/README.md)、[客户端](../../client/README.md)、[共享合同](../../shared/README.md)、
 [共同架构约束](../../ARCHITECTURE.md)。

@@ -3,10 +3,10 @@ import test from "node:test";
 import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { reviewFixture, pgOnly, mealInput } from "../../../server/database/test/review-fixture.js";
+import { reviewFixture, pgOnly, mealInput } from "../../database/test/review-fixture.js";
 import { LifeClient } from "../src/client.js";
 import { createMcpServer } from "../src/server.js";
-import { createApp } from "../../../server/api/src/app.js";
+import { createApp } from "../../api/src/app.js";
 import { capabilityRegistry, type CapabilityName } from "@shadow/contracts";
 
 for (const toolset of ["full", "compact"] as const) test(`${toolset} MCP image-backed dining survives a lost response, replays once, and reads an exact historical window`, pgOnly, async t => {
