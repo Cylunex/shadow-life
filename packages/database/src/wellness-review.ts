@@ -15,14 +15,14 @@ export async function readWellnessDays(database:NodePgDatabase<typeof schema>,su
   const result=await database.execute<{day_value:unknown;as_of:string}>(sql`
     with calendar as (select (${from}::date+n)::date date from generate_series(0,${to}::date-${from}::date) n)
     select jsonb_build_object('date',calendar.date::text,
-      'meals',(select count(*)::int from meals where subject_id=${subjectId} and occurred_on=calendar.date),
-      'empty_meals',(select count(*)::int from meals meal where meal.subject_id=${subjectId} and meal.occurred_on=calendar.date
+      'meals',(select count(*)::int from meals where subject_id=${subjectId} and state='active' and occurred_on=calendar.date),
+      'empty_meals',(select count(*)::int from meals meal where meal.subject_id=${subjectId} and meal.state='active' and meal.occurred_on=calendar.date
         and not exists(select 1 from intake_items item where item.meal_id=meal.id and item.subject_id=${subjectId} and item.effective)),
       'items',nutrition.items,'nutrients',nutrition.nutrients,'sleep',sleep.value,'weight',weight.value,'workouts',workouts.value) as day_value,
       statement_timestamp()::text as_of
     from calendar
     cross join lateral (select count(*)::int items,jsonb_build_object(${sql.join(nutrientFields,sql`,`)}) nutrients
-      from intake_items item join meals meal on meal.id=item.meal_id and meal.subject_id=${subjectId}
+      from intake_items item join meals meal on meal.id=item.meal_id and meal.subject_id=${subjectId} and meal.state='active'
       where item.subject_id=${subjectId} and item.effective and meal.occurred_on=calendar.date) nutrition
     left join lateral (select jsonb_build_object('id',id,'revision',revision,'minutes',total_minutes) value
       from health_sleep_sessions where subject_id=${subjectId} and effective and wake_date=calendar.date

@@ -21648,6 +21648,22 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "platform": {
+            "type": "string",
+            "enum": [
+              "generic",
+              "meituan",
+              "jd",
+              "taobao",
+              "alipay",
+              "wechat"
+            ]
+          },
+          "source_account": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
           "format": {
             "type": "string",
             "enum": [
@@ -21700,6 +21716,22 @@
           "input": {
             "type": "object",
             "properties": {
+              "platform": {
+                "type": "string",
+                "enum": [
+                  "generic",
+                  "meituan",
+                  "jd",
+                  "taobao",
+                  "alipay",
+                  "wechat"
+                ]
+              },
+              "source_account": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
               "format": {
                 "type": "string",
                 "enum": [
@@ -56084,6 +56116,252 @@
         "additionalProperties": false
       }
     },
+    "money.import_history": {
+      "name": "money.import_history",
+      "description": "按平台、账号标签和处理状态分页读取账单导入历史、候选数量与日期覆盖。",
+      "possible_effects": [
+        "money.entry.read"
+      ],
+      "idempotency": "not-applicable",
+      "status_query": "operations.get",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": "string",
+            "enum": [
+              "generic",
+              "meituan",
+              "jd",
+              "taobao",
+              "alipay",
+              "wechat"
+            ]
+          },
+          "source_account": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "review",
+              "completed"
+            ]
+          },
+          "limit": {
+            "default": 30,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "cursor": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "limit"
+        ],
+        "additionalProperties": false
+      },
+      "command_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": "string",
+            "enum": [
+              "generic",
+              "meituan",
+              "jd",
+              "taobao",
+              "alipay",
+              "wechat"
+            ]
+          },
+          "source_account": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "review",
+              "completed"
+            ]
+          },
+          "limit": {
+            "default": 30,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "cursor": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "limit"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "items": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "source_name": {
+                  "type": "string"
+                },
+                "platform": {
+                  "type": "string",
+                  "enum": [
+                    "generic",
+                    "meituan",
+                    "jd",
+                    "taobao",
+                    "alipay",
+                    "wechat"
+                  ]
+                },
+                "source_account": {
+                  "type": "string"
+                },
+                "parser_version": {
+                  "type": "string"
+                },
+                "format": {
+                  "type": "string",
+                  "enum": [
+                    "csv",
+                    "json",
+                    "markdown"
+                  ]
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "review",
+                    "completed"
+                  ]
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                },
+                "total": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "pending": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "invalid": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "confirmed": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "ignored": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "duplicates": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "first_occurred_on": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "last_occurred_on": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "source_name",
+                "platform",
+                "source_account",
+                "parser_version",
+                "format",
+                "status",
+                "created_at",
+                "total",
+                "pending",
+                "invalid",
+                "confirmed",
+                "ignored",
+                "duplicates",
+                "first_occurred_on",
+                "last_occurred_on"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "as_of"
+        ],
+        "additionalProperties": false
+      }
+    },
     "money.import_review": {
       "name": "money.import_review",
       "description": "读取一个账单导入批次及其原始行、问题、重复提示和复核状态。",
@@ -56132,6 +56410,23 @@
                 "pattern": "^[a-z][a-z0-9_]{7,127}$"
               },
               "source_name": {
+                "type": "string"
+              },
+              "platform": {
+                "type": "string",
+                "enum": [
+                  "generic",
+                  "meituan",
+                  "jd",
+                  "taobao",
+                  "alipay",
+                  "wechat"
+                ]
+              },
+              "source_account": {
+                "type": "string"
+              },
+              "parser_version": {
                 "type": "string"
               },
               "format": {
@@ -56219,12 +56514,96 @@
                     "null"
                   ]
                 },
+                "platform": {
+                  "type": "string",
+                  "enum": [
+                    "generic",
+                    "meituan",
+                    "jd",
+                    "taobao",
+                    "alipay",
+                    "wechat"
+                  ]
+                },
+                "source_account": {
+                  "type": "string"
+                },
+                "identity_kind": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "expense",
+                        "income",
+                        "refund"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "duplicate_of_candidate_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "raw": {
                   "type": "object",
                   "propertyNames": {
                     "type": "string"
                   },
                   "additionalProperties": {}
+                },
+                "source_proposed": {
+                  "type": "object",
+                  "properties": {
+                    "entry_type": {
+                      "type": "string",
+                      "enum": [
+                        "expense",
+                        "income",
+                        "refund"
+                      ]
+                    },
+                    "amount": {
+                      "type": "string",
+                      "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                    },
+                    "currency": {
+                      "type": "string",
+                      "const": "CNY"
+                    },
+                    "occurred_on": {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    "time_zone": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "counterparty": {
+                      "type": "string"
+                    },
+                    "category": {
+                      "type": "string"
+                    },
+                    "payment_method": {
+                      "type": "string"
+                    },
+                    "note": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
                 },
                 "proposed": {
                   "type": "object",
@@ -56469,6 +56848,14 @@
         "properties": {
           "period": {
             "type": "string"
+          },
+          "total_batches": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "truncated": {
+            "type": "boolean"
           },
           "batches": {
             "maxItems": 100,

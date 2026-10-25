@@ -1,3 +1,4 @@
+import { moneyImportHistoryInputSchema, moneyImportHistoryResultSchema, instant, stableId } from "@shadow/contracts";
 import { wellnessReviewInputSchema } from "@shadow/contracts";
 import { buildWellnessReview, wellnessWindow } from "./wellness-review.js";
 import { buildItemAttention, buildStockAttention } from "./planning-attention.js";
@@ -198,7 +199,25 @@ export class QueryService {
     return serviceCardsResultSchema.parse(await this.unitOfWork.read(store=>store.serviceCards(context.subjectId,parsed)));
   }
   async moneyPlanning(context:RequestContext,period:string){if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");if(!/^(?:0{3}[1-9]|0{2}[1-9]\d|0[1-9]\d{2}|[1-9]\d{3})-(0[1-9]|1[0-2])$/u.test(period))throw invalidInput("period must be a valid YYYY-MM",["period"]);return moneyPlanningResultSchema.parse(await this.unitOfWork.read(store=>store.moneyPlanning(context.subjectId,period)));}
-  async moneyImportReview(context:RequestContext,batchId:string){if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");const value=await this.unitOfWork.read(store=>store.moneyImportReview(context.subjectId,batchId));if(value===undefined)throw notFound("money import batch was not found");return moneyImportReviewResultSchema.parse(value);}
+  async moneyImportHistory(context:RequestContext,input:unknown={}){
+    if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");
+    const {cursor,...parsed}=moneyImportHistoryInputSchema.parse(input);
+    const signature=JSON.stringify([context.subjectId,parsed.platform??null,parsed.source_account??null,parsed.status??null]);
+    let before:{at:string;id:string;as_of:string}|undefined;
+    if(cursor){
+      try{
+        const value=JSON.parse(Buffer.from(cursor,"base64url").toString("utf8")) as Record<string,unknown>;
+        if(value===null||value.version!==1||value.signature!==signature)throw new Error("mismatch");
+        before={at:instant.parse(value.at),id:stableId.parse(value.id),as_of:instant.parse(value.as_of)};
+        if(before.at.startsWith("0000-")||before.as_of.startsWith("0000-")||Date.parse(before.at)>Date.parse(before.as_of))throw new Error("invalid window");
+      }catch{throw invalidInput("import history cursor is invalid or does not match this query",["cursor"]);}
+    }
+    const page=await this.unitOfWork.read(store=>store.moneyImportHistory(context.subjectId,{...parsed,...(before?{asOf:before.as_of,before:{at:before.at,id:before.id}}:{})}));
+    const last=page.items.at(-1);
+    const next=page.hasMore&&last?Buffer.from(JSON.stringify({version:1,signature,at:last.created_at,id:last.id,as_of:page.asOf})).toString("base64url"):null;
+    return moneyImportHistoryResultSchema.parse({items:page.items,next_cursor:next,as_of:page.asOf});
+  }
+  async moneyImportReview(context:RequestContext,batchId:string){if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");const read=this.unitOfWork.snapshot?.bind(this.unitOfWork)??this.unitOfWork.read.bind(this.unitOfWork);const value=await read(store=>store.moneyImportReview(context.subjectId,batchId));if(value===undefined)throw notFound("money import batch was not found");return moneyImportReviewResultSchema.parse(value);}
   async moneyImportMonth(context:RequestContext,input:unknown){if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");const {period}=moneyImportMonthInputSchema.parse(input);return moneyImportMonthResultSchema.parse(await this.unitOfWork.read(store=>store.moneyImportMonth(context.subjectId,period)));}
   async wellnessReview(context:RequestContext,input:unknown){for(const effect of ["life.meal.read","health.measurement.read"])if(!context.effects.has(effect))throw permissionDenied(effect);const parsed=wellnessReviewInputSchema.parse(input),window=wellnessWindow(parsed);const raw=await this.unitOfWork.read(store=>store.wellnessReviewDays(context.subjectId,window.previousFrom,parsed.to));return buildWellnessReview(raw.days,parsed,raw.as_of);}
   async healthDaily(context:RequestContext,date:string){if(!context.effects.has("health.measurement.read"))throw permissionDenied("health.measurement.read");const value=await this.unitOfWork.read(store=>store.healthDaily(context.subjectId,date));if(value===undefined)throw notFound("health day was not found");const wire=JSON.parse(JSON.stringify(value)) as Record<string,unknown>;return healthDailyResultSchema.parse({occurred_on:wire.occurred_on,algorithm_version:wire.algorithm_version,result:wire.result,source_set_hash:wire.source_set_hash,revision:wire.revision,updated_at:new Date(String(wire.updated_at)).toISOString()});}

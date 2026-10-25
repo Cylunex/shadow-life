@@ -1,3 +1,4 @@
+import { readMoneyImportHistory } from "./money-import-history.js";
 import { readWellnessDays } from "./wellness-review.js";
 import { createFoundationStore, writeFoundation } from "./foundation.js";
 import { agentRefsAvailable } from "./agent-refs.js";
@@ -22,9 +23,69 @@ import type { ConsumptionStatsRawData, ConsumptionStatsRawIntake, ConsumptionSta
 import { readServiceCards, writeServiceCard } from "./service-cards.js";
 import { saveUseCycle, recordConsumableUse } from "./consumables.js";
 import * as schema from "./schema.js";
+import type { MoneyImportPlatform } from "@shadow/kernel";
 
 type Database = NodePgDatabase<typeof schema>;
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
+
+const moneyImportParserVersion="2";
+type ImportIdentity={platform:string;sourceAccount:string;externalId:string;identityKind:string|null};
+function importIdentityKey(subjectId:string,identity:ImportIdentity):string{
+  return JSON.stringify([subjectId,"money-import-identity",identity.platform,identity.sourceAccount,identity.externalId]);
+}
+function importFactsChanged(left:Record<string,unknown>,right:Record<string,unknown>):boolean{
+  const amount=(value:unknown)=>typeof value==="string"?value.replace(/\.0+$/u,"").replace(/(\.\d*?)0+$/u,"$1"):value;
+  return ["entry_type","currency","occurred_on","time_zone"].some(key=>left[key]!==right[key])||amount(left.amount)!==amount(right.amount);
+}
+type LegacyImportMatch={recordId:string;sourceProposed:Record<string,unknown>};
+function legacyImportKey(identity:ImportIdentity){return JSON.stringify([identity.platform,identity.externalId,identity.identityKind===null?null:identity.identityKind==='refund'?'refund':'movement']);}
+async function legacyImportMatches(database:Database|Transaction,subjectId:string,identity:ImportIdentity){
+  return (await legacyImportMatchesMany(database,subjectId,[identity])).get(legacyImportKey(identity))??[];
+}
+async function legacyImportMatchesMany(database:Database|Transaction,subjectId:string,identities:ImportIdentity[]){
+  const matches=new Map<string,LegacyImportMatch[]>();
+  // Old Ledger used one account namespace. Explicit new accounts do not inherit it.
+  const requested=[...new Map(identities.filter(value=>value.sourceAccount==='default'&&['jd','taobao','meituan'].includes(value.platform)).map(value=>[legacyImportKey(value),{platform:value.platform,external_id:value.externalId,identity_kind:value.identityKind}])).values()];
+  if(!requested.length)return matches;
+  // Expand archived source and relationship chunks once for the whole staged file.
+  const found=await database.execute<{record_id:string;raw:Record<string,unknown>;platform:string;external_id:string;identity_kind:string|null}>(sql`
+    with requested as (select * from jsonb_to_recordset(${JSON.stringify(requested)}::jsonb) as r(platform text,external_id text,identity_kind text)),
+    captured as (
+      select distinct archive.source_instance,archive.source_snapshot,source.value->>'id' source_id,
+        source.value->'raw_payload' raw,requested.platform,requested.external_id,requested.identity_kind
+      from legacy_archives archive
+      cross join lateral jsonb_array_elements(case when jsonb_typeof(archive.content->'rows')='array' then archive.content->'rows' else '[]'::jsonb end) source(value)
+      cross join lateral jsonb_array_elements(case when jsonb_typeof(source.value->'raw_payload'->'rows')='array' then source.value->'raw_payload'->'rows' else '[]'::jsonb end) row(value)
+      join requested on source.value->'raw_payload'->>'platform'=requested.platform
+        and btrim(case requested.platform
+          when 'taobao' then row.value->>'订单号'
+          when 'meituan' then row.value->>'交易单号'
+          when 'jd' then coalesce(nullif(btrim(row.value->>'交易订单号'),''),row.value->>'商家订单号') end)=requested.external_id
+      where archive.subject_id=${subjectId} and archive.state='active' and archive.source_table in ('capture_sources','public.capture_sources')
+    ), linked as (
+      select distinct captured.raw,captured.platform,captured.external_id,captured.identity_kind,map.target_type,map.target_id
+      from captured join legacy_archives archive on archive.subject_id=${subjectId} and archive.state='active'
+        and archive.source_instance=captured.source_instance and archive.source_snapshot=captured.source_snapshot
+        and archive.source_table in ('ledger_record_sources','public.ledger_record_sources')
+      cross join lateral jsonb_array_elements(case when jsonb_typeof(archive.content->'rows')='array' then archive.content->'rows' else '[]'::jsonb end) link(value)
+      join legacy_object_maps map on map.source_instance=captured.source_instance
+        and map.source_table in ('ledger_records','public.ledger_records') and map.source_pk->>'id'=link.value->>'record_id'
+      where link.value->>'source_id'=captured.source_id and map.target_type in ('money_entry','purchase')
+    )
+    select distinct entry.record_id,linked.raw,linked.platform,linked.external_id,linked.identity_kind from linked
+      left join purchases purchase on linked.target_type='purchase' and purchase.id=linked.target_id and purchase.subject_id=${subjectId}
+      join money_entries entry on entry.subject_id=${subjectId} and ((linked.target_type='money_entry' and entry.id=linked.target_id) or entry.record_id=purchase.record_id)`);
+  for(const row of found.rows){
+    try{
+      const parsed=parseMoneyStatement({format:'json',content:JSON.stringify(row.raw.rows),timeZone:'Asia/Shanghai',platform:row.platform as 'jd'|'taobao'|'meituan'});
+      const source=parsed.find(item=>item.externalId===row.external_id&&(row.identity_kind===null||item.identityKind===undefined||(item.identityKind==='refund')===(row.identity_kind==='refund')));
+      if(!source)continue;
+      const key=legacyImportKey({platform:row.platform,externalId:row.external_id,identityKind:row.identity_kind,sourceAccount:'default'});
+      const group=matches.get(key)??[];group.push({recordId:row.record_id,sourceProposed:source.proposed});matches.set(key,group);
+    }catch{/* Unreadable historical evidence never becomes an inferred identity. */}
+  }
+  return matches;
+}
 
 async function recordRelations(database:Database|Transaction,subjectId:string,recordId:string|undefined,mealId:string|undefined,sections:readonly string[],includeTravel:boolean){
   const queries=[];
@@ -321,15 +382,80 @@ function storeFor(database: Database | Transaction): TransactionStore {
           const input=setMoneyImportRuleInputSchema.parse(command.input),normalizedMatch=input.match_value.trim().toLocaleLowerCase();await database.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${subjectId}:money-import-rule:${normalizedMatch}`},6))`);const collision=await database.execute<{id:string}>(sql`select id from money_import_rules where subject_id=${subjectId} and lower(btrim(match_value))=${normalizedMatch} limit 1`);if(collision.rowCount&&collision.rows[0]!.id!==input.rule_id)throw conflict("an import rule for this counterparty already exists");const id=input.rule_id??nextId("import_rule");let revision=1;if(input.rule_id){const saved=await database.execute<{revision:number}>(sql`update money_import_rules set match_value=${input.match_value},replacements=${JSON.stringify(input.replacements)}::jsonb,state=${input.state},revision=revision+1,updated_at=now() where id=${id} and subject_id=${subjectId} and revision=${input.expected_revision!} returning revision`);if(!saved.rowCount)throw conflict("import rule revision changed or rule does not exist");revision=saved.rows[0]!.revision;}else await database.insert(schema.moneyImportRules).values({id,subjectId,matchValue:input.match_value,replacements:input.replacements,state:input.state});return{resources:[{type:"money_import_rule",id,revision}],actualValues:{money_import_rule_id:id,match_value:input.match_value,state:input.state,revision}};
         }
         case "money.stage_import":{
-          const input=stageMoneyImportInputSchema.parse(command.input),contentHash=sha256Fingerprinter.fingerprint({format:input.format,content:input.content});await database.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${subjectId}:money-import:${contentHash}`},5))`);
-          const existing=await database.execute<{id:string}>(sql`select id from money_import_batches where subject_id=${subjectId} and content_hash=${contentHash}`);if(existing.rowCount)return{resources:[{type:"money_import_batch",id:existing.rows[0]!.id,revision:1}],actualValues:{batch_id:existing.rows[0]!.id,duplicate_source:true},warnings:["相同账单文件已进入复核，未重复生成候选。"]};
-          let candidates;try{const parsed=parseMoneyStatement({format:input.format,content:input.content,timeZone:input.time_zone}),rules=await database.execute<{id:string;match_value:string;replacements:Record<string,unknown>}>(sql`select id,match_value,replacements from money_import_rules where subject_id=${subjectId} and state='active' order by created_at,id`);candidates=applyMoneyImportRules(parsed,rules.rows.map(rule=>({id:rule.id,matchValue:rule.match_value,replacements:rule.replacements})));}catch(error){throw invalidInput(error instanceof Error?error.message:"Statement could not be parsed.",["content"]);}const batchId=nextId("import_batch");await database.insert(schema.moneyImportBatches).values({id:batchId,subjectId,sourceName:input.source_name,format:input.format,contentHash,originalContent:input.content,timeZone:input.time_zone,status:"review"});
-          let invalid=0,duplicates=0;for(const[position,candidate]of candidates.entries()){let duplicateOfRecordId:string|null=null;const warnings=[...candidate.warnings];if(candidate.externalId){const duplicate=await database.execute<{linked_record_id:string}>(sql`select linked_record_id from money_import_candidates where subject_id=${subjectId} and external_id=${candidate.externalId} and status='confirmed' and linked_record_id is not null order by updated_at desc limit 1`);duplicateOfRecordId=duplicate.rows[0]?.linked_record_id??null;if(duplicateOfRecordId){warnings.push("duplicate_external_id");duplicates++;}}const status=candidate.issues.length?"invalid":"pending";if(status==="invalid")invalid++;await database.insert(schema.moneyImportCandidates).values({id:nextId("import_candidate"),batchId,subjectId,position,externalId:candidate.externalId,raw:candidate.raw,proposed:candidate.proposed,issues:candidate.issues,warnings,appliedRuleIds:candidate.appliedRuleIds??[],status,duplicateOfRecordId});}
-          return{resources:[{type:"money_import_batch",id:batchId,revision:1}],actualValues:{batch_id:batchId,total:candidates.length,pending:candidates.length-invalid,invalid,duplicates,duplicate_source:false}};
+          const input=stageMoneyImportInputSchema.parse(command.input);
+          let parsed;
+          try{parsed=parseMoneyStatement({format:input.format,content:input.content,timeZone:input.time_zone,...(input.platform?{platform:input.platform}:{})});}
+          catch(error){throw invalidInput(error instanceof Error?error.message:"Statement could not be parsed.",["content"]);}
+          const platform=parsed.every(candidate=>candidate.platform===parsed[0]!.platform)?parsed[0]!.platform:"generic",sourceAccount=input.source_account??"default";
+          const contentHash=sha256Fingerprinter.fingerprint({format:input.format,content:input.content,time_zone:input.time_zone,platform,source_account:sourceAccount});
+          await database.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${subjectId}:money-import:${contentHash}`},5))`);
+          const legacyHash=sha256Fingerprinter.fingerprint({format:input.format,content:input.content});
+          const existing=await database.execute<{id:string}>(sql`select id from money_import_batches where subject_id=${subjectId} and
+            (content_hash=${contentHash} or (content_hash=${legacyHash} and parser_version='1' and platform=${platform} and source_account=${sourceAccount} and time_zone=${input.time_zone})) limit 1`);
+          if(existing.rowCount)return{resources:[{type:"money_import_batch",id:existing.rows[0]!.id,revision:1}],actualValues:{batch_id:existing.rows[0]!.id,duplicate_source:true},warnings:["相同来源、账号和时区的账单文件已导入，未重复生成候选。"]};
+          const rules=await database.execute<{id:string;match_value:string;replacements:Record<string,unknown>}>(sql`select id,match_value,replacements from money_import_rules where subject_id=${subjectId} and state='active' order by created_at,id`);
+          const candidates=applyMoneyImportRules(parsed,rules.rows.map(rule=>({id:rule.id,matchValue:rule.match_value,replacements:rule.replacements})));
+          // Lock all source identities in a stable order, including still-pending overlaps.
+          const lockKeys=[...new Set(candidates.flatMap(candidate=>candidate.externalId?[importIdentityKey(subjectId,{platform:candidate.platform,sourceAccount,externalId:candidate.externalId,identityKind:candidate.identityKind??null})]:[]))].sort();
+          for(const key of lockKeys)await database.execute(sql`select pg_advisory_xact_lock(hashtextextended(${key},7))`);
+          const batchId=nextId("import_batch");
+          await database.insert(schema.moneyImportBatches).values({id:batchId,subjectId,sourceName:input.source_name,platform,sourceAccount,parserVersion:moneyImportParserVersion,format:input.format,contentHash,originalContent:input.content,timeZone:input.time_zone,status:"review"});
+          const legacyMatches=await legacyImportMatchesMany(database,subjectId,candidates.flatMap(candidate=>candidate.externalId?[{platform:candidate.platform,sourceAccount,externalId:candidate.externalId,identityKind:candidate.identityKind??null}]:[]));
+          let invalid=0,duplicates=0,changed=0;
+          for(const[position,candidate]of candidates.entries()){
+            let duplicateOfRecordId:string|null=null,duplicateOfCandidateId:string|null=null;
+            const warnings=[...candidate.warnings],issues=[...candidate.issues],sourceProposed=parsed[position]!.proposed;
+            if(candidate.externalId){
+              const identity={platform:candidate.platform,sourceAccount,externalId:candidate.externalId,identityKind:candidate.identityKind??null};
+              const prior=await database.execute<{id:string;linked_record_id:string|null;source_proposed:Record<string,unknown>}>(sql`
+                select id,linked_record_id,source_proposed from money_import_candidates
+                where subject_id=${subjectId} and platform=${identity.platform} and source_account=${sourceAccount}
+                  and external_id=${identity.externalId} and (identity_kind is not distinct from ${identity.identityKind} or (identity_kind in ('expense','income') and ${identity.identityKind}::text in ('expense','income')) or identity_kind is null or ${identity.identityKind}::text is null)
+                  and status<>'ignored' order by (status='confirmed') desc,created_at,id limit 1`);
+              const duplicate=prior.rows[0];
+              if(duplicate){
+                duplicateOfRecordId=duplicate.linked_record_id;duplicateOfCandidateId=duplicate.id;
+                warnings.push(duplicateOfRecordId?"duplicate_external_id":"duplicate_pending_external_id");
+                if(importFactsChanged(sourceProposed,duplicate.source_proposed)){issues.push("external_id_payload_changed");changed++;}
+              }
+              const legacy=legacyMatches.get(legacyImportKey(identity))??[];
+              if(legacy.length){
+                duplicateOfRecordId??=legacy[0]!.recordId;warnings.push("duplicate_legacy_external_id");
+                if(!issues.includes("external_id_payload_changed")&&legacy.some(match=>importFactsChanged(sourceProposed,match.sourceProposed))){issues.push("external_id_payload_changed");changed++;}
+              }
+              if(duplicateOfCandidateId||duplicateOfRecordId)duplicates++;
+            }
+            const status=issues.length?"invalid":"pending";if(status==="invalid")invalid++;
+            await database.insert(schema.moneyImportCandidates).values({id:nextId("import_candidate"),batchId,subjectId,position,platform:candidate.platform,sourceAccount,identityKind:candidate.identityKind??null,externalId:candidate.externalId,raw:candidate.raw,sourceProposed,proposed:candidate.proposed,issues,warnings,appliedRuleIds:candidate.appliedRuleIds??[],status,duplicateOfRecordId,duplicateOfCandidateId});
+          }
+          return{resources:[{type:"money_import_batch",id:batchId,revision:1}],actualValues:{batch_id:batchId,total:candidates.length,pending:candidates.length-invalid,invalid,duplicates,changed,platform,source_account:sourceAccount,parser_version:moneyImportParserVersion,duplicate_source:false}};
         }
         case "money.resolve_import_candidate":{
-          const input=resolveMoneyImportCandidateInputSchema.parse(command.input),result=await database.execute<{id:string;batch_id:string;raw:Record<string,unknown>;proposed:Record<string,unknown>;status:string;duplicate_of_record_id:string|null;revision:number}>(sql`select id,batch_id,raw,proposed,status,duplicate_of_record_id,revision from money_import_candidates where id=${input.candidate_id} and subject_id=${subjectId} for update`),candidate=result.rows[0];if(!candidate||candidate.revision!==input.expected_revision||!['pending','invalid'].includes(candidate.status))throw conflict("import candidate revision changed or is already resolved");
+          const input=resolveMoneyImportCandidateInputSchema.parse(command.input),result=await database.execute<{id:string;batch_id:string;platform:string;source_account:string;identity_kind:string|null;external_id:string|null;raw:Record<string,unknown>;source_proposed:Record<string,unknown>;proposed:Record<string,unknown>;issues:string[];status:string;duplicate_of_record_id:string|null;revision:number}>(sql`select id,batch_id,platform,source_account,identity_kind,external_id,raw,source_proposed,proposed,issues,status,duplicate_of_record_id,revision from money_import_candidates where id=${input.candidate_id} and subject_id=${subjectId} for update`),candidate=result.rows[0];if(!candidate||candidate.revision!==input.expected_revision||!['pending','invalid'].includes(candidate.status))throw conflict("import candidate revision changed or is already resolved");
+          await database.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${subjectId}:money-import-batch:${candidate.batch_id}`},8))`);
           if(input.decision==="ignore"){const revision=candidate.revision+1;await database.execute(sql`update money_import_candidates set status='ignored',decision_reason=${input.reason},revision=${revision},updated_at=now() where id=${candidate.id}`);await database.execute(sql`update money_import_batches batch set status=case when exists(select 1 from money_import_candidates item where item.batch_id=batch.id and item.status in('pending','invalid')) then 'review' else 'completed' end where id=${candidate.batch_id}`);return{resources:[{type:"money_import_candidate",id:candidate.id,revision}],actualValues:{candidate_id:candidate.id,batch_id:candidate.batch_id,status:"ignored",revision}};}
+          const sourceOnlyIssues=new Set(["non_completed_transaction","unsettled_transaction","missing_transaction_status","orphan_order_item"]);
+          let sourceIssues=candidate.issues;
+          if(candidate.platform!=="generic"&&!Array.isArray(candidate.raw.rows)){
+            // Pre-v2 candidates retained flat source rows but did not check platform settlement.
+            // Revalidate only their source semantics; never rewrite an already-confirmed entry.
+            try{sourceIssues=[...sourceIssues,...parseMoneyStatement({format:"json",content:JSON.stringify([candidate.raw]),timeZone:String(candidate.source_proposed.time_zone??candidate.proposed.time_zone??"Asia/Shanghai"),platform:candidate.platform as MoneyImportPlatform}).flatMap(item=>item.issues)];}
+            catch{throw invalidInput("legacy source row cannot be validated; import its current platform export",["candidate_id"]);}
+          }
+          if(sourceIssues.some(issue=>sourceOnlyIssues.has(issue)))throw invalidInput("source transaction is not completed; ignore this row or import a completed source",["candidate_id"]);
+          if(sourceIssues.includes("unsupported_currency")&&input.corrections?.currency!=="CNY")throw invalidInput("unsupported source currency requires an explicit currency correction",["corrections","currency"]);
+          if(candidate.external_id){
+            const identity={platform:candidate.platform,sourceAccount:candidate.source_account,externalId:candidate.external_id,identityKind:candidate.identity_kind};
+            await database.execute(sql`select pg_advisory_xact_lock(hashtextextended(${importIdentityKey(subjectId,identity)},7))`);
+            const duplicates=await database.execute<{status:string;source_proposed:Record<string,unknown>}>(sql`
+              select status,source_proposed from money_import_candidates where subject_id=${subjectId} and id<>${candidate.id}
+                and platform=${identity.platform} and source_account=${identity.sourceAccount} and external_id=${identity.externalId}
+                and (identity_kind is not distinct from ${identity.identityKind} or (identity_kind in ('expense','income') and ${identity.identityKind}::text in ('expense','income')) or identity_kind is null or ${identity.identityKind}::text is null) and status<>'ignored'`);
+            if(duplicates.rows.some(row=>row.status==='confirmed')||(await legacyImportMatches(database,subjectId,identity)).length)
+              throw conflict("candidate external_id already links to a confirmed transaction; ignore it instead of duplicating the ledger");
+            if(duplicates.rows.some(row=>importFactsChanged(candidate.source_proposed,row.source_proposed)))
+              throw conflict("candidate external_id has changed source facts; resolve the conflicting candidate before confirming");
+          }
           if(candidate.duplicate_of_record_id)throw conflict("candidate external_id already links to a confirmed transaction; ignore it instead of duplicating the ledger");
           const merged={...candidate.proposed,...(input.corrections??{})} as Record<string,unknown>,entryType=merged.entry_type,common={amount:merged.amount,currency:merged.currency,occurred_on:merged.occurred_on,time_zone:merged.time_zone,...(typeof merged.counterparty==="string"?{counterparty:merged.counterparty}:{}),...(typeof merged.category==="string"?{category:merged.category}:{}),...(typeof merged.payment_method==="string"?{payment_method:merged.payment_method}:{}),...(typeof merged.note==="string"?{note:merged.note}:{})};
           const parsedEntry=entryType==="refund"?recordRefundInputSchema.parse({amount:merged.amount,currency:merged.currency,occurred_on:merged.occurred_on,time_zone:merged.time_zone,...(typeof merged.note==="string"?{note:merged.note}:{}),original_entry_id:input.original_entry_id}):recordMoneyEntryInputSchema.parse({...common,entry_type:entryType});
@@ -601,10 +727,13 @@ function storeFor(database: Database | Transaction): TransactionStore {
             'total_items',count(*)::int,'known_energy_items',count(item.energy_kcal)::int,
             'complete_macros',coalesce(bool_and(
               (item.protein_g is not null and item.carb_g is not null and item.fat_g is not null)
-            ),false))
+            ),false) and not exists(
+              select 1 from meals empty_meal where empty_meal.subject_id=${subjectId} and empty_meal.state='active' and empty_meal.occurred_on=${date}::date
+              and not exists(select 1 from intake_items active_item where active_item.meal_id=empty_meal.id and active_item.subject_id=${subjectId} and active_item.effective)
+            ))
           from intake_items item join meals meal on meal.id=item.meal_id
-          where meal.subject_id=${subjectId} and meal.occurred_on=${date}::date and item.subject_id=${subjectId} and item.effective
-        )) from meals where subject_id=${subjectId} and occurred_on=${date}::date) end meals,
+          where meal.subject_id=${subjectId} and meal.state='active' and meal.occurred_on=${date}::date and item.subject_id=${subjectId} and item.effective
+        )) from meals where subject_id=${subjectId} and state='active' and occurred_on=${date}::date) end meals,
         case when ${include("money")} then (select jsonb_build_object('entries',coalesce(sum(entries),0)::int,'totals',coalesce(jsonb_agg(jsonb_build_object('currency',currency,'gross_expense',gross::text,'refund',refund::text,'income',income::text,'net_spending',(gross-refund)::text,'net_cashflow',(income-gross+refund)::text) order by currency),'[]'::jsonb),'due_items',(select coalesce(jsonb_agg(to_jsonb(due) order by due.due_on,due.id),'[]'::jsonb) from (select occurrence.id,occurrence.due_on::text due_on,occurrence.state,plan.title,plan.amount::text amount,case when plan.amount is null then null else plan.currency end currency from recurring_occurrences occurrence join recurring_plans plan on plan.id=occurrence.plan_id where plan.subject_id=${subjectId} and occurrence.due_on<=${date}::date and occurrence.state in('pending','reminded','snoozed') order by occurrence.due_on,occurrence.id limit 20) due),'freshness',max(freshness)) from (select entry.currency,count(*)::int entries,coalesce(sum(entry.amount) filter(where entry.entry_type='expense'),0) gross,coalesce(sum(entry.amount) filter(where entry.entry_type='refund'),0) refund,coalesce(sum(entry.amount) filter(where entry.entry_type='income'),0) income,max(record.created_at) freshness from money_entries entry join consumption_records record on record.id=entry.record_id where entry.subject_id=${subjectId} and record.state='confirmed' and entry.occurred_on=${date}::date group by entry.currency) totals) end money,
         case when ${include("health")} then (select jsonb_build_object('facts',count(*)::int,'sync_issues',(select coalesce(jsonb_agg(to_jsonb(issue) order by issue.source_type,issue.instance_key),'[]'::jsonb) from (select source.id,source.source_type,source.instance_key,source.permission_state,source.sync_epoch,coalesce(array_agg(distinct cursor.state) filter(where cursor.state is not null),'{}'::text[]) cursor_states,max(cursor.updated_at) last_sync_at from health_source_instances source left join health_sync_cursors cursor on cursor.source_instance_id=source.id and cursor.subject_id=source.subject_id where source.subject_id=${subjectId} and source.source_type in('health_connect','samsung','scale') group by source.id having source.permission_state<>'granted' or bool_or(cursor.state<>'active') order by source.source_type,source.instance_key limit 20) issue),'freshness',max(created_at)) from (select created_at from health_measurements where subject_id=${subjectId} and occurred_on=${date}::date and effective union all select created_at from health_observations where subject_id=${subjectId} and occurred_on=${date}::date and effective union all select created_at from health_daily_wellbeing where subject_id=${subjectId} and occurred_on=${date}::date and effective union all select created_at from health_sleep_sessions where subject_id=${subjectId} and wake_date=${date}::date and effective union all select created_at from health_workout_sessions where subject_id=${subjectId} and occurred_on=${date}::date and effective union all select created_at from health_daily_activity where subject_id=${subjectId} and occurred_on=${date}::date and effective union all select created_at from health_habit_logs where subject_id=${subjectId} and occurred_on=${date}::date and effective) facts) end health,
         case when ${include("travel")} then (select jsonb_build_object('visits',count(*)::int,'current_trips',(select coalesce(jsonb_agg(to_jsonb(current_trip) order by current_trip.starts_on,current_trip.id),'[]'::jsonb) from (select trip.id,trip.title,trip.starts_on::text starts_on,trip.ends_on::text ends_on,trip.time_zone from trips trip where trip.starts_on<=${date}::date and trip.ends_on>=${date}::date and (trip.subject_id=${subjectId} or exists(select 1 from trip_members member where member.trip_id=trip.id and member.subject_id=${subjectId})) order by trip.starts_on,trip.id limit 20) current_trip),'freshness',max(visit.created_at)) from visits visit where visit.occurred_on=${date}::date and (visit.subject_id=${subjectId} or (visit.visibility='shared' and exists(select 1 from trip_members member where member.trip_id=visit.trip_id and member.subject_id=${subjectId})))) end travel,
@@ -764,23 +893,48 @@ function storeFor(database: Database | Transaction): TransactionStore {
       if(cycleIds.length){const candidates=await database.execute<UseCycleIntakeRaw&{cycle_id:string}>(sql`select cycle.id cycle_id,item.id,item.name,item.food_ref_id,item.quantity::text,item.unit,item.amount_g::text,item.consumed_fraction::text from use_cycles cycle join meals meal on meal.subject_id=cycle.subject_id and meal.state='active' join intake_items item on item.meal_id=meal.id and item.subject_id=cycle.subject_id and item.effective where cycle.id in (${sql.join(cycleIds.map(id=>sql`${id}`),sql`,`)}) and cycle.usage_state='in_use' and ((cycle.match_mode='exact_name' and lower(btrim(regexp_replace(normalize(item.name,NFKC),'[[:space:]]+',' ','g')))=lower(btrim(regexp_replace(normalize(cycle.match_value,NFKC),'[[:space:]]+',' ','g')))) or (cycle.match_mode='food_ref' and item.food_ref_id=cycle.match_value)) and (case when meal.occurred_at is null then meal.occurred_on else (meal.occurred_at at time zone cycle.time_zone)::date end)>=cycle.started_on and (case when meal.occurred_at is null then meal.occurred_on else (meal.occurred_at at time zone cycle.time_zone)::date end)<=coalesce(cycle.ended_on,(${asOf}::timestamptz at time zone cycle.time_zone)::date) order by cycle.id,item.id`);intakeRows=candidates.rows;}
       return{...row,use_cycles:cycles.map(cycle=>buildUseCycleStatus(cycle,intakeRows.filter(item=>item.cycle_id===cycle.id),asOf)),period,window:{start_on:startOn,end_on_exclusive:endOn},limits:{budgets:100,recurring_plans:100,occurrences:500,spending_intents:100,use_cycles:100},as_of:asOf};
     },
+    async moneyImportHistory(subjectId,input){return readMoneyImportHistory(database,subjectId,input);},
     async moneyImportReview(subjectId,batchId){
-      const batchResult=await database.execute<{id:string;source_name:string;format:"csv"|"json"|"markdown";content_hash:string;status:"review"|"completed";created_at:string|Date;total:number;pending:number;confirmed:number;ignored:number;invalid:number}>(sql`select batch.id,batch.source_name,batch.format,batch.content_hash,batch.status,batch.created_at,count(candidate.id)::int total,count(*) filter(where candidate.status='pending')::int pending,count(*) filter(where candidate.status='confirmed')::int confirmed,count(*) filter(where candidate.status='ignored')::int ignored,count(*) filter(where candidate.status='invalid')::int invalid from money_import_batches batch left join money_import_candidates candidate on candidate.batch_id=batch.id where batch.id=${batchId} and batch.subject_id=${subjectId} group by batch.id`),batch=batchResult.rows[0];if(!batch)return undefined;
-      const candidates=await database.execute<{id:string;position:number;external_id:string|null;raw:Record<string,unknown>;proposed:Record<string,unknown>;issues:string[];warnings:string[];applied_rule_ids:string[];status:"pending"|"invalid"|"confirmed"|"ignored";duplicate_of_record_id:string|null;linked_record_id:string|null;revision:number}>(sql`select id,position,external_id,raw,proposed,issues,warnings,applied_rule_ids,status,duplicate_of_record_id,linked_record_id,revision from money_import_candidates where batch_id=${batchId} and subject_id=${subjectId} order by position,id`),rules=await database.execute<{id:string;match_value:string;replacements:Record<string,unknown>;state:"active"|"disabled";revision:number}>(sql`select id,match_value,replacements,state,revision from money_import_rules where subject_id=${subjectId} order by created_at,id`);return{batch:{...batch,created_at:new Date(batch.created_at).toISOString()},candidates:candidates.rows,rules:rules.rows};
+      const batchResult=await database.execute<{id:string;source_name:string;platform:string;source_account:string;parser_version:string;format:"csv"|"json"|"markdown";content_hash:string;status:"review"|"completed";created_at:string|Date;total:number;pending:number;confirmed:number;ignored:number;invalid:number}>(sql`select batch.id,batch.source_name,batch.platform,batch.source_account,batch.parser_version,batch.format,batch.content_hash,batch.status,batch.created_at,count(candidate.id)::int total,count(*) filter(where candidate.status='pending')::int pending,count(*) filter(where candidate.status='confirmed')::int confirmed,count(*) filter(where candidate.status='ignored')::int ignored,count(*) filter(where candidate.status='invalid')::int invalid from money_import_batches batch left join money_import_candidates candidate on candidate.batch_id=batch.id where batch.id=${batchId} and batch.subject_id=${subjectId} group by batch.id`),batch=batchResult.rows[0];if(!batch)return undefined;
+      const candidates=await database.execute(sql`
+        select candidate.id,candidate.position,candidate.platform,candidate.source_account,candidate.identity_kind,candidate.external_id,
+          candidate.raw,candidate.source_proposed,candidate.proposed,candidate.issues,
+          case when duplicate.linked_record_id is not null and not candidate.warnings ? 'duplicate_external_id'
+            then candidate.warnings||'["duplicate_external_id"]'::jsonb
+            when duplicate.id is null then candidate.warnings-'duplicate_pending_external_id' else candidate.warnings end warnings,
+          candidate.applied_rule_ids,candidate.status,duplicate.id duplicate_of_candidate_id,
+          coalesce(duplicate.linked_record_id,candidate.duplicate_of_record_id) duplicate_of_record_id,candidate.linked_record_id,candidate.revision
+        from money_import_candidates candidate
+        left join lateral (select prior.id,prior.linked_record_id from money_import_candidates prior
+          where prior.subject_id=candidate.subject_id and prior.platform=candidate.platform and prior.source_account=candidate.source_account
+            and prior.external_id=candidate.external_id and (prior.identity_kind is not distinct from candidate.identity_kind or (prior.identity_kind in ('expense','income') and candidate.identity_kind in ('expense','income')) or prior.identity_kind is null or candidate.identity_kind is null)
+            and prior.status<>'ignored' and (prior.status='confirmed' or prior.id=candidate.duplicate_of_candidate_id)
+            and prior.id<>candidate.id and candidate.status in ('pending','invalid') order by (prior.status='confirmed') desc,prior.created_at,prior.id limit 1) duplicate on true
+        where candidate.batch_id=${batchId} and candidate.subject_id=${subjectId} order by candidate.position,candidate.id`);
+      const rules=await database.execute<{id:string;match_value:string;replacements:Record<string,unknown>;state:"active"|"disabled";revision:number}>(sql`select id,match_value,replacements,state,revision from money_import_rules where subject_id=${subjectId} order by created_at,id limit 500`);
+      return{batch:{...batch,created_at:new Date(batch.created_at).toISOString()},candidates:candidates.rows,rules:rules.rows};
     },
     async moneyImportMonth(subjectId,period){
-      const result=await database.execute<{id:string;source_name:string;status:"review"|"completed";created_at:string;total:number;unconfirmed:number;duplicates:number;uncategorized:number;refunds_unlinked:number}>(sql`
-        select batch.id,batch.source_name,batch.status,
-          to_char(batch.created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') created_at,
-          count(candidate.id)::int total,
-          count(*) filter(where candidate.status in ('pending','invalid'))::int unconfirmed,
-          count(*) filter(where candidate.status in ('pending','invalid') and candidate.duplicate_of_record_id is not null)::int duplicates,
-          count(*) filter(where candidate.status in ('pending','invalid') and nullif(btrim(candidate.proposed->>'category'),'') is null)::int uncategorized,
-          count(*) filter(where candidate.status in ('pending','invalid') and candidate.proposed->>'entry_type'='refund')::int refunds_unlinked
-        from money_import_batches batch join money_import_candidates candidate on candidate.batch_id=batch.id and candidate.subject_id=${subjectId}
-        where batch.subject_id=${subjectId} and (left(candidate.proposed->>'occurred_on',7)=${period} or (candidate.proposed->>'occurred_on' is null and to_char(batch.created_at at time zone 'UTC','YYYY-MM')=${period}))
-        group by batch.id order by batch.created_at desc,batch.id desc limit 100`);
-      const batches=result.rows;return{period,batches,totals:{unconfirmed:batches.reduce((n,row)=>n+row.unconfirmed,0),duplicates:batches.reduce((n,row)=>n+row.duplicates,0),uncategorized:batches.reduce((n,row)=>n+row.uncategorized,0),refunds_unlinked:batches.reduce((n,row)=>n+row.refunds_unlinked,0)},as_of:new Date().toISOString()};
+      const result=await database.execute<{batches:unknown[];total_batches:number;totals:Record<string,number>}>(sql`
+        with matching as (
+          select batch.id,batch.source_name,batch.status,
+            to_char(batch.created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') created_at,
+            count(candidate.id)::int total,
+            count(*) filter(where candidate.status in ('pending','invalid'))::int unconfirmed,
+            count(*) filter(where candidate.status in ('pending','invalid') and (candidate.duplicate_of_record_id is not null or exists(select 1 from money_import_candidates referenced where referenced.id=candidate.duplicate_of_candidate_id and referenced.subject_id=candidate.subject_id and referenced.status<>'ignored') or exists(
+              select 1 from money_import_candidates prior where prior.subject_id=candidate.subject_id and prior.platform=candidate.platform and prior.source_account=candidate.source_account and prior.external_id=candidate.external_id
+                and (prior.identity_kind is not distinct from candidate.identity_kind or (prior.identity_kind in ('expense','income') and candidate.identity_kind in ('expense','income')) or prior.identity_kind is null or candidate.identity_kind is null) and prior.id<>candidate.id and prior.status='confirmed'
+            )))::int duplicates,
+            count(*) filter(where candidate.status in ('pending','invalid') and nullif(btrim(candidate.proposed->>'category'),'') is null)::int uncategorized,
+            count(*) filter(where candidate.status in ('pending','invalid') and candidate.proposed->>'entry_type'='refund')::int refunds_unlinked
+          from money_import_batches batch join money_import_candidates candidate on candidate.batch_id=batch.id and candidate.subject_id=${subjectId}
+          where batch.subject_id=${subjectId} and (left(candidate.proposed->>'occurred_on',7)=${period} or (candidate.proposed->>'occurred_on' is null and to_char(batch.created_at at time zone batch.time_zone,'YYYY-MM')=${period}))
+          group by batch.id
+        ), page as (select * from matching order by created_at desc,id desc limit 100)
+        select coalesce((select jsonb_agg(to_jsonb(page) order by created_at desc,id desc) from page),'[]'::jsonb) batches,
+          count(*)::int total_batches,
+          jsonb_build_object('unconfirmed',coalesce(sum(unconfirmed),0),'duplicates',coalesce(sum(duplicates),0),'uncategorized',coalesce(sum(uncategorized),0),'refunds_unlinked',coalesce(sum(refunds_unlinked),0)) totals from matching`);
+      const value=result.rows[0]!;return{period,...value,truncated:value.total_batches>100,as_of:new Date().toISOString()};
     },
     async wellnessReviewDays(subjectId,from,to){return readWellnessDays(database,subjectId,from,to);},
     async healthDaily(subjectId,date){const result=await database.execute(sql`select subject_id,occurred_on,algorithm_version,result,source_set_hash,revision,updated_at from health_daily_summaries where subject_id=${subjectId} and occurred_on=${date} order by updated_at desc limit 1`);return result.rows[0];},

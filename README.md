@@ -20,6 +20,9 @@ See [daily workspace changes](docs/execution/daily-workspaces-2026-10-22.md) and
 Health and food workspaces include a shared 7/30/90-day nutrition, weight, sleep and training review, also available to agents.
 See [health and nutrition integration](docs/research/health-nutrition-agent-2026-10-23.md) for references and scope.
 
+Recurring statement imports preserve platform/account identity, source evidence and refund facts, with paged import history and complete monthly reconciliation counts.
+See [the import API guide](docs/guides/recurring-bill-imports.md) and [reference projects](docs/research/data-import-references-2026-10-25.md).
+
 ## Development
 
 Use Node 24 and pnpm 11. PostgreSQL is required for the integration journey.
