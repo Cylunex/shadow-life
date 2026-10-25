@@ -47,3 +47,27 @@ export async function uploadLocalImage(client: LifeClient, roots: readonly strin
   if (result.data.sha256 !== createHash("sha256").update(bytes).digest("hex") || result.data.bytes !== bytes.length || result.data.media_type !== type) throw new ToolFailure({ protocol: "shadow.error", code: "outcome_unknown", message: "Uploaded asset receipt does not match the original image; do not claim attachment." });
   return result.data;
 }
+
+export const uploadFileTool = { ...uploadTool, name: "assets.upload_local_file", description: "交付原始账单文件（最多 20 MiB），仅限已配置的媒体缓存目录。不解密、解析或记账；随后将 asset_version_id 交给 money.import_file，由 Life 程序处理。" };
+export async function uploadLocalFile(client: LifeClient, roots: readonly string[], args: unknown) {
+  if (!client.allows("money.import_file")) fail("Statement import is unavailable in this profile/scenario.");
+  const { path } = inputSchema.parse(args);
+  if (!isAbsolute(path) || !roots.some(root => inside(resolve(path), root))) fail("File path must be inside an approved media-cache directory.");
+  const canonicalRoots = (await Promise.all(roots.map(root => realpath(root).catch(() => null)))).filter((root): root is string => root !== null);
+  let canonical: string;
+  try { canonical = await realpath(path); } catch { return fail("The supplied file is not available in the cache."); }
+  if (!canonicalRoots.some(root => inside(canonical, root))) fail("File resolves outside approved cache directories.");
+  const file = await open(canonical, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+  let bytes: Buffer;
+  try {
+    const info = await file.stat();
+    if (!info.isFile() || info.size < 1 || info.size > maxBytes) fail("File must be a regular file between 1 byte and 20 MiB.");
+    const buffer = Buffer.alloc(info.size + 1); let used = 0;
+    while (used < buffer.length) { const read = await file.read(buffer, used, buffer.length - used, null); if (!read.bytesRead) break; used += read.bytesRead; }
+    if (used !== info.size) fail("File changed while being read.");
+    bytes = buffer.subarray(0, used);
+  } finally { await file.close(); }
+  const uploaded = uploadResult.safeParse(await client.request("/api/assets", { method: "POST", headers: { "content-type": "application/octet-stream" }, body: new Uint8Array(bytes) }, true));
+  if (!uploaded.success || uploaded.data.sha256 !== createHash("sha256").update(bytes).digest("hex") || uploaded.data.bytes !== bytes.length || uploaded.data.media_type !== "application/octet-stream") throw new ToolFailure({ protocol: "shadow.error", code: "outcome_unknown", message: "File upload receipt does not match the original. Recover before claiming delivery." });
+  return uploaded.data;
+}

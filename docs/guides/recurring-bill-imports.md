@@ -86,5 +86,50 @@ Content-Type: application/json
 `money.resolve_import_candidate`、`money.import_review`、`money.import_history` 和 `money.import_month`。
 实际调用仍由服务端授权、主体、写入 epoch 和场景范围约束；没有开放导入规则管理或其他管理能力。
 
-邮件读取、附件接收、解密与 XLSX/编码转换由 Losna 完成。Life 仍接收公开合同规定的文本分片，
+邮件读取与附件接收由 Losna 完成，解密、XLSX/编码转换和自动处理由 Life 完成。文本分片入口继续兼容，
 所有账单沿用原 Executor、来源防重和回执。暂存只产生候选，不代表消费、收入或退款已经记入账本。
+
+
+## 原始账单文件的程序处理
+
+Losna 仅交付原件并检查结果。MCP `assets.upload_local_file` 从已配置的私有缓存读取最多 20 MiB 的普通文件，
+通过既有 `/api/assets` 保存原字节，核对摘要、长度和不可变版本。随后以稳定命令调用 `money.import_file`：
+
+```json
+{
+  "command_id": "cmd_statement_example_001",
+  "input": {
+    "asset_version_id": "assetv_REPLACE_ORIGINAL",
+    "source_name": "example.csv",
+    "time_zone": "Asia/Shanghai",
+    "platform": "alipay",
+    "source_account": "default"
+  }
+}
+```
+
+ZIP 可额外提供用户给出的 `password`；多个账单成员时用 `member` 指定原件内的完整成员名。密码经 stdin 进入解码器，
+不写命令行、数据库输入或业务回执。Life 只保存命令指纹、原件及处理事实。
+
+Life 程序解码 UTF-8/GB18030 CSV、JSON、单个非空工作表的 XLSX，以及包含这些文件的普通/AES ZIP，
+保留十进制和长交易号。拒绝公式、XML 实体、路径穿越、超限展开或不明确的成员选择。不猜 Excel 数字日期，
+PDF、图片和自由文本账单属于显式未支持格式。原件及展开总量最多 20 MiB，最多 50,000 行；
+完整订单分片进入原文本解析路径，每片通常 100 行，单个订单最多 500 行。
+
+正常且唯一的交易自动通过原候选处理路径入账；已确认来源、明确的跨平台订单关联和精确旧支付跳过重复，
+关闭订单及不计收支明细不制造消费。相似旧账、来源冲突、字段不完整、缺少唯一退款原账或退款余额不足时保留异常。
+处理不调用模型，也没有逐条审批页。完整历史自动核对有 100,000 条候选/有效账目的覆盖上限，超过时明确失败。
+
+同一个文件及来源账号、平台、时区、ZIP 成员的重复交付复用原处理对象，文件名及密码不决定业务身份。
+整个文件在同一 Executor 事务提交；正常明细通过已有 `stage_import` / `resolve_import_candidate` 领域实现，
+原件关联、候选、收支、汇总对象、操作回执和 Outbox 一起提交。确定的数据异常使用事务保存点保留为待补充；
+系统错误整体回滚，调用者先恢复原命令。不会出现逐条网络调用完成一半后丢掉进度的另一条成功路径。
+
+调用 `money.import_file_status`（`GET /api/money/import-files/:fileId`）检查当前结果。响应包含原件摘要、
+`completed` / `needs_input`、总数、入账、跳过、待补充数量、异常原因计数与各批次；后续人工更正后读取当前候选状态。
+原始明细仍由 `money.import_review` 读取，状态不会把暂存或异常冒充已入账。原件和处理对象均按主体隔离。
+
+服务端仅需要 Python 3 与 `server/database/python/requirements.txt` 的 AES ZIP 依赖。
+`SHADOW_STATEMENT_CONFIG_FILE` 只指定仓库外 JSON 配置路径，结构见 `server/database/python/config.example.json`。
+MCP 可用 `SHADOW_MCP_CONFIG_FILE` 指定缓存目录和超时配置，结构见 `server/mcp/config.example.json`；旧环境配置继续兼容。
+实际配置、秘密和附件都不提交仓库。解密和账单处理只在服务端运行，MCP 仍只是 HTTP 适配，不导入数据库或业务实现。

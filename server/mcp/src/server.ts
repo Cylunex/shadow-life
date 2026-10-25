@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { LifeClient, toolError } from "./client.js";
-import { uploadLocalImage, uploadTool } from "./media.js";
+import { uploadLocalImage, uploadTool, uploadLocalFile, uploadFileTool } from "./media.js";
 import { operatorInstructions } from "./profile.js";
 import { compactCommandTool, compactEntrypoints, compactInstructions, compactQueryTool, listCompactTools, resolveCompactCall, type McpToolset } from "./compact.js";
 
@@ -30,22 +30,23 @@ export function createMcpServer(client: LifeClient, mediaRoots: readonly string[
       if (message.method === "tools/list") {
         // Catalog is intentionally refreshed on every list; cached catalogs in gateways need a reconnect.
         if (toolset === "compact") {
-          const { tools, canUpload } = await listCompactTools(client);
-          return result({ tools: mediaRoots.length > 0 && canUpload ? [uploadTool, ...tools] : tools });
+          const { tools, canUpload, canUploadFile } = await listCompactTools(client);
+          return result({ tools: [...(mediaRoots.length > 0 && canUpload ? [uploadTool] : []), ...(mediaRoots.length > 0 && canUploadFile ? [uploadFileTool] : []), ...tools] });
         }
         const tools = await client.listTools();
         const canUpload = mediaRoots.length > 0 && tools.some(tool => tool.name === "library.capture");
-        return result({ tools: canUpload ? [uploadTool, ...tools] : tools });
+        return result({ tools: [...(canUpload ? [uploadTool] : []), ...(canUpload && tools.some(t => t.name === "money.import_file") ? [uploadFileTool] : []), ...tools] });
       }
       if (message.method === "tools/call") {
         const params = callSchema.parse(message.params), args = params.arguments ?? {};
-        const upload = params.name === uploadTool.name && mediaRoots.length > 0;
+        const uploadFile = params.name === uploadFileTool.name && mediaRoots.length > 0 && client.allows("money.import_file");
+        const upload = (params.name === uploadTool.name || uploadFile) && mediaRoots.length > 0;
         const compact = toolset === "compact" && [compactQueryTool.name, compactCommandTool.name].includes(params.name);
         if (!upload && !compact && (!client.allows(params.name) || toolset === "compact" && !compactEntrypoints.has(params.name))) return rpcError(message.id, -32602, "Unknown tool or tool unavailable in this profile");
         let targetName = params.name, targetArgs = args;
         try {
           if (compact) { const target = resolveCompactCall(client, params.name, args); targetName = target.name; targetArgs = target.args; }
-          const value = upload ? await uploadLocalImage(client, mediaRoots, args) : await client.call(targetName as Parameters<LifeClient['call']>[0], targetArgs);
+          const value = uploadFile ? await uploadLocalFile(client, mediaRoots, args) : upload ? await uploadLocalImage(client, mediaRoots, args) : await client.call(targetName as Parameters<LifeClient['call']>[0], targetArgs);
           return result({ content: [{ type: "text", text: JSON.stringify(value) }], structuredContent: value });
         } catch (error) { return result(toolError(error, targetName, targetArgs)); }
       }

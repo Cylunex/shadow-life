@@ -28,3 +28,5 @@ export * from "./agent-catalog.js";
 export * from "./agent-context.js";
 
 export * from "./wellness-review.js";
+
+export * from "./statement-policy.js";

@@ -1,0 +1,4 @@
+{
+  "mediaRoots": ["/REPLACE_PRIVATE/companion/media", "/REPLACE_PRIVATE/companion/mail-files"],
+  "timeoutMs": 120000
+}

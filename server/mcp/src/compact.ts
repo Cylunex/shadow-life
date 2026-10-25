@@ -32,7 +32,7 @@ export async function listCompactTools(client: LifeClient) {
   });
   if (visible.some(item => capabilityRegistry[item.name as CapabilityName].idempotency !== "required")) tools.push(compactQueryTool);
   if (visible.some(item => capabilityRegistry[item.name as CapabilityName].idempotency === "required")) tools.push(compactCommandTool);
-  return { tools, canUpload: visible.some(item => item.name === "library.capture") };
+  return { tools, canUpload: visible.some(item => item.name === "library.capture"), canUploadFile: visible.some(item => item.name === "library.capture") && visible.some(item => item.name === "money.import_file") };
 }
 
 export function resolveCompactCall(client: LifeClient, tool: string, args: unknown) {

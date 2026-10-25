@@ -65,6 +65,7 @@ export interface TransactionStore {
   moneyPlanning(subjectId:string,period:string):Promise<unknown>;
   serviceCards(subjectId:string,input:import("@shadow/contracts").ServiceCardsInput):Promise<unknown>;
   moneyImportHistory(subjectId:string,input:Omit<import("@shadow/contracts").MoneyImportHistoryInput,"cursor"> & {asOf?:string;before?:{at:string;id:string}}):Promise<{items:import("@shadow/contracts").MoneyImportHistoryItem[];hasMore:boolean;asOf:string}>;
+  moneyImportFile(subjectId:string,fileId:string):Promise<unknown|undefined>;
   moneyImportReview(subjectId:string,batchId:string):Promise<unknown|undefined>;
   moneyImportMonth(subjectId:string,period:string):Promise<unknown>;
   wellnessReviewDays(subjectId:string,from:string,to:string):Promise<{days:import("@shadow/contracts").WellnessDay[];as_of:string}>;

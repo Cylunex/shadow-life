@@ -1,3 +1,4 @@
+import { moneyImportFileResultSchema } from "@shadow/contracts";
 import { moneyImportHistoryInputSchema, moneyImportHistoryResultSchema, instant, stableId } from "@shadow/contracts";
 import { wellnessReviewInputSchema } from "@shadow/contracts";
 import { buildWellnessReview, wellnessWindow } from "./wellness-review.js";
@@ -217,6 +218,7 @@ export class QueryService {
     const next=page.hasMore&&last?Buffer.from(JSON.stringify({version:1,signature,at:last.created_at,id:last.id,as_of:page.asOf})).toString("base64url"):null;
     return moneyImportHistoryResultSchema.parse({items:page.items,next_cursor:next,as_of:page.asOf});
   }
+  async moneyImportFile(context:RequestContext,fileId:string){if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");const read=this.unitOfWork.snapshot?.bind(this.unitOfWork)??this.unitOfWork.read.bind(this.unitOfWork);const value=await read(store=>store.moneyImportFile(context.subjectId,fileId));if(value===undefined)throw notFound("statement file was not found");return moneyImportFileResultSchema.parse(value);}
   async moneyImportReview(context:RequestContext,batchId:string){if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");const read=this.unitOfWork.snapshot?.bind(this.unitOfWork)??this.unitOfWork.read.bind(this.unitOfWork);const value=await read(store=>store.moneyImportReview(context.subjectId,batchId));if(value===undefined)throw notFound("money import batch was not found");return moneyImportReviewResultSchema.parse(value);}
   async moneyImportMonth(context:RequestContext,input:unknown){if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");const {period}=moneyImportMonthInputSchema.parse(input);return moneyImportMonthResultSchema.parse(await this.unitOfWork.read(store=>store.moneyImportMonth(context.subjectId,period)));}
   async wellnessReview(context:RequestContext,input:unknown){for(const effect of ["life.meal.read","health.measurement.read"])if(!context.effects.has(effect))throw permissionDenied(effect);const parsed=wellnessReviewInputSchema.parse(input),window=wellnessWindow(parsed);const raw=await this.unitOfWork.read(store=>store.wellnessReviewDays(context.subjectId,window.previousFrom,parsed.to));return buildWellnessReview(raw.days,parsed,raw.as_of);}

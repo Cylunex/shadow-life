@@ -123,6 +123,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.get("/api/life/records/:id",async context=>{const sections=context.req.query("sections")?.split(",").filter(Boolean);const input=lifeRecordInputSchema.parse({id:context.req.param("id"),...(sections?.length?{sections}:{})});return context.json(await dependencies.queries.lifeRecord(context.get("requestContext"),input.id,input.sections));});
   app.get("/api/money/service-cards",async context=>context.json(await dependencies.queries.serviceCards(context.get("requestContext"),{...context.req.query(),...(context.req.query("limit")?{limit:Number(context.req.query("limit"))}:{})})));
   app.get("/api/money/planning",async context=>context.json(await dependencies.queries.moneyPlanning(context.get("requestContext"),context.req.query("period")??new Date().toISOString().slice(0,7))));
+  app.get("/api/money/import-files/:fileId",async context=>context.json(await dependencies.queries.moneyImportFile(context.get("requestContext"),context.req.param("fileId"))));
   app.get("/api/money/imports",async context=>context.json(await dependencies.queries.moneyImportHistory(context.get("requestContext"),{...context.req.query(),...(context.req.query("limit")?{limit:Number(context.req.query("limit"))}:{})})));
   app.get("/api/money/imports/:batchId",async context=>context.json(await dependencies.queries.moneyImportReview(context.get("requestContext"),context.req.param("batchId"))));
   app.get("/api/money/import-month",async context=>context.json(await dependencies.queries.moneyImportMonth(context.get("requestContext"),{period:context.req.query("period")})));
@@ -368,6 +369,7 @@ export function requestLogRoute(path:string):string{
   if(path==="/api/commands/batch")return path;
   if(/^\/api\/operations\/by-command\/[^/]+$/u.test(path))return"/api/operations/by-command/:commandId";
   if(/^\/api\/operations\/[^/]+$/u.test(path))return"/api/operations/:executionId";
+  if(/^\/api\/money\/import-files\/[^/]+$/u.test(path))return "/api/money/import-files/:fileId";
   if(/^\/api\/assets\/[^/]+(?:\/preview)?$/u.test(path))return path.endsWith("/preview")?"/api/assets/:versionId/preview":"/api/assets/:versionId";
   if(/^\/api\/commands\/[^/]+$/u.test(path))return"/api/commands/:capability";
   if(/^\/api\/health\/records\/[^/]+$/u.test(path))return"/api/health/records/:id";
