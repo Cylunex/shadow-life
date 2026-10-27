@@ -152,7 +152,25 @@ export const recordRefundInputSchema = datedFactSchema.extend({
   amount: cnyAmount,
   currency: z.literal("CNY")
 }).strict().refine(factDateMatches, { path:["occurred_at"], message:"occurred_at does not fall on occurred_on in time_zone" });
-export const correctMoneyEntryInputSchema=z.object({record_id:stableId,expected_revision:z.number().int().positive(),amount:storedAmount.refine(value=>BigInt(value.replace(".",""))>0n,"must be greater than zero"),currency:currencyCode,occurred_on:localDate,occurred_at:instant.optional(),time_zone:ianaTimeZone,category:z.string().trim().min(1).max(80).optional(),counterparty:z.string().trim().min(1).max(200).optional(),payment_method:paymentMethodSchema.optional(),note:z.string().trim().min(1).max(2_000).optional(),reason:z.string().trim().min(1).max(500)}).strict().refine(factDateMatches,{path:["occurred_at"],message:"occurred_at does not fall on occurred_on in time_zone"});
+export const correctMoneyEntryInputSchema=z.object({
+  record_id:stableId,
+  expected_revision:z.number().int().positive(),
+  amount:storedAmount.refine(value=>BigInt(value.replace(".",""))>0n,"must be greater than zero"),
+  currency:currencyCode,
+  occurred_on:localDate,
+  occurred_at:instant.optional(),
+  time_zone:ianaTimeZone,
+  category:z.string().trim().min(1).max(80).optional(),
+  counterparty:z.string().trim().min(1).max(200).optional(),
+  payment_method:paymentMethodSchema.optional(),
+  note:z.string().trim().min(1).max(2_000).optional(),
+  clear_fields:z.array(z.enum(["occurred_at","category","counterparty","payment_method","note"])).max(5).optional()
+    .describe("Explicitly remove these optional facts; omitted fields retain their current values. Do not also supply a value for a cleared field."),
+  reason:z.string().trim().min(1).max(500)
+}).strict().superRefine((value,context)=>{
+  for(const field of value.clear_fields??[])if(value[field]!==undefined)context.addIssue({code:"custom",path:[field],message:"cannot supply a field and clear it in the same correction"});
+  if(new Set(value.clear_fields).size!==(value.clear_fields?.length??0))context.addIssue({code:"custom",path:["clear_fields"],message:"clear_fields must be unique"});
+}).refine(factDateMatches,{path:["occurred_at"],message:"occurred_at does not fall on occurred_on in time_zone"});
 
 export const setBudgetInputSchema = z.object({
   period: z.string().regex(/^\d{4}-\d{2}$/u),

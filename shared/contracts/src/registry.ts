@@ -88,7 +88,7 @@ const domainCapabilityRegistry = {
   "life.record_meal_from_recipe":write("life.record_meal_from_recipe","按明确食谱版本和实际食用比例快照生成餐次。",recordMealFromRecipeInputSchema,["life.meal.write"]),
   "money.record_entry": write("money.record_entry", "记录一笔明确发生的收入或支出。", recordMoneyEntryInputSchema, ["money.entry.write"]),
   "money.record_refund": write("money.record_refund", "记录针对原始账目的退款并保持关联。", recordRefundInputSchema, ["money.refund.write"]),
-  "money.correct_entry":write("money.correct_entry","按预期版本修正金额事实；保留历史并重新校验退款余额。",correctMoneyEntryInputSchema,["money.entry.write"]),
+  "money.correct_entry":write("money.correct_entry","按预期版本更正账目；省略的可选字段保留原值，清空须指定 clear_fields；保留历史并重新校验退款余额。",correctMoneyEntryInputSchema,["money.entry.write"]),
   "money.void_entry":write("money.void_entry","撤销金额事实；汇总立即排除，历史仍保留。",voidRecordInputSchema,["money.entry.write"]),
   "money.set_budget": write("money.set_budget", "设置月度分类预算。", setBudgetInputSchema, ["money.budget.write"]),
   "money.set_recurring_plan": write("money.set_recurring_plan", "保存周期收支计划；到期不会自动造账。", setRecurringPlanInputSchema, ["money.plan.write"]),

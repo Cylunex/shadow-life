@@ -16935,7 +16935,7 @@
     },
     "money.correct_entry": {
       "name": "money.correct_entry",
-      "description": "按预期版本修正金额事实；保留历史并重新校验退款余额。",
+      "description": "按预期版本更正账目；省略的可选字段保留原值，清空须指定 clear_fields；保留历史并重新校验退款余额。",
       "possible_effects": [
         "money.entry.write"
       ],
@@ -17007,6 +17007,21 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 2000
+          },
+          "clear_fields": {
+            "description": "Explicitly remove these optional facts; omitted fields retain their current values. Do not also supply a value for a cleared field.",
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "occurred_at",
+                "category",
+                "counterparty",
+                "payment_method",
+                "note"
+              ]
+            }
           },
           "reason": {
             "type": "string",
@@ -17107,6 +17122,21 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 2000
+              },
+              "clear_fields": {
+                "description": "Explicitly remove these optional facts; omitted fields retain their current values. Do not also supply a value for a cleared field.",
+                "maxItems": 5,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "occurred_at",
+                    "category",
+                    "counterparty",
+                    "payment_method",
+                    "note"
+                  ]
+                }
               },
               "reason": {
                 "type": "string",

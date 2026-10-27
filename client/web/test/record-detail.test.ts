@@ -20,3 +20,23 @@ test("detail links retain actual identities for payments, meals, refunds and mea
   assert.deepEqual(links.map(link=>selectionFromLocation(link.href)?.id),["record_original","meal_example","record_refund","obs_weight"]);
   assert.equal(recordRelations({related_records:[{domain:"invalid",id:"not-visible"}]}).length,0);
 });
+
+test("money editor clears only values deliberately removed and omits hidden transaction time",()=>{
+  const detail={record_id:"record_example",revision:2,occurred_on:"2026-09-10",occurred_at:"2026-09-10T02:00:00Z",time_zone:"Asia/Shanghai",note:"原备注",money_entry:{amount:"12.00",currency:"CNY",category:"日用",counterparty:"商店",payment_method:"wechat"}};
+  const changed=correctionCommand(detail,{...initialEditableFields(detail),note:"补备注"});
+  const parsed=capabilityRegistry[changed.capability].inputSchema.parse(changed.input) as Record<string,unknown>;
+  assert.equal("occurred_at" in parsed,false);assert.equal("clear_fields" in parsed,false);
+  const cleared=correctionCommand(detail,{...initialEditableFields(detail),note:" ",category:"",counterparty:"",paymentMethod:""});
+  const input=capabilityRegistry[cleared.capability].inputSchema.parse(cleared.input) as Record<string,unknown>;
+  assert.deepEqual(input.clear_fields,["category","counterparty","payment_method","note"]);
+  assert.equal("note" in input,false);
+});
+
+test("purchase payment editor uses payment dates and notes independently of the purchase",()=>{
+  const detail={record_id:"record_example",revision:1,occurred_on:"2026-09-10",time_zone:"Asia/Shanghai",note:"购买备注",purchase:{merchant:"示例商店"},money_entry:{amount:"12.00",currency:"CNY",occurred_on:"2026-09-11",time_zone:"UTC",note:null}};
+  const fields=initialEditableFields(detail);
+  assert.equal(fields.occurredOn,"2026-09-11");assert.equal(fields.timeZone,"UTC");assert.equal(fields.note,"");
+  const command=correctionCommand(detail,{...fields,note:"支付备注"});
+  const parsed=capabilityRegistry[command.capability].inputSchema.parse(command.input) as Record<string,unknown>;
+  assert.equal(parsed.occurred_on,"2026-09-11");assert.equal(parsed.time_zone,"UTC");assert.equal(parsed.note,"支付备注");
+});

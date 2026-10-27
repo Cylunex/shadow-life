@@ -58,3 +58,5 @@ Agent 任务上下文、来源和离线评测见 [任务上下文设计](docs/ar
 网页原件、受限正文提取与助手事件分页、活动及恢复见 [网页快照与运行恢复](docs/architecture/web-snapshots-and-run-recovery.md)。
 
 健康与饮食的联合复盘、覆盖口径和共同 Agent 查询见 [健康与饮食复盘](docs/architecture/wellness-review.md)。
+
+账目省略字段保留、显式清空、时间一致性与兼容边界见 [账目局部更正](docs/architecture/money-corrections.md)。

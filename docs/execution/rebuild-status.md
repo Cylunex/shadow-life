@@ -1,5 +1,12 @@
 # Rebuild status
 
+## 2026-10-27：账目局部更正保留既有字段
+
+- `money.correct_entry` 保留省略的可选字段，新增显式 `clear_fields`；旧输入规范化和命令重试兼容，保留原版本与退款、外币约束。
+- kernel 校验更正后日期与保留时间的一致性；Web / Android 显式表达删空，并按付款自身事实编辑。
+- 完整隔离 PostgreSQL 回归 **450/450**、`pnpm check`、Web 构建通过；Android Kotlin 编译与 **72** 项应用单元测试通过。
+- [语义与兼容边界](../architecture/money-corrections.md)。历史真实数据另在仓库外只读核查，本轮不恢复真实账目、不部署或构建 APK。
+
 ## 2026-10-25：MCP 服务端归属与发布准备
 
 - MCP 移入 `server/mcp/`；同步测试发现、workspace 链接和接入文档，保留仅经 HTTP 执行业务的依赖边界。
