@@ -43,3 +43,9 @@ export function routeForDay(places:readonly TravelPlace[],plan:TravelDayPlan|und
   return{lines,stopNumbers};
 }
 export function hasPlaceCoordinates(place:Pick<TravelPlace,"latitude"|"longitude">):boolean{return place.latitude!==null&&place.longitude!==null&&place.latitude.trim()!==""&&place.longitude.trim()!==""&&Number.isFinite(Number(place.latitude))&&Number.isFinite(Number(place.longitude))&&Math.abs(Number(place.latitude))<=90&&Math.abs(Number(place.longitude))<=180;}
+
+export function itineraryDayLabel(trip:Pick<TravelTrip,"starts_on"|"ends_on">,date:string):string{
+  if(date<trip.starts_on||date>trip.ends_on)return "范围外预订";
+  const day=Math.round((Date.parse(`${date}T00:00:00Z`)-Date.parse(`${trip.starts_on}T00:00:00Z`))/86_400_000)+1;
+  return `第 ${day} 天`;
+}

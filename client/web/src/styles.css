@@ -1145,3 +1145,16 @@ button.secondary,.soft-button { color:#c3cbd3; border-color:var(--line-strong); 
 .stock-attention-list li { flex-wrap:wrap; }
 .money-planning > .actions { flex-wrap:wrap; }
 .money-planning button { white-space:nowrap; }
+
+.travel-reservations { margin-top:22px; min-width:0; border-top:1px solid var(--line); padding-top:18px; }
+.reservation-cards { list-style:none; padding:0; display:grid; gap:12px; }
+.reservation-cards li { min-width:0; border:1px solid var(--line); border-radius:14px; padding:16px; overflow-wrap:anywhere; }
+.reservation-cards p { margin:8px 0; }
+.reservation-cards .inactive { border-style:dashed; }
+.reservation-state { font-size:.82rem; padding:3px 9px; background:var(--surface); border-radius:8px; }
+.reservation-night { color:var(--ink); font-weight:600; }
+.reservation-cards summary,.undated-reservations>summary { cursor:pointer; }
+.travel-reservations select { max-width:100%; }
+
+.travel-itinerary-workspace>div { min-width:0; }
+@media(max-width:900px){.travel-itinerary-workspace { grid-template-columns:minmax(0,1fr); }}
