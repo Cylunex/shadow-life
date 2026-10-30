@@ -62,10 +62,10 @@ private val personalLabels=mapOf("global" to "全部场景","daily" to "日常",
   }
   val busy=submit is SubmitState.Sending
   Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
-    Row{TextButton(onClick=onBack){Text("返回")};Text("我的目标与助手",style=MaterialTheme.typography.headlineSmall)}
+    Row{TextButton(onClick=onBack){Text("返回")};Text("目标与偏好",style=MaterialTheme.typography.headlineSmall)}
     Text("维护明确的目标和偏好，查看持续任务与有依据的观察。")
     Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf("intentions" to "目标偏好","tasks" to "任务","learning" to "经验").forEach{(key,label)->FilterChip(tab==key,{tab=key},{Text(label)})}}
-    OutlinedTextField(on,{on=it},label={Text("查看日期 YYYY-MM-DD")},singleLine=true,modifier=Modifier.fillMaxWidth())
+    LifeDateField(on,{on=it},"查看日期")
     Row{if(tab!="learning")Button(onClick={edit(null)},enabled=!busy){Text("新增")};TextButton(onClick={onLoad(tab,on,0)}){Text("刷新")}}
     if(localError!=null)Text(localError!!,color=MaterialTheme.colorScheme.error)
     when(submit){is SubmitState.Rejected->Text(submit.message,color=MaterialTheme.colorScheme.error);is SubmitState.Saved->Text(if(submit.receipt.queued)"已加入同步队列；同步完成后刷新查看" else "已保存");else->Unit}

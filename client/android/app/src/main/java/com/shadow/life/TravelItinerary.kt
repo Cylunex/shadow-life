@@ -93,7 +93,8 @@ internal fun travelStopInstant(date:String,time:String,zone:String):String?{
   var title by rememberSaveable{mutableStateOf("")};var time by rememberSaveable{mutableStateOf("")};var note by rememberSaveable{mutableStateOf("")};var placeId by rememberSaveable{mutableStateOf<String?>(null)}
   var editingId by rememberSaveable{mutableStateOf<String?>(null)};var error by remember{mutableStateOf<String?>(null)}
   val pending=state is SubmitState.Sending||state is SubmitState.Reconciling||state is SubmitState.Saved
-  ModalBottomSheet(onDismissRequest={if(!pending)onDismiss()}){
+  LaunchedEffect(state){if(state is SubmitState.Saved&&state.receipt.warnings.isEmpty())onDismiss()}
+  LifeFullScreen("编辑当天行程",{if(!pending)onDismiss()}){
     androidx.compose.foundation.lazy.LazyColumn(Modifier.fillMaxWidth().imePadding(),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
       item{Text("安排 $date",style=MaterialTheme.typography.headlineSmall);Text("${trip.title} · ${trip.timeZone}",color=MaterialTheme.colorScheme.onSurfaceVariant)}
       items(stops,key={it.id}){stop->val index=stops.indexOf(stop);LifeCard{
@@ -111,10 +112,7 @@ internal fun travelStopInstant(date:String,time:String,zone:String):String?{
         OutlinedTextField(time,{time=it},label={Text("时间（HH:mm，可留空）")},modifier=Modifier.fillMaxWidth(),enabled=!pending)
         OutlinedTextField(note,{note=it},label={Text("备注")},modifier=Modifier.fillMaxWidth(),enabled=!pending)
       }
-      item{Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)){
-        FilterChip(placeId==null,{placeId=null},enabled=!pending,label={Text("不关联地点")})
-        places.forEach{place->FilterChip(placeId==place.id,{placeId=place.id;if(title.isBlank())title=place.name},enabled=!pending,label={Text(place.name)})}
-      }}
+      item{if(!pending)LifeChoiceField("关联地点",placeId.orEmpty(),listOf("" to "不关联地点")+places.map{it.id to it.name}){id->placeId=id.ifBlank{null};if(title.isBlank())title=places.firstOrNull{it.id==id}?.name.orEmpty()}}
       item{OutlinedButton(enabled=!pending&&title.isNotBlank()&&title.trim().length<=200&&note.length<=1000&&(stops.size<100||editingId!=null),onClick={runCatching{
         val stop=TravelStopSummary(editingId?:newTravelStopId(),title.trim(),stops.firstOrNull{it.id==editingId}?.startsAt?.takeIf{travelTime(it,trip.timeZone)==time}?:travelStopInstant(date,time,trip.timeZone),placeId,note.trim().ifBlank{null})
         stops=if(editingId==null)stops+stop else stops.map{if(it.id==editingId)stop else it}

@@ -55,12 +55,10 @@ private fun plusDays(value:String,days:Long)=LocalDate.parse(value).plusDays(day
     if(showEditor)LifeCard{
       Text(if(editing==null)"安排餐单" else "编辑餐单",style=MaterialTheme.typography.titleMedium)
       OutlinedTextField(title,{title=it},Modifier.fillMaxWidth(),label={Text("名称")},singleLine=true)
-      Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-        OutlinedTextField(startsOn,{startsOn=it},Modifier.weight(1f),label={Text("开始日期")},singleLine=true)
-        OutlinedTextField(endsOn,{endsOn=it},Modifier.weight(1f),label={Text("结束日期")},singleLine=true)
-      }
+      LifeDateField(startsOn,{startsOn=it},"开始日期")
+      LifeDateField(endsOn,{endsOn=it},"结束日期")
       Text("添加计划餐次",style=MaterialTheme.typography.titleSmall)
-      OutlinedTextField(entryDate,{entryDate=it},Modifier.fillMaxWidth(),label={Text("计划日期 YYYY-MM-DD")},singleLine=true)
+      LifeDateField(entryDate,{entryDate=it},"计划日期")
       Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)){mealTypes.forEach{(key,label)->FilterChip(selected=mealType==key,onClick={mealType=key},label={Text(label)})}}
       OutlinedTextField(entryTitle,{entryTitle=it},Modifier.fillMaxWidth(),label={Text("想吃什么")},singleLine=true)
       OutlinedTextField(servings,{servings=it},Modifier.fillMaxWidth(),label={Text("份数")},singleLine=true)

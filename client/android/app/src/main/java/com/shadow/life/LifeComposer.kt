@@ -15,25 +15,40 @@ import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun LifeComposerHost(open:Boolean,initialSeed:CaptureSeed?,submitState:SubmitState,assistantState:LoadState<AssistantReply>?,historyState:LoadState<AssistantConversation>?,threadState:LoadState<List<AssistantThreadSummary>>,selectedThreadId:String?,refundCandidates:LoadState<RecordPage>,onLoadOlder:()->Unit,onSelectThread:(String)->Unit,onNewThread:()->Unit,onLoadRefundCandidates:(String)->Unit,onDismiss:()->Unit,onSubmit:(CaptureDraft)->Unit,onAsk:(String)->Unit,onReset:()->Unit,onOpenCapture:()->Unit={}){
+@Composable fun LifeComposerHost(open:Boolean,initialSeed:CaptureSeed?,submitState:SubmitState,assistantState:LoadState<AssistantReply>?,historyState:LoadState<AssistantConversation>?,threadState:LoadState<List<AssistantThreadSummary>>,selectedThreadId:String?,refundCandidates:LoadState<RecordPage>,onLoadOlder:()->Unit,onSelectThread:(String)->Unit,onNewThread:()->Unit,onLoadRefundCandidates:(String)->Unit,onDismiss:()->Unit,onSubmit:(CaptureDraft)->Unit,onAsk:(String)->Unit,onReset:()->Unit,onOpenCapture:()->Unit={},startWithAssistant:Boolean=false,onSavedMessage:(String)->Unit={}){
   if(!open)return
   var mode by rememberSaveable(initialSeed?.contextId,initialSeed?.kind){mutableStateOf(initialSeed?.kind)}
-  ModalBottomSheet(onDismissRequest=onDismiss,containerColor=MaterialTheme.colorScheme.surface,dragHandle={BottomSheetDefaults.DragHandle()}){
-    Column(Modifier.fillMaxWidth().imePadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(start=20.dp,end=20.dp,bottom=20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)){
-      OutlinedButton(onClick=onOpenCapture,modifier=Modifier.fillMaxWidth()){Text("录音、截图与自动记录")}
-      Text(if(mode==null)"Life" else "记录${mode?.label}",style=MaterialTheme.typography.headlineMedium)
-      if(mode==null)ComposerStart(assistantState,historyState,threadState,selectedThreadId,onLoadOlder,onSelectThread,onNewThread,onAsk,onChoose={mode=it;if(it==CaptureKind.Refund)onLoadRefundCandidates("")}) else CaptureForm(mode!!,initialSeed?.takeIf{it.kind==mode},submitState,refundCandidates,onLoadRefundCandidates,onSubmit,onBack={onReset();mode=null},onDone={onDismiss();onReset();mode=null})
+  var dirty by remember{mutableStateOf(false)}
+  var exit by remember{mutableStateOf<String?>(null)}
+  fun leave(target:String){if(submitState is SubmitState.Sending)return;if(dirty)exit=target else if(target=="types"){onReset();mode=null}else onDismiss()}
+
+  val saved=submitState as? SubmitState.Saved
+  LaunchedEffect(saved?.receipt?.commandId){if(saved!=null&&mode!=null&&saved.receipt.warnings.isEmpty()){onSavedMessage(if(saved.receipt.queued)"已保存到本机，待同步" else "记录已保存");dirty=false;onDismiss();onReset()}}
+  androidx.compose.ui.window.Dialog(onDismissRequest={leave("close")},properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)){
+    Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text(mode?.let{"记录${it.label}"}?:if(startWithAssistant)"Life 助手" else "快速记录")},navigationIcon={LifeBackButton{leave(if(mode!=null&&initialSeed==null)"types" else "close")}})}){padding->
+      Column(Modifier.fillMaxSize().padding(padding).imePadding().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)){
+        if(mode==null){
+          if(startWithAssistant)ComposerStart(assistantState,historyState,threadState,selectedThreadId,onLoadOlder,onSelectThread,onNewThread,onAsk,onChoose={mode=it;if(it==CaptureKind.Refund)onLoadRefundCandidates("")})
+          else{
+            Text("选择你想记下的事",style=MaterialTheme.typography.headlineMedium)
+            CaptureKind.entries.forEach{kind->LifeCard(onClick={mode=kind;if(kind==CaptureKind.Refund)onLoadRefundCandidates("")}){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(kind.label,Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);Text("＋",color=MaterialTheme.colorScheme.primary)}}}
+            OutlinedButton(onClick=onOpenCapture,modifier=Modifier.fillMaxWidth()){Text("录音、截图与自动记录")}
+          }
+        }else CaptureForm(mode!!,initialSeed?.takeIf{it.kind==mode},submitState,refundCandidates,onLoadRefundCandidates,onSubmit,onDirty={dirty=it},onBack={leave("types")},onDone={onDismiss();onReset();mode=null})
+      }
     }
+  if(exit!=null)AlertDialog(onDismissRequest={exit=null},title={Text("放弃未保存的内容？")},text={Text("已填写的内容尚未保存。")},confirmButton={TextButton(onClick={val target=exit;exit=null;dirty=false;if(target=="types"){onReset();mode=null}else onDismiss()}){Text("放弃")}},dismissButton={TextButton(onClick={exit=null}){Text("继续编辑")}})
   }
 }
 
 @Composable private fun ComposerStart(assistantState:LoadState<AssistantReply>?,historyState:LoadState<AssistantConversation>?,threadState:LoadState<List<AssistantThreadSummary>>,selectedThreadId:String?,onLoadOlder:()->Unit,onSelectThread:(String)->Unit,onNewThread:()->Unit,onAsk:(String)->Unit,onChoose:(CaptureKind)->Unit){
   var message by rememberSaveable{mutableStateOf("")}
   Text("直接告诉 Life 你要记录、查找或安排什么；也可以选择完整表单。",color=MaterialTheme.colorScheme.onSurfaceVariant)
-  Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically){
+  var showHistory by rememberSaveable{mutableStateOf(false)}
+  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){TextButton(onClick={showHistory=!showHistory}){Text(if(showHistory)"收起历史对话" else "历史对话")};
     FilterChip(selected=selectedThreadId==null,onClick=onNewThread,enabled=assistantState !is LoadState.Loading,label={Text("新对话")})
-    if(threadState is LoadState.Ready)threadState.value.forEach{thread->FilterChip(selected=selectedThreadId==thread.id,onClick={onSelectThread(thread.id)},enabled=assistantState !is LoadState.Loading,label={Text(thread.title.ifBlank{"未命名对话"}.take(18))})}
   }
+  if(showHistory&&threadState is LoadState.Ready)threadState.value.forEach{thread->TextButton(onClick={onSelectThread(thread.id);showHistory=false},enabled=assistantState !is LoadState.Loading,modifier=Modifier.fillMaxWidth()){Text(thread.title.ifBlank{"未命名对话"})}}
   if(threadState is LoadState.Failed)Text(threadState.message,color=MaterialTheme.colorScheme.error)
   when(historyState){
     is LoadState.Ready->{if(historyState.value.nextCursor!=null)TextButton(onClick=onLoadOlder){Text("加载更早消息")};historyState.value.items.forEach{item->Surface(Modifier.fillMaxWidth(),shape=MaterialTheme.shapes.large,color=if(item.role=="user")MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant){Column(Modifier.padding(14.dp)){Text(if(item.role=="user")"你" else "Life",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(item.content)}}}}
@@ -49,12 +64,16 @@ import java.time.LocalDate
     else->Unit
   }
   HorizontalDivider()
-  CaptureKind.entries.forEach{kind->OutlinedButton(onClick={onChoose(kind)},Modifier.fillMaxWidth().heightIn(min=56.dp)){Text("记录${kind.label}")}}
-  Text("手动表单始终可用，不依赖模型；Life 只有收到 Executor 的真实回执才会显示已提交。",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+  var manual by rememberSaveable{mutableStateOf(false)}
+  TextButton(onClick={manual=!manual}){Text(if(manual)"收起手动记录" else "使用手动记录")}
+  if(manual)CaptureKind.entries.forEach{kind->OutlinedButton(onClick={onChoose(kind)},Modifier.fillMaxWidth().heightIn(min=48.dp)){Text("记录${kind.label}")}}
+  Text("记录保存状态会随同步结果更新。",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
-@Composable private fun CaptureForm(kind:CaptureKind,seed:CaptureSeed?,state:SubmitState,refundCandidates:LoadState<RecordPage>,onLoadRefundCandidates:(String)->Unit,onSubmit:(CaptureDraft)->Unit,onBack:()->Unit,onDone:()->Unit){
-  var primary by rememberSaveable(kind,seed?.contextId){mutableStateOf(seed?.primary.orEmpty())};var secondary by rememberSaveable(kind,seed?.contextId){mutableStateOf(seed?.secondary.orEmpty())};var note by rememberSaveable(kind,seed?.contextId){mutableStateOf(seed?.note.orEmpty())};var option by rememberSaveable(kind,seed?.contextId){mutableStateOf(seed?.option?.ifBlank{defaultOption(kind)}?:defaultOption(kind))};var date by rememberSaveable(kind,seed?.contextId){mutableStateOf(seed?.date?:LocalDate.now().toString())};var category by rememberSaveable(kind,seed?.contextId){mutableStateOf(seed?.category.orEmpty())};var paymentMethod by rememberSaveable(kind,seed?.contextId){mutableStateOf(seed?.paymentMethod.orEmpty())};var advancedMeal by rememberSaveable(kind,seed?.contextId){mutableStateOf(false)};val mealRows=remember(kind,seed?.contextId){mutableStateListOf(MealDraftItem(name=if(kind==CaptureKind.Meal)seed?.primary.orEmpty() else ""))}
+@Composable private fun CaptureForm(kind:CaptureKind,seed:CaptureSeed?,state:SubmitState,refundCandidates:LoadState<RecordPage>,onLoadRefundCandidates:(String)->Unit,onSubmit:(CaptureDraft)->Unit,onDirty:(Boolean)->Unit,onBack:()->Unit,onDone:()->Unit){
+  var primary by rememberSaveable(kind,seed?.contextId){mutableStateOf(seed?.primary.orEmpty())};var secondary by rememberSaveable(kind,seed?.contextId){mutableStateOf(seed?.secondary?.takeIf{it.isNotBlank()}?:if(kind==CaptureKind.Trip)LocalDate.now().toString() else "")};var note by rememberSaveable(kind,seed?.contextId){mutableStateOf(seed?.note.orEmpty())};var option by rememberSaveable(kind,seed?.contextId){mutableStateOf(seed?.option?.ifBlank{defaultOption(kind)}?:defaultOption(kind))};var date by rememberSaveable(kind,seed?.contextId){mutableStateOf(seed?.date?:LocalDate.now().toString())};var category by rememberSaveable(kind,seed?.contextId){mutableStateOf(seed?.category.orEmpty())};var paymentMethod by rememberSaveable(kind,seed?.contextId){mutableStateOf(seed?.paymentMethod.orEmpty())};var advancedMeal by rememberSaveable(kind,seed?.contextId){mutableStateOf(false)};val mealRows=rememberSaveable(kind,seed?.contextId,saver=androidx.compose.runtime.saveable.listSaver<androidx.compose.runtime.snapshots.SnapshotStateList<MealDraftItem>,String>(save={rows->rows.map{org.json.JSONArray(listOf(it.name,it.quantity,it.unit,it.energyKcal,it.proteinG,it.fatG,it.carbG)).toString()}},restore={rows->rows.map{org.json.JSONArray(it).let{a->MealDraftItem(a.getString(0),a.getString(1),a.getString(2),a.getString(3),a.getString(4),a.getString(5),a.getString(6))}}.toMutableStateList()})){mutableStateListOf(MealDraftItem(name=if(kind==CaptureKind.Meal)seed?.primary.orEmpty() else ""))}
+  val changed=primary!=seed?.primary.orEmpty()||secondary!=(seed?.secondary?.takeIf{it.isNotBlank()}?:if(kind==CaptureKind.Trip)LocalDate.now().toString() else "")||note!=seed?.note.orEmpty()||mealRows.toList()!=listOf(MealDraftItem(name=if(kind==CaptureKind.Meal)seed?.primary.orEmpty() else ""))||category!=seed?.category.orEmpty()||paymentMethod!=seed?.paymentMethod.orEmpty()||date!=(seed?.date?:LocalDate.now().toString())||option!=(seed?.option?.ifBlank{defaultOption(kind)}?:defaultOption(kind))
+  SideEffect{onDirty(changed)}
   when(state){
     is SubmitState.Saved->{TaskResultCard(state.receipt,onDone);return}
     is SubmitState.Rejected->Text(state.message,color=MaterialTheme.colorScheme.error)
@@ -92,10 +111,11 @@ import java.time.LocalDate
     }
   }else OutlinedTextField(primary,{primary=it},Modifier.fillMaxWidth(),label={Text(primaryLabel(kind))},minLines=1,singleLine=kind!=CaptureKind.Library,keyboardOptions=KeyboardOptions(keyboardType=if(kind in listOf(CaptureKind.Expense,CaptureKind.Refund,CaptureKind.Health))KeyboardType.Decimal else KeyboardType.Text))
   if(kind==CaptureKind.Refund)RefundEntryPicker(refundCandidates,secondary,{secondary=it},onLoadRefundCandidates)
+  else if(kind==CaptureKind.Trip)LifeDateField(secondary.ifBlank{date},{secondary=it},"结束日期")
   else if(kind !in listOf(CaptureKind.Meal,CaptureKind.Visit))OutlinedTextField(secondary,{secondary=it},Modifier.fillMaxWidth(),label={Text(secondaryLabel(kind))},minLines=if(kind==CaptureKind.Library||kind==CaptureKind.Project)4 else 1,singleLine=kind!=CaptureKind.Library&&kind!=CaptureKind.Project,keyboardOptions=KeyboardOptions(keyboardType=if(kind in listOf(CaptureKind.Purchase,CaptureKind.Workout))KeyboardType.Decimal else KeyboardType.Text))
   if(kind==CaptureKind.Expense||kind==CaptureKind.Purchase){OutlinedTextField(category,{category=it},Modifier.fillMaxWidth(),label={Text(if(kind==CaptureKind.Expense)"分类（可选）" else "渠道（可选）")},singleLine=true);Text("支付方式（可选）",style=MaterialTheme.typography.labelLarge);OptionChips(listOf("" to "未知","wechat" to "微信","alipay" to "支付宝","bank_card" to "银行卡","cash" to "现金","other" to "其他"),paymentMethod){paymentMethod=it}}
   OutlinedTextField(note,{note=it},Modifier.fillMaxWidth(),label={Text("备注（可选）")},minLines=2)
-  OutlinedTextField(date,{date=it},Modifier.fillMaxWidth(),label={Text("发生日期")},supportingText={Text("YYYY-MM-DD")},singleLine=true,isError=!validDate(date))
+  LifeDateField(date,{date=it},enabled=state !is SubmitState.Sending)
   val mealValid=kind!=CaptureKind.Meal||if(advancedMeal)primary.isNotBlank() else mealRows.isNotEmpty()&&mealRows.all{it.name.isNotBlank()&&(it.quantity.isBlank()==it.unit.isBlank())}
   val effectivePrimary=if(kind==CaptureKind.Meal&&!advancedMeal)mealRows.firstOrNull()?.name.orEmpty() else primary
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp),verticalAlignment=Alignment.CenterVertically){TextButton(onClick=onBack,enabled=state !is SubmitState.Sending){Text("返回")};Button(onClick={onSubmit(CaptureDraft(kind,primary,secondary,note,date,option,category,paymentMethod,if(kind==CaptureKind.Meal&&!advancedMeal)mealRows.toList() else emptyList(),seed?.contextKind,seed?.contextId))},enabled=mealValid&&valid(kind,effectivePrimary,secondary,date)&&state !is SubmitState.Sending,modifier=Modifier.weight(1f).heightIn(min=56.dp)){Text(if(state is SubmitState.Sending)"正在保存…" else "保存记录")}}
@@ -106,9 +126,13 @@ import java.time.LocalDate
   var expanded by remember{mutableStateOf(false)};var query by rememberSaveable{mutableStateOf("")}
   val candidates=(state as? LoadState.Ready)?.value?.items.orEmpty();val selected=candidates.firstOrNull{it.id==selectedId}
   OutlinedTextField(query,{query=it},Modifier.fillMaxWidth(),label={Text("搜索原交易")},singleLine=true,trailingIcon={TextButton(onClick={onSearch(query)}){Text("搜索")}})
-  ExposedDropdownMenuBox(expanded=expanded,onExpandedChange={if(state is LoadState.Ready)expanded=it}){
-    OutlinedTextField(selected?.let{listOfNotNull(it.title,it.trailing,it.supporting).joinToString(" · ")}.orEmpty(),{},Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable).fillMaxWidth(),readOnly=true,label={Text("原交易")},placeholder={Text(when(state){LoadState.Loading->"正在读取交易…";is LoadState.Empty->state.reason;is LoadState.Failed->"读取失败，点击搜索重试";is LoadState.Ready->"选择一笔交易"})},trailingIcon={ExposedDropdownMenuDefaults.TrailingIcon(expanded)})
-    ExposedDropdownMenu(expanded=expanded,onDismissRequest={expanded=false}){candidates.forEach{entry->DropdownMenuItem(text={Column{Text(entry.title);Text(listOfNotNull(entry.trailing,entry.supporting).joinToString(" · "),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}},onClick={onSelect(entry.id);expanded=false})}}
+  OutlinedButton(onClick={expanded=true},modifier=Modifier.fillMaxWidth()){Text(selected?.let{listOfNotNull(it.title,it.trailing).joinToString(" · ")}?:"选择原交易")}
+  if(expanded)LifeFullScreen("选择原交易",{expanded=false}){
+    Column(verticalArrangement=Arrangement.spacedBy(12.dp)){
+      Text("选择退款对应的消费记录",style=MaterialTheme.typography.titleMedium)
+      OutlinedTextField(query,{query=it},modifier=Modifier.fillMaxWidth(),singleLine=true,label={Text("商家或交易内容")},trailingIcon={TextButton(onClick={onSearch(query)}){Text("搜索")}})
+      androidx.compose.foundation.lazy.LazyColumn{item{StateContent(state,{onSearch(query)}){}};items(candidates.size){index->val entry=candidates[index];LifeCard(onClick={onSelect(entry.id);expanded=false}){Text(entry.title,style=MaterialTheme.typography.titleMedium);Text(listOfNotNull(entry.trailing,entry.supporting).joinToString(" · "))}}}
+    }
   }
   Text("退款会继承普通交易的 CNY 合同；外币交易暂不在这里静默折算。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
 }

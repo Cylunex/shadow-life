@@ -52,6 +52,7 @@ internal fun trainingMenuOrDefault(candidate:JSONObject?,fallback:JSONObject):JS
   val store=remember(accountId){TrainingDraftStore(context,accountId)}
   fun emptyDraft(planId:String="",focus:String=trainingTheme(builtIn))=TrainingDraft(LocalDate.now().toString(),ZoneId.systemDefault().id,focus,planId)
   var draft by remember(accountId){mutableStateOf(store.read()?:emptyDraft())}
+  var activeExercise by androidx.compose.runtime.saveable.rememberSaveable(accountId){mutableIntStateOf(0)}
   var tab by remember(accountId){mutableStateOf("today")}
   var menu by remember(accountId){mutableStateOf(builtIn.copyJson())}
   var focus by remember(accountId){mutableStateOf(draft.focus)}
@@ -118,7 +119,9 @@ internal fun trainingMenuOrDefault(candidate:JSONObject?,fallback:JSONObject):JS
           Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(if(draft.started)"逐组记录" else "今日组合",style=MaterialTheme.typography.titleLarge);TextButton(enabled=!pending,onClick={tab="library"}){Text("＋ 添加动作")}}
           Text("${draft.date} · ${draft.timeZone}",style=MaterialTheme.typography.bodySmall)
           if(!draft.started)Button(enabled=!pending,onClick={update(draft.copy(started=true))}){Text("开始训练 · ${draft.exercises.size} 个动作")}
+          if(draft.started)LifeTabs(activeExercise.coerceIn(0,draft.exercises.lastIndex).toString(),{activeExercise=it.toInt()},draft.exercises.mapIndexed{index,row->index.toString() to "${index+1}. ${JSONObject(row.snapshot).getString("name")}"})
           draft.exercises.forEachIndexed{index,row->
+            if(draft.started&&index!=activeExercise.coerceIn(0,draft.exercises.lastIndex))return@forEachIndexed
             val exercise=JSONObject(row.snapshot);val seconds=exercise.getString("unit")=="seconds";val dumbbell=exercise.getString("equipment")=="dumbbell"
             OutlinedCard(Modifier.fillMaxWidth()){Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
               Text("${index+1}  ${exercise.getString("name")}",style=MaterialTheme.typography.titleMedium)
@@ -138,7 +141,7 @@ internal fun trainingMenuOrDefault(candidate:JSONObject?,fallback:JSONObject):JS
                 }
                 TextButton(enabled=!pending&&row.sets.size<30,onClick={updateExercise(row.id){it.copy(sets=it.sets+TrainingSetDraft(load=it.sets.lastOrNull()?.load.orEmpty()))}}){Text("＋ 加一组")}
               }
-              Row{
+              if(!draft.started)Row{
                 TextButton(enabled=!pending&&index>0,onClick={val list=draft.exercises.toMutableList();list.add(index-1,list.removeAt(index));update(draft.copy(exercises=list))}){Text("上移")}
                 TextButton(enabled=!pending&&index<draft.exercises.lastIndex,onClick={val list=draft.exercises.toMutableList();list.add(index+1,list.removeAt(index));update(draft.copy(exercises=list))}){Text("下移")}
                 TextButton(enabled=!pending&&row.sets.none{it.completed},onClick={update(draft.copy(exercises=draft.exercises.filter{it.id!=row.id}))}){Text("移除")}
@@ -146,6 +149,7 @@ internal fun trainingMenuOrDefault(candidate:JSONObject?,fallback:JSONObject):JS
             }}
           }
           if(draft.started){
+            if(activeExercise<draft.exercises.lastIndex)OutlinedButton(onClick={activeExercise++}){Text("下一个动作")}
             Text("只有点过“完成”的组会保存。重量按每只哑铃填写；单侧动作按每侧次数记录。",style=MaterialTheme.typography.bodySmall)
             Button(enabled=!sending&&draft.completedSets>0,onClick={
               try{

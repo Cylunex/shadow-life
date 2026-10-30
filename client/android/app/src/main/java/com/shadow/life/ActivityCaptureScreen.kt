@@ -32,7 +32,7 @@ import org.json.JSONObject
   val preferences=remember(accountId){context.getSharedPreferences("activity_capture",Context.MODE_PRIVATE)}
   var packages by remember(accountId){mutableStateOf(preferences.getStringSet("screen_packages_$accountId",emptySet()).orEmpty().toSet())}
   val launchers=remember{context.packageManager.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER),0).distinctBy{it.activityInfo.packageName}.filter{it.activityInfo.packageName!=context.packageName}.sortedBy{it.loadLabel(context.packageManager).toString()}}
-  var workspace by remember(accountId){mutableStateOf("采集")}
+  var workspace by androidx.compose.runtime.saveable.rememberSaveable(accountId){mutableStateOf("应用与活动")}
   var showApps by remember(accountId){mutableStateOf(false)}
   var order by remember(accountId){mutableStateOf<ActivityOrderResultDto?>(null)}
   var deleteId by remember(accountId){mutableStateOf<String?>(null)}
@@ -43,12 +43,12 @@ import org.json.JSONObject
   suspend fun read(before:String?=null){val current=++request;val result=repository.activities(date,before);if(app.sessions.active()?.accountId==accountId&&current==request)data=if(before==null)result else result.copy(items=data?.items.orEmpty()+result.items)}
   fun run(block:suspend()->Unit){if(busy)return;busy=true;scope.launch{try{check(app.sessions.active()?.accountId==accountId){"账号已切换"};block()}catch(e:CancellationException){throw e}catch(e:Exception){if(app.sessions.active()?.accountId==accountId)message=e.message?:"读取失败"}finally{busy=false}}}
   LaunchedEffect(date,accountId){data=null;message=null;try{read()}catch(e:CancellationException){throw e}catch(e:Exception){message=e.message?:"活动暂时无法读取"}}
-  Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
-    TextButton(onClick=onBack){Text("← 返回记录")};Text("应用使用与活动",style=MaterialTheme.typography.headlineMedium)
-    Row{TextButton(enabled=!busy,onClick={date=date.minusDays(1)}){Text("前一天")};Text(date.toString(),Modifier.padding(12.dp));TextButton(enabled=!busy&&date<LocalDate.now(),onClick={date=date.plusDays(1)}){Text("后一天")}}
-    Row{listOf("采集","应用与活动","分析与设置").forEach{tab->TextButton(onClick={workspace=tab}){Text(if(tab==workspace)"● $tab" else tab)}}}
-    if(workspace=="分析与设置")CaptureCompletionPanel(accountId,date)
-    if(workspace=="采集")CaptureSuitePanel(accountId,date)
+  Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
+    Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){LifeBackButton(onBack);Text("活动与采集",style=MaterialTheme.typography.headlineMedium)}
+    LifeDateField(date.toString(),{date=LocalDate.parse(it)},"查看日期",!busy)
+    LifeTabs(workspace,{workspace=it},listOf("应用与活动","录音","地点","截图","订单","回顾","分析","检索","设置与导出").map{it to it})
+    if(workspace in setOf("分析","检索","设置与导出"))key(workspace){CaptureCompletionPanel(accountId,date,workspace)}
+    if(workspace in setOf("录音","地点","截图","订单","回顾"))key(workspace){CaptureSuitePanel(accountId,date,workspace)}
     if(workspace=="应用与活动"){
     HorizontalDivider()
     Text("仅统计已捕获的完整应用区间，缺失时段保持未知；应用时长不等于专注时间。")

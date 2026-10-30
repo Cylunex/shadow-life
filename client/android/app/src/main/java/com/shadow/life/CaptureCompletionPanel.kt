@@ -25,11 +25,11 @@ internal object CaptureLocalSettings {
 }
 internal val captureBehaviors=listOf("unknown" to "未分类","reading" to "阅读","browsing" to "浏览","communication" to "沟通","shopping" to "购物","media" to "影音娱乐","work" to "工作","learning" to "学习","exercise" to "运动","travel" to "出行","rest" to "休息","other" to "其他")
 internal val captureDomains=listOf("unknown" to "未分类","work" to "工作","growth" to "成长","life" to "生活","health" to "健康","relationships" to "关系","leisure" to "休闲")
-@Composable internal fun CaptureChoice(label:String,value:String,options:List<Pair<String,String>>,choose:(String)->Unit){var expanded by remember{mutableStateOf(false)};Box{TextButton(onClick={expanded=true}){Text("$label：${options.firstOrNull{it.first==value}?.second?:value}")};DropdownMenu(expanded=expanded,onDismissRequest={expanded=false}){options.forEach{(key,title)->DropdownMenuItem(text={Text(title)},onClick={choose(key);expanded=false})}}}}
+@Composable internal fun CaptureChoice(label:String,value:String,options:List<Pair<String,String>>,choose:(String)->Unit){LifeChoiceField(label,value,options,choose)}
 
-@Composable internal fun CaptureCompletionPanel(accountId:String,date:LocalDate){
+@Composable internal fun CaptureCompletionPanel(accountId:String,date:LocalDate,initialTab:String="分析"){
  val context=LocalContext.current;val app=context.applicationContext as ShadowApp;val repository=remember(accountId){NativeLifeRepository(context,app)};val scope=rememberCoroutineScope()
- var tab by remember(accountId){mutableStateOf("分析")};var period by remember(accountId){mutableStateOf("day")};var insight by remember(accountId){mutableStateOf<CaptureInsightsResultDto?>(null)};var policy by remember(accountId){mutableStateOf<CapturePolicyResultDto?>(null)};var search by remember(accountId){mutableStateOf<CaptureSearchResultDto?>(null)}
+ var tab by remember(accountId,initialTab){mutableStateOf(initialTab)};var period by remember(accountId){mutableStateOf("day")};var insight by remember(accountId){mutableStateOf<CaptureInsightsResultDto?>(null)};var policy by remember(accountId){mutableStateOf<CapturePolicyResultDto?>(null)};var search by remember(accountId){mutableStateOf<CaptureSearchResultDto?>(null)}
  var busy by remember(accountId){mutableStateOf(false)};var message by remember(accountId){mutableStateOf<String?>(null)};var sync by remember(accountId){mutableStateOf(CaptureLocalSettings.sync(context,accountId))};var local by remember(accountId){mutableStateOf<List<String>>(emptyList())}
  var query by remember(accountId){mutableStateOf("")};var kind by remember(accountId){mutableStateOf("")};var behavior by remember(accountId){mutableStateOf("")};var project by remember(accountId){mutableStateOf("")}
  var selectedSource by remember(accountId){mutableStateOf<String?>(null)};var goalTitle by remember(accountId){mutableStateOf("")};var goalMinutes by remember(accountId){mutableStateOf("60")};var goalPeriod by remember(accountId){mutableStateOf("day")};var goalDirection by remember(accountId){mutableStateOf("at_least")};var goalId by remember(accountId){mutableStateOf<String?>(null)};var goalRevision by remember(accountId){mutableStateOf<Long?>(null)};var withOriginals by remember(accountId){mutableStateOf(false)}
@@ -42,7 +42,7 @@ internal val captureDomains=listOf("unknown" to "未分类","work" to "工作","
  val restore=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->if(uri!=null)run{message=restoreCaptureArchive(context,app,repository,accountId,uri)}}
  LaunchedEffect(date,period,accountId,queue?.completed){try{refresh()}catch(e:CancellationException){throw e}catch(e:Exception){message=e.message};try{local=localCapturePreview(app,accountId)}catch(_:Exception){}}
  Text("活动分析与来源",style=MaterialTheme.typography.titleLarge)
- Row{listOf("分析","检索","设置与导出").forEach{label->TextButton(onClick={tab=label}){Text(label)}}}
+
  when(tab){
  "分析"->{
   Row{listOf("day" to "日","week" to "周","month" to "月").forEach{(value,label)->TextButton(onClick={period=value}){Text(if(period==value)"● $label" else label)}}}
@@ -79,7 +79,7 @@ internal val captureDomains=listOf("unknown" to "未分类","work" to "工作","
  }
  }
  TextButton(enabled=!busy,onClick={run{refresh();local=localCapturePreview(app,accountId);message="已刷新"}}){Text("刷新分析与策略")};if(busy)LinearProgressIndicator(Modifier.fillMaxWidth());message?.let{Text(it)}
- selectedSource?.let{id->AlertDialog(onDismissRequest={selectedSource=null},title={Text("采集来源")},text={Box(Modifier.heightIn(max=600.dp)){CaptureSourceContent(accountId,id)}},confirmButton={TextButton(onClick={selectedSource=null}){Text("关闭")}})}
+ selectedSource?.let{id->LifeFullScreen("采集来源",{selectedSource=null}){CaptureSourceContent(accountId,id)}}
 }
 @Composable private fun CapturePolicyEditor(state:CapturePolicyResultDto,busy:Boolean,save:(JSONObject)->Unit){
  var audio by remember(state.revision){mutableStateOf(state.policy.processRecordings)};var screenshot by remember(state.revision){mutableStateOf(state.policy.processScreenshots)};var minutes by remember(state.revision){mutableStateOf(state.policy.dailyAudioMinutes.toString())};var screenshotLimit by remember(state.revision){mutableStateOf(state.policy.dailyScreenshots.toString())};var screenDays by remember(state.revision){mutableStateOf(state.policy.screenKeepDays?.toString().orEmpty())};var audioDays by remember(state.revision){mutableStateOf(state.policy.audioKeepDays?.toString().orEmpty())}
@@ -90,7 +90,8 @@ internal val captureDomains=listOf("unknown" to "未分类","work" to "工作","
  val valid=minutes.toIntOrNull() in 0..1440&&screenshotLimit.toIntOrNull() in 0..1000&&(screenDays.isBlank()||screenDays.toIntOrNull() in 1..365)&&(audioDays.isBlank()||audioDays.toIntOrNull() in 1..365)
  Button(enabled=!busy&&valid,onClick={save(JSONObject().put("expected_revision",state.revision).put("process_recordings",audio).put("process_screenshots",screenshot).put("daily_audio_minutes",minutes.toInt()).put("daily_screenshots",screenshotLimit.toInt()).put("screen_keep_days",screenDays.toIntOrNull()?:JSONObject.NULL).put("audio_keep_days",audioDays.toIntOrNull()?:JSONObject.NULL))}){Text("保存处理与保留设置")}
 }
-@Composable internal fun CaptureSourceScreen(accountId:String,id:String,onBack:()->Unit){Column(Modifier.fillMaxSize().padding(20.dp)){TextButton(onClick=onBack){Text("← 返回")};CaptureSourceContent(accountId,id)}}
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable internal fun CaptureSourceScreen(accountId:String,id:String,onBack:()->Unit){Scaffold(topBar={TopAppBar(title={Text("采集来源")},navigationIcon={LifeBackButton(onBack)})}){padding->Box(Modifier.fillMaxSize().padding(padding).padding(20.dp)){CaptureSourceContent(accountId,id)}}}
 @Composable internal fun CaptureSourceContent(accountId:String,id:String){
  val context=LocalContext.current;val app=context.applicationContext as ShadowApp;val repository=remember(accountId){NativeLifeRepository(context,app)};val scope=rememberCoroutineScope();var source by remember(id,accountId){mutableStateOf<ActivitySourceResultDto?>(null)};var projects by remember(accountId){mutableStateOf<List<Pair<String,String>>>(emptyList())};var behavior by remember(id,accountId){mutableStateOf("unknown")};var domain by remember(id,accountId){mutableStateOf("unknown")};var project by remember(id,accountId){mutableStateOf("")};var rememberApp by remember(id){mutableStateOf(false)};var message by remember(id){mutableStateOf<String?>(null)}
  suspend fun load(){val row=repository.activitySource(id);check(app.sessions.active()?.accountId==accountId);source=row;behavior=row.behavior;domain=row.lifeDomain;project=row.projectId.orEmpty();projects=repository.captureInsights(LocalDate.now(),"day").projects.map{it.id to it.title}}

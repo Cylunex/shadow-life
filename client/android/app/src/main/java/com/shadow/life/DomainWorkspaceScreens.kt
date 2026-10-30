@@ -65,7 +65,7 @@ import kotlin.math.abs
   val currencyRecords=periodRecords.filter{recordCurrency(it)==currency}
   Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(
     title={Column{Text("消费");Text(overview?.period?.let{"$it · 收支与预算"}?:"正在读取账目",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}},
-    navigationIcon={IconButton(onClick=onBack){Text("‹",style=MaterialTheme.typography.headlineLarge)}},actions={FilledTonalIconButton(onClick={onCapture(CaptureKind.Expense)}){Icon(Icons.Default.Add,"记一笔")}}
+    navigationIcon={LifeBackButton(onBack)},actions={FilledTonalIconButton(onClick={onCapture(CaptureKind.Expense)}){Icon(Icons.Default.Add,"记一笔")}}
   )}){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),state=workspaceScroll,contentPadding=PaddingValues(20.dp,10.dp,20.dp,28.dp),verticalArrangement=Arrangement.spacedBy(18.dp)){
     item{WorkspaceTabs(tab,{tab=it},listOf("overview" to "概览","details" to "明细","reconcile" to "核对","budgets" to "预算","recurring" to "订阅","intents" to "想买","supplies" to "消耗品","cards" to "次卡"))}
     if(tab in setOf("budgets","recurring","intents","supplies"))item{
@@ -196,7 +196,7 @@ private fun useCycleLine(item:MoneyUseCycleSummary)=if(item.usageState=="pending
   val dates=trip?.let{travelDates(it,days)}.orEmpty()
   val date=travelSelectedDate(dates,selectedDate.takeIf{selectedDateTripId==trip?.id},LocalDate.now(java.time.ZoneId.of(trip?.timeZone?:"UTC")).toString())
   val day=days.firstOrNull{it.date==date}
-  Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text("旅行")},navigationIcon={IconButton(onClick=onBack){Text("‹",style=MaterialTheme.typography.headlineLarge)}},actions={FilledTonalIconButton(onClick={onCapture(CaptureKind.Trip)}){Icon(Icons.Default.Add,"新建旅行")}})}){padding->
+  Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text("旅行")},navigationIcon={LifeBackButton(onBack)},actions={FilledTonalIconButton(onClick={onCapture(CaptureKind.Trip)}){Icon(Icons.Default.Add,"新建旅行")}})}){padding->
     LazyColumn(Modifier.fillMaxSize().padding(padding),userScrollEnabled=!mapGestureActive,contentPadding=PaddingValues(20.dp,10.dp,20.dp,28.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
       item{WorkspaceTabs(tab,{tab=it},listOf("overview" to "概览","itinerary" to "行程","map" to "地图","places" to "地点","records" to "记录"))}
       item{StateContent(overviewState,onRetry){} }
@@ -251,7 +251,16 @@ internal fun travelMapMarkers(value:WorkspaceOverview.Travel,places:List<TravelP
 @Composable private fun TravelPlaces(value:WorkspaceOverview.Travel,onCapture:(CaptureKind)->Unit){Column(verticalArrangement=Arrangement.spacedBy(12.dp)){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("收藏地点",style=MaterialTheme.typography.headlineSmall);Text("${value.places} 个地点 · ${value.placeItems.count{it.favorite}} 个收藏",color=MaterialTheme.colorScheme.onSurfaceVariant)};FilledTonalButton(onClick={onCapture(CaptureKind.Visit)}){Text("记到访")}};if(value.placeItems.isEmpty())EmptyState("还没有地点") else value.placeItems.forEach{place->LifeCard{Row(Modifier.fillMaxWidth()){Column(Modifier.weight(1f)){Text(place.name,style=MaterialTheme.typography.titleMedium);Text(place.address?:"地址未记录",color=MaterialTheme.colorScheme.onSurfaceVariant)};if(place.favorite)Text("★",color=MaterialTheme.colorScheme.tertiary,style=MaterialTheme.typography.titleLarge)};if(place.tags.isNotEmpty())Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)){place.tags.forEach{tag->SuggestionChip({},label={Text(tag)})}}}}}}
 @Composable private fun TravelMemorySummary(value:WorkspaceOverview.Travel,onOpen:()->Unit){LifeSection("足迹与回忆"){LifeCard(onClick=onOpen){Text("${value.places} 个地点 · ${value.tracks.size} 条轨迹",style=MaterialTheme.typography.titleLarge);Text("到访记录、地点收藏和轨迹都保留为各自的真实事实。",color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
 
-@Composable private fun WorkspaceTabs(selected:String,onSelect:(String)->Unit,items:List<Pair<String,String>>){Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){items.forEach{(key,label)->FilterChip(selected==key,{onSelect(key)},{Text(label)})}}}
+@Composable private fun WorkspaceTabs(selected:String,onSelect:(String)->Unit,items:List<Pair<String,String>>){
+  if(items.size<=5){LifeTabs(selected,onSelect,items);return}
+  var expanded by remember{mutableStateOf(false)}
+  val core=items.filter{it.first in setOf("overview","details","budgets")}
+  val tools=items.filterNot{it in core}
+  Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
+    LifeTabs(selected,onSelect,core)
+    Box{OutlinedButton(onClick={expanded=true}){Text(tools.firstOrNull{it.first==selected}?.second?.let{"管理 · $it"}?:"更多消费管理")};DropdownMenu(expanded,{expanded=false}){tools.forEach{(key,label)->DropdownMenuItem(text={Text(label)},onClick={expanded=false;onSelect(key)})}}}
+  }
+}
 @Composable private fun VisualStat(label:String,value:String,suffix:String,tone:Color,modifier:Modifier){Surface(modifier,shape=RoundedCornerShape(18.dp),color=tone.copy(alpha=.11f)){Column(Modifier.padding(12.dp)){Text(label,style=MaterialTheme.typography.labelMedium,color=tone);Text(value,style=MaterialTheme.typography.titleMedium);Text(suffix,style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
 @Composable private fun LoadMoreButton(label:String,onClick:()->Unit){TextButton(onClick=onClick,Modifier.fillMaxWidth()){Text(label)}}
 @Composable private fun DomainStatusLabel(value:String){Surface(shape=RoundedCornerShape(99.dp),color=MaterialTheme.colorScheme.primaryContainer){Text(statusUi(value),Modifier.padding(horizontal=10.dp,vertical=5.dp),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onPrimaryContainer)}}

@@ -22,10 +22,10 @@ import kotlinx.coroutines.*
 import org.json.*
 import java.time.LocalDate
 
-@Composable internal fun CaptureSuitePanel(accountId:String,date:LocalDate){
+@Composable internal fun CaptureSuitePanel(accountId:String,date:LocalDate,initialSection:String="录音"){
  val context=LocalContext.current;val app=context.applicationContext as ShadowApp;val scope=rememberCoroutineScope();val repository=remember(accountId){NativeLifeRepository(context,app)}
  var data by remember(accountId){mutableStateOf<CaptureWorkspaceResultDto?>(null)};var busy by remember(accountId){mutableStateOf(false)};var message by remember(accountId){mutableStateOf<String?>(null)}
- var section by remember(accountId){mutableStateOf("录音")};var placeName by remember(accountId){mutableStateOf("")};var player by remember(accountId){mutableStateOf<MediaPlayer?>(null)}
+ var section by remember(accountId,initialSection){mutableStateOf(initialSection)};var placeName by remember(accountId){mutableStateOf("")};var player by remember(accountId){mutableStateOf<MediaPlayer?>(null)}
  var source by remember(accountId){mutableStateOf<ActivitySourceResultDto?>(null)}
  var deleteSegment by remember(accountId){mutableStateOf<String?>(null)};var editing by remember(accountId){mutableStateOf<CaptureWorkspaceResultDtoRecordingsEntry?>(null)};var editIndex by remember(accountId){mutableIntStateOf(0)};var editText by remember(accountId){mutableStateOf("")}
  var selectedApp by remember(accountId){mutableStateOf("")};var platform by remember(accountId){mutableStateOf("generic")};var sourceAccount by remember(accountId){mutableStateOf("default")};var associate by remember(accountId){mutableStateOf(true)};var autoAccounting by remember(accountId){mutableStateOf(false)};var showApps by remember{mutableStateOf(false)};var showPlatforms by remember{mutableStateOf(false)}
@@ -42,7 +42,7 @@ import java.time.LocalDate
  LaunchedEffect(date,accountId){data=null;try{refresh()}catch(e:CancellationException){throw e}catch(e:Exception){message=e.message}}
  DisposableEffect(accountId){onDispose{player?.release();player=null}}
  Text("采集与回顾",style=MaterialTheme.typography.titleLarge)
- Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(4.dp)){listOf("录音","地点","订单","回顾","截图").forEach{label->TextButton(onClick={section=label},modifier=Modifier.weight(1f),contentPadding=PaddingValues(2.dp)){Text(label)}}}
+
  when(section){
  "录音"->{
   Text(if(LifeRecordingState.accountId==accountId)"录音状态：${mapOf("idle" to "未录音","recording" to "正在录音","paused" to "已暂停","finishing" to "正在封存","interrupted" to "已中断")[LifeRecordingState.status]?:LifeRecordingState.status}" else "录音尚未开始")
