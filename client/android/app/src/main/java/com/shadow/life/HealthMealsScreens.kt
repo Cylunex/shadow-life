@@ -3,6 +3,8 @@ package com.shadow.life
 import android.graphics.BitmapFactory
 import android.graphics.Paint
 import android.graphics.Typeface
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -135,7 +137,8 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
     HealthSurface{Text("身体趋势项目",style=MaterialTheme.typography.titleMedium);Text("收起不常看的趋势；手动录入仍可选择任何指标。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant);Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(7.dp)){metrics.filter{it.points.isNotEmpty()}.forEach{item->FilterChip(selected=item.key !in hiddenMetrics,onClick={onToggleMetric(item.key)},label={Text(item.label)})}}}
     ReferenceLegend()
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){available.forEach{item->FilterChip(metric?.key==item.key,{metricKey=item.key},{Text(item.label)})}}
-    HealthSurface(onClick=latest?.let{{onDetail(LifeDomain.Health,it.id,"${metric?.label}记录")}}){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Top){Column(Modifier.weight(1f)){Text("${metric?.label?:"身体指标"}变化",style=MaterialTheme.typography.titleLarge);Text(latest?.let{"${it.valueText} ${unitLabel(it.unit)}"}?:"未记录",style=MaterialTheme.typography.headlineLarge,fontWeight=FontWeight.SemiBold,color=healthTone(assessment.tone));Text(latest?.let{"${it.occurredOn} · ${sourceLabel(it.sourceKind)}"}?:"等待设备同步或手动补记",color=MaterialTheme.colorScheme.onSurfaceVariant)};FilledTonalIconButton(onClick={onCapture(CaptureKind.Health)}){Icon(Icons.Default.Add,"添加记录")}};AssessmentLabel(assessment);if(metric!=null&&latest!=null)TextButton(onClick={editReference(metric.key,metric.label,latest.unit,false)}){Text("设置参考范围")};Row(horizontalArrangement=Arrangement.spacedBy(7.dp)){listOf(7,30,90).forEach{value->FilterChip(days==value,{days=value},{Text("$value 天")})}};if(shown.isEmpty())ChartEmpty("所选期间没有${metric?.label.orEmpty()}数据") else {TrendChart(shown,Modifier.fillMaxWidth().height(210.dp),healthTone(assessment.tone),metric?.key);ChartDateRange(shown.first().occurredOn,shown.last().occurredOn)};Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)){SummaryFact("平均",average?.let{"${number(it)} ${latest?.unit?.let(::unitLabel).orEmpty()}"}?:"—",Modifier.weight(1f));SummaryFact("最低",shown.minOfOrNull{it.value}?.let{"${number(it)} ${latest?.unit?.let(::unitLabel).orEmpty()}"}?:"—",Modifier.weight(1f));SummaryFact("最高",shown.maxOfOrNull{it.value}?.let{"${number(it)} ${latest?.unit?.let(::unitLabel).orEmpty()}"}?:"—",Modifier.weight(1f))};if(first!=null&&latest!=null&&first.id!=latest.id)Text("期间变化 ${signed(latest.value-first.value)} ${unitLabel(latest.unit)} · ${shown.size} 个真实测量点",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+    HealthSurface{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Top){Column(Modifier.weight(1f)){Text("${metric?.label?:"身体指标"}变化",style=MaterialTheme.typography.titleLarge);Text(latest?.let{"${it.valueText} ${unitLabel(it.unit)}"}?:"未记录",style=MaterialTheme.typography.headlineLarge,fontWeight=FontWeight.SemiBold,color=healthTone(assessment.tone));Text(latest?.let{"${it.occurredOn} · ${sourceLabel(it.sourceKind)}"}?:"等待设备同步或手动补记",color=MaterialTheme.colorScheme.onSurfaceVariant)};FilledTonalIconButton(onClick={onCapture(CaptureKind.Health)}){Icon(Icons.Default.Add,"添加记录")}};AssessmentLabel(assessment);if(metric!=null&&latest!=null)TextButton(onClick={editReference(metric.key,metric.label,latest.unit,false)}){Text("设置参考范围")};Row(horizontalArrangement=Arrangement.spacedBy(7.dp)){listOf(7,30,90).forEach{value->FilterChip(days==value,{days=value},{Text("$value 天")})}};if(shown.isEmpty())ChartEmpty("所选期间没有${metric?.label.orEmpty()}数据") else {TrendChart(shown,Modifier.fillMaxWidth().height(210.dp),healthTone(assessment.tone),metric?.key);ChartDateRange(shown.first().occurredOn,shown.last().occurredOn)};LifeMetricGrid{SummaryFact("平均",average?.let{"${number(it)} ${latest?.unit?.let(::unitLabel).orEmpty()}"}?:"—",Modifier.weight(1f));SummaryFact("最低",shown.minOfOrNull{it.value}?.let{"${number(it)} ${latest?.unit?.let(::unitLabel).orEmpty()}"}?:"—",Modifier.weight(1f));SummaryFact("最高",shown.maxOfOrNull{it.value}?.let{"${number(it)} ${latest?.unit?.let(::unitLabel).orEmpty()}"}?:"—",Modifier.weight(1f))};if(first!=null&&latest!=null&&first.id!=latest.id)Text("期间变化 ${signed(latest.value-first.value)} ${unitLabel(latest.unit)} · ${shown.size} 个真实测量点",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+    latest?.let{point->TextButton(onClick={onDetail(LifeDomain.Health,point.id,"${metric?.label}记录")}){Text("查看最近测量详情")}}
     if(metric?.truncated==true)Text("仅显示最近 ${metric.coveragePoints} 个测量点，部分历史未包含。",style=MaterialTheme.typography.bodySmall)
     if(metric?.key?.startsWith("skin_temperature")==true)Text("这是手腕皮肤温度，用于观察同类测量变化。",style=MaterialTheme.typography.bodySmall)
     if(metric?.key?.startsWith("heart_rate_daily")==true)Text("全天极值包含睡眠和活动，不作为静息心率判断。",style=MaterialTheme.typography.bodySmall)
@@ -178,8 +181,8 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
 @Composable private fun SyncRow(title:String,subtitle:String,state:String,onClick:()->Unit){Row(Modifier.fillMaxWidth().clickable(role=Role.Button,onClick=onClick).padding(vertical=7.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(10.dp).clip(CircleShape).background(if(state in setOf("complete","committed","queued","detected"))ActivityGreen else if(state in setOf("needs_config","key_mismatch"))MaterialTheme.colorScheme.tertiary else if(state in setOf("error","timeout","needs_permission"))MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline));Spacer(Modifier.width(11.dp));Column(Modifier.weight(1f)){Text(title,style=MaterialTheme.typography.titleMedium);Text(subtitle,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2,overflow=TextOverflow.Ellipsis)};Icon(Icons.Default.Refresh,"立即操作",tint=MaterialTheme.colorScheme.primary)}}
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun MealsWorkspaceScreen(overviewState:LoadState<WorkspaceOverview>,recordsState:LoadState<RecordPage>,assetPreviews:Map<String,LoadState<ByteArray>>,onLoadAsset:(String)->Unit,onRetry:()->Unit,onLoadMore:()->Unit,onBack:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onMealCapture:(String,String)->Unit,onAddPhoto:(RecordSummary)->Unit,photoState:SubmitState,onStats:()->Unit,mealPlanningState:SubmitState,onSaveMealPlan:(NativeMealPlanDraft)->Unit,onBuildShopping:(MealPlanningResultDtoMealPlansEntry,String)->Unit,onUpdateShopping:(MealPlanningResultDtoShoppingListsEntryItemsEntry,String)->Unit,onSetFoodStock:(MealPlanningResultDtoStockLotsEntry?,String,String,String,String?)->Unit,onSaveRecipe:(String,String,String,String,String)->Unit,onResetMealPlanning:()->Unit){
-  var mealTab by rememberSaveable{mutableStateOf("records")}
+@Composable fun MealsWorkspaceScreen(overviewState:LoadState<WorkspaceOverview>,recordsState:LoadState<RecordPage>,assetPreviews:Map<String,LoadState<ByteArray>>,onLoadAsset:(String)->Unit,onRetry:()->Unit,onLoadMore:()->Unit,onBack:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onMealCapture:(String,String)->Unit,onAddPhoto:(RecordSummary)->Unit,photoState:SubmitState,onStats:()->Unit,mealPlanningState:SubmitState,onSaveMealPlan:(NativeMealPlanDraft)->Unit,onBuildShopping:(MealPlanningResultDtoMealPlansEntry,String)->Unit,onUpdateShopping:(MealPlanningResultDtoShoppingListsEntryItemsEntry,String)->Unit,onSetFoodStock:(MealPlanningResultDtoStockLotsEntry?,String,String,String,String?)->Unit,onSaveRecipe:(String,String,String,String,String)->Unit,onResetMealPlanning:()->Unit,initialTab:String="records"){
+  var mealTab by rememberSaveable(initialTab){mutableStateOf(if(initialTab=="planning")"planning" else "records")}
   var selectedDate by rememberSaveable{mutableStateOf(LocalDate.now().toString())};var query by rememberSaveable{mutableStateOf("")};val allRecords=(recordsState as? LoadState.Ready)?.value?.items.orEmpty().filter{it.meal!=null};val selected=allRecords.filter{it.meal?.occurredOn==selectedDate};val dates=(0L..6L).map{LocalDate.now().minusDays(it).toString()}.reversed()+listOf(selectedDate);val records=allRecords.filter{record->query.isBlank()||listOf(record.title,record.meal?.note.orEmpty(),mealTypeUi(record.meal?.mealType.orEmpty())).any{it.contains(query.trim(),ignoreCase=true)}};val nutrition=mealNutrition(selected)
   Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Column{Text("饮食");Text("餐次、餐照与真实营养汇总",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}},navigationIcon={LifeBackButton(onBack)},actions={TextButton(onClick=onStats){Text("统计")};FilledTonalIconButton(onClick={onMealCapture(selectedDate,"other")}){Icon(Icons.Default.Add,"记一餐")}})}){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(horizontal=20.dp,vertical=10.dp),verticalArrangement=Arrangement.spacedBy(18.dp)){
     item{LifeTabs(mealTab,{mealTab=it},listOf("records" to "饮食记录","planning" to "食谱与食材"))}
@@ -246,7 +249,11 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
   val values=points.map{it.value};val outline=MaterialTheme.colorScheme.outline;val surface=MaterialTheme.colorScheme.surface;val textColor=MaterialTheme.colorScheme.onSurfaceVariant;val unit=points.lastOrNull()?.unit.orEmpty()
   val axisPaint=remember{textPaint(Paint.Align.RIGHT)}.apply{this.color=textColor.toArgb()}
   val pointPaint=remember{textPaint(Paint.Align.LEFT,true)}
-  Canvas(modifier.clipToBounds()){
+  val hitBounds=remember{floatArrayOf(0f,1f)}
+  var selected by rememberSaveable(points.map{it.id}){mutableIntStateOf((points.size-1).coerceAtLeast(0))}
+  Column(modifier,verticalArrangement=Arrangement.spacedBy(8.dp)){
+  points.getOrNull(selected)?.let{point->Text("${point.occurredOn} · ${point.valueText} ${unitLabel(point.unit)} · ${sourceLabel(point.sourceKind)}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+  Canvas(Modifier.fillMaxWidth().weight(1f).clipToBounds().pointerInput(points){detectTapGestures{position->selected=nearestTrendIndex(position.x-hitBounds[0],hitBounds[1]-hitBounds[0],points.size)}}){
     if(values.isEmpty())return@Canvas
     axisPaint.textSize=11.sp.toPx()
     pointPaint.textSize=12.sp.toPx()
@@ -255,6 +262,7 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
     val axisGap=8.dp.toPx()
     val left=ticks.maxOf{axisPaint.measureText(it)}+axisGap
     val right=size.width-6.dp.toPx()
+    hitBounds[0]=left;hitBounds[1]=right
     val top=pointPaint.fontSpacing+12.dp.toPx()
     val bottom=size.height-axisPaint.fontSpacing/2-4.dp.toPx()
     if(right<=left||bottom<=top)return@Canvas
@@ -278,6 +286,7 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
         drawCircle(colors[index],3.dp.toPx(),point)
       }
     }
+    if(selected in values.indices){val point=pointOffset(selected,values[selected]);drawLine(outline,Offset(point.x,top),Offset(point.x,bottom),1.dp.toPx());drawCircle(colors[selected],5.dp.toPx(),point)}
     // The card already lists min/max/average. Only annotate the latest measurement on the plot.
     val latest=pointOffset(values.lastIndex,values.last())
     val label=healthValueText(values.last(),unit)
@@ -295,8 +304,9 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
       pointPaint.color=colors.last().toArgb()
       drawContext.canvas.nativeCanvas.drawText(label,x,baseline,pointPaint)
     }
-  }
+  }  }
 }
+
 
 private fun textPaint(align:Paint.Align,bold:Boolean=false)=Paint(Paint.ANTI_ALIAS_FLAG).apply{textAlign=align;typeface=if(bold)Typeface.create(Typeface.DEFAULT,Typeface.BOLD) else Typeface.DEFAULT}
 

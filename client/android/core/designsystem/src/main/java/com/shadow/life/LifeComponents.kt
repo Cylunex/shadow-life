@@ -1,5 +1,6 @@
 package com.shadow.life
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -45,7 +46,10 @@ import androidx.compose.ui.unit.dp
 }
 
 @Composable fun <T> StateContent(state:LoadState<T>,onRetry:()->Unit,empty:String="这里还没有内容",content:@Composable (T)->Unit){when(state){
-  LoadState.Loading->Box(Modifier.fillMaxWidth().padding(40.dp),contentAlignment=Alignment.Center){CircularProgressIndicator()}
+  LoadState.Loading->Column(Modifier.fillMaxWidth().padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
+    Text("正在加载",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    repeat(3){index->Box(Modifier.fillMaxWidth(if(index==2).65f else 1f).height(if(index==0)64.dp else 24.dp).background(MaterialTheme.colorScheme.surfaceVariant,RoundedCornerShape(12.dp)))}
+  }
   is LoadState.Empty->EmptyState(state.reason.ifBlank{empty})
   is LoadState.Failed->SectionError(state.message,onRetry)
   is LoadState.Ready->{ReadStatus(state,onRetry);content(state.value)}
@@ -86,7 +90,7 @@ fun lifeDomainIcon(domain:LifeDomain)=when(domain){
   var open by rememberSaveable{mutableStateOf(false)}
   OutlinedButton(onClick={open=true},enabled=enabled,modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(12.dp),contentPadding=PaddingValues(16.dp)){
     Icon(Icons.Default.DateRange,null);Spacer(Modifier.width(12.dp))
-    Column(Modifier.weight(1f)){Text(label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(value,style=MaterialTheme.typography.bodyLarge)}
+    Column(Modifier.weight(1f)){Text(label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(value.ifBlank{"未设置"},style=MaterialTheme.typography.bodyLarge)}
     Text("选择",style=MaterialTheme.typography.labelLarge)
   }
   if(open){
@@ -102,3 +106,21 @@ fun lifeDomainIcon(domain:LifeDomain)=when(domain){
   else androidx.compose.ui.graphics.Color(0xFF346A23)
 
 val LocalLifeAssistant=staticCompositionLocalOf<(() -> Unit)?>{null}
+
+val LocalLifeMenu=staticCompositionLocalOf<List<Pair<String,()->Unit>>>{emptyList()}
+
+/** Large fonts get complete metric rows rather than clipped values or units. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable fun LifeMetricGrid(content:@Composable FlowRowScope.()->Unit){
+  val density=androidx.compose.ui.platform.LocalDensity.current
+  BoxWithConstraints(Modifier.fillMaxWidth()){
+    FlowRow(Modifier.fillMaxWidth(),maxItemsInEachRow=if(density.fontScale>1.3f||maxWidth<300.dp)1 else 3,horizontalArrangement=Arrangement.spacedBy(12.dp),verticalArrangement=Arrangement.spacedBy(12.dp),content=content)
+  }
+}
+
+@Composable fun LifeOptionalDateField(value:String,onChange:(String)->Unit,label:String){
+  Column{
+    LifeDateField(value,onChange,label)
+    if(value.isNotBlank())TextButton(onClick={onChange("")}){Text("清除日期")}
+  }
+}

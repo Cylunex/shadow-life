@@ -15,13 +15,13 @@ import java.time.LocalDate
   onUse:(NativeConsumableUseDraft)->Unit,onReset:()->Unit
 ){
   var showEditor by rememberSaveable{mutableStateOf(false)}
-  var editing by remember{mutableStateOf<MoneyPlanningResultDtoUseCyclesEntry?>(null)}
+  var editing by rememberJsonState(MoneyPlanningResultDtoUseCyclesEntry.serializer())
   var name by rememberSaveable{mutableStateOf("")};var usageState by rememberSaveable{mutableStateOf("pending")}
   var startedOn by rememberSaveable{mutableStateOf(LocalDate.now().toString())}
   var initial by rememberSaveable{mutableStateOf("")};var unit by rememberSaveable{mutableStateOf("count")}
   var unitLabel by rememberSaveable{mutableStateOf("")};var daily by rememberSaveable{mutableStateOf("")};var note by rememberSaveable{mutableStateOf("")}
-  var using by remember{mutableStateOf<MoneyPlanningResultDtoUseCyclesEntry?>(null)}
-  var useEntry by remember{mutableStateOf<MoneyPlanningResultDtoUseCyclesEntryUsesEntry?>(null)}
+  var using by rememberJsonState(MoneyPlanningResultDtoUseCyclesEntry.serializer())
+  var useEntry by rememberJsonState(MoneyPlanningResultDtoUseCyclesEntryUsesEntry.serializer())
   var useDate by rememberSaveable{mutableStateOf(LocalDate.now().toString())};var useQuantity by rememberSaveable{mutableStateOf("1")};var useNote by rememberSaveable{mutableStateOf("")}
   val busy=state is SubmitState.Sending
   fun open(cycle:MoneyPlanningResultDtoUseCyclesEntry?){onReset();editing=cycle;showEditor=true;name=cycle?.itemName.orEmpty();usageState=cycle?.usageState?.wireValue?:if(cycle==null)"pending" else "in_use";startedOn=cycle?.startedOn?:LocalDate.now().toString();initial=cycle?.initialQuantity.orEmpty();unit=cycle?.quantityUnit?.wireValue?:"count";unitLabel=cycle?.quantityLabel.orEmpty();daily=cycle?.expectedDailyUsage.orEmpty();note=cycle?.note.orEmpty()}
@@ -78,7 +78,7 @@ import java.time.LocalDate
     }}
     if(using!=null){val cycle=using!!;LifeCard{
       Text(if(useEntry==null)"记录实际使用：${cycle.itemName}" else "更正使用记录：${cycle.itemName}",style=MaterialTheme.typography.titleMedium)
-      OutlinedTextField(useDate,{useDate=it},Modifier.fillMaxWidth(),label={Text("使用日期 YYYY-MM-DD")},singleLine=true)
+      LifeDateField(useDate,{useDate=it},"使用日期")
       OutlinedTextField(useQuantity,{useQuantity=it},Modifier.fillMaxWidth(),label={Text("使用数量")},singleLine=true)
       OutlinedTextField(useNote,{useNote=it},Modifier.fillMaxWidth(),label={Text("备注（可选）")})
       Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Button(onClick={onUse(NativeConsumableUseDraft(cycle,useDate,useQuantity,useNote,useEntry))},enabled=!busy&&useQuantity.isNotBlank()){Text(if(useEntry==null)"记录使用" else "保存更正")};TextButton(onClick={using=null;useEntry=null}){Text("收起")}}

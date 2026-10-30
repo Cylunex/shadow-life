@@ -5,6 +5,13 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.gestures.scrollBy
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Canvas
@@ -56,16 +63,20 @@ import java.util.Locale
   val context=LocalContext.current
   val layoutStore=remember(context,accountId){TodayCardLayoutStore(context,accountId)}
   var cards by remember(accountId){mutableStateOf(layoutStore.current())}
+  var compact by remember(accountId){mutableStateOf(layoutStore.compact())}
   var editCards by rememberSaveable(accountId){mutableStateOf(false)}
   val updateCards:(List<TodayCardKind>)->Unit={next->cards=next;layoutStore.save(next)}
   val today=(state as? LoadState.Ready)?.value
   val health=(healthState as? LoadState.Ready)?.value
   RootPage("生活",onProjects,onSettings,onRecords){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp,8.dp,20.dp,28.dp),verticalArrangement=Arrangement.spacedBy(20.dp)){
-    item{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(LocalDate.now().format(DateTimeFormatter.ofPattern("M 月 d 日 EEEE",Locale.CHINA)),Modifier.weight(1f),style=MaterialTheme.typography.titleMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);TextButton(onClick=onFeatures){Text("全部功能")};TextButton(onClick={editCards=true}){Text("编辑")}}}
+    item{FlowRow(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalArrangement=Arrangement.spacedBy(4.dp)){Text(LocalDate.now().format(DateTimeFormatter.ofPattern("M 月 d 日 EEEE",Locale.CHINA)),Modifier.fillMaxWidth(),style=MaterialTheme.typography.titleMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);TextButton(onClick=onFeatures){Text("全部功能")};TextButton(onClick={editCards=true}){Text("编辑首页")}}}
     item{StateContent(state,onRetry){} }
     item(key="capture-summary"){HomeCaptureSummary(accountId,onActivityCapture)}
     if(cards.isEmpty())item{EmptyState("首页还没有卡片","添加卡片"){editCards=true}}
-    cards.forEach{card->when(card){
+    cards.forEach{card->if(card in compact&&today!=null)item(key=card.key){
+      val label=when(card){TodayCardKind.Health->"${today.health.steps?.toString()?:"—"} 步 · ${today.health.sleepMinutes?.let(::rootMinutes)?:"睡眠 —"}";TodayCardKind.Body->listOfNotNull(today.health.weight,today.health.weightUnit).joinToString(" ").ifBlank{"尚无测量"};TodayCardKind.Activity->"${today.health.steps?.toString()?:"—"} 步";TodayCardKind.Sleep->today.health.sleepMinutes?.let(::rootMinutes)?:"尚无睡眠记录";TodayCardKind.Meals->today.mealCount?.let{"$it 条餐次记录"}?:"尚无已加载餐次";TodayCardKind.Money->today.moneyTotals.joinToString(" · "){"${it.currency} ${displayDecimal(it.netSpending)}"}.ifBlank{"暂无收支"};else->"打开"}
+      LifeCard(onClick={when(card){TodayCardKind.Money->onWorkspace(LifeDomain.Money,"overview");TodayCardKind.Meals->onWorkspace(LifeDomain.Meals,"");else->onWorkspace(LifeDomain.Health,when(card){TodayCardKind.Body->"body";TodayCardKind.Sleep->"sleep";TodayCardKind.Activity->"activity";else->"overview"})}}){Text(card.title,style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(label,style=MaterialTheme.typography.titleLarge)}
+    }else when(card){
       TodayCardKind.Training->item(key=card.key){TodayTrainingCard(trainingState,onTraining)}
       TodayCardKind.Focus->today?.let{item(key=card.key){TodayFocusCard(it,{domain->onWorkspace(domain,"")},onDetail)}}
       TodayCardKind.Scale->item(key=card.key){TodayScaleReceiver(deviceStatus,queueState,onScale,onSettings)}
@@ -87,7 +98,7 @@ import java.util.Locale
     }
     }
   }}
-  if(editCards)TodayCardManager(cards,updateCards,{cards=layoutStore.reset()},{editCards=false})
+  if(editCards)TodayCardManager(cards,updateCards,{cards=layoutStore.reset();compact=emptySet();layoutStore.saveCompact(compact)},{editCards=false},compact){card->compact=if(card in compact)compact-card else compact+card;layoutStore.saveCompact(compact)}
 }
 
 @Composable private fun TodayFocusCard(value:TodaySnapshot,onWorkspace:(LifeDomain)->Unit,onDetail:(LifeDomain,String,String)->Unit){
@@ -128,7 +139,7 @@ import java.util.Locale
   val daily=health?.daily?.takeIf{it.occurredOn==value.date};val history=healthWeek(health?.history.orEmpty(),LocalDate.parse(value.date));val tone=lifeHealthAccent()
   PremiumTodayCard(tone,onClick){
     TodayCardHeader("健康总览","健",tone,value.date)
-    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)){
+    LifeMetricGrid{
       TodayMetric("步数",(daily?.steps?:value.health.steps)?.let{String.format(Locale.US,"%,d",it)}?:"—","步",tone,Modifier.weight(1f))
       TodayMetric("活跃",daily?.activeMinutes?.toString()?:"—","分钟",MaterialTheme.colorScheme.secondary,Modifier.weight(1f))
       TodayMetric("睡眠",(daily?.sleepMinutes?:value.health.sleepMinutes)?.let{String.format(Locale.US,"%.1f",it/60.0)}?:"—","小时",MaterialTheme.colorScheme.tertiary,Modifier.weight(1f))
@@ -148,7 +159,7 @@ import java.util.Locale
       Spacer(Modifier.weight(1f));Text("较上次 ${trendDelta(weight)}",style=MaterialTheme.typography.labelLarge,color=tone)
     }
     MiniSparkline(weight.map{it.value},tone,Modifier.fillMaxWidth().height(62.dp))
-    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){
+    LifeMetricGrid{
       BodyFact("体脂率",bodyFat.lastOrNull(),Modifier.weight(1f));BodyFact("肌肉量",muscle.lastOrNull(),Modifier.weight(1f));BodyFact("测量记录",weight.size.toString(),"次",Modifier.weight(1f))
     }
   }
@@ -228,29 +239,46 @@ private fun trendDelta(points:List<HealthTrendPoint>):String{val pair=points.tak
 
 @Composable private fun TodayLinkCard(title:String,value:String,subtitle:String,mark:String,tone:Color,onClick:()->Unit){PremiumTodayCard(tone,onClick){TodayCardHeader(title,mark,tone,"查看");Text(value,style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis);Text(subtitle,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2,overflow=TextOverflow.Ellipsis)}}
 
-@Composable private fun TodayCardManager(cards:List<TodayCardKind>,onChange:(List<TodayCardKind>)->Unit,onReset:()->Unit,onDismiss:()->Unit){
-  val hidden=TodayCardKind.entries.filterNot{it in cards}
-  Dialog(onDismissRequest=onDismiss){
-    Surface(Modifier.fillMaxWidth().heightIn(max=700.dp),shape=RoundedCornerShape(28.dp),color=MaterialTheme.colorScheme.surface,border=androidx.compose.foundation.BorderStroke(1.dp,MaterialTheme.colorScheme.outline)){
-      Column(Modifier.padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
-        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("编辑首页卡片",style=MaterialTheme.typography.headlineSmall);Text("添加、隐藏并调整显示顺序",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};TextButton(onClick=onDismiss){Text("完成")}}
-        HorizontalDivider()
-        LazyColumn(Modifier.weight(1f,false),verticalArrangement=Arrangement.spacedBy(10.dp)){
-          if(cards.isNotEmpty())item{Text("首页已显示",style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.primary)}
-          itemsIndexed(cards,key={_,item->"visible:${item.key}"}){index,item->
-            Surface(shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.5f)){
-              Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
-                Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Surface(Modifier.size(30.dp),shape=RoundedCornerShape(99.dp),color=MaterialTheme.colorScheme.primaryContainer){Box(contentAlignment=Alignment.Center){Text("${index+1}",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onPrimaryContainer)}};Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text(item.title,style=MaterialTheme.typography.titleMedium);Text(item.description,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};TextButton(onClick={onChange(cards.filterNotSame(item))}){Text("隐藏")}}
-                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){OutlinedButton(onClick={if(index>0)onChange(moveTodayCard(cards,index,index-1))},enabled=index>0,modifier=Modifier.weight(1f)){Text("上移")};OutlinedButton(onClick={if(index<cards.lastIndex)onChange(moveTodayCard(cards,index,index+1))},enabled=index<cards.lastIndex,modifier=Modifier.weight(1f)){Text("下移")}}
-              }
+@OptIn(ExperimentalLayoutApi::class)
+@Composable private fun TodayCardManager(cards:List<TodayCardKind>,onChange:(List<TodayCardKind>)->Unit,onReset:()->Unit,onDismiss:()->Unit,compact:Set<TodayCardKind>,onSize:(TodayCardKind)->Unit){
+  val current=rememberUpdatedState(cards)
+  val change=rememberUpdatedState(onChange)
+  val density=LocalDensity.current
+  val listState=rememberLazyListState()
+  val scope=rememberCoroutineScope()
+  LifeFullScreen("编辑首页",onDismiss){
+    Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(12.dp)){
+      Text("长按拖动柄调整顺序，也可使用置顶、上移和下移。隐藏卡片不会关闭功能。",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+      LazyColumn(Modifier.weight(1f),state=listState,verticalArrangement=Arrangement.spacedBy(12.dp)){
+        itemsIndexed(cards,key={_,item->item.key}){index,item->
+          var height by remember(item.key){mutableIntStateOf(with(density){140.dp.roundToPx()})}
+          var delta by remember(item.key){mutableFloatStateOf(0f)}
+          LifeCard(Modifier.onSizeChanged{height=it.height}){
+            Row(verticalAlignment=Alignment.CenterVertically){
+              Box(Modifier.size(48.dp).pointerInput(item.key){
+                detectDragGesturesAfterLongPress(onDragEnd={delta=0f},onDragCancel={delta=0f}){event,amount->
+                  event.consume();delta+=amount.y
+                  val values=current.value;val from=values.indexOf(item)
+                  val direction=when{delta>height->1;delta< -height->-1;else->0}
+                  if(direction!=0&&from+direction in values.indices){change.value(moveTodayCard(values,from,from+direction));delta=0f;scope.launch{listState.scrollBy(direction*height*.4f)}}
+                }
+              },contentAlignment=Alignment.Center){Icon(Icons.Default.Menu,"长按拖动${item.title}")}
+              Column(Modifier.weight(1f)){Text(item.title,style=MaterialTheme.typography.titleMedium);Text(item.description,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+              TextButton(onClick={onChange(cards.filterNotSame(item))}){Text("隐藏")}
+            }
+            FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+              if(item in compactTodayKinds)TextButton(onClick={onSize(item)}){Text(if(item in compact)"切换完整" else "切换紧凑")}
+              TextButton(onClick={onChange(moveTodayCard(cards,index,0))},enabled=index>0){Text("置顶")}
+              TextButton(onClick={onChange(moveTodayCard(cards,index,index-1))},enabled=index>0){Text("上移")}
+              TextButton(onClick={onChange(moveTodayCard(cards,index,index+1))},enabled=index<cards.lastIndex){Text("下移")}
             }
           }
-          if(hidden.isNotEmpty())item{Text("可添加卡片",Modifier.padding(top=8.dp),style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.primary)}
-          items(hidden,key={"hidden:${it.key}"}){item->Surface(shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.34f)){Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(item.title,style=MaterialTheme.typography.titleMedium);Text(item.description,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};Button(onClick={onChange(cards+item)}){Text("添加")}}}}
         }
-        HorizontalDivider()
-        TextButton(onClick=onReset,modifier=Modifier.align(Alignment.Start)){Text("恢复默认布局")}
+        val hidden=TodayCardKind.entries.filterNot{it in cards}
+        if(hidden.isNotEmpty())item{Text("添加卡片",style=MaterialTheme.typography.titleLarge)}
+        items(hidden,key={"hidden:${it.key}"}){item->LifeCard{Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(item.title);Text(item.description,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};TextButton(onClick={onChange(cards+item)}){Text("添加")}}}}
       }
+      Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){TextButton(onClick=onReset){Text("恢复默认")};Button(onClick=onDismiss){Text("完成")}}
     }
   }
 }
@@ -346,7 +374,7 @@ private fun todayDeviceTime(value:Long):String?=value.takeIf{it>0}?.let{Instant.
     if(searchState==null)item{LifeCard{DayMemorySection(selectedDay,day,memories,onDay,onDayMore,onDaySource)}}
     else item{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text("全部领域的搜索结果",Modifier.weight(1f),color=MaterialTheme.colorScheme.onSurfaceVariant);TextButton(onClick={query="";submittedQuery="";onClearSearch()}){Text("退出搜索")}}}
     if(searchState!=null){item{StateContent(searchState,{onSearch(submittedQuery)}){} };if(searchState is LoadState.Ready){items(searchState.value.items,key={"search:${it.domain}:${it.kind}:${it.id}"}){record->VisualRecordCard(record.domain,record.title,record.supporting,record.trailing){onDetail(record.domain,record.detailId?:record.id,record.title)}};if(searchState.value.nextCursor!=null)item{TextButton(onClick=onLoadMoreSearch,modifier=Modifier.fillMaxWidth(),enabled=!searchState.refreshing){Text("加载更多搜索结果")}}}}
-    else{item{StateContent(state,onRetry){} };if(state is LoadState.Ready){val now=LocalDate.now();val filtered=state.value.items.filter{item->(domain==null||item.domain.name==domain)&&inRecordPeriod(recordDate(item.happenedAt),period,now)};val groups=filtered.groupBy{recordDate(it.happenedAt)?.toString()?:"日期未知"};if(filtered.isEmpty())item{EmptyState(if(state.value.nextCursor!=null)"已加载记录中没有匹配项，可继续加载更早记录" else "当前筛选没有记录","清除筛选"){domain=null;period="all"}};groups.forEach{(date,rows)->item{Text(if(date==now.toString())"今天" else date,style=MaterialTheme.typography.titleLarge,modifier=Modifier.padding(top=8.dp))};items(rows,key={"${it.domain}:${it.kind}:${it.id}"}){item->VisualRecordCard(item.domain,item.title,listOfNotNull(item.domain.label(),recordTime(item.happenedAt)).joinToString(" · "),item.amount?.let{"${item.currency.orEmpty()} ${displayDecimal(it)}"}){onDetail(item.domain,item.recordId?:item.id,item.title)}}};if(state.value.nextCursor!=null)item{TextButton(onClick=onLoadMore,modifier=Modifier.fillMaxWidth(),enabled=!state.refreshing){Text("加载更早记录")}}}}
+    else{item{StateContent(state,onRetry){} };if(state is LoadState.Ready){val now=LocalDate.now();val filtered=state.value.items.filter{item->(domain==null||item.domain.name==domain)&&inRecordPeriod(recordDate(item.happenedAt),period,now)};val groups=filtered.groupBy{recordDate(it.happenedAt)?.toString()?:"日期未知"};if(filtered.isEmpty())item{EmptyState(if(state.value.nextCursor!=null)"已加载记录中没有匹配项，可继续加载更早记录" else "当前筛选没有记录","清除筛选"){domain=null;period="all"}};groups.forEach{(date,rows)->item{Text(if(date==now.toString())"今天" else date,style=MaterialTheme.typography.titleLarge,modifier=Modifier.padding(top=8.dp))};val captures=rows.filter{it.kind=="activity_capture"};if(captures.isNotEmpty())item("captures:$date"){var showSources by rememberSaveable{mutableStateOf(false)};LifeCard{Text("活动采集 · ${captures.size} 项已加载来源",style=MaterialTheme.typography.titleMedium);TextButton(onClick={showSources=!showSources}){Text(if(showSources)"收起来源" else "展开来源")};if(showSources)captures.forEach{source->TextButton(onClick={onDetail(source.domain,source.recordId?:source.id,source.title)},modifier=Modifier.fillMaxWidth()){Text(source.title)}}}};items(rows.filterNot{it.kind=="activity_capture"},key={"${it.domain}:${it.kind}:${it.id}"}){item->VisualRecordCard(item.domain,item.title,listOfNotNull(item.domain.label(),recordTime(item.happenedAt)).joinToString(" · "),item.amount?.let{"${item.currency.orEmpty()} ${displayDecimal(it)}"}){onDetail(item.domain,item.recordId?:item.id,item.title)}}};if(state.value.nextCursor!=null)item{TextButton(onClick=onLoadMore,modifier=Modifier.fillMaxWidth(),enabled=!state.refreshing){Text("加载更早记录")}}}}
   }}
 }
 
@@ -355,6 +383,7 @@ private fun todayDeviceTime(value:Long):String?=value.takeIf{it>0}?.let{Instant.
   Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
     Text("某一天",style=MaterialTheme.typography.titleLarge)
     LifeDateField(selectedDay.toString(),{onDay(LocalDate.parse(it))},"选择日期")
+    Row{TextButton(onClick={onDay(selectedDay.minusDays(1))}){Text("前一天")};TextButton(onClick={onDay(selectedDay.plusDays(1))},enabled=selectedDay<LocalDate.now()){Text("后一天")};if(selectedDay!=LocalDate.now())TextButton(onClick={onDay(LocalDate.now())}){Text("今天")}}
     TextButton(onClick={expanded=!expanded}){Text(if(expanded)"收起当日记录与回忆" else "查看当日记录与回忆")}
     if(expanded){
     Text("过去五年同日的回忆只来自当前可读取的原记录。",style=MaterialTheme.typography.bodySmall)
@@ -373,19 +402,49 @@ private fun todayDeviceTime(value:Long):String?=value.takeIf{it>0}?.let{Instant.
 @Composable private fun VisualRecordCard(domain:LifeDomain,title:String,supporting:String?,trailing:String?,onClick:()->Unit){val tone=rootDomainColor(domain);Surface(Modifier.fillMaxWidth().clickable(role=Role.Button,onClick=onClick),shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surface,border=androidx.compose.foundation.BorderStroke(1.dp,MaterialTheme.colorScheme.outline.copy(alpha=.55f))){Row(Modifier.padding(15.dp),verticalAlignment=Alignment.CenterVertically){Surface(Modifier.size(43.dp),shape=RoundedCornerShape(14.dp),color=tone.copy(alpha=.13f)){Box(contentAlignment=Alignment.Center){Icon(lifeDomainIcon(domain),null,tint=tone)}};Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(title,style=MaterialTheme.typography.titleMedium,maxLines=2,overflow=TextOverflow.Ellipsis);supporting?.let{Text(it,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};trailing?.let{Text(it,style=MaterialTheme.typography.titleMedium,color=tone)}};Spacer(Modifier.width(8.dp));Text("›",color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun PlansVisualScreen(state:LoadState<PlanningWorkspace>,message:String?,onRetry:()->Unit,onProject:(PlanSummary)->Unit,onOwnedItem:(OwnedItemSummary)->Unit,onReview:(ReviewSummary)->Unit,onAgenda:(AgendaItem)->Unit,onAgendaAction:(AgendaItem,String)->Unit,onCapture:(CaptureKind)->Unit,onItems:()->Unit,onProjects:()->Unit,onSettings:()->Unit,onTraining:()->Unit={},onGoals:()->Unit={}){
-  var tab by rememberSaveable{mutableStateOf("today")}
+@Composable fun PlansVisualScreen(state:LoadState<PlanningWorkspace>,message:String?,onRetry:()->Unit,onProject:(PlanSummary)->Unit,onOwnedItem:(OwnedItemSummary)->Unit,onReview:(ReviewSummary)->Unit,onAgenda:(AgendaItem)->Unit,onAgendaAction:(AgendaItem,String)->Unit,onCapture:(CaptureKind)->Unit,onItems:()->Unit,onProjects:()->Unit,onSettings:()->Unit,onTraining:()->Unit={},onGoals:()->Unit={},goals:@Composable ()->Unit={}){
+  var tab by rememberSaveable{mutableStateOf("agenda")}
+  var selectedDate by rememberSaveable{mutableStateOf(LocalDate.now().toString())}
+  var week by rememberSaveable{mutableStateOf(false)}
+  var history by rememberSaveable{mutableStateOf(false)}
   RootPage("计划",onProjects,onSettings){padding->
     LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp,8.dp,20.dp,28.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
-      item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){Button(onClick={onCapture(CaptureKind.Project)},Modifier.weight(1f)){Icon(Icons.Default.Add,null);Spacer(Modifier.width(7.dp));Text("新建计划")};OutlinedButton(onClick=onItems){Text("物品与维护")}}}
-      item{LifeTabs("",{if(it=="training")onTraining()else onGoals()},listOf("training" to "训练计划","goals" to "目标与偏好"))}
+      item{LifeTabs(tab,{tab=it},listOf("agenda" to "日程","projects" to "项目","goals" to "目标"))}
+      item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){TextButton(onClick=onTraining){Text("训练")};TextButton(onClick=onItems){Text("物品与维护")};TextButton(onClick={history=!history}){Text(if(history)"收起回顾" else "生活回顾")}}}
       message?.let{item{Text(it,color=MaterialTheme.colorScheme.primary)}}
       item{StateContent(state,onRetry){} }
-      if(state is LoadState.Ready)item{PlansReadyContent(state.value,tab,{tab=it},onProject,onOwnedItem,onReview,onAgenda,onAgendaAction)}
+      if(tab=="goals")item{goals()}
+      val value=(state as? LoadState.Ready)?.value
+      if(value!=null){
+        if(value.partialFailures.isNotEmpty())item{SectionError("部分计划未加载，已保留可用内容",onRetry)}
+        if(value.truncated)item{Text("当前仅显示已加载计划",style=MaterialTheme.typography.bodySmall)}
+        when(tab){
+          "goals"->{}
+          "projects"->{
+            item{Button(onClick={onCapture(CaptureKind.Project)}){Text("新建项目")}}
+            val active=value.projects.filter{it.state !in setOf("completed","archived")}
+            val completed=value.projects.filter{it.state in setOf("completed","archived")}
+            if(active.isEmpty())item{EmptyState("还没有进行中的项目","新建项目"){onCapture(CaptureKind.Project)}}
+            items(active,key={"project:${it.id}"}){project->PlanVisualCard(project){onProject(project)}}
+            if(completed.isNotEmpty())item{var expanded by rememberSaveable{mutableStateOf(false)};TextButton(onClick={expanded=!expanded}){Text("已完成与归档 · ${completed.size}")};if(expanded)completed.forEach{project->PlanVisualCard(project){onProject(project)}}}
+          }
+          else->{
+            item{LifeDateField(selectedDate,{selectedDate=it},"查看日程")}
+            item{LifeTabs(if(week)"week" else "day",{week=it=="week"},listOf("day" to "当天","week" to "未来七天"))}
+            val date=LocalDate.parse(selectedDate)
+            val selected=value.agenda.filter{runCatching{val due=LocalDate.parse(it.dueOn);if(week)due in date..date.plusDays(6)else due==date}.getOrDefault(false)}
+            if(selected.isEmpty())item{EmptyState("这段时间没有安排","新建项目"){onCapture(CaptureKind.Project)}}
+            selected.groupBy{it.dueOn}.toSortedMap().forEach{(day,entries)->
+              item{Text(day,style=MaterialTheme.typography.titleMedium)}
+              items(entries.sortedWith(compareBy({it.dueAt==null},{it.dueAt},{it.title})),key={"agenda:${it.sourceKind}:${it.sourceId}:${it.dueOn}"}){entry->AgendaVisualCard(entry,onAgenda,onAgendaAction)}
+            }
+          }
+        }
+        if(history){item{Text("生活回顾",style=MaterialTheme.typography.titleLarge)};if(value.reviews.isEmpty())item{EmptyState("还没有回顾")};items(value.reviews,key={"review:${it.id}"}){review->LifeCard(onClick={onReview(review)}){Text("${review.fromOn} — ${review.toOn}");Text("${review.metrics} 组指标 · 查看依据",style=MaterialTheme.typography.bodyMedium)}}}
+      }
     }
   }
 }
-@Composable private fun PlansReadyContent(value:PlanningWorkspace,tab:String,onTab:(String)->Unit,onProject:(PlanSummary)->Unit,onOwnedItem:(OwnedItemSummary)->Unit,onReview:(ReviewSummary)->Unit,onAgenda:(AgendaItem)->Unit,onAgendaAction:(AgendaItem,String)->Unit){Column(verticalArrangement=Arrangement.spacedBy(14.dp)){PlanningOverview(value);if(value.partialFailures.isNotEmpty())Text("部分计划暂未加载，可返回重试",color=MaterialTheme.colorScheme.error);if(value.truncated)Text("当前仅显示已加载的计划",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant);PlanningTabs(tab,onTab);when(tab){"today","week"->{AgendaCalendar(value.agenda);val shown=upcomingAgenda(value.agenda).filter{tab=="week"||it.dueOn==LocalDate.now().toString()};if(shown.isEmpty())EmptyState(if(tab=="today")"今天没有安排" else "未来七天没有安排") else shown.forEach{AgendaVisualCard(it,onAgenda,onAgendaAction)}};"projects"->if(value.projects.isEmpty())EmptyState("还没有生活计划") else value.projects.forEach{plan->PlanVisualCard(plan){onProject(plan)}};"items"->if(value.ownedItems.isEmpty())EmptyState("还没有物品") else value.ownedItems.forEach{owned->OwnedVisualCard(owned){onOwnedItem(owned)}};else->if(value.reviews.isEmpty())EmptyState("还没有周月回顾") else value.reviews.forEach{review->LifeCard(onClick={onReview(review)}){Text("${review.fromOn} — ${review.toOn}",style=MaterialTheme.typography.titleLarge);Text("${review.metrics} 组指标 · ${review.evidence.size} 项可追溯证据",color=MaterialTheme.colorScheme.onSurfaceVariant)}}}}}
 @Composable private fun PlanningOverview(value:PlanningWorkspace){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(9.dp)){RootPlanStat("今天",value.agenda.count{it.dueOn==LocalDate.now().toString()}.toString(),Modifier.weight(1f));RootPlanStat("项目",value.projects.count{it.state=="active"}.toString(),Modifier.weight(1f));RootPlanStat("物品",value.ownedItems.size.toString(),Modifier.weight(1f));RootPlanStat("回顾",value.reviews.size.toString(),Modifier.weight(1f))}}
 @Composable private fun RootPlanStat(label:String,value:String,modifier:Modifier){Surface(modifier,shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.52f)){Column(Modifier.padding(12.dp),horizontalAlignment=Alignment.CenterHorizontally){Text(value,style=MaterialTheme.typography.titleLarge);Text(label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
 @Composable private fun PlanningTabs(tab:String,onSelect:(String)->Unit){Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(7.dp)){listOf("today" to "今天","week" to "未来 7 天","projects" to "项目","reviews" to "回顾").forEach{(key,label)->FilterChip(tab==key,{onSelect(key)},{Text(label)})}}}
@@ -399,7 +458,7 @@ private fun todayDeviceTime(value:Long):String?=value.takeIf{it>0}?.let{Instant.
 @Composable private fun LibraryVisualCard(value:LibrarySummary,onClick:()->Unit){LifeCard(onClick=onClick){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Surface(Modifier.size(54.dp),shape=RoundedCornerShape(17.dp),color=MaterialTheme.colorScheme.secondary.copy(alpha=.12f)){Box(contentAlignment=Alignment.Center){Text(libraryMark(value.itemType),style=MaterialTheme.typography.titleLarge,color=MaterialTheme.colorScheme.secondary)}};Spacer(Modifier.width(13.dp));Column(Modifier.weight(1f)){Text(value.title,style=MaterialTheme.typography.titleMedium,maxLines=2,overflow=TextOverflow.Ellipsis);Text("${libraryTypeLabel(value.itemType)} · ${value.state?.let(::rootStateLabel)?:"已收存"}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}}
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun ItemsWorkspaceScreen(state:LoadState<PlanningWorkspace>,onRetry:()->Unit,onBack:()->Unit,onDetail:(OwnedItemSummary)->Unit,onCapture:(CaptureKind)->Unit){var filter by rememberSaveable{mutableStateOf("all")};Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Column{Text("物品");Text("拥有、使用、维护与补给",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}},navigationIcon={LifeBackButton(onBack)},actions={FilledTonalIconButton(onClick={onCapture(CaptureKind.OwnedItem)}){Icon(Icons.Default.Add,"添加物品")}})}){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){item{StateContent(state,onRetry){} };if(state is LoadState.Ready){val all=state.value.ownedItems;item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(9.dp)){RootPlanStat("物品",all.size.toString(),Modifier.weight(1f));RootPlanStat("有保修",all.count{it.warrantyEndsOn!=null}.toString(),Modifier.weight(1f));RootPlanStat("有事件",all.count{it.events>0}.toString(),Modifier.weight(1f))}};item{Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(7.dp)){listOf("all" to "全部","owned" to "持有中","attention" to "待处理").forEach{(key,label)->FilterChip(filter==key,{filter=key},{Text(label)})}}};val shown=all.filter{filter=="all"||(filter=="owned"&&it.state=="owned")||(filter=="attention"&&(it.returnBy!=null||it.warrantyEndsOn!=null||it.events>0))};if(shown.isEmpty())item{EmptyState("当前分类没有物品","添加物品"){onCapture(CaptureKind.OwnedItem)}} else items(shown,key={it.id}){item->OwnedVisualCard(item){onDetail(item)}}}}}}
+@Composable fun ItemsWorkspaceScreen(state:LoadState<PlanningWorkspace>,onRetry:()->Unit,onBack:()->Unit,onDetail:(OwnedItemSummary)->Unit,onCapture:(CaptureKind)->Unit){var query by rememberSaveable{mutableStateOf("")};var filter by rememberSaveable{mutableStateOf("all")};Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Column{Text("物品");Text("拥有、使用、维护与补给",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}},navigationIcon={LifeBackButton(onBack)},actions={FilledTonalIconButton(onClick={onCapture(CaptureKind.OwnedItem)}){Icon(Icons.Default.Add,"添加物品")}})}){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){item{StateContent(state,onRetry){} };if(state is LoadState.Ready){val all=state.value.ownedItems;item{OutlinedTextField(query,{query=it},modifier=Modifier.fillMaxWidth(),singleLine=true,label={Text("搜索物品或存放位置")})};item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(9.dp)){RootPlanStat("物品",all.size.toString(),Modifier.weight(1f));RootPlanStat("有保修",all.count{it.warrantyEndsOn!=null}.toString(),Modifier.weight(1f));RootPlanStat("有事件",all.count{it.events>0}.toString(),Modifier.weight(1f))}};item{Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(7.dp)){listOf("all" to "全部","owned" to "持有中","attention" to "待处理").forEach{(key,label)->FilterChip(filter==key,{filter=key},{Text(label)})}}};val shown=all.filter{query.isBlank()||it.name.contains(query.trim(),ignoreCase=true)||it.location.orEmpty().contains(query.trim(),ignoreCase=true)}.filter{filter=="all"||(filter=="owned"&&it.state=="owned")||(filter=="attention"&&(it.returnBy!=null||it.warrantyEndsOn!=null||it.events>0))};if(shown.isEmpty())item{EmptyState("当前分类没有物品","添加物品"){onCapture(CaptureKind.OwnedItem)}} else items(shown,key={it.id}){item->OwnedVisualCard(item){onDetail(item)}}}}}}
 
 @Composable private fun RootStatus(value:String){Surface(shape=RoundedCornerShape(99.dp),color=MaterialTheme.colorScheme.primaryContainer){Text(rootStateLabel(value),Modifier.padding(horizontal=9.dp,vertical=5.dp),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onPrimaryContainer)}}
 private fun rootStateLabel(value:String)=mapOf("active" to "进行中","planned" to "计划中","open" to "待完成","pending" to "待处理","reminded" to "已提醒","snoozed" to "已延后","completed" to "已完成","handled" to "已处理","owned" to "持有中","consumed" to "已用完","retired" to "已停用","archived" to "已归档","ready" to "可用")[value]?:value

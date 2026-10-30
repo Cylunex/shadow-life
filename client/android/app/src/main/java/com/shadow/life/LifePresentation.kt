@@ -83,3 +83,7 @@ internal fun tripPhase(trip:TravelTripSummary,today:LocalDate=LocalDate.now(Zone
   trip.endsOn<today.toString()->"completed"
   else->"planned"
 }
+
+/** Select the nearest chart sample; no fabricated intermediate measurements. */
+internal fun nearestTrendIndex(x:Float,width:Float,count:Int):Int =
+  if(count<=1||width<=0f)0 else ((x/width).coerceIn(0f,1f)*(count-1)).let{kotlin.math.round(it).toInt()}

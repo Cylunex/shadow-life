@@ -22,7 +22,7 @@ private fun plusDays(value:String,days:Long)=LocalDate.parse(value).plusDays(day
   onUpdate:(MealPlanningResultDtoShoppingListsEntryItemsEntry,String)->Unit,onSetStock:(MealPlanningResultDtoStockLotsEntry?,String,String,String,String?)->Unit,onSaveRecipe:(String,String,String,String,String)->Unit,onReset:()->Unit
 ){
   val today=LocalDate.now().toString()
-  var editing by remember{mutableStateOf<MealPlanningResultDtoMealPlansEntry?>(null)}
+  var editing by rememberJsonState(MealPlanningResultDtoMealPlansEntry.serializer())
   var showEditor by rememberSaveable{mutableStateOf(false)}
   var title by rememberSaveable{mutableStateOf("一周餐单")}
   var startsOn by rememberSaveable{mutableStateOf(today)}
@@ -31,7 +31,7 @@ private fun plusDays(value:String,days:Long)=LocalDate.parse(value).plusDays(day
   var mealType by rememberSaveable{mutableStateOf("dinner")}
   var entryTitle by rememberSaveable{mutableStateOf("")}
   var servings by rememberSaveable{mutableStateOf("1")}
-  val entries=remember{mutableStateListOf<NativeMealPlanEntryDraft>()}
+  val entries=rememberJsonList(NativeMealPlanEntryDraft.serializer())
   var editingLotJson by rememberSaveable{mutableStateOf<String?>(null)}
   val editingLot=remember(editingLotJson){editingLotJson?.let{kotlinx.serialization.json.Json.decodeFromString<MealPlanningResultDtoStockLotsEntry>(it)}}
   var stockFilter by rememberSaveable{mutableStateOf("all")}

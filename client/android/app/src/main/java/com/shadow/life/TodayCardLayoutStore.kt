@@ -53,8 +53,12 @@ class TodayCardLayoutStore(context:Context,private val accountId:String){
     return migrated
   }
   fun save(cards:List<TodayCardKind>){preferences.edit().putString(storageKey,cards.distinct().joinToString(","){it.key}).putBoolean("training-introduced:$accountId",true).apply()}
+  fun compact():Set<TodayCardKind> = preferences.getStringSet("compact:$accountId",emptySet()).orEmpty().mapNotNull{key->TodayCardKind.entries.firstOrNull{it.key==key}}.filter{it in compactTodayKinds}.toSet()
+  fun saveCompact(value:Set<TodayCardKind>){preferences.edit().putStringSet("compact:$accountId",value.filter{it in compactTodayKinds}.map{it.key}.toSet()).apply()}
   fun reset():List<TodayCardKind> = defaultTodayCards.also(::save)
 }
 
 internal fun introduceTrainingCard(cards:List<TodayCardKind>):List<TodayCardKind> =
   if(TodayCardKind.Training in cards)cards else listOf(TodayCardKind.Training)+cards
+
+internal val compactTodayKinds=setOf(TodayCardKind.Health,TodayCardKind.Body,TodayCardKind.Activity,TodayCardKind.Sleep,TodayCardKind.Meals,TodayCardKind.Money)

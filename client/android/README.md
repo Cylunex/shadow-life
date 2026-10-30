@@ -80,6 +80,10 @@ confirmation details and distinct packed/skipped/needed checklist states.
 See [native and Agent delivery](../../docs/execution/native-agent-daily-2026-10-22.md) and
 [reference projects](../../docs/research/native-agent-reference-2026-10-22.md).
 
+## App experience
+
+The native app keeps a configurable home card feed, including the weighing receiver, with pinning, drag ordering and compact metric cards. Quick capture and the assistant have separate entries. Account-scoped encrypted capture drafts, version-bound corrections, searchable selectors, original-file export, inline food corrections and a persistent capture status strip keep tasks recoverable. See the [experience design](../../docs/architecture/android-experience-design.md) and [delivery scope](../../docs/execution/android-experience-complete-2026-10-30.md).
+
 ## Local configuration
 
 Set deployment-specific values in the user Gradle properties file or on the Gradle command line. Do not commit

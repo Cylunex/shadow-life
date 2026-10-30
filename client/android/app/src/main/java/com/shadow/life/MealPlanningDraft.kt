@@ -6,7 +6,7 @@ import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.ZoneId
 
-data class NativeMealPlanEntryDraft(val date:String,val mealType:String,val title:String,val servings:String,val recipeId:String?=null,val recipeRevision:Long?=null)
+@kotlinx.serialization.Serializable data class NativeMealPlanEntryDraft(val date:String,val mealType:String,val title:String,val servings:String,val recipeId:String?=null,val recipeRevision:Long?=null)
 data class NativeMealPlanDraft(
   val title:String,val startsOn:String,val endsOn:String,val entries:List<NativeMealPlanEntryDraft>,
   val planId:String?=null,val revision:Long?=null,val state:String="active"

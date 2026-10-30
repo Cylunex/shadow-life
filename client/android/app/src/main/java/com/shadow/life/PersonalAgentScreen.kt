@@ -18,10 +18,10 @@ import java.util.UUID
 private fun JsonObject.field(name:String)=(get(name) as? JsonPrimitive)?.content.orEmpty()
 private val personalLabels=mapOf("global" to "全部场景","daily" to "日常","planning" to "生活规划","spending" to "消费","health" to "健康","travel" to "旅行","library" to "资料","preference" to "偏好","constraint" to "限制","goal" to "目标","other" to "一般","dietary" to "饮食","time_budget" to "时间上限","budget" to "预算","open" to "未开始","running" to "进行中","waiting" to "等待材料","completed" to "已完成","cancelled" to "已取消")
 
-@Composable fun PersonalAgentScreen(accountId:String,state:LoadState<FoundationListDto>,submit:SubmitState,onLoad:(String,String,Int)->Unit,onSave:(String,JSONObject)->Unit,onBack:()->Unit){
+@Composable fun PersonalAgentScreen(accountId:String,state:LoadState<FoundationListDto>,submit:SubmitState,onLoad:(String,String,Int)->Unit,onSave:(String,JSONObject)->Unit,onBack:()->Unit,embedded:Boolean=false){
   var tab by rememberSaveable(accountId){mutableStateOf("intentions")}
   var on by rememberSaveable(accountId){mutableStateOf(LocalDate.now().toString())}
-  var editing by remember(accountId){mutableStateOf<JsonObject?>(null)}
+  var editing by rememberJsonState(JsonObject.serializer())
   var editor by rememberSaveable(accountId){mutableStateOf(false)}
   var text by rememberSaveable(accountId){mutableStateOf("")}
   var scope by rememberSaveable(accountId){mutableStateOf("global")}
@@ -36,6 +36,8 @@ private val personalLabels=mapOf("global" to "全部场景","daily" to "日常",
   var next by rememberSaveable(accountId){mutableStateOf("")}
   var missing by rememberSaveable(accountId){mutableStateOf("")}
   var taskState by rememberSaveable(accountId){mutableStateOf("open")}
+  var saving by remember(accountId){mutableStateOf(false)}
+  LaunchedEffect(submit){if(saving&&submit is SubmitState.Saved){saving=false;editor=false;onLoad(tab,on,0)}else if(submit is SubmitState.Rejected)saving=false}
   var localError by remember(accountId){mutableStateOf<String?>(null)}
   LaunchedEffect(accountId,tab,on){editor=false;editing=null;onLoad(tab,on,0)}
   fun edit(item:JsonObject?){editing=item;editor=true;text=item?.field(if(tab=="tasks")"title" else "statement").orEmpty();scope=item?.field("scope")?.ifBlank{"global"}?:"global";kind=item?.field("kind")?.ifBlank{"preference"}?:"preference";category=item?.field("category")?.ifBlank{"other"}?:"other";minutes=item?.field("minutes")?.ifBlank{"30"}?:"30";amount=item?.field("amount").orEmpty();currency=item?.field("currency")?.ifBlank{"CNY"}?:"CNY";from=item?.field("valid_from").orEmpty();until=item?.field("valid_to_exclusive").orEmpty();step=item?.field("current_step").orEmpty();next=item?.field("next_step").orEmpty();taskState=item?.field("state")?.ifBlank{"open"}?:"open";missing=item?.get("missing")?.let{runCatching{JSONArray(it.toString()).let{array->(0 until array.length()).joinToString("\n"){index->array.getString(index)}}}.getOrDefault("")}.orEmpty();localError=null}
@@ -61,8 +63,8 @@ private val personalLabels=mapOf("global" to "全部场景","daily" to "日常",
     return result
   }
   val busy=submit is SubmitState.Sending
-  Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
-    Row{TextButton(onClick=onBack){Text("返回")};Text("目标与偏好",style=MaterialTheme.typography.headlineSmall)}
+  Column((if(embedded)Modifier.fillMaxWidth()else Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(20.dp)),verticalArrangement=Arrangement.spacedBy(12.dp)){
+    if(!embedded)Row{LifeBackButton(onBack);Text("目标与偏好",style=MaterialTheme.typography.headlineSmall)}
     Text("维护明确的目标和偏好，查看持续任务与有依据的观察。")
     Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf("intentions" to "目标偏好","tasks" to "任务","learning" to "经验").forEach{(key,label)->FilterChip(tab==key,{tab=key},{Text(label)})}}
     LifeDateField(on,{on=it},"查看日期")
@@ -77,15 +79,15 @@ private val personalLabels=mapOf("global" to "全部场景","daily" to "日常",
         PersonalChoice("类别",category,listOf("other","dietary","time_budget","budget","travel","goal")){category=it}
         if(category=="time_budget")OutlinedTextField(minutes,{minutes=it},label={Text("分钟上限")},modifier=Modifier.fillMaxWidth())
         if(category=="budget"){OutlinedTextField(amount,{amount=it},label={Text("金额")},modifier=Modifier.fillMaxWidth());OutlinedTextField(currency,{currency=it},label={Text("币种")},modifier=Modifier.fillMaxWidth())}
-        OutlinedTextField(from,{from=it},label={Text("开始生效日期（可留空）")},modifier=Modifier.fillMaxWidth())
-        OutlinedTextField(until,{until=it},label={Text("结束日期（当天起不再适用，可留空）")},modifier=Modifier.fillMaxWidth())
+        LifeOptionalDateField(from,{from=it},"开始生效日期（可选）")
+        LifeOptionalDateField(until,{until=it},"结束日期（当天起不再适用）")
       }else{
         PersonalChoice("状态",taskState,listOf("open","running","waiting","completed","cancelled")){taskState=it;if(it=="completed"){next="";missing=""}}
         OutlinedTextField(step,{step=it},label={Text("当前步骤")},modifier=Modifier.fillMaxWidth())
         OutlinedTextField(next,{next=it},label={Text("下一步")},modifier=Modifier.fillMaxWidth())
         OutlinedTextField(missing,{missing=it},label={Text("尚缺材料，每行一项")},modifier=Modifier.fillMaxWidth())
       }
-      Row{Button(enabled=!busy&&text.isNotBlank(),onClick={try{onSave(if(tab=="tasks")"agent.save_task" else "agent.set_intention",input(editing));editor=false}catch(error:Exception){localError=error.message}}){Text("保存")};TextButton(onClick={editor=false}){Text("取消")}}
+      Row{Button(enabled=!busy&&text.isNotBlank(),onClick={try{saving=true;onSave(if(tab=="tasks")"agent.save_task" else "agent.set_intention",input(editing))}catch(error:Exception){saving=false;localError=error.message}}){Text("保存")};TextButton(onClick={editor=false}){Text("取消")}}
     }
     if(state is LoadState.Ready)ReadStatus(state){onLoad(tab,on,0)}
     when(state){
@@ -112,4 +114,4 @@ private val personalLabels=mapOf("global" to "全部场景","daily" to "日常",
     }
   }
 }
-@Composable private fun PersonalChoice(label:String,value:String,values:List<String>,onChange:(String)->Unit){var expanded by remember{mutableStateOf(false)};Column{TextButton(onClick={expanded=true}){Text("$label：${personalLabels[value]?:value}")};DropdownMenu(expanded,{expanded=false}){values.forEach{option->DropdownMenuItem(text={Text(personalLabels[option]?:option)},onClick={onChange(option);expanded=false})}}}}
+@Composable private fun PersonalChoice(label:String,value:String,values:List<String>,onChange:(String)->Unit){LifeChoiceField(label,value,values.map{it to (personalLabels[it]?:it)},onChange)}

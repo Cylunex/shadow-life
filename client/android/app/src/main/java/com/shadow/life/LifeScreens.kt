@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -33,7 +34,16 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun RootPage(title:String,onProjects:()->Unit,onSettings:()->Unit,onSearch:(()->Unit)?=null,content:@Composable (PaddingValues)->Unit){
-  Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text(title,style=MaterialTheme.typography.headlineLarge)},colors=TopAppBarDefaults.topAppBarColors(containerColor=MaterialTheme.colorScheme.background),actions={LocalLifeAssistant.current?.let{assistant->IconButton(onClick=assistant){Icon(Icons.Default.Face,"Life 助手")}};IconButton(onClick=onProjects){ProjectGridIcon()};onSearch?.let{search->IconButton(onClick=search){Icon(Icons.Default.Search,"搜索生活记录")}};IconButton(onClick=onSettings){Icon(Icons.Default.AccountCircle,"账号与设置")}})},content=content)
+  var menu by remember{mutableStateOf(false)}
+  Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text(title,style=MaterialTheme.typography.headlineLarge)},colors=TopAppBarDefaults.topAppBarColors(containerColor=MaterialTheme.colorScheme.background),actions={
+    LocalLifeAssistant.current?.let{assistant->IconButton(onClick=assistant){Icon(Icons.Default.Face,"Life 助手")}}
+    onSearch?.let{search->IconButton(onClick=search){Icon(Icons.Default.Search,"搜索生活记录")}}
+    Box{IconButton(onClick={menu=true}){Icon(Icons.Default.MoreVert,"更多")};DropdownMenu(menu,{menu=false}){
+      LocalLifeMenu.current.forEach{(label,action)->DropdownMenuItem(text={Text(label)},onClick={menu=false;action()})}
+      DropdownMenuItem(text={Text("其他项目")},onClick={menu=false;onProjects()})
+      DropdownMenuItem(text={Text("账号与设置")},onClick={menu=false;onSettings()})
+    }}
+  })},content=content)
 }
 
 @Composable private fun ProjectGridIcon(){Box(Modifier.size(20.dp).semantics{contentDescription="股票、博客与其他项目"}){listOf(Alignment.TopStart,Alignment.TopEnd,Alignment.BottomStart,Alignment.BottomEnd).forEach{alignment->Box(Modifier.size(7.dp).align(alignment).background(MaterialTheme.colorScheme.onSurface,RoundedCornerShape(2.dp)))}}}
@@ -233,14 +243,15 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun DetailScreen(title:String,state:LoadState<RecordDetail>,submitState:SubmitState,onRetry:()->Unit,onBack:()->Unit,onLink:(DetailLink)->Unit,onAction:(DetailAction)->Unit,onCorrect:(EditSeed,CorrectionDraft)->Unit,onReset:()->Unit,onQueueLibraryVision:(String)->Unit,onRetryLibraryVision:(String)->Unit,onSaveTravelDay:(TravelDayDraft)->Unit,travelPlaces:List<TravelPlaceSummary> = emptyList()){
+@Composable fun DetailScreen(title:String,state:LoadState<RecordDetail>,submitState:SubmitState,onRetry:()->Unit,onBack:()->Unit,onLink:(DetailLink)->Unit,onAction:(DetailAction)->Unit,onCorrect:(EditSeed,CorrectionDraft)->Unit,onReset:()->Unit,onQueueLibraryVision:(String)->Unit,onRetryLibraryVision:(String)->Unit,onSaveTravelDay:(TravelDayDraft)->Unit,travelPlaces:List<TravelPlaceSummary> = emptyList(),accountId:String=""){
   var editing by rememberSaveable(title){mutableStateOf(false)}
   var editingDay by rememberSaveable(title){mutableStateOf(false)}
   var travelDate by rememberSaveable(title){mutableStateOf<String?>(null)}
   var showActions by rememberSaveable(title){mutableStateOf(false)}
   var detailTab by rememberSaveable(title){mutableStateOf("日程")}
+  val activeDraftScope=LocalUiDraftScope.current
   var savedNotice by rememberSaveable(title){mutableStateOf<String?>(null)}
-  LaunchedEffect(submitState){if(editing&&submitState is SubmitState.Saved&&submitState.receipt.warnings.isEmpty()){savedNotice=if(submitState.receipt.queued)"更正已保存到本机，待同步" else "更正已保存";editing=false;onReset()}}
+  LaunchedEffect(submitState){if(editing&&submitState is SubmitState.Saved&&submitState.receipt.warnings.isEmpty()){activeDraftScope?.store?.clear(activeDraftScope.name);savedNotice=if(submitState.receipt.queued)"更正已保存到本机，待同步" else "更正已保存";editing=false;onReset()}}
 
   Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text((state as? LoadState.Ready)?.value?.title?:title.ifBlank{"详情"},maxLines=1,overflow=TextOverflow.Ellipsis)},navigationIcon={LifeBackButton(onBack)},actions={if((state as? LoadState.Ready)?.value?.editSeed!=null)TextButton(onClick={onReset();editing=true}){Text("编辑")}})}){padding->
     LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(2.dp)){
@@ -249,6 +260,8 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
       if(state is LoadState.Ready){
         val detail=state.value
         item{DetailHero(detail)}
+        if(detail.assets.isNotEmpty())item{LibraryOriginals(accountId,detail.assets)}
+        if(detail.mealIntakes.isNotEmpty())item{MealIntakeEditor(accountId,detail.mealIntakes)}
         item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){detail.state?.let{StatusLabel(it)}}}
         val schedule=detail.travelSchedule
         if(schedule!=null){
@@ -288,7 +301,13 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
   val visibleGroups=if(expanded)section.groups else if(technical)emptyList() else section.groups.take(3)
   Column(Modifier.fillMaxWidth().padding(top=16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(section.title,style=MaterialTheme.typography.titleLarge,modifier=Modifier.weight(1f));section.itemCount?.let{Text("$it 项",color=MaterialTheme.colorScheme.onSurfaceVariant)}}
-    if(visibleFacts.isNotEmpty())LifeCard{visibleFacts.forEach{fact->PlanningFact(fact.label,fact.value)}}
+    if(visibleFacts.isNotEmpty())LifeCard{visibleFacts.forEach{fact->
+      if(fact.label=="正文")androidx.compose.foundation.text.selection.SelectionContainer{Text(fact.value,style=MaterialTheme.typography.bodyLarge)}
+      else if(fact.label=="链接"&&runCatching{java.net.URI(fact.value).scheme in setOf("https","http")}.getOrDefault(false)){
+        val uri=androidx.compose.ui.platform.LocalUriHandler.current
+        TextButton(onClick={runCatching{uri.openUri(fact.value)}}){Text(fact.value)}
+      }else PlanningFact(fact.label,fact.value)
+    }}
     visibleGroups.forEach{group->LifeCard{Text(group.title,style=MaterialTheme.typography.titleMedium);group.facts.forEach{PlanningFact(it.label,it.value)};group.links.forEach{link->TextButton(onClick={onLink(link)}){Text("查看${link.title}")}}}}
     (if(expanded)section.links else if(technical)emptyList() else section.links.take(6)).forEach{link->LifeCard(onClick={onLink(link)}){Text(link.title,style=MaterialTheme.typography.titleMedium);link.supporting?.let{Text(it,color=MaterialTheme.colorScheme.onSurfaceVariant)};Text("打开${planningKindLabel(link.kind)} ›",color=MaterialTheme.colorScheme.primary)}}
     if(technical||section.facts.size>6||section.groups.size>3||section.links.size>6)TextButton(onClick={expanded=!expanded}){Text(if(expanded)"收起" else "展开全部（${section.itemCount?:maxOf(section.facts.size,section.groups.size,section.links.size)}）")}
@@ -302,17 +321,19 @@ private fun detailGlyph(value:DetailPresentation)=when(value){DetailPresentation
 
 @OptIn(ExperimentalMaterial3Api::class,ExperimentalLayoutApi::class)
 @Composable private fun DetailEditSheet(seed:EditSeed,state:SubmitState,onDismiss:()->Unit,onSubmit:(CorrectionDraft)->Unit){
-  var primary by rememberSaveable(seed.detailId){mutableStateOf(when(seed){is EditSeed.Meal->"";is EditSeed.Money->seed.amount;is EditSeed.Health->seed.value;is EditSeed.Trip->seed.title;is EditSeed.Library->seed.title})}
-  var secondary by rememberSaveable(seed.detailId){mutableStateOf(when(seed){is EditSeed.Meal->"";is EditSeed.Money->seed.category.orEmpty();is EditSeed.Health->seed.unit;is EditSeed.Trip->seed.endsOn;is EditSeed.Library->seed.text?:seed.url.orEmpty()})}
-  var note by rememberSaveable(seed.detailId){mutableStateOf(when(seed){is EditSeed.Meal->seed.note.orEmpty();is EditSeed.Money->seed.note.orEmpty();is EditSeed.Health->seed.note.orEmpty();is EditSeed.Trip->seed.note.orEmpty();is EditSeed.Library->""})}
-  var date by rememberSaveable(seed.detailId){mutableStateOf(when(seed){is EditSeed.Meal->seed.occurredOn;is EditSeed.Money->seed.occurredOn;is EditSeed.Health->seed.occurredOn;is EditSeed.Trip->seed.startsOn;is EditSeed.Library->seed.documentDate.orEmpty()})}
-  var option by rememberSaveable(seed.detailId){mutableStateOf(when(seed){is EditSeed.Meal->seed.mealType;is EditSeed.Money->seed.counterparty.orEmpty();is EditSeed.Health->seed.label.orEmpty();is EditSeed.Trip->"";is EditSeed.Library->seed.category.orEmpty()})}
-  var reason by rememberSaveable(seed.detailId){mutableStateOf("")}
+  var primary by rememberDraftText("primary"){when(seed){is EditSeed.Meal->"";is EditSeed.Money->seed.amount;is EditSeed.Health->seed.value;is EditSeed.Trip->seed.title;is EditSeed.Library->seed.title}}
+  var secondary by rememberDraftText("secondary"){when(seed){is EditSeed.Meal->"";is EditSeed.Money->seed.category.orEmpty();is EditSeed.Health->seed.unit;is EditSeed.Trip->seed.endsOn;is EditSeed.Library->seed.text?:seed.url.orEmpty()}}
+  var note by rememberDraftText("note"){when(seed){is EditSeed.Meal->seed.note.orEmpty();is EditSeed.Money->seed.note.orEmpty();is EditSeed.Health->seed.note.orEmpty();is EditSeed.Trip->seed.note.orEmpty();is EditSeed.Library->""}}
+  var date by rememberDraftText("date"){when(seed){is EditSeed.Meal->seed.occurredOn;is EditSeed.Money->seed.occurredOn;is EditSeed.Health->seed.occurredOn;is EditSeed.Trip->seed.startsOn;is EditSeed.Library->seed.documentDate.orEmpty()}}
+  var option by rememberDraftText("option"){when(seed){is EditSeed.Meal->seed.mealType;is EditSeed.Money->seed.counterparty.orEmpty();is EditSeed.Health->seed.label.orEmpty();is EditSeed.Trip->"";is EditSeed.Library->seed.category.orEmpty()}}
+  var reason by rememberDraftText("reason"){""}
+  val scope=LocalUiDraftScope.current
+  LaunchedEffect(state){if(state is SubmitState.Saved)scope?.store?.clear(scope.name)}
   val initial=remember(seed.detailId){listOf(primary,secondary,note,date,option,reason)}
   var confirmExit by remember{mutableStateOf(false)}
   val requestClose:()->Unit={if(state !is SubmitState.Sending){if(listOf(primary,secondary,note,date,option,reason)!=initial&&state !is SubmitState.Saved)confirmExit=true else onDismiss()}}
   LifeFullScreen("更正${seed.domain.label()}",requestClose){
-    if(confirmExit)AlertDialog(onDismissRequest={confirmExit=false},title={Text("放弃未保存的更正？")},confirmButton={TextButton(onClick=onDismiss){Text("放弃")}},dismissButton={TextButton(onClick={confirmExit=false}){Text("继续编辑")}})
+    if(confirmExit)AlertDialog(onDismissRequest={confirmExit=false},title={Text("放弃未保存的更正？")},confirmButton={TextButton(onClick={scope?.store?.clear(scope.name);onDismiss()}){Text("放弃")}},dismissButton={TextButton(onClick={confirmExit=false}){Text("继续编辑")}})
     Column(Modifier.fillMaxWidth().imePadding().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(start=20.dp,end=20.dp,bottom=28.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
     Text("更正${seed.domain.label()}",style=MaterialTheme.typography.headlineMedium)
     if(seed is EditSeed.Meal)FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)){listOf("breakfast" to "早餐","lunch" to "午餐","dinner" to "晚餐","snack" to "加餐","other" to "其他").forEach{(value,label)->FilterChip(option==value,{option=value},{Text(label)})}}
@@ -320,7 +341,7 @@ private fun detailGlyph(value:DetailPresentation)=when(value){DetailPresentation
     if(seed is EditSeed.Trip)LifeDateField(secondary,{secondary=it},"结束日期")
     else if(seed !is EditSeed.Meal)OutlinedTextField(secondary,{secondary=it},Modifier.fillMaxWidth(),label={Text(when(seed){is EditSeed.Money->"分类（可选）";is EditSeed.Health->"单位";is EditSeed.Trip->"结束日期";is EditSeed.Library->"正文或链接";else->"补充"})},minLines=if(seed is EditSeed.Library)4 else 1)
     if(seed is EditSeed.Money||seed is EditSeed.Health)OutlinedTextField(option,{option=it},Modifier.fillMaxWidth(),label={Text(if(seed is EditSeed.Money)"交易方（可选）" else "标签（可选)")})
-    if(seed is EditSeed.Library){OutlinedTextField(date,{date=it},Modifier.fillMaxWidth(),label={Text("资料日期（可选，YYYY-MM-DD）")},singleLine=true);OutlinedTextField(option,{option=it},Modifier.fillMaxWidth(),label={Text("分类（可选）")},singleLine=true)}else LifeDateField(date,{date=it},if(seed is EditSeed.Trip)"开始日期" else "发生日期")
+    if(seed is EditSeed.Library){LifeOptionalDateField(date,{date=it},"资料日期（可选）");OutlinedTextField(option,{option=it},Modifier.fillMaxWidth(),label={Text("分类（可选）")},singleLine=true)}else LifeDateField(date,{date=it},if(seed is EditSeed.Trip)"开始日期" else "发生日期")
     if(seed !is EditSeed.Library)OutlinedTextField(note,{note=it},Modifier.fillMaxWidth(),label={Text("备注（可选）")},minLines=2)
     OutlinedTextField(reason,{reason=it},Modifier.fillMaxWidth(),label={Text("更正说明（可选）")},minLines=2,supportingText={Text("留空时会记录为“用户在详情中更正”")})
     when(state){is SubmitState.Rejected->Text(state.message,color=MaterialTheme.colorScheme.error);is SubmitState.Saved->TaskResultCard(state.receipt,onDismiss);else->Button(onClick={onSubmit(CorrectionDraft(primary,secondary,note,date,option,reason))},enabled=state !is SubmitState.Sending&&primaryValid(seed,primary,secondary),modifier=Modifier.fillMaxWidth().heightIn(min=56.dp)){Text(if(state is SubmitState.Sending)"正在保存…" else "保存更正")}}

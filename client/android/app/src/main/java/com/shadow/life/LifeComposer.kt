@@ -17,14 +17,25 @@ import java.time.LocalDate
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun LifeComposerHost(open:Boolean,initialSeed:CaptureSeed?,submitState:SubmitState,assistantState:LoadState<AssistantReply>?,historyState:LoadState<AssistantConversation>?,threadState:LoadState<List<AssistantThreadSummary>>,selectedThreadId:String?,refundCandidates:LoadState<RecordPage>,onLoadOlder:()->Unit,onSelectThread:(String)->Unit,onNewThread:()->Unit,onLoadRefundCandidates:(String)->Unit,onDismiss:()->Unit,onSubmit:(CaptureDraft)->Unit,onAsk:(String)->Unit,onReset:()->Unit,onOpenCapture:()->Unit={},startWithAssistant:Boolean=false,onSavedMessage:(String)->Unit={}){
   if(!open)return
+  val parentScope=LocalUiDraftScope.current
   var mode by rememberSaveable(initialSeed?.contextId,initialSeed?.kind){mutableStateOf(initialSeed?.kind)}
   var dirty by remember{mutableStateOf(false)}
   var exit by remember{mutableStateOf<String?>(null)}
   fun leave(target:String){if(submitState is SubmitState.Sending)return;if(dirty)exit=target else if(target=="types"){onReset();mode=null}else onDismiss()}
 
+  if(mode==null&&!startWithAssistant){
+    ModalBottomSheet(onDismissRequest=onDismiss,containerColor=MaterialTheme.colorScheme.surface){
+      Column(Modifier.fillMaxWidth().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
+        Text("快速记录",style=MaterialTheme.typography.headlineMedium)
+        CaptureKind.entries.forEach{kind->TextButton(onClick={mode=kind;if(kind==CaptureKind.Refund)onLoadRefundCandidates("")},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text(kind.label,Modifier.weight(1f));Text("＋")}}
+        TextButton(onClick=onOpenCapture,modifier=Modifier.fillMaxWidth()){Text("录音、截图与自动记录")}
+      }
+    }
+    return
+  }
   val saved=submitState as? SubmitState.Saved
-  LaunchedEffect(saved?.receipt?.commandId){if(saved!=null&&mode!=null&&saved.receipt.warnings.isEmpty()){onSavedMessage(if(saved.receipt.queued)"已保存到本机，待同步" else "记录已保存");dirty=false;onDismiss();onReset()}}
-  androidx.compose.ui.window.Dialog(onDismissRequest={leave("close")},properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)){
+  LaunchedEffect(saved?.receipt?.commandId){if(saved!=null&&mode!=null&&saved.receipt.warnings.isEmpty()){parentScope?.store?.clear("capture/${mode!!.name}/${initialSeed?.contextId.orEmpty()}");onSavedMessage(if(saved.receipt.queued)"已保存到本机，待同步" else "记录已保存");dirty=false;onDismiss();onReset()}}
+  androidx.compose.ui.window.Dialog(onDismissRequest={leave("close")},properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false,decorFitsSystemWindows=false)){
     Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text(mode?.let{"记录${it.label}"}?:if(startWithAssistant)"Life 助手" else "快速记录")},navigationIcon={LifeBackButton{leave(if(mode!=null&&initialSeed==null)"types" else "close")}})}){padding->
       Column(Modifier.fillMaxSize().padding(padding).imePadding().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)){
         if(mode==null){
@@ -34,10 +45,10 @@ import java.time.LocalDate
             CaptureKind.entries.forEach{kind->LifeCard(onClick={mode=kind;if(kind==CaptureKind.Refund)onLoadRefundCandidates("")}){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(kind.label,Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);Text("＋",color=MaterialTheme.colorScheme.primary)}}}
             OutlinedButton(onClick=onOpenCapture,modifier=Modifier.fillMaxWidth()){Text("录音、截图与自动记录")}
           }
-        }else CaptureForm(mode!!,initialSeed?.takeIf{it.kind==mode},submitState,refundCandidates,onLoadRefundCandidates,onSubmit,onDirty={dirty=it},onBack={leave("types")},onDone={onDismiss();onReset();mode=null})
+        }else CompositionLocalProvider(LocalUiDraftScope provides parentScope?.copy(name="capture/${mode!!.name}/${initialSeed?.contextId.orEmpty()}")){CaptureForm(mode!!,initialSeed?.takeIf{it.kind==mode},submitState,refundCandidates,onLoadRefundCandidates,onSubmit,onDirty={dirty=it},onBack={leave("types")},onDone={parentScope?.store?.clear("capture/${mode!!.name}/${initialSeed?.contextId.orEmpty()}");onDismiss();onReset();mode=null})}
       }
     }
-  if(exit!=null)AlertDialog(onDismissRequest={exit=null},title={Text("放弃未保存的内容？")},text={Text("已填写的内容尚未保存。")},confirmButton={TextButton(onClick={val target=exit;exit=null;dirty=false;if(target=="types"){onReset();mode=null}else onDismiss()}){Text("放弃")}},dismissButton={TextButton(onClick={exit=null}){Text("继续编辑")}})
+  if(exit!=null)AlertDialog(onDismissRequest={exit=null},title={Text("放弃未保存的内容？")},text={Text("已填写的内容尚未保存。")},confirmButton={Row{TextButton(onClick={exit=null;dirty=false;onDismiss()}){Text("保留草稿")};TextButton(onClick={val target=exit;exit=null;dirty=false;mode?.let{parentScope?.store?.clear("capture/${it.name}/${initialSeed?.contextId.orEmpty()}")};if(target=="types"){onReset();mode=null}else onDismiss()}){Text("放弃")}}},dismissButton={TextButton(onClick={exit=null}){Text("继续编辑")}})
   }
 }
 
@@ -71,9 +82,10 @@ import java.time.LocalDate
 }
 
 @Composable private fun CaptureForm(kind:CaptureKind,seed:CaptureSeed?,state:SubmitState,refundCandidates:LoadState<RecordPage>,onLoadRefundCandidates:(String)->Unit,onSubmit:(CaptureDraft)->Unit,onDirty:(Boolean)->Unit,onBack:()->Unit,onDone:()->Unit){
-  var primary by rememberSaveable(kind,seed?.contextId){mutableStateOf(seed?.primary.orEmpty())};var secondary by rememberSaveable(kind,seed?.contextId){mutableStateOf(seed?.secondary?.takeIf{it.isNotBlank()}?:if(kind==CaptureKind.Trip)LocalDate.now().toString() else "")};var note by rememberSaveable(kind,seed?.contextId){mutableStateOf(seed?.note.orEmpty())};var option by rememberSaveable(kind,seed?.contextId){mutableStateOf(seed?.option?.ifBlank{defaultOption(kind)}?:defaultOption(kind))};var date by rememberSaveable(kind,seed?.contextId){mutableStateOf(seed?.date?:LocalDate.now().toString())};var category by rememberSaveable(kind,seed?.contextId){mutableStateOf(seed?.category.orEmpty())};var paymentMethod by rememberSaveable(kind,seed?.contextId){mutableStateOf(seed?.paymentMethod.orEmpty())};var advancedMeal by rememberSaveable(kind,seed?.contextId){mutableStateOf(false)};val mealRows=rememberSaveable(kind,seed?.contextId,saver=androidx.compose.runtime.saveable.listSaver<androidx.compose.runtime.snapshots.SnapshotStateList<MealDraftItem>,String>(save={rows->rows.map{org.json.JSONArray(listOf(it.name,it.quantity,it.unit,it.energyKcal,it.proteinG,it.fatG,it.carbG)).toString()}},restore={rows->rows.map{org.json.JSONArray(it).let{a->MealDraftItem(a.getString(0),a.getString(1),a.getString(2),a.getString(3),a.getString(4),a.getString(5),a.getString(6))}}.toMutableStateList()})){mutableStateListOf(MealDraftItem(name=if(kind==CaptureKind.Meal)seed?.primary.orEmpty() else ""))}
+  val draftScope=LocalUiDraftScope.current
+  var primary by rememberDraftText("primary"){seed?.primary.orEmpty()};var secondary by rememberDraftText("secondary"){seed?.secondary?.takeIf{it.isNotBlank()}?:if(kind==CaptureKind.Trip)LocalDate.now().toString() else ""};var note by rememberDraftText("note"){seed?.note.orEmpty()};var option by rememberDraftText("option"){seed?.option?.ifBlank{defaultOption(kind)}?:defaultOption(kind)};var date by rememberDraftText("date"){seed?.date?:LocalDate.now().toString()};var category by rememberDraftText("category"){seed?.category.orEmpty()};var paymentMethod by rememberDraftText("paymentMethod"){seed?.paymentMethod.orEmpty()};var advancedMeal by rememberSaveable{mutableStateOf(false)};val mealRows=rememberSaveable(kind,seed?.contextId,saver=androidx.compose.runtime.saveable.listSaver<androidx.compose.runtime.snapshots.SnapshotStateList<MealDraftItem>,String>(save={rows->rows.map{org.json.JSONArray(listOf(it.name,it.quantity,it.unit,it.energyKcal,it.proteinG,it.fatG,it.carbG)).toString()}},restore={rows->rows.map{org.json.JSONArray(it).let{a->MealDraftItem(a.getString(0),a.getString(1),a.getString(2),a.getString(3),a.getString(4),a.getString(5),a.getString(6))}}.toMutableStateList()})){readMealDraftRows(draftScope?.let{it.store.read(it.name,"mealRows")},if(kind==CaptureKind.Meal)seed?.primary.orEmpty() else "").toMutableStateList()}
   val changed=primary!=seed?.primary.orEmpty()||secondary!=(seed?.secondary?.takeIf{it.isNotBlank()}?:if(kind==CaptureKind.Trip)LocalDate.now().toString() else "")||note!=seed?.note.orEmpty()||mealRows.toList()!=listOf(MealDraftItem(name=if(kind==CaptureKind.Meal)seed?.primary.orEmpty() else ""))||category!=seed?.category.orEmpty()||paymentMethod!=seed?.paymentMethod.orEmpty()||date!=(seed?.date?:LocalDate.now().toString())||option!=(seed?.option?.ifBlank{defaultOption(kind)}?:defaultOption(kind))
-  SideEffect{onDirty(changed)}
+  SideEffect{onDirty(changed);draftScope?.store?.write(draftScope.name,"mealRows",encodeMealDraftRows(mealRows.toList()))}
   when(state){
     is SubmitState.Saved->{TaskResultCard(state.receipt,onDone);return}
     is SubmitState.Rejected->Text(state.message,color=MaterialTheme.colorScheme.error)
@@ -113,9 +125,16 @@ import java.time.LocalDate
   if(kind==CaptureKind.Refund)RefundEntryPicker(refundCandidates,secondary,{secondary=it},onLoadRefundCandidates)
   else if(kind==CaptureKind.Trip)LifeDateField(secondary.ifBlank{date},{secondary=it},"结束日期")
   else if(kind !in listOf(CaptureKind.Meal,CaptureKind.Visit))OutlinedTextField(secondary,{secondary=it},Modifier.fillMaxWidth(),label={Text(secondaryLabel(kind))},minLines=if(kind==CaptureKind.Library||kind==CaptureKind.Project)4 else 1,singleLine=kind!=CaptureKind.Library&&kind!=CaptureKind.Project,keyboardOptions=KeyboardOptions(keyboardType=if(kind in listOf(CaptureKind.Purchase,CaptureKind.Workout))KeyboardType.Decimal else KeyboardType.Text))
-  if(kind==CaptureKind.Expense||kind==CaptureKind.Purchase){OutlinedTextField(category,{category=it},Modifier.fillMaxWidth(),label={Text(if(kind==CaptureKind.Expense)"分类（可选）" else "渠道（可选）")},singleLine=true);Text("支付方式（可选）",style=MaterialTheme.typography.labelLarge);OptionChips(listOf("" to "未知","wechat" to "微信","alipay" to "支付宝","bank_card" to "银行卡","cash" to "现金","other" to "其他"),paymentMethod){paymentMethod=it}}
-  OutlinedTextField(note,{note=it},Modifier.fillMaxWidth(),label={Text("备注（可选）")},minLines=2)
   LifeDateField(date,{date=it},enabled=state !is SubmitState.Sending)
+  var more by rememberSaveable{mutableStateOf(note.isNotBlank()||category.isNotBlank()||paymentMethod.isNotBlank())}
+  TextButton(onClick={more=!more}){Text(if(more)"收起更多信息" else "更多信息 · 备注、分类与支付方式")}
+  if(more){
+    if(kind==CaptureKind.Expense||kind==CaptureKind.Purchase){
+      OutlinedTextField(category,{category=it},Modifier.fillMaxWidth(),label={Text(if(kind==CaptureKind.Expense)"分类（可选）" else "渠道（可选）")},singleLine=true)
+      OptionChips(listOf("" to "未知支付方式","wechat" to "微信","alipay" to "支付宝","bank_card" to "银行卡","cash" to "现金","other" to "其他"),paymentMethod){paymentMethod=it}
+    }
+    OutlinedTextField(note,{note=it},Modifier.fillMaxWidth(),label={Text("备注（可选）")},minLines=2)
+  }
   val mealValid=kind!=CaptureKind.Meal||if(advancedMeal)primary.isNotBlank() else mealRows.isNotEmpty()&&mealRows.all{it.name.isNotBlank()&&(it.quantity.isBlank()==it.unit.isBlank())}
   val effectivePrimary=if(kind==CaptureKind.Meal&&!advancedMeal)mealRows.firstOrNull()?.name.orEmpty() else primary
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp),verticalAlignment=Alignment.CenterVertically){TextButton(onClick=onBack,enabled=state !is SubmitState.Sending){Text("返回")};Button(onClick={onSubmit(CaptureDraft(kind,primary,secondary,note,date,option,category,paymentMethod,if(kind==CaptureKind.Meal&&!advancedMeal)mealRows.toList() else emptyList(),seed?.contextKind,seed?.contextId))},enabled=mealValid&&valid(kind,effectivePrimary,secondary,date)&&state !is SubmitState.Sending,modifier=Modifier.weight(1f).heightIn(min=56.dp)){Text(if(state is SubmitState.Sending)"正在保存…" else "保存记录")}}

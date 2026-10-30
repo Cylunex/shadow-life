@@ -11,7 +11,7 @@ import androidx.compose.ui.window.DialogProperties
 /** Full-screen task surface shared by editors and source readers. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable internal fun LifeFullScreen(title:String,onDismiss:()->Unit,content:@Composable ()->Unit){
-  Dialog(onDismissRequest=onDismiss,properties=DialogProperties(usePlatformDefaultWidth=false)){
+  Dialog(onDismissRequest=onDismiss,properties=DialogProperties(usePlatformDefaultWidth=false,decorFitsSystemWindows=false)){
     Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text(title)},navigationIcon={LifeBackButton(onDismiss)})}){padding->
       Box(Modifier.fillMaxSize().padding(padding).imePadding().navigationBarsPadding().padding(horizontal=20.dp)){content()}
     }

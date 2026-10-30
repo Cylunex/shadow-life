@@ -203,10 +203,11 @@ sealed interface EditSeed { val domain:LifeDomain;val detailId:String
 }
 data class CorrectionDraft(val primary:String,val secondary:String,val note:String,val date:String,val option:String,val reason:String)
 enum class DetailPresentation { Generic, Meal, Money, HealthMetric, Workout, Sleep, Activity, Habit, Travel, Library }
+data class DetailAsset(val versionId:String,val mediaType:String,val title:String)
 data class RecordDetail(
   val title:String,val state:String?,val revision:Int?,val sections:List<DetailSection>,val editSeed:EditSeed?=null,val actions:List<DetailAction> = emptyList(),
   val presentation:DetailPresentation=DetailPresentation.Generic,val heroValue:String?=null,val heroSupporting:String?=null,val travelSchedule:TravelDetailSchedule?=null,
-  val libraryVisionSourceAssetId:String?=null,val libraryVisionRetryJobId:String?=null
+  val libraryVisionSourceAssetId:String?=null,val libraryVisionRetryJobId:String?=null,val assets:List<DetailAsset> = emptyList(),val mealIntakes:List<LifeRecordResultDtoMealItemsEntry> = emptyList()
 )
 
 @Serializable data object TodayRoute

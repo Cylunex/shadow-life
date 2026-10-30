@@ -43,7 +43,7 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
   val feedback=remember{SnackbarHostState()}
   LaunchedEffect(captureNotice){captureNotice?.let{feedback.showSnackbar(it);captureNotice=null}}
   LaunchedEffect(statusMessage){statusMessage?.let{feedback.showSnackbar(it);onDismissStatus()}}
-  val nav=rememberNavController();var composerOpen by rememberSaveable{mutableStateOf(false)};var composerSeed by remember{mutableStateOf<CaptureSeed?>(null)};var assistantMode by rememberSaveable{mutableStateOf(false)}
+  val nav=key(session?.accountId){rememberNavController()};var composerOpen by rememberSaveable{mutableStateOf(false)};var composerSeed by remember{mutableStateOf<CaptureSeed?>(null)};var assistantMode by rememberSaveable{mutableStateOf(false)}
   var pendingMealPhoto by remember{mutableStateOf<RecordSummary?>(null)}
   val mealPhotoPicker=rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()){uri->val record=pendingMealPhoto;pendingMealPhoto=null;if(uri!=null&&record!=null)viewModel.attachMealPhoto(record,uri)}
   fun openComposer(seed:CaptureSeed?=null){viewModel.editAgain();assistantMode=false;composerSeed=seed;composerOpen=true;if(seed?.kind==CaptureKind.Refund)viewModel.loadRefundCandidates("")}
@@ -53,13 +53,13 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
   if(session==null){SignInScreen(statusMessage,onLogin);return}
   val entry by nav.currentBackStackEntryAsState();val destination=entry?.destination
   val root=destination?.hasRoute<TodayRoute>()==true||destination?.hasRoute<RecordsRoute>()==true||destination?.hasRoute<PlansRoute>()==true||destination?.hasRoute<LibraryRoute>()==true
-  Scaffold(containerColor=MaterialTheme.colorScheme.background,snackbarHost={SnackbarHost(feedback)},bottomBar={if(root)LifeDock(
+  Scaffold(containerColor=MaterialTheme.colorScheme.background,snackbarHost={SnackbarHost(feedback)},bottomBar={Column{LiveCaptureBar(session.accountId){nav.navigate(ActivityCaptureRoute){launchSingleTop=true}};if(root)LifeDock(
     selected=when{destination?.hasRoute<RecordsRoute>()==true->"记录";destination?.hasRoute<PlansRoute>()==true->"计划";destination?.hasRoute<LibraryRoute>()==true->"资料";else->"生活"},
-    onRoute={route->nav.navigate(route){popUpTo(nav.graph.findStartDestination().id){saveState=true};launchSingleTop=true;restoreState=true}},onLife={openComposer()})
-  }){outer->Box(Modifier.fillMaxSize().padding(bottom=if(root)outer.calculateBottomPadding() else 0.dp)){
-    CompositionLocalProvider(LocalLifeAssistant provides {assistantMode=true;composerSeed=null;viewModel.editAgain();composerOpen=true;viewModel.openAssistant()}){
+    onRoute={route->nav.navigate(route){popUpTo(nav.graph.findStartDestination().id){saveState=true};launchSingleTop=true;restoreState=true}},onLife={openComposer()})}
+  }){outer->Box(Modifier.fillMaxSize().padding(bottom=outer.calculateBottomPadding())){
+    CompositionLocalProvider(LocalLifeMenu provides listOf("全部功能" to {nav.navigate(FeaturesRoute)},"提醒与收件箱" to {viewModel.refreshInbox();nav.navigate(InboxRoute)}),LocalLifeAssistant provides {assistantMode=true;composerSeed=null;viewModel.editAgain();composerOpen=true;viewModel.openAssistant()}){
     NavHost(navController=nav,startDestination=TodayRoute){
-      composable<TodayRoute>{TodayVisualScreen(session.accountId,viewModel.today,viewModel.homeHealth,viewModel.deviceSyncStatus,viewModel.queueStatus,SamsungHealthBridge.available(),{viewModel.refreshToday();viewModel.refreshHomeHealth();viewModel.refreshTrainingPlans()},{domain,tab->if(domain==LifeDomain.Library)nav.navigate(LibraryRoute) else{viewModel.loadWorkspace(domain);nav.navigate(WorkspaceRoute(domain.name,tab))}},{nav.navigate(ItemsRoute)},{nav.navigate(PlansRoute)},{nav.navigate(LibraryRoute)},{domain,id,title->if(id.startsWith("capture:"))nav.navigate(CaptureSourceRoute(id.removePrefix("capture:")))else{viewModel.loadDetail(domain,id);nav.navigate(DetailRoute(domain.name,id,title))}},{nav.navigate(RecordsRoute)},{viewModel.refreshInbox();nav.navigate(InboxRoute)},{nav.navigate(FeaturesRoute)},{kind->openComposer(defaultCaptureSeed(kind))},onHealthSync,onSamsungSync,onScale,{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)},viewModel.trainingPlans,{nav.navigate(TrainingRoute)},{nav.navigate(ActivityCaptureRoute)})}
+      composable<TodayRoute>{TodayVisualScreen(session.accountId,viewModel.today,viewModel.homeHealth,viewModel.deviceSyncStatus,viewModel.queueStatus,SamsungHealthBridge.available(),{viewModel.refreshToday();viewModel.refreshHomeHealth();viewModel.refreshTrainingPlans()},{domain,tab->if(domain==LifeDomain.Library)nav.navigate(LibraryRoute) else{viewModel.loadWorkspace(domain);nav.navigate(WorkspaceRoute(domain.name,tab))}},{nav.navigate(ItemsRoute)},{nav.navigate(PlansRoute)},{nav.navigate(LibraryRoute)},{domain,id,title->if(id.startsWith("capture:"))nav.navigate(CaptureSourceRoute(id.removePrefix("capture:")))else{viewModel.loadDetail(domain,id);nav.openRecord(domain,id)}},{nav.navigate(RecordsRoute)},{viewModel.refreshInbox();nav.navigate(InboxRoute)},{nav.navigate(FeaturesRoute)},{kind->openComposer(defaultCaptureSeed(kind))},onHealthSync,onSamsungSync,onScale,{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)},viewModel.trainingPlans,{nav.navigate(TrainingRoute)},{nav.navigate(ActivityCaptureRoute)})}
       composable<TrainingRoute>{
         Scaffold(topBar={Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically){LifeBackButton{nav.popBackStack()};Text("训练",style=MaterialTheme.typography.titleLarge)}}){padding->
           Column(Modifier.fillMaxSize().padding(padding).verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
@@ -69,7 +69,7 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
       }
       composable<CaptureSourceRoute>{back->CaptureSourceScreen(session.accountId,back.toRoute<CaptureSourceRoute>().id){nav.popBackStack()}}
       composable<ActivityCaptureRoute>{ActivityCaptureScreen(session.accountId,{nav.popBackStack()},{id->nav.navigate(CaptureSourceRoute(id))})}
-      composable<RecordsRoute>{LaunchedEffect(Unit){viewModel.ensureRecords()};RecordsVisualScreen(viewModel.timeline,viewModel.searchResults,viewModel::refreshTimeline,viewModel::loadMoreTimeline,viewModel::search,viewModel::loadMoreSearch,viewModel::clearSearch,{domain,id,title->if(id.startsWith("capture:"))nav.navigate(CaptureSourceRoute(id.removePrefix("capture:")))else{viewModel.loadDetail(domain,id);nav.navigate(DetailRoute(domain.name,id,title))}},{openComposer()},{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)},viewModel.selectedDay,viewModel.day,viewModel.memories,viewModel::loadDay,viewModel::loadMoreDay,{entry->if(entry.kind=="activity_capture")nav.navigate(CaptureSourceRoute(entry.id))else when(entry.domain){"items"->nav.navigate(OwnedItemDetailRoute(entry.recordId?:entry.id));"plans"->nav.navigate(PlanDetailRoute(entry.recordId?:entry.id));else->{val domain=LifeDomain.entries.firstOrNull{it.name.equals(entry.domain,true)}?:LifeDomain.Library;viewModel.loadDetail(domain,entry.recordId?:entry.id);nav.navigate(DetailRoute(domain.name,entry.recordId?:entry.id,entry.title))}}},onActivity={nav.navigate(ActivityCaptureRoute)})
+      composable<RecordsRoute>{LaunchedEffect(Unit){viewModel.ensureRecords()};RecordsVisualScreen(viewModel.timeline,viewModel.searchResults,viewModel::refreshTimeline,viewModel::loadMoreTimeline,viewModel::search,viewModel::loadMoreSearch,viewModel::clearSearch,{domain,id,title->if(id.startsWith("capture:"))nav.navigate(CaptureSourceRoute(id.removePrefix("capture:")))else{viewModel.loadDetail(domain,id);nav.openRecord(domain,id)}},{openComposer()},{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)},viewModel.selectedDay,viewModel.day,viewModel.memories,viewModel::loadDay,viewModel::loadMoreDay,{entry->if(entry.kind=="activity_capture")nav.navigate(CaptureSourceRoute(entry.id))else when(entry.domain){"items"->nav.navigate(OwnedItemDetailRoute(entry.recordId?:entry.id));"plans"->nav.navigate(PlanDetailRoute(entry.recordId?:entry.id));else->{val domain=LifeDomain.entries.firstOrNull{it.name.equals(entry.domain,true)}?:LifeDomain.Library;viewModel.loadDetail(domain,entry.recordId?:entry.id);nav.openRecord(domain,entry.recordId?:entry.id)}}},onActivity={nav.navigate(ActivityCaptureRoute)})
       }
       composable<PersonalAgentRoute>{PersonalAgentScreen(session.accountId,viewModel.personalFoundation,viewModel.personalSubmit,viewModel::refreshPersonalFoundation,viewModel::savePersonalFoundation,{nav.popBackStack()})}
       composable<PlansRoute>{LaunchedEffect(Unit){viewModel.refreshPlans()};PlansVisualScreen(
@@ -77,12 +77,12 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
         {plan->nav.navigate(PlanDetailRoute(plan.id))},{item->nav.navigate(OwnedItemDetailRoute(item.id))},{review->nav.navigate(ReviewDetailRoute(review.id))},
         {agenda->when(agenda.targetKind){"project"->nav.navigate(PlanDetailRoute(agenda.targetId));"money_occurrence"->{viewModel.loadWorkspace(LifeDomain.Money);nav.navigate(WorkspaceRoute(LifeDomain.Money.name))};"health_habit"->{viewModel.loadWorkspace(LifeDomain.Health);nav.navigate(WorkspaceRoute(LifeDomain.Health.name))}}},
         viewModel::updateAgenda,{kind->openComposer(defaultCaptureSeed(kind))},{viewModel.refreshPlans();nav.navigate(ItemsRoute)},{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)}
-      ,onTraining={nav.navigate(TrainingRoute)},onGoals={nav.navigate(PersonalAgentRoute)})}
-      composable<LibraryRoute>{LaunchedEffect(Unit){viewModel.ensureLibrary()};LibraryVisualScreen(viewModel.library,viewModel::refreshLibrary,viewModel::loadMoreLibrary,{domain,id,title->if(id.startsWith("capture:"))nav.navigate(CaptureSourceRoute(id.removePrefix("capture:")))else{viewModel.loadDetail(domain,id);nav.navigate(DetailRoute(domain.name,id,title))}},{kind->openComposer(defaultCaptureSeed(kind))},{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)})}
+      ,onTraining={nav.navigate(TrainingRoute)},onGoals={nav.navigate(PersonalAgentRoute)},goals={PersonalAgentScreen(session.accountId,viewModel.personalFoundation,viewModel.personalSubmit,viewModel::refreshPersonalFoundation,viewModel::savePersonalFoundation,{},embedded=true)})}
+      composable<LibraryRoute>{LaunchedEffect(Unit){viewModel.ensureLibrary()};LibraryVisualScreen(viewModel.library,viewModel::refreshLibrary,viewModel::loadMoreLibrary,{domain,id,title->if(id.startsWith("capture:"))nav.navigate(CaptureSourceRoute(id.removePrefix("capture:")))else{viewModel.loadDetail(domain,id);nav.openRecord(domain,id)}},{kind->openComposer(defaultCaptureSeed(kind))},{nav.navigate(ConnectionsRoute)},{nav.navigate(SettingsRoute)})}
       composable<WorkspaceRoute>{backStack->
         val route=backStack.toRoute<WorkspaceRoute>();val domain=LifeDomain.valueOf(route.domain)
         LaunchedEffect(domain){if(viewModel.workspaceDomain!=domain)viewModel.loadWorkspace(domain)}
-        val detail:(LifeDomain,String,String)->Unit={d,id,title->viewModel.loadDetail(d,id);nav.navigate(DetailRoute(d.name,id,title))}
+        val detail:(LifeDomain,String,String)->Unit={d,id,title->viewModel.loadDetail(d,id);nav.openRecord(d,id)}
         val capture:(CaptureKind)->Unit={kind->openComposer(defaultCaptureSeed(kind))}
         when(domain){
           LifeDomain.Health->HealthReferenceProvider(session.accountId,scaleSettings){HealthWorkspaceScreen(
@@ -92,7 +92,7 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
           )}
           LifeDomain.Meals->HealthReferenceProvider(session.accountId,scaleSettings){MealsWorkspaceScreen(
             viewModel.workspaceOverview,viewModel.workspace,viewModel.assetPreviews,viewModel::loadAssetPreview,
-            {viewModel.reloadWorkspace()},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,{date,type->openComposer(defaultCaptureSeed(CaptureKind.Meal).copy(date=date,option=type))},{record->pendingMealPhoto=record;mealPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))},viewModel.mealPhotoSubmit,{viewModel.loadConsumptionStats();nav.navigate(ConsumptionStatsRoute)},viewModel.mealPlanningSubmit,viewModel::saveMealPlan,viewModel::buildShoppingList,viewModel::updateShoppingItem,viewModel::setFoodStock,viewModel::saveImportedRecipe,viewModel::resetMealPlanningSubmit
+            {viewModel.reloadWorkspace()},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,{date,type->openComposer(defaultCaptureSeed(CaptureKind.Meal).copy(date=date,option=type))},{record->pendingMealPhoto=record;mealPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))},viewModel.mealPhotoSubmit,{viewModel.loadConsumptionStats();nav.navigate(ConsumptionStatsRoute)},viewModel.mealPlanningSubmit,viewModel::saveMealPlan,viewModel::buildShoppingList,viewModel::updateShoppingItem,viewModel::setFoodStock,viewModel::saveImportedRecipe,viewModel::resetMealPlanningSubmit,initialTab=route.tab
           )}
           LifeDomain.Money->MoneyWorkspaceScreen(
             viewModel.workspaceOverview,viewModel.workspace,{viewModel.loadWorkspace(domain,it)},{viewModel.reloadWorkspace()},viewModel::loadMoreWorkspace,
@@ -106,7 +106,7 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
           else->WorkspaceScreen(domain,viewModel.workspaceOverview,viewModel.workspace,viewModel.deviceSyncStatus,viewModel.queueStatus,SamsungHealthBridge.available(),{viewModel.loadWorkspace(domain,it)},{viewModel.reloadWorkspace()},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,capture,onHealthSync,onSamsungSync,onScale,{nav.navigate(SettingsRoute)})
         }
       }
-      composable<DetailRoute>{backStack->val route=backStack.toRoute<DetailRoute>();val domain=LifeDomain.valueOf(route.domain);LaunchedEffect(route.id){viewModel.loadDetail(domain,route.id)};key(route.domain,route.id){DetailScreen(route.title,viewModel.detail,viewModel.submit,{viewModel.loadDetail(domain,route.id)},{nav.popBackStack()},{link->openPlanningRelated(nav,viewModel,link.kind,link.id)},{action->openComposer(action.seed)},viewModel::correct,viewModel::editAgain,{assetId->viewModel.queueLibraryVision(route.id,assetId)},viewModel::retryLibraryVision,viewModel::saveTravelDay,(viewModel.workspaceOverview as? LoadState.Ready)?.value.let{(it as? WorkspaceOverview.Travel)?.placeItems.orEmpty()})}}
+      composable<DetailRoute>{backStack->val route=backStack.toRoute<DetailRoute>();val domain=LifeDomain.valueOf(route.domain);LaunchedEffect(route.id){viewModel.loadDetail(domain,route.id)};key(route.domain,route.id){val context=LocalContext.current;val store=remember(session.accountId){UiDraftStore(context,session.accountId)};CompositionLocalProvider(LocalUiDraftScope provides UiDraftScope(store,"detail/${route.domain}/${route.id}/${(viewModel.detail as? LoadState.Ready)?.value?.revision?:0}")){DetailScreen(route.title,viewModel.detail,viewModel.submit,{viewModel.loadDetail(domain,route.id)},{nav.popBackStack()},{link->openPlanningRelated(nav,viewModel,link.kind,link.id)},{action->openComposer(action.seed)},viewModel::correct,viewModel::editAgain,{assetId->viewModel.queueLibraryVision(route.id,assetId)},viewModel::retryLibraryVision,viewModel::saveTravelDay,(viewModel.workspaceOverview as? LoadState.Ready)?.value.let{(it as? WorkspaceOverview.Travel)?.placeItems.orEmpty()},accountId=session.accountId)}}}
       composable<PlanDetailRoute>{backStack->val route=backStack.toRoute<PlanDetailRoute>();LaunchedEffect(route.id){viewModel.loadPlanDetail(route.id)};PlanDetailScreen(viewModel.planDetail,{viewModel.loadPlanDetail(route.id)},{kind,id->openPlanningRelated(nav,viewModel,kind,id)},{nav.popBackStack()},viewModel::saveProjectAction,viewModel.projectActionSubmit)}
       composable<OwnedItemDetailRoute>{backStack->val route=backStack.toRoute<OwnedItemDetailRoute>();LaunchedEffect(route.id){viewModel.loadOwnedItemDetail(route.id)};OwnedItemDetailScreen(viewModel.ownedItemDetail,{viewModel.loadOwnedItemDetail(route.id)},{kind,id->openPlanningRelated(nav,viewModel,kind,id)},{nav.popBackStack()})}
       composable<ReviewDetailRoute>{backStack->val route=backStack.toRoute<ReviewDetailRoute>();LaunchedEffect(route.id){viewModel.loadReviewDetail(route.id)};ReviewDetailScreen(viewModel.reviewDetail,{viewModel.loadReviewDetail(route.id)},{evidence->openReviewEvidence(nav,viewModel,evidence)},{nav.popBackStack()})}
@@ -120,7 +120,16 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
     }
   }}
   if(pendingShare!=null)ShareIngressDialog(pendingShare,viewModel.shareImport,{onAcceptShare(pendingShare)},onDiscardShare)
+  val draftContext=LocalContext.current
+  val draftStore=remember(session.accountId){UiDraftStore(draftContext,session.accountId)}
+  CompositionLocalProvider(LocalUiDraftScope provides UiDraftScope(draftStore,"capture")){
   LifeComposerHost(composerOpen,composerSeed,viewModel.submit,viewModel.assistant,viewModel.assistantHistory,viewModel.assistantThreads,viewModel.currentAssistantThreadId,viewModel.refundCandidates,viewModel::loadOlderAssistantMessages,viewModel::selectAssistantThread,viewModel::startNewAssistantThread,viewModel::loadRefundCandidates,{composerOpen=false;composerSeed=null;viewModel.editAgain();viewModel.clearAssistant()},{viewModel.submit(it)},viewModel::askLife,viewModel::editAgain,{composerOpen=false;nav.navigate(ActivityCaptureRoute)},startWithAssistant=assistantMode,onSavedMessage={captureNotice=it})
+  }
+}
+
+private fun androidx.navigation.NavHostController.openRecord(domain:LifeDomain,id:String){
+  val route=DetailRoute(domain.name,id,"${domain.label()}详情")
+  if(!popBackStack(route,inclusive=false))navigate(route){launchSingleTop=true}
 }
 
 private fun defaultCaptureSeed(kind:CaptureKind)=CaptureSeed(kind=kind,date=java.time.LocalDate.now().toString(),option=when(kind){CaptureKind.Expense->"expense";CaptureKind.Purchase->"offline_purchase";CaptureKind.Meal->"other";CaptureKind.Health->"weight";CaptureKind.OwnedItem->"owned";CaptureKind.Project->"active";CaptureKind.Library->"note";else->""})
@@ -128,19 +137,21 @@ private fun defaultCaptureSeed(kind:CaptureKind)=CaptureSeed(kind=kind,date=java
 private fun openPlanningRelated(nav:androidx.navigation.NavHostController,viewModel:NativeLifeViewModel,kind:String,id:String){
   when(kind){
     "travel_workspace"->{viewModel.selectTravelTrip(id);nav.navigate(WorkspaceRoute(LifeDomain.Travel.name,"itinerary"))}
-    "trip"->{viewModel.loadDetail(LifeDomain.Travel,id);nav.navigate(DetailRoute(LifeDomain.Travel.name,id,"旅程详情"))}
-    "library_item"->{viewModel.loadDetail(LifeDomain.Library,id);nav.navigate(DetailRoute(LifeDomain.Library.name,id,"资料详情"))}
-    "money_entry"->{viewModel.loadDetail(LifeDomain.Money,id);nav.navigate(DetailRoute(LifeDomain.Money.name,id,"交易详情"))}
-    "health_record"->{viewModel.loadDetail(LifeDomain.Health,id);nav.navigate(DetailRoute(LifeDomain.Health.name,id,"健康详情"))}
-    "purchase"->{viewModel.loadDetail(LifeDomain.Money,id);nav.navigate(DetailRoute(LifeDomain.Money.name,id,"购买详情"))}
-    "meal"->{viewModel.loadDetail(LifeDomain.Meals,id);nav.navigate(DetailRoute(LifeDomain.Meals.name,id,"餐次详情"))}
-    "owned_item"->nav.navigate(OwnedItemDetailRoute(id))
+    "trip"->{viewModel.loadDetail(LifeDomain.Travel,id);nav.openRecord(LifeDomain.Travel,id)}
+    "library_item"->{viewModel.loadDetail(LifeDomain.Library,id);nav.openRecord(LifeDomain.Library,id)}
+    "money_entry"->{viewModel.loadDetail(LifeDomain.Money,id);nav.openRecord(LifeDomain.Money,id)}
+    "health_measurement","health_workout_session","health_record"->{viewModel.loadDetail(LifeDomain.Health,id);nav.openRecord(LifeDomain.Health,id)}
+    "purchase"->{viewModel.loadDetail(LifeDomain.Money,id);nav.openRecord(LifeDomain.Money,id)}
+    "meal"->{viewModel.loadDetail(LifeDomain.Meals,id);nav.openRecord(LifeDomain.Meals,id)}
+    "project"->nav.navigate(PlanDetailRoute(id)){launchSingleTop=true}
+    "recipe"->{viewModel.loadWorkspace(LifeDomain.Meals);nav.navigate(WorkspaceRoute(LifeDomain.Meals.name,"planning"))}
+    "owned_item"->nav.navigate(OwnedItemDetailRoute(id)){launchSingleTop=true}
   }
 }
 
 private fun openReviewEvidence(nav:androidx.navigation.NavHostController,viewModel:NativeLifeViewModel,evidence:ReviewEvidence){
   val domain=when(evidence.kind){"money_entry"->LifeDomain.Money;"meal"->LifeDomain.Meals;"health_measurement","health_workout_session"->LifeDomain.Health;"library_item"->LifeDomain.Library;else->null}
-  if(domain!=null){viewModel.loadDetail(domain,evidence.id);nav.navigate(DetailRoute(domain.name,evidence.id,"${domain.label()}证据"))}
+  if(domain!=null){viewModel.loadDetail(domain,evidence.id);nav.openRecord(domain,evidence.id)}
   else if(evidence.kind=="owned_item")nav.navigate(OwnedItemDetailRoute(evidence.id))
 }
 

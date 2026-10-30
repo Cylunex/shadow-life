@@ -17,7 +17,7 @@ import java.time.LocalDate
 ){
   var query by rememberSaveable{mutableStateOf("")}
   var submittedQuery by rememberSaveable{mutableStateOf("")}
-  var editing by remember{mutableStateOf<ServiceCardsResultDtoItemsEntry?>(null)}
+  var editing by rememberJsonState(ServiceCardsResultDtoItemsEntry.serializer())
   var editorOpen by rememberSaveable{mutableStateOf(false)}
   var name by rememberSaveable{mutableStateOf("")};var merchant by rememberSaveable{mutableStateOf("")}
   var total by rememberSaveable{mutableStateOf("")};var unit by rememberSaveable{mutableStateOf("次")}
@@ -25,7 +25,7 @@ import java.time.LocalDate
   var note by rememberSaveable{mutableStateOf("")};var purchaseId by rememberSaveable{mutableStateOf<String?>(null)}
   var purchaseQuery by rememberSaveable{mutableStateOf("")}
   var cardState by rememberSaveable{mutableStateOf("active")}
-  var useEntry by remember{mutableStateOf<ServiceCardsResultDtoItemsEntryUsesEntry?>(null)}
+  var useEntry by rememberJsonState(ServiceCardsResultDtoItemsEntryUsesEntry.serializer())
   var useDate by rememberSaveable{mutableStateOf(LocalDate.now().toString())};var useUnits by rememberSaveable{mutableStateOf("1")};var useNote by rememberSaveable{mutableStateOf("")}
   val selected=(selectedState as? LoadState.Ready)?.value
   val busy=submit is SubmitState.Sending
@@ -42,8 +42,8 @@ import java.time.LocalDate
       OutlinedTextField(name,{name=it},Modifier.fillMaxWidth(),label={Text("卡名")},singleLine=true)
       OutlinedTextField(merchant,{merchant=it},Modifier.fillMaxWidth(),label={Text("商家（可选）")},singleLine=true)
       Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){OutlinedTextField(total,{total=it},Modifier.weight(1f),label={Text("总次数")},singleLine=true);OutlinedTextField(unit,{unit=it},Modifier.weight(1f),label={Text("单位")},singleLine=true)}
-      OutlinedTextField(start,{start=it},Modifier.fillMaxWidth(),label={Text("开始日期 YYYY-MM-DD")},singleLine=true)
-      OutlinedTextField(expiry,{expiry=it},Modifier.fillMaxWidth(),label={Text("到期日期（可选）")},singleLine=true)
+      LifeDateField(start,{start=it},"开始日期")
+      LifeOptionalDateField(expiry,{expiry=it},"到期日期（可选）")
       OutlinedTextField(purchaseQuery,{purchaseQuery=it},Modifier.fillMaxWidth(),label={Text("查找原购买 / 支出")},singleLine=true,trailingIcon={TextButton(onClick={onSearchPurchases(purchaseQuery)}){Text("查找")}})
       val purchases=records.filter{it.detailId!=null&&it.recordState=="confirmed"&&it.kind in setOf("money_entry","purchase")}.distinctBy{it.detailId}.take(15)
       Text("关联近期购买或支出（可选）",style=MaterialTheme.typography.titleSmall)
@@ -78,7 +78,7 @@ import java.time.LocalDate
       TextButton(onClick={edit(selected)},enabled=!busy){Text("编辑次卡")}
       if(selected.state.wireValue=="active"||useEntry!=null){
         Text(if(useEntry==null)"记录实际使用" else "更正使用记录",style=MaterialTheme.typography.titleMedium)
-        OutlinedTextField(useDate,{useDate=it},Modifier.fillMaxWidth(),label={Text("使用日期 YYYY-MM-DD")},singleLine=true)
+        LifeDateField(useDate,{useDate=it},"使用日期")
         OutlinedTextField(useUnits,{useUnits=it},Modifier.fillMaxWidth(),label={Text("使用${selected.unitLabel}数")},singleLine=true)
         OutlinedTextField(useNote,{useNote=it},Modifier.fillMaxWidth(),label={Text("备注（可选）")})
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Button(onClick={onUse(NativeServiceCardUseDraft(selected,useDate,useUnits,useNote,useEntry))},enabled=!busy&&useUnits.toLongOrNull()!=null){Text(if(useEntry==null)"记录使用" else "保存更正")};if(useEntry!=null)TextButton(onClick={editUse(null)}){Text("取消更正")}}

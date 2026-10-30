@@ -48,7 +48,7 @@ import java.time.LocalDate
   onOccurrence:(MoneyPlanningResultDtoOccurrencesEntry,String)->Unit,onReset:()->Unit
 ){
   var showEditor by rememberSaveable{mutableStateOf(false)}
-  var editing by remember{mutableStateOf<MoneyPlanningResultDtoRecurringPlansEntry?>(null)}
+  var editing by rememberJsonState(MoneyPlanningResultDtoRecurringPlansEntry.serializer())
   var title by rememberSaveable{mutableStateOf("")}
   var amount by rememberSaveable{mutableStateOf("")}
   var category by rememberSaveable{mutableStateOf("")}
@@ -66,7 +66,7 @@ import java.time.LocalDate
       OutlinedTextField(category,{category=it},Modifier.fillMaxWidth(),label={Text("分类（可选）")},singleLine=true)
       if(editing==null)Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf("daily" to "每天","weekly" to "每周","monthly" to "每月","yearly" to "每年").forEach{(key,label)->FilterChip(selected=cadence==key,onClick={cadence=key},label={Text(label)})}}
       else Text("周期：${when(cadence){"daily"->"每天";"weekly"->"每周";"yearly"->"每年";"interval"->"自定间隔";else->"每月"}}",color=MaterialTheme.colorScheme.onSurfaceVariant)
-      OutlinedTextField(dueOn,{dueOn=it},Modifier.fillMaxWidth(),label={Text("下次日期 YYYY-MM-DD")},singleLine=true)
+      LifeDateField(dueOn,{dueOn=it},"下次日期")
       Button(onClick={onSave(NativeRecurringDraft(title,amount,cadence,dueOn,category,editing))},enabled=!busy&&title.isNotBlank()&&runCatching{LocalDate.parse(dueOn)}.isSuccess,modifier=Modifier.fillMaxWidth()){Text("保存周期计划")}
     }
     Text("周期计划不等于实际付款；处理状态不会自动记账。",style=MaterialTheme.typography.bodySmall)
@@ -105,7 +105,7 @@ import java.time.LocalDate
   overview:WorkspaceOverview.Money,state:SubmitState,records:List<RecordSummary>,onSearchRecords:(String)->Unit,
   onSave:(NativeSpendingIntentDraft)->Unit,onReset:()->Unit
 ){
-  var editing by remember{mutableStateOf<MoneyPlanningResultDtoSpendingIntentsEntry?>(null)}
+  var editing by rememberJsonState(MoneyPlanningResultDtoSpendingIntentsEntry.serializer())
   var showEditor by rememberSaveable{mutableStateOf(false)}
   var title by rememberSaveable{mutableStateOf("")};var amount by rememberSaveable{mutableStateOf("")};var intendedOn by rememberSaveable{mutableStateOf("")}
   var intentState by rememberSaveable{mutableStateOf("planned")};var linkedId by rememberSaveable{mutableStateOf<String?>(null)};var recordQuery by rememberSaveable{mutableStateOf("")}
@@ -118,7 +118,7 @@ import java.time.LocalDate
       Text(if(editing==null)"添加购买想法" else "编辑购买想法",style=MaterialTheme.typography.titleMedium)
       OutlinedTextField(title,{title=it},Modifier.fillMaxWidth(),label={Text("想买什么")},singleLine=true)
       OutlinedTextField(amount,{amount=it},Modifier.fillMaxWidth(),label={Text("预计金额 CNY（可选）")},singleLine=true)
-      OutlinedTextField(intendedOn,{intendedOn=it},Modifier.fillMaxWidth(),label={Text("计划日期 YYYY-MM-DD（可选）")},singleLine=true)
+      LifeOptionalDateField(intendedOn,{intendedOn=it},"计划日期（可选）")
       Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)){
         listOf("planned" to "计划中","purchased" to "已买","cancelled" to "已取消").forEach{(key,label)->FilterChip(intentState==key,{intentState=key},{Text(label)})}
       }

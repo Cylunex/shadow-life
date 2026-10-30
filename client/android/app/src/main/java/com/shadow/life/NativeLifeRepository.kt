@@ -532,6 +532,32 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     }finally{connection.disconnect()}
   }
 
+  suspend fun correctIntake(original:LifeRecordResultDtoMealItemsEntry,draft:MealDraftItem,accountId:String):OperationReceipt{
+    val input=JSONObject(intakeCorrectionInput(original,draft).toString())
+    val digest=java.security.MessageDigest.getInstance("SHA-256").digest(input.toString().toByteArray()).joinToString(""){"%02x".format(it)}
+    return enqueueCommand("life.correct_intake",input,"cmd_android_intake_$digest",accountId)
+  }
+
+  suspend fun exportAsset(versionId:String,uri:Uri,accountId:String)=withContext(Dispatchers.IO){
+    var connection:HttpURLConnection?=null
+    try{
+      val session=app.sessions.active()?.takeIf{it.accountId==accountId}?:error("账号已切换，请在当前账号重新打开原件")
+      val fresh=when(val value=app.sessions.fresh(session.accountId,context)){is SessionRefresh.Ready->value.value;else->error("会话暂不可用，请重新登录后重试")}
+      check(app.sessions.active()?.accountId==accountId){"账号已切换"}
+      val request=(URL("${fresh.session.apiBase}/api/assets/${encode(versionId)}").openConnection() as HttpURLConnection).apply{
+        requestMethod="GET";connectTimeout=10_000;readTimeout=30_000;setRequestProperty("Authorization","Bearer ${fresh.accessToken}")
+      }
+      connection=request
+      check(request.responseCode in 200..299){"原件读取失败（HTTP ${request.responseCode}）"}
+      check(app.sessions.active()?.accountId==accountId){"账号已切换"}
+      context.contentResolver.openOutputStream(uri,"wt")?.use{output->request.inputStream.use{input->
+        val buffer=ByteArray(64*1024);var total=0L
+        while(true){val count=input.read(buffer);if(count<0)break;total+=count;require(total<=128L*1024*1024){"原件超过本机导出大小限制"};check(app.sessions.active()?.accountId==accountId){"账号已切换"};output.write(buffer,0,count)}
+      }}?:error("无法写入所选位置")
+    }catch(error:Exception){runCatching{android.provider.DocumentsContract.deleteDocument(context.contentResolver,uri)};throw error}
+    finally{connection?.disconnect()}
+  }
+
   suspend fun attachMealPhoto(mealId:String,expectedRevision:Int,uri:Uri):OperationReceipt=withContext(Dispatchers.IO){
     val mediaType=context.contentResolver.getType(uri)?.takeIf{it.startsWith("image/")}?:error("请选择图片文件")
     val session=app.sessions.active()?:error("请先登录 Shadow Life")
@@ -689,7 +715,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     val editSeed=latest?.let{EditSeed.Library(item.id,item.currentRevision.toInt(),item.title,it.text,it.url,it.tags,it.documentDate,it.category)}
     val visionMedia=setOf("application/pdf","image/png","image/jpeg","image/tiff","image/webp")
     val source=value.sources.firstOrNull{it.source.assetVersionId!=null&&it.asset?.mediaType in visionMedia}?.source?.assetVersionId
-    return RecordDetail(item.title,item.state.wireValue,item.currentRevision.toInt(),sections,editSeed,presentation=DetailPresentation.Library,heroSupporting=item.itemType,libraryVisionSourceAssetId=source?.takeIf{value.processingJobs.none{job->job.kind.wireValue=="vision"}},libraryVisionRetryJobId=value.processingJobs.firstOrNull{it.kind.wireValue=="vision"&&it.state.wireValue=="failed"}?.id)
+    return RecordDetail(item.title,item.state.wireValue,item.currentRevision.toInt(),sections,editSeed,presentation=DetailPresentation.Library,heroSupporting=item.itemType,libraryVisionSourceAssetId=source?.takeIf{value.processingJobs.none{job->job.kind.wireValue=="vision"}},libraryVisionRetryJobId=value.processingJobs.firstOrNull{it.kind.wireValue=="vision"&&it.state.wireValue=="failed"}?.id,assets=value.sources.mapNotNull{entry->val id=entry.source.assetVersionId;val media=entry.asset?.mediaType;if(id!=null&&media!=null)DetailAsset(id,media,item.title)else null}.distinctBy{it.versionId})
   }
 
   private fun travelDetail(value:TravelTripResultDto):RecordDetail{
@@ -739,7 +765,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       if(!value.relatedRecords.isNullOrEmpty())sections+=DetailSection("关联消费",links=value.relatedRecords.orEmpty().map{DetailLink(it.kind.wireValue,it.id,it.title,it.supporting)})
       val revision=value.revision;val occurredOn=value.occurredOn;val timeZone=value.timeZone;val mealType=value.mealType
       val seed=if(revision!=null&&occurredOn!=null&&timeZone!=null&&mealType!=null)EditSeed.Meal(value.mealId,revision.toInt(),occurredOn,timeZone,mealType.wireValue,value.note) else null
-      RecordDetail(title,null,value.revision?.toInt(),sections,seed,presentation=DetailPresentation.Meal,heroSupporting=listOfNotNull(value.mealType?.wireValue?.let(::mealTypeLabel),value.occurredOn).joinToString(" · "))
+      RecordDetail(title,null,value.revision?.toInt(),sections,seed,mealIntakes=items,presentation=DetailPresentation.Meal,heroSupporting=listOfNotNull(value.mealType?.wireValue?.let(::mealTypeLabel),value.occurredOn).joinToString(" · "))
     }
     is LifeRecordResultDtoRecord->{
       val entry=value.moneyEntry;val purchase=value.purchase;val meals=value.meals.orEmpty();val items=value.purchaseItems.orEmpty();val sources=value.sources.orEmpty()
