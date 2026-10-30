@@ -217,3 +217,7 @@ Android 复用现有 app / core:model / core:data / devices 分工：devices 承
 - [Beayy 功能与平台](https://github.com/hengfengliya/beayy/blob/main/README.md)、[采集规则](https://github.com/hengfengliya/beayy/blob/main/crates/beayy-capture/src/common.rs)、[分段与分类](https://github.com/hengfengliya/beayy/blob/main/crates/beayy-summary/src/lib.rs)、[回顾](https://github.com/hengfengliya/beayy/blob/main/src-tauri/src/daily.rs)、[MIT](https://github.com/hengfengliya/beayy/blob/main/LICENSE)。
 - [应用使用 API](https://developer.android.com/reference/android/app/usage/UsageStatsManager)、[界面读取 API](https://developer.android.com/reference/android/accessibilityservice/AccessibilityService)、[敏感节点](https://developer.android.com/reference/android/view/accessibility/AccessibilityNodeInfo#isAccessibilityDataSensitive())。
 - [屏幕采集授权](https://developer.android.com/media/grow/media-projection)、[前台服务启动限制](https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start)、[后台位置限制](https://developer.android.com/about/versions/oreo/background-location-limits)、[WorkManager 调度](https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started/define-work)。
+
+## 10. 本轮实现进展
+
+录音／转写、原生停留检测、基于强身份的订单关联与选择性记账、确定性的分层材料回顾及快捷截图已接入 Android 与共同 API。范围、配置与真机验收边界见[执行记录](../execution/android-life-capture-2026-10-30.md)、[操作说明](../guides/android-capture-suite.md)及[同类参考](../research/android-capture-shortcuts-2026-10-30.md)。本节进展不表示阶段 D／E 的跨领域目标理解、全来源检索和保留策略已全部交付。

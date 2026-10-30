@@ -9,3 +9,7 @@ export * from "./library-worker.js";
 export * from "./vision-processor.js";
 export * from "./notification-worker.js";
 export * as schema from "./schema.js";
+
+export * from "./recording-worker.js";
+
+export { materializeCaptureReviews } from "./capture-review-worker.js";

@@ -51,3 +51,5 @@ PostgreSQL 与合成数据验证服务端，不连接生产数据。共享合同
 本次整理不扩展 Agent 编排；相关后续工作由 Losna 接续。MCP 位于 `server/mcp`，作为服务端工具入口通过 HTTP
 调用 Life API，不导入其他服务端业务实现或直连数据库。CLI 保留在 `client/cli`，同样使用 HTTP。
 运行、部署、签名 APK 和真实模型调用遵守工作区约定，不随开发检查自动执行。
+
+Android 录音转写、采集订单关联与分层材料回顾复用共同 Executor 和 Worker；处理器配置及接口范围见[采集使用说明](../docs/guides/android-capture-suite.md)。

@@ -1,0 +1,4 @@
+<resources>
+    <string name="life_screen_capture_name">Life 屏幕内容与截图</string>
+    <string name="life_screen_capture_description">自动读取你选择的应用中的可见文字并同步到 Life。点击“截图到 Life”快捷磁贴时，截取当前页面并加密保存到同步队列。不会自动点击或输入。</string>
+</resources>

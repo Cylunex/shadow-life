@@ -2,7 +2,7 @@ package com.shadow.life
 import androidx.room.*
 import kotlinx.coroutines.flow.Flow
 @Entity(tableName="pending_commands",indices=[Index(value=["accountId","subjectId","commandId"],unique=true)]) data class PendingCommand(@PrimaryKey val commandId:String,val accountId:String,val subjectId:String,val capability:String,val body:String,val state:String="pending",val attempts:Int=0,val createdAt:Long=System.currentTimeMillis(),@ColumnInfo(defaultValue="0")val encryptionVersion:Int=0,@ColumnInfo(defaultValue="''")val receiptBody:String="")
-@Entity(tableName="pending_attachments",indices=[Index(value=["accountId","subjectId","commandId"],unique=true)]) data class PendingAttachment(@PrimaryKey val id:String,val accountId:String,val subjectId:String,val commandId:String,val localPath:String,val mediaType:String,val state:String="pending",@ColumnInfo(defaultValue="0")val attempts:Int=0,val createdAt:Long=System.currentTimeMillis(),@ColumnInfo(defaultValue="0")val encryptionVersion:Int=0,@ColumnInfo(defaultValue="''")val capturedOn:String="",@ColumnInfo(defaultValue="''")val displayName:String="")
+@Entity(tableName="pending_attachments",indices=[Index(value=["accountId","subjectId","commandId"],unique=true)]) data class PendingAttachment(@PrimaryKey val id:String,val accountId:String,val subjectId:String,val commandId:String,val localPath:String,val mediaType:String,val state:String="pending",@ColumnInfo(defaultValue="0")val attempts:Int=0,val createdAt:Long=System.currentTimeMillis(),@ColumnInfo(defaultValue="0")val encryptionVersion:Int=0,@ColumnInfo(defaultValue="''")val capturedOn:String="",@ColumnInfo(defaultValue="''")val displayName:String="",@ColumnInfo(defaultValue="''")val captureMetadata:String="")
 @Entity(tableName="health_sync_rounds",primaryKeys=["accountId","subjectId"])
 data class HealthSyncRoundRow(val accountId:String,val subjectId:String,@Embedded val progress:HealthRoundState)
 data class QueueStatusRow(
@@ -61,4 +61,4 @@ data class CommittedCommandRow(val commandId:String,val accountId:String,val sub
   @Query("select * from pending_attachments where accountId=:account and subjectId=:subject and state in ('committed','blocked','failed')")suspend fun terminalAttachments(account:String,subject:String):List<PendingAttachment>
   @Query("delete from pending_attachments where id=:id and state in ('committed','blocked','failed')")suspend fun clearTerminalAttachment(id:String):Int
 }
-@Database(entities=[PendingCommand::class,PendingAttachment::class,HealthSyncRoundRow::class],version=7,exportSchema=true)abstract class ShadowDatabase:RoomDatabase(){abstract fun commands():CommandDao}
+@Database(entities=[PendingCommand::class,PendingAttachment::class,HealthSyncRoundRow::class],version=8,exportSchema=true)abstract class ShadowDatabase:RoomDatabase(){abstract fun commands():CommandDao}

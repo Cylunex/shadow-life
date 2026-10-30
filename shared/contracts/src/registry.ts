@@ -1,5 +1,7 @@
+import { activitySourceResultSchema } from "./activity-schemas.js";
 import { importMoneyFileInputSchema, moneyImportFileInputSchema, moneyImportFileResultSchema } from "./schemas.js";
 import { moneyImportHistoryInputSchema, moneyImportHistoryResultSchema } from "./schemas.js";
+import { captureScreenshotSchema, recordingSegmentSchema, recordingJobSchema, completeRecordingSchema, failRecordingSchema, recordingActionSchema, reviseTranscriptSchema, orderCaptureRuleSchema, activityReviewInputSchema, captureDateSchema, captureWorkspaceResultSchema } from "./capture-suite-schemas.js";
 import { activityOrderResultSchema, activityActionInputSchema, ingestActivityInputSchema, activitiesInputSchema, activitiesResultSchema } from "./activity-schemas.js";
 import { wellnessReviewInputSchema, wellnessReviewResultSchema } from "./wellness-schemas.js";
 import { agentContextInputSchema, agentContextResultSchema } from "./agent-context-schemas.js";
@@ -69,9 +71,21 @@ const domainCapabilityRegistry = {
       ];
     }
   },
+  "life.capture_screenshot":{...write("life.capture_screenshot","收录本人已上传的截图原件，并在视觉处理器可用时排入识别任务。",captureScreenshotSchema,["library.item.write","money.entry.write","life.purchase.write"]),resolveEffects:()=>["library.item.write"]},
+  "life.register_recording":write("life.register_recording","注册已上传的本人录音片段并排入带租约的转写队列。",recordingSegmentSchema,["library.item.write"]),
+  "life.claim_recording":write("life.claim_recording","处理器领取录音转写任务，返回新的 attempt。",recordingJobSchema,["library.processor.write"]),
+  "life.complete_recording":write("life.complete_recording","处理器提交带时间戳的转写；旧 attempt 与过期租约被拒绝。",completeRecordingSchema,["library.processor.write"]),
+  "life.fail_recording":write("life.fail_recording","处理器报告转写失败，保留原音频。",failRecordingSchema,["library.processor.write"]),
+  "life.retry_recording":write("life.retry_recording","重试失败的录音转写。",recordingActionSchema,["library.item.write"]),
+  "life.delete_recording":write("life.delete_recording","删除录音和转写的可见来源；重传不恢复。",recordingActionSchema,["library.item.write"]),
+  "life.revise_transcript":write("life.revise_transcript","按修订更正转写，保留历史文本。",reviseTranscriptSchema,["library.item.write"]),
+  "life.set_order_capture":{...write("life.set_order_capture","按应用配置明确的平台账号范围和自动关联／记账规则。",orderCaptureRuleSchema,["library.item.write","money.entry.write","life.purchase.write"]),resolveEffects:(input:unknown)=>orderCaptureRuleSchema.parse(input).auto_accounting?["library.item.write","money.entry.write","life.purchase.write"]:["library.item.write"]},
+  "life.generate_activity_review":write("life.generate_activity_review","按日、周、月生成来源可追溯的采集回顾，含十分钟与小时层级。",activityReviewInputSchema,["library.item.write","library.item.read"]),
+  "life.activity_source":{name:"life.activity_source",description:"读取一条本人仍可见的采集原文与地点精度，用于回顾来源回溯。",inputSchema:activityActionInputSchema,commandSchema:activityActionInputSchema,resultSchema:activitySourceResultSchema,possibleEffects:["library.item.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["library.item.read"] as const},
+  "life.capture_workspace":{name:"life.capture_workspace",description:"读取本人录音、转写、已关联订单与分层回顾及来源过期状态。",inputSchema:captureDateSchema,commandSchema:captureDateSchema,resultSchema:captureWorkspaceResultSchema,possibleEffects:["library.item.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["library.item.read"] as const},
   "life.delete_activity":write("life.delete_activity","删除采集记录并保留来源删除标记，重传不恢复；用户另存的资料保留。",activityActionInputSchema,["library.item.write"]),
   "life.archive_activity":write("life.archive_activity","将采集材料另存为一份可检索资料，重复归档返回同一份。",activityActionInputSchema,["library.item.write"]),
-  "life.ingest_activity":write("life.ingest_activity","批量保存用户授权采集的应用使用、手动活动或屏幕材料；不创建付款或就餐事实。",ingestActivityInputSchema,["library.item.write"]),
+  "life.ingest_activity":{...write("life.ingest_activity","批量保存授权采集材料；仅在已启用规则、完整支付证据和账目权限齐备时自动关联记账。",ingestActivityInputSchema,["library.item.write","money.entry.write","life.purchase.write"]),resolveEffects:()=>["library.item.write"]},
   "life.activity_order":{name:"life.activity_order",description:"从采集页面确定性提取订单、实付、退款与时间的观察，保留冲突和缺失，不创建账目。",inputSchema:activityActionInputSchema,commandSchema:activityActionInputSchema,resultSchema:activityOrderResultSchema,possibleEffects:["library.item.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["library.item.read"] as const},
   "life.activities":{name:"life.activities",description:"按本地日期读取采集活动及已捕获应用区间并集时长，不代表全天覆盖。",inputSchema:activitiesInputSchema,commandSchema:activitiesInputSchema,resultSchema:activitiesResultSchema,possibleEffects:["library.item.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["library.item.read"] as const},
   "life.record_purchase": { ...write("life.record_purchase", "记录购买商品与可选付款，可用 consumables 按 item_position 同时建立待启用消耗品（数量未知可省略），不代表已经消耗。未知单项金额省略而非 null；实际摄入另记并关联，避免重复付款。", recordPurchaseInputSchema, ["life.purchase.write", "money.entry.write", "money.plan.write"]), resolveEffects(input:unknown){const value=recordPurchaseInputSchema.parse(input);return ["life.purchase.write",...(value.payment?["money.entry.write"]:[]),...(value.consumables?.length?["money.plan.write"]:[])];} },

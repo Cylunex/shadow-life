@@ -1,3 +1,4 @@
+export * from "./capture-suite-schemas.js";
 export * from "./activity-schemas.js";
 export * from "./foundation-schemas.js";
 export * from "./schemas.js";

@@ -24,3 +24,33 @@ export function inspectActivityOrder(text:string){
  if(!payment_time)issues.push("没有明确付款时间");
  return {parser_version:"screen-order-v1",order_id,transaction_id,merchant,product,paid_amount,order_amount,refund_amount,payment_time,order_time,status,issues,accounting_created:false as const};
 }
+
+export function mergeOrderObservations(observations:Array<ReturnType<typeof inspectActivityOrder>>){
+ const merged:Record<string,unknown>={};let conflict=false;
+ const statuses=new Set<string>();for(const observation of observations){if(observation.status!=="unknown")statuses.add(observation.status);
+  for(const [key,value] of Object.entries(observation)){if(["issues","parser_version","accounting_created","status"].includes(key)||value===null)continue;if(merged[key]!==undefined&&merged[key]!==value)conflict=true;else merged[key]=value;}
+  if(observation.issues.some(issue=>issue.includes("多个")||issue.includes("不同值")))conflict=true;
+ }
+ // Settlement may progress; paid is never rolled backwards by a later pending page.
+ const status=statuses.has("refunded")?"refunded":statuses.has("refund_pending")?"refund_pending":statuses.has("paid")?"paid":statuses.has("cancelled")?"cancelled":statuses.has("pending")?"pending":"unknown";
+ if(statuses.has("paid")&&statuses.has("cancelled"))conflict=true;
+ return {fields:merged,status,conflict};
+}
+
+/** The canonical payment identity follows the platform's statement import convention. */
+export function capturedPaymentIdentity(platform:string,fields:Record<string,unknown>):string|undefined{
+ const key=["taobao","jd","meituan"].includes(platform)?"order_id":"transaction_id";
+ return typeof fields[key]==="string"?fields[key] as string:undefined;
+}
+/** Currency on an unrelated shipping fee is insufficient evidence for the paid amount. */
+export function capturedPaymentHasCnyEvidence(text:string):boolean{
+ if(/(?:\b(?:USD|HKD|JPY|EUR|GBP|AUD|CAD|SGD|KRW)\b|美元|港元|港币|日元|欧元|英镑|韩元|新加坡元|澳元|加元|\$)/iu.test(text))return false;
+ const lines=text.split(/\r?\n/u).map(v=>v.trim()).filter(Boolean);let explicit=false,paidCurrency=false;
+ for(let i=0;i<lines.length;i++){
+  const currency=/^(?:交易)?(?:币种|货币)\s*[:：]?\s*(.*)$/u.exec(lines[i]!);
+  if(currency){const value=(currency[1]||lines[i+1]||"").trim();if(!/^(?:CNY|RMB|人民币)$/iu.test(value))return false;explicit=true;}
+  const paid=/^(?:实付金额|实付款|实际支付)(?:\s*[:：]\s*(.*)|\s*)$/u.exec(lines[i]!);
+  if(paid){const value=(paid[1]||lines[i+1]||"").trim();if(/^(?:[¥￥]\s*\d+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?\s*元)$/u.test(value))paidCurrency=true;}
+ }
+ return explicit||paidCurrency;
+}

@@ -1,3 +1,5 @@
+import { activitySourceResultSchema } from "../src/activity-schemas.js";
+import { captureWorkspaceResultSchema } from "../src/capture-suite-schemas.js";
 import { activityOrderResultSchema, activitiesResultSchema } from "../src/activity-schemas.js";
 import { homeWorkoutMenu } from "../src/home-workout.js";
 import { serviceCardsResultSchema } from "../src/schemas.js";
@@ -136,6 +138,8 @@ defineObject(z.toJSONSchema(travelWorkspaceResultSchema) as JsonSchema, "TravelW
 defineObject(z.toJSONSchema(projectDirectoryResultSchema) as JsonSchema, "ProjectDirectoryResultDto");
 defineObject(z.toJSONSchema(libraryItemResultSchema) as JsonSchema, "LibraryItemResultDto");
 defineObject(z.toJSONSchema(travelTripResultSchema) as JsonSchema, "TravelTripResultDto");
+kotlinType(z.toJSONSchema(activitySourceResultSchema) as JsonSchema, "ActivitySourceResultDto");
+kotlinType(z.toJSONSchema(captureWorkspaceResultSchema) as JsonSchema, "CaptureWorkspaceResultDto");
 kotlinType(z.toJSONSchema(activityOrderResultSchema) as JsonSchema, "ActivityOrderResultDto");
 kotlinType(z.toJSONSchema(activitiesResultSchema) as JsonSchema, "ActivitiesResultDto");
 kotlinType(z.toJSONSchema(lifeRecordResultSchema) as JsonSchema, "LifeRecordResultDto");

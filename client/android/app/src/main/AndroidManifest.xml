@@ -8,7 +8,11 @@
   <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
   <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30"/>
   <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30"/>
-  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30"/>
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+  <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE"/>
   <uses-permission android:name="android.permission.health.READ_STEPS"/>
@@ -29,10 +33,14 @@
       <intent-filter><action android:name="android.intent.action.SEND_MULTIPLE"/><category android:name="android.intent.category.DEFAULT"/><data android:mimeType="*/*"/></intent-filter>
       <intent-filter android:autoVerify="true"><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.DEFAULT"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="https" android:host="${shadowLifeAppLinkHost}" android:pathPrefix="/app"/></intent-filter>
     </activity>
-    <service android:name=".LifeScreenCaptureService" android:exported="true" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+    <service android:name=".LifeScreenCaptureService" android:label="@string/life_screen_capture_name" android:exported="true" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
       <intent-filter><action android:name="android.accessibilityservice.AccessibilityService"/></intent-filter>
       <meta-data android:name="android.accessibilityservice" android:resource="@xml/life_screen_capture"/>
     </service>
+    <activity android:name=".QuickScreenshotActivity" android:exported="false" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true"/>
+    <service android:name=".LifeScreenshotTile" android:label="截图到 Life" android:icon="@android:drawable/ic_menu_camera" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE" android:exported="true"><intent-filter><action android:name="android.service.quicksettings.action.QS_TILE"/></intent-filter></service>
+    <service android:name=".LifeRecordingService" android:exported="false" android:foregroundServiceType="microphone"/>
+    <service android:name=".LifeLocationService" android:exported="false" android:foregroundServiceType="location"/>
     <service android:name=".ScaleScanService" android:exported="false" android:foregroundServiceType="connectedDevice"/>
   </application>
 </manifest>

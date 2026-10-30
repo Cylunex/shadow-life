@@ -1,6 +1,6 @@
 import { PgBoss } from "pg-boss";
 import { Pool } from "pg";
-import { materializeNotifications, materializeRecurringOccurrences, processPendingHealth, processPendingLibrary } from "@shadow/database";
+import { materializeNotifications, materializeRecurringOccurrences, processPendingHealth, processPendingLibrary, processPendingRecordings, materializeCaptureReviews } from "@shadow/database";
 
 const connectionString = process.env.DATABASE_URL;
 if (connectionString === undefined) throw new Error("DATABASE_URL is required");
@@ -33,13 +33,21 @@ await boss.work("shadow-events", async (jobs) => {
 const timer = setInterval(() => void dispatchOutbox().catch((error) => console.error(error)), 1_000);
 const recoveryTimer=setInterval(()=>void processPendingHealth(pool).catch(error=>console.error(error)),30_000);
 const planningTimer=setInterval(()=>void materializeRecurringOccurrences(pool).catch(error=>console.error(error)),60_000);
+let recording=false;
+const updateRecordings=async()=>{if(recording)return;recording=true;try{await processPendingRecordings(pool,2);}finally{recording=false;}};
+const recordingTimer=setInterval(()=>void updateRecordings().catch(error=>console.error(error)),30_000);
+let reviewing=false;
+const updateReviews=async()=>{if(reviewing)return;reviewing=true;try{await materializeCaptureReviews(pool);}finally{reviewing=false;}};
+const reviewTimer=setInterval(()=>void updateReviews().catch(error=>console.error(error)),300_000);
 const libraryTimer=setInterval(()=>void processPendingLibrary(pool).catch(error=>console.error(error)),30_000);
 const notificationTimer=setInterval(()=>void materializeNotifications(pool).catch(error=>console.error(error)),60_000);
 await dispatchOutbox();
 await materializeRecurringOccurrences(pool);
 await processPendingLibrary(pool);
+await updateRecordings();
+await updateReviews();
 await materializeNotifications(pool);
 
-async function shutdown() { clearInterval(timer);clearInterval(recoveryTimer);clearInterval(planningTimer);clearInterval(libraryTimer);clearInterval(notificationTimer); await boss.stop(); await pool.end(); process.exit(0); }
+async function shutdown() { clearInterval(timer);clearInterval(recoveryTimer);clearInterval(planningTimer);clearInterval(libraryTimer);clearInterval(recordingTimer);clearInterval(reviewTimer);clearInterval(notificationTimer); await boss.stop(); await pool.end(); process.exit(0); }
 process.on("SIGINT", () => void shutdown());
 process.on("SIGTERM", () => void shutdown());

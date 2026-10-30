@@ -87,8 +87,11 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
         val capturedOn=attachment.capturedOn.ifBlank{Instant.ofEpochMilli(attachment.createdAt).atZone(ZoneOffset.UTC).toLocalDate().toString()}
         val isImage=attachment.mediaType.startsWith("image/")
         val input=JSONObject().put("title",attachment.displayName.ifBlank{if(isImage)"来自 Android 的图片" else "来自 Android 的文件"}).put("item_type",if(isImage)"image" else "document").put("tags",JSONArray()).put("source",JSONObject().put("kind",if(isImage)"image" else "import").put("captured_on",capturedOn).put("asset_version_id",assetVersionId))
-        val body=JSONObject().put("protocol","shadow.command").put("capability","library.capture").put("command_id",attachment.commandId).put("input",input).toString()
-        app.queue.enqueueCommand(session,attachment.commandId,"library.capture",body)
+        val recording=app.queue.attachmentMetadata(attachment)?.let{JSONObject(it)}
+        val capability=if(recording==null)"library.capture" else recording.optString("capability","life.register_recording")
+        val commandInput=(recording?.optJSONObject("input")?:recording)?.put("asset_version_id",assetVersionId)?:input
+        val body=JSONObject().put("protocol","shadow.command").put("capability",capability).put("command_id",attachment.commandId).put("input",commandInput).toString()
+        app.queue.enqueueCommand(session,attachment.commandId,capability,body)
         dao.markAttachment(attachment.id,"committed")
         if(!file.exists()||file.delete())dao.clearTerminalAttachment(attachment.id)
       }catch(error:CancellationException){dao.markAttachment(attachment.id,"unknown");throw error

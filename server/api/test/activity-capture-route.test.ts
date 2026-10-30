@@ -21,3 +21,12 @@ test("capture contracts reject duplicate identities, incomplete intervals and sc
  assert.equal(parse([{...item,text:"private content"}]),false);
  assert.equal(parse([{...item,app_package:undefined}]),false);
 });
+test("capture workspace and source detail routes share authenticated capability transport",async()=>{
+ const calls:unknown[]=[];const app=createApp({unitOfWork:{},executor:{},queries:{captureWorkspace:async(_:unknown,input:unknown)=>{calls.push(input);return {recordings:[]};},activitySource:async(_:unknown,input:unknown)=>{calls.push(input);return {id:"activity_suite_one"};}},developmentAuth:true} as unknown as Parameters<typeof createApp>[0]);const headers={authorization:"Bearer dev:subject_activity"};
+ const workspace=buildCapabilityHttpRequest("","life.capture_workspace",{date:"2026-10-30",time_zone:"UTC"});assert.equal((await app.request(workspace.url,{headers})).status,200);assert.deepEqual(calls[0],{date:"2026-10-30",time_zone:"UTC"});assert.equal((await app.request(workspace.url)).status,401);assert.equal((await app.request("/api/life/capture-workspace?date=2026-02-30&time_zone=UTC",{headers})).status,422);
+ const source=buildCapabilityHttpRequest("","life.activity_source",{id:"activity_suite_one"});assert.equal((await app.request(source.url,{headers})).status,200);assert.deepEqual(calls[1],{id:"activity_suite_one"});
+});
+test("stay coordinates are complete and never accepted as application usage telemetry",()=>{
+ const item={source_id:"stay_suite",kind:"stay",title:"合成地点",started_at:"2026-10-30T01:00:00Z",ended_at:"2026-10-30T02:00:00Z",time_zone:"UTC",latitude:31,longitude:121,accuracy_m:12};const parse=(v:unknown)=>ingestActivityInputSchema.safeParse({device_id:"device_suite",items:[v]}).success;
+ assert.equal(parse(item),true);assert.equal(parse({...item,longitude:undefined}),false);assert.equal(parse({...item,kind:"app_usage",app_package:"example.shop"}),false);
+});

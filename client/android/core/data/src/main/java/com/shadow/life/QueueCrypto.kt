@@ -30,6 +30,13 @@ class QueueCrypto {
   fun encryptReceipt(command:PendingCommand,plainText:String)=encryptText(command.accountId,command.subjectId,"receipt",command.commandId,plainText)
   fun decryptReceipt(command:PendingCommand)=decryptText(command.accountId,command.subjectId,"receipt",command.commandId,command.receiptBody)
 
+  fun encryptLocal(accountId:String,subjectId:String,id:String,text:String)=encryptText(accountId,subjectId,"capture-metadata",id,text)
+  fun decryptLocal(accountId:String,subjectId:String,id:String,text:String)=decryptText(accountId,subjectId,"capture-metadata",id,text)
+  fun encryptedAttachmentOutput(accountId:String,subjectId:String,attachmentId:String,output:OutputStream):OutputStream {
+    val cipher=protect{encryptCipher(accountId,aad(accountId,subjectId,"attachment",attachmentId))}
+    val data=DataOutputStream(output);data.write(MAGIC);data.writeByte(cipher.iv.size);data.write(cipher.iv)
+    return CipherOutputStream(data,cipher)
+  }
   fun encryptAttachment(accountId:String,subjectId:String,attachmentId:String,input:InputStream,output:OutputStream){
     val cipher=protect{encryptCipher(accountId,aad(accountId,subjectId,"attachment",attachmentId))}
     val data=DataOutputStream(output)

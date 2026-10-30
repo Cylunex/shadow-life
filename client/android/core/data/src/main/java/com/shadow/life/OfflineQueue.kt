@@ -33,7 +33,7 @@ class OfflineQueue(private val database:ShadowDatabase,private val crypto:QueueC
     return database.commands().enqueue(PendingCommand(commandId,session.accountId,session.subjectId,capability,encrypted,encryptionVersion=1))
   }
 
-  suspend fun enqueueAttachment(session:ProductSession,id:String,commandId:String,mediaType:String,capturedOn:String,displayName:String,input:InputStream,file:File):Long{
+  suspend fun enqueueAttachment(session:ProductSession,id:String,commandId:String,mediaType:String,capturedOn:String,displayName:String,input:InputStream,file:File,captureMetadata:String=""):Long{
     if(database.commands().attachment(id)!=null)return 0
     file.parentFile?.mkdirs()
     val temporary=File(file.parentFile,"${file.name}.encrypting")
@@ -42,7 +42,7 @@ class OfflineQueue(private val database:ShadowDatabase,private val crypto:QueueC
       crypto.encryptAttachment(session.accountId,session.subjectId,id,input,temporary.outputStream())
       Files.move(temporary.toPath(),file.toPath(),StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING)
       moved=true
-      val inserted=database.commands().enqueueAttachment(PendingAttachment(id,session.accountId,session.subjectId,commandId,file.absolutePath,mediaType,encryptionVersion=1,capturedOn=capturedOn,displayName=displayName.take(300)))
+      val inserted=database.commands().enqueueAttachment(PendingAttachment(id,session.accountId,session.subjectId,commandId,file.absolutePath,mediaType,encryptionVersion=1,capturedOn=capturedOn,displayName=displayName.take(300),captureMetadata=if(captureMetadata.isBlank())"" else crypto.encryptLocal(session.accountId,session.subjectId,id,captureMetadata)))
       if(inserted<0)file.delete()
       return inserted
     }catch(error:Throwable){
@@ -52,6 +52,7 @@ class OfflineQueue(private val database:ShadowDatabase,private val crypto:QueueC
     }
   }
 
+  fun attachmentMetadata(attachment:PendingAttachment)=if(attachment.captureMetadata.isBlank())null else crypto.decryptLocal(attachment.accountId,attachment.subjectId,attachment.id,attachment.captureMetadata)
   fun commandBody(command:PendingCommand)=crypto.decryptCommand(command)
   fun receiptBody(command:PendingCommand)=crypto.decryptReceipt(command)
   fun copyAttachment(attachment:PendingAttachment,input:InputStream,output:OutputStream)=crypto.decryptAttachment(attachment,input,output)

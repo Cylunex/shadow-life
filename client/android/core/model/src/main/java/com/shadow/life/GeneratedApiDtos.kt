@@ -2515,6 +2515,137 @@ data class TravelTripResultDto(
 )
 
 @Serializable
+enum class ActivitySourceResultDtoKind(val wireValue: String) {
+  @SerialName("app_usage") AppUsage("app_usage"),
+  @SerialName("manual") Manual("manual"),
+  @SerialName("screen_text") ScreenText("screen_text"),
+  @SerialName("stay") Stay("stay"),
+  @SerialName("recording") Recording("recording")
+}
+
+@Serializable
+data class ActivitySourceResultDto(
+  @SerialName("id") val id: String,
+  @SerialName("device_id") val deviceId: String,
+  @SerialName("source_id") val sourceId: String,
+  @SerialName("kind") val kind: ActivitySourceResultDtoKind,
+  @SerialName("started_at") val startedAt: String,
+  @SerialName("ended_at") val endedAt: String,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("title") val title: String,
+  @SerialName("library_item_id") val libraryItemId: String?,
+  @SerialName("app_package") val appPackage: String?,
+  @SerialName("text") val text: String?,
+  @SerialName("latitude") val latitude: Double?,
+  @SerialName("longitude") val longitude: Double?,
+  @SerialName("accuracy_m") val accuracyM: Double?
+)
+
+@Serializable
+enum class CaptureWorkspaceResultDtoRecordingsEntryState(val wireValue: String) {
+  @SerialName("queued") Queued("queued"),
+  @SerialName("running") Running("running"),
+  @SerialName("completed") Completed("completed"),
+  @SerialName("failed") Failed("failed")
+}
+
+@Serializable
+data class CaptureWorkspaceResultDtoRecordingsEntrySpansEntry(
+  @SerialName("start_ms") val startMs: Long,
+  @SerialName("end_ms") val endMs: Long,
+  @SerialName("text") val text: String,
+  @SerialName("speaker") val speaker: String?
+)
+
+@Serializable
+data class CaptureWorkspaceResultDtoRecordingsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("session_id") val sessionId: String,
+  @SerialName("title") val title: String,
+  @SerialName("started_at") val startedAt: String,
+  @SerialName("ended_at") val endedAt: String,
+  @SerialName("asset_version_id") val assetVersionId: String,
+  @SerialName("state") val state: CaptureWorkspaceResultDtoRecordingsEntryState,
+  @SerialName("revision") val revision: Long,
+  @SerialName("attempt") val attempt: Long,
+  @SerialName("spans") val spans: List<CaptureWorkspaceResultDtoRecordingsEntrySpansEntry>,
+  @SerialName("error") val error: String?,
+  @SerialName("processor_version") val processorVersion: String?
+)
+
+@Serializable
+data class CaptureWorkspaceResultDtoOrdersEntry(
+  @SerialName("id") val id: String,
+  @SerialName("platform") val platform: String,
+  @SerialName("source_account") val sourceAccount: String,
+  @SerialName("external_id") val externalId: String,
+  @SerialName("status") val status: String,
+  @SerialName("source_count") val sourceCount: Long,
+  @SerialName("fields") val fields: String,
+  @SerialName("record_id") val recordId: String?,
+  @SerialName("conflict") val conflict: Boolean
+)
+
+@Serializable
+enum class CaptureWorkspaceResultDtoRulesEntryPlatform(val wireValue: String) {
+  @SerialName("generic") Generic("generic"),
+  @SerialName("taobao") Taobao("taobao"),
+  @SerialName("jd") Jd("jd"),
+  @SerialName("meituan") Meituan("meituan"),
+  @SerialName("alipay") Alipay("alipay"),
+  @SerialName("wechat") Wechat("wechat")
+}
+
+@Serializable
+data class CaptureWorkspaceResultDtoRulesEntry(
+  @SerialName("app_package") val appPackage: String,
+  @SerialName("platform") val platform: CaptureWorkspaceResultDtoRulesEntryPlatform,
+  @SerialName("source_account") val sourceAccount: String,
+  @SerialName("enabled") val enabled: Boolean,
+  @SerialName("auto_accounting") val autoAccounting: Boolean
+)
+
+@Serializable
+enum class CaptureWorkspaceResultDtoReviewsEntryPeriod(val wireValue: String) {
+  @SerialName("day") Day("day"),
+  @SerialName("week") Week("week"),
+  @SerialName("month") Month("month")
+}
+
+@Serializable
+data class CaptureWorkspaceResultDtoReviewsEntrySourceRefsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("title") val title: String,
+  @SerialName("started_at") val startedAt: String
+)
+
+@Serializable
+data class CaptureWorkspaceResultDtoReviewsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("period") val period: CaptureWorkspaceResultDtoReviewsEntryPeriod,
+  @SerialName("from_on") val fromOn: String,
+  @SerialName("to_on_exclusive") val toOnExclusive: String,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("stale") val stale: Boolean,
+  @SerialName("body") val body: String,
+  @SerialName("source_refs") val sourceRefs: List<CaptureWorkspaceResultDtoReviewsEntrySourceRefsEntry>,
+  @SerialName("source_count") val sourceCount: Long,
+  @SerialName("generated_at") val generatedAt: String
+)
+
+@Serializable
+data class CaptureWorkspaceResultDto(
+  @SerialName("recordings") val recordings: List<CaptureWorkspaceResultDtoRecordingsEntry>,
+  @SerialName("orders") val orders: List<CaptureWorkspaceResultDtoOrdersEntry>,
+  @SerialName("rules") val rules: List<CaptureWorkspaceResultDtoRulesEntry>,
+  @SerialName("reviews") val reviews: List<CaptureWorkspaceResultDtoReviewsEntry>,
+  @SerialName("recordings_next_before_id") val recordingsNextBeforeId: String?,
+  @SerialName("truncated") val truncated: Boolean,
+  @SerialName("transcription_available") val transcriptionAvailable: Boolean
+)
+
+@Serializable
 enum class ActivityOrderResultDtoStatus(val wireValue: String) {
   @SerialName("paid") Paid("paid"),
   @SerialName("pending") Pending("pending"),
@@ -2546,7 +2677,9 @@ data class ActivityOrderResultDto(
 enum class ActivitiesResultDtoItemsEntryKind(val wireValue: String) {
   @SerialName("app_usage") AppUsage("app_usage"),
   @SerialName("manual") Manual("manual"),
-  @SerialName("screen_text") ScreenText("screen_text")
+  @SerialName("screen_text") ScreenText("screen_text"),
+  @SerialName("stay") Stay("stay"),
+  @SerialName("recording") Recording("recording")
 }
 
 @Serializable
@@ -2561,7 +2694,10 @@ data class ActivitiesResultDtoItemsEntry(
   @SerialName("title") val title: String,
   @SerialName("library_item_id") val libraryItemId: String?,
   @SerialName("app_package") val appPackage: String?,
-  @SerialName("text") val text: String?
+  @SerialName("text") val text: String?,
+  @SerialName("latitude") val latitude: Double?,
+  @SerialName("longitude") val longitude: Double?,
+  @SerialName("accuracy_m") val accuracyM: Double?
 )
 
 @Serializable
