@@ -1,6 +1,7 @@
 import { moneyImportFileResultSchema } from "@shadow/contracts";
 import { moneyImportHistoryInputSchema, moneyImportHistoryResultSchema, instant, stableId } from "@shadow/contracts";
-import { activitiesInputSchema, activitiesResultSchema } from "@shadow/contracts";
+import { inspectActivityOrder } from "./activity-order.js";
+import { activityActionInputSchema, activityOrderResultSchema, activitiesInputSchema, activitiesResultSchema } from "@shadow/contracts";
 import { wellnessReviewInputSchema } from "@shadow/contracts";
 import { buildWellnessReview, wellnessWindow } from "./wellness-review.js";
 import { buildItemAttention, buildStockAttention } from "./planning-attention.js";
@@ -222,6 +223,13 @@ export class QueryService {
   async moneyImportFile(context:RequestContext,fileId:string){if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");const read=this.unitOfWork.snapshot?.bind(this.unitOfWork)??this.unitOfWork.read.bind(this.unitOfWork);const value=await read(store=>store.moneyImportFile(context.subjectId,fileId));if(value===undefined)throw notFound("statement file was not found");return moneyImportFileResultSchema.parse(value);}
   async moneyImportReview(context:RequestContext,batchId:string){if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");const read=this.unitOfWork.snapshot?.bind(this.unitOfWork)??this.unitOfWork.read.bind(this.unitOfWork);const value=await read(store=>store.moneyImportReview(context.subjectId,batchId));if(value===undefined)throw notFound("money import batch was not found");return moneyImportReviewResultSchema.parse(value);}
   async moneyImportMonth(context:RequestContext,input:unknown){if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");const {period}=moneyImportMonthInputSchema.parse(input);return moneyImportMonthResultSchema.parse(await this.unitOfWork.read(store=>store.moneyImportMonth(context.subjectId,period)));}
+  async activityOrder(context:RequestContext,input:unknown){
+    if(!context.effects.has("library.item.read"))throw permissionDenied("library.item.read");
+    const parsed=activityActionInputSchema.parse(input);
+    const material=await this.unitOfWork.read(async store=>store.activityMaterial?.(context.subjectId,parsed.id));
+    if(!material)throw notFound("Activity is unavailable");
+    return activityOrderResultSchema.parse({activity_id:material.id,...inspectActivityOrder(material.text??"")});
+  }
   async activities(context:RequestContext,input:unknown){
     if(!context.effects.has("library.item.read"))throw permissionDenied("library.item.read");
     const parsed=activitiesInputSchema.parse(input);

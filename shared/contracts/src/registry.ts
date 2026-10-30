@@ -1,6 +1,6 @@
 import { importMoneyFileInputSchema, moneyImportFileInputSchema, moneyImportFileResultSchema } from "./schemas.js";
 import { moneyImportHistoryInputSchema, moneyImportHistoryResultSchema } from "./schemas.js";
-import { ingestActivityInputSchema, activitiesInputSchema, activitiesResultSchema } from "./activity-schemas.js";
+import { activityOrderResultSchema, activityActionInputSchema, ingestActivityInputSchema, activitiesInputSchema, activitiesResultSchema } from "./activity-schemas.js";
 import { wellnessReviewInputSchema, wellnessReviewResultSchema } from "./wellness-schemas.js";
 import { agentContextInputSchema, agentContextResultSchema } from "./agent-context-schemas.js";
 import { workoutProgressionInputSchema, workoutProgressionResultSchema } from "./schemas.js";
@@ -69,7 +69,10 @@ const domainCapabilityRegistry = {
       ];
     }
   },
+  "life.delete_activity":write("life.delete_activity","删除采集记录并保留来源删除标记，重传不恢复；用户另存的资料保留。",activityActionInputSchema,["library.item.write"]),
+  "life.archive_activity":write("life.archive_activity","将采集材料另存为一份可检索资料，重复归档返回同一份。",activityActionInputSchema,["library.item.write"]),
   "life.ingest_activity":write("life.ingest_activity","批量保存用户授权采集的应用使用、手动活动或屏幕材料；不创建付款或就餐事实。",ingestActivityInputSchema,["library.item.write"]),
+  "life.activity_order":{name:"life.activity_order",description:"从采集页面确定性提取订单、实付、退款与时间的观察，保留冲突和缺失，不创建账目。",inputSchema:activityActionInputSchema,commandSchema:activityActionInputSchema,resultSchema:activityOrderResultSchema,possibleEffects:["library.item.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["library.item.read"] as const},
   "life.activities":{name:"life.activities",description:"按本地日期读取采集活动及已捕获应用区间并集时长，不代表全天覆盖。",inputSchema:activitiesInputSchema,commandSchema:activitiesInputSchema,resultSchema:activitiesResultSchema,possibleEffects:["library.item.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["library.item.read"] as const},
   "life.record_purchase": { ...write("life.record_purchase", "记录购买商品与可选付款，可用 consumables 按 item_position 同时建立待启用消耗品（数量未知可省略），不代表已经消耗。未知单项金额省略而非 null；实际摄入另记并关联，避免重复付款。", recordPurchaseInputSchema, ["life.purchase.write", "money.entry.write", "money.plan.write"]), resolveEffects(input:unknown){const value=recordPurchaseInputSchema.parse(input);return ["life.purchase.write",...(value.payment?["money.entry.write"]:[]),...(value.consumables?.length?["money.plan.write"]:[])];} },
   "life.record_dining":{...write("life.record_dining","原子记录实际用餐、购买明细、独立付款和多张原图。consumed_items 只放确认吃下的内容，purchased_items 放订单内容；赠品不自动计摄入，sources 用上传返回的 asset_version_id 和正确角色。核验全部原图时，用回执 consumption_record_id 调 life.get_record；meal_id 用于核对实际摄入。",recordDiningInputSchema,["life.meal.write","life.purchase.write","money.entry.write","travel.visit.write","library.source.link"]),resolveEffects(input:unknown){const value=recordDiningInputSchema.parse(input);return["life.meal.write","life.purchase.write",...(value.payment?["money.entry.write"]:[]),...(value.visit?["travel.visit.write"]:[]),...(value.sources.length?["library.source.link"]:[])];}},

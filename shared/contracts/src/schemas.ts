@@ -1,4 +1,4 @@
-import { ingestActivityInputSchema } from "./activity-schemas.js";
+import { activityActionInputSchema, ingestActivityInputSchema } from "./activity-schemas.js";
 import { z } from "zod";
 import { validateWorkoutDetail } from "./workout-menu.js";
 import { foundationWriteSchemas } from "./foundation-schemas.js";
@@ -542,6 +542,8 @@ export const writeCommandSchemas = {
   "travel.import_track":importTravelTrackInputSchema,
   "travel.restore_bundle":restoreTravelBundleInputSchema,
   "life.ingest_activity": ingestActivityInputSchema,
+  "life.delete_activity":activityActionInputSchema,
+  "life.archive_activity":activityActionInputSchema,
   "library.capture": captureLibraryItemInputSchema,
   "library.revise":reviseLibraryItemInputSchema,
   "library.annotate":annotateLibraryItemInputSchema,

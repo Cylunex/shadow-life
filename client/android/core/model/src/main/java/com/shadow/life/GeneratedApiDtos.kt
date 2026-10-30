@@ -2515,6 +2515,34 @@ data class TravelTripResultDto(
 )
 
 @Serializable
+enum class ActivityOrderResultDtoStatus(val wireValue: String) {
+  @SerialName("paid") Paid("paid"),
+  @SerialName("pending") Pending("pending"),
+  @SerialName("cancelled") Cancelled("cancelled"),
+  @SerialName("refunded") Refunded("refunded"),
+  @SerialName("refund_pending") RefundPending("refund_pending"),
+  @SerialName("unknown") Unknown("unknown")
+}
+
+@Serializable
+data class ActivityOrderResultDto(
+  @SerialName("activity_id") val activityId: String,
+  @SerialName("parser_version") val parserVersion: String,
+  @SerialName("order_id") val orderId: String?,
+  @SerialName("transaction_id") val transactionId: String?,
+  @SerialName("merchant") val merchant: String?,
+  @SerialName("product") val product: String?,
+  @SerialName("paid_amount") val paidAmount: String?,
+  @SerialName("order_amount") val orderAmount: String?,
+  @SerialName("refund_amount") val refundAmount: String?,
+  @SerialName("payment_time") val paymentTime: String?,
+  @SerialName("order_time") val orderTime: String?,
+  @SerialName("status") val status: ActivityOrderResultDtoStatus,
+  @SerialName("issues") val issues: List<String>,
+  @SerialName("accounting_created") val accountingCreated: Boolean
+)
+
+@Serializable
 enum class ActivitiesResultDtoItemsEntryKind(val wireValue: String) {
   @SerialName("app_usage") AppUsage("app_usage"),
   @SerialName("manual") Manual("manual"),
@@ -2531,6 +2559,7 @@ data class ActivitiesResultDtoItemsEntry(
   @SerialName("ended_at") val endedAt: String,
   @SerialName("time_zone") val timeZone: String,
   @SerialName("title") val title: String,
+  @SerialName("library_item_id") val libraryItemId: String?,
   @SerialName("app_package") val appPackage: String?,
   @SerialName("text") val text: String?
 )

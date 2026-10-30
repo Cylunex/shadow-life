@@ -21,3 +21,19 @@ test("activity ingestion is atomic, source-idempotent, isolated and unions clipp
  const withPoint=await f.queries.activities(f.context,{...input,limit:100});assert.equal(withPoint.total,3);assert.equal(withPoint.usage_seconds,3600);
 
 });
+
+test("activity archive is idempotent and deletion fences source reuploads without removing explicit library copies",pgOnly,async t=>{
+ const f=await reviewFixture(t);const batch={device_id:"device_archive",items:[{...item,source_id:"screen_archive",kind:"screen_text",started_at:item.started_at,ended_at:item.started_at,text:"订单号 DEMO-001\n实付金额 128.00"}]};
+ const capture=await f.run("life.ingest_activity",batch);const id=capture.resources[0]!.id;
+ const archive=await f.run("life.archive_activity",{id});const again=await f.run("life.archive_activity",{id});
+ assert.equal(archive.actual_values.library_item_id,again.actual_values.library_item_id);
+ assert.equal((await f.pool.query("select count(*)::int n from library_items where subject_id=$1",[f.context.subjectId])).rows[0].n,1);
+ await assert.rejects(()=>f.run("life.delete_activity",{id},{...f.context,subjectId:"other"}),/unavailable/);
+ await f.run("life.delete_activity",{id});
+ await f.run("life.ingest_activity",batch);
+ assert.equal((await f.queries.activities(f.context,{date:"2026-10-29",time_zone:"UTC"})).total,0);
+ const stored=(await f.pool.query("select title,text,app_package,deleted_at from activity_captures where id=$1",[id])).rows[0];
+ assert.equal(stored.title,"");assert.equal(stored.text,null);assert.equal(stored.app_package,null);assert.ok(stored.deleted_at);
+ assert.equal((await f.pool.query("select count(*)::int n from library_items where subject_id=$1",[f.context.subjectId])).rows[0].n,1);
+ await assert.rejects(()=>f.run("life.archive_activity",{id}),/unavailable/);
+});
