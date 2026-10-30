@@ -2515,6 +2515,36 @@ data class TravelTripResultDto(
 )
 
 @Serializable
+enum class ActivitiesResultDtoItemsEntryKind(val wireValue: String) {
+  @SerialName("app_usage") AppUsage("app_usage"),
+  @SerialName("manual") Manual("manual"),
+  @SerialName("screen_text") ScreenText("screen_text")
+}
+
+@Serializable
+data class ActivitiesResultDtoItemsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("device_id") val deviceId: String,
+  @SerialName("source_id") val sourceId: String,
+  @SerialName("kind") val kind: ActivitiesResultDtoItemsEntryKind,
+  @SerialName("started_at") val startedAt: String,
+  @SerialName("ended_at") val endedAt: String,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("title") val title: String,
+  @SerialName("app_package") val appPackage: String?,
+  @SerialName("text") val text: String?
+)
+
+@Serializable
+data class ActivitiesResultDto(
+  @SerialName("items") val items: List<ActivitiesResultDtoItemsEntry>,
+  @SerialName("next_before_id") val nextBeforeId: String?,
+  @SerialName("total") val total: Long,
+  @SerialName("usage_seconds") val usageSeconds: Long,
+  @SerialName("coverage") val coverage: String
+)
+
+@Serializable
 @JsonClassDiscriminator("kind")
 sealed interface LifeRecordResultDto
 

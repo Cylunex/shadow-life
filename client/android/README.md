@@ -137,3 +137,7 @@ construction and round-state regressions remain available through
 `pnpm test:android-health`; `:devices:testDebugUnitTest` covers the retained Scale 2/S400 frames and Xiaomi body
 composition formula. Compilation is not physical-device acceptance. Signed builds, Samsung registration and BLE
 hardware validation remain release gates.
+
+## Activity capture
+
+Records includes app usage and captured activities, with optional account-scoped periodic collection, system usage-access settings, and an explicitly selected-app screen-text service. Captures enter the existing encrypted command queue and are read through Life API; missing intervals are not inferred as zero usage. See [delivery and remaining scope](../../docs/execution/android-life-capture-2026-10-30.md).

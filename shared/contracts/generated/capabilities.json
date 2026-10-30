@@ -255,6 +255,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -385,6 +386,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -874,6 +876,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -1004,6 +1007,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -1511,6 +1515,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -1641,6 +1646,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -2150,6 +2156,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -2280,6 +2287,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -2677,6 +2685,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -2807,6 +2816,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -3030,6 +3040,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -3160,6 +3171,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -6099,6 +6111,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -6229,6 +6242,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -6287,6 +6301,638 @@
           "actual_values",
           "warnings",
           "replayed"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "life.ingest_activity": {
+      "name": "life.ingest_activity",
+      "description": "批量保存用户授权采集的应用使用、手动活动或屏幕材料；不创建付款或就餐事实。",
+      "possible_effects": [
+        "library.item.write"
+      ],
+      "idempotency": "required",
+      "status_query": "operations.get",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,119}$"
+          },
+          "items": {
+            "minItems": 1,
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "source_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,119}$"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "app_usage",
+                    "manual",
+                    "screen_text"
+                  ]
+                },
+                "started_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                },
+                "ended_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                },
+                "time_zone": {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "app_package": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "text": {
+                  "type": "string",
+                  "maxLength": 12000
+                }
+              },
+              "required": [
+                "source_id",
+                "kind",
+                "started_at",
+                "ended_at",
+                "time_zone",
+                "title"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "device_id",
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "command_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "const": "shadow.command"
+          },
+          "capability": {
+            "type": "string",
+            "const": "life.ingest_activity"
+          },
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
+          },
+          "input": {
+            "type": "object",
+            "properties": {
+              "device_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,119}$"
+              },
+              "items": {
+                "minItems": 1,
+                "maxItems": 100,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "source_id": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,119}$"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "app_usage",
+                        "manual",
+                        "screen_text"
+                      ]
+                    },
+                    "started_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                    },
+                    "ended_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                    },
+                    "time_zone": {
+                      "type": "string",
+                      "maxLength": 100
+                    },
+                    "title": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "app_package": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 12000
+                    }
+                  },
+                  "required": [
+                    "source_id",
+                    "kind",
+                    "started_at",
+                    "ended_at",
+                    "time_zone",
+                    "title"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "device_id",
+              "items"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "protocol",
+          "capability",
+          "command_id",
+          "input"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "const": "shadow.execution-result"
+          },
+          "capability": {
+            "type": "string",
+            "enum": [
+              "agent.restore",
+              "agent.set_intention",
+              "agent.save_task",
+              "agent.save_learning",
+              "agent.set_subscription",
+              "agent.ack_changes",
+              "life.record_meal",
+              "life.record_dining",
+              "life.correct_meal",
+              "life.add_intake",
+              "life.remove_intake",
+              "life.add_meal_payment",
+              "life.attach_meal_source",
+              "life.set_personal_alias",
+              "life.record_purchase",
+              "life.correct_intake",
+              "life.correct_purchase",
+              "life.update_purchase_items",
+              "life.void_purchase",
+              "life.link_meal_consumption",
+              "life.save_meal_template",
+              "life.record_meal_from_template",
+              "life.save_food",
+              "life.save_recipe",
+              "life.record_meal_from_recipe",
+              "money.record_entry",
+              "money.record_refund",
+              "money.correct_entry",
+              "money.void_entry",
+              "money.set_budget",
+              "money.set_recurring_plan",
+              "money.set_spending_intent",
+              "money.set_use_cycle",
+              "money.record_consumable_use",
+              "money.save_service_card",
+              "money.record_service_card_use",
+              "money.set_occurrence_state",
+              "money.import_file",
+              "money.stage_import",
+              "money.resolve_import_candidate",
+              "money.set_import_rule",
+              "health.record_measurement",
+              "health.correct_measurement",
+              "health.record_workout",
+              "health.ingest_raw",
+              "health.ingest_batch",
+              "health.set_source_state",
+              "health.set_plan",
+              "travel.create_trip",
+              "travel.correct_trip",
+              "travel.add_reservation",
+              "travel.correct_reservation",
+              "travel.void_reservation",
+              "travel.record_segment",
+              "travel.record_visit",
+              "travel.save_place",
+              "travel.set_day_plan",
+              "travel.set_checklist",
+              "travel.set_member",
+              "travel.publish_plan",
+              "travel.start_run",
+              "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
+              "travel.restore_bundle",
+              "life.ingest_activity",
+              "library.capture",
+              "library.revise",
+              "library.annotate",
+              "library.register_derivation",
+              "library.queue_processing",
+              "library.retry_processing",
+              "library.claim_processing",
+              "library.renew_processing",
+              "library.fail_processing",
+              "library.complete_processing",
+              "library.set_reading_state",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update",
+              "notifications.register_device",
+              "notifications.set_delivery_state",
+              "life.save_owned_item",
+              "life.record_owned_item_event",
+              "life.generate_review",
+              "life.save_project",
+              "life.save_action_item",
+              "life.save_meal_plan",
+              "life.set_food_stock",
+              "life.build_shopping_list",
+              "life.update_shopping_item",
+              "money.record_foreign_entry",
+              "money.update_shared_allocation"
+            ]
+          },
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
+          },
+          "execution_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "status": {
+            "type": "string",
+            "const": "committed"
+          },
+          "result_kind": {
+            "type": "string",
+            "enum": [
+              "record",
+              "plan",
+              "task"
+            ]
+          },
+          "resources": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "agent_intention",
+                    "agent_task",
+                    "agent_learning",
+                    "agent_subscription",
+                    "meal",
+                    "meal_template",
+                    "food",
+                    "recipe",
+                    "personal_alias",
+                    "intake_item",
+                    "consumption_record",
+                    "purchase",
+                    "purchase_item",
+                    "money_entry",
+                    "refund",
+                    "budget",
+                    "recurring_plan",
+                    "recurring_occurrence",
+                    "spending_intent",
+                    "use_cycle",
+                    "service_card",
+                    "service_card_use",
+                    "consumable_use",
+                    "money_import_file",
+                    "money_import_batch",
+                    "money_import_candidate",
+                    "money_import_rule",
+                    "health_measurement",
+                    "health_workout_session",
+                    "health_raw",
+                    "health_sync_cursor",
+                    "health_plan",
+                    "trip",
+                    "trip_segment",
+                    "reservation",
+                    "visit",
+                    "place",
+                    "travel_map",
+                    "trip_track",
+                    "trip_day_plan",
+                    "trip_checklist",
+                    "trip_member",
+                    "trip_plan_version",
+                    "trip_run",
+                    "trip_stop_outcome",
+                    "library_item",
+                    "library_annotation",
+                    "library_derivation",
+                    "library_processing_job",
+                    "library_reading_state",
+                    "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
+                    "notification_installation",
+                    "notification_delivery",
+                    "owned_item",
+                    "owned_item_event",
+                    "life_review",
+                    "life_project",
+                    "action_item",
+                    "meal_plan",
+                    "shopping_list",
+                    "shopping_list_item",
+                    "food_stock_lot",
+                    "money_fx_snapshot",
+                    "shared_expense_allocation",
+                    "source",
+                    "activity_capture",
+                    "thread",
+                    "run",
+                    "task"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "revision": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "revision"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "actual_values": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "replayed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "protocol",
+          "capability",
+          "command_id",
+          "execution_id",
+          "status",
+          "result_kind",
+          "resources",
+          "actual_values",
+          "warnings",
+          "replayed"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "life.activities": {
+      "name": "life.activities",
+      "description": "按本地日期读取采集活动及已捕获应用区间并集时长，不代表全天覆盖。",
+      "possible_effects": [
+        "library.item.read"
+      ],
+      "idempotency": "not-applicable",
+      "status_query": "operations.get",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "time_zone": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "limit": {
+            "default": 50,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "before_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,119}$"
+          }
+        },
+        "required": [
+          "date",
+          "time_zone",
+          "limit"
+        ],
+        "additionalProperties": false
+      },
+      "command_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "time_zone": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "limit": {
+            "default": 50,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "before_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,119}$"
+          }
+        },
+        "required": [
+          "date",
+          "time_zone",
+          "limit"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "items": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,119}$"
+                },
+                "device_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,119}$"
+                },
+                "source_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,119}$"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "app_usage",
+                    "manual",
+                    "screen_text"
+                  ]
+                },
+                "started_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                },
+                "ended_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                },
+                "time_zone": {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                "title": {
+                  "type": "string"
+                },
+                "app_package": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "text": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "device_id",
+                "source_id",
+                "kind",
+                "started_at",
+                "ended_at",
+                "time_zone",
+                "title",
+                "app_package",
+                "text"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "next_before_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,119}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "usage_seconds": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "coverage": {
+            "type": "string",
+            "const": "captured_intervals_only"
+          }
+        },
+        "required": [
+          "items",
+          "next_before_id",
+          "total",
+          "usage_seconds",
+          "coverage"
         ],
         "additionalProperties": false
       }
@@ -6908,6 +7554,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -7038,6 +7685,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -8115,6 +8763,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -8245,6 +8894,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -8534,6 +9184,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -8664,6 +9315,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -9077,6 +9729,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -9207,6 +9860,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -9430,6 +10084,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -9560,6 +10215,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -9886,6 +10542,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -10016,6 +10673,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -10346,6 +11004,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -10476,6 +11135,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -10709,6 +11369,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -10839,6 +11500,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -11252,6 +11914,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -11382,6 +12045,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -11733,6 +12397,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -11863,6 +12528,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -12338,6 +13004,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -12468,6 +13135,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -12692,6 +13360,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -12822,6 +13491,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -13050,6 +13720,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -13180,6 +13851,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -13599,6 +14271,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -13729,6 +14402,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -14202,6 +14876,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -14332,6 +15007,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -14671,6 +15347,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -14801,6 +15478,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -15292,6 +15970,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -15422,6 +16101,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -15709,6 +16389,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -15839,6 +16520,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -16254,6 +16936,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -16384,6 +17067,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -16741,6 +17425,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -16871,6 +17556,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -17240,6 +17926,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -17370,6 +18057,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -17593,6 +18281,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -17723,6 +18412,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -17976,6 +18666,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -18106,6 +18797,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -18515,6 +19207,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -18645,6 +19338,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -18944,6 +19638,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -19074,6 +19769,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -19410,6 +20106,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -19540,6 +20237,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -19823,6 +20521,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -19953,6 +20652,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -20524,6 +21224,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -20654,6 +21355,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -21069,6 +21771,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -21199,6 +21902,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -21548,6 +22252,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -21678,6 +22383,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -21952,6 +22658,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -22082,6 +22789,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -22357,6 +23065,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -22487,6 +23196,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -22926,6 +23636,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -23056,6 +23767,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -23373,6 +24085,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -23503,6 +24216,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -23892,6 +24606,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -24022,6 +24737,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -24351,6 +25067,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -24481,6 +25198,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -24842,6 +25560,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -24972,6 +25691,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -25385,6 +26105,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -25515,6 +26236,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -26074,6 +26796,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -26204,6 +26927,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -26481,6 +27205,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -26611,6 +27336,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -27048,6 +27774,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -27178,6 +27905,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -27425,6 +28153,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -27555,6 +28284,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -27836,6 +28566,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -27966,6 +28697,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -28523,6 +29255,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -28653,6 +29386,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -29119,6 +29853,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -29249,6 +29984,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -29472,6 +30208,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -29602,6 +30339,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -30008,6 +30746,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -30138,6 +30877,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -30524,6 +31264,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -30654,6 +31395,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -30935,6 +31677,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -31065,6 +31808,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -31358,6 +32102,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -31488,6 +32233,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -31781,6 +32527,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -31911,6 +32658,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -32152,6 +32900,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -32282,6 +33031,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -32501,6 +33251,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -32631,6 +33382,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -32838,6 +33590,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -32968,6 +33721,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -33223,6 +33977,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -33353,6 +34108,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -33676,6 +34432,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -33806,6 +34563,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -34027,6 +34785,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -34157,6 +34916,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -34368,6 +35128,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -34498,6 +35259,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -34858,6 +35620,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -34988,6 +35751,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -35321,6 +36085,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -35451,6 +36216,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -35736,6 +36502,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -35866,6 +36633,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -36109,6 +36877,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -36239,6 +37008,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -36480,6 +37250,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -36610,6 +37381,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -36809,6 +37581,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -36939,6 +37712,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -37150,6 +37924,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -37280,6 +38055,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -37491,6 +38267,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -37621,6 +38398,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -37844,6 +38622,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -37974,6 +38753,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -38497,6 +39277,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -38627,6 +39408,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -38940,6 +39722,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -39070,6 +39853,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -39382,6 +40166,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -39512,6 +40297,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -39711,6 +40497,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -39841,6 +40628,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -40267,6 +41055,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -40397,6 +41186,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -40622,6 +41412,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -40752,6 +41543,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -40983,6 +41775,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -41113,6 +41906,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -41350,6 +42144,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -41480,6 +42275,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -41735,6 +42531,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -41865,6 +42662,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -42342,6 +43140,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -42472,6 +43271,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -42783,6 +43583,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -42913,6 +43714,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -43207,6 +44009,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -43337,6 +44140,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -43836,6 +44640,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -43966,6 +44771,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -44305,6 +45111,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -44435,6 +45242,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -44825,6 +45633,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -44955,6 +45764,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -45242,6 +46052,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -45372,6 +46183,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -45653,6 +46465,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -45783,6 +46596,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -46021,6 +46835,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -46151,6 +46966,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -46661,6 +47477,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -46791,6 +47608,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -47030,6 +47848,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -47160,6 +47979,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -67859,6 +68679,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -67989,6 +68810,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -68163,6 +68985,7 @@
               "travel.save_map",
               "travel.import_track",
               "travel.restore_bundle",
+              "life.ingest_activity",
               "library.capture",
               "library.revise",
               "library.annotate",
@@ -68293,6 +69116,7 @@
                     "money_fx_snapshot",
                     "shared_expense_allocation",
                     "source",
+                    "activity_capture",
                     "thread",
                     "run",
                     "task"
@@ -68362,6 +69186,8 @@
         "life.meal.write",
         "money.entry.write",
         "library.source.link",
+        "library.item.write",
+        "library.item.read",
         "life.purchase.write",
         "money.plan.write",
         "travel.visit.write",
@@ -68373,12 +69199,10 @@
         "health.raw.ingest",
         "travel.trip.write",
         "travel.reservation.write",
-        "library.item.write",
         "library.processor.write",
         "agent.run",
         "health.measurement.read",
         "travel.trip.read",
-        "library.item.read",
         "notifications.write",
         "life.item.write",
         "life.review.write",
@@ -68707,6 +69531,8 @@
         "life.meal.write",
         "money.entry.write",
         "library.source.link",
+        "library.item.write",
+        "library.item.read",
         "life.purchase.write",
         "money.plan.write",
         "travel.visit.write",
@@ -68718,12 +69544,10 @@
         "health.raw.ingest",
         "travel.trip.write",
         "travel.reservation.write",
-        "library.item.write",
         "library.processor.write",
         "agent.run",
         "health.measurement.read",
         "travel.trip.read",
-        "library.item.read",
         "notifications.write",
         "life.item.write",
         "life.review.write",
@@ -68905,6 +69729,8 @@
         "life.meal.write",
         "money.entry.write",
         "library.source.link",
+        "library.item.write",
+        "library.item.read",
         "life.purchase.write",
         "money.plan.write",
         "travel.visit.write",
@@ -68916,12 +69742,10 @@
         "health.raw.ingest",
         "travel.trip.write",
         "travel.reservation.write",
-        "library.item.write",
         "library.processor.write",
         "agent.run",
         "health.measurement.read",
         "travel.trip.read",
-        "library.item.read",
         "notifications.write",
         "life.item.write",
         "life.review.write",
@@ -69057,6 +69881,8 @@
         "life.meal.write",
         "money.entry.write",
         "library.source.link",
+        "library.item.write",
+        "library.item.read",
         "life.purchase.write",
         "money.plan.write",
         "travel.visit.write",
@@ -69068,12 +69894,10 @@
         "health.raw.ingest",
         "travel.trip.write",
         "travel.reservation.write",
-        "library.item.write",
         "library.processor.write",
         "agent.run",
         "health.measurement.read",
         "travel.trip.read",
-        "library.item.read",
         "notifications.write",
         "life.item.write",
         "life.review.write",

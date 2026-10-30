@@ -62,4 +62,4 @@ Agent 任务上下文、来源和离线评测见 [任务上下文设计](docs/ar
 账目省略字段保留、显式清空、时间一致性与兼容边界见 [账目局部更正](docs/architecture/money-corrections.md)。
 
 Android 自动采集、应用使用、订单与活动整理、录音地点及分层回顾的拟议设计见
-[Android 自动采集与生活回顾](docs/architecture/android-life-capture.md)（设计稿，尚未实现）。
+[Android 自动采集与生活回顾](docs/architecture/android-life-capture.md)（完整设计与首批采集实现边界）。

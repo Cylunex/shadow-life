@@ -1,3 +1,4 @@
+export * from "./activity-schemas.js";
 export * from "./foundation-schemas.js";
 export * from "./schemas.js";
 export * from "./registry.js";

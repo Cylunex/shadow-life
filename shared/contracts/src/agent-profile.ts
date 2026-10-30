@@ -6,6 +6,7 @@ import type { AgentScenarioName } from "./agent-schemas.js";
 export const personalOperatorTools: ReadonlySet<CapabilityName> = new Set<CapabilityName>([
   "agent.restore", "agent.intentions", "agent.workspace", "agent.objects", "agent.tasks", "agent.learning", "agent.changes", "agent.export", "agent.set_intention", "agent.save_task", "agent.save_learning", "agent.set_subscription", "agent.ack_changes",
   "agent.context", "agent.discover", "agent.glossary", "agent.scenarios", "agent.catalog", "life.day", "life.memories", "life.set_food_stock",
+  "life.activities", "life.ingest_activity",
   "life.record_meal", "life.record_purchase", "life.record_dining",
   "life.correct_meal", "life.add_intake", "life.remove_intake", "life.correct_intake",
   "life.add_meal_payment", "life.attach_meal_source", "life.link_meal_consumption",

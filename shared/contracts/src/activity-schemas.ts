@@ -1,0 +1,10 @@
+import { z } from "zod";
+const stableId=z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,119}$/);
+const instant=z.iso.datetime({offset:true});
+const localDate=z.iso.date();
+const ianaTimeZone=z.string().max(100).refine(v=>{try{new Intl.DateTimeFormat("en",{timeZone:v});return true;}catch{return false;}});
+export const activityItemSchema=z.object({source_id:stableId,kind:z.enum(["app_usage","manual","screen_text"]),started_at:instant,ended_at:instant,time_zone:ianaTimeZone,title:z.string().trim().min(1).max(200),app_package:z.string().trim().min(1).max(300).optional(),text:z.string().max(12000).optional()}).strict().refine(v=>(v.kind==="screen_text"?Date.parse(v.ended_at)===Date.parse(v.started_at):Date.parse(v.ended_at)>Date.parse(v.started_at))&&Date.parse(v.ended_at)-Date.parse(v.started_at)<=86400000,{message:"App/manual activity requires a positive interval of at most 24 hours; screen text is a point observation"}).refine(v=>v.kind!=="app_usage"||Boolean(v.app_package)&&v.text===undefined,{message:"App usage requires a package and cannot contain screen text"});
+export const ingestActivityInputSchema=z.object({device_id:stableId,items:z.array(activityItemSchema).min(1).max(100)}).strict().refine(v=>new Set(v.items.map(i=>i.source_id)).size===v.items.length,{message:"Duplicate source identity in batch"});
+export const activitiesInputSchema=z.object({date:localDate,time_zone:ianaTimeZone,limit:z.number().int().min(1).max(100).default(50),before_id:stableId.optional()}).strict();
+export type ActivitiesInput=z.infer<typeof activitiesInputSchema>;
+export const activitiesResultSchema=z.object({items:z.array(z.object({id:stableId,device_id:stableId,source_id:stableId,kind:z.enum(["app_usage","manual","screen_text"]),started_at:instant,ended_at:instant,time_zone:ianaTimeZone,title:z.string(),app_package:z.string().nullable(),text:z.string().nullable()}).strict()).max(100),next_before_id:stableId.nullable(),total:z.number().int().nonnegative(),usage_seconds:z.number().int().nonnegative(),coverage:z.literal("captured_intervals_only")}).strict();
