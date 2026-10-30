@@ -2515,6 +2515,294 @@ data class TravelTripResultDto(
 )
 
 @Serializable
+enum class CaptureInsightsResultDtoGroupsEntryBehavior(val wireValue: String) {
+  @SerialName("unknown") Unknown("unknown"),
+  @SerialName("reading") Reading("reading"),
+  @SerialName("browsing") Browsing("browsing"),
+  @SerialName("communication") Communication("communication"),
+  @SerialName("shopping") Shopping("shopping"),
+  @SerialName("media") Media("media"),
+  @SerialName("work") Work("work"),
+  @SerialName("learning") Learning("learning"),
+  @SerialName("exercise") Exercise("exercise"),
+  @SerialName("travel") Travel("travel"),
+  @SerialName("rest") Rest("rest"),
+  @SerialName("other") Other("other")
+}
+
+@Serializable
+enum class CaptureInsightsResultDtoGroupsEntryLifeDomain(val wireValue: String) {
+  @SerialName("unknown") Unknown("unknown"),
+  @SerialName("work") Work("work"),
+  @SerialName("growth") Growth("growth"),
+  @SerialName("life") Life("life"),
+  @SerialName("health") Health("health"),
+  @SerialName("relationships") Relationships("relationships"),
+  @SerialName("leisure") Leisure("leisure")
+}
+
+@Serializable
+data class CaptureInsightsResultDtoGroupsEntry(
+  @SerialName("behavior") val behavior: CaptureInsightsResultDtoGroupsEntryBehavior,
+  @SerialName("life_domain") val lifeDomain: CaptureInsightsResultDtoGroupsEntryLifeDomain,
+  @SerialName("seconds") val seconds: Long,
+  @SerialName("count") val count: Long
+)
+
+@Serializable
+data class CaptureInsightsResultDtoAppsEntry(
+  @SerialName("package_name") val packageName: String,
+  @SerialName("title") val title: String,
+  @SerialName("seconds") val seconds: Long,
+  @SerialName("intervals") val intervals: Long
+)
+
+@Serializable
+data class CaptureInsightsResultDtoProjectsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("title") val title: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("seconds") val seconds: Long,
+  @SerialName("count") val count: Long
+)
+
+@Serializable
+enum class CaptureInsightsResultDtoGoalsEntryBehavior(val wireValue: String) {
+  @SerialName("unknown") Unknown("unknown"),
+  @SerialName("reading") Reading("reading"),
+  @SerialName("browsing") Browsing("browsing"),
+  @SerialName("communication") Communication("communication"),
+  @SerialName("shopping") Shopping("shopping"),
+  @SerialName("media") Media("media"),
+  @SerialName("work") Work("work"),
+  @SerialName("learning") Learning("learning"),
+  @SerialName("exercise") Exercise("exercise"),
+  @SerialName("travel") Travel("travel"),
+  @SerialName("rest") Rest("rest"),
+  @SerialName("other") Other("other")
+}
+
+@Serializable
+enum class CaptureInsightsResultDtoGoalsEntryLifeDomain(val wireValue: String) {
+  @SerialName("unknown") Unknown("unknown"),
+  @SerialName("work") Work("work"),
+  @SerialName("growth") Growth("growth"),
+  @SerialName("life") Life("life"),
+  @SerialName("health") Health("health"),
+  @SerialName("relationships") Relationships("relationships"),
+  @SerialName("leisure") Leisure("leisure")
+}
+
+@Serializable
+enum class CaptureInsightsResultDtoGoalsEntryPeriod(val wireValue: String) {
+  @SerialName("day") Day("day"),
+  @SerialName("week") Week("week")
+}
+
+@Serializable
+enum class CaptureInsightsResultDtoGoalsEntryDirection(val wireValue: String) {
+  @SerialName("at_least") AtLeast("at_least"),
+  @SerialName("at_most") AtMost("at_most")
+}
+
+@Serializable
+data class CaptureInsightsResultDtoGoalsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("title") val title: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("behavior") val behavior: CaptureInsightsResultDtoGoalsEntryBehavior?,
+  @SerialName("life_domain") val lifeDomain: CaptureInsightsResultDtoGoalsEntryLifeDomain?,
+  @SerialName("project_id") val projectId: String?,
+  @SerialName("period") val period: CaptureInsightsResultDtoGoalsEntryPeriod,
+  @SerialName("direction") val direction: CaptureInsightsResultDtoGoalsEntryDirection,
+  @SerialName("target_minutes") val targetMinutes: Long,
+  @SerialName("observed_seconds") val observedSeconds: Long,
+  @SerialName("from_on") val fromOn: String,
+  @SerialName("to_on_exclusive") val toOnExclusive: String,
+  @SerialName("coverage") val coverage: String
+)
+
+@Serializable
+data class CaptureInsightsResultDtoDailyFactsEntry(
+  @SerialName("label") val label: String,
+  @SerialName("value") val value: String,
+  @SerialName("unit") val unit: String
+)
+
+@Serializable
+data class CaptureInsightsResultDto(
+  @SerialName("from_on") val fromOn: String,
+  @SerialName("to_on_exclusive") val toOnExclusive: String,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("observed_seconds") val observedSeconds: Long,
+  @SerialName("app_usage_seconds") val appUsageSeconds: Long,
+  @SerialName("source_count") val sourceCount: Long,
+  @SerialName("groups") val groups: List<CaptureInsightsResultDtoGroupsEntry>,
+  @SerialName("apps") val apps: List<CaptureInsightsResultDtoAppsEntry>,
+  @SerialName("projects") val projects: List<CaptureInsightsResultDtoProjectsEntry>,
+  @SerialName("goals") val goals: List<CaptureInsightsResultDtoGoalsEntry>,
+  @SerialName("daily_facts") val dailyFacts: List<CaptureInsightsResultDtoDailyFactsEntry>,
+  @SerialName("coverage") val coverage: String
+)
+
+@Serializable
+data class CapturePolicyResultDtoRecentDeletionsEntry(
+  @SerialName("captured_at") val capturedAt: String,
+  @SerialName("deleted_at") val deletedAt: String,
+  @SerialName("kind") val kind: String
+)
+
+@Serializable
+data class CapturePolicyResultDtoPolicy(
+  @SerialName("process_recordings") val processRecordings: Boolean,
+  @SerialName("process_screenshots") val processScreenshots: Boolean,
+  @SerialName("daily_audio_minutes") val dailyAudioMinutes: Long,
+  @SerialName("daily_screenshots") val dailyScreenshots: Long,
+  @SerialName("screen_keep_days") val screenKeepDays: Long?,
+  @SerialName("audio_keep_days") val audioKeepDays: Long?
+)
+
+@Serializable
+data class CapturePolicyResultDto(
+  @SerialName("recent_deletions") val recentDeletions: List<CapturePolicyResultDtoRecentDeletionsEntry>,
+  @SerialName("revision") val revision: Long,
+  @SerialName("policy") val policy: CapturePolicyResultDtoPolicy,
+  @SerialName("queued_recordings") val queuedRecordings: Long,
+  @SerialName("failed_recordings") val failedRecordings: Long,
+  @SerialName("audio_bytes") val audioBytes: Double,
+  @SerialName("recorded_seconds") val recordedSeconds: Double,
+  @SerialName("processed_today_seconds") val processedTodaySeconds: Double,
+  @SerialName("transcription_available") val transcriptionAvailable: Boolean
+)
+
+@Serializable
+enum class CaptureSearchResultDtoItemsEntryBehavior(val wireValue: String) {
+  @SerialName("unknown") Unknown("unknown"),
+  @SerialName("reading") Reading("reading"),
+  @SerialName("browsing") Browsing("browsing"),
+  @SerialName("communication") Communication("communication"),
+  @SerialName("shopping") Shopping("shopping"),
+  @SerialName("media") Media("media"),
+  @SerialName("work") Work("work"),
+  @SerialName("learning") Learning("learning"),
+  @SerialName("exercise") Exercise("exercise"),
+  @SerialName("travel") Travel("travel"),
+  @SerialName("rest") Rest("rest"),
+  @SerialName("other") Other("other")
+}
+
+@Serializable
+enum class CaptureSearchResultDtoItemsEntryLifeDomain(val wireValue: String) {
+  @SerialName("unknown") Unknown("unknown"),
+  @SerialName("work") Work("work"),
+  @SerialName("growth") Growth("growth"),
+  @SerialName("life") Life("life"),
+  @SerialName("health") Health("health"),
+  @SerialName("relationships") Relationships("relationships"),
+  @SerialName("leisure") Leisure("leisure")
+}
+
+@Serializable
+data class CaptureSearchResultDtoItemsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("title") val title: String,
+  @SerialName("kind") val kind: String,
+  @SerialName("started_at") val startedAt: String,
+  @SerialName("ended_at") val endedAt: String,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("app_package") val appPackage: String?,
+  @SerialName("text") val text: String?,
+  @SerialName("latitude") val latitude: Double?,
+  @SerialName("longitude") val longitude: Double?,
+  @SerialName("accuracy_m") val accuracyM: Double?,
+  @SerialName("behavior") val behavior: CaptureSearchResultDtoItemsEntryBehavior,
+  @SerialName("life_domain") val lifeDomain: CaptureSearchResultDtoItemsEntryLifeDomain,
+  @SerialName("classification_origin") val classificationOrigin: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("classification_revision") val classificationRevision: Long,
+  @SerialName("project_id") val projectId: String?,
+  @SerialName("project_title") val projectTitle: String?,
+  @SerialName("protected") val protectedValue: Boolean,
+  @SerialName("library_item_id") val libraryItemId: String?
+)
+
+@Serializable
+data class CaptureSearchResultDto(
+  @SerialName("items") val items: List<CaptureSearchResultDtoItemsEntry>,
+  @SerialName("next_before_id") val nextBeforeId: String?,
+  @SerialName("coverage") val coverage: String
+)
+
+@Serializable
+enum class CaptureExportResultDtoItemsEntryBehavior(val wireValue: String) {
+  @SerialName("unknown") Unknown("unknown"),
+  @SerialName("reading") Reading("reading"),
+  @SerialName("browsing") Browsing("browsing"),
+  @SerialName("communication") Communication("communication"),
+  @SerialName("shopping") Shopping("shopping"),
+  @SerialName("media") Media("media"),
+  @SerialName("work") Work("work"),
+  @SerialName("learning") Learning("learning"),
+  @SerialName("exercise") Exercise("exercise"),
+  @SerialName("travel") Travel("travel"),
+  @SerialName("rest") Rest("rest"),
+  @SerialName("other") Other("other")
+}
+
+@Serializable
+enum class CaptureExportResultDtoItemsEntryLifeDomain(val wireValue: String) {
+  @SerialName("unknown") Unknown("unknown"),
+  @SerialName("work") Work("work"),
+  @SerialName("growth") Growth("growth"),
+  @SerialName("life") Life("life"),
+  @SerialName("health") Health("health"),
+  @SerialName("relationships") Relationships("relationships"),
+  @SerialName("leisure") Leisure("leisure")
+}
+
+@Serializable
+data class CaptureExportResultDtoItemsEntryOriginalsEntry(
+  @SerialName("asset_version_id") val assetVersionId: String,
+  @SerialName("sha256") val sha256: String,
+  @SerialName("media_type") val mediaType: String,
+  @SerialName("bytes") val bytes: Double
+)
+
+@Serializable
+data class CaptureExportResultDtoItemsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("title") val title: String,
+  @SerialName("kind") val kind: String,
+  @SerialName("started_at") val startedAt: String,
+  @SerialName("ended_at") val endedAt: String,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("app_package") val appPackage: String?,
+  @SerialName("text") val text: String?,
+  @SerialName("latitude") val latitude: Double?,
+  @SerialName("longitude") val longitude: Double?,
+  @SerialName("accuracy_m") val accuracyM: Double?,
+  @SerialName("behavior") val behavior: CaptureExportResultDtoItemsEntryBehavior,
+  @SerialName("life_domain") val lifeDomain: CaptureExportResultDtoItemsEntryLifeDomain,
+  @SerialName("classification_origin") val classificationOrigin: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("classification_revision") val classificationRevision: Long,
+  @SerialName("project_id") val projectId: String?,
+  @SerialName("project_title") val projectTitle: String?,
+  @SerialName("protected") val protectedValue: Boolean,
+  @SerialName("library_item_id") val libraryItemId: String?,
+  @SerialName("sha256") val sha256: String,
+  @SerialName("recording") val recording: String?,
+  @SerialName("originals") val originals: List<CaptureExportResultDtoItemsEntryOriginalsEntry>
+)
+
+@Serializable
+data class CaptureExportResultDto(
+  @SerialName("schema_version") val schemaVersion: Double,
+  @SerialName("items") val items: List<CaptureExportResultDtoItemsEntry>,
+  @SerialName("next_before_id") val nextBeforeId: String?
+)
+
+@Serializable
 enum class ActivitySourceResultDtoKind(val wireValue: String) {
   @SerialName("app_usage") AppUsage("app_usage"),
   @SerialName("manual") Manual("manual"),
@@ -2538,7 +2826,15 @@ data class ActivitySourceResultDto(
   @SerialName("text") val text: String?,
   @SerialName("latitude") val latitude: Double?,
   @SerialName("longitude") val longitude: Double?,
-  @SerialName("accuracy_m") val accuracyM: Double?
+  @SerialName("accuracy_m") val accuracyM: Double?,
+  @SerialName("behavior") val behavior: String,
+  @SerialName("life_domain") val lifeDomain: String,
+  @SerialName("classification_origin") val classificationOrigin: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("classification_revision") val classificationRevision: Long,
+  @SerialName("project_id") val projectId: String?,
+  @SerialName("project_title") val projectTitle: String?,
+  @SerialName("protected") val protectedValue: Boolean
 )
 
 @Serializable
@@ -2570,7 +2866,9 @@ data class CaptureWorkspaceResultDtoRecordingsEntry(
   @SerialName("attempt") val attempt: Long,
   @SerialName("spans") val spans: List<CaptureWorkspaceResultDtoRecordingsEntrySpansEntry>,
   @SerialName("error") val error: String?,
-  @SerialName("processor_version") val processorVersion: String?
+  @SerialName("processor_version") val processorVersion: String?,
+  @SerialName("audio_available") val audioAvailable: Boolean,
+  @SerialName("protected") val protectedValue: Boolean
 )
 
 @Serializable

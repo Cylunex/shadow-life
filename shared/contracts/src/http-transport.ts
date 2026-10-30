@@ -14,6 +14,7 @@ export const queryTransportRegistry:Readonly<Record<string,ReadRoute>>={
   "agent.glossary":input=>get(`/api/agent/glossary${search(input)}`),
   "agent.scenarios":input=>get(`/api/agent/scenarios${search(input)}`),
   "agent.catalog":input=>get(`/api/agent/catalog${search(input)}`),
+  ...Object.fromEntries(["insights","policy","search","export"].map(view=>[`life.capture_${view}`,(input:unknown)=>get(`/api/life/capture/${view}${search(input as Record<string,unknown>)}`)])),
   "life.activity_source":input=>get(`/api/life/activities/${encodeURIComponent(input.id)}`),
   "life.capture_workspace":input=>get(`/api/life/capture-workspace${search(input)}`),
   "life.activity_order":input=>get(`/api/life/activities/${encodeURIComponent(input.id)}/order`),

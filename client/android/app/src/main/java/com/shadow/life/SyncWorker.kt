@@ -53,12 +53,14 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
     val session=fresh.session
     val accessToken=fresh.accessToken
     val dao=app.database.commands()
+    dao.pruneCommittedCaptures(accountId,session.subjectId,System.currentTimeMillis()-7L*86_400_000)
     var needsRetry=false
     var recoveredCommands=0
     var committedCommands=0
     Log.i(TAG,"sync started")
 
-    for(attachment in dao.pendingAttachments(accountId,session.subjectId,MAX_ATTACHMENTS_PER_RUN)){
+    for(attachment in dao.readyAttachments(accountId,session.subjectId,CaptureLocalSettings.canSync(applicationContext,app,accountId),MAX_ATTACHMENTS_PER_RUN)){
+      if(attachment.captureMetadata.isNotBlank()&&!CaptureLocalSettings.canSync(applicationContext,app,accountId))continue
       val file=File(attachment.localPath)
       if(!file.isFile){dao.markAttachment(attachment.id,"failed");continue}
       dao.markAttachmentAttempt(attachment.id,"uploading")
@@ -71,7 +73,7 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
           doOutput=true;setChunkedStreamingMode(64*1024)
         }
         connection=activeConnection
-        file.inputStream().use{input->activeConnection.outputStream.use{output->app.queue.copyAttachment(attachment,input,output)}}
+        file.inputStream().use{input->activeConnection.outputStream.use{output->app.queue.copyAttachment(attachment,input,object:java.io.FilterOutputStream(output){override fun write(bytes:ByteArray,offset:Int,length:Int){if(attachment.captureMetadata.isNotBlank()&&!CaptureLocalSettings.canSync(applicationContext,app,accountId))throw CaptureSyncPaused();out.write(bytes,offset,length)};override fun write(value:Int){if(attachment.captureMetadata.isNotBlank()&&!CaptureLocalSettings.canSync(applicationContext,app,accountId))throw CaptureSyncPaused();out.write(value)}})}}
         val code=activeConnection.responseCode
         if(code==401){dao.markAttachment(attachment.id,"unknown");app.sessions.revoke(accountId);return@withContext Result.failure(workDataOf("reason" to "reauth_required"))}
         if(code !in listOf(200,201)){
@@ -94,13 +96,14 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
         app.queue.enqueueCommand(session,attachment.commandId,capability,body)
         dao.markAttachment(attachment.id,"committed")
         if(!file.exists()||file.delete())dao.clearTerminalAttachment(attachment.id)
+      }catch(_:CaptureSyncPaused){dao.markAttachment(attachment.id,"pending")
       }catch(error:CancellationException){dao.markAttachment(attachment.id,"unknown");throw error
       }catch(_:QueueKeyUnavailableException){dao.markAttachment(attachment.id,"blocked")
       }catch(_:Exception){if(attachment.attempts>=7)dao.markAttachment(attachment.id,"failed")else{dao.markAttachment(attachment.id,"unknown");needsRetry=true}
       }finally{connection?.disconnect()}
     }
 
-    val pendingCommands=dao.pending(accountId,session.subjectId,MAX_COMMANDS_PER_RUN)
+    val pendingCommands=dao.readyCommands(accountId,session.subjectId,CaptureLocalSettings.canSync(applicationContext,app,accountId),MAX_COMMANDS_PER_RUN)
     val handledByBatch=mutableSetOf<String>()
     val batchCandidates=mutableListOf<Pair<PendingCommand,String>>()
     for(command in pendingCommands.filter{it.capability=="health.ingest_raw"}){
@@ -117,6 +120,7 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
     }
 
     for(command in pendingCommands.filterNot{it.commandId in handledByBatch}){
+      if(command.capability in CaptureLocalSettings.commands&&!CaptureLocalSettings.canSync(applicationContext,app,accountId))continue
       if(command.state=="unknown"){
         val recovered=lookupReceipt(session,accessToken,command)
         if(recovered!=null){commitVerified(app,command,recovered);recoveredCommands++;continue}
@@ -132,7 +136,7 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
           doOutput=true
         }
         connection=activeConnection
-        activeConnection.outputStream.use{it.write(body.toByteArray(StandardCharsets.UTF_8))}
+        activeConnection.outputStream.use{if(command.capability in CaptureLocalSettings.commands&&!CaptureLocalSettings.canSync(applicationContext,app,accountId))throw CaptureSyncPaused();it.write(body.toByteArray(StandardCharsets.UTF_8))}
         val code=activeConnection.responseCode
         if(code==401){dao.setCommandState(command.commandId,"unknown");app.sessions.revoke(accountId);return@withContext Result.failure(workDataOf("reason" to "reauth_required"))}
         if(code in listOf(200,201)){
@@ -155,6 +159,7 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
         val terminal=if(isDeterministicCommandFailure(code))"blocked" else "failed"
         dao.setCommandState(command.commandId,terminal)
         showRejected(app,command,code,errorBody)
+      }catch(_:CaptureSyncPaused){dao.setCommandState(command.commandId,"pending")
       }catch(error:CancellationException){dao.setCommandState(command.commandId,"unknown");throw error
       }catch(_:QueueKeyUnavailableException){dao.setCommandState(command.commandId,"blocked")
       }catch(_:Exception){
@@ -164,7 +169,8 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
     }
     // Also recovers a process death after the atomic receipt commit but before the wake-up.
     if(HealthConnectSync.enabled()&&dao.healthRound(accountId,session.subjectId)?.progress?.ready==true)HealthConnectScheduler.resume(applicationContext,accountId)
-    val remaining=dao.inFlight(accountId,session.subjectId)
+    val includeCaptures=CaptureLocalSettings.canSync(applicationContext,app,accountId)
+    val remaining=dao.readyCommands(accountId,session.subjectId,includeCaptures,1).size+dao.readyAttachments(accountId,session.subjectId,includeCaptures,1).size
     if(!needsRetry&&remaining>0)SyncScheduler.schedule(applicationContext,accountId,ensureNext=true)
     Log.i(TAG,"sync finished recovered=$recoveredCommands committed=$committedCommands retry=$needsRetry remaining=$remaining")
     if(needsRetry)Result.retry()else Result.success()
@@ -272,3 +278,5 @@ internal fun healthCommandBatches(commands:List<Pair<PendingCommand,String>>,max
   for(command in commands){val size=command.second.toByteArray(StandardCharsets.UTF_8).size+1;if(batches.isEmpty()||batches.last().size>=maxCommands||bytes+size>maxBytes){batches.add(mutableListOf());bytes=0};batches.last().add(command);bytes+=size}
   return batches
 }
+
+private class CaptureSyncPaused:java.io.IOException()

@@ -34,3 +34,5 @@ export * from "./money-correction.js";
 
 export * from "./capture-review.js";
 export * from "./activity-order.js";
+
+export * from "./capture-insights.js";

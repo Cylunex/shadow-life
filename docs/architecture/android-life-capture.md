@@ -1,6 +1,6 @@
 # Android 自动采集与生活回顾设计
 
-日期：2026-10-30。状态：完整设计稿；[首批采集实现](../execution/android-life-capture-2026-10-30.md)已完成本地开发，其余阶段仍待实现，未部署；文中新增名称为建议合同，不表示已有接口。
+日期：2026-10-30。状态：A—E 软件功能已接入现有安卓端与服务端，见[完整交付记录](../execution/android-capture-complete-2026-10-30.md)。主力设备 24 小时资源实测仍需实际使用验证；准确接口名以生成合同为准。
 
 ## 1. 目标与范围
 
@@ -210,7 +210,7 @@ Android 复用现有 app / core:model / core:data / devices 分工：devices 承
 - [整体架构](../../ARCHITECTURE.md)、[分侧职责](server-client-layout.md)、[Android 入口](../../client/android/README.md)。
 - [Android 日视图与页面](../../client/android/app/src/main/java/com/shadow/life/RootVisualScreens.kt)、[资料和业务读写](../../client/android/app/src/main/java/com/shadow/life/NativeLifeRepository.kt)。
 - [账单导入](../guides/recurring-bill-imports.md)、[个人 Agent 底座](personal-agent-foundation.md)、[上下文与来源](agent-task-context.md)。
-- [现有处理 Worker](../../server/database/src/library-worker.ts)：已处理文本／HTML／视觉；合同含 transcript，但本 Worker 尚未实现音频转写。
+- [资料处理 Worker](../../server/database/src/library-worker.ts)处理文本／HTML／视觉；录音由独立转写 Worker 处理。
 
 外部参考（2026-10-30 查阅；Beayy 用于设计参考，未复制实现代码）：
 
@@ -220,4 +220,4 @@ Android 复用现有 app / core:model / core:data / devices 分工：devices 承
 
 ## 10. 本轮实现进展
 
-录音／转写、原生停留检测、基于强身份的订单关联与选择性记账、确定性的分层材料回顾及快捷截图已接入 Android 与共同 API。范围、配置与真机验收边界见[执行记录](../execution/android-life-capture-2026-10-30.md)、[操作说明](../guides/android-capture-suite.md)及[同类参考](../research/android-capture-shortcuts-2026-10-30.md)。本节进展不表示阶段 D／E 的跨领域目标理解、全来源检索和保留策略已全部交付。
+录音／转写、原生停留检测、基于强身份的订单关联与选择性记账、确定性的分层材料回顾及快捷截图已接入 Android 与共同 API。分类与项目投入、显式目标对照、全来源检索、选择性原件导出恢复、处理预算与可选保留清理也已接入。范围、配置与真机验收边界见[完整交付记录](../execution/android-capture-complete-2026-10-30.md)、[操作说明](../guides/android-capture-suite.md)及[同类参考](../research/android-capture-shortcuts-2026-10-30.md)。

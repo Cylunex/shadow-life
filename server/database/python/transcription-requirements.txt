@@ -1,0 +1,2 @@
+# CPU-only local ASR. Model files are installed and verified outside the repository.
+faster-whisper==1.2.1

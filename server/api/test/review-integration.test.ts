@@ -1,3 +1,4 @@
+import { trackPoolShutdown } from "./pool-teardown.js";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test,{type TestContext} from "node:test";
@@ -11,7 +12,8 @@ async function fixture(t:TestContext){
   const admin=new PostgresUnitOfWork({connectionString:process.env.TEST_DATABASE_URL}),name=`api_review_${randomUUID().replaceAll("-","")}`;
   await admin.pool.query(`create database "${name}"`);const url=new URL(process.env.TEST_DATABASE_URL!);url.pathname=`/${name}`;
   const unitOfWork=new PostgresUnitOfWork({connectionString:url.toString()});
-  t.after(async()=>{await unitOfWork.close();await admin.pool.query(`drop database "${name}" with (force)`);await admin.close();});
+  const closePool=trackPoolShutdown(unitOfWork.pool);
+  t.after(async()=>{await closePool();await admin.pool.query(`drop database "${name}" with (force)`);await admin.close();});
   const pool=unitOfWork.pool;await migrate(pool);await pool.query("update write_epochs set stage='life',epoch=epoch+1");
   const subjectId="subject_api_review",context={actorId:subjectId,subjectId,clientId:"client_review",traceId:"trace_review",effects:new Set(Object.values(capabilityRegistry).flatMap(c=>c.possibleEffects))};await unitOfWork.ensurePrincipal(subjectId);
   const executor=new CommandExecutor({unitOfWork,ids:uuidIds,clock:systemClock,fingerprinter:sha256Fingerprinter}),queries=new QueryService(unitOfWork);

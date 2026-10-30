@@ -1,3 +1,5 @@
+import { existsSync,readFileSync } from "node:fs";
+import { visionFileConfigSchema } from "@shadow/contracts";
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -10,13 +12,18 @@ export interface VisionProcessor{readonly available:boolean;readonly reason:stri
 type VisionPage={page:number;media_type:string;data_base64:string};
 const images=new Set(["image/png","image/jpeg","image/tiff","image/webp"]);
 
+function fileConfig(env:NodeJS.ProcessEnv){try{return env.SHADOW_LIBRARY_PROCESSOR_CONFIG_FILE?visionFileConfigSchema.parse(JSON.parse(readFileSync(env.SHADOW_LIBRARY_PROCESSOR_CONFIG_FILE,'utf8'))):null;}catch{return null;}}
+function effectiveEnvironment(env:NodeJS.ProcessEnv):NodeJS.ProcessEnv {const config=fileConfig(env);return config?.kind==='http'?{...env,SHADOW_LIBRARY_VISION_URL:config.url,...(config.model?{SHADOW_LIBRARY_VISION_MODEL:config.model}:{}),...(config.token_file?{SHADOW_LIBRARY_VISION_TOKEN:readFileSync(config.token_file,'utf8').trim()}:{})}:env;}
 function endpoint(env:NodeJS.ProcessEnv):URL|null{
   if(!env.SHADOW_LIBRARY_VISION_URL)return null;
   try{const url=new URL(env.SHADOW_LIBRARY_VISION_URL);if(url.protocol==="https:"||(url.protocol==="http:"&&["127.0.0.1","localhost","[::1]"].includes(url.hostname)))return url;}catch{}
   return null;
 }
 export function visionAvailability(env:NodeJS.ProcessEnv=process.env):{available:boolean;reason:string|null;processor:string}{
-  const url=endpoint(env);
+  const config=fileConfig(env);if(env.SHADOW_LIBRARY_PROCESSOR_CONFIG_FILE&&!config)return{available:false,reason:'图像处理配置不可用',processor:visionProcessorName};
+  if(config?.kind==='tesseract')return{available:existsSync(config.binary),reason:existsSync(config.binary)?null:'本机 OCR 处理器不可用',processor:visionProcessorName};
+  let resolved:NodeJS.ProcessEnv;try{resolved=effectiveEnvironment(env);}catch{return{available:false,reason:'图像处理凭据文件不可用',processor:visionProcessorName};}
+  const url=endpoint(resolved);
   return{available:Boolean(url),reason:url?null:env.SHADOW_LIBRARY_VISION_URL?"视觉处理端点必须使用 HTTPS 或本机 HTTP":"视觉模型未配置（SHADOW_LIBRARY_VISION_URL）",processor:visionProcessorName};
 }
 
@@ -52,11 +59,16 @@ export async function visionPages(bytes:Buffer,mediaType:string,env:NodeJS.Proce
 }
 
 export function configuredVisionProcessor(env:NodeJS.ProcessEnv=process.env):VisionProcessor{
-  const url=endpoint(env),status=visionAvailability(env);
+  const config=fileConfig(env),status=visionAvailability(env);let resolved=env;try{resolved=effectiveEnvironment(env);}catch{}const url=endpoint(resolved);
+  if(config?.kind==='tesseract')return{...status,async process(bytes,mediaType){
+    if(!status.available)throw new Error(status.reason??'OCR 不可用');const pages=await visionPages(bytes,mediaType,env);const deadline=Date.now()+90000;const texts=[];const locators=[];
+    for(const page of pages){if(Date.now()>=deadline)throw new Error('本机 OCR 超时');const text=await new Promise<string>((resolve,reject)=>{const child=spawn(config.binary,['stdin','stdout','-l',config.languages,'--psm','3'],{stdio:['pipe','pipe','pipe'],env:{...process.env,OMP_THREAD_LIMIT:'2'}});let output='';let overflow=false;const timer=setTimeout(()=>child.kill('SIGKILL'),Math.min(config.timeout_ms,Math.max(1,deadline-Date.now())));child.stdout.setEncoding('utf8');child.stderr.resume();child.stdout.on('data',value=>{output+=String(value);if(output.length>30000){overflow=true;child.kill('SIGKILL');}});child.stdin.on('error',()=>{});child.on('error',()=>{clearTimeout(timer);reject(new Error('本机 OCR 启动失败'));});child.on('close',code=>{clearTimeout(timer);code===0&&!overflow?resolve(output.trim()):reject(new Error('本机 OCR 失败、超时或文字超限'));});child.stdin.end(Buffer.from(page.data_base64,'base64'));});if(text){texts.push(text);locators.push({page:page.page,quote:text.slice(0,300)});}}
+    if(!texts.length)throw new Error('原件没有可识别文字');const content=texts.join('\n\n').slice(0,30000);const candidate=libraryVisionCandidateSchema.parse({title:content.split(/\r?\n/u)[0]!.slice(0,300),document_date:null,category:null,summary:content.slice(0,5000),content,locators});return{candidate,processorVersion:'builtin-tesseract-v1'};
+  }};
   return{available:status.available,reason:status.reason,async process(bytes,mediaType){
     if(!url)throw new Error(status.reason??"vision processor unavailable");
     const pages=await visionPages(bytes,mediaType,env);
-    const response=await fetch(url,{method:"POST",signal:AbortSignal.timeout(90_000),headers:{"content-type":"application/json",accept:"application/json",...(env.SHADOW_LIBRARY_VISION_TOKEN?{authorization:`Bearer ${env.SHADOW_LIBRARY_VISION_TOKEN}`}:{})},body:JSON.stringify({protocol:"shadow.library.vision.request",model:env.SHADOW_LIBRARY_VISION_MODEL||null,instruction:"Return only evidence-grounded candidate fields. Unknown date/category must be null. Do not claim a visit, payment, or other event occurred.",pages})});
+    const response=await fetch(url,{method:"POST",signal:AbortSignal.timeout(90_000),headers:{"content-type":"application/json",accept:"application/json",...(resolved.SHADOW_LIBRARY_VISION_TOKEN?{authorization:`Bearer ${resolved.SHADOW_LIBRARY_VISION_TOKEN}`}:{})},body:JSON.stringify({protocol:"shadow.library.vision.request",model:resolved.SHADOW_LIBRARY_VISION_MODEL||null,instruction:"Return only evidence-grounded candidate fields. Unknown date/category must be null. Do not claim a visit, payment, or other event occurred.",pages})});
     if(!response.ok)throw new Error(`vision processor returned HTTP ${response.status}`);
     const raw=await response.text();if(raw.length>100_000)throw new Error("vision response exceeds 100 KB");
     const wire=JSON.parse(raw) as Record<string,unknown>;
@@ -64,7 +76,7 @@ export function configuredVisionProcessor(env:NodeJS.ProcessEnv=process.env):Vis
     const candidate=libraryVisionCandidateSchema.parse(wire.candidate);
     if(candidate.locators.some(locator=>locator.page>pages.length))throw new Error("vision candidate references a page outside the original");
     const processorVersion=String(wire.processor_version??"");if(!processorVersion||processorVersion.length>100)throw new Error("invalid vision processor version");
-    const model=env.SHADOW_LIBRARY_VISION_MODEL?.trim();const provenance=model?`${model}@${processorVersion}`:processorVersion;
+    const model=resolved.SHADOW_LIBRARY_VISION_MODEL?.trim();const provenance=model?`${model}@${processorVersion}`:processorVersion;
     if(provenance.length>100)throw new Error("vision model and processor version exceed 100 characters");
     return{candidate,processorVersion:provenance};
   }};

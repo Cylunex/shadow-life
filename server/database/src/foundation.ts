@@ -10,6 +10,7 @@ const json = (value: unknown) => sql`${JSON.stringify(value)}::jsonb`;
 const array = (values: readonly string[]) => sql`array[${sql.join(values.map(value => sql`${value}`), sql`, `)}]::text[]`;
 const legacyKinds = ['meal','purchase','money_entry','health_measurement','health_workout','trip','library_item'] as const;
 const extraTables: Record<string, {table: string; title: string; columns: string; semantic: string; detail: string; active: string}> = {
+  activity_capture:{table:'activity_captures',title:'title',columns:'kind,started_at,ended_at,time_zone,app_package,text',semantic:'source',detail:'life.activity_source',active:'deleted_at is null'},
   life_project: {table:'life_projects', title:'title', columns:'title,goal,starts_on,ends_on,state', semantic:'plan', detail:'life.projects', active:"state<>'cancelled'"},
   action_item: {table:'action_items', title:'title', columns:'title,project_id,due_on,state,scheduled_at,scheduled_time_zone', semantic:'plan', detail:'life.projects', active:"state<>'cancelled'"},
   meal_plan: {table:'meal_plans', title:'title', columns:'title,starts_on,ends_on,time_zone,state', semantic:'plan', detail:'life.meal_planning', active:"state<>'cancelled'"},

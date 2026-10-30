@@ -52,7 +52,7 @@ import java.util.Locale
   accountId:String,state:LoadState<TodaySnapshot>,healthState:LoadState<WorkspaceOverview.Health>,deviceStatus:DeviceSyncStatus,queueState:LoadState<QueueSummary>,samsungAvailable:Boolean,onRetry:()->Unit,
   onWorkspace:(LifeDomain,String)->Unit,onItems:()->Unit,onPlans:()->Unit,onLibrary:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onRecords:()->Unit,onInbox:()->Unit,onFeatures:()->Unit,onCapture:(CaptureKind)->Unit,
   onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onProjects:()->Unit,onSettings:()->Unit,
-  trainingState:LoadState<List<NativeTrainingPlan>> = LoadState.Loading,onTraining:()->Unit = {onWorkspace(LifeDomain.Health,"training")}
+  trainingState:LoadState<List<NativeTrainingPlan>> = LoadState.Loading,onTraining:()->Unit = {onWorkspace(LifeDomain.Health,"training")},onActivityCapture:()->Unit = onRecords
 ){
   val context=LocalContext.current
   val layoutStore=remember(context,accountId){TodayCardLayoutStore(context,accountId)}
@@ -64,6 +64,7 @@ import java.util.Locale
   RootPage("生活",onProjects,onSettings,onRecords){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp,8.dp,20.dp,112.dp),verticalArrangement=Arrangement.spacedBy(20.dp)){
     item{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(LocalDate.now().format(DateTimeFormatter.ofPattern("M 月 d 日 EEEE",Locale.CHINA)),Modifier.weight(1f),style=MaterialTheme.typography.titleMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);TextButton(onClick={editCards=true}){Text("编辑卡片")}}}
     item{StateContent(state,onRetry){} }
+    item(key="capture-summary"){HomeCaptureSummary(accountId,onActivityCapture)}
     if(cards.isEmpty())item{EmptyState("首页还没有卡片","添加卡片"){editCards=true}}
     cards.forEach{card->when(card){
       TodayCardKind.Training->item(key=card.key){TodayTrainingCard(trainingState,onTraining)}

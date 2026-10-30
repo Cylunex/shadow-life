@@ -21,7 +21,7 @@ export async function processPendingLibrary(pool:Pool,limit=20,vision:VisionProc
   if(!Number.isInteger(limit)||limit<1||limit>100)throw new RangeError("library processing limit must be between 1 and 100");
   // Reading candidates grants no ownership. Claim each immediately before doing its work;
   // simultaneous dispatchers resolve their race in the same public Executor transaction.
-  const candidates=await pool.query<{id:string;subject_id:string;source_asset_version_id:string;attempts:number;kind:string;requested_processor:string}>("select id,subject_id,source_asset_version_id,attempts,kind,requested_processor from library_processing_jobs where ((kind='text_extract' and requested_processor in ('builtin-text-v1','builtin-html-v1')) or (kind='vision' and requested_processor=$2)) and (state='queued' or (state='running' and lease_expires_at<=clock_timestamp())) order by updated_at,id limit $1",[limit,visionProcessorName]);
+  const candidates=await pool.query<{id:string;subject_id:string;source_asset_version_id:string;attempts:number;kind:string;requested_processor:string}>("select id,subject_id,source_asset_version_id,attempts,kind,requested_processor from library_processing_jobs where ((kind='text_extract' and requested_processor in ('builtin-text-v1','builtin-html-v1')) or (kind='vision' and requested_processor=$2)) and (not capture_automatic or coalesce((select (policy->>'process_screenshots')::boolean from capture_policies where subject_id=library_processing_jobs.subject_id),true)) and (state='queued' or (state='running' and lease_expires_at<=clock_timestamp())) order by updated_at,id limit $1",[limit,visionProcessorName]);
   const executor=new CommandExecutor({unitOfWork:new PostgresUnitOfWork(pool),ids:uuidIds,clock:systemClock,fingerprinter:sha256Fingerprinter});
   const assets=new AssetService(pool),results:Array<{job_id:string;state:"completed"|"failed"|"superseded";error?:string}>=[];
   for(const job of candidates.rows){
@@ -33,7 +33,7 @@ export async function processPendingLibrary(pool:Pool,limit=20,vision:VisionProc
       attempt=Number(claimed.actual_values.attempt);
     }catch(error){if(error instanceof KernelError&&error.status===409)continue;throw error;}
     try{
-      const source=(await pool.query<{bytes:Buffer;media_type:string}>("select blob.bytes,asset.media_type from asset_blobs blob join asset_versions version on version.id=blob.asset_version_id join assets asset on asset.id=version.asset_id where version.id=$1 and asset.subject_id=$2",[job.source_asset_version_id,job.subject_id])).rows[0];
+      const source=(await pool.query<{bytes:Buffer;media_type:string}>("select blob.bytes,asset.media_type from asset_blobs blob join asset_versions version on version.id=blob.asset_version_id join assets asset on asset.id=version.asset_id where version.id=$1 and asset.subject_id=$2 and exists(select 1 from library_processing_jobs j where j.id=$3 and j.subject_id=asset.subject_id and j.state='running' and j.attempts=$4)",[job.source_asset_version_id,job.subject_id,job.id,attempt])).rows[0];
       if(!source)throw new Error("fixed original asset is unavailable");
       let extractedText:string|undefined;
       let text:string,snippets:Array<{text:string;locator:Record<string,unknown>}>,suggestion:Awaited<ReturnType<VisionProcessor["process"]>>["candidate"]|undefined,processorVersion="builtin-text-v1";

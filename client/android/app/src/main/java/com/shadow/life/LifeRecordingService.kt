@@ -55,6 +55,7 @@ class LifeRecordingService:Service(){
   startForeground(5201,NotificationCompat.Builder(this,"life_recording").setSmallIcon(android.R.drawable.ic_btn_speak_now).setContentTitle(if(paused)"Life 录音已暂停" else "Life 正在录音").setContentText("音频在本机加密保存，可暂停或结束").setContentIntent(open).setOngoing(true).addAction(0,if(paused)"继续" else "暂停",action(if(paused)"start" else "pause")).addAction(0,"结束",action("stop")).build())
  }
  private suspend fun recordSegment(app:ShadowApp,session:ProductSession){
+  if(ContextCompat.checkSelfPermission(this,Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED)throw SecurityException("Microphone permission withdrawn")
   val rate=16000;val size=maxOf(AudioRecord.getMinBufferSize(rate,AudioFormat.CHANNEL_IN_MONO,AudioFormat.ENCODING_PCM_16BIT),8192)
   val audio=AudioRecord(MediaRecorder.AudioSource.MIC,rate,AudioFormat.CHANNEL_IN_MONO,AudioFormat.ENCODING_PCM_16BIT,size)
   check(audio.state==AudioRecord.STATE_INITIALIZED){"Microphone unavailable"};recorder=audio

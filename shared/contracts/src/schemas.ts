@@ -1,3 +1,4 @@
+import { captureCompletionWrites } from "./capture-completion-schemas.js";
 import { captureScreenshotSchema, recordingSegmentSchema, recordingJobSchema, completeRecordingSchema, failRecordingSchema, recordingActionSchema, reviseTranscriptSchema, orderCaptureRuleSchema, activityReviewInputSchema, captureDateSchema, captureWorkspaceResultSchema } from "./capture-suite-schemas.js";
 import { activityActionInputSchema, ingestActivityInputSchema } from "./activity-schemas.js";
 import { z } from "zod";
@@ -482,6 +483,7 @@ export const foreignEntriesResultSchema=z.object({items:z.array(z.object({
 }).strict()).max(100),as_of:instant}).strict();
 
 export const writeCommandSchemas = {
+  ...captureCompletionWrites,
   ...foundationWriteSchemas,
   "life.record_meal": recordMealInputSchema,
   "life.record_dining":recordDiningInputSchema,

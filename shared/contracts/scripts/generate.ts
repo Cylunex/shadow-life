@@ -1,3 +1,4 @@
+import { captureCompletionQueries } from "../src/capture-completion-schemas.js";
 import { activitySourceResultSchema } from "../src/activity-schemas.js";
 import { captureWorkspaceResultSchema } from "../src/capture-suite-schemas.js";
 import { activityOrderResultSchema, activitiesResultSchema } from "../src/activity-schemas.js";
@@ -103,7 +104,8 @@ function defineObject(schema: JsonSchema, name: string,options?:{exclude?:Readon
   const properties = schema.properties ?? {};
   const required = new Set(schema.required ?? []);
   const fields = Object.entries(properties).filter(([wire])=>!options?.exclude?.has(wire)).map(([wire, value]) => {
-    const local = camel(wire);
+    const candidate = camel(wire);
+    const local = ["protected","private","public","internal","object","class","when","is","in","fun","val","var"].includes(candidate)?candidate+"Value":candidate;
     const child = value.type === "array" ? `${name}${pascal(wire)}Entry` : `${name}${pascal(wire)}`;
     const type = kotlinType(value, child);
     const optional = !required.has(wire);
@@ -138,6 +140,7 @@ defineObject(z.toJSONSchema(travelWorkspaceResultSchema) as JsonSchema, "TravelW
 defineObject(z.toJSONSchema(projectDirectoryResultSchema) as JsonSchema, "ProjectDirectoryResultDto");
 defineObject(z.toJSONSchema(libraryItemResultSchema) as JsonSchema, "LibraryItemResultDto");
 defineObject(z.toJSONSchema(travelTripResultSchema) as JsonSchema, "TravelTripResultDto");
+for(const [name,entry] of Object.entries(captureCompletionQueries))kotlinType(z.toJSONSchema(entry.result) as JsonSchema,name.split(".")[1]!.split("_").map(v=>v[0]!.toUpperCase()+v.slice(1)).join("")+"ResultDto");
 kotlinType(z.toJSONSchema(activitySourceResultSchema) as JsonSchema, "ActivitySourceResultDto");
 kotlinType(z.toJSONSchema(captureWorkspaceResultSchema) as JsonSchema, "CaptureWorkspaceResultDto");
 kotlinType(z.toJSONSchema(activityOrderResultSchema) as JsonSchema, "ActivityOrderResultDto");

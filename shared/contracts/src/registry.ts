@@ -1,3 +1,4 @@
+import { captureCompletionWrites,captureCompletionQueries } from "./capture-completion-schemas.js";
 import { activitySourceResultSchema } from "./activity-schemas.js";
 import { importMoneyFileInputSchema, moneyImportFileInputSchema, moneyImportFileResultSchema } from "./schemas.js";
 import { moneyImportHistoryInputSchema, moneyImportHistoryResultSchema } from "./schemas.js";
@@ -50,9 +51,174 @@ const foundationDescriptions:Record<string,string>={
 const foundationCapabilityRegistry = {
   ...Object.fromEntries(Object.entries(foundationWriteSchemas).map(([name,schema])=>[name,{...write(name,foundationDescriptions[name]!,schema,["agent.run"]),resolveEffects:personalEffects}])),
   ...Object.fromEntries(Object.entries(foundationQueries).map(([name,schema])=>[name,{name,description:foundationDescriptions[name]!,inputSchema:schema.input,commandSchema:schema.input,resultSchema:schema.result,possibleEffects:["agent.run"],resolveEffects:()=>["agent.run"],idempotency:"not-applicable" as const,statusQuery:"operations.get"}]))
-} as unknown as Record<keyof typeof foundationWriteSchemas|keyof typeof foundationQueries, {name:string;description:string;inputSchema:any;commandSchema:any;resultSchema:any;possibleEffects:readonly string[];resolveEffects:(input:any)=>readonly string[];idempotency:"required"|"not-applicable";statusQuery:string}>;
+} as unknown as Record<keyof typeof foundationWriteSchemas|keyof typeof foundationQueries, {name:string;description:string;inputSchema:any;commandSchema:any;resultSchema:any;possibleEffects:readonly string[];resolveEffects:(input?:any)=>readonly string[];idempotency:"required"|"not-applicable";statusQuery:string}>;
 
-const domainCapabilityRegistry = {
+type DomainCapabilityName=keyof typeof captureCompletionWrites|keyof typeof captureCompletionQueries|
+  "agent.context"|
+  "agent.create_context_pack"|
+  "agent.get_context_pack"|
+  "agent.memories"|
+  "agent.revoke_context_pack"|
+  "agent.set_memory"|
+  "health.correct_measurement"|
+  "health.daily"|
+  "health.get_record"|
+  "health.ingest_batch"|
+  "health.ingest_raw"|
+  "health.record_measurement"|
+  "health.record_workout"|
+  "health.records"|
+  "health.release_history"|
+  "health.set_plan"|
+  "health.set_source_state"|
+  "health.sleep_insights"|
+  "health.sources"|
+  "health.trend"|
+  "health.workout_progression"|
+  "library.annotate"|
+  "library.capture"|
+  "library.claim_processing"|
+  "library.complete_processing"|
+  "library.fail_processing"|
+  "library.get_item"|
+  "library.processing_queue"|
+  "library.queue_processing"|
+  "library.records"|
+  "library.register_derivation"|
+  "library.renew_processing"|
+  "library.retry_processing"|
+  "library.revise"|
+  "library.set_reading_state"|
+  "life.activities"|
+  "life.activity_order"|
+  "life.activity_source"|
+  "life.add_intake"|
+  "life.add_meal_payment"|
+  "life.archive_activity"|
+  "life.attach_meal_source"|
+  "life.build_shopping_list"|
+  "life.capture_export"|
+  "life.capture_insights"|
+  "life.capture_policy"|
+  "life.capture_screenshot"|
+  "life.capture_search"|
+  "life.capture_workspace"|
+  "life.claim_recording"|
+  "life.classify_activity"|
+  "life.cleanup_captures"|
+  "life.complete_recording"|
+  "life.consumption_stats"|
+  "life.correct_intake"|
+  "life.correct_meal"|
+  "life.correct_purchase"|
+  "life.daily_record_check"|
+  "life.day"|
+  "life.delete_activity"|
+  "life.delete_recording"|
+  "life.fail_recording"|
+  "life.food_catalog"|
+  "life.generate_activity_review"|
+  "life.generate_review"|
+  "life.get_record"|
+  "life.ingest_activity"|
+  "life.link_meal_consumption"|
+  "life.list_meals"|
+  "life.meal_planning"|
+  "life.memories"|
+  "life.owned_items"|
+  "life.planning_agenda"|
+  "life.projects"|
+  "life.protect_capture"|
+  "life.reclassify_activities"|
+  "life.record_dining"|
+  "life.record_meal"|
+  "life.record_meal_from_recipe"|
+  "life.record_meal_from_template"|
+  "life.record_owned_item_event"|
+  "life.record_purchase"|
+  "life.register_recording"|
+  "life.remove_intake"|
+  "life.restore_activities"|
+  "life.retry_recording"|
+  "life.reviews"|
+  "life.revise_transcript"|
+  "life.save_action_item"|
+  "life.save_food"|
+  "life.save_meal_plan"|
+  "life.save_meal_template"|
+  "life.save_owned_item"|
+  "life.save_project"|
+  "life.save_recipe"|
+  "life.search"|
+  "life.set_capture_goal"|
+  "life.set_capture_policy"|
+  "life.set_food_stock"|
+  "life.set_order_capture"|
+  "life.set_personal_alias"|
+  "life.timeline"|
+  "life.today"|
+  "life.update_purchase_items"|
+  "life.update_shopping_item"|
+  "life.void_purchase"|
+  "life.wellness_review"|
+  "money.correct_entry"|
+  "money.foreign_entries"|
+  "money.import_file"|
+  "money.import_file_status"|
+  "money.import_history"|
+  "money.import_month"|
+  "money.import_review"|
+  "money.planning"|
+  "money.record_consumable_use"|
+  "money.record_entry"|
+  "money.record_foreign_entry"|
+  "money.record_refund"|
+  "money.record_service_card_use"|
+  "money.records"|
+  "money.resolve_import_candidate"|
+  "money.save_service_card"|
+  "money.service_cards"|
+  "money.set_budget"|
+  "money.set_import_rule"|
+  "money.set_occurrence_state"|
+  "money.set_recurring_plan"|
+  "money.set_spending_intent"|
+  "money.set_use_cycle"|
+  "money.stage_import"|
+  "money.summarize"|
+  "money.update_shared_allocation"|
+  "money.void_entry"|
+  "notifications.list"|
+  "notifications.register_device"|
+  "notifications.set_delivery_state"|
+  "notifications.set_preferences"|
+  "notifications.update"|
+  "operations.find"|
+  "operations.get"|
+  "travel.add_reservation"|
+  "travel.correct_reservation"|
+  "travel.correct_trip"|
+  "travel.create_trip"|
+  "travel.export"|
+  "travel.get_trip"|
+  "travel.import_track"|
+  "travel.preview_portable"|
+  "travel.publish_plan"|
+  "travel.record_segment"|
+  "travel.record_visit"|
+  "travel.records"|
+  "travel.restore_bundle"|
+  "travel.save_map"|
+  "travel.save_place"|
+  "travel.set_checklist"|
+  "travel.set_day_plan"|
+  "travel.set_member"|
+  "travel.set_stop_outcome"|
+  "travel.start_run"|
+  "travel.void_reservation"|
+  "travel.workspace";
+interface DomainCapability {name:string;description:string;inputSchema:z.ZodType<any>;commandSchema:z.ZodType<any>;resultSchema:z.ZodType<any>;possibleEffects:readonly string[];idempotency:"required"|"not-applicable";statusQuery:string;resolveEffects:(input?:any)=>readonly string[];}
+const domainCapabilityRegistry:Record<DomainCapabilityName,DomainCapability> = {
   "life.record_meal": {
     name: "life.record_meal",
     description: "记录实际吃下的一餐，可关联独立付款。购买或赠品不证明摄入；未知营养与时刻省略，估算需 estimate=true 和 evidence_note。订单、商家和多张图片一起录入优先用 life.record_dining。",
@@ -72,6 +238,8 @@ const domainCapabilityRegistry = {
     }
   },
   "life.capture_screenshot":{...write("life.capture_screenshot","收录本人已上传的截图原件，并在视觉处理器可用时排入识别任务。",captureScreenshotSchema,["library.item.write","money.entry.write","life.purchase.write"]),resolveEffects:()=>["library.item.write"]},
+  ...(Object.fromEntries(Object.entries(captureCompletionWrites).map(([name,input])=>[name,{...write(name,({"life.restore_recording":"恢复用户选择的音频与转写为新来源，不覆盖原会话。","life.restore_screenshot":"恢复用户选择的采集图片并关联恢复后的材料，不自动记账。","life.set_capture_policy":"设置采集处理预算、原件保留与自动清理策略。","life.classify_activity":"用户更正活动分类与项目，可保存应用默认规则。","life.reclassify_activities":"对明确选定的活动按当前规则重算，保留用户更正。","life.set_capture_goal":"复用个人意图保存明确的活动时间目标。","life.protect_capture":"将活动或录音设为长期保留或解除保留。","life.restore_activities":"恢复明确选择的导出材料为有来源的新副本，不还原业务付款。","life.cleanup_captures":"按本人已启用的保留策略清理已同步材料，保留手动保护和独立业务事实。"} as Record<string,string>)[name]!,input,["library.item.write",...(name==="life.set_capture_goal"?["agent.run"]:[]),...(["life.classify_activity","life.set_capture_goal"].includes(name)?["life.project.write"]:[])]),resolveEffects:(raw:unknown)=>["library.item.write",...(name==="life.set_capture_goal"?["agent.run"]:[]),...((raw as {project_id?:string}).project_id?["life.project.write"]:[])]}])) as unknown as {[K in keyof typeof captureCompletionWrites]:ReturnType<typeof write>}),
+  ...(Object.fromEntries(Object.entries(captureCompletionQueries).map(([name,schemas])=>[name,{name,description:({"life.capture_insights":"按日周月统计实际采集区间、分类与项目投入，和明确的个人目标对照。","life.capture_policy":"读取本人处理预算、保留策略、积压与存储状态。","life.capture_search":"按日期、关键词、应用、地点、内容、分类或项目搜索本人可见采集原文。","life.capture_export":"分页导出本人可见材料、时间、分类、修订和校验值，原件只提供受保护引用。"} as Record<string,string>)[name]!,inputSchema:schemas.input,commandSchema:schemas.input,resultSchema:schemas.result,possibleEffects:["library.item.read"],resolveEffects:()=>["library.item.read"],idempotency:"not-applicable" as const,statusQuery:"operations.get"}])) as unknown as {[K in keyof typeof captureCompletionQueries]:{name:string;description:string;inputSchema:any;commandSchema:any;resultSchema:any;possibleEffects:readonly string[];resolveEffects:()=>readonly string[];idempotency:"not-applicable";statusQuery:string}}),
   "life.register_recording":write("life.register_recording","注册已上传的本人录音片段并排入带租约的转写队列。",recordingSegmentSchema,["library.item.write"]),
   "life.claim_recording":write("life.claim_recording","处理器领取录音转写任务，返回新的 attempt。",recordingJobSchema,["library.processor.write"]),
   "life.complete_recording":write("life.complete_recording","处理器提交带时间戳的转写；旧 attempt 与过期租约被拒绝。",completeRecordingSchema,["library.processor.write"]),
@@ -249,12 +417,11 @@ const discovery = <const Name extends string, Input extends z.ZodType, Result ex
   name, description, inputSchema, commandSchema: inputSchema, resultSchema, possibleEffects: discoveryEffects,
   idempotency: "not-applicable" as const, statusQuery: "operations.get", resolveEffects: () => [] as readonly string[]
 });
-export const capabilityRegistry = {
-  ...foundationCapabilityRegistry,
-  ...domainCapabilityRegistry,
+const discoveryCapabilityRegistry={
   "agent.discover": discovery("agent.discover", "按业务术语、任务或场景检索当前获准工具；先发现再执行。返回使用口径、示例和可选 Schema，不读取或写入生活事实。", agentDiscoverInputSchema, agentDiscoverResultSchema),
   "agent.glossary": discovery("agent.glossary", "查询生活业务术语、同义词、统计口径及事实边界；个人实体别名通过返回的目录工具查询。", agentGlossaryInputSchema, agentGlossaryResultSchema),
   "agent.scenarios": discovery("agent.scenarios", "列出日常、消费、健康、旅行、资料和规划场景下当前获准工具与操作指引；场景不授予额外权限。", agentScenariosInputSchema, agentScenariosResultSchema),
   "agent.catalog": { name: "agent.catalog", description: "导出当前获准业务术语、场景与完整合同的目录快照，用于调试、差异比较和发布核对；日常任务优先用 agent.discover。", inputSchema: agentCatalogInputSchema, commandSchema: agentCatalogInputSchema, resultSchema: agentCatalogSnapshotSchema, possibleEffects: discoveryEffects, idempotency: "not-applicable" as const, statusQuery: "operations.get", resolveEffects: () => [] as readonly string[] }
 };
+export const capabilityRegistry:typeof foundationCapabilityRegistry & typeof domainCapabilityRegistry & typeof discoveryCapabilityRegistry={...foundationCapabilityRegistry,...domainCapabilityRegistry,...discoveryCapabilityRegistry};
 export type CapabilityName = keyof typeof capabilityRegistry;

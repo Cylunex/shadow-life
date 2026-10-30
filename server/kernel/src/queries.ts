@@ -1,3 +1,4 @@
+import { captureCompletionQueries } from "@shadow/contracts";
 import { activitySourceResultSchema } from "@shadow/contracts";
 import { moneyImportFileResultSchema } from "@shadow/contracts";
 import { moneyImportHistoryInputSchema, moneyImportHistoryResultSchema, instant, stableId } from "@shadow/contracts";
@@ -225,9 +226,21 @@ export class QueryService {
   async moneyImportFile(context:RequestContext,fileId:string){if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");const read=this.unitOfWork.snapshot?.bind(this.unitOfWork)??this.unitOfWork.read.bind(this.unitOfWork);const value=await read(store=>store.moneyImportFile(context.subjectId,fileId));if(value===undefined)throw notFound("statement file was not found");return moneyImportFileResultSchema.parse(value);}
   async moneyImportReview(context:RequestContext,batchId:string){if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");const read=this.unitOfWork.snapshot?.bind(this.unitOfWork)??this.unitOfWork.read.bind(this.unitOfWork);const value=await read(store=>store.moneyImportReview(context.subjectId,batchId));if(value===undefined)throw notFound("money import batch was not found");return moneyImportReviewResultSchema.parse(value);}
   async moneyImportMonth(context:RequestContext,input:unknown){if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");const {period}=moneyImportMonthInputSchema.parse(input);return moneyImportMonthResultSchema.parse(await this.unitOfWork.read(store=>store.moneyImportMonth(context.subjectId,period)));}
+  async captureCompletion(context:RequestContext,name:string,input:unknown){
+    if(!context.effects.has("library.item.read"))throw permissionDenied("library.item.read");
+    const schema=captureCompletionQueries[name as keyof typeof captureCompletionQueries];if(!schema)throw notFound("Capture query");const parsed=schema.input.parse(input);
+    const result:any=await this.unitOfWork.read(store=>{if(!store.captureCompletion)throw notFound("Capture storage");return store.captureCompletion(context.subjectId,name,parsed,context);});
+    if(name==="life.capture_insights"){
+      const date=(parsed as {date:string}).date;const today=await this.lifeToday(context,{date,time_zone:(parsed as {time_zone:string}).time_zone});const facts:Array<{label:string;value:string;unit:string}>=[];
+      if(today.domains.meals)facts.push({label:"当天已记录餐次",value:String(today.domains.meals.count),unit:"次"});
+      for(const total of today.domains.money?.totals??[])facts.push({label:"当天净支出",value:total.net_spending,unit:total.currency});
+      if(today.domains.health)facts.push({label:"当天健康记录",value:String(today.domains.health.facts),unit:"项"});result.daily_facts=facts;
+    }
+    return schema.result.parse(result);
+  }
   async activitySource(context:RequestContext,input:unknown){
     if(!context.effects.has("library.item.read"))throw permissionDenied("library.item.read");const parsed=activityActionInputSchema.parse(input);
-    return this.unitOfWork.read(async store=>{const source=await store.activitySource?.(context.subjectId,parsed.id);if(!source)throw notFound("Activity source");return activitySourceResultSchema.parse(source);});
+    return this.unitOfWork.read(async store=>{const source=await store.activitySource?.(context.subjectId,parsed.id);if(!source)throw notFound("Activity source");const result=activitySourceResultSchema.parse(source);if(!context.effects.has("life.project.read")){result.project_id=null;result.project_title=null;}return result;});
   }
   async captureWorkspace(context:RequestContext,input:unknown){
     if(!context.effects.has("library.item.read"))throw permissionDenied("library.item.read");

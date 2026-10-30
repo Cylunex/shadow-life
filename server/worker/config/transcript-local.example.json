@@ -1,0 +1,1 @@
+{"kind":"local","python":"/REPLACE_SHARED_DIRECTORY/transcription-python/bin/python3","model_path":"/REPLACE_SHARED_DIRECTORY/transcription-models/small","language":"zh","cpu_threads":2,"timeout_ms":180000}

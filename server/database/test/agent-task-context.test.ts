@@ -11,12 +11,16 @@ test('task context validity and projections share one statement during concurren
   const {pool,run,context,queries}=await reviewFixture(t);
   const saved=await run('health.record_measurement',{metric:'weight',value:'60',unit:'kg',label:'修订前体重',occurred_on:'2026-09-10',time_zone:'Asia/Shanghai'});
   const id=String(saved.actual_values.measurement_id),database=drizzle(pool,{schema});let statements=0;
-  const wrapped={execute:async(statement:any)=>{statements++;return database.execute(sql`/*offline_context_snapshot*/ with delayed as materialized(select pg_sleep(0.2)) select snapshot.* from delayed cross join lateral (${statement}) snapshot`);}} as Parameters<typeof readAgentContext>[0];
+  const gate=await pool.connect();await gate.query('select pg_advisory_lock(hashtextextended($1,99))',[id]);
+  const wrapped={execute:async(statement:any)=>{statements++;return database.execute(sql`/*offline_context_snapshot*/ with delayed as materialized(select pg_advisory_xact_lock(hashtextextended(${id},99))) select snapshot.* from delayed cross join lateral (${statement}) snapshot`);}} as Parameters<typeof readAgentContext>[0];
   const pending=readAgentContext(wrapped,context.subjectId,{input:agentContextInputSchema.parse({object_refs:[{kind:'health_measurement',id,revision:1}],response_format:'detailed'}),kinds:['health_measurement'],includeMoney:false,preferenceScopes:['health']});
-  for(let i=0;i<100;i++){const active=await pool.query("select 1 from pg_stat_activity where pid<>pg_backend_pid() and state='active' and query like $1",['/*offline_context_snapshot*/%']);if(active.rowCount)break;await new Promise(resolve=>setTimeout(resolve,5));}
+  try{let entered=false;for(let i=0;i<200;i++){const active=await pool.query("select 1 from pg_stat_activity where pid<>pg_backend_pid() and state='active' and wait_event_type='Lock' and query like $1",['/*offline_context_snapshot*/%']);if(active.rowCount){entered=true;break;}await new Promise(resolve=>setTimeout(resolve,5));}
+  assert.equal(entered,true,'Context statement reached the snapshot barrier');
   await run('health.correct_measurement',{measurement_id:id,expected_revision:1,metric:'weight',value:'61',unit:'kg',label:'修订后体重',occurred_on:'2026-09-10',time_zone:'Asia/Shanghai',reason:'并发合成更正'});
+  await gate.query('select pg_advisory_unlock(hashtextextended($1,99))',[id]);
   const result=await pending;assert.equal(statements,1);assert.equal(result.refsAvailable,true);assert.equal(result.records[0]?.ref.revision,1);assert.equal(result.records[0]?.title,'修订前体重');assert.equal(result.records[0]?.facts?.value,'60.000000');
   await assert.rejects(()=>queries.agentContext(context,{object_refs:[{kind:'health_measurement',id,revision:1}]}),/unavailable/);
+  }finally{await gate.query('select pg_advisory_unlock_all()');await pending.catch(()=>{});gate.release();}
 });
 
 test('replayed Host query evidence is revalidated after archive, correction, permission withdrawal and expiry',pgOnly,async t=>{

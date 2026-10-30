@@ -11,6 +11,12 @@ data class QueueStatusRow(
 )
 data class CommittedCommandRow(val commandId:String,val accountId:String,val subjectId:String,val capability:String,val state:String,val createdAt:Long,val receiptBody:String)
 @Dao interface CommandDao{
+  @Query("delete from pending_commands where accountId=:account and subjectId=:subject and state='committed' and createdAt<:before and capability in ('life.ingest_activity','life.register_recording','life.capture_screenshot','life.restore_activities','life.restore_recording')")suspend fun pruneCommittedCaptures(account:String,subject:String,before:Long):Int
+
+  @Query("select * from pending_commands where accountId=:account and subjectId=:subject and state in ('pending','uploading','unknown','blocked','failed') and capability in ('life.ingest_activity','life.capture_screenshot','life.register_recording','life.restore_activities','life.restore_recording') order by createdAt desc limit 100")suspend fun localCaptures(account:String,subject:String):List<PendingCommand>
+  @Query("select * from pending_commands where accountId=:account and subjectId=:subject and state in ('pending','uploading','unknown') and encryptionVersion=1 and (:includeCaptures or capability not in ('life.ingest_activity','life.capture_screenshot','life.register_recording','life.restore_activities','life.restore_recording')) order by case when capability='life.set_capture_policy' then 0 else 1 end,createdAt limit :limit")suspend fun readyCommands(account:String,subject:String,includeCaptures:Boolean,limit:Int):List<PendingCommand>
+  @Query("select * from pending_attachments where accountId=:account and subjectId=:subject and state in ('pending','uploading','unknown') and encryptionVersion=1 and (:includeCaptures or captureMetadata='') order by createdAt limit :limit")suspend fun readyAttachments(account:String,subject:String,includeCaptures:Boolean,limit:Int):List<PendingAttachment>
+
   @Query("select * from health_sync_rounds where accountId=:account and subjectId=:subject")suspend fun healthRound(account:String,subject:String):HealthSyncRoundRow?
   @Insert(onConflict=OnConflictStrategy.REPLACE)suspend fun saveHealthRound(value:HealthSyncRoundRow)
   @Transaction suspend fun confirmHealthRound(account:String,subject:String,commandId:String){

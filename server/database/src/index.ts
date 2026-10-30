@@ -13,3 +13,5 @@ export * as schema from "./schema.js";
 export * from "./recording-worker.js";
 
 export { materializeCaptureReviews } from "./capture-review-worker.js";
+
+export { maintainCaptureRetention } from "./capture-maintenance-worker.js";

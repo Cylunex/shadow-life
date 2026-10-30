@@ -51,6 +51,7 @@ export interface TransactionStore {
   summarizeMoney(subjectId: string): Promise<MoneySummary>;
   executeDomainWrite(value: { subjectId: string; command: UniversalCommandEnvelope; context?: RequestContext; nextId(type: string): string }): Promise<{ resources: ExecutionResult["resources"]; actualValues: ExecutionResult["actual_values"]; warnings?: string[] }>;
   listDomain(subjectId:string,domain:"money"|"health"|"travel"|"library",options:{includePurchase?:boolean;query?:string;limit:number;asOf?:string;before?:{at:string;kind:string;id:string}}):Promise<{items:readonly DomainRecordPageItem[];hasMore:boolean;asOf:string}>;
+  captureCompletion?(subjectId:string,name:string,input:unknown,context:RequestContext):Promise<unknown>;
   captureWorkspace?(subjectId:string,input:{date:string;time_zone:string;recordings_before_id?:string|undefined}):Promise<unknown>;
   activitySource?(subjectId:string,id:string):Promise<unknown>;
   activityMaterial?(subjectId:string,id:string):Promise<{id:string;text:string|null}|undefined>;

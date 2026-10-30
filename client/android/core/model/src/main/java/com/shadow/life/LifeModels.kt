@@ -256,3 +256,5 @@ data class CaptureDraft(
   val contextId:String?=null
 )
 data class MealDraftItem(val name:String="",val quantity:String="",val unit:String="",val energyKcal:String="",val proteinG:String="",val fatG:String="",val carbG:String="")
+
+@kotlinx.serialization.Serializable data class CaptureSourceRoute(val id:String)

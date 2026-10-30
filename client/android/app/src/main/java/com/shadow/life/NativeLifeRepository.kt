@@ -41,6 +41,10 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   suspend fun updateNotification(id:String,action:String,snoozedUntil:String?=null):OperationReceipt=withContext(Dispatchers.IO){enqueueCommand("notifications.update",JSONObject().put("notification_id",id).put("action",action).apply{snoozedUntil?.let{put("snoozed_until",it)}})}
   suspend fun setNotificationPreferences(enabled:Boolean,quietStart:String?,quietEnd:String?):OperationReceipt=withContext(Dispatchers.IO){enqueueCommand("notifications.set_preferences",JSONObject().put("enabled",enabled).put("time_zone",ZoneId.systemDefault().id).apply{if(quietStart!=null&&quietEnd!=null){put("quiet_start",quietStart);put("quiet_end",quietEnd)}})}
   suspend fun registerNotificationDevice(authorizationState:String):OperationReceipt=withContext(Dispatchers.IO){val installationId=app.sessions.installationId();val receipt=enqueueCommand("notifications.register_device",JSONObject().put("installation_id",installationId).put("platform","android").put("authorization_state",authorizationState),"cmd_android_notification_installation_${installationId.removePrefix("installation_").take(48)}_${System.currentTimeMillis()}");if(authorizationState=="enabled")app.sessions.active()?.accountId?.let{NotificationSyncScheduler.schedule(context,it)};receipt}
+  internal suspend fun capturePolicy():CapturePolicyResultDto=wireJson.decodeFromString(getText("/api/life/capture/policy"))
+  internal suspend fun captureInsights(date:LocalDate,period:String):CaptureInsightsResultDto=wireJson.decodeFromString(getText("/api/life/capture/insights?date=$date&time_zone=${encode(ZoneId.systemDefault().id)}&period=$period"))
+  internal suspend fun captureSearch(from:String,to:String,query:String="",kind:String?=null,behavior:String?=null,project:String?=null,before:String?=null):CaptureSearchResultDto=wireJson.decodeFromString(getText("/api/life/capture/search?from_on=$from&to_on_exclusive=$to&time_zone=${encode(ZoneId.systemDefault().id)}&q=${encode(query)}"+listOf("kind" to kind,"behavior" to behavior,"project_id" to project,"before_id" to before).filter{it.second!=null}.joinToString(""){"&${it.first}=${encode(it.second!!)}"}))
+  internal suspend fun captureExport(from:String,to:String,before:String?=null):CaptureExportResultDto=wireJson.decodeFromString(getText("/api/life/capture/export?from_on=$from&to_on_exclusive=$to&time_zone=${encode(ZoneId.systemDefault().id)}${before?.let{"&before_id=${encode(it)}"}.orEmpty()}"))
   internal suspend fun activities(date:LocalDate,before:String?=null):ActivitiesResultDto = wireJson.decodeFromString(getText("/api/life/activities?date=$date&time_zone=${encode(ZoneId.systemDefault().id)}&limit=50${before?.let{"&before_id=${encode(it)}"}.orEmpty()}"))
   internal suspend fun activitySource(id:String):ActivitySourceResultDto=wireJson.decodeFromString(getText("/api/life/activities/${encode(id)}"))
   internal suspend fun captureWorkspace(date:LocalDate,before:String?=null):CaptureWorkspaceResultDto=wireJson.decodeFromString(getText("/api/life/capture-workspace?date=$date&time_zone=${encode(ZoneId.systemDefault().id)}${before?.let{"&recordings_before_id=${encode(it)}"}.orEmpty()}"))
@@ -68,7 +72,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     val query=buildList { add("limit=30");add("domains="+domains.joinToString(","){it.name.lowercase()});if(cursor!=null)add("cursor=${encode(cursor)}") }.joinToString("&")
     val result=wireJson.decodeFromString<LifeTimelineResultDto>(getText("/api/timeline?$query"))
     return TimelinePage(result.items.map{
-      TimelineItem(domainFromWire(it.domain.wireValue),it.kind,it.id,it.happenedAt,it.title,it.amount,it.currency,it.recordId)
+      TimelineItem(domainFromWire(it.domain.wireValue),it.kind,if(it.kind=="activity_capture")"capture:${it.id}" else it.id,it.happenedAt,it.title,it.amount,it.currency,it.recordId)
     },result.nextCursor,result.asOf)
   }
   suspend fun day(date:LocalDate,cursor:String?=null):DayPage {
@@ -94,7 +98,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     val filters=domains?.takeIf{it.isNotEmpty()}?.joinToString(",",prefix="&types="){it.name.lowercase()}.orEmpty()
     val result=wireJson.decodeFromString<LifeSearchResultDto>(getText("/api/search?q=${encode(query)}&limit=50$filters${cursor?.let{"&cursor=${encode(it)}"}.orEmpty()}"))
     return RecordPage(result.items.map{item->
-      RecordSummary(domainFromWire(item.domain.wireValue),item.kind,item.id,item.title,item.supporting?:item.happenedOn,item.amount?.let{listOfNotNull(item.currency,it).joinToString(" ")},null,item.recordId)
+      RecordSummary(domainFromWire(item.domain.wireValue),item.kind,if(item.kind=="activity_capture")"capture:${item.id}" else item.id,item.title,item.supporting?:item.happenedOn,item.amount?.let{listOfNotNull(item.currency,it).joinToString(" ")},null,item.recordId)
     },result.nextCursor,result.asOf)
   }
 

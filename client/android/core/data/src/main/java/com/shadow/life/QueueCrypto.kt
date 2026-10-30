@@ -46,6 +46,10 @@ class QueueCrypto {
     CipherOutputStream(data,cipher).use{encrypted->input.use{it.copyTo(encrypted)}}
   }
 
+  fun openAttachmentInput(attachment:PendingAttachment,input:InputStream):InputStream {
+    val data=DataInputStream(input);val magic=ByteArray(MAGIC.size);data.readFully(magic);check(magic.contentEquals(MAGIC)&&attachment.encryptionVersion==1);val size=data.readUnsignedByte();check(size in 12..32);val iv=ByteArray(size);data.readFully(iv)
+    return CipherInputStream(data,protect{decryptCipher(attachment.accountId,iv,aad(attachment.accountId,attachment.subjectId,"attachment",attachment.id))})
+  }
   fun decryptAttachment(attachment:PendingAttachment,input:InputStream,output:OutputStream){
     val data=DataInputStream(input)
     val iv=protect{

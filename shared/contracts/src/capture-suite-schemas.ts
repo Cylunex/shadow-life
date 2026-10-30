@@ -13,14 +13,16 @@ export const reviseTranscriptSchema=z.object({segment_id:id,expected_revision:z.
 export const orderCaptureRuleSchema=z.object({app_package:z.string().trim().min(1).max(300),platform:z.enum(["generic","taobao","jd","meituan","alipay","wechat"]),source_account:z.string().trim().min(1).max(200),enabled:z.boolean(),auto_accounting:z.boolean().default(false)}).strict();
 export const activityReviewInputSchema=z.object({date:z.iso.date(),time_zone:zone,period:z.enum(["day","week","month"])}).strict();
 export const captureWorkspaceResultSchema=z.object({
- recordings:z.array(z.object({id,session_id:id,title:z.string(),started_at:time,ended_at:time,asset_version_id:id,state:z.enum(["queued","running","completed","failed"]),revision:z.number().int().positive(),attempt:z.number().int().nonnegative(),spans:z.array(transcriptSpanSchema),error:z.string().nullable(),processor_version:z.string().nullable()}).strict()).max(100),
+ recordings:z.array(z.object({id,session_id:id,title:z.string(),started_at:time,ended_at:time,asset_version_id:id,state:z.enum(["queued","running","completed","failed"]),revision:z.number().int().positive(),attempt:z.number().int().nonnegative(),spans:z.array(transcriptSpanSchema),error:z.string().nullable(),processor_version:z.string().nullable(),audio_available:z.boolean(),protected:z.boolean()}).strict()).max(100),
  orders:z.array(z.object({id,platform:z.string(),source_account:z.string(),external_id:z.string(),status:z.string(),source_count:z.number().int().nonnegative(),fields:z.string(),record_id:z.string().nullable(),conflict:z.boolean()}).strict()).max(100),
  rules:z.array(orderCaptureRuleSchema).max(100),
  reviews:z.array(z.object({id,period:z.enum(["day","week","month"]),from_on:z.iso.date(),to_on_exclusive:z.iso.date(),time_zone:zone,revision:z.number().int().positive(),stale:z.boolean(),body:z.string(),source_refs:z.array(z.object({id,title:z.string(),started_at:time}).strict()).max(500),source_count:z.number().int().nonnegative(),generated_at:time}).strict()).max(12),
  recordings_next_before_id:id.nullable(),truncated:z.boolean(),transcription_available:z.boolean()
 }).strict();
 
-export const transcriptConfigSchema=z.object({url:z.url(),model:z.string().min(1).max(100),token_file:z.string().optional(),language:z.string().max(20).optional(),timeout_ms:z.number().int().min(1000).max(180000).default(120000)}).strict();
+const remoteTranscriptConfigSchema=z.object({url:z.url(),model:z.string().min(1).max(100),token_file:z.string().optional(),language:z.string().max(20).optional(),timeout_ms:z.number().int().min(1000).max(180000).default(120000)}).strict();
+const localTranscriptConfigSchema=z.object({kind:z.literal("local"),python:z.string().min(1),model_path:z.string().min(1),model_id:z.string().max(60).default("local-whisper"),expected_model_bytes:z.number().int().positive().optional(),language:z.string().max(20).default("zh"),cpu_threads:z.number().int().min(1).max(8).default(2),timeout_ms:z.number().int().min(1000).max(180000).default(180000)}).strict();
+export const transcriptConfigSchema=z.union([localTranscriptConfigSchema,remoteTranscriptConfigSchema]);
 export const transcriptResponseSchema=z.object({text:z.string().optional(),segments:z.array(z.object({start:z.number().nonnegative(),end:z.number().positive(),text:z.string(),speaker:z.string().optional()}).passthrough()).max(500)}).passthrough();
 export type TranscriptConfig=z.infer<typeof transcriptConfigSchema>;
 export type TranscriptSpans=z.infer<typeof completeRecordingSchema>["spans"];
