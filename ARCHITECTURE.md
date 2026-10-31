@@ -59,6 +59,9 @@ Agent 任务上下文、来源和离线评测见 [任务上下文设计](docs/ar
 
 健康与饮食的联合复盘、覆盖口径和共同 Agent 查询见 [健康与饮食复盘](docs/architecture/wellness-review.md)。
 
+按生活事件归组的记录页、分类详情与明亮领域配色设计见
+[事件记录与分类详情](docs/architecture/event-details-visual-design.md)（设计稿，待实施）。
+
 三星健康约 30 分钟后台同步、主动分享／截图触发 Losna 直接处理及 QQ 通知的待实施方案见
 [健康采集与 Losna 分析](docs/architecture/health-capture-losna.md)。
 
