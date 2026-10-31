@@ -59,6 +59,9 @@ Agent 任务上下文、来源和离线评测见 [任务上下文设计](docs/ar
 
 健康与饮食的联合复盘、覆盖口径和共同 Agent 查询见 [健康与饮食复盘](docs/architecture/wellness-review.md)。
 
+三星健康约 30 分钟后台同步、主动分享／截图触发 Losna 分析及结果回流的待实施方案见
+[健康采集与 Losna 分析](docs/architecture/health-capture-losna.md)。
+
 账目省略字段保留、显式清空、时间一致性与兼容边界见 [账目局部更正](docs/architecture/money-corrections.md)。
 
 Android 自动采集、应用使用、订单与活动整理、录音地点及分层回顾的拟议设计见
