@@ -108,7 +108,7 @@ object SamsungSync {
     val data=workDataOf("account_id" to accountId)
     val constraints=Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
     val work=WorkManager.getInstance(context)
-    work.enqueueUniquePeriodicWork("shadow-samsung-$accountId",ExistingPeriodicWorkPolicy.UPDATE,PeriodicWorkRequestBuilder<SamsungSyncWorker>(1,TimeUnit.HOURS).setInputData(data).setConstraints(constraints).build())
+    work.enqueueUniquePeriodicWork("shadow-samsung-$accountId",ExistingPeriodicWorkPolicy.UPDATE,PeriodicWorkRequestBuilder<SamsungSyncWorker>(30,TimeUnit.MINUTES).setInputData(data).setConstraints(constraints).build())
     val immediate=OneTimeWorkRequestBuilder<SamsungSyncWorker>().setInputData(data).setConstraints(constraints).apply{if(initialDelaySeconds>0)setInitialDelay(initialDelaySeconds,TimeUnit.SECONDS)}.build()
     work.enqueueUniqueWork("shadow-samsung-now-$accountId",ExistingWorkPolicy.KEEP,immediate)
   }

@@ -154,3 +154,16 @@ test('query replay invalidates changed intentions and byte budgets keep valid JS
   assert.equal(expanded.next_offset,null);
   assert.equal(foundationQueries['agent.changes'].input.safeParse({consumer:'test',after:'malformed'}).success,false);
 });
+
+test('Life share intake tags survive the authorized change stream without exposing another subject',pgOnly,async t=>{
+  const {run,queries,context,unitOfWork}=await reviewFixture(t);
+  await run('agent.set_subscription',{consumer:'losna-feed-fixture',scope:'library',object_refs:[],state:'active'});
+  const saved=await run('library.capture',{title:'合成分享材料',item_type:'note',text:'这是用于离线测试的午饭说明',tags:['losna:process','losna:batch:fixture']});
+  const ref={kind:'library_item',id:String(saved.actual_values.library_item_id),revision:1};
+  const objects=await queries.foundation(context,'agent.objects',{object_refs:[ref],limit:1}) as any;
+  assert.deepEqual(objects.nodes[0].data.tags,['losna:process','losna:batch:fixture']);
+  const changes=await queries.foundation(context,'agent.changes',{consumer:'losna-feed-fixture',after:'0',limit:50}) as any;
+  assert.ok(changes.items.some((event:any)=>event.refs.some((r:any)=>r.id===ref.id)));
+  const other={...context,subjectId:'subject_feed_other',actorId:'subject_feed_other'};await unitOfWork.ensurePrincipal(other.subjectId);
+  await assert.rejects(()=>queries.foundation(other,'agent.objects',{object_refs:[ref],limit:1}),/unavailable/);
+});

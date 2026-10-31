@@ -21,7 +21,7 @@ export async function writeCaptureSuite(db:DB,subject:string,command:UniversalCo
  if(capability==="life.capture_screenshot"){
   const input=captureScreenshotSchema.parse(command.input);
   const asset=await db.execute(sql`select 1 from asset_versions v join assets a on a.id=v.asset_id where v.id=${input.asset_version_id} and a.subject_id=${subject} and a.media_type in ('image/png','image/jpeg','image/webp')`);if(!asset.rowCount)throw conflict("截图原件不可用");
-  const result=await nested({protocol:"shadow.command",command_id:command.command_id,capability:"library.capture",input:{title:input.title,item_type:"image",tags:["截图收录"],source:{kind:"image",asset_version_id:input.asset_version_id,captured_at:input.captured_at,time_zone:input.time_zone}}});
+  const result=await nested({protocol:"shadow.command",command_id:command.command_id,capability:"library.capture",input:{title:input.title,item_type:"image",tags:["截图收录","losna:process"],source:{kind:"image",asset_version_id:input.asset_version_id,captured_at:input.captured_at,time_zone:input.time_zone}}});
   const screenshotId=String(result.actualValues.library_item_id);
   await db.execute(sql`insert into capture_screenshot_sources(item_id,subject_id,app_package,captured_at,time_zone) values(${screenshotId},${subject},${input.app_package??null},${input.captured_at}::timestamptz,${input.time_zone})`);
   const policy=(await capturePolicy(db,subject)).policy;let canRecognize=false;
