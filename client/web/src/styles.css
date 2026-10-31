@@ -1158,3 +1158,49 @@ button.secondary,.soft-button { color:#c3cbd3; border-color:var(--line-strong); 
 
 .travel-itinerary-workspace>div { min-width:0; }
 @media(max-width:900px){.travel-itinerary-workspace { grid-template-columns:minmax(0,1fr); }}
+
+/* Event-first reading surfaces. Domain identity is independent of assessment. */
+:root {color-scheme:dark;--surface:#101012;--line:#27272b;--text:#f5f5f7;--muted:#a8a8b0;background:#000;color:var(--text);font-family:Inter,system-ui,sans-serif;}
+body, main, .app-shell {background:#000;color:var(--text);}
+h1,h2,h3,article strong {font-family:inherit;}
+form,.receipt,.workspace>section,.health-panel,.record-browser,.library-panel,.travel-panel,.food-panel,.money-planning,.empty-state,.import-panel,article,.wide,.health-card,.candidate,.record-detail-content,.owned-items,.life-reviews,.life-projects,.meal-planning,.foreign-money {background:#101012;color:var(--text);border-color:#27272b;box-shadow:none;}
+input,textarea,select {background:#080809;color:var(--text);border-color:#35353b;}
+button {background:#b9ef68;color:#173f2b;}
+p,small,dt,label small,header p,.eyebrow,.trend-summary,.trend-list time,.source-list small,.health-card p,.health-card dt,.run-state,pre {color:#a8a8b0;}
+nav button {color:#a8a8b0;border-color:#35353b;}
+nav button.active {background:#b9ef68;color:#173f2b;}
+a {color:#b9ef68;}
+.record-hero {border:0;border-radius:24px;padding:24px;background:#b9ef68!important;color:#173f2b!important;}
+.record-hero p,.record-hero small,.record-hero h2,.record-hero strong {color:inherit!important;}
+.record-hero.meals {background:#ffd39c!important;color:#683b16!important;}
+.record-hero.money {background:#ffe586!important;color:#59451a!important;}
+.record-hero.travel {background:#aee7f3!important;color:#194a5b!important;}
+.record-hero.library {background:#f7c5e3!important;color:#66354f!important;}
+.record-hero strong {font-size:clamp(28px,6vw,44px);}
+.event-body {padding:12px 0 24px;}
+.event-body h3 {margin:20px 0 14px;}
+.event-metrics {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 18px;margin:20px 0;}
+.event-metric,.event-metrics>button {display:flex;flex-direction:column;align-items:flex-start;gap:8px;background:transparent;border:0;border-radius:0;padding:8px 0;text-align:left;min-width:0;overflow-wrap:anywhere;}
+.event-metrics strong {font-size:26px;color:#b9ef68;font-weight:600;}
+.event-metrics em {font-size:14px;font-style:normal;}
+.event-metrics button[aria-pressed=true] {border-bottom:2px solid #b9ef68;}
+.event-lines {padding:0;list-style:none;}
+.event-lines li {display:flex;justify-content:space-between;gap:16px;padding:18px 0;border-bottom:1px solid #27272b;}
+.event-lines li div {display:grid;gap:6px;}
+.stage-bar {display:flex;height:28px;gap:3px;overflow:hidden;border-radius:8px;}
+.sleep-body .event-metrics strong {color:#dcd1ff;}
+.meal-body .event-metrics strong {color:#ffd39c;}
+.money-body .event-metrics strong {color:#ffe586;}
+.reading-text {white-space:pre-wrap;font-size:17px;line-height:1.9;overflow-wrap:anywhere;}
+.detail-extra,.detail-meta {padding:18px 0;border-top:1px solid #27272b;margin:20px 0;}
+.detail-section,.structured-fields>div,.detail-relations a,.detail-object-list>li {background:transparent;color:var(--text);border-color:var(--line);box-shadow:none;}
+@media(max-width:380px){.event-metrics{grid-template-columns:1fr}.event-lines li{flex-wrap:wrap}}
+:root {--surface-strong:#101012;--surface-raised:#171719;--ink:#f5f5f7;--primary:#b9ef68;--primary-deep:#79b83f;}
+html,body {background:#000;}
+.event-view-switch {display:flex;gap:10px;margin:16px 0;flex-wrap:wrap;}
+.event-view-switch button {background:transparent;color:#a8a8b0;border:1px solid #35353b;}
+.event-view-switch button[aria-pressed=true] {background:#f5f5f7;color:#101012;}
+.record-hero.sleep_session {background:#dcd1ff!important;color:#47346f!important;}
+.record-hero.workout_session {background:#ffbfae!important;color:#67302c!important;}
+.asset-preview {background:#101012;color:#f5f5f7;border-color:#27272b;}
+.asset-preview img {max-width:100%;height:auto;border-radius:18px;}

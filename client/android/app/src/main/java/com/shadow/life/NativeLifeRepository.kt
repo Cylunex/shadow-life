@@ -68,15 +68,16 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     )
   }
 
+  var recordView:String="events"
   suspend fun timeline(cursor:String?=null,domains:Set<LifeDomain> = LifeDomain.entries.toSet()):TimelinePage {
     val query=buildList { add("limit=30");add("domains="+domains.joinToString(","){it.name.lowercase()});if(cursor!=null)add("cursor=${encode(cursor)}") }.joinToString("&")
-    val result=wireJson.decodeFromString<LifeTimelineResultDto>(getText("/api/timeline?$query"))
+    val result=wireJson.decodeFromString<LifeTimelineResultDto>(getText("/api/timeline?view=$recordView&$query"))
     return TimelinePage(result.items.map{
       TimelineItem(domainFromWire(it.domain.wireValue),it.kind,if(it.kind=="activity_capture")"capture:${it.id}" else it.id,it.happenedAt,it.title,it.amount,it.currency,it.recordId)
     },result.nextCursor,result.asOf)
   }
   suspend fun day(date:LocalDate,cursor:String?=null):DayPage {
-    val result=wireJson.decodeFromString<LifeDayResultDto>(getText("/api/life/day?date=$date&time_zone=${encode(ZoneId.systemDefault().id)}&limit=30${cursor?.let{"&cursor=${encode(it)}"}.orEmpty()}"))
+    val result=wireJson.decodeFromString<LifeDayResultDto>(getText("/api/life/day?view=$recordView&date=$date&time_zone=${encode(ZoneId.systemDefault().id)}&limit=30${cursor?.let{"&cursor=${encode(it)}"}.orEmpty()}"))
     return DayPage(result.date,result.items.map{DayEntry(it.domain.wireValue,it.kind,it.id,it.recordId,it.happenedOn?:result.date,it.title,it.amount,it.currency,related=it.related.map{link->DayRelated(link.domain.wireValue,link.kind,link.id,link.title)})},result.total.toInt(),result.nextCursor,result.asOf,result.authorizedDomains.map{it.wireValue})
   }
   suspend fun memories(date:LocalDate):List<DayEntry>{
@@ -96,7 +97,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
 
   private suspend fun search(query:String,cursor:String?,domains:Set<LifeDomain>?):RecordPage {
     val filters=domains?.takeIf{it.isNotEmpty()}?.joinToString(",",prefix="&types="){it.name.lowercase()}.orEmpty()
-    val result=wireJson.decodeFromString<LifeSearchResultDto>(getText("/api/search?q=${encode(query)}&limit=50$filters${cursor?.let{"&cursor=${encode(it)}"}.orEmpty()}"))
+    val result=wireJson.decodeFromString<LifeSearchResultDto>(getText("/api/search?view=$recordView&q=${encode(query)}&limit=50$filters${cursor?.let{"&cursor=${encode(it)}"}.orEmpty()}"))
     return RecordPage(result.items.map{item->
       RecordSummary(domainFromWire(item.domain.wireValue),item.kind,if(item.kind=="activity_capture")"capture:${item.id}" else item.id,item.title,item.supporting?:item.happenedOn,item.amount?.let{listOfNotNull(item.currency,it).joinToString(" ")},null,item.recordId)
     },result.nextCursor,result.asOf)
@@ -320,7 +321,12 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     if(domain==LifeDomain.Library)return libraryDetail(wireJson.decodeFromString(getText(path)))
     if(domain==LifeDomain.Travel)return travelDetail(wireJson.decodeFromString(getText(path)))
     if(domain==LifeDomain.Meals||domain==LifeDomain.Money)return lifeRecordDetail(domain,wireJson.decodeFromString(getText(path)))
-    return healthDetail(wireJson.decodeFromString(getText(path)))
+    val wire=wireJson.decodeFromString<HealthRecordResultDto>(getText(path))
+    val detail=healthDetail(wire)
+    if(wire !is HealthRecordResultDtoObservation)return detail
+    val metric=wire.fact.metricKey.wireValue
+    val points=partialRequest { val data=JSONObject(getText("/api/health/trend?metric_key=${encode(metric)}&limit=30${wire.fact.originalField?.let{"&original_field=${encode(it)}"}.orEmpty()}"));val rows=data.optJSONArray("points")?:JSONArray();(0 until rows.length()).map { val row=rows.getJSONObject(it);HealthTrendPoint(row.getString("id"),row.getString("occurred_on"),row.getString("value").toDouble(),row.getString("value"),row.getString("unit"),row.optString("source_kind"),row.optInt("revision",1)) }.filter{it.unit==wire.fact.unit} }.getOrDefault(emptyList())
+    return detail.copy(metrics=wire.fact.relatedObservations.map{DetailMetric(it.id,it.metricKey.wireValue,healthSeriesLabel(healthSeriesKey(it.metricKey.wireValue,it.originalField)),healthValueText(it.value,it.unit),unitLabel(it.unit),it.autofilled)},trend=points)
   }
 
   suspend fun saveTravelDay(draft:TravelDayDraft):OperationReceipt=withContext(Dispatchers.IO){
@@ -801,7 +807,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       is HealthRecordResultDtoMeasurement->{val fact=value.fact;val label=fact.label?:healthMetricLabel(fact.metric.wireValue);val shown=healthValueText(fact.value,fact.unit);build(label,fact.revision,listOfNotNull(fact.occurredAt?.let{DetailFact("测量时间",localDateTime(it,fact.timeZone)?:it)},DetailFact("发生日期",fact.occurredOn),DetailFact("数据精度",if(fact.autofilled)"推导值" else "原始值"),fact.note?.let{DetailFact("备注",it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue,if(value.raw==null)EditSeed.Health(fact.id,fact.revision.toInt(),fact.metric.wireValue,fact.value,fact.unit,fact.occurredOn,fact.timeZone,fact.label,fact.note) else null,DetailPresentation.HealthMetric,"$shown ${unitLabel(fact.unit)}",fact.occurredOn)}
       is HealthRecordResultDtoObservation->{val fact=value.fact;val label=healthSeriesLabel(healthSeriesKey(fact.metricKey.wireValue,fact.originalField));val shown=healthValueText(fact.value,fact.unit);val related=fact.relatedObservations.map{item->DetailFact(healthSeriesLabel(healthSeriesKey(item.metricKey.wireValue,item.originalField)),"${healthValueText(item.value,item.unit)} ${unitLabel(item.unit)}${if(item.autofilled)" · 计算" else " · 设备"}")};build(label,fact.revision,listOfNotNull(fact.occurredAt?.let{DetailFact("测量时间",localDateTime(it,fact.timeZone)?:it)},DetailFact("发生日期",fact.occurredOn),DetailFact("数据性质",if(fact.autofilled)"根据体重、阻抗和档案计算" else "设备直接上报"),fact.originalField?.let{DetailFact("原字段",it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue,presentation=DetailPresentation.HealthMetric,heroValue="$shown ${unitLabel(fact.unit)}",heroSupporting=fact.occurredOn,extra=listOf(DetailSection("本次测量全部指标",itemCount=related.size,links=fact.relatedObservations.filter{it.id!=fact.id}.map{item->DetailLink("health_record",item.id,healthSeriesLabel(healthSeriesKey(item.metricKey.wireValue,item.originalField)),"${healthValueText(item.value,item.unit)} ${unitLabel(item.unit)}${if(item.autofilled)" · 计算" else " · 设备"}")})))}
       is HealthRecordResultDtoDailyWellbeing->{val fact=value.fact;build("每日感受",fact.revision,listOfNotNull(DetailFact("日期",fact.occurredOn),fact.moodScore?.let{DetailFact("心情","$it/10")},fact.energyLevel?.let{DetailFact("精力","$it/10")},fact.sleepQuality?.let{DetailFact("睡眠质量","$it/10")},fact.morningErection?.let{DetailFact("晨间状态",if(it)"是" else "否")},fact.notes?.let{DetailFact("备注",it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue,presentation=DetailPresentation.Habit,heroValue=fact.moodScore?.let{"$it / 10"}?:"已记录",heroSupporting=fact.occurredOn)}
-      is HealthRecordResultDtoSleepSession->{val fact=value.fact;build("睡眠",fact.revision,listOfNotNull(DetailFact("醒来日期",fact.wakeDate),fact.deepMinutes?.let{DetailFact("深睡","$it 分钟")},fact.lightMinutes?.let{DetailFact("浅睡","$it 分钟")},fact.remMinutes?.let{DetailFact("REM","$it 分钟")},fact.awakeMinutes?.let{DetailFact("清醒","$it 分钟")},fact.startedAt?.let{DetailFact("入睡",localDateTime(it,fact.timeZone)?:it)},fact.endedAt?.let{DetailFact("醒来",localDateTime(it,fact.timeZone)?:it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue,presentation=DetailPresentation.Sleep,heroValue=if(fact.totalMinutes>=60)"${fact.totalMinutes/60} 小时 ${fact.totalMinutes%60} 分" else "${fact.totalMinutes} 分钟",heroSupporting="${fact.wakeDate} · 睡眠结构")}
+      is HealthRecordResultDtoSleepSession->{val fact=value.fact;build("睡眠",fact.revision,listOfNotNull(DetailFact("醒来日期",fact.wakeDate),fact.deepMinutes?.let{DetailFact("深睡","$it 分钟")},fact.lightMinutes?.let{DetailFact("浅睡","$it 分钟")},fact.remMinutes?.let{DetailFact("REM","$it 分钟")},fact.awakeMinutes?.let{DetailFact("清醒","$it 分钟")},fact.startedAt?.let{DetailFact("入睡",localDateTime(it,fact.timeZone)?:it)},fact.endedAt?.let{DetailFact("醒来",localDateTime(it,fact.timeZone)?:it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue,presentation=DetailPresentation.Sleep,heroValue=if(fact.totalMinutes>=60)"${fact.totalMinutes/60} 小时 ${fact.totalMinutes%60} 分" else "${fact.totalMinutes} 分钟",heroSupporting="${fact.wakeDate} · 睡眠结构").copy(sleepStages=listOfNotNull(fact.deepMinutes?.let{SleepStage("深睡",it.toInt())},fact.lightMinutes?.let{SleepStage("浅睡",it.toInt())},fact.remMinutes?.let{SleepStage("REM",it.toInt())},fact.awakeMinutes?.let{SleepStage("清醒",it.toInt())}))}
       is HealthRecordResultDtoWorkoutSession->{
         val fact=value.fact
         val detail=fact.detail as? JsonObject

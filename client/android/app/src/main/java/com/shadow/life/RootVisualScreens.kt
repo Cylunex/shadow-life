@@ -150,7 +150,7 @@ import java.util.Locale
 }
 
 @Composable private fun TodayBodyCard(value:TodaySnapshot,health:WorkspaceOverview.Health?,onClick:()->Unit){
-  val tone=MaterialTheme.colorScheme.tertiary;val weight=health.metric("weight");val bodyFat=health.metric("body_fat");val muscle=health.metric("muscle_mass").ifEmpty{health.metric("skeletal_muscle")};val latest=weight.lastOrNull()
+  val tone=detailAccent(DetailPresentation.HealthMetric);val weight=health.metric("weight");val bodyFat=health.metric("body_fat");val muscle=health.metric("muscle_mass").ifEmpty{health.metric("skeletal_muscle")};val latest=weight.lastOrNull()
   PremiumTodayCard(tone,onClick){
     TodayCardHeader("身体分析","体",tone,latest?.occurredOn?:value.health.weightOn?:"等待测量")
     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Bottom){
@@ -214,7 +214,7 @@ import java.util.Locale
 }
 
 @Composable private fun PremiumTodayCard(tone:Color,onClick:()->Unit,content:@Composable ColumnScope.()->Unit){
-  LifeCard(onClick=onClick){content()}
+  Surface(Modifier.fillMaxWidth().clickable(role=Role.Button,onClick=onClick),shape=RoundedCornerShape(24.dp),color=tone.copy(alpha=.14f),border=androidx.compose.foundation.BorderStroke(1.dp,tone.copy(alpha=.2f))){Column(Modifier.padding(22.dp),verticalArrangement=Arrangement.spacedBy(12.dp),content=content)}
 }
 
 @Composable private fun TodayCardHeader(title:String,mark:String,tone:Color,trailing:String){
@@ -365,10 +365,11 @@ private fun todayScaleActionLabel(state:String)=when(state){"starting"->"正在�
 private fun todayScaleQueueLabel(state:String)=when(state){"pending"->"待发送";"sending"->"发送中";"reconciling"->"核对中";"committed"->"已完成";"failed"->"失败";"blocked"->"已阻止";else->state}
 private fun todayDeviceTime(value:Long):String?=value.takeIf{it>0}?.let{Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("M 月 d 日 HH:mm"))}
 
-@Composable fun RecordsVisualScreen(state:LoadState<TimelinePage>,searchState:LoadState<RecordPage>?,onRetry:()->Unit,onLoadMore:()->Unit,onSearch:(String)->Unit,onLoadMoreSearch:()->Unit,onClearSearch:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onQuickCapture:()->Unit,onProjects:()->Unit,onSettings:()->Unit,selectedDay:LocalDate,day:LoadState<DayPage>,memories:LoadState<List<DayEntry>>,onDay:(LocalDate)->Unit,onDayMore:()->Unit,onDaySource:(DayEntry)->Unit,onActivity:()->Unit={}){
+@Composable fun RecordsVisualScreen(state:LoadState<TimelinePage>,searchState:LoadState<RecordPage>?,onRetry:()->Unit,onLoadMore:()->Unit,onSearch:(String)->Unit,onLoadMoreSearch:()->Unit,onClearSearch:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onQuickCapture:()->Unit,onProjects:()->Unit,onSettings:()->Unit,selectedDay:LocalDate,day:LoadState<DayPage>,memories:LoadState<List<DayEntry>>,onDay:(LocalDate)->Unit,onDayMore:()->Unit,onDaySource:(DayEntry)->Unit,onActivity:()->Unit={},recordsView:String="events",onRecordsView:(String)->Unit={}){
   var query by rememberSaveable{mutableStateOf("")};var submittedQuery by rememberSaveable{mutableStateOf("")};var domain by rememberSaveable{mutableStateOf<String?>(null)};var period by rememberSaveable{mutableStateOf("all")}
   RootPage("记录",onProjects,onSettings){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp,8.dp,20.dp,28.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
     item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){OutlinedTextField(query,{query=it;if(it.isBlank()){submittedQuery="";onClearSearch()}},Modifier.weight(1f),singleLine=true,placeholder={Text("搜索记录、地点或资料")},leadingIcon={Icon(Icons.Default.Search,null)});FilledTonalIconButton(onClick={submittedQuery=query.trim();onSearch(submittedQuery)},enabled=query.isNotBlank()){Icon(Icons.Default.Search,"搜索")};FilledIconButton(onClick=onQuickCapture){Icon(Icons.Default.Add,"打开快速记录")}}}
+    item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){listOf("events" to "生活事件","facts" to "全部数据").forEach{(key,label)->FilterChip(recordsView==key,{onRecordsView(key)},label={Text(label)})}}}
     item{TextButton(onClick=onActivity,modifier=Modifier.fillMaxWidth()){Icon(Icons.Default.Info,null);Spacer(Modifier.width(8.dp));Text("活动、采集与回顾")}}
     if(searchState==null)item{RecordFilters(domain,{domain=it},period,{period=it})}
     if(searchState==null)item{LifeCard{DayMemorySection(selectedDay,day,memories,onDay,onDayMore,onDaySource)}}

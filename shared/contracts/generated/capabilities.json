@@ -62228,6 +62228,13 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "view": {
+            "type": "string",
+            "enum": [
+              "events",
+              "facts"
+            ]
+          },
           "domains": {
             "minItems": 1,
             "maxItems": 5,
@@ -62263,6 +62270,13 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "view": {
+            "type": "string",
+            "enum": [
+              "events",
+              "facts"
+            ]
+          },
           "domains": {
             "minItems": 1,
             "maxItems": 5,
@@ -62396,6 +62410,13 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "view": {
+            "type": "string",
+            "enum": [
+              "events",
+              "facts"
+            ]
+          },
           "date": {
             "type": "string",
             "format": "date",
@@ -62428,6 +62449,13 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "view": {
+            "type": "string",
+            "enum": [
+              "events",
+              "facts"
+            ]
+          },
           "date": {
             "type": "string",
             "format": "date",
@@ -62798,6 +62826,13 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "view": {
+            "type": "string",
+            "enum": [
+              "events",
+              "facts"
+            ]
+          },
           "q": {
             "default": "",
             "description": "Search text. Omit only when both from_on and to_on_exclusive define a bounded date window.",
@@ -62850,6 +62885,13 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "view": {
+            "type": "string",
+            "enum": [
+              "events",
+              "facts"
+            ]
+          },
           "q": {
             "default": "",
             "description": "Search text. Omit only when both from_on and to_on_exclusive define a bounded date window.",

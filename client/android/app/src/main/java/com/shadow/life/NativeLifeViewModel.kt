@@ -99,6 +99,9 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
   fun loadReleaseHistory(from:String,to:String){val token=beginRead("release-history");releaseHistory=LoadState.Loading;viewModelScope.launch{val result=load("这个期间没有起飞记录"){repository.releaseHistory(from,to)};if(isCurrentRead("release-history",token))releaseHistory=result}}
   fun refreshToday(date:LocalDate=LocalDate.now()){val token=beginRead("today");today=today.beginRefresh();viewModelScope.launch{val result=load("今天还没有记录"){repository.today(date)};if(isCurrentRead("today",token))today=today.finishRefresh(result)}}
   fun refreshHomeHealth(){val token=beginRead("home-health");homeHealth=homeHealth.beginRefresh();viewModelScope.launch{val result=load("还没有健康趋势"){repository.homeHealthOverview()};if(isCurrentRead("home-health",token))homeHealth=homeHealth.finishRefresh(result)}}
+  var recordsView by androidx.compose.runtime.mutableStateOf("events")
+    private set
+  fun changeRecordsView(value:String){if(value !in setOf("events","facts")||value==recordsView)return;recordsView=value;repository.recordView=value;timeline=LoadState.Loading;refreshTimeline();loadDay();if(activeSearchQuery.isNotBlank())search(activeSearchQuery)}
   fun refreshTimeline(){val token=beginRead("timeline");timeline=timeline.beginRefresh();viewModelScope.launch{val result=load("还没有生活记录"){repository.timeline()};if(isCurrentRead("timeline",token))timeline=timeline.finishRefresh(result)}}
   fun loadDay(date:LocalDate=selectedDay){
     val sameDate=selectedDay==date;selectedDay=date;val token=beginRead("day")

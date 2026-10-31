@@ -66,7 +66,7 @@ import androidx.compose.ui.unit.dp
 @Composable fun EmptyState(message:String,actionLabel:String?=null,onAction:(()->Unit)?=null){Column(Modifier.fillMaxWidth().padding(vertical=28.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(10.dp)){Text(message,color=MaterialTheme.colorScheme.onSurfaceVariant);if(actionLabel!=null&&onAction!=null)TextButton(onClick=onAction){Text(actionLabel)}}}
 @Composable fun SectionError(message:String,onRetry:()->Unit){Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.errorContainer){Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Text(message,Modifier.weight(1f),color=MaterialTheme.colorScheme.onErrorContainer);IconButton(onClick=onRetry){Icon(Icons.Default.Refresh,"重试")}}}}
 
-@Composable internal fun domainColor(domain:LifeDomain)=when(domain){LifeDomain.Health->lifeHealthAccent();LifeDomain.Meals->MaterialTheme.colorScheme.tertiary;LifeDomain.Money,LifeDomain.Travel,LifeDomain.Library->MaterialTheme.colorScheme.secondary}
+@Composable internal fun domainColor(domain:LifeDomain)=when(domain){LifeDomain.Health->lifeHealthAccent();LifeDomain.Meals->MaterialTheme.colorScheme.tertiary;LifeDomain.Money->androidx.compose.ui.graphics.Color(0xFFE7C65D);LifeDomain.Travel->androidx.compose.ui.graphics.Color(0xFF70CADA);LifeDomain.Library->androidx.compose.ui.graphics.Color(0xFFD98BB8)}
 
 
 fun lifeDomainIcon(domain:LifeDomain)=when(domain){

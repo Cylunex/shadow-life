@@ -33,7 +33,9 @@ class ExperienceQaActivity:ComponentActivity(){
             LifeTabs(screen,{screen=it;composer=it=="composer"},listOf("home" to "生活","records" to "记录","plans" to "计划","library" to "资料","health" to "健康","detail" to "详情","composer" to "录入","training" to "训练"))
             TextButton(onClick={dark=!dark}){Text("切换深浅色")}
             Box(Modifier.weight(1f)){
-              when(screen){
+              when{
+                screen.startsWith("qa-")->EventDetailsQa(screen)
+                else->when(screen){
                 "home"->TodayVisualScreen("experience-qa",LoadState.Ready(snapshot),LoadState.Ready(health),DeviceSyncStatus(scaleLastWeight="65.2",scaleLastModel="小米体脂秤"),LoadState.Ready(QueueSummary(0,0,0,0,0)),false,{}, {_,_->},{},{},{},{_,_,_->},{},{},{},{},{},{},{},{},onSettings={},trainingState=LoadState.Empty("暂无训练"))
                 "records"->RecordsVisualScreen(LoadState.Ready(TimelinePage(listOf(TimelineItem(LifeDomain.Money,"expense","money-qa","${today}T12:00:00+08:00","午餐","28.00","CNY")),null,today)),null,{},{},{},{},{},{_,_,_->},{composer=true},{},{},LocalDate.now(),LoadState.Ready(DayPage(today,emptyList(),0,null,today,listOf("money"))),LoadState.Ready(emptyList()),{},{},{})
                 "plans"->PlansVisualScreen(LoadState.Ready(planning),null,{},{},{},{},{},{_,_->},{},{},{},{},goals={Text("明确的目标与偏好")})
@@ -41,7 +43,7 @@ class ExperienceQaActivity:ComponentActivity(){
                 "health"->HealthWorkspaceScreen("experience-qa",LoadState.Ready(health),LoadState.Empty("暂无记录"),DeviceSyncStatus(),LoadState.Ready(QueueSummary(0,0,0,0,0)),false,{},{},{},{_,_,_->},{},{},{},{},{},{},initialTab="body",releaseState=LoadState.Empty("暂无记录"),onReleaseLoad={_,_->})
                 "detail"->DetailScreen("阅读笔记",LoadState.Ready(RecordDetail("周末阅读笔记","active",1,listOf(DetailSection("当前内容",listOf(DetailFact("正文","留一段完整的时间读书。\n\n这里是合成的阅读材料，用于检查中文排版、长正文阅读与详情返回。")))),EditSeed.Library("note-qa",1,"周末阅读笔记","留一段完整的时间读书。",null,emptyList()),presentation=DetailPresentation.Library)),submit,{},{},{},{},{_,_->submit=SubmitState.Rejected("合成页面：保留输入")},{submit=SubmitState.Editing},{},{},{},accountId="experience-qa")
                 "training"->Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp)){TrainingMenuWorkspace("experience-qa",LoadState.Empty("暂无计划"),SubmitState.Editing,{},{_,_,_->},{})}
-              }
+              }}
             }
           }
           LifeComposerHost(composer,CaptureSeed(CaptureKind.Expense,date=today),submit,null,null,LoadState.Ready(emptyList()),null,LoadState.Empty("无交易"),{},{},{},{},{composer=false},{submit=SubmitState.Rejected("合成页面：保存失败，输入保持")},{},{submit=SubmitState.Editing})

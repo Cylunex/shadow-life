@@ -253,13 +253,14 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
   var savedNotice by rememberSaveable(title){mutableStateOf<String?>(null)}
   LaunchedEffect(submitState){if(editing&&submitState is SubmitState.Saved&&submitState.receipt.warnings.isEmpty()){activeDraftScope?.store?.clear(activeDraftScope.name);savedNotice=if(submitState.receipt.queued)"更正已保存到本机，待同步" else "更正已保存";editing=false;onReset()}}
 
-  Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text((state as? LoadState.Ready)?.value?.title?:title.ifBlank{"详情"},maxLines=1,overflow=TextOverflow.Ellipsis)},navigationIcon={LifeBackButton(onBack)},actions={if((state as? LoadState.Ready)?.value?.editSeed!=null)TextButton(onClick={onReset();editing=true}){Text("编辑")}})}){padding->
+  Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(colors=TopAppBarDefaults.topAppBarColors(containerColor=MaterialTheme.colorScheme.background),title={Text((state as? LoadState.Ready)?.value?.title?:title.ifBlank{"详情"},maxLines=1,overflow=TextOverflow.Ellipsis)},navigationIcon={LifeBackButton(onBack)},actions={if((state as? LoadState.Ready)?.value?.editSeed!=null)TextButton(onClick={onReset();editing=true}){Text("编辑")}})}){padding->
     LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(2.dp)){
       item{StateContent(state,onRetry){}}
       savedNotice?.let{notice->item{Text(notice,color=MaterialTheme.colorScheme.primary)}}
       if(state is LoadState.Ready){
         val detail=state.value
         item{DetailHero(detail)}
+        item{DomainDetailContent(detail,onLink)}
         if(detail.assets.isNotEmpty())item{LibraryOriginals(accountId,detail.assets)}
         if(detail.mealIntakes.isNotEmpty())item{MealIntakeEditor(accountId,detail.mealIntakes)}
         item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){detail.state?.let{StatusLabel(it)}}}
@@ -274,7 +275,7 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
             item{Button(onClick={travelDate=date;onReset();editingDay=true},modifier=Modifier.fillMaxWidth()){Text("调整当天安排")};TextButton(onClick={onLink(DetailLink("travel_workspace",schedule.trip.id,schedule.trip.title))}){Text("地图、地点与旅程清单")}}
           }
         }
-        if(schedule==null||detailTab!="日程")detail.sections.filter{it.facts.isNotEmpty()||it.groups.isNotEmpty()||it.links.isNotEmpty()}.sortedBy(::isDetailMetadata).forEachIndexed{sectionIndex,section->
+        if(schedule==null||detailTab!="日程")detail.sections.filter{!domainSectionHandled(detail,it)&&(it.facts.isNotEmpty()||it.groups.isNotEmpty()||it.links.isNotEmpty())}.sortedBy(::isDetailMetadata).forEachIndexed{sectionIndex,section->
           item("section:$sectionIndex"){DetailSectionContent(section,onLink)}
         }
 
@@ -314,10 +315,8 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
   }
 }
 
-@Composable private fun DetailHero(detail:RecordDetail){val tone=detailTone(detail.presentation);Surface(Modifier.fillMaxWidth().padding(bottom=12.dp),shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surface){Row(Modifier.padding(22.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(16.dp)){Surface(Modifier.size(58.dp),shape=RoundedCornerShape(20.dp),color=tone.copy(alpha=.2f)){Box(contentAlignment=Alignment.Center){Text(detailGlyph(detail.presentation),style=MaterialTheme.typography.headlineMedium,color=tone)}};Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)){Text(detailCategory(detail.presentation),style=MaterialTheme.typography.labelLarge,color=tone);if(detail.heroValue!=null)Text(detail.title,style=MaterialTheme.typography.titleMedium);Text(detail.heroValue?:detail.title,style=MaterialTheme.typography.headlineMedium,fontWeight=FontWeight.SemiBold);detail.heroSupporting?.takeIf(String::isNotBlank)?.let{Text(it,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}}}
+@Composable private fun DetailHero(detail:RecordDetail){val tone=detailAccent(detail.presentation);Surface(Modifier.fillMaxWidth().padding(bottom=12.dp),shape=RoundedCornerShape(24.dp),color=tone,contentColor=Color(0xFF202A25)){Column(Modifier.padding(24.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){Text(detailCategory(detail.presentation),style=MaterialTheme.typography.labelLarge);if(detail.title!=detailCategory(detail.presentation))Text(detail.title,style=MaterialTheme.typography.titleLarge);detail.heroValue?.let{Text(it,style=MaterialTheme.typography.headlineLarge,fontWeight=FontWeight.Bold)};detail.heroSupporting?.takeIf(String::isNotBlank)?.let{Text(it,style=MaterialTheme.typography.bodyMedium)}}}}
 private fun detailCategory(value:DetailPresentation)=when(value){DetailPresentation.HealthMetric->"身体测量";DetailPresentation.Workout->"运动记录";DetailPresentation.Sleep->"睡眠记录";DetailPresentation.Activity->"活动记录";DetailPresentation.Meal->"饮食记录";DetailPresentation.Money->"消费记录";DetailPresentation.Travel->"旅程";DetailPresentation.Library->"资料";DetailPresentation.Habit->"生活习惯";DetailPresentation.Generic->"记录详情"}
-@Composable private fun detailTone(value:DetailPresentation):Color=when(value){DetailPresentation.Workout,DetailPresentation.Activity->lifeHealthAccent();DetailPresentation.Meal,DetailPresentation.HealthMetric->MaterialTheme.colorScheme.tertiary;DetailPresentation.Sleep,DetailPresentation.Library->MaterialTheme.colorScheme.secondary;else->MaterialTheme.colorScheme.primary}
-private fun detailGlyph(value:DetailPresentation)=when(value){DetailPresentation.HealthMetric->"◇";DetailPresentation.Workout->"↗";DetailPresentation.Sleep->"☾";DetailPresentation.Activity->"◎";DetailPresentation.Meal->"◐";DetailPresentation.Money->"¥";DetailPresentation.Travel->"⌁";DetailPresentation.Library->"▤";DetailPresentation.Habit->"✓";DetailPresentation.Generic->"·"}
 
 @OptIn(ExperimentalMaterial3Api::class,ExperimentalLayoutApi::class)
 @Composable private fun DetailEditSheet(seed:EditSeed,state:SubmitState,onDismiss:()->Unit,onSubmit:(CorrectionDraft)->Unit){

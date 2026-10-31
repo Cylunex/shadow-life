@@ -35,6 +35,11 @@ import kotlinx.coroutines.launch
     val asset=selected
     if(uri!=null&&asset!=null)scope.launch{busy=true;try{checkAccount();repository.exportAsset(asset.versionId,uri,accountId);checkAccount();message="原件已保存到所选位置"}catch(e:CancellationException){throw e}catch(e:Exception){message=e.message}finally{busy=false}}
   }
+  val firstImage=assets.firstOrNull{it.mediaType.startsWith("image/")}
+  var inlineImage by remember(accountId,firstImage?.versionId){mutableStateOf<ByteArray?>(null)}
+  LaunchedEffect(accountId,firstImage?.versionId){if(firstImage!=null)try{checkAccount();val bytes=repository.assetPreview(firstImage.versionId);checkAccount();inlineImage=bytes}catch(e:CancellationException){throw e}catch(_:Exception){}}
+  val inlineBitmap=remember(inlineImage){inlineImage?.let{BitmapFactory.decodeByteArray(it,0,it.size)?.asImageBitmap()}}
+  inlineBitmap?.let{bitmap->Image(bitmap,firstImage?.title,Modifier.fillMaxWidth().heightIn(max=360.dp),contentScale=ContentScale.Fit)}
   LifeCard{
     Text("原件",style=MaterialTheme.typography.titleMedium)
     assets.forEach{asset->

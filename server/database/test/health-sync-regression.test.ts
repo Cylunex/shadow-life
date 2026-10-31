@@ -171,3 +171,17 @@ test("health trends preserve Samsung extrema and temperature measurement context
   assert.deepEqual(heart.points.map(point=>point.original_field).sort(),["samsung:daily_max","samsung:daily_min"]);
   const skin=await queries.healthTrend(context,{metric_key:"temperature",limit:100});assert.equal(skin.points[0]?.original_field,"samsung:skin_temperature");
 });
+
+test("event view groups scale constituents before paging and searches child metrics",pgOnly,async t=>{
+ const {pool,run,queries,context}=await reviewFixture(t);
+ const record={source_type:"scale",source_instance_key:"scale-events",source_fingerprint:"scale-events",record_type:"body",client_record_id:"weigh-a",record_version:1,sync_epoch:1,change_kind:"upsert",parse_version:"xiaomi-ble-2",payload:{occurred_on:"2026-09-10",occurred_at:"2026-09-10T02:30:00Z",time_zone:"UTC",group_kind:"measurement",observations:[{metric_key:"weight",value:"68.4",unit:"kg"},{metric_key:"body_fat",value:"21.8",unit:"%",autofilled:true},{metric_key:"muscle_mass",value:"50.2",unit:"kg",autofilled:true}]}};
+ await run("health.ingest_raw",record);await run("health.ingest_raw",{...record,client_record_id:"weigh-b",payload:{...record.payload,occurred_at:"2026-09-10T03:30:00Z"}});await processPendingHealth(pool);
+ const facts=await queries.lifeTimeline(context,{domains:["health"],view:"facts",limit:100});assert.equal(facts.items.length,6);
+ const events=await queries.lifeTimeline(context,{domains:["health"],view:"events",limit:1});assert.equal(events.items.length,1);assert.ok(events.next_cursor);assert.match(events.items[0]!.title,/3 项指标/);
+ const next=await queries.lifeTimeline(context,{domains:["health"],view:"events",limit:1,cursor:events.next_cursor!});assert.equal(next.items.length,1);assert.notEqual(next.items[0]!.id,events.items[0]!.id);assert.equal(next.next_cursor,null);
+ await assert.rejects(()=>queries.lifeTimeline(context,{domains:["health"],view:"facts",cursor:events.next_cursor!}));
+ const detail=await queries.healthRecord(context,events.items[0]!.id) as {fact:{metric_key:string;related_observations:unknown[]}};assert.equal(detail.fact.metric_key,"weight");assert.equal(detail.fact.related_observations.length,3);
+ const found=await queries.lifeSearch(context,{q:"肌肉量",types:["health"],view:"events"});assert.equal(found.items.length,2);
+ assert.equal((await queries.lifeSearch({...context,subjectId:"other-subject"},{q:"体脂率",types:["health"],view:"events"})).items.length,0);
+ const id=events.items[0]!.id;await run("health.ingest_raw",{...record,client_record_id:"weigh-b",record_version:2,payload:{...record.payload,occurred_at:"2026-09-10T03:30:00Z",observations:record.payload.observations.slice(0,2)}});await processPendingHealth(pool);assert.equal((await queries.lifeTimeline(context,{domains:["health"],view:"events"})).items[0]!.id,id);
+});

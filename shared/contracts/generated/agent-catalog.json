@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "e75f360406821fe74f6f884e5f6f31bd76248b4bf7af2e075003417b350851fa",
+  "catalog_revision": "f2e68caf1741831d121a8d950c472eee26e5ea2e0abaa44da39acf10be6f389c",
   "terms": [
     {
       "id": "activity_capture",
@@ -28767,6 +28767,13 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "view": {
+            "type": "string",
+            "enum": [
+              "events",
+              "facts"
+            ]
+          },
           "date": {
             "type": "string",
             "format": "date",
@@ -44901,6 +44908,13 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "view": {
+            "type": "string",
+            "enum": [
+              "events",
+              "facts"
+            ]
+          },
           "q": {
             "default": "",
             "description": "Search text. Omit only when both from_on and to_on_exclusive define a bounded date window.",
@@ -46925,6 +46939,13 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "view": {
+            "type": "string",
+            "enum": [
+              "events",
+              "facts"
+            ]
+          },
           "domains": {
             "minItems": 1,
             "maxItems": 5,

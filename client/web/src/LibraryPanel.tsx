@@ -50,7 +50,7 @@ export function LibraryPanel({identityKey,headers,capabilities,execute,onChanged
   </section>;
 }
 
-function AssetPreview({asset,title,headers}:{asset:{id:string;media_type?:string};title:string;headers:HeadersInit}){
+export function AssetPreview({asset,title,headers}:{asset:{id:string;media_type?:string};title:string;headers:HeadersInit}){
   const[url,setUrl]=useState<string>(),[mediaType,setMediaType]=useState(asset.media_type??""),[error,setError]=useState<string>();
   useEffect(()=>{let objectUrl:string|undefined,active=true;if(asset.media_type==="text/html")return;void fetch(`/api/assets/${encodeURIComponent(asset.id)}/preview`,{headers}).then(async response=>{if(response.status===415){if(active)setError("此类型不能在页面内预览，请下载原件。");return;}if(!response.ok)throw new Error(`预览读取失败（HTTP ${response.status}）`);const blob=await response.blob();objectUrl=URL.createObjectURL(blob);if(active){setMediaType(blob.type);setUrl(objectUrl);}else URL.revokeObjectURL(objectUrl);}).catch(caught=>{if(active)setError(caught instanceof Error?caught.message:"预览读取失败");});return()=>{active=false;if(objectUrl)URL.revokeObjectURL(objectUrl);};},[asset.id]);
   async function download(){const response=await fetch(`/api/assets/${encodeURIComponent(asset.id)}`,{headers});if(!response.ok){setError(`原件下载失败（HTTP ${response.status}）`);return;}const blob=await response.blob(),downloadUrl=URL.createObjectURL(blob),anchor=document.createElement("a");anchor.href=downloadUrl;anchor.download=asset.media_type==="text/html"&&!/\.html?$/iu.test(title)?`${title}.html`:title;anchor.click();setTimeout(()=>URL.revokeObjectURL(downloadUrl),0);}
