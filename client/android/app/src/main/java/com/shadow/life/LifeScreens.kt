@@ -351,7 +351,8 @@ private fun primaryValid(seed:EditSeed,primary:String,secondary:String)=when(see
 
 private sealed interface FeatureAction{
   data class Capture(val kind:CaptureKind):FeatureAction
-  data class Workspace(val domain:LifeDomain):FeatureAction
+  data class Workspace(val domain:LifeDomain,val tab:String=""):FeatureAction
+  data class Destination(val route:Any):FeatureAction
   data object Plans:FeatureAction
   data object HealthConnect:FeatureAction
   data object Samsung:FeatureAction
@@ -360,16 +361,50 @@ private sealed interface FeatureAction{
 private data class FeatureEntry(val group:String,val title:String,val subtitle:String,val keywords:String,val action:FeatureAction)
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun FeaturesScreen(onCapture:(CaptureKind)->Unit,onWorkspace:(LifeDomain)->Unit,onPlans:()->Unit,onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onBack:()->Unit){
+@Composable fun FeaturesScreen(onCapture:(CaptureKind)->Unit,onWorkspace:(LifeDomain,String)->Unit,onPlans:()->Unit,onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onBack:()->Unit,onDestination:(Any)->Unit,onFindRecords:(String)->Unit,accountId:String,onRecord:(RecordSummary)->Unit){
   var query by rememberSaveable{mutableStateOf("")}
+  val context=androidx.compose.ui.platform.LocalContext.current
+  val repository=remember(accountId){NativeLifeRepository(context,context.applicationContext as ShadowApp)}
+  var matches by remember(accountId){mutableStateOf<LoadState<RecordPage>?>(null)}
+  LaunchedEffect(accountId,query){
+    matches=null
+    if(query.isBlank())return@LaunchedEffect
+    matches=LoadState.Loading
+    kotlinx.coroutines.delay(250)
+    try{matches=LoadState.Ready(repository.search(query.trim()))}
+    catch(error:kotlinx.coroutines.CancellationException){throw error}
+    catch(error:Exception){matches=LoadState.Failed("暂时无法查找记录，功能入口仍可使用")}
+  }
   val entries=remember{buildList{
     addAll(listOf(
+    FeatureEntry("健康","体重与身体趋势","查看称重、体脂和测量历史","体重曲线 称重记录 体脂 身体",FeatureAction.Workspace(LifeDomain.Health,"body")),
+    FeatureEntry("健康","睡眠趋势","主睡眠、分期及醒来日期","昨晚 睡了多久 睡觉 睡眠",FeatureAction.Workspace(LifeDomain.Health,"sleep")),
+    FeatureEntry("健康","继续训练","回到当前组合和已完成组","健身 练 训练菜单",FeatureAction.Destination(TrainingRoute())),
+    FeatureEntry("健康","动作库","搜索动作并加入今天的组合","飞鸟 卧推 动作 教学",FeatureAction.Destination(TrainingRoute("library"))),
+    FeatureEntry("健康","健康与饮食复盘","按日回看体重、睡眠、摄入及实际训练","一周 健康 复盘 营养",FeatureAction.Destination(WellnessRoute)),
+    FeatureEntry("健康","设备与同步状态","查看设备权限、同步队列和来源","手表 同步队列 设备",FeatureAction.Destination(SettingsRoute)),
+    FeatureEntry("饮食","食谱与食材","餐单、购物清单、食品库存与食谱","买菜 采购 库存 菜谱 食谱 购物清单",FeatureAction.Workspace(LifeDomain.Meals,"planning")),
+    FeatureEntry("饮食","购物清单","打开待采购食材","买菜 采购 待买",FeatureAction.Workspace(LifeDomain.Meals,"shopping")),
+    FeatureEntry("饮食","食材库存","查看临期、库存和批次","冰箱 库存 临期",FeatureAction.Workspace(LifeDomain.Meals,"stock")),
+    FeatureEntry("饮食","食谱","查看和导入食谱","菜谱 食谱 做饭",FeatureAction.Workspace(LifeDomain.Meals,"recipes")),
+    FeatureEntry("消费","次卡余额与使用","查看理发卡、洗车卡和课时","理发卡 课时 剩余几次",FeatureAction.Workspace(LifeDomain.Money,"cards")),
+    FeatureEntry("消费","账单核对","查看导入批次与差异","账单 导入 核对",FeatureAction.Workspace(LifeDomain.Money,"reconcile")),
+    FeatureEntry("消费","订阅与周期事项","本期账单及到期事项","续费 扣费 订阅",FeatureAction.Workspace(LifeDomain.Money,"recurring")),
+    FeatureEntry("物品与计划","物品保修与说明书","选择已有物品查看凭证和保修","查保修 说明书 保修期 家电",FeatureAction.Destination(ItemsRoute)),
+    FeatureEntry("资料","录音与转写","回听录音和查看转写内容","听录音 音频 转写",FeatureAction.Destination(ActivityCaptureRoute("录音"))),
+    FeatureEntry("资料","应用使用记录","查看应用活动与采集内容","应用 时长 屏幕",FeatureAction.Destination(ActivityCaptureRoute())),
+    FeatureEntry("资料","地点记录","查看停留与地点采集","地点 停留",FeatureAction.Destination(ActivityCaptureRoute("地点"))),
+    FeatureEntry("资料","截图","查看保存的截图","截图",FeatureAction.Destination(ActivityCaptureRoute("截图"))),
+    FeatureEntry("资料","订单关联","查看采集到的订单与关联","订单 关联",FeatureAction.Destination(ActivityCaptureRoute("订单"))),
+    FeatureEntry("资料","采集设置与导出","设置采集与导出内容","导出 采集 设置",FeatureAction.Destination(ActivityCaptureRoute("设置与导出"))),
+    FeatureEntry("计划","生活回顾","查看各期回顾并回溯依据","一周 回忆 回顾",FeatureAction.Destination(PlansRoute(true))),
+    FeatureEntry("计划","提醒收件箱","查看提醒和处理状态","通知 提醒 消息",FeatureAction.Destination(InboxRoute)),
     FeatureEntry("健康","记录健康数据","体重、体脂、心率、体温、睡眠或步数","体重 体脂 心率 睡眠 步数",FeatureAction.Capture(CaptureKind.Health)),
-    FeatureEntry("健康","记录训练","保存一次手工训练","运动 健身 跑步",FeatureAction.Capture(CaptureKind.Workout)),
+    FeatureEntry("健康","补记运动","记录一次步行、跑步或其他运动","散步 跑步 运动 补记",FeatureAction.Capture(CaptureKind.Workout)),
     FeatureEntry("健康","Samsung Health 同步","读取已授权的三星健康数据","三星 手表 自动同步",FeatureAction.Samsung),
     FeatureEntry("健康","小米体脂秤称重","开启三分钟蓝牙接收窗口","小米 体重秤 s400 scale2 蓝牙",FeatureAction.Scale),
     FeatureEntry("饮食","记录一餐","用食物行、份量和单位快速录入","早餐 午餐 晚餐 食物",FeatureAction.Capture(CaptureKind.Meal)),
-    FeatureEntry("饮食","饮食记录","查看餐次并搜索","食谱 餐次",FeatureAction.Workspace(LifeDomain.Meals)),
+    FeatureEntry("饮食","饮食记录","查看餐次并搜索","吃了什么 餐次 饮食日记",FeatureAction.Workspace(LifeDomain.Meals)),
     FeatureEntry("消费","记录收支","记录支出或收入","消费 收入 账单",FeatureAction.Capture(CaptureKind.Expense)),
     FeatureEntry("消费","记录购买","同时保存商品明细和可选付款","购物 商品 订单",FeatureAction.Capture(CaptureKind.Purchase)),
     FeatureEntry("消费","记录退款","选择原交易后记录部分或全部退款","退货 退款",FeatureAction.Capture(CaptureKind.Refund)),
@@ -377,7 +412,7 @@ private data class FeatureEntry(val group:String,val title:String,val subtitle:S
     FeatureEntry("旅行","创建旅程","记录旅程日期与时区","出行 行程",FeatureAction.Capture(CaptureKind.Trip)),
     FeatureEntry("旅行","记录到访","保存实际到访，不把候选地点当事实","地点 打卡",FeatureAction.Capture(CaptureKind.Visit)),
     FeatureEntry("旅行","旅行空间","查看旅程、地点和地图","预订 地图 在途",FeatureAction.Workspace(LifeDomain.Travel)),
-    FeatureEntry("物品与计划","添加物品","显式加入需要管理的个人物品","保修 说明书 退货",FeatureAction.Capture(CaptureKind.OwnedItem)),
+    FeatureEntry("物品与计划","添加物品","显式加入需要管理的个人物品","新物品 退货",FeatureAction.Capture(CaptureKind.OwnedItem)),
     FeatureEntry("物品与计划","创建生活项目","组织目标、时间和行动","目标 项目 行动",FeatureAction.Capture(CaptureKind.Project)),
     FeatureEntry("物品与计划","计划、物品与回顾","查看本周行动、物品和生活回顾","计划 物品 回顾",FeatureAction.Plans),
     FeatureEntry("资料","收存资料","保存文字、链接或从系统分享文件","文档 PDF 链接",FeatureAction.Capture(CaptureKind.Library)),
@@ -385,12 +420,21 @@ private data class FeatureEntry(val group:String,val title:String,val subtitle:S
     ))
     if(HealthConnectSync.enabled())add(FeatureEntry("健康","Health Connect 同步","读取系统健康聚合来源","谷歌 health connect",FeatureAction.HealthConnect))
   }}
-  val shown=entries.filter{query.isBlank()||listOf(it.group,it.title,it.subtitle,it.keywords).any{value->value.contains(query.trim(),ignoreCase=true)}}
+  val shown=entries.sortedByDescending{query.isNotBlank()&&it.title.contains(query.trim(),ignoreCase=true)}.filter{query.isBlank()||listOf(it.group,it.title,it.subtitle,it.keywords).any{value->value.contains(query.trim(),ignoreCase=true)}}
   Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text("全部功能")},navigationIcon={LifeBackButton(onBack)})}){padding->
     LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
       item{OutlinedTextField(query,{query=it},Modifier.fillMaxWidth(),singleLine=true,label={Text("搜索功能")},leadingIcon={Icon(Icons.Default.Search,null)});Text("常用动作也会出现在对应工作区和对象详情中。",Modifier.padding(top=8.dp),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
-      if(shown.isEmpty())item{EmptyState("没有匹配的功能")}
-      shown.groupBy{it.group}.forEach{(group,groupEntries)->item("group:$group"){Text(group,Modifier.padding(top=12.dp),style=MaterialTheme.typography.titleLarge)};items(groupEntries,key={"feature:${it.title}"}){entry->LifeCard(onClick={when(val action=entry.action){is FeatureAction.Capture->onCapture(action.kind);is FeatureAction.Workspace->onWorkspace(action.domain);FeatureAction.Plans->onPlans();FeatureAction.HealthConnect->onHealthSync();FeatureAction.Samsung->onSamsungSync();FeatureAction.Scale->onScale()}}){Text(entry.title,style=MaterialTheme.typography.titleMedium);Text(entry.subtitle,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
+      if(query.isNotBlank()){
+        item{Text("相关记录",style=MaterialTheme.typography.titleLarge);StateContent(matches?:LoadState.Loading,{onFindRecords(query.trim())}){}}
+        val found=(matches as? LoadState.Ready)?.value
+        if(found!=null){
+          items(found.items.take(10),key={"search:${it.domain}:${it.id}"}){record->RecordRow(record){onRecord(record)}}
+          if(found.items.isEmpty())item{Text("没有匹配的生活记录")}
+        }
+      }
+      if(query.isNotBlank())item{TextButton(onClick={onFindRecords(query.trim())},modifier=Modifier.fillMaxWidth()){Text("查找与“$query”相关的生活记录")}}
+      if(shown.isEmpty())item{EmptyState("没有匹配的功能，可查看相关记录或清空搜索")}
+      shown.groupBy{it.group}.forEach{(group,groupEntries)->item("group:$group"){Text(group,Modifier.padding(top=12.dp),style=MaterialTheme.typography.titleLarge)};items(groupEntries,key={"feature:${it.title}"}){entry->LifeCard(onClick={when(val action=entry.action){is FeatureAction.Capture->onCapture(action.kind);is FeatureAction.Workspace->onWorkspace(action.domain,action.tab);is FeatureAction.Destination->onDestination(action.route);FeatureAction.Plans->onPlans();FeatureAction.HealthConnect->onHealthSync();FeatureAction.Samsung->onSamsungSync();FeatureAction.Scale->onScale()}}){Text(entry.title,style=MaterialTheme.typography.titleMedium);Text(entry.subtitle,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
     }
   }
 }

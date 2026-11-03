@@ -83,7 +83,7 @@ import java.time.LocalDate
 
 @Composable private fun CaptureForm(kind:CaptureKind,seed:CaptureSeed?,state:SubmitState,refundCandidates:LoadState<RecordPage>,onLoadRefundCandidates:(String)->Unit,onSubmit:(CaptureDraft)->Unit,onDirty:(Boolean)->Unit,onBack:()->Unit,onDone:()->Unit){
   val draftScope=LocalUiDraftScope.current
-  var primary by rememberDraftText("primary"){seed?.primary.orEmpty()};var secondary by rememberDraftText("secondary"){seed?.secondary?.takeIf{it.isNotBlank()}?:if(kind==CaptureKind.Trip)LocalDate.now().toString() else ""};var note by rememberDraftText("note"){seed?.note.orEmpty()};var option by rememberDraftText("option"){seed?.option?.ifBlank{defaultOption(kind)}?:defaultOption(kind)};var date by rememberDraftText("date"){seed?.date?:LocalDate.now().toString()};var category by rememberDraftText("category"){seed?.category.orEmpty()};var paymentMethod by rememberDraftText("paymentMethod"){seed?.paymentMethod.orEmpty()};var advancedMeal by rememberSaveable{mutableStateOf(false)};val mealRows=rememberSaveable(kind,seed?.contextId,saver=androidx.compose.runtime.saveable.listSaver<androidx.compose.runtime.snapshots.SnapshotStateList<MealDraftItem>,String>(save={rows->rows.map{org.json.JSONArray(listOf(it.name,it.quantity,it.unit,it.energyKcal,it.proteinG,it.fatG,it.carbG)).toString()}},restore={rows->rows.map{org.json.JSONArray(it).let{a->MealDraftItem(a.getString(0),a.getString(1),a.getString(2),a.getString(3),a.getString(4),a.getString(5),a.getString(6))}}.toMutableStateList()})){readMealDraftRows(draftScope?.let{it.store.read(it.name,"mealRows")},if(kind==CaptureKind.Meal)seed?.primary.orEmpty() else "").toMutableStateList()}
+  var primary by rememberDraftText("primary"){seed?.primary.orEmpty()};var secondary by rememberDraftText("secondary"){seed?.secondary?.takeIf{it.isNotBlank()}?:if(kind==CaptureKind.Trip)LocalDate.now().toString() else ""};var note by rememberDraftText("note"){seed?.note.orEmpty()};var option by rememberDraftText("option"){seed?.option?.ifBlank{defaultOption(kind)}?:defaultOption(kind)};var date by rememberDraftText("date"){seed?.date?:LocalDate.now().toString()};var category by rememberDraftText("category"){seed?.category.orEmpty()};var paymentMethod by rememberDraftText("paymentMethod"){seed?.paymentMethod.orEmpty()};var advancedMeal by rememberSaveable{mutableStateOf(false)};val mealRows=rememberSaveable(kind,seed?.contextId,saver=androidx.compose.runtime.saveable.listSaver<androidx.compose.runtime.snapshots.SnapshotStateList<MealDraftItem>,String>(save={rows->rows.map{org.json.JSONArray(listOf(it.name,it.quantity,it.unit,it.energyKcal,it.proteinG,it.fatG,it.carbG)).toString()}},restore={rows->rows.map{org.json.JSONArray(it).let{a->MealDraftItem(a.getString(0),a.getString(1),a.getString(2),a.getString(3),a.getString(4),a.getString(5),a.getString(6))}}.toMutableStateList()})){readMealDraftRows(draftScope?.let{it.store.read(it.name,"mealRows")}?:seed?.mealItems?.takeIf{it.isNotEmpty()}?.let(::encodeMealDraftRows),if(kind==CaptureKind.Meal)seed?.primary.orEmpty() else "").toMutableStateList()}
   val changed=primary!=seed?.primary.orEmpty()||secondary!=(seed?.secondary?.takeIf{it.isNotBlank()}?:if(kind==CaptureKind.Trip)LocalDate.now().toString() else "")||note!=seed?.note.orEmpty()||mealRows.toList()!=listOf(MealDraftItem(name=if(kind==CaptureKind.Meal)seed?.primary.orEmpty() else ""))||category!=seed?.category.orEmpty()||paymentMethod!=seed?.paymentMethod.orEmpty()||date!=(seed?.date?:LocalDate.now().toString())||option!=(seed?.option?.ifBlank{defaultOption(kind)}?:defaultOption(kind))
   SideEffect{onDirty(changed);draftScope?.store?.write(draftScope.name,"mealRows",encodeMealDraftRows(mealRows.toList()))}
   when(state){
@@ -94,6 +94,7 @@ import java.time.LocalDate
   seed?.contextLabel?.let{LifeCard{Text("已带入上下文",style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.primary);Text(it);Text("保存时会引用当前对象，不会重复创建原交易或购买。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
   if(kind==CaptureKind.Expense)SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()){listOf("expense" to "支出","income" to "收入").forEachIndexed{index,(value,label)->SegmentedButton(selected=option==value,onClick={option=value},shape=SegmentedButtonDefaults.itemShape(index,2)){Text(label)}}}
   if(kind==CaptureKind.Purchase)OptionChips(listOf("offline_purchase" to "线下","online_purchase" to "网购","delivery" to "外卖","service" to "服务","transport" to "交通","other" to "其他"),option){option=it}
+  if(kind==CaptureKind.Workout)OptionChips(listOf("步行" to "步行","跑步" to "跑步","骑行" to "骑行"),primary){primary=it}
   if(kind==CaptureKind.Meal)OptionChips(listOf("breakfast" to "早餐","lunch" to "午餐","dinner" to "晚餐","snack" to "加餐","other" to "其他"),option){option=it}
   if(kind==CaptureKind.Health)OptionChips(listOf("weight" to "体重","body_fat" to "体脂","heart_rate" to "心率","temperature" to "体温","sleep_duration" to "睡眠","steps" to "步数","custom" to "其他"),option){option=it}
   if(kind==CaptureKind.OwnedItem)OptionChips(listOf("owned" to "持有","gifted" to "已赠出","returned" to "已退货","disposed" to "已处置","lost" to "遗失"),option){option=it}
@@ -108,7 +109,9 @@ import java.time.LocalDate
           OutlinedTextField(row.quantity,{value->mealRows[index]=row.copy(quantity=value)},Modifier.weight(1f),label={Text("份量")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal))
           OutlinedTextField(row.unit,{value->mealRows[index]=row.copy(unit=value)},Modifier.weight(1f),label={Text("单位")},singleLine=true)
         }
-        Text("营养（可选；按这份食物填写）",style=MaterialTheme.typography.labelMedium)
+        var showNutrition by remember{mutableStateOf(false)}
+        TextButton(onClick={showNutrition=!showNutrition}){Text(if(showNutrition)"收起营养" else "补营养（可选）")}
+        if(showNutrition){
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
           OutlinedTextField(row.energyKcal,{value->mealRows[index]=row.copy(energyKcal=value)},Modifier.weight(1f),label={Text("热量 kcal")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal))
           OutlinedTextField(row.proteinG,{value->mealRows[index]=row.copy(proteinG=value)},Modifier.weight(1f),label={Text("蛋白 g")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal))
@@ -116,6 +119,7 @@ import java.time.LocalDate
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
           OutlinedTextField(row.fatG,{value->mealRows[index]=row.copy(fatG=value)},Modifier.weight(1f),label={Text("脂肪 g")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal))
           OutlinedTextField(row.carbG,{value->mealRows[index]=row.copy(carbG=value)},Modifier.weight(1f),label={Text("碳水 g")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal))
+        }
         }
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf("g","ml","份","个").forEach{unit->AssistChip(onClick={mealRows[index]=row.copy(unit=unit)},label={Text(unit)})};if(mealRows.size>1)TextButton(onClick={mealRows.removeAt(index)}){Text("移除")}}
       }}
@@ -127,7 +131,7 @@ import java.time.LocalDate
   else if(kind !in listOf(CaptureKind.Meal,CaptureKind.Visit))OutlinedTextField(secondary,{secondary=it},Modifier.fillMaxWidth(),label={Text(secondaryLabel(kind))},minLines=if(kind==CaptureKind.Library||kind==CaptureKind.Project)4 else 1,singleLine=kind!=CaptureKind.Library&&kind!=CaptureKind.Project,keyboardOptions=KeyboardOptions(keyboardType=if(kind in listOf(CaptureKind.Purchase,CaptureKind.Workout))KeyboardType.Decimal else KeyboardType.Text))
   LifeDateField(date,{date=it},enabled=state !is SubmitState.Sending)
   var more by rememberSaveable{mutableStateOf(note.isNotBlank()||category.isNotBlank()||paymentMethod.isNotBlank())}
-  TextButton(onClick={more=!more}){Text(if(more)"收起更多信息" else "更多信息 · 备注、分类与支付方式")}
+  TextButton(onClick={more=!more}){Text(if(more)"收起更多信息" else if(kind in listOf(CaptureKind.Expense,CaptureKind.Purchase))"更多信息 · 备注、分类与支付方式" else "加备注")}
   if(more){
     if(kind==CaptureKind.Expense||kind==CaptureKind.Purchase){
       OutlinedTextField(category,{category=it},Modifier.fillMaxWidth(),label={Text(if(kind==CaptureKind.Expense)"分类（可选）" else "渠道（可选）")},singleLine=true)

@@ -188,7 +188,8 @@ data class DetailLink(val kind:String,val id:String,val title:String,val support
 data class CaptureSeed(
   val kind:CaptureKind,val primary:String="",val secondary:String="",val note:String="",
   val date:String,val option:String="",val category:String="",val paymentMethod:String="",
-  val contextKind:String?=null,val contextId:String?=null,val contextLabel:String?=null
+  val contextKind:String?=null,val contextId:String?=null,val contextLabel:String?=null,
+  val mealItems:List<MealDraftItem> = emptyList()
 )
 data class DetailAction(val label:String,val seed:CaptureSeed)
 data class DetailGroup(val id:String,val title:String,val facts:List<DetailFact>,val links:List<DetailLink> = emptyList())
@@ -213,17 +214,18 @@ data class RecordDetail(
 )
 
 @Serializable data object TodayRoute
-@Serializable data object TrainingRoute
-@Serializable data object ActivityCaptureRoute
-@Serializable data object RecordsRoute
+@Serializable data class TrainingRoute(val tab:String="today")
+@Serializable data class ActivityCaptureRoute(val tab:String="应用与活动")
+@Serializable data class RecordsRoute(val query:String="")
 @Serializable data object PersonalAgentRoute
-@Serializable data object PlansRoute
+@Serializable data class PlansRoute(val reviews:Boolean=false)
 @Serializable data object LibraryRoute
 @Serializable data class WorkspaceRoute(val domain:String,val tab:String="")
 @Serializable data class DetailRoute(val domain:String,val id:String,val title:String="")
 @Serializable data class PlanDetailRoute(val id:String)
 @Serializable data class OwnedItemDetailRoute(val id:String)
 @Serializable data class ReviewDetailRoute(val id:String)
+@Serializable data object WellnessRoute
 @Serializable data object FeaturesRoute
 @Serializable data object SettingsRoute
 @Serializable data object ConnectionsRoute

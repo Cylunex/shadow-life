@@ -51,9 +51,8 @@ import kotlin.math.abs
   planningPeriod:String,onPlanningPeriod:(String)->Unit
 ){
   var tab by rememberSaveable(initialTab){mutableStateOf(initialTab.takeIf{it in setOf("overview","details","budgets","recurring","intents","supplies","cards","reconcile")}?:"overview")};var query by rememberSaveable{mutableStateOf("")}
-  val workspaceScroll=rememberLazyListState()
-  var scrollTab by rememberSaveable{mutableStateOf(tab)}
-  LaunchedEffect(tab){if(scrollTab!=tab){scrollTab=tab;workspaceScroll.scrollToItem(0)}}
+  val scrollStates=remember{mutableMapOf<String,androidx.compose.foundation.lazy.LazyListState>()}
+  val workspaceScroll=scrollStates.getOrPut(tab){androidx.compose.foundation.lazy.LazyListState()}
   LaunchedEffect(tab){if(tab=="cards")onLoadCards("")}
   LaunchedEffect(tab){if(tab=="reconcile")onLoadImportMonth(LocalDate.now().toString().take(7))}
   val overview=(overviewState as? LoadState.Ready)?.value as? WorkspaceOverview.Money

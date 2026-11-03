@@ -1,5 +1,6 @@
 package com.shadow.life
 
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -32,7 +33,9 @@ internal fun trainingMenuOrDefault(candidate:JSONObject?,fallback:JSONObject):JS
   menu.copyJson()
 }.getOrElse{fallback.copyJson()}
 
-@Composable internal fun TodayTrainingCard(state:LoadState<List<NativeTrainingPlan>>,onOpen:()->Unit){
+@Composable internal fun TodayTrainingCard(accountId:String,state:LoadState<List<NativeTrainingPlan>>,onOpen:()->Unit){
+  val context=LocalContext.current
+  val active=remember(accountId){TrainingDraftStore(context,accountId).read()}
   val plans=(state as? LoadState.Ready)?.value.orEmpty()
   val today=LocalDate.now().dayOfWeek.value
   val plan=plans.firstOrNull{it.schedule.optJSONArray("days")?.let{days->(0 until days.length()).any{days.optInt(it)==today}}==true}
@@ -41,19 +44,19 @@ internal fun trainingMenuOrDefault(candidate:JSONObject?,fallback:JSONObject):JS
       Text("训练计划",style=MaterialTheme.typography.titleLarge)
       Text(plan?.title?:if(plans.isNotEmpty())"今天自由练 / 恢复" else "今天练什么？",style=MaterialTheme.typography.headlineSmall)
       Text(when(state){is LoadState.Loading->"读取你的计划中，离线动作库随时可用";is LoadState.Failed->"计划暂未读取，仍可进入训练";else->if(plans.isEmpty())"徒手与哑铃 · 自选动作 · 逐组记录" else "${plans.size} 份计划 · 按状态选动作"})
-      Text("进入训练 →",style=MaterialTheme.typography.labelLarge)
+      Text(if(active?.started==true)"继续训练 · 已完成 ${active.completedSets} 组 →" else "进入训练 →",style=MaterialTheme.typography.labelLarge)
     }
   }
 }
 
-@Composable internal fun TrainingMenuWorkspace(accountId:String,state:LoadState<List<NativeTrainingPlan>>,submit:SubmitState,onLoad:()->Unit,onSave:(String,JSONObject,String?)->Unit,onReset:()->Unit){
+@Composable internal fun TrainingMenuWorkspace(accountId:String,state:LoadState<List<NativeTrainingPlan>>,submit:SubmitState,onLoad:()->Unit,onSave:(String,JSONObject,String?)->Unit,onReset:()->Unit,initialTab:String="today"){
   val context=LocalContext.current
   val builtIn=remember{context.assets.open("home-workout.json").bufferedReader().use{JSONObject(it.readText())}}
   val store=remember(accountId){TrainingDraftStore(context,accountId)}
   fun emptyDraft(planId:String="",focus:String=trainingTheme(builtIn))=TrainingDraft(LocalDate.now().toString(),ZoneId.systemDefault().id,focus,planId)
   var draft by remember(accountId){mutableStateOf(store.read()?:emptyDraft())}
   var activeExercise by androidx.compose.runtime.saveable.rememberSaveable(accountId){mutableIntStateOf(0)}
-  var tab by remember(accountId){mutableStateOf("today")}
+  var tab by androidx.compose.runtime.saveable.rememberSaveable(accountId,initialTab){mutableStateOf(initialTab)}
   var menu by remember(accountId){mutableStateOf(builtIn.copyJson())}
   var focus by remember(accountId){mutableStateOf(draft.focus)}
   var equipment by remember(accountId){mutableStateOf("all")}
@@ -86,6 +89,30 @@ internal fun trainingMenuOrDefault(candidate:JSONObject?,fallback:JSONObject):JS
   }}
   LaunchedEffect(draft.restUntil){while(draft.restUntil>System.currentTimeMillis()){now=System.currentTimeMillis();kotlinx.coroutines.delay(250)};now=System.currentTimeMillis()}
   LaunchedEffect(submit){if(submit is SubmitState.Saved&&draft.commandId.isNotBlank()&&submit.receipt.commandId==draft.commandId){update(emptyDraft(draft.planId,draft.focus))}}
+  var previous by remember(accountId){mutableStateOf<String?>(null)}
+  val activeRow=draft.exercises.getOrNull(activeExercise)
+  LaunchedEffect(accountId,activeRow?.id,draft.started){
+    previous=null
+    if(!draft.started||activeRow==null)return@LaunchedEffect
+    val exercise=JSONObject(activeRow.snapshot)
+    try{previous=NativeLifeRepository(context,context.applicationContext as ShadowApp).previousExercise(activeRow.id,exercise.getString("unit"),exercise.getString("equipment"))}
+    catch(error:kotlinx.coroutines.CancellationException){throw error}
+    catch(_:Exception){previous="上次表现暂时无法读取"}
+  }
+  var executionOpen by androidx.compose.runtime.saveable.rememberSaveable(accountId){mutableStateOf(draft.started)}
+  LaunchedEffect(draft.started){if(draft.started)executionOpen=true}
+  fun toggleSet(row:TrainingExerciseDraft,setIndex:Int){
+    val exercise=JSONObject(row.snapshot)
+    val set=row.sets[setIndex]
+    if(!set.completed&&!validTrainingSet(set,exercise.getString("unit"),exercise.getString("equipment")=="dumbbell")){
+      error="请填写有效次数或秒数；重量可留空"
+      return
+    }
+    error=null
+    val next=row.copy(sets=row.sets.mapIndexed{i,value->if(i==setIndex)value.copy(completed=!value.completed) else value})
+    update(draft.copy(exercises=draft.exercises.map{if(it.id==row.id)next else it},restUntil=if(set.completed)draft.restUntil else System.currentTimeMillis()+restLength*1000L))
+  }
+  val content:@Composable ()->Unit={
   Column(verticalArrangement=Arrangement.spacedBy(14.dp)){
     Card(colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.primaryContainer)){
       Column(Modifier.fillMaxWidth().padding(18.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
@@ -128,15 +155,13 @@ internal fun trainingMenuOrDefault(candidate:JSONObject?,fallback:JSONObject):JS
               TextButton(onClick={expanded=if(expanded==row.id)null else row.id}){Text(if(expanded==row.id)"收起动作说明" else "动作说明 / 教学")}
               if(expanded==row.id){Text(exercise.getString("guidance"));Text(exercise.getString("caution"),style=MaterialTheme.typography.bodySmall);TextButton(onClick={uriHandler.openUri(exercise.getString("source_url"))}){Text("打开教学参考")}}
               if(draft.started){
+                previous?.let{Text("上次同动作 · $it",style=MaterialTheme.typography.bodySmall)}
                 row.sets.forEachIndexed{setIndex,set->
                   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){
                     Text("${setIndex+1}",modifier=Modifier.width(20.dp))
                     OutlinedTextField(set.value,{value->updateExercise(row.id){it.copy(sets=it.sets.mapIndexed{i,s->if(i==setIndex)s.copy(value=value,completed=false) else s})}},enabled=!pending&&!set.completed,label={Text(if(seconds)"秒数" else "次数")},keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(keyboardType=androidx.compose.ui.text.input.KeyboardType.Number),modifier=Modifier.weight(1f))
                     if(dumbbell)OutlinedTextField(set.load,{value->updateExercise(row.id){it.copy(sets=it.sets.mapIndexed{i,s->if(i==setIndex)s.copy(load=value,completed=false) else s})}},enabled=!pending&&!set.completed,label={Text("kg / 只")},keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(keyboardType=androidx.compose.ui.text.input.KeyboardType.Decimal),modifier=Modifier.weight(1f))
-                    TextButton(enabled=!pending,onClick={
-                      if(!set.completed&&!validTrainingSet(set,exercise.getString("unit"),dumbbell)){error="请填写有效${if(seconds)"秒数" else "次数"}；重量可留空"}
-                      else {error=null;val next=row.copy(sets=row.sets.mapIndexed{i,s->if(i==setIndex)s.copy(completed=!s.completed) else s});update(draft.copy(exercises=draft.exercises.map{if(it.id==row.id)next else it},restUntil=if(set.completed)draft.restUntil else System.currentTimeMillis()+restLength*1000L))}
-                    }){Text(if(set.completed)"✓ 撤销" else "完成")}
+                    TextButton(enabled=!pending,onClick={toggleSet(row,setIndex)}){Text(if(set.completed)"✓ 撤销" else "完成")}
                   }
                 }
                 TextButton(enabled=!pending&&row.sets.size<30,onClick={updateExercise(row.id){it.copy(sets=it.sets+TrainingSetDraft(load=it.sets.lastOrNull()?.load.orEmpty()))}}){Text("＋ 加一组")}
@@ -212,5 +237,21 @@ internal fun trainingMenuOrDefault(candidate:JSONObject?,fallback:JSONObject):JS
       }
     }
     Text("不必做完动作库。动作引起或加重疼痛时停止，后腰不适优先有支撑的版本。教学链接需联网。",style=MaterialTheme.typography.bodySmall)
+  }
+  }
+  if(draft.started&&executionOpen){
+    LifeFullScreen("进行中的训练",{executionOpen=false}){
+      Column(Modifier.fillMaxSize()){
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())){content()}
+        val row=draft.exercises.getOrNull(activeExercise)
+        val index=row?.sets?.indexOfFirst{!it.completed}?:-1
+        if(row!=null&&index>=0)Button(enabled=!pending,onClick={toggleSet(row,index)},modifier=Modifier.fillMaxWidth().padding(vertical=8.dp)){
+          Text("完成第 ${index+1} 组")
+        }
+      }
+    }
+  }else{
+    if(draft.started)Button(onClick={executionOpen=true}){Text("继续训练")}
+    content()
   }
 }

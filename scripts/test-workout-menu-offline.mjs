@@ -41,7 +41,8 @@ await withOfflinePostgres(async url=>{
     assert.equal((await pool.query('select count(*)::int n from workout_plans')).rows[0].n,1);
     assert.equal((await pool.query('select count(*)::int n from health_workout_sessions')).rows[0].n,0);
     await nav.getByRole('button',{name:'今日训练',exact:true}).click();await menu.getByRole('button',{name:'开始训练'}).click();
-    assert.equal(await menu.locator('.training-exercise').count(),2,'saving a menu must preserve the current combination');
+    assert.equal(await menu.locator('.training-exercise-nav button').count(),2,'saving a menu must preserve the current combination');
+    assert.equal(await menu.locator('.training-exercise').count(),1,'execution shows the selected exercise');
     const press=menu.getByRole('article',{name:'哑铃地板卧推训练',exact:true});
     assert.equal(await menu.getByRole('button',{name:'结束并保存'}).isDisabled(),true);
     await press.getByLabel('哑铃地板卧推第1组次数',{exact:true}).fill('10');await press.getByLabel('哑铃地板卧推第1组每只哑铃公斤',{exact:true}).fill('4.5');

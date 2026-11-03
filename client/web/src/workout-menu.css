@@ -24,3 +24,8 @@
 .workout-menu label,.workout-menu .training-set-labels{color:var(--muted)}
 
 .workout-menu .training-basket{top:12px;bottom:auto}
+
+.training-exercise-nav{display:flex;gap:8px;overflow:auto;margin:12px 0}
+.training-exercise-nav button{min-height:48px;flex-shrink:0}
+.training-next-set{position:sticky;bottom:84px;z-index:2;padding:8px;background:var(--surface)}
+.training-next-set button{width:100%;min-height:48px;background:var(--green);color:var(--surface)}

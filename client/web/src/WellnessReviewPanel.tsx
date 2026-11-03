@@ -8,6 +8,7 @@ const show = (value:string|number|null|undefined)=>value==null?"未知":String(v
 function sourceLink(kind:string,id:string) {return `?${new URLSearchParams({tab:"record",section:"timeline",domain:"health",kind,id})}`;}
 
 export function WellnessReviewPanel({headers,date}:{headers:HeadersInit;date:string}) {
+  const [selectedDate,setSelectedDate]=useState(date);
   const [to,setTo]=useState(date),[days,setDays]=useState<7|30|90>(7),[retry,setRetry]=useState(0);
   const [result,setResult]=useState<{key:string;data:WellnessReviewResult}>(),[error,setError]=useState<{key:string;message:string}>();
   const key=`${to}:${days}:${retry}`;
@@ -33,6 +34,15 @@ export function WellnessReviewPanel({headers,date}:{headers:HeadersInit;date:str
         <article><span>每日最后体重均值</span><strong>{show(data.current.average_weight_kg)} kg</strong><small>{data.current.weight_days} 天 · 前期 {show(data.previous.average_weight_kg)} kg（{data.previous.weight_days} 天）</small></article>
         <article><span>主睡眠均值</span><strong>{show(data.current.average_sleep_minutes)} 分钟</strong><small>{data.current.sleep_days} 天 · 前期 {show(data.previous.average_sleep_minutes)} 分钟（{data.previous.sleep_days} 天）</small></article>
         <article><span>实际训练</span><strong>{data.current.workout_sessions} 次</strong><small>{data.current.workout_minutes===null?"时长未知":`已知 ${data.current.workout_minutes} 分钟`} · {data.current.known_workout_duration_sessions} / {data.current.workout_sessions} 次有时长；前期 {data.previous.workout_sessions} 次</small></article>
+      </div>
+      <div className="wellness-days">
+        <nav aria-label="按天回看">{data.days.map(day=><button type="button" key={day.date} aria-pressed={selectedDate===day.date} onClick={()=>setSelectedDate(day.date)}>{day.date.slice(5)}<small>{day.meals} 餐 · {day.workouts.sessions} 次运动</small></button>)}</nav>
+        <section aria-live="polite">{(()=>{
+          const day=data.days.find(item=>item.date===selectedDate)??data.days.at(-1);
+          if(!day)return null;
+          const energy=day.nutrients.energy_kcal;
+          return <><h3>{day.date}</h3><p>{day.weight?<a href={sourceLink(day.weight.kind,day.weight.id)}>体重 {show(day.weight.value)} kg</a>:"当天没有已记录体重"}</p><p>{day.sleep?<a href={sourceLink("sleep_session",day.sleep.id)}>主睡眠 {day.sleep.minutes} 分钟 · 按醒来日</a>:"当天没有已记录睡眠"}</p><p>{day.meals} 餐 · 已知热量 {show(energy.known_total)} kcal · {energy.known_items}/{day.items} 项有热量</p><p>实际训练 {day.workouts.sessions} 次 · 已知时长 {show(day.workouts.minutes)} 分钟</p></>;
+        })()}</section>
       </div>
       <h3>营养记录与前期对照</h3><p>均值仅计算已记录条目中该字段齐全的日期，仍可能有漏记；估算也包含在内。不同覆盖的均值不能直接当作摄入增减。</p>
       <div className="wellness-table" tabIndex={0} aria-label="营养覆盖和前期对照"><table><thead><tr><th>营养</th><th>已知合计</th><th>字段覆盖</th><th>其中估算</th><th>齐全日期均值</th><th>前期均值</th></tr></thead><tbody>{wellnessNutrients.map(key=>{const current=data.current.nutrients[key],previous=data.previous.nutrients[key];return <tr key={key}><th>{labels[key]} ({unit(key)})</th><td>{show(current.known_total)}</td><td>{current.known_items} / {data.current.items} 项</td><td>{current.estimated_items} 项</td><td>{show(current.average_on_complete_days)} · {current.complete_days} 天</td><td>{show(previous.average_on_complete_days)} · {previous.complete_days} 天</td></tr>})}</tbody></table></div>

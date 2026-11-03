@@ -142,6 +142,62 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     AssistantReply(answer.toString(),threadId,runId,state,prompt,receipts)
   }
 
+  suspend fun mealsOn(date:String):RecordPage {
+    val end=java.time.LocalDate.parse(date).plusDays(1)
+    val meals=linkedMapOf<String,RecordSummary>()
+    var cursor:String?=null
+    val seen=mutableSetOf<String>()
+    var asOf=""
+    do {
+      val suffix=cursor?.let{"&cursor=${encode(it)}"}.orEmpty()
+      val page=wireJson.decodeFromString<LifeSearchResultDto>(getText("/api/search?view=facts&types=meals&from_on=$date&to_on_exclusive=$end&limit=100$suffix"))
+      asOf=page.asOf
+      for(entry in page.items){
+        if(entry.kind!="meal")continue
+        val meal=wireJson.decodeFromString<LifeRecordResultDto>(getText("/api/life/records/${entry.id}")) as? LifeRecordResultDtoMeal ?:continue
+        if(meal.occurredOn!=date)continue
+        fun scaled(value:String?,fraction:String?):String?=value?.toBigDecimal()?.multiply(fraction?.toBigDecimal()?:java.math.BigDecimal.ONE)?.stripTrailingZeros()?.toPlainString()
+        val foods=meal.items.orEmpty().map{food->MealFoodSummary(food.name,food.quantity,food.unit,scaled(food.energyKcal,food.consumedFraction),scaled(food.proteinG,food.consumedFraction),scaled(food.fatG,food.consumedFraction),scaled(food.carbG,food.consumedFraction),food.estimate)}
+        meals[meal.mealId]=RecordSummary(LifeDomain.Meals,"meal",meal.mealId,foods.joinToString("、"){it.name},date,null,meal.revision?.toInt(),
+          meal=MealCardSummary(meal.mealType?.wireValue?:"other",date,meal.occurredAt,meal.timeZone?:"UTC",meal.note,foods,meal.sources.orEmpty().firstOrNull{it.assetVersionId!=null}?.assetVersionId))
+      }
+      cursor=page.nextCursor
+      check(cursor==null||seen.add(cursor)){"餐次分页未能继续，请重试"}
+    }while(cursor!=null)
+    return RecordPage(meals.values.toList(),null,asOf)
+  }
+
+  suspend fun previousExercise(id:String,unit:String,equipment:String):String?{
+    var cursor:String?=null
+    val seen=mutableSetOf<String>()
+    do{
+      val page=records(LifeDomain.Health,cursor=cursor)
+      for(record in page.items.filter{it.kind=="workout_session"}){
+        val result=wireJson.decodeFromString<HealthRecordResultDto>(getText("/api/health/records/${record.id}")) as? HealthRecordResultDtoWorkoutSession?:continue
+        if(!result.fact.effective)continue
+        val exercises=JSONObject(result.fact.detail?.toString()?:"{}").optJSONObject("strength_session")?.optJSONArray("exercises")?:continue
+        for(index in 0 until exercises.length()){
+          val row=exercises.getJSONObject(index)
+          val exercise=row.optJSONObject("exercise")?:continue
+          if(exercise.optString("id")!=id||exercise.optString("unit")!=unit||exercise.optString("equipment")!=equipment)continue
+          val sets=row.optJSONArray("sets")?:continue
+          val values=(0 until sets.length()).map{sets.getJSONObject(it)}.mapNotNull{set->
+            if(!set.has(unit))null else (if(set.has("load_kg"))"${set.getString("load_kg")} kg / 只 × " else "")+"${set.getInt(unit)} "+if(unit=="seconds")"秒" else "次"
+          }
+          if(values.isNotEmpty())return "${result.fact.occurredOn} · ${values.joinToString("，")}"
+        }
+      }
+      cursor=page.nextCursor
+      check(cursor==null||seen.add(cursor)){"训练分页未能继续"}
+    }while(cursor!=null)
+    return null
+  }
+
+  suspend fun recipeCatalog(query:String):JSONObject=JSONObject(getText("/api/life/foods?limit=100&q=${encode(query)}"))
+
+  suspend fun wellness(to:String,days:Int):JSONObject =
+    JSONObject(getText("/api/life/wellness-review?to=$to&days=$days"))
+
   suspend fun records(domain:LifeDomain,query:String="",cursor:String?=null):RecordPage {
     val apiDomain=when(domain){LifeDomain.Meals->"life";else->domain.name.lowercase()}
     if(domain==LifeDomain.Meals){

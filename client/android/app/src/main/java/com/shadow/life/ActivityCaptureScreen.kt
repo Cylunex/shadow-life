@@ -26,13 +26,13 @@ import java.security.MessageDigest
 import org.json.JSONArray
 import org.json.JSONObject
 
-@Composable internal fun ActivityCaptureScreen(accountId:String,onBack:()->Unit,onSource:(String)->Unit={}){
+@Composable internal fun ActivityCaptureScreen(accountId:String,onBack:()->Unit,onSource:(String)->Unit={},initialTab:String="应用与活动"){
   val context=LocalContext.current;val app=context.applicationContext as ShadowApp
   val repository=remember(accountId){NativeLifeRepository(context,app)};val scope=rememberCoroutineScope()
   val preferences=remember(accountId){context.getSharedPreferences("activity_capture",Context.MODE_PRIVATE)}
   var packages by remember(accountId){mutableStateOf(preferences.getStringSet("screen_packages_$accountId",emptySet()).orEmpty().toSet())}
   val launchers=remember{context.packageManager.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER),0).distinctBy{it.activityInfo.packageName}.filter{it.activityInfo.packageName!=context.packageName}.sortedBy{it.loadLabel(context.packageManager).toString()}}
-  var workspace by androidx.compose.runtime.saveable.rememberSaveable(accountId){mutableStateOf("应用与活动")}
+  var workspace by androidx.compose.runtime.saveable.rememberSaveable(accountId,initialTab){mutableStateOf(initialTab)}
   var showApps by remember(accountId){mutableStateOf(false)}
   var order by remember(accountId){mutableStateOf<ActivityOrderResultDto?>(null)}
   var deleteId by remember(accountId){mutableStateOf<String?>(null)}

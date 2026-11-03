@@ -19,7 +19,7 @@ private fun plusDays(value:String,days:Long)=LocalDate.parse(value).plusDays(day
 @Composable internal fun NativeMealPlanningSection(
   overview:WorkspaceOverview.Meals,actionState:SubmitState,
   onSave:(NativeMealPlanDraft)->Unit,onBuild:(MealPlanningResultDtoMealPlansEntry,String)->Unit,
-  onUpdate:(MealPlanningResultDtoShoppingListsEntryItemsEntry,String)->Unit,onSetStock:(MealPlanningResultDtoStockLotsEntry?,String,String,String,String?)->Unit,onSaveRecipe:(String,String,String,String,String)->Unit,onReset:()->Unit
+  onUpdate:(MealPlanningResultDtoShoppingListsEntryItemsEntry,String)->Unit,onSetStock:(MealPlanningResultDtoStockLotsEntry?,String,String,String,String?)->Unit,onSaveRecipe:(String,String,String,String,String)->Unit,onReset:()->Unit,initialSection:String="planning",accountId:String
 ){
   val today=LocalDate.now().toString()
   var editing by rememberJsonState(MealPlanningResultDtoMealPlansEntry.serializer())
@@ -49,9 +49,13 @@ private fun plusDays(value:String,days:Long)=LocalDate.parse(value).plusDays(day
     entryDate=startsOn;entries.clear()
     plan?.entries?.forEach{item->entries+=NativeMealPlanEntryDraft(plusDays(item.planDate,if(copy)7 else 0),item.mealType.wireValue,item.title,item.servings,item.recipeId,item.recipeRevision)}
   }
+  var section by rememberSaveable(initialSection){mutableStateOf(initialSection.takeIf{it in setOf("stock","recipes","shopping")}?:"planning")}
   Column(verticalArrangement=Arrangement.spacedBy(14.dp)){
-    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("餐单与购物清单",style=MaterialTheme.typography.titleLarge);TextButton(onClick={if(showEditor){showEditor=false}else open(null)}){Text(if(showEditor)"收起编辑" else "新建餐单")}}
     when(actionState){is SubmitState.Sending->LinearProgressIndicator(Modifier.fillMaxWidth());is SubmitState.Rejected->Text(actionState.message,color=MaterialTheme.colorScheme.error);is SubmitState.Saved->Text(if(actionState.receipt.queued)"已保存，正在同步" else "已保存",color=MaterialTheme.colorScheme.primary);else->Unit}
+    LifeTabs(section,{section=it},listOf("planning" to "餐单","shopping" to "购物清单","stock" to "食材库存","recipes" to "食谱"))
+    if(section=="planning"){
+    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("餐单与购物清单",style=MaterialTheme.typography.titleLarge);TextButton(onClick={if(showEditor){showEditor=false}else open(null)}){Text(if(showEditor)"收起编辑" else "新建餐单")}}
+
     if(showEditor)LifeCard{
       Text(if(editing==null)"安排餐单" else "编辑餐单",style=MaterialTheme.typography.titleMedium)
       OutlinedTextField(title,{title=it},Modifier.fillMaxWidth(),label={Text("名称")},singleLine=true)
@@ -67,6 +71,8 @@ private fun plusDays(value:String,days:Long)=LocalDate.parse(value).plusDays(day
       Button(onClick={onSave(NativeMealPlanDraft(title,startsOn,endsOn,entries.toList(),editing?.id,editing?.revision,editing?.state?.wireValue?:"active"))},enabled=!busy&&title.isNotBlank()&&entries.isNotEmpty(),modifier=Modifier.fillMaxWidth()){Text("保存餐单")}
       Text("餐单只是安排；买到和实际吃下的内容分别记录。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }
+    }
+    if(section=="stock"){
     HorizontalDivider();Text("实际食品库存",style=MaterialTheme.typography.titleLarge)
     Text("只填写亲自核实的库存；购物清单标记买到不会自动入库。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     TextButton(onClick={onReset();editingLotJson=null;stockName="";stockQuantity="";stockUnit="";stockExpiry="";showStockEditor=!showStockEditor},enabled=!busy){Text(if(showStockEditor)"取消编辑" else "记录库存")}
@@ -88,6 +94,8 @@ private fun plusDays(value:String,days:Long)=LocalDate.parse(value).plusDays(day
     }}
     if(overview.stockTruncated)Text("库存批次超过 100 条，缺口保持未知。")
     if(overview.lists.isNotEmpty())HorizontalDivider()
+    }
+    if(section=="planning"){
     HorizontalDivider();Text("已保存餐单",style=MaterialTheme.typography.titleLarge)
     if(overview.plans.isEmpty())Text("还没有餐单，可以先安排一餐。",color=MaterialTheme.colorScheme.onSurfaceVariant)
     overview.plans.forEach{plan->LifeCard{
@@ -102,10 +110,15 @@ private fun plusDays(value:String,days:Long)=LocalDate.parse(value).plusDays(day
       }
       if(overview.lists.none{it.mealPlanId==plan.id&&it.mealPlanRevision==plan.revision})OutlinedTextField(extraNames,{extraNames=it},Modifier.fillMaxWidth(),label={Text("补充采购品（可选，每行一项）")})
     }}
+    }
+    if(section=="recipes"){
+    RecipeCatalog(accountId,actionState)
     HorizontalDivider();Text("导入食谱来源",style=MaterialTheme.typography.titleLarge)
     Text("粘贴 schema.org Recipe JSON-LD，预览并校对后再明确保存；不会直接访问来源网站。",style=MaterialTheme.typography.bodySmall)
     LifeCard{OutlinedTextField(importUrl,{importUrl=it},Modifier.fillMaxWidth(),label={Text("来源链接")});OutlinedTextField(importText,{importText=it},Modifier.fillMaxWidth(),label={Text("Recipe JSON-LD")},minLines=3);OutlinedButton(onClick={try{val value=previewRecipeImport(importText,importUrl);recipeTitle=value.title;recipeServings=value.servings;recipeIngredients=value.ingredients;recipeInstructions=value.instructions;importUrl=value.sourceUrl;recipePreview=true;recipeError=null}catch(error:Exception){recipeError=error.message?:"无法预览来源"}},enabled=importText.isNotBlank()){Text("预览并校对")};recipeError?.let{Text(it,color=MaterialTheme.colorScheme.error)};if(recipePreview){OutlinedTextField(recipeTitle,{recipeTitle=it},Modifier.fillMaxWidth(),label={Text("标题")});OutlinedTextField(recipeServings,{recipeServings=it},Modifier.fillMaxWidth(),label={Text("份数")});OutlinedTextField(recipeIngredients,{recipeIngredients=it},Modifier.fillMaxWidth(),label={Text("原料：名称|数量|单位，每行一项")},minLines=3);OutlinedTextField(recipeInstructions,{recipeInstructions=it},Modifier.fillMaxWidth(),label={Text("步骤")},minLines=2);Button(onClick={recipeSubmitted=true;onSaveRecipe(recipeTitle,recipeServings,recipeIngredients,recipeInstructions,importUrl)},enabled=!busy&&recipeTitle.isNotBlank()&&recipeServings.toBigDecimalOrNull()?.let{it>java.math.BigDecimal.ZERO}==true&&recipeIngredients.lines().filter(String::isNotBlank).all{it.split("|",limit=3).size==3}&&(importUrl.startsWith("https://")||importUrl.startsWith("http://"))){Text("保存食谱")}}}
 
+    }
+    if(section=="shopping"){
     HorizontalDivider();Text("购物清单",style=MaterialTheme.typography.titleLarge)
     overview.lists.forEach{list->LifeCard{
       Text(list.title,style=MaterialTheme.typography.titleMedium)
@@ -121,6 +134,8 @@ private fun plusDays(value:String,days:Long)=LocalDate.parse(value).plusDays(day
       }}
     }}
   }
+}
+
 }
 
 private fun stockGap(item:MealPlanningResultDtoShoppingListsEntryItemsEntry,lots:List<MealPlanningResultDtoStockLotsEntry>,truncated:Boolean,neededBy:String):String{
