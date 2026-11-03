@@ -26,6 +26,9 @@ importers:
       '@shadow/contracts':
         specifier: workspace:*
         version: link:../../shared/contracts
+      '@shadow/life-client':
+        specifier: workspace:*
+        version: link:../../shared/life-client
 
   client/web:
     dependencies:
@@ -155,6 +158,9 @@ importers:
       '@shadow/contracts':
         specifier: workspace:*
         version: link:../../shared/contracts
+      '@shadow/life-client':
+        specifier: workspace:*
+        version: link:../../shared/life-client
       zod:
         specifier: ^4.1.12
         version: 4.5.4
@@ -177,6 +183,15 @@ importers:
 
   shared/contracts:
     dependencies:
+      zod:
+        specifier: ^4.1.12
+        version: 4.5.4
+
+  shared/life-client:
+    dependencies:
+      '@shadow/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       zod:
         specifier: ^4.1.12
         version: 4.5.4

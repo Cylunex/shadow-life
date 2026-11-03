@@ -21,7 +21,7 @@
 | Travel map / day plan | `travel.workspace`, `travel.save_place`, `travel.save_map`, `travel.set_day_plan` | Actual visits require a separate explicit fact |
 | Save a note / attachment | `library.capture`, `library.revise`, `library.get_item` | Original and revision remain traceable |
 
-Availability is the intersection of the MCP profile and the server's current permissions. Use the
+Availability is the intersection of the CLI profile and the server's current permissions. Use the
 schema actually exposed by the tool; do not infer optional features from this table alone.
 
 ## Input rules that prevent failed writes
@@ -127,7 +127,7 @@ exercise or habit targets. A weekly check must cover all seven requested dates, 
 
 For an existing scheduled reminder that asks for silence on no change, remain quiet when there is no
 confirmed actionable result. A tool failure is not a record omission; report the genuine failure per
-the schedule's notification policy. The MCP itself does not send messages or create schedules.
+the schedule's notification policy. The skill itself does not send messages or create schedules.
 
 ## Plans, inventory and travel
 
@@ -186,7 +186,7 @@ do not imply a visit. Actual visits and private reservation details retain their
 
 1. Discover “饮食复盘” / “健康周报” with schemas, then call `life.wellness_review`
    with an explicit end date and 7, 30 or 90 days. The preceding equal-length period is included.
-   In compact MCP use `life.query` with `{capability:"life.wellness_review",input:{to:"2026-10-23",days:7}}`.
+   Call `life.wellness_review` with `{ "to": "2026-10-23", "days": 7 }`.
 2. State dates, recorded meal days, field coverage, estimated counts and known health days before comparing.
    A nutrient's `average_on_complete_days` only covers field-complete **recorded** items on those dates;
    it does not establish a complete food diary. Missing fields/dates are unknown, explicit zeros are known.

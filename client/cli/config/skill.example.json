@@ -1,0 +1,7 @@
+{
+  "api": "https://life.example.com",
+  "token": "REPLACE_ACCESS_TOKEN",
+  "profile": "personal",
+  "mediaRoots": ["/REPLACE_MEDIA_CACHE"],
+  "timeoutMs": 30000
+}

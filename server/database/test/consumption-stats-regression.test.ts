@@ -3,10 +3,17 @@ import test from "node:test";
 import { pgOnly, reviewFixture } from "./review-fixture.js";
 
 test("consumption statistics keep order, meal, item and refund facts deduplicated",pgOnly,async t=>{
-  const {run,queries,context}=await reviewFixture(t);
+  const {run,queries,context,pool}=await reviewFixture(t);
   const purchase=await run("life.record_purchase",{scene:"delivery",merchant_name_raw:"示例饭店（人民广场店）",occurred_on:"2026-09-01",occurred_at:"2026-08-31T16:30:00Z",time_zone:"Asia/Shanghai",items:[{raw_name:"牛肉饭",quantity:"1",unit:"份",line_amount:"28.00"},{raw_name:"包装费",quantity:"1",unit:"份",line_amount:"2.00"}],payment:{amount:"30.00",currency:"CNY",occurred_on:"2026-09-01",time_zone:"Asia/Shanghai"}});
   const meal=await run("life.record_meal",{occurred_on:"2026-09-01",occurred_at:"2026-09-01T04:40:00Z",time_zone:"Asia/Shanghai",meal_type:"lunch",items:[{name:"牛肉饭",quantity:"1",unit:"份",consumed_fraction:"0.8",estimate:false}]});
-  await run("life.link_meal_consumption",{meal_id:meal.actual_values.meal_id,consumption_record_id:purchase.actual_values.record_id,evidence:"user_confirmed"});
+  // Existing records may already have revisions; the association receipt must not invent revision 1.
+  await pool.query("update meals set revision=3 where id=$1",[meal.actual_values.meal_id]);
+  await pool.query("update consumption_records set revision=4 where id=$1",[purchase.actual_values.record_id]);
+  const link=await run("life.link_meal_consumption",{meal_id:meal.actual_values.meal_id,consumption_record_id:purchase.actual_values.record_id,evidence:"user_confirmed"});
+  assert.equal(link.resources.find(ref=>ref.type==="meal")?.revision,3);
+  assert.equal(link.resources.find(ref=>ref.type==="consumption_record")?.revision,4);
+  const linked=await queries.lifeRecord(context,purchase.actual_values.record_id as string);
+  assert.ok(linked.kind==="record"&&linked.meals?.some(row=>row.id===meal.actual_values.meal_id));
   await run("money.record_refund",{original_entry_id:purchase.actual_values.money_entry_id,amount:"5.00",currency:"CNY",occurred_on:"2026-09-10",time_zone:"Asia/Shanghai"});
   const input={from_on:"2026-09-01",to_on_exclusive:"2026-10-01",time_zone:"Asia/Shanghai",currency:"CNY",limit:20};
   const result=await queries.consumptionStats(context,input);

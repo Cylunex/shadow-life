@@ -2,7 +2,7 @@
 
 Shadow Life is a new product kernel. It does not import or proxy the legacy Shadow services at runtime.
 
-The single repository has three source areas: `server/` owns the API, background processing, MCP tooling, business
+The single repository has three source areas: `server/` owns the API, background processing, deprecated MCP compatibility, business
 kernel, database and migration tools; `client/` owns Web, Android and CLI; `shared/` owns public contracts. Package
 names remain `@shadow/*`. A single root pnpm workspace and lockfile support scoped development and checks;
 the layout does not create independently installed repositories. See [the layout guide](docs/architecture/server-client-layout.md).
@@ -14,7 +14,7 @@ server/api -> server/kernel -> shared/contracts
 server/api -> server/database -> server/kernel
 server/api -> server/agent-adapter -> shared/contracts
 server/worker -> server/database
-server/mcp -> shared/contracts
+client/cli / server/mcp (deprecated) -> shared/life-client -> shared/contracts
 client/web / client/cli -> shared/contracts
 client/android -> generated contract models
 ```
@@ -69,3 +69,5 @@ Agent 任务上下文、来源和离线评测见 [任务上下文设计](docs/ar
 
 Android 自动采集、应用使用、订单与活动整理、录音地点及分层回顾的拟议设计见
 [Android 自动采集与生活回顾](docs/architecture/android-life-capture.md)（完整设计与首批采集实现边界）。
+
+新 Agent 接入使用 life-operator skill 与 CLI；共享 HTTP/原件客户端位于 `shared/life-client`，MCP 仅保留显式旧版兼容。入口见 [skill/CLI 接入](docs/agents/integration.md)。

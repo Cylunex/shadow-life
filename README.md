@@ -2,10 +2,10 @@
 
 Shadow Life is the personal Shadow product for recording and understanding daily life. The native kernel owns meals,
 purchases, money and refunds, budgets and recurring plans, health measurements, trips and visits, and a
-revisioned library. HTTP, CLI, MCP, Web, Android and the optional Agent Runtime all use the same typed command
+revisioned library. HTTP, skill CLI, Web, Android and the optional Agent Runtime all use the same typed command
 contracts and deterministic execution receipts.
 
-The repository groups the API, worker and MCP tooling in [`server/`](server/README.md), applications and the CLI in
+The repository groups the API and worker in [`server/`](server/README.md), applications and the CLI in
 [`client/`](client/README.md), and public contracts in [`shared/`](shared/README.md). They share one pnpm workspace
 and lockfile, with separate development and verification commands. Read [ARCHITECTURE.md](ARCHITECTURE.md),
 [the layout guide](docs/architecture/server-client-layout.md) and [the rebuild status](docs/execution/rebuild-status.md)
@@ -51,7 +51,7 @@ does not embed or serve the Web application. Android has its own Gradle workflow
 
 | Work | Root commands |
 | --- | --- |
-| Server, including MCP | `pnpm check:server`, `pnpm test:server:offline` |
+| Server | `pnpm check:server`, `pnpm test:server:offline` |
 | Web and CLI | `pnpm check:client`, `pnpm test:client`, `pnpm build:client` |
 | Shared contracts | `pnpm check:shared` |
 | Cross-side changes | `pnpm check`, `pnpm test:full:offline` |
@@ -64,7 +64,7 @@ Android compilation remains a separate Gradle task.
 
 - [Server entry points](server/README.md), [client entry points](client/README.md) and [shared-contract workflow](shared/README.md).
 - [Architecture and boundaries](ARCHITECTURE.md), [directory layout and verification scope](docs/architecture/server-client-layout.md), and [delivery status](docs/execution/rebuild-status.md).
-- Existing [Agent and MCP integration](docs/agents/integration.md), [Life operator skill](skills/life-operator/SKILL.md), and [Runtime/Host trust boundary](docs/decisions/0002-agent-event-trust-boundary.md).
+- [Agent skill and CLI integration](docs/agents/integration.md), [Life operator skill](skills/life-operator/SKILL.md), and [Runtime/Host trust boundary](docs/decisions/0002-agent-event-trust-boundary.md).
 - [Legacy migration plan](docs/migration/legacy-project-migration-plan.md), [Health/Ledger inventory](docs/migration/health-ledger-inventory.md), and [cutover runbook](docs/migration/cutover-runbook.md).
 
 No development command deploys, reaches production, calls a paid model or builds a signed Android package.

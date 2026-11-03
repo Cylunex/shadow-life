@@ -1,11 +1,24 @@
 ---
 name: life-operator
-description: Record, correct, and query personal meals, purchases, spending, prepaid service cards, consumables and actual uses, health measurements, travel, items, plans, and library records through the Shadow Life MCP. Use for everyday logging, order screenshots, historical corrections, consumption statistics, or record completeness checks.
+description: Record, correct, and query personal meals, purchases, spending, prepaid service cards, consumables and actual uses, health measurements, travel, items, plans, and library records through the Shadow Life skill CLI. Use for everyday logging, order screenshots, historical corrections, consumption statistics, or record completeness checks.
 ---
 
 # Life operator
 
-Use the `shadow-life` MCP as the authoritative record service. Read
+Use the bundled Life CLI as the authoritative record service. The executable is
+`<life-root>/skills/life-operator/scripts/life --config <private-config.json>`.
+The launcher resolves the repository and dependencies from its own location.
+The config uses the structure in `client/cli/config/skill.example.json`; actual
+configuration and credentials stay outside Git in a 0600 file. Only the config path
+belongs in a launcher. No MCP process or registration is needed.
+
+- Append `catalog` to list authorized capability schemas.
+- Append `call agent.discover input.json` to discover relevant capabilities.
+- Append `call <capability> input.json` to execute; omit the filename to read JSON from stdin.
+- Reads use the capability input object. Writes use `{ "command_id": "cmd_...", "input": {...} }`.
+- Image and statement upload helpers accept `{ "path": "/absolute/media/file" }`.
+- Output is one JSON result or error; inspect `isError` and the receipt before claiming success.
+ Read
 [workflows](references/workflows.md) for the relevant task and
 [validated examples](references/examples.json) when constructing a new input shape.
 The examples contain fictional records and illustrative IDs; replace them with real tool results.
@@ -14,12 +27,11 @@ The examples contain fictional records and illustrative IDs; replace them with r
 - Use `agent.discover` to find tools by business term or scenario before guessing input shapes;
   `agent.glossary` explains fact boundaries and `agent.scenarios` lists authorized task bundles.
   Follow discovery `next_offset` for more matches. Discovery results never prove a record was saved.
-- When the MCP exposes `life.query` / `life.command`, it uses the compact toolset. Discover the exact
-  capability with `include_schemas: true`; its schema describes the inner `input`. Route reads through
-  `life.query` with `{capability, input}` and writes through `life.command` with
-  `{capability, command_id, input}`. The named capabilities in these workflows remain unchanged;
-  `operations.find` and the optional `assets.upload_local_image` stay directly callable.
-  Copy returned `detail.capability/input` into the read dispatcher without changing IDs.
+- For an existing meal and consumption record, use `life.link_meal_consumption` with
+  `meal_id`, `consumption_record_id` (the record ID, not purchase/money ID), and supported
+  `evidence`. Read the consumption record first to resolve its ID, then read it back and
+  verify `meals` contains the meal. Notes and `agent.objects` references do not attach facts.
+  Use `life.attach_meal_source` to attach an uploaded original to an existing meal.
 - For health/nutrition reviews, discover “饮食复盘” or “健康周报” and use `life.wellness_review`.
   Report per-field coverage and estimates before comparing periods; follow the health/nutrition workflow
   for evidence, goals, stock and requested plans. Unknown is not zero; paired days do not prove causation.
@@ -69,7 +81,7 @@ The examples contain fictional records and illustrative IDs; replace them with r
 - Claim success only from a committed receipt (including `replayed=true`). Read back complex linked
   records, corrections and image attachments; receipt lookups are reads, not additional writes.
 - Tool errors and unavailable capabilities are not user omissions. Do not substitute legacy services,
-  direct database access or arbitrary HTTP/shell calls for the MCP.
+  direct database access or ad hoc HTTP/SQL for the supported CLI.
 
 Do not initiate payments, external publication/sending, account changes or irreversible deletion as
 part of personal logging. Those require separate user authorization at the action point.

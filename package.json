@@ -45,7 +45,8 @@
     "test:client": "node scripts/test-full.mjs --scope client",
     "test:server:offline": "node scripts/test-offline-full.mjs --scope server",
     "start:server": "pnpm --filter @shadow/api start",
-    "start:worker": "pnpm --filter @shadow/worker start"
+    "start:worker": "pnpm --filter @shadow/worker start",
+    "skill": "pnpm --filter @shadow/cli skill"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",

@@ -11,7 +11,7 @@ Web、Android 和 CLI 都通过 Life HTTP API 读取数据、提交命令和恢�
 
 TypeScript 客户端依赖 [`@shadow/contracts`](../shared/README.md)，Android 使用同源生成的合同模型与资源。
 客户端不直接导入 `server/kernel`、`server/database` 或数据库驱动，不复制授权、金额处理或写入成功规则。
-MCP 工具入口位于 [`server/mcp`](../server/README.md)，属于服务端范围，仍通过 HTTP 访问 Life API。
+Agent 使用 [`life-operator` skill](../skills/life-operator/SKILL.md) 与 CLI，经共享 HTTP 客户端访问 Life API；旧 MCP 仅保留兼容。
 
 ## 日常开发
 
@@ -33,7 +33,7 @@ pnpm build:client
 跨端恢复流程后，执行 `pnpm check` 和 `pnpm test:full:offline`。
 
 CLI 包入口为 `pnpm --filter @shadow/cli start`，后接所需命令参数。
-鉴权与既有接入方式见 [Agent / MCP 使用说明](../docs/agents/integration.md)，不要把凭据写入命令示例或提交文件。
+鉴权与既有接入方式见 [Agent skill / CLI 使用说明](../docs/agents/integration.md)，不要把凭据写入命令示例或提交文件。
 
 ## Android
 

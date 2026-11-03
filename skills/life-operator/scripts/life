@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+life_root=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
+cd "$life_root"
+exec node --import tsx client/cli/src/skill.ts "$@"

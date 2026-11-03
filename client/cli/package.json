@@ -3,7 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "bin": { "shadow": "./src/main.ts" },
-  "scripts": { "start": "node --import tsx src/main.ts", "typecheck": "tsc -p tsconfig.json --noEmit" },
-  "dependencies": { "@shadow/contracts": "workspace:*" }
+  "bin": {
+    "shadow": "./src/main.ts"
+  },
+  "scripts": {
+    "start": "node --import tsx src/main.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "skill": "node --import tsx src/skill.ts",
+    "test": "node --import tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@shadow/contracts": "workspace:*",
+    "@shadow/life-client": "workspace:*"
+  }
 }
