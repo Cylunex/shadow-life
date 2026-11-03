@@ -32,7 +32,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     val result=wireJson.decodeFromString<NotificationsResultDto>(getText("/api/notifications?limit=50${cursor?.let{"&cursor=${encode(it)}"}.orEmpty()}"))
     val preferences=result.preferences
     return InboxSnapshot(
-      items=result.items.map{NotificationItem(it.id,it.title,it.body,it.scheduledAt,it.state.wireValue,it.readState.wireValue,it.deliveryState.wireValue)},
+      items=result.items.map{NotificationItem(it.id,it.title,it.body,it.scheduledAt,it.state.wireValue,it.readState.wireValue,it.deliveryState.wireValue,it.target?.let{target->NotificationTarget(target.kind.wireValue,target.id,target.on)})},
       nextCursor=result.nextCursor,
       preferences=NotificationPreferences(preferences.enabled,preferences.quietStart,preferences.quietEnd,preferences.timeZone,preferences.revision.toInt()),
       asOf=result.asOf
@@ -534,15 +534,32 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     return result
   }
 
-  private suspend fun getText(path:String,body:JSONObject?=null):String=withContext(Dispatchers.IO){
-    val session=app.sessions.active()?:error("请先登录 Shadow Life")
-    when(val fresh=app.sessions.fresh(session.accountId,context)){
-      SessionRefresh.ReauthRequired->error("会话已失效，请重新登录")
-      SessionRefresh.Retryable->error("暂时无法刷新会话，请稍后重试")
+  private val readCache by lazy{OfflineReadCache(context)}
+  private suspend fun networkText(path:String,body:JSONObject?,session:ProductSession):String{
+    return when(val fresh=app.sessions.fresh(session.accountId,context)){
+      SessionRefresh.ReauthRequired->{readCache.clear(session);error("会话已失效，请重新登录")}
+      SessionRefresh.Retryable->throw java.io.IOException("暂时无法刷新会话")
       is SessionRefresh.Ready->{
         val connection=(URL(fresh.value.session.apiBase+path).openConnection() as HttpURLConnection).apply{requestMethod=if(body==null)"GET" else "POST";connectTimeout=10_000;readTimeout=20_000;setRequestProperty("Authorization","Bearer ${fresh.value.accessToken}");setRequestProperty("Accept","application/json")}
-        try{if(body!=null){connection.doOutput=true;connection.setRequestProperty("Content-Type","application/json");connection.outputStream.use{it.write(body.toString().toByteArray(Charsets.UTF_8))}};val code=connection.responseCode;val text=(if(code in 200..299)connection.inputStream else connection.errorStream)?.bufferedReader()?.use{it.readText()}.orEmpty();if(code !in 200..299){val message=runCatching{JSONObject(text).optString("message")}.getOrNull().orEmpty();error(message.ifBlank{"请求失败（HTTP $code）"})};text}finally{connection.disconnect()}
+        try{if(body!=null){connection.doOutput=true;connection.setRequestProperty("Content-Type","application/json");connection.outputStream.use{it.write(body.toString().toByteArray(Charsets.UTF_8))}};val code=connection.responseCode;val text=(if(code in 200..299)connection.inputStream else connection.errorStream)?.bufferedReader()?.use{it.readText()}.orEmpty();if(code !in 200..299){if(code==401||code==403)readCache.clear(session);val message=runCatching{JSONObject(text).optString("message")}.getOrNull().orEmpty();error(message.ifBlank{"请求失败（HTTP $code）"})};text}finally{connection.disconnect()}
       }
+    }
+  }
+
+  private suspend fun getText(path:String,body:JSONObject?=null):String=withContext(Dispatchers.IO){
+    val session=app.sessions.active()?:error("请先登录 Shadow Life")
+    try{
+      val text=networkText(path,body,session)
+      check(app.sessions.active()?.accountId==session.accountId){"账号已切换"}
+      if(body==null)runCatching{readCache.write(session,path,text)}
+      OfflineReads.update(session.accountId,path,null)
+      text
+    }catch(error:java.io.IOException){
+      check(app.sessions.active()?.accountId==session.accountId){"账号已切换"}
+      val cached=if(body==null)readCache.read(session,path) else null
+      if(cached==null)throw error
+      OfflineReads.update(session.accountId,path,cached.second)
+      cached.first
     }
   }
 

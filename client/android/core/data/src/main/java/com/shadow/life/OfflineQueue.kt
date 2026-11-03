@@ -16,6 +16,7 @@ import org.json.JSONObject
 
 class OfflineQueue(private val database:ShadowDatabase,private val crypto:QueueCrypto=QueueCrypto()) {
   private val receiptCache=linkedMapOf<String,CachedReceipt>()
+  fun observeMeals(session:ProductSession)=database.commands().observeMeals(session.accountId,session.subjectId)
   fun observeStatus(session:ProductSession):Flow<QueueSummary> {
     val status=database.commands().observeStatus(session.accountId,session.subjectId).distinctUntilChanged()
     val receipts=database.commands().observeRecentCommitted(session.accountId,session.subjectId,RECENT_RECEIPT_LIMIT).distinctUntilChanged().map(::verifiedReceipts)

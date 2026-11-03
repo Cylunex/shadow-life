@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "f2e68caf1741831d121a8d950c472eee26e5ea2e0abaa44da39acf10be6f389c",
+  "catalog_revision": "7c743fb7dde303b8c8dd8309a79d6983a1dff45363a6b5188539341b4b9c84f6",
   "terms": [
     {
       "id": "activity_capture",
@@ -59686,6 +59686,48 @@
             "items": {
               "type": "object",
               "properties": {
+                "target": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "recurring_occurrence",
+                            "use_cycle",
+                            "library_item"
+                          ]
+                        },
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                        },
+                        "on": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "id",
+                        "on"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "id": {
                   "type": "string",
                   "pattern": "^[a-z][a-z0-9_]{7,127}$"
@@ -59695,7 +59737,8 @@
                   "enum": [
                     "due",
                     "processing_failed",
-                    "reminder"
+                    "reminder",
+                    "replenishment"
                   ]
                 },
                 "title": {

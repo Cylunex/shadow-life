@@ -48,7 +48,7 @@ import kotlin.math.abs
   onLoadCards:(String)->Unit,onMoreCards:()->Unit,onOpenCard:(String)->Unit,onCloseCard:()->Unit,onOlderUses:()->Unit,
   onSaveCard:(NativeServiceCardDraft)->Unit,onCardUse:(NativeServiceCardUseDraft)->Unit,onResetCard:()->Unit,
   importMonth:LoadState<MoneyImportMonthSummary>,importReview:LoadState<MoneyImportReviewSummary>?,importSubmit:SubmitState,onLoadImportMonth:(String)->Unit,onOpenImportBatch:(String)->Unit,onResolveImport:(MoneyImportCandidateSummary,String,String,String,String,String,String)->Unit,
-  planningPeriod:String,onPlanningPeriod:(String)->Unit
+  planningPeriod:String,onPlanningPeriod:(String)->Unit,focusId:String=""
 ){
   var tab by rememberSaveable(initialTab){mutableStateOf(initialTab.takeIf{it in setOf("overview","details","budgets","recurring","intents","supplies","cards","reconcile")}?:"overview")};var query by rememberSaveable{mutableStateOf("")}
   val scrollStates=remember{mutableMapOf<String,androidx.compose.foundation.lazy.LazyListState>()}
@@ -79,11 +79,12 @@ import kotlin.math.abs
     item{StateContent(overviewState,onRetry){} }
     if(tab=="cards")item{NativeServiceCardsSection(cardsState,selectedCard,cardSubmit,records,onLoadCards,onSearch,onMoreCards,onOpenCard,onCloseCard,onOlderUses,onSaveCard,onCardUse,onResetCard)}
     if(tab=="reconcile")item{NativeMoneyImportSection(importMonth,importReview,importSubmit,onLoadImportMonth,onOpenImportBatch,onResolveImport)}
+    if(focusId.isNotBlank()&&overview!=null)item{Text("提醒关联事项",style=MaterialTheme.typography.titleMedium);if((tab=="recurring"&&overview.occurrenceDetails.none{it.id==focusId})||(tab=="supplies"&&overview.useCycleDetails.none{it.id==focusId}))Text("该事项当前未加载或已不可用，请返回查看其他事项。")}
     if(overview!=null&&tab!="cards"&&tab!="reconcile")when(tab){
       "budgets"->item{key(overview.period){NativeBudgetSection(overview,planningState,onSaveBudget,onResetPlanning)}}
-      "recurring"->item{key(overview.period){NativeRecurringSection(overview,planningState,onSaveRecurring,onOccurrence,onResetPlanning)}}
+      "recurring"->item{key(overview.period){NativeRecurringSection(if(focusId.isBlank())overview else overview.copy(occurrenceDetails=overview.occurrenceDetails.filter{it.id==focusId},recurringDetails=overview.recurringDetails.filter{plan->overview.occurrenceDetails.any{it.id==focusId&&it.planId==plan.id}}),planningState,onSaveRecurring,onOccurrence,onResetPlanning)}}
       "intents"->item{NativeSpendingIntentSection(overview,planningState,records,onSearch,onSaveIntent,onResetPlanning)}
-      "supplies"->item{NativeUseCycleSection(overview,planningState,onSaveCycle,onConsumableUse,onResetPlanning)}
+      "supplies"->item{NativeUseCycleSection(if(focusId.isBlank())overview else overview.copy(useCycleDetails=overview.useCycleDetails.filter{it.id==focusId}),planningState,onSaveCycle,onConsumableUse,onResetPlanning)}
       "details"->{item{MoneySearch(query,{query=it},{onSearch(query)},onCapture)};if(recordsState is LoadState.Ready)item{MoneyRecordList(records,onDetail)};if(recordsState is LoadState.Ready&&recordsState.value.nextCursor!=null)item{LoadMoreButton("加载更多明细",onLoadMore)}}
       else->{
         if(currencies.size>1)item{Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){currencies.forEach{code->FilterChip(currency==code,{selectedCurrency=code},{Text(code)})}}}

@@ -277,7 +277,12 @@ export class QueryService {
     let before:NotificationCursor|undefined;
     if(parsed.data.cursor){try{before=JSON.parse(Buffer.from(parsed.data.cursor,"base64url").toString("utf8")) as NotificationCursor;}catch{throw invalidInput("notification cursor is invalid",["cursor"]);}if(!before.at||!before.id||!before.as_of)throw invalidInput("notification cursor is invalid",["cursor"]);}
     const page=await this.unitOfWork.read(store=>store.notifications(context.subjectId,{limit:parsed.data.limit,...(before?{asOf:before.as_of,before:{at:before.at,id:before.id}}:{})})) as {items:Array<Record<string,unknown>&{id:string;_page_at:string}>;hasMore:boolean;preferences:unknown;asOf:string};
-    const last=page.items.at(-1),next=page.hasMore&&last?Buffer.from(JSON.stringify({at:last._page_at,id:last.id,as_of:page.asOf} satisfies NotificationCursor)).toString("base64url"):null,items=page.items.map(({_page_at,...item})=>item);
+    const last=page.items.at(-1),next=page.hasMore&&last?Buffer.from(JSON.stringify({at:last._page_at,id:last.id,as_of:page.asOf} satisfies NotificationCursor)).toString("base64url"):null,items=page.items.map(({_page_at,_source_type,_source_id,_library_item_id,_due_on,...item})=>{
+      const money=context.effects.has("money.entry.read"),library=context.effects.has("library.item.read");
+      const target=_source_type==="library_processing_job"&&library&&typeof _library_item_id==="string"?{kind:"library_item",id:_library_item_id,on:null}:
+        (_source_type==="recurring_occurrence"||_source_type==="use_cycle")&&money&&typeof _source_id==="string"?{kind:_source_type,id:_source_id,on:typeof _due_on==="string"?_due_on:null}:null;
+      return target?{...item,target}:item;
+    });
     return notificationsResultSchema.parse({items,next_cursor:next,preferences:page.preferences,as_of:page.asOf});
   }
   async ownedItems(context:RequestContext,input:unknown={}){if(!context.effects.has("life.item.read"))throw permissionDenied("life.item.read");const parsed=ownedItemsInputSchema.safeParse(input);if(!parsed.success)throw invalidInput("owned item query is invalid",parsed.error.issues.map(issue=>issue.path.join(".")));const raw=ownedItemsResultSchema.parse(await this.unitOfWork.read(store=>store.ownedItems(context.subjectId,parsed.data.state,parsed.data.limit+1,{purchase:context.effects.has("life.meal.read"),library:context.effects.has("library.item.read"),money:context.effects.has("money.entry.read")},parsed.data.id)));

@@ -97,7 +97,7 @@ function App(){
       const query=new URLSearchParams(location.search);
       query.set("tab",next);
       if(target)query.set("section",target);else query.delete("section");
-      for(const key of ["domain","kind","id","record_id"])query.delete(key);
+      for(const key of ["domain","kind","id","record_id","focus","period","item"])query.delete(key);
       history.pushState(null,"",`${location.pathname}?${query}${location.hash}`);
     }
     setAssistantOpen(false);setTab(next);if(target)setSection(target);

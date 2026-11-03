@@ -47,7 +47,8 @@ data class QueueSummary(
   val latestSamsungState:String?=null,val latestSamsungAt:Long?=null,
   val committedReceipts:List<OperationReceipt> = emptyList()
 ){val terminal:Int get()=failed+completed}
-data class NotificationItem(val id:String,val title:String,val body:String,val scheduledAt:String,val state:String,val readState:String,val deliveryState:String)
+data class NotificationTarget(val kind:String,val id:String,val on:String?)
+data class NotificationItem(val id:String,val title:String,val body:String,val scheduledAt:String,val state:String,val readState:String,val deliveryState:String,val target:NotificationTarget?=null)
 data class NotificationPreferences(val enabled:Boolean,val quietStart:String?,val quietEnd:String?,val timeZone:String,val revision:Int)
 data class InboxSnapshot(val items:List<NotificationItem>,val nextCursor:String?,val preferences:NotificationPreferences,val asOf:String)
 
@@ -220,7 +221,7 @@ data class RecordDetail(
 @Serializable data object PersonalAgentRoute
 @Serializable data class PlansRoute(val reviews:Boolean=false)
 @Serializable data object LibraryRoute
-@Serializable data class WorkspaceRoute(val domain:String,val tab:String="")
+@Serializable data class WorkspaceRoute(val domain:String,val tab:String="",val focus:String="")
 @Serializable data class DetailRoute(val domain:String,val id:String,val title:String="")
 @Serializable data class PlanDetailRoute(val id:String)
 @Serializable data class OwnedItemDetailRoute(val id:String)

@@ -188,6 +188,12 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
   val repository=remember(accountId){NativeLifeRepository(context,context.applicationContext as ShadowApp)}
   var dayState by remember(accountId){mutableStateOf<LoadState<RecordPage>>(LoadState.Loading)}
   var dayRetry by remember{mutableIntStateOf(0)}
+  var localMeals by remember(accountId){mutableStateOf<List<PendingCommand>>(emptyList())}
+  val app=context.applicationContext as ShadowApp
+  LaunchedEffect(accountId){
+    val session=app.sessions.active()?.takeIf{it.accountId==accountId}?:return@LaunchedEffect
+    app.queue.observeMeals(session).collect{localMeals=it;dayRetry++}
+  }
   var selectedDate by rememberSaveable(initialTab){mutableStateOf(initialTab.removePrefix("day/").takeIf{initialTab.startsWith("day/")&&runCatching{LocalDate.parse(it)}.isSuccess}?:LocalDate.now().toString())};var query by rememberSaveable{mutableStateOf("")};val allRecords=(recordsState as? LoadState.Ready)?.value?.items.orEmpty().filter{it.meal!=null};val selected=allRecords.filter{it.meal?.occurredOn==selectedDate};val dates=(0L..6L).map{LocalDate.now().minusDays(it).toString()}.reversed()+listOf(selectedDate);val records=allRecords.filter{record->query.isBlank()||listOf(record.title,record.meal?.note.orEmpty(),mealTypeUi(record.meal?.mealType.orEmpty())).any{it.contains(query.trim(),ignoreCase=true)}};val nutrition=mealNutrition(selected)
   LaunchedEffect(accountId,selectedDate,dayRetry,photoState,recordsState){
     dayState=LoadState.Loading
@@ -214,6 +220,16 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
       var copying by rememberSaveable{mutableStateOf(false)}
       TextButton(onClick={copying=!copying}){Text("用最近一餐")}
       if(copying)allRecords.take(10).forEach{record->TextButton(onClick={onCopyMeal(record,selectedDate)}){Text("${record.meal?.occurredOn} · ${record.title}")}}
+    }
+    if(mealTab=="records")item{
+      localMeals.filter{it.state!="committed"}.forEach{command->
+        val input=runCatching{org.json.JSONObject(app.queue.commandBody(command)).getJSONObject("input")}.getOrNull()
+        if(input?.optString("occurred_on")==selectedDate)HealthSurface{
+          Text(if(command.state in setOf("failed","blocked"))"本机餐次 · 同步需要处理" else "本机餐次 · 待同步",style=MaterialTheme.typography.titleMedium)
+          Text(input.optJSONArray("items")?.let{items->(0 until items.length()).map{items.getJSONObject(it).optString("name")}.joinToString("、")}.orEmpty())
+          Text("同步确认后会并入当天餐次；当前营养汇总采用已接收记录。",style=MaterialTheme.typography.bodySmall)
+        }
+      }
     }
     val planning=(overviewState as? LoadState.Ready)?.value as? WorkspaceOverview.Meals
     if(mealTab=="planning")item{StateContent(overviewState,onRetry){}}

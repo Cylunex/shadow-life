@@ -134,10 +134,25 @@ data class PlanningAgendaResultDto(
 )
 
 @Serializable
+enum class NotificationsResultDtoItemsEntryTargetKind(val wireValue: String) {
+  @SerialName("recurring_occurrence") RecurringOccurrence("recurring_occurrence"),
+  @SerialName("use_cycle") UseCycle("use_cycle"),
+  @SerialName("library_item") LibraryItem("library_item")
+}
+
+@Serializable
+data class NotificationsResultDtoItemsEntryTarget(
+  @SerialName("kind") val kind: NotificationsResultDtoItemsEntryTargetKind,
+  @SerialName("id") val id: String,
+  @SerialName("on") val on: String?
+)
+
+@Serializable
 enum class NotificationsResultDtoItemsEntryKind(val wireValue: String) {
   @SerialName("due") Due("due"),
   @SerialName("processing_failed") ProcessingFailed("processing_failed"),
-  @SerialName("reminder") Reminder("reminder")
+  @SerialName("reminder") Reminder("reminder"),
+  @SerialName("replenishment") Replenishment("replenishment")
 }
 
 @Serializable
@@ -183,6 +198,7 @@ data class NotificationsResultDtoItemsEntryDeliveriesEntry(
 
 @Serializable
 data class NotificationsResultDtoItemsEntry(
+  @SerialName("target") val target: NotificationsResultDtoItemsEntryTarget? = null,
   @SerialName("id") val id: String,
   @SerialName("kind") val kind: NotificationsResultDtoItemsEntryKind,
   @SerialName("title") val title: String,
