@@ -73,3 +73,5 @@ Android 自动采集、应用使用、订单与活动整理、录音地点及分
 新 Agent 接入使用 life-operator skill 与 CLI；共享 HTTP/原件客户端位于 `shared/life-client`，MCP 仅保留显式旧版兼容。入口见 [skill/CLI 接入](docs/agents/integration.md)。
 
 Android 健康、饮食与运动的下一轮页面设计、参考产品及分批验收见[日常健康、饮食与运动体验](docs/architecture/daily-wellness-experience.md)。
+
+首页搜索、全部功能目录、领域入口及两端返回设计见[在 Life 找到要看的页面](docs/architecture/feature-discovery.md)。
