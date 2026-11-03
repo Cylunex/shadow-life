@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Life · 一周回看设计样稿</title>
+<style>
+:root{color-scheme:light dark;--paper:light-dark(#f6f5ed,#050605);--sheet:light-dark(#fffef9,#111510);--ink:light-dark(#202c22,#eef4e9);--dim:light-dark(#536157,#abb7aa);--line:light-dark(#d8ded1,#344033);--green:light-dark(#345f43,#a3dd9c);--tint:light-dark(#e7efdf,#203322);--hot:light-dark(#895c32,#f1c395);--round:16px;font:16px/1.55 system-ui,sans-serif;background:var(--paper);color:var(--ink)}*{box-sizing:border-box}body{max-width:1020px;margin:auto;padding:26px clamp(14px,4vw,48px) 54px}h1,h2,h3,p{margin:0}small,.muted{color:var(--dim)}header,.row,.pair{display:flex;align-items:center;justify-content:space-between;gap:12px}.brand{font-weight:750;letter-spacing:.12em}.seed{display:inline-block;width:12px;height:16px;background:var(--green);border-radius:10px 2px;margin-right:10px}.sub{font-size:.78rem;letter-spacing:.08em;color:var(--dim)}header{border-bottom:1px solid var(--line);padding-bottom:12px}button,input{font:inherit;color:inherit}button{border:1px solid var(--line);background:var(--sheet);border-radius:10px;min-height:48px;padding:8px 14px;cursor:pointer}button:focus-visible,input:focus-visible{outline:3px solid var(--green);outline-offset:2px}.primary{background:var(--green);color:var(--sheet);border:0;font-weight:650}.lead{margin:26px 0 20px}.lead h1{font-size:clamp(1.9rem,5vw,2.8rem);letter-spacing:-.05em}.grid{display:grid;grid-template-columns:minmax(200px, .8fr) minmax(0,1.6fr);gap:20px;align-items:start}.pane{background:var(--sheet);border:1px solid var(--line);border-radius:var(--round);padding:clamp(14px,2vw,24px)}.week{display:grid;gap:3px;margin-top:12px}.day{background:transparent;display:flex;justify-content:space-between;align-items:center;gap:4px;text-align:left;border:0}.day[aria-pressed=true]{background:var(--tint);color:var(--green);font-weight:650}.day b,.day span{display:block}.day span{font-size:.8rem}.detail>section{border-top:1px solid var(--line);margin-top:16px;padding-top:14px}.number{font-size:1.85rem;font-variant-numeric:tabular-nums}.unit{font-size:.95rem}.detail h3{font-size:.88rem;color:var(--dim)}.detail ul{margin:7px 0;padding-left:1.3rem}.note{color:var(--hot);font-size:.85rem}.tools{margin-top:16px}.tools summary{cursor:pointer;color:var(--dim);padding:10px 0}.tools label{display:inline-flex;min-height:44px;align-items:center;gap:8px}dialog{background:var(--sheet);color:var(--ink);border:1px solid var(--line);border-radius:16px;width:min(380px,92vw);padding:22px}dialog::backdrop{background:#0007}dialog label{display:block;margin:12px 0}dialog input{width:100%;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:10px}.hint{margin-top:10px}.pair{flex-wrap:wrap}#status{min-height:1.6em;color:var(--green);margin-top:8px}.mobile{display:none}
+@media(max-width:680px){body{padding-top:14px}.lead{margin:17px 0}.grid{grid-template-columns:1fr;gap:10px}.overview{padding:10px}.overview h2{font-size:1rem}.week{grid-template-columns:repeat(7,minmax(0,1fr));gap:0;margin-top:5px}.day{display:block;text-align:center;padding:4px 0;border-radius:6px}.day .desktop{display:none}.mobile{display:inline}.day b{font-size:.94rem}.overview .muted{font-size:.78rem}.pane{border-radius:12px}.lead h1{font-size:1.9rem}}
+@media(min-width:681px){.day{display:grid;grid-template-columns:2ch 2.5em 1fr;justify-content:initial;gap:8px}.day .desktop{text-align:right}}
+@media(min-width:352px) and (max-width:400px){.overview{margin-inline:-10px;padding-inline:2px}.overview h2,.overview>.muted{margin-left:10px}}
+@media(max-width:351px){.week{grid-template-columns:repeat(4,minmax(48px,1fr))}}
+</style>
+<body><header><span class="brand"><i class="seed"></i>SHADOW LIFE</span><small>交互样稿 · 合成数据</small></header>
+<div class="lead"><span class="sub">记录　/　健康与饮食</span><h1>一周回看</h1><p class="muted" id="coverage"></p></div>
+<main class="grid"><aside class="pane overview"><h2>按天查看</h2><small class="muted">10 月 28 日 — 11 月 3 日</small><nav class="week" id="week" aria-label="选择日期"></nav></aside>
+<article class="pane detail"><div class="row"><h2 id="heading"></h2><small id="net"></small></div>
+<section><h3>身体与睡眠</h3><div class="number" id="weight"></div><small id="sleep"></small></section>
+<section><div class="row"><h3>饮食日记</h3><button id="open">＋ 补记一餐</button></div><ul id="meals"></ul><p id="energy" class="note"></p></section>
+<section><h3>运动记录</h3><p id="workout"></p></section><p role="status" id="status"></p></article></main>
+<details class="tools"><summary>体验断网与恢复</summary><label><input id="offline" type="checkbox">模拟离线</label><p class="muted">断网后可以补记；恢复连接后，样稿会演示队列回执。刷新会还原所有示例。</p></details>
+<dialog id="editor" aria-labelledby="form-title"><form id="form"><div class="row"><h2 id="form-title">补记一餐</h2><small id="form-date"></small></div><label>吃了什么<input id="food" required maxlength="64" autocomplete="off" autofocus placeholder="例如　番茄鸡蛋面"></label><label>这份食物的热量（可选，kcal）<input id="kcal" type="number" min="0" max="99999" step="0.1" inputmode="decimal"></label><div class="pair"><button id="cancel" type="button">取消</button><button class="primary">保存这一餐</button></div></form></dialog>
+<script>
+const byId=id=>document.getElementById(id);
+const days=[
+ ['10/28','三',68.7,'7 小时 05 分',[['鸡蛋三明治',330]],'步行 · 24 分钟'],
+ ['10/29','四',null,null,[],null],
+ ['10/30','五',68.5,'6 小时 45 分',[['牛肉饭',null]],'力量训练 · 已完成 6 组'],
+ ['10/31','六',null,'7 小时 26 分',[],null],
+ ['11/01','日',68.6,null,[['燕麦',260]],'骑行 · 32 分钟'],
+ ['11/02','一',null,'7 小时 10 分',[['早餐饭团',280]],null],
+ ['11/03','二',68.4,'7 小时 12 分',[['牛奶燕麦',320],['蔬菜汤',null]],'力量训练 · 已完成 4 组']
+].map(([date,dow,weight,sleep,meals,workout])=>({date,dow,weight,sleep,meals:meals.map(([food,kcal])=>({food,kcal,pending:false})),workout}));
+let selected=6;
+function render(){
+ const day=days[selected], offline=byId('offline').checked;
+ byId('coverage').textContent='过去 7 天 · '+days.filter(d=>d.weight!==null).length+' 天有称重，'+days.filter(d=>d.meals.length).length+' 天有饮食记录';
+ const buttons=Array.from(byId('week').children);
+ days.forEach((d,i)=>{
+  const btn=buttons[i]||document.createElement('button');
+  btn.type='button';btn.className='day';btn.setAttribute('aria-pressed',String(i===selected));
+  const fields=[d.weight!==null?'称重':'',d.sleep?'睡眠':'',d.meals.length?'饮食':'',d.workout?'运动':''].filter(Boolean);
+  const summary=fields.join('、')||'暂无记录';
+  btn.setAttribute('aria-label',d.date+' 周'+d.dow+' '+summary);
+  if(!buttons[i]){const date=document.createElement('b');date.textContent=d.date.split('/')[1];const weekday=document.createElement('span');weekday.textContent='周'+d.dow;const lbl=document.createElement('small');lbl.className='desktop';btn.append(date,weekday,lbl);byId('week').append(btn);}
+  btn.lastChild.textContent=summary;
+  btn.onclick=()=>{selected=i;byId('status').textContent='';render();};
+ });
+ byId('heading').textContent=day.date+'　周'+day.dow;
+ byId('net').textContent=offline?'离线 · 示例缓存':'已同步';
+ byId('weight').textContent=day.weight===null?'未记录体重':day.weight+' kg';
+ byId('sleep').textContent=day.sleep?'主睡眠　'+day.sleep+' · 按醒来日':'当天没有睡眠记录';
+ byId('meals').replaceChildren(...day.meals.map(m=>{const li=document.createElement('li');li.textContent=m.food+'　'+(m.kcal===null?'热量待补':m.kcal+' kcal')+(m.pending?' · 已存本机，待同步':'');return li;}));
+ const known=day.meals.filter(m=>m.kcal!==null);
+ byId('energy').textContent=!day.meals.length?'当天没有已记录餐次':known.length?'已知 '+Number(known.reduce((a,m)=>a+m.kcal,0).toFixed(1))+' kcal · '+day.meals.length+' 项中 '+known.length+' 项有热量':'已记录餐次，热量尚未填写';
+ byId('workout').textContent=day.workout||'当天没有已记录运动';
+}
+byId('open').onclick=()=>{byId('form').reset();byId('form-date').textContent=days[selected].date;byId('editor').showModal();};
+byId('cancel').onclick=()=>byId('editor').close();
+byId('form').onsubmit=e=>{e.preventDefault();const food=byId('food').value.trim();if(!food){byId('food').focus();return;}const pending=byId('offline').checked;days[selected].meals.push({food,kcal:byId('kcal').value===''?null:byId('kcal').valueAsNumber,pending});byId('editor').close();render();byId('status').textContent=pending?'已存本机，等待连接':'已保存到示例日记';};
+byId('offline').onchange=()=>{let restored=0;if(!byId('offline').checked){for(const d of days)for(const m of d.meals)if(m.pending){m.pending=false;restored++;}}render();byId('status').textContent=restored?'已同步 '+restored+' 餐':byId('offline').checked?'正在查看离线示例':'连接已恢复';};
+render();
+</script></body></html>

@@ -75,3 +75,5 @@ Android 自动采集、应用使用、订单与活动整理、录音地点及分
 Android 健康、饮食与运动的下一轮页面设计、参考产品及分批验收见[日常健康、饮食与运动体验](docs/architecture/daily-wellness-experience.md)。
 
 首页搜索、全部功能目录、领域入口及两端返回设计见[在 Life 找到要看的页面](docs/architecture/feature-discovery.md)。
+
+跨领域的完整体验、参考产品、交互样稿与合并实施顺序见[Life 全产品体验设计](docs/architecture/life-experience-roadmap.md)。
