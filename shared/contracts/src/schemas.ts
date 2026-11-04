@@ -117,7 +117,22 @@ export const purchasePaymentSchema=datedPaymentSchema;
 export const purchaseItemInputSchema=z.object({raw_name:z.string().trim().min(1).max(200),quantity:positiveDecimal.optional(),unit:z.string().trim().min(1).max(32).optional(),line_amount:cnyAmount.optional(),category_key:z.string().trim().min(1).max(80).optional()}).strict();
 export const purchaseSceneSchema=z.enum(["online_purchase","offline_purchase","delivery","dine_in","takeaway","home_cooked","drink","service","subscription","transport","entertainment","travel","other"]);
 export const purchaseConsumableSchema=z.object({item_position:z.number().int().nonnegative().max(99),initial_quantity:positiveDecimal.optional(),quantity_unit:z.enum(["g","ml","count"]).optional(),quantity_label:z.string().trim().min(1).max(16).optional(),expected_daily_usage:positiveDecimal.optional()}).strict().refine(v=>(!v.initial_quantity&&!v.expected_daily_usage)||v.quantity_unit!==undefined,{message:"quantities need a unit"});
-export const recordPurchaseInputSchema=datedFactSchema.extend({scene:purchaseSceneSchema,merchant_name_raw:z.string().trim().min(1).max(200).optional(),channel_name_raw:z.string().trim().min(1).max(100).optional(),place_ref:z.string().trim().min(1).max(300).optional(),rating:z.number().int().min(1).max(5).optional(),would_repeat:z.boolean().optional(),items:z.array(purchaseItemInputSchema).max(100).default([]),consumables:z.array(purchaseConsumableSchema).max(100).optional(),payment:purchasePaymentSchema.optional()}).strict().refine(factDateMatches,{path:["occurred_at"],message:"occurred_at does not fall on occurred_on in time_zone"}).refine(value=>value.items.length>0||value.merchant_name_raw!==undefined||value.note!==undefined,{message:"consumption needs an item, merchant, or note"}).refine(value=>!value.consumables||value.consumables.every(c=>c.item_position<value.items.length)&&new Set(value.consumables.map(c=>c.item_position)).size===value.consumables.length,{message:"consumable positions must identify distinct purchase items"});
+const purchaseEvidence = sourceInputSchema.safeExtend({
+  role: z.enum(["order_screenshot", "receipt", "evidence"]).optional().describe("Defaults to evidence.")
+});
+export const recordPurchaseInputSchema=datedFactSchema.extend({scene:purchaseSceneSchema,merchant_name_raw:z.string().trim().min(1).max(200).optional(),channel_name_raw:z.string().trim().min(1).max(100).optional(),place_ref:z.string().trim().min(1).max(300).optional(),rating:z.number().int().min(1).max(5).optional(),would_repeat:z.boolean().optional(),items:z.array(purchaseItemInputSchema).max(100).default([]),consumables:z.array(purchaseConsumableSchema).max(100).optional(),payment:purchasePaymentSchema.optional(),sources:z.array(purchaseEvidence).min(1).max(20).optional().describe("Distinct purchase originals; use instead of source. Order screenshots and payment receipts may have separate roles.")}).strict().refine(factDateMatches,{path:["occurred_at"],message:"occurred_at does not fall on occurred_on in time_zone"}).refine(value=>value.items.length>0||value.merchant_name_raw!==undefined||value.note!==undefined,{message:"consumption needs an item, merchant, or note"}).refine(value=>!value.consumables||value.consumables.every(c=>c.item_position<value.items.length)&&new Set(value.consumables.map(c=>c.item_position)).size===value.consumables.length,{message:"consumable positions must identify distinct purchase items"}).superRefine((value,ctx) => {
+  if (value.source && value.sources) ctx.addIssue({code:"custom",path:["sources"],message:"use source or sources, not both"});
+  const seen = new Set<string>();
+  for (const [index, { role, ...source }] of (value.sources ?? []).entries()) {
+    const keys = [JSON.stringify(source)];
+    if (source.asset_version_id) keys.push("asset:" + source.asset_version_id);
+    if (source.external_id) keys.push(JSON.stringify([source.kind, source.external_id]));
+    if (keys.some(key => seen.has(key))) {
+      ctx.addIssue({code:"custom",path:["sources",index],message:"duplicate purchase source; include each original only once"});
+    }
+    keys.forEach(key => seen.add(key));
+  }
+}).meta({not:{required:["source","sources"]}});
 export const correctIntakeInputSchema = z.object({
   item_id: stableId,
   expected_revision: z.number().int().positive(),

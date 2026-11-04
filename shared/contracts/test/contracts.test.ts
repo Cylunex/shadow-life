@@ -207,3 +207,16 @@ test("health source status exposes the committed opaque cursor needed for device
 });
 
 test("trip planning contracts preserve stable stop and runtime identities",()=>{assert.equal(setTripDayPlanInputSchema.safeParse({trip_id:"trip_12345678",plan_date:"2026-10-01",items:[{stop_id:"trip_stop_12345678",title:"西湖"}]}).success,true);assert.equal(publishTripPlanInputSchema.safeParse({trip_id:"trip_12345678",label:"出发版"}).success,true);assert.equal(setTripStopOutcomeInputSchema.safeParse({run_id:"trip_run_12345678",stop_id:"trip_stop_12345678",state:"arrived"}).success,true);assert.equal(setTripStopOutcomeInputSchema.safeParse({run_id:"trip_run_12345678",stop_id:"trip_stop_12345678",state:"pending"}).success,false);});
+
+test("purchase originals keep the legacy input and validate mutually exclusive distinct evidence", () => {
+  const schema = capabilityRegistry["life.record_purchase"].inputSchema;
+  const base = { occurred_on: "2026-11-04", time_zone: "Asia/Shanghai", scene: "delivery", merchant_name_raw: "合成餐厅" };
+  const source = { kind: "image", captured_on: base.occurred_on, asset_version_id: "asset_version_order_1" };
+  assert.ok(schema.safeParse({ ...base, source }).success);
+  assert.ok(schema.safeParse({ ...base, sources: [source, { ...source, asset_version_id: "asset_version_receipt_2", role: "receipt" }] }).success);
+  for (const input of [
+    { source, sources: [source] }, { sources: [] }, { sources: [source, { ...source, role: "receipt" }] },
+    { sources: [{ ...source, role: "meal_photo" }] }, { sources: [{ ...source, captured_on: undefined }] },
+    { sources: [{ kind: "image", captured_on: base.occurred_on }] }, { sources: Array(21).fill(source) }
+  ]) assert.equal(schema.safeParse({ ...base, ...input }).success, false);
+});

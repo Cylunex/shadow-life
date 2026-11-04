@@ -18168,7 +18168,7 @@
     },
     "life.record_purchase": {
       "name": "life.record_purchase",
-      "description": "记录购买商品与可选付款，可用 consumables 按 item_position 同时建立待启用消耗品（数量未知可省略），不代表已经消耗。未知单项金额省略而非 null；实际摄入另记并关联，避免重复付款。",
+      "description": "记录购买商品与可选付款。多张订单图与付款凭证用 sources 保存，可用 consumables 按 item_position 同时建立待启用消耗品（数量未知可省略），不代表已经消耗。未知单项金额省略而非 null；实际摄入另记并关联，避免重复付款。",
       "possible_effects": [
         "life.purchase.write",
         "money.entry.write",
@@ -18419,6 +18419,67 @@
               "time_zone"
             ],
             "additionalProperties": false
+          },
+          "sources": {
+            "description": "Distinct purchase originals; use instead of source. Order screenshots and payment receipts may have separate roles.",
+            "minItems": 1,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "text",
+                    "image",
+                    "receipt",
+                    "import"
+                  ]
+                },
+                "external_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "captured_on": {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                },
+                "captured_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                },
+                "time_zone": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "original_text": {
+                  "type": "string",
+                  "maxLength": 20000
+                },
+                "asset_version_id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "role": {
+                  "description": "Defaults to evidence.",
+                  "type": "string",
+                  "enum": [
+                    "order_screenshot",
+                    "receipt",
+                    "evidence"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [
@@ -18427,7 +18488,13 @@
           "scene",
           "items"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "not": {
+          "required": [
+            "source",
+            "sources"
+          ]
+        }
       },
       "command_schema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -18688,6 +18755,67 @@
                   "time_zone"
                 ],
                 "additionalProperties": false
+              },
+              "sources": {
+                "description": "Distinct purchase originals; use instead of source. Order screenshots and payment receipts may have separate roles.",
+                "minItems": 1,
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "text",
+                        "image",
+                        "receipt",
+                        "import"
+                      ]
+                    },
+                    "external_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    },
+                    "captured_on": {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    "captured_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                    },
+                    "time_zone": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "original_text": {
+                      "type": "string",
+                      "maxLength": 20000
+                    },
+                    "asset_version_id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                    },
+                    "role": {
+                      "description": "Defaults to evidence.",
+                      "type": "string",
+                      "enum": [
+                        "order_screenshot",
+                        "receipt",
+                        "evidence"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ],
+                  "additionalProperties": false
+                }
               }
             },
             "required": [
@@ -18696,7 +18824,13 @@
               "scene",
               "items"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "not": {
+              "required": [
+                "source",
+                "sources"
+              ]
+            }
           }
         },
         "required": [

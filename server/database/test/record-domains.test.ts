@@ -75,3 +75,41 @@ test("unconfigured vision fails visibly and retries through the Executor",pgOnly
   assert.deepEqual((await processPendingLibrary(f.pool,20,vision)).map(item=>item.state),["completed"]);
   detail=await f.queries.libraryItem(f.context,itemId);assert.equal(detail.processing_jobs[0]!.attempts,2);assert.equal(detail.revisions[0]!.text,"人工核对");
 });
+
+test("purchase-only orders retain each original and post one expense without recording intake", pgOnly, async t => {
+  const { context, run, executor, command, queries, pool } = await reviewFixture(t);
+  const files = new AssetService(pool);
+  const order = await files.store(context.subjectId, "image/png", Buffer.from("order image"));
+  const receipt = await files.store(context.subjectId, "image/png", Buffer.from("receipt image"));
+  const date = "2026-11-04", zone = "Asia/Shanghai";
+  const source = (asset_version_id: string, role: string) => ({ kind: "image", captured_on: date, asset_version_id, role });
+  const base = { scene: "delivery", occurred_on: date, time_zone: zone, items: [{ raw_name: "鸡肉饭" }],
+    payment: { amount: "25.00", currency: "CNY", occurred_on: date, time_zone: zone } };
+  const sources = [source(receipt.asset_version_id,"receipt"),source(order.asset_version_id,"order_screenshot")];
+  const counts = async () => (await pool.query(
+    "select (select count(*)::int from purchases) purchases, (select count(*)::int from money_entries) payments, (select count(*)::int from meals) meals, (select count(*)::int from sources) sources"
+  )).rows[0];
+  const first = command("life.record_purchase", { ...base, sources });
+  const saved = await executor.execute(context, first);
+  assert.equal((await executor.execute(context, first)).replayed, true);
+  const record = await queries.lifeRecord(context, String(saved.actual_values.record_id));
+  assert.ok(record.kind === "record");
+  assert.deepEqual(record.meals, []);
+  assert.equal(Number(record.money_entry?.amount), 25);
+  const ids = saved.resources.filter(row => row.type === "source").map(row => row.id).sort();
+  assert.deepEqual(record.sources?.map(row => row.id).sort(), ids);
+  assert.deepEqual(record.sources?.map(row => row.asset_version_id).sort(), [receipt.asset_version_id, order.asset_version_id].sort());
+  assert.equal(record.money_entry?.source_id, record.sources?.find(s => s.asset_version_id === receipt.asset_version_id)?.id);
+  assert.equal(record.purchase?.source_id, record.sources?.find(s => s.asset_version_id === order.asset_version_id)?.id);
+  assert.deepEqual(await counts(), { purchases:1, payments:1, meals:0, sources:2 });
+
+  const another = await files.store(context.subjectId, "image/png", Buffer.from("unused image"));
+  await assert.rejects(() => run("life.record_purchase", { ...base, sources: [source(another.asset_version_id,"evidence"),source("asset_version_unavailable","receipt")] }), /authorized/);
+  assert.deepEqual(await counts(), { purchases:1, payments:1, meals:0, sources:2 });
+
+  const legacy = await run("life.record_purchase", { ...base, source: { kind:"text", captured_on:date, original_text:"合成购物记录" } });
+  const old = await queries.lifeRecord(context, String(legacy.actual_values.record_id));
+  assert.ok(old.kind === "record" && old.sources?.length === 1);
+  assert.equal(old.sources[0]!.original_text,"合成购物记录");
+  assert.equal(old.money_entry?.source_id,old.sources[0]!.id);
+});

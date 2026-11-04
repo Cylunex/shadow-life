@@ -73,7 +73,11 @@ another payment or treating “paid” as net after an already recorded refund.
 2. Use the returned immutable `asset_version_id`. With `life.record_dining`, include every original
    in `sources` with its role (`meal_photo`, `order_screenshot`, `receipt` or `evidence`), so the link
    and business facts commit together.
-3. With a single-source command, put the first image in `source`. For an existing meal, use
+3. For purchase-only orders, call `life.record_purchase` with `sources` (1–20 distinct originals)
+   using `order_screenshot`, `receipt` or `evidence`. Verify each receipt resource of type `source`
+   by its `id` and `asset_version_id` in `life.get_record` with the receipt's `record_id`.
+   When the catalog only offers `source`, it supports one original. Use the single `source` field
+   for an individual image or text record. For an existing meal, use
    `life.attach_meal_source` with the latest `expected_meal_revision`.
    This tool's roles are `meal_photo`, `order_screenshot`, `evidence`, `replacement`; a receipt uses
    source `kind: receipt` and role `evidence`. It does not accept role `receipt`.
