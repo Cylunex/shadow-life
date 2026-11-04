@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import { buildCapabilityHttpRequest, wellnessNutrients, wellnessReviewResultSchema, type WellnessReviewResult } from "@shadow/contracts";
 import "./wellness-review.css";
+import { WeeklyWellnessAction } from "./WeeklyWellnessAction.js";
+import type { Execute } from "./command-controller.js";
 
 const labels = {energy_kcal:"热量",protein_g:"蛋白质",fat_g:"脂肪",carb_g:"碳水",fiber_g:"膳食纤维",sodium_mg:"钠"};
 const unit = (key:string)=>key==="energy_kcal"?"kcal":key==="sodium_mg"?"mg":"g";
 const show = (value:string|number|null|undefined)=>value==null?"未知":String(value).replace(/(\.\d*?[1-9])0+$|\.0+$/u,"$1");
 function sourceLink(kind:string,id:string) {return `?${new URLSearchParams({tab:"record",section:"timeline",domain:"health",kind,id})}`;}
 
-export function WellnessReviewPanel({headers,date}:{headers:HeadersInit;date:string}) {
+export function WellnessReviewPanel({headers,date,capabilities,execute}:{headers:HeadersInit;date:string;capabilities:ReadonlySet<string>;execute:Execute}) {
   const [selectedDate,setSelectedDate]=useState(date);
   const [to,setTo]=useState(date),[days,setDays]=useState<7|30|90>(7),[retry,setRetry]=useState(0);
   const [result,setResult]=useState<{key:string;data:WellnessReviewResult}>(),[error,setError]=useState<{key:string;message:string}>();
@@ -35,6 +37,7 @@ export function WellnessReviewPanel({headers,date}:{headers:HeadersInit;date:str
         <article><span>主睡眠均值</span><strong>{show(data.current.average_sleep_minutes)} 分钟</strong><small>{data.current.sleep_days} 天 · 前期 {show(data.previous.average_sleep_minutes)} 分钟（{data.previous.sleep_days} 天）</small></article>
         <article><span>实际训练</span><strong>{data.current.workout_sessions} 次</strong><small>{data.current.workout_minutes===null?"时长未知":`已知 ${data.current.workout_minutes} 分钟`} · {data.current.known_workout_duration_sessions} / {data.current.workout_sessions} 次有时长；前期 {data.previous.workout_sessions} 次</small></article>
       </div>
+      {days===7 && capabilities.has("agent.intentions") && <WeeklyWellnessAction key={to} on={to} headers={headers} execute={execute} canWrite={capabilities.has("agent.set_intention")}/>}
       <div className="wellness-days">
         <nav aria-label="按天回看">{data.days.map(day=><button type="button" key={day.date} aria-pressed={selectedDate===day.date} onClick={()=>setSelectedDate(day.date)}>{day.date.slice(5)}<small>{day.meals} 餐 · {day.workouts.sessions} 次运动</small></button>)}</nav>
         <section aria-live="polite">{(()=>{

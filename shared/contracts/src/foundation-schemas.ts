@@ -37,12 +37,14 @@ export const setIntentionSchema = z.object({
   ...revisionFields, key: z.string().trim().min(1).max(100), scope,
   kind: z.enum(['preference', 'constraint', 'goal']), category: z.enum(['dietary', 'time_budget', 'travel', 'budget', 'goal', 'other']),
   statement: z.string().trim().min(1).max(2000), assertion: z.literal('explicit'),
+  goal_outcome: z.enum(['completed', 'not_done']).nullable().optional().describe('User-reported goal result. An omitted or null result is unknown.'),
   minutes: z.number().int().min(1).max(1440).optional(),
   amount: z.string().regex(/^(?:0|[1-9]\d{0,17})(?:\.\d{1,6})?$/u).optional(), currency: z.string().regex(/^[A-Z]{3}$/u).optional(),
   valid_from: date.optional(), valid_to_exclusive: date.optional(), project_ref: foundationRefSchema.refine(ref => ref.kind === 'life_project').optional(),
   state: z.enum(['active', 'archived']).default('active')
 }).strict().superRefine((value, context) => {
   revisionGuard(value, context);
+  if (value.goal_outcome != null && value.kind !== 'goal') context.addIssue({code:'custom', path:['goal_outcome'], message:'Only a goal may have a reported outcome'});
   if (value.valid_from && value.valid_to_exclusive && value.valid_from >= value.valid_to_exclusive) context.addIssue({code: 'custom', message: 'Validity range must be nonempty'});
   if ((value.amount === undefined) !== (value.currency === undefined)) context.addIssue({code: 'custom', message: 'Amount and currency must be paired'});
   if (value.category === 'time_budget' && value.minutes === undefined) context.addIssue({code: 'custom', path: ['minutes'], message: 'Time budget requires minutes'});
@@ -89,7 +91,7 @@ const common = {
   scenario: foundationScenario.optional(), profile: z.enum(['authorized', 'personal', 'personal-money-void']).optional(),
   limit: z.number().int().min(1).max(100).default(30), offset: z.number().int().min(0).max(10000).default(0)
 };
-export const intentionsInputSchema = z.object({...common, on: date, include_inactive: z.boolean().default(false)}).strict();
+export const intentionsInputSchema = z.object({...common, on: date, keys:z.array(z.string().trim().min(1).max(100)).min(1).max(20).optional(), include_inactive: z.boolean().default(false)}).strict();
 const objectQueryRefs=z.array(foundationRefSchema).max(20).default([]).refine(items=>new Set(items.map(item=>`${item.kind}:${item.id}`)).size===items.length,'Object references must be distinct');
 export const objectsInputSchema = z.object({...common, object_refs: objectQueryRefs, query: z.string().trim().min(1).max(200).optional(), depth: z.number().int().min(0).max(2).default(1)}).strict().refine(value => (value.object_refs.length > 0 || !!value.query)&&value.object_refs.length<=value.limit, 'Object references or query required; limit must cover explicit roots');
 export const tasksInputSchema = z.object({...common, id: id.optional(), include_terminal: z.boolean().default(false)}).strict();

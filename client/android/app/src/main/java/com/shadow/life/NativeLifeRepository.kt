@@ -583,6 +583,13 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     require(capability in setOf("health.set_plan","health.record_workout"));enqueueCommand(capability,input,stableCommandId=commandId,expectedAccountId=expectedAccountId)
   }
 
+  internal suspend fun weeklyGoals(on:String, keys:List<String>):List<JSONObject> {
+    val query=JSONObject().put("scenario","health").put("on",on).put("keys",JSONArray(keys)).put("include_inactive",true).put("limit",10)
+    val page=JSONObject(getText("/api/agent/foundation/intentions",query))
+    check(!page.getBoolean("has_more") && !page.getJSONObject("truncation").getBoolean("truncated")) { "周行动未读全" }
+    return page.getJSONArray("items").objects().filter { it.optString("scope")=="health" && it.optString("kind")=="goal" }
+  }
+
   suspend fun personalFoundation(kind:String,on:String,offset:Int=0):FoundationListDto {
     require(kind in setOf("intentions","tasks","learning"))
     val input=JSONObject().put("limit",30).put("offset",offset)
@@ -799,7 +806,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     val editSeed=latest?.let{EditSeed.Library(item.id,item.currentRevision.toInt(),item.title,it.text,it.url,it.tags,it.documentDate,it.category)}
     val visionMedia=setOf("application/pdf","image/png","image/jpeg","image/tiff","image/webp")
     val source=value.sources.firstOrNull{it.source.assetVersionId!=null&&it.asset?.mediaType in visionMedia}?.source?.assetVersionId
-    return RecordDetail(item.title,item.state.wireValue,item.currentRevision.toInt(),sections,editSeed,presentation=DetailPresentation.Library,heroSupporting=item.itemType,libraryVisionSourceAssetId=source?.takeIf{value.processingJobs.none{job->job.kind.wireValue=="vision"}},libraryVisionRetryJobId=value.processingJobs.firstOrNull{it.kind.wireValue=="vision"&&it.state.wireValue=="failed"}?.id,assets=value.sources.mapNotNull{entry->val id=entry.source.assetVersionId;val media=entry.asset?.mediaType;if(id!=null&&media!=null)DetailAsset(id,media,item.title)else null}.distinctBy{it.versionId})
+    return RecordDetail(item.title,item.state.wireValue,item.currentRevision.toInt(),sections,editSeed,presentation=DetailPresentation.Library,libraryItemId=item.id,heroSupporting=item.itemType,libraryVisionSourceAssetId=source?.takeIf{value.processingJobs.none{job->job.kind.wireValue=="vision"}},libraryVisionRetryJobId=value.processingJobs.firstOrNull{it.kind.wireValue=="vision"&&it.state.wireValue=="failed"}?.id,assets=value.sources.mapNotNull{entry->val id=entry.source.assetVersionId;val media=entry.asset?.mediaType;if(id!=null&&media!=null)DetailAsset(id,media,item.title)else null}.distinctBy{it.versionId})
   }
 
   private fun travelDetail(value:TravelTripResultDto):RecordDetail{

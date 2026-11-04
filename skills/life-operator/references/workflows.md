@@ -218,3 +218,23 @@ do not imply a visit. Actual visits and private reservation details retain their
    business references, limits and workflow revision. A read result is not a save receipt; verify all writes
    through the original command's committed receipt and read-back. Do not create notifications or schedules
    merely because a review mentions a recurring habit.
+
+### 从七天复盘约定一个行动
+
+先读 `life.wellness_review`。用户选定一件愿意做的事后，按当地自然周（周一开始），用已有 `agent.set_intention` 保存健康目标。例如为 2026-11-09 这一周保存以下输入。没有结果时省略 `goal_outcome`。
+
+```json
+{"scope":"health","key":"wellness.week.2026-11-09","kind":"goal","category":"goal","statement":"周三晚饭后散步一次","assertion":"explicit","valid_from":"2026-11-09","valid_to_exclusive":"2026-11-16","state":"active"}
+```
+
+下次用 `agent.intentions` 精确查上周、本周和下周。已过期目标也要取回，才能回答“上周说的事做了吗”。
+
+```json
+{"on":"2026-11-15","scenario":"health","keys":["wellness.week.2026-11-02","wellness.week.2026-11-09","wellness.week.2026-11-16"],"include_inactive":true,"limit":10}
+```
+
+只使用 `scope=health`、`kind=goal` 的匹配行。本人明确回报结果时，用原字段、原 ID 和当前 `expected_revision` 再调用 `agent.set_intention`，附更正原因。已完成写 `goal_outcome="completed"`，本人明确没做写 `"not_done"`，撤回结果写 `null`。缺记录时保持未知。同周改约定要更新原目标，与复盘有关的建议本身不产生目标或提醒。
+
+### 从所购物品找回售后原件
+
+从 `life.get_record` 的购买明细选择本人明确持有的一项，以其 `purchase_item_id` 执行 `life.save_owned_item`。仅填写订单或本人提供的 `return_by`、`warranty_ends_on`。物品详情中的 `purchase.record_id` 可回到原消费记录，`sources` 中有权访问的资产版本即原件。更新时省略 `purchase_item_id` 或 `documents` 保留各自关联，显式传 `null` 或空数组才移除。订阅续费沿用 `money.planning` 和已有周期实例的处理入口。

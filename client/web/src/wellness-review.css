@@ -9,3 +9,7 @@
 .wellness-days nav small{display:block}
 .wellness-days nav [aria-pressed=true]{background:var(--green);color:var(--surface)}
 @media(max-width:600px){.wellness-days{grid-template-columns:1fr}.wellness-days nav{flex-direction:row}.wellness-days nav button{flex-shrink:0}}
+.weekly-wellness{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px;margin:18px 0}
+.weekly-wellness>h3,.weekly-wellness>p{grid-column:1/-1;margin:0}
+.weekly-wellness>div{min-width:0;border:1px solid var(--line);border-radius:12px;padding:12px;overflow-wrap:anywhere}
+.weekly-wellness h4,.weekly-wellness p{margin:0 0 6px}.weekly-wellness input{width:100%;min-width:0}

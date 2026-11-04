@@ -167,3 +167,39 @@ test('Life share intake tags survive the authorized change stream without exposi
   const other={...context,subjectId:'subject_feed_other',actorId:'subject_feed_other'};await unitOfWork.ensurePrincipal(other.subjectId);
   await assert.rejects(()=>queries.foundation(other,'agent.objects',{object_refs:[ref],limit:1}),/unavailable/);
 });
+
+test('weekly health goal uses one stable key, an explicit outcome and revisioned corrections',pgOnly,async t=>{
+  const {run,queries,context}=await reviewFixture(t);
+  const key='wellness.week.2026-11-09';
+  const input={key,scope:'health',kind:'goal',category:'goal',statement:'周三散步一次',assertion:'explicit',valid_from:'2026-11-09',valid_to_exclusive:'2026-11-16'};
+  const read=async()=>((await queries.foundation(context,'agent.intentions',{scenario:'health',keys:[key],on:'2026-11-22',include_inactive:true}) as any).items);
+  const saved=await run('agent.set_intention',input);
+  const id=saved.actual_values.id;
+  await run('agent.set_intention',{...input,key:'unrelated'});
+  assert.equal((await read()).length,1);
+  assert.equal((await read())[0].goal_outcome,undefined);
+  await assert.rejects(()=>run('agent.set_intention',{...input,statement:'并发创建'}),/exists/);
+  await run('agent.set_intention',{...input,id,expected_revision:1,reason:'本人回顾',goal_outcome:'not_done'});
+  assert.equal((await read())[0].goal_outcome,'not_done');
+  await assert.rejects(()=>run('agent.set_intention',{...input,id,expected_revision:1,reason:'过期反馈',goal_outcome:'completed'}),/revision/);
+  await run('agent.set_intention',{...input,id,expected_revision:2,reason:'本人更正结果',goal_outcome:'completed'});
+  await run('agent.set_intention',{...input,id,expected_revision:3,reason:'旧版客户端归档',state:'archived'});
+  assert.equal((await read())[0].goal_outcome,'completed');
+});
+
+test('editing after-sales dates keeps the purchase and document originals until explicitly cleared',pgOnly,async t=>{
+  const {run,queries,context}=await reviewFixture(t);
+  const purchase=await run('life.record_purchase',{scene:'online_purchase',occurred_on:'2026-11-04',time_zone:'Asia/Shanghai',items:[{raw_name:'耳机'}]});
+  const proof=await run('library.capture',{item_type:'note',title:'保修单',text:'合成凭证'});
+  const item=await run('life.save_owned_item',{name:'耳机',purchase_item_id:purchase.resources.find(r=>r.type==='purchase_item')!.id,
+    documents:[{library_item_id:proof.actual_values.library_item_id,library_revision:1,role:'warranty'}]});
+  const id=String(item.actual_values.owned_item_id);
+  const limited={...context,effects:new Set(['life.item.write','life.item.read'])};
+  await run('life.save_owned_item',{owned_item_id:id,expected_revision:1,name:'耳机',warranty_ends_on:'2027-11-04',reason:'手工填写商家期限'},limited);
+  const read=async()=>(await queries.ownedItems(context,{id})).items[0]!;
+  const updated=await read();assert.equal(updated.purchase?.record_id,purchase.actual_values.record_id);
+  assert.equal(updated.documents[0]?.library_item_id,proof.actual_values.library_item_id);
+  assert.equal(updated.return_by,null);assert.equal(updated.warranty_ends_on,'2027-11-04');
+  await run('life.save_owned_item',{owned_item_id:id,expected_revision:2,name:'耳机',purchase_item_id:null,documents:[],reason:'移除关联'});
+  const cleared=await read();assert.equal(cleared.purchase,null);assert.deepEqual(cleared.documents,[]);
+});

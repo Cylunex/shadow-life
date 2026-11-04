@@ -13,6 +13,12 @@ const labels:Record<string,string>={occurred_on:"发生日",occurred_at:"发生�
 const values:Record<string,string>={dine_in:"堂食",takeout:"外卖",delivery:"配送",groceries:"食材采购",online:"线上",offline:"线下",breakfast:"早餐",lunch:"午餐",dinner:"晚餐",snack:"加餐",other:"其他",expense:"支出",income:"收入",refund:"退款",confirmed:"已确认",draft:"草稿",voided:"已作废",active:"有效",archived:"已归档",cancelled:"已取消",private:"私密",shared:"共享",weight:"体重",body_fat:"体脂率",heart_rate:"心率",steps:"步数",walk:"步行",rail:"铁路",flight:"航班",hotel:"住宿",restaurant:"餐厅",activity:"活动",wechat:"微信",alipay:"支付宝",cash:"现金",bank_card:"银行卡"};
 const obj=(value:unknown):Record<string,unknown>=>value&&typeof value==="object"&&!Array.isArray(value)?value as Record<string,unknown>:{};
 
+function PurchaseOriginal({source,headers}:{source:Record<string,unknown>;headers:HeadersInit}){
+  const [open,setOpen]=useState(false);
+  return <details onToggle={event=>setOpen(event.currentTarget.open)}><summary>关联原件 · {String(source.captured_on??"查看原件")}</summary>
+    {open&&<AssetPreview asset={{id:String(source.asset_version_id)}} title="消费记录原件" headers={headers}/>}</details>;
+}
+
 export function RecordDetailContent({value,selection,headers={}}:{value:Record<string,unknown>;selection:RecordSelection;headers?:HeadersInit}){
   const trip=obj(value.trip),fact=obj(value.fact),entry=obj(value.money_entry),item=obj(value.item),zone=String(trip.time_zone??fact.time_zone??value.time_zone??"UTC");
   const relations=recordRelations(value),[date,setDate]=useState<string>(),[allRelations,setAllRelations]=useState(false);
@@ -27,6 +33,7 @@ export function RecordDetailContent({value,selection,headers={}}:{value:Record<s
     {relations.length>0&&<section className="detail-relations"><h3>关联记录</h3><div>{(allRelations?relations:relations.slice(0,6)).map(link=><a key={link.href} href={link.href}><b>{link.title}</b>{link.supporting&&<span>{link.supporting}</span>}<small>查看详情 →</small></a>)}</div>{relations.length>6&&<button type="button" className="text-button" onClick={()=>setAllRelations(!allRelations)}>{allRelations?"收起":`查看全部 ${relations.length} 条关联`}</button>}</section>}
     {Boolean(trip.starts_on)&&<><TravelItinerary trip={travelTrip} plans={plans} date={selectedDate} onDate={setDate}/><a className="detail-workspace-link" href={`?tab=plan&section=travel&trip=${encodeURIComponent(String(trip.id))}`}>打开旅行工作台，调整日程 →</a></>}
     {selection.domain==="library"&&Array.isArray(value.sources)&&value.sources.map((raw,index)=>{const source=obj(raw),asset=obj(source.asset),id=obj(source.source).asset_version_id;if(typeof id!=="string")return null;return <AssetPreview key={String(id)} asset={{id,media_type:String(asset.media_type??"")}} title={String(item.title??"原件")} headers={headers}/>;})}
+    {selection.domain==="money"&&Array.isArray(value.sources)&&value.sources.map(obj).filter(source=>typeof source.asset_version_id==="string").map(source=><PurchaseOriginal key={String(source.id)} source={source} headers={headers}/>)}
     <TypedRecordBody value={value} selection={selection}/><details className="detail-extra"><summary>完整字段与记录信息</summary><div className="detail-sections">{Object.keys(basics).length>0&&<section className="detail-section"><h3>基本信息</h3><DetailValue value={basics} field="basics" zone={zone}/></section>}{sections.map(([key,content])=><section className="detail-section" key={key}><h3>{labels[key]??key.replaceAll("_"," ")}</h3><DetailValue value={content} field={key} zone={zone}/></section>)}</div></details>
     <details className="detail-meta"><summary>来源与版本</summary><pre>{JSON.stringify(Object.fromEntries(Object.entries(value).filter(([key])=>sources.has(key)||metadata.has(key))),null,2)}</pre></details>
   </div>;

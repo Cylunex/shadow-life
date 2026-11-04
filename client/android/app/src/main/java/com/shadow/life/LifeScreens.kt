@@ -261,6 +261,15 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
         val detail=state.value
         item{DetailHero(detail)}
         item{DomainDetailContent(detail,onLink)}
+        detail.libraryItemId?.let { id -> item {
+          val context=androidx.compose.ui.platform.LocalContext.current
+          TextButton(onClick={
+            val link=android.net.Uri.Builder().scheme("shadow").authority("life").appendPath("library").appendPath(id)
+            detail.revision?.let { link.appendQueryParameter("revision", it.toString()) }
+            val share=android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT,link.build().toString())
+            context.startActivity(android.content.Intent.createChooser(share,"分享这条资料引用"))
+          }){Text("分享这条资料引用")}
+        } }
         if(detail.assets.isNotEmpty())item{LibraryOriginals(accountId,detail.assets)}
         if(detail.mealIntakes.isNotEmpty())item{MealIntakeEditor(accountId,detail.mealIntakes)}
         item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){detail.state?.let{StatusLabel(it)}}}

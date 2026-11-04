@@ -35,6 +35,7 @@ import java.time.LocalDate
       val data=(state as? LoadState.Ready)?.value
       if(data!=null){
         val current=data.getJSONObject("current")
+        if(days==7)item(key="weekly:$accountId:$to"){WeeklyActionCard(accountId,to,repository)}
         item{LifeCard{
           Text("${current.getString("from")} — ${current.getString("to")}",style=MaterialTheme.typography.titleMedium)
           Text("${current.getInt("meal_days")} 天有饮食 · ${current.getInt("weight_days")} 天有称重")

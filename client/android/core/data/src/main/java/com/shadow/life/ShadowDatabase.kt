@@ -32,6 +32,8 @@ data class CommittedCommandRow(val commandId:String,val accountId:String,val sub
     confirmHealthRound(command.accountId,command.subjectId,command.commandId)
   }
   @Insert(onConflict=OnConflictStrategy.IGNORE)suspend fun enqueue(value:PendingCommand):Long
+  @Query("select state from pending_commands where accountId=:account and subjectId=:subject and commandId=:id")
+  fun observeCommandState(account:String,subject:String,id:String):Flow<String?>
   @Query("select * from pending_commands where commandId=:id")suspend fun command(id:String):PendingCommand?
   @Query("select * from pending_commands where accountId=:account and subjectId=:subject and state in ('pending','uploading','unknown') and encryptionVersion=1 order by createdAt limit :limit")suspend fun pending(account:String,subject:String,limit:Int):List<PendingCommand>
   @Query("select count(*) from pending_commands where accountId=:account and subjectId=:subject and capability=:capability and state in ('pending','uploading','unknown')")suspend fun inFlight(account:String,subject:String,capability:String):Int

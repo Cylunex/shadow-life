@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "1bfa8f5746f93671e00887307d96ccfd0fe123720d6f037b5c529cb306d8f9fd",
+  "catalog_revision": "c73fec3d2236b4c67c94664e344de31106cce6647e46096a458460e13518bd2c",
   "terms": [
     {
       "id": "activity_capture",
@@ -3640,7 +3640,7 @@
     },
     {
       "name": "agent.intentions",
-      "description": "读取指定日期和场景下有效的个人目标、明确偏好和限制；可包含未生效及归档项用于更正，日期范围不隐式补为今天。",
+      "description": "读取指定日期和场景下有效的个人目标、明确偏好和限制；可用 keys 精确查找并包含未生效及归档项用于更正。goal_outcome 仅表示用户明确回报的执行情况。",
       "domain": "agent",
       "mode": "read",
       "possible_effects": [
@@ -3698,6 +3698,16 @@
           "on": {
             "type": "string",
             "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "keys": {
+            "minItems": 1,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
           },
           "include_inactive": {
             "default": false,
@@ -6550,6 +6560,21 @@
           "assertion": {
             "type": "string",
             "const": "explicit"
+          },
+          "goal_outcome": {
+            "description": "User-reported goal result. An omitted or null result is unknown.",
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "completed",
+                  "not_done"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "minutes": {
             "type": "integer",
@@ -43700,7 +43725,6 @@
             ]
           },
           "documents": {
-            "default": [],
             "maxItems": 20,
             "type": "array",
             "items": {
@@ -43741,8 +43765,7 @@
         },
         "required": [
           "name",
-          "ownership_state",
-          "documents"
+          "ownership_state"
         ],
         "additionalProperties": false
       },

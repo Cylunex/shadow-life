@@ -543,6 +543,21 @@
             "type": "string",
             "const": "explicit"
           },
+          "goal_outcome": {
+            "description": "User-reported goal result. An omitted or null result is unknown.",
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "completed",
+                  "not_done"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "minutes": {
             "type": "integer",
             "minimum": 1,
@@ -718,6 +733,21 @@
               "assertion": {
                 "type": "string",
                 "const": "explicit"
+              },
+              "goal_outcome": {
+                "description": "User-reported goal result. An omitted or null result is unknown.",
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "completed",
+                      "not_done"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "minutes": {
                 "type": "integer",
@@ -3370,7 +3400,7 @@
     },
     "agent.intentions": {
       "name": "agent.intentions",
-      "description": "读取指定日期和场景下有效的个人目标、明确偏好和限制；可包含未生效及归档项用于更正，日期范围不隐式补为今天。",
+      "description": "读取指定日期和场景下有效的个人目标、明确偏好和限制；可用 keys 精确查找并包含未生效及归档项用于更正。goal_outcome 仅表示用户明确回报的执行情况。",
       "possible_effects": [
         "agent.run"
       ],
@@ -3420,6 +3450,16 @@
           "on": {
             "type": "string",
             "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "keys": {
+            "minItems": 1,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
           },
           "include_inactive": {
             "default": false,
@@ -3479,6 +3519,16 @@
           "on": {
             "type": "string",
             "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "keys": {
+            "minItems": 1,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
           },
           "include_inactive": {
             "default": false,
@@ -55834,7 +55884,6 @@
             ]
           },
           "documents": {
-            "default": [],
             "maxItems": 20,
             "type": "array",
             "items": {
@@ -55875,8 +55924,7 @@
         },
         "required": [
           "name",
-          "ownership_state",
-          "documents"
+          "ownership_state"
         ],
         "additionalProperties": false
       },
@@ -56002,7 +56050,6 @@
                 ]
               },
               "documents": {
-                "default": [],
                 "maxItems": 20,
                 "type": "array",
                 "items": {
@@ -56043,8 +56090,7 @@
             },
             "required": [
               "name",
-              "ownership_state",
-              "documents"
+              "ownership_state"
             ],
             "additionalProperties": false
           }

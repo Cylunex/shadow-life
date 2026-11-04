@@ -105,6 +105,7 @@ export function createFoundationStore(database: Database): FoundationStore {
     const data=sql`data`,visible=visibleEvidence(subject,data,options),current=visibleEvidence(subject,data,options,true);
     const predicate=sql`subject_id=${subject} and ${visible} ${options.scenario?sql`and scope in ('global',${options.scenario})`:sql``}
       and (${input.id??null}::text is null or id=${input.id??''})
+      ${table==='agent_intentions' && input.keys ? sql`and business_key=any(${array(input.keys)})` : sql``}
       and (${table!=='agent_tasks'||input.include_terminal?sql`true`:sql`data->>'state' not in ('completed','cancelled')`})
       and (${table==='agent_tasks'||input.include_inactive?sql`true`:sql`data->>'state'='active' and (${input.on??null}::text is null or (data->>'valid_from' is null or data->>'valid_from'<${input.until??(input.on?addDay(input.on):'')}) and (data->>'valid_to_exclusive' is null or data->>'valid_to_exclusive'>${input.on??''}))`})
       and (${input.query??null}::text is null or position(lower(${input.query??''}) in lower(data::text||' '||business_key))>0)
@@ -246,6 +247,9 @@ export async function writeFoundation(database:Database,subject:string,capabilit
   const id=input.id??nextId(kind),revision=(before?.revision??0)+1;
   const {id:ignoredId,expected_revision,reason,lease_token,claim_seconds,...data}=input;
   const provenance={actor_id:context.actorId,client_id:context.clientId,trace_id:context.traceId,...(context.agentRun?{run_id:context.agentRun.runId,tool_call_id:context.agentRun.toolCallId}:{})};
+  // Older full-form editors omit goal_outcome. Preserve it while the same goal remains in force.
+  if (table === 'agent_intentions' && data.kind === 'goal' && data.goal_outcome === undefined && before?.data?.goal_outcome != null &&
+    ['key','scope','statement','valid_from','valid_to_exclusive'].every(field => before.data[field] === data[field])) data.goal_outcome = before.data.goal_outcome;
   const stored={...data,provenance};
   if(before)await database.execute(sql`insert into agent_foundation_history(subject_id,kind,object_id,revision,snapshot,reason) values(${subject},${kind},${id},${before.revision},${json(before.data)},${reason})`);
   if(before)await database.execute(sql`update ${sql.identifier(table)} set scope=${input.scope},business_key=${key},data=${json(stored)},revision=${revision},updated_at=now() where id=${id} and subject_id=${subject}`);
