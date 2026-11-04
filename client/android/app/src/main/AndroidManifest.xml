@@ -15,6 +15,7 @@
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE"/>
   <uses-permission android:name="android.permission.health.READ_STEPS"/>
   <uses-permission android:name="android.permission.health.READ_WEIGHT"/>
@@ -34,7 +35,8 @@
       <intent-filter><action android:name="android.intent.action.SEND_MULTIPLE"/><category android:name="android.intent.category.DEFAULT"/><data android:mimeType="*/*"/></intent-filter>
       <intent-filter android:autoVerify="true"><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.DEFAULT"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="https" android:host="${shadowLifeAppLinkHost}" android:pathPrefix="/app"/></intent-filter>
     </activity>
-    <service android:name=".LifeScreenCaptureService" android:label="@string/life_screen_capture_name" android:exported="true" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+    <service android:name=".LifeScreenCaptureService" android:foregroundServiceType="specialUse" android:label="@string/life_screen_capture_name" android:exported="true" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+      <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-enabled shake gesture detection for payment bill capture while another payment app is visible"/>
       <intent-filter><action android:name="android.accessibilityservice.AccessibilityService"/></intent-filter>
       <meta-data android:name="android.accessibilityservice" android:resource="@xml/life_screen_capture"/>
     </service>

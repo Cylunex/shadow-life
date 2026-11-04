@@ -86,6 +86,8 @@ import java.time.LocalDate
    val key=shakeKey(accountId,selectedApp)
    var enabled by remember(key){mutableStateOf(prefs.getBoolean(key,false))}
    Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){Text("在${capturePlatformName(billPlatforms.getValue(selectedApp))}摇一摇补记",Modifier.weight(1f));Switch(checked=enabled,onCheckedChange={enabled=it;prefs.edit().putBoolean(key,it).apply()},enabled=hasSensor||enabled)}
+   Text(BillShakeStatus.message)
+   Text("可留在此页摇动测试；识别成功会显示提示，随后再进入单笔账单详情。",style=MaterialTheme.typography.bodySmall)
    Text(if(LifeScreenCaptureService.active==null)"屏幕内容服务：未连接" else "屏幕内容服务：已连接")
    if(!hasSensor)Text("此设备没有加速度传感器，请手动记账。")
    TextButton(onClick={context.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))}){Text("启用 Life 屏幕内容服务")}

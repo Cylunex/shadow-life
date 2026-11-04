@@ -3,27 +3,26 @@ package com.shadow.life
 internal val billPlatforms = mapOf("com.tencent.mm" to "wechat", "com.eg.android.AlipayGphone" to "alipay")
 internal fun shakeKey(account: String, pkg: String) = "bill_shake:${account}:${pkg}"
 
-// Two opposite peaks distinguish a deliberate wrist movement from a single bump.
-// Accelerometer samples include gravity; compare the dominant axis rather than device orientation.
+// Remove gravity before comparing motion vectors, so the same wrist motion works
+// with the phone upright, flat or tilted. Require a reversal, not a single bump.
 internal class BillShakeGesture {
+    private var gravity:FloatArray?=null
+    private var first:FloatArray?=null
     private var firstAt = -1L
-    private var axis = 0
-    private var sign = false
     private var quietUntil = 0L
-
     fun sample(ms: Long, x: Float, y: Float, z: Float): Boolean {
-        if (ms < quietUntil) return false
-        val ax = kotlin.math.abs(x); val ay = kotlin.math.abs(y); val az = kotlin.math.abs(z)
-        val nextAxis = if (ax >= ay && ax >= az) 0 else if (ay >= az) 1 else 2
-        val peak = when (nextAxis) { 0 -> x; 1 -> y; else -> z }
-        if (kotlin.math.abs(peak) < 17f) return false
-        val elapsed = ms - firstAt
-        if (firstAt >= 0 && elapsed <= 550 && axis == nextAxis) {
-            if (elapsed < 70 || sign == (peak > 0)) return false
-            firstAt = -1; quietUntil = ms + 2500
-            return true
+        val raw=floatArrayOf(x,y,z)
+        val g=gravity?:run{gravity=raw;return false}
+        val motion=FloatArray(3){i->g[i]=0.8f*g[i]+0.2f*raw[i];raw[i]-g[i]}
+        if(ms<quietUntil)return false
+        val size=kotlin.math.sqrt(motion.sumOf{(it*it).toDouble()}).toFloat()
+        if(size<7f)return false
+        val direction=FloatArray(3){motion[it]/size}
+        val previous=first
+        if(previous!=null && ms-firstAt in 70..700 && (0..2).sumOf{(previous[it]*direction[it]).toDouble()} < -0.3){
+            first=null;firstAt=-1;quietUntil=ms+2500;return true
         }
-        firstAt = ms; axis = nextAxis; sign = peak > 0
+        if(previous==null || ms-firstAt>700){first=direction;firstAt=ms}
         return false
     }
 }
