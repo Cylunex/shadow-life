@@ -204,7 +204,12 @@ do not imply a visit. Actual visits and private reservation details retain their
 5. Save a requested meal plan through `life.save_meal_plan`; a requested shopping list through
    `life.build_shopping_list`. Missing nutrition never blocks ordinary logging. If the user asks to correct
    nutrition, inspect original labels/catalog entries and current revision first, then use
-   `life.correct_intake` for the supported facts; preserve unknown fields and unrelated values.
+   `life.correct_intake` for the supported facts. For “I only ate half”, open the meal,
+   identify the actual intake item and read its revision. Send `item_id`, `expected_revision`,
+   `consumed_fraction: "0.5"` and the correction reason. Read the same meal back and verify that
+   item's fraction. Supply the fraction against the original serving and nutrients, exactly once.
+   If the order has no confirmed intake yet, record the user's first meal and link the existing
+   purchase. A replacement `item` is only for editing the whole food line.
 6. Save a model observation only when requested/appropriate through `agent.save_learning`, with verified
    business references, limits and workflow revision. A read result is not a save receipt; verify all writes
    through the original command's committed receipt and read-back. Do not create notifications or schedules

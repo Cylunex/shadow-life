@@ -64,3 +64,46 @@ test("empty meal coverage is scoped to the same owner and recorded local date",p
   assert.equal(absent.domains.meals!.nutrition!.energy_kcal,null);
   assert.equal(absent.domains.meals!.nutrition!.complete_macros,false);
 });
+
+test("correcting a takeout portion preserves the whole-serving evidence and paid order", pgOnly, async t => {
+  const { run, queries, context, executor, command } = await reviewFixture(t);
+  const dining = await run("life.record_dining", {
+    occurred_on: date, time_zone: timeZone, meal_type: "lunch", scene: "delivery",
+    consumed_items: [
+      { name: "鸡肉饭", quantity: "1", unit: "盒", energy_kcal: "600", protein_g: "30", estimate: true, evidence_note: "整盒营养估算" },
+      { name: "水", quantity: "1", unit: "杯", energy_kcal: "0" }
+    ],
+    purchased_items: [{ raw_name: "鸡肉饭套餐", quantity: "1", unit: "份", line_amount: "28.00" }],
+    payment: { amount: "25.00", currency: "CNY", occurred_on: date, time_zone: timeZone },
+    sources: [{ kind: "text", role: "receipt", captured_on: date, original_text: "合成订单：优惠后实付25元" }]
+  });
+  const mealId = String(dining.actual_values.meal_id);
+  const orderId = String(dining.actual_values.consumption_record_id);
+  const before = await queries.lifeRecord(context, mealId);
+  const orderBefore = await queries.lifeRecord(context, orderId);
+  assert.ok(before.kind === "meal" && before.items?.length === 2);
+  assert.ok(orderBefore.kind === "record" && orderBefore.money_entry?.amount);
+  const [rice, water] = before.items;
+  const input = { item_id: rice!.id, expected_revision: rice!.revision, consumed_fraction: "0.5", reason: "只吃了半盒饭" };
+  const edit = command("life.correct_intake", input);
+  const receipt = await executor.execute(context, edit);
+  assert.equal(receipt.actual_values.consumed_fraction, "0.5");
+  assert.equal((await executor.execute(context, edit)).replayed, true);
+  await assert.rejects(() => run("life.correct_intake", input), /revision/);
+
+  const after = await queries.lifeRecord(context, mealId);
+  assert.ok(after.kind === "meal" && after.items);
+  assert.equal(after.revision, before.revision! + 1);
+  assert.deepEqual(after.items[0], { ...rice, revision: rice!.revision + 1, consumed_fraction: after.items[0]!.consumed_fraction });
+  assert.equal(Number(after.items[0]!.consumed_fraction), 0.5);
+  assert.deepEqual(after.items[1], water);
+  assert.deepEqual(after.sources, before.sources);
+  const orderAfter = await queries.lifeRecord(context, orderId);
+  assert.ok(orderAfter.kind === "record");
+  assert.deepEqual(orderAfter.money_entry, orderBefore.money_entry);
+  assert.deepEqual(orderAfter.purchase_items, orderBefore.purchase_items);
+  assert.equal(orderAfter.revision, orderBefore.revision);
+  assert.equal(orderAfter.meals?.[0]?.id, mealId);
+  const review = await queries.wellnessReview(context, { to: date, days: 7 });
+  assert.equal(review.current.nutrients.energy_kcal.known_total, "300");
+});

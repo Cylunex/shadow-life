@@ -156,8 +156,10 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         if(entry.kind!="meal")continue
         val meal=wireJson.decodeFromString<LifeRecordResultDto>(getText("/api/life/records/${entry.id}")) as? LifeRecordResultDtoMeal ?:continue
         if(meal.occurredOn!=date)continue
-        fun scaled(value:String?,fraction:String?):String?=value?.toBigDecimal()?.multiply(fraction?.toBigDecimal()?:java.math.BigDecimal.ONE)?.stripTrailingZeros()?.toPlainString()
-        val foods=meal.items.orEmpty().map{food->MealFoodSummary(food.name,food.quantity,food.unit,scaled(food.energyKcal,food.consumedFraction),scaled(food.proteinG,food.consumedFraction),scaled(food.fatG,food.consumedFraction),scaled(food.carbG,food.consumedFraction),food.estimate)}
+        val foods=meal.items.orEmpty().map { food ->
+          MealFoodSummary(food.name,food.quantity,food.unit,food.energyKcal,food.proteinG,food.fatG,food.carbG,food.estimate)
+            .withConsumedNutrition(food.consumedFraction)
+        }
         meals[meal.mealId]=RecordSummary(LifeDomain.Meals,"meal",meal.mealId,foods.joinToString("、"){it.name},date,null,meal.revision?.toInt(),
           meal=MealCardSummary(meal.mealType?.wireValue?:"other",date,meal.occurredAt,meal.timeZone?:"UTC",meal.note,foods,meal.sources.orEmpty().firstOrNull{it.assetVersionId!=null}?.assetVersionId))
       }
@@ -204,7 +206,10 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       if(query.isNotBlank())return search(query,cursor,setOf(LifeDomain.Meals))
       val result=wireJson.decodeFromString<ListMealsResultDto>(getText("/api/meals?limit=50${cursor?.let{"&cursor=${encode(it)}"}.orEmpty()}"))
       return RecordPage(result.items.map{item->
-        val foods=item.items.map{food->MealFoodSummary(food.name,food.quantity,food.unit,food.energyKcal,food.proteinG,food.fatG,food.carbG,food.estimate)}
+        val foods=item.items.map { food ->
+          MealFoodSummary(food.name,food.quantity,food.unit,food.energyKcal,food.proteinG,food.fatG,food.carbG,food.estimate)
+            .withConsumedNutrition(food.consumedFraction)
+        }
         val photo=item.sources.orEmpty().firstOrNull{source->source.assetVersionId!=null&&(source.role.wireValue=="meal_photo"||source.kind=="image"||source.kind.contains("meal_photo"))}?.assetVersionId
         RecordSummary(
           domain,"meal",item.id,foods.map{it.name}.filter(String::isNotBlank).joinToString("、").ifBlank{mealTypeLabel(item.mealType.wireValue)},item.occurredOn,
@@ -611,8 +616,8 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     }finally{connection.disconnect()}
   }
 
-  suspend fun correctIntake(original:LifeRecordResultDtoMealItemsEntry,draft:MealDraftItem,accountId:String):OperationReceipt{
-    val input=JSONObject(intakeCorrectionInput(original,draft).toString())
+  suspend fun correctIntake(original:LifeRecordResultDtoMealItemsEntry,draft:MealDraftItem,accountId:String,changedPercent:String?):OperationReceipt{
+    val input=JSONObject(intakeCorrectionInput(original,draft,changedPercent).toString())
     val digest=java.security.MessageDigest.getInstance("SHA-256").digest(input.toString().toByteArray()).joinToString(""){"%02x".format(it)}
     return enqueueCommand("life.correct_intake",input,"cmd_android_intake_$digest",accountId)
   }
@@ -836,9 +841,21 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       val sections=mutableListOf(
         DetailSection("概要",listOfNotNull(value.mealType?.let{DetailFact("餐次",mealTypeLabel(it.wireValue))},value.occurredOn?.let{DetailFact("日期",it)},value.timeZone?.let{DetailFact("时区",it)},value.note?.let{DetailFact("备注",it)}))
       )
-      if(items.isNotEmpty())sections+=DetailSection("食物与营养",itemCount=items.size,groups=items.map{item->DetailGroup(item.id,item.name,listOfNotNull(
-        DetailFact("份量",listOfNotNull(item.quantity?.let(::detailDecimal),item.unit).joinToString(" ").ifBlank{"未记录"}),DetailFact("热量",item.energyKcal?.let{"${detailDecimal(it)} kcal${if(item.estimate)" · 估算" else ""}"}?:"未记录"),
-        item.proteinG?.let{DetailFact("蛋白质","${detailDecimal(it)} g")},item.fatG?.let{DetailFact("脂肪","${detailDecimal(it)} g")},item.carbG?.let{DetailFact("碳水","${detailDecimal(it)} g")},item.fiberG?.let{DetailFact("膳食纤维","${detailDecimal(it)} g")},item.sodiumMg?.let{DetailFact("钠","${detailDecimal(it)} mg")},item.evidenceNote?.let{DetailFact("依据",it)}))})
+      if(items.isNotEmpty())sections+=DetailSection("食物与营养",itemCount=items.size,groups=items.map { item ->
+        fun eaten(value: String?) = consumedAmount(value,item.consumedFraction)
+        val facts = listOfNotNull(
+          DetailFact("份量",listOfNotNull(eaten(item.quantity),item.unit).joinToString(" ").ifBlank { "未记录" }),
+          item.consumedFraction?.let { DetailFact("食用比例","${consumedAmount("100",it)}%") },
+          DetailFact("热量",eaten(item.energyKcal)?.let { "$it kcal${if(item.estimate) " · 估算" else ""}" } ?: "未记录"),
+          eaten(item.proteinG)?.let { DetailFact("蛋白质","$it g") },
+          eaten(item.fatG)?.let { DetailFact("脂肪","$it g") },
+          eaten(item.carbG)?.let { DetailFact("碳水","$it g") },
+          eaten(item.fiberG)?.let { DetailFact("膳食纤维","$it g") },
+          eaten(item.sodiumMg)?.let { DetailFact("钠","$it mg") },
+          item.evidenceNote?.let { DetailFact("依据",it) }
+        )
+        DetailGroup(item.id,item.name,facts)
+      })
       if(payments.isNotEmpty())sections+=DetailSection("关联付款",itemCount=payments.size,links=payments.map{payment->DetailLink("money_entry",payment.recordId,payment.counterparty?:payment.category?:"交易","${payment.currency} ${payment.amount}")})
       if(sources.isNotEmpty())sections+=DetailSection("来源",sources.take(20).map{source->DetailFact(source.kind,source.capturedAt?:source.capturedOn?:source.externalId?:"已收存")},sources.size)
       if(!value.relatedRecords.isNullOrEmpty())sections+=DetailSection("关联消费",links=value.relatedRecords.orEmpty().map{DetailLink(it.kind.wireValue,it.id,it.title,it.supporting)})

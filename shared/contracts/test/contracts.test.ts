@@ -28,6 +28,19 @@ test("unknown fields and non-canonical money fail closed", () => {
   assert.equal(commandEnvelopeSchema.safeParse({ protocol: "shadow.command", capability: "life.record_meal", command_id: "cmd_12345678", input: { ...meal, approved: true } }).success, false);
 });
 
+test("intake corrections accept a replacement or just the fraction actually eaten", () => {
+  const schema = capabilityRegistry["life.correct_intake"].inputSchema;
+  const base = { item_id: "intake_example", expected_revision: 1, reason: "只吃了一半" };
+  for (const fraction of ["0", "0.5", "1.000000"]) {
+    assert.ok(schema.safeParse({ ...base, consumed_fraction: fraction }).success);
+  }
+  assert.ok(schema.safeParse({ ...base, item: meal.items[0] }).success);
+  for (const change of [{}, { consumed_fraction: "0.5", item: meal.items[0] }, { consumed_fraction: null },
+    { consumed_fraction: "1.01" }, { consumed_fraction: "-0.5" }, { consumed_fraction: 0.5 }]) {
+    assert.equal(schema.safeParse({ ...base, ...change }).success, false);
+  }
+});
+
 test("meal instant must agree with its local date", () => {
   assert.equal(recordMealInputSchema.safeParse({ ...meal, occurred_at: "2026-09-07T12:00:00Z" }).success, false);
   assert.equal(recordMealInputSchema.safeParse({ ...meal, time_zone: "Not/AZone" }).success, false);

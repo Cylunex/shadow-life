@@ -377,8 +377,35 @@ function storeFor(database: Database | Transaction): TransactionStore {
           return{resources:[...resources,{type:"health_sync_cursor",id:stableCursorId(subjectId,input.device_id,resolvedSource.id,input.record_type),revision:input.sync_epoch}],actualValues:{records:input.records.length,next_cursor:input.next_cursor,sync_epoch:input.sync_epoch}};
         }
         case "life.correct_intake": {
-          const input=correctIntakeInputSchema.parse(command.input);const [current]=await database.select().from(schema.intakeItems).where(and(eq(schema.intakeItems.id,input.item_id),eq(schema.intakeItems.subjectId,subjectId),eq(schema.intakeItems.revision,input.expected_revision),eq(schema.intakeItems.effective,true))).limit(1);if(!current)throw conflict("intake item revision changed, is removed, or does not exist");
-          await database.insert(schema.intakeItemRevisions).values({itemId:current.id,revision:current.revision,snapshot:current,reason:input.reason});const [updated]=await database.update(schema.intakeItems).set({name:input.item.name,foodRefId:input.item.food_ref_id??null,freeText:input.item.free_text??null,quantity:input.item.quantity??null,unit:input.item.unit??null,amountG:input.item.amount_g??null,energyKcal:input.item.energy_kcal??null,proteinG:input.item.protein_g??null,fatG:input.item.fat_g??null,carbG:input.item.carb_g??null,fiberG:input.item.fiber_g??null,sodiumMg:input.item.sodium_mg??null,consumedFraction:input.item.consumed_fraction??null,provenance:input.item.provenance??null,groupingOrigin:input.item.grouping_origin??null,estimate:input.item.estimate,evidenceNote:input.item.evidence_note??null,revision:sql`${schema.intakeItems.revision}+1`}).where(eq(schema.intakeItems.id,current.id)).returning();await database.update(schema.meals).set({revision:sql`${schema.meals.revision}+1`}).where(eq(schema.meals.id,current.mealId));return {resources:[{type:"intake_item",id:current.id,revision:updated!.revision}],actualValues:{intake_item_id:current.id,revision:updated!.revision},warnings:mealEstimateWarnings([input.item])};
+          const input = correctIntakeInputSchema.parse(command.input);
+          const [current] = await database.select({ item: schema.intakeItems })
+            .from(schema.intakeItems)
+            .innerJoin(schema.meals, eq(schema.meals.id, schema.intakeItems.mealId))
+            .where(and(eq(schema.intakeItems.id, input.item_id), eq(schema.intakeItems.subjectId, subjectId),
+              eq(schema.intakeItems.revision, input.expected_revision), eq(schema.intakeItems.effective, true),
+              eq(schema.meals.subjectId, subjectId), eq(schema.meals.state, "active")))
+            .for("update");
+          if (!current) throw conflict("intake item revision changed, is removed, or does not exist");
+          const original = current.item, item = input.item;
+          await database.insert(schema.intakeItemRevisions).values({
+            itemId: original.id, revision: original.revision, snapshot: original, reason: input.reason
+          });
+          const changes = item ? {
+            name: item.name, foodRefId: item.food_ref_id ?? null, freeText: item.free_text ?? null,
+            quantity: item.quantity ?? null, unit: item.unit ?? null, amountG: item.amount_g ?? null,
+            energyKcal: item.energy_kcal ?? null, proteinG: item.protein_g ?? null, fatG: item.fat_g ?? null,
+            carbG: item.carb_g ?? null, fiberG: item.fiber_g ?? null, sodiumMg: item.sodium_mg ?? null,
+            consumedFraction: item.consumed_fraction ?? null, provenance: item.provenance ?? null,
+            groupingOrigin: item.grouping_origin ?? null, estimate: item.estimate, evidenceNote: item.evidence_note ?? null
+          } : { consumedFraction: input.consumed_fraction };
+          const revision = original.revision + 1;
+          await database.update(schema.intakeItems).set({ ...changes, revision }).where(eq(schema.intakeItems.id, original.id));
+          await database.update(schema.meals).set({ revision: sql`${schema.meals.revision}+1` }).where(eq(schema.meals.id, original.mealId));
+          return {
+            resources: [{ type: "intake_item", id: original.id, revision }],
+            actualValues: { intake_item_id: original.id, revision, ...(item ? {} : { meal_id: original.mealId, consumed_fraction: input.consumed_fraction! }) },
+            warnings: mealEstimateWarnings([item ?? original])
+          };
         }
         case "life.record_purchase": {
           const input=recordPurchaseInputSchema.parse(command.input),id=nextId("purchase"),sourceId=await sourceFor(input.source),recordId=await recordFor({kind:"consumption",occurredOn:input.occurred_on,occurredAt:input.occurred_at,timeZone:input.time_zone,note:input.note});const moneyId=input.payment?nextId("money"):undefined;await database.insert(schema.purchases).values({id,subjectId,recordId,merchant:input.merchant_name_raw,amount:null,currency:input.payment?.currency??"CNY",occurredOn:input.occurred_on,occurredAt:input.occurred_at?new Date(input.occurred_at):undefined,timeZone:input.time_zone,note:input.note,sourceId,scene:input.scene,channelNameRaw:input.channel_name_raw,placeRef:input.place_ref,rating:input.rating,wouldRepeat:input.would_repeat});const itemIds:string[]=[],cycleResources:Array<{type:"use_cycle";id:string;revision:number}>=[];for(const [position,item]of input.items.entries()){const itemId=nextId("purchase_item");itemIds.push(itemId);await database.insert(schema.purchaseItems).values({id:itemId,purchaseId:id,position,rawName:item.raw_name,quantity:item.quantity,unit:item.unit,lineAmount:item.line_amount,categoryKey:item.category_key});const tracking=input.consumables?.find(c=>c.item_position===position);if(tracking){const {item_position:_,...spec}=tracking;const saved=await saveUseCycle(database,subjectId,setUseCycleInputSchema.parse({...spec,purchase_record_id:recordId,purchase_item_id:itemId,item_name:item.raw_name,started_on:input.occurred_on,time_zone:input.time_zone,state:"active",usage_state:"pending"}),nextId);cycleResources.push({type:"use_cycle",id:String(saved.actualValues.use_cycle_id),revision:1});}}if(input.payment&&moneyId)await database.insert(schema.moneyEntries).values({id:moneyId,recordId,subjectId,entryType:"expense",amount:input.payment.amount,currency:input.payment.currency,occurredOn:input.payment.occurred_on,occurredAt:input.payment.occurred_at?new Date(input.payment.occurred_at):undefined,timeZone:input.payment.time_zone,paymentMethod:input.payment.payment_method,sourceId});return{resources:[...cycleResources,{type:"consumption_record",id:recordId,revision:1},{type:"purchase",id,revision:1},...itemIds.map(itemId=>({type:"purchase_item" as const,id:itemId,revision:1})),...(moneyId?[{type:"money_entry" as const,id:moneyId,revision:1}]:[])],actualValues:{use_cycles_created:cycleResources.length,purchase_id:id,record_id:recordId,...(moneyId&&input.payment?{money_entry_id:moneyId,amount:input.payment.amount,currency:input.payment.currency}:{payment_known:false})}};

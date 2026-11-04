@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "7c743fb7dde303b8c8dd8309a79d6983a1dff45363a6b5188539341b4b9c84f6",
+  "catalog_revision": "c0f82db89200566ff053b94433f584735cf5a716642d43e22abd0b1b64f9e7f2",
   "terms": [
     {
       "id": "activity_capture",
@@ -73,7 +73,9 @@
         "午餐",
         "晚餐",
         "营养",
-        "热量"
+        "热量",
+        "只吃了一半",
+        "食用比例"
       ],
       "definition": "实际吃下或喝下的食物及份量，属于餐次事实。",
       "boundaries": [
@@ -85,6 +87,7 @@
         "life.record_dining",
         "life.list_meals",
         "life.correct_meal",
+        "life.correct_intake",
         "life.get_record"
       ],
       "lookup_tools": [
@@ -682,6 +685,7 @@
         "life.record_dining",
         "life.record_purchase",
         "life.correct_meal",
+        "life.correct_intake",
         "life.correct_purchase",
         "life.food_catalog",
         "life.daily_record_check",
@@ -27042,13 +27046,15 @@
     },
     {
       "name": "life.correct_intake",
-      "description": "先 life.get_record 查 item_id 与当前 revision，再修正饮食明细并保留原因；不创建第二餐模拟编辑。",
+      "description": "先 life.get_record 查摄入条目与当前版本。只改实际食用比例时提交 consumed_fraction（半份填 0.5）；其他更正提交完整 item。",
       "domain": "life",
       "mode": "write",
       "possible_effects": [
         "life.meal.write"
       ],
-      "scenarios": [],
+      "scenarios": [
+        "daily"
+      ],
       "input_schema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -27062,7 +27068,13 @@
             "exclusiveMinimum": 0,
             "maximum": 9007199254740991
           },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
           "item": {
+            "description": "Complete replacement for the intake item. Preserve all facts that still apply.",
             "type": "object",
             "properties": {
               "name": {
@@ -27156,19 +27168,30 @@
             ],
             "additionalProperties": false
           },
-          "reason": {
+          "consumed_fraction": {
+            "description": "Only change the fraction actually eaten (0 to 1). Retain the original portion, nutrients and evidence.",
             "type": "string",
-            "minLength": 1,
-            "maxLength": 500
+            "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
           }
         },
         "required": [
           "item_id",
           "expected_revision",
-          "item",
           "reason"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "oneOf": [
+          {
+            "required": [
+              "item"
+            ]
+          },
+          {
+            "required": [
+              "consumed_fraction"
+            ]
+          }
+        ]
       },
       "result_schema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",

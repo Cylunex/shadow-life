@@ -5,6 +5,17 @@ import org.junit.Test
 import kotlinx.serialization.json.*
 
 class UiExperienceTest {
+  @Test fun portionCorrectionDisplaysConsumedNutrientsExactlyOnce() {
+    val whole = MealFoodSummary("盒饭", quantity="1", unit="盒", energyKcal="600", proteinG="0", fatG=null, carbG="20")
+    val half = whole.withConsumedNutrition("0.500000")
+    assertEquals("300", half.energyKcal)
+    assertEquals("0", half.proteinG)
+    assertNull(half.fatG)
+    assertEquals("10", half.carbG)
+    assertEquals("0.5", consumedAmount(whole.quantity, "0.5"))
+    assertEquals("600", whole.withConsumedNutrition(null).energyKcal)
+    assertEquals("0", whole.withConsumedNutrition("0").energyKcal)
+  }
   @Test fun mealDraftRestoresAllEnteredFieldsWithoutInventingNutrition(){
     val rows=listOf(MealDraftItem("牛肉面","1.5","碗","560.25","25.5","18","70"),MealDraftItem("茶"))
     assertEquals(rows,readMealDraftRows(encodeMealDraftRows(rows),""))
@@ -42,6 +53,23 @@ class UiExperienceTest {
     assertEquals("3",input.getValue("expected_revision").jsonPrimitive.content)
     assertFalse(item.containsKey("revision"))
     assertFalse(item.containsKey("meal_id"))
+  }
+  @Test fun fractionOnlyDraftUsesTheNarrowCommandAndCombinedEditsPreserveMetadata() {
+    val original = sourceFood()
+    val draft = original.editableFood()
+    val narrow = intakeCorrectionInput(original,draft,"25")
+    assertFalse(narrow.containsKey("item"))
+    assertEquals("0.25",narrow.getValue("consumed_fraction").jsonPrimitive.content)
+    assertEquals("3",narrow.getValue("expected_revision").jsonPrimitive.content)
+    val full = intakeCorrectionInput(original,draft.copy(energyKcal="140"),"0")
+    assertFalse(full.containsKey("consumed_fraction"))
+    val item = full.getValue("item").jsonObject
+    assertEquals("0",item.getValue("consumed_fraction").jsonPrimitive.content)
+    assertEquals("140",item.getValue("energy_kcal").jsonPrimitive.content)
+    assertEquals("营养标签",item.getValue("evidence_note").jsonPrimitive.content)
+    for (invalid in listOf("", "-1", "101", "50.12345", "abc")) {
+      assertThrows(IllegalArgumentException::class.java) { intakeCorrectionInput(original,draft,invalid) }
+    }
   }
   @Test fun renamedFoodDoesNotKeepAnUnrelatedCatalogReference(){
     val input=intakeCorrectionInput(sourceFood(),MealDraftItem("豆奶"))

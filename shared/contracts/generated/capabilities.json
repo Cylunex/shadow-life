@@ -22962,7 +22962,7 @@
     },
     "life.correct_intake": {
       "name": "life.correct_intake",
-      "description": "先 life.get_record 查 item_id 与当前 revision，再修正饮食明细并保留原因；不创建第二餐模拟编辑。",
+      "description": "先 life.get_record 查摄入条目与当前版本。只改实际食用比例时提交 consumed_fraction（半份填 0.5）；其他更正提交完整 item。",
       "possible_effects": [
         "life.meal.write"
       ],
@@ -22981,7 +22981,13 @@
             "exclusiveMinimum": 0,
             "maximum": 9007199254740991
           },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
           "item": {
+            "description": "Complete replacement for the intake item. Preserve all facts that still apply.",
             "type": "object",
             "properties": {
               "name": {
@@ -23075,19 +23081,30 @@
             ],
             "additionalProperties": false
           },
-          "reason": {
+          "consumed_fraction": {
+            "description": "Only change the fraction actually eaten (0 to 1). Retain the original portion, nutrients and evidence.",
             "type": "string",
-            "minLength": 1,
-            "maxLength": 500
+            "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
           }
         },
         "required": [
           "item_id",
           "expected_revision",
-          "item",
           "reason"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "oneOf": [
+          {
+            "required": [
+              "item"
+            ]
+          },
+          {
+            "required": [
+              "consumed_fraction"
+            ]
+          }
+        ]
       },
       "command_schema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -23118,7 +23135,13 @@
                 "exclusiveMinimum": 0,
                 "maximum": 9007199254740991
               },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
               "item": {
+                "description": "Complete replacement for the intake item. Preserve all facts that still apply.",
                 "type": "object",
                 "properties": {
                   "name": {
@@ -23212,19 +23235,30 @@
                 ],
                 "additionalProperties": false
               },
-              "reason": {
+              "consumed_fraction": {
+                "description": "Only change the fraction actually eaten (0 to 1). Retain the original portion, nutrients and evidence.",
                 "type": "string",
-                "minLength": 1,
-                "maxLength": 500
+                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
               }
             },
             "required": [
               "item_id",
               "expected_revision",
-              "item",
               "reason"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "oneOf": [
+              {
+                "required": [
+                  "item"
+                ]
+              },
+              {
+                "required": [
+                  "consumed_fraction"
+                ]
+              }
+            ]
           }
         },
         "required": [

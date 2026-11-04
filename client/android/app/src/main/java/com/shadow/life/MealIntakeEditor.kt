@@ -23,9 +23,14 @@ import kotlinx.coroutines.launch
   val repository=remember(accountId){NativeLifeRepository(context,app)}
   val store=remember(accountId){UiDraftStore(context,accountId)}
   val scope=rememberCoroutineScope()
-  val initial=remember(items){items.map{MealDraftItem(it.name,it.quantity.orEmpty(),it.unit.orEmpty(),it.energyKcal.orEmpty(),it.proteinG.orEmpty(),it.fatG.orEmpty(),it.carbG.orEmpty())}}
-  val drafts=remember(items){items.mapIndexed{index,item->decodeMealDraftRows(store.read("intake/${item.id}/${item.revision}","row"))?.firstOrNull()?:initial[index]}.toMutableStateList()}
-  val queued=remember{mutableStateListOf<String>()}
+  val initial=remember(items){items.map{it.editableFood()}}
+  val drafts=remember(store,items){items.mapIndexed{index,item->decodeMealDraftRows(store.read("intake/${item.id}/${item.revision}","row"))?.firstOrNull()?:initial[index]}.toMutableStateList()}
+  val initialPercents = remember(items) { items.map { it.consumedFraction?.let { fraction -> consumedAmount("100",fraction) }.orEmpty() } }
+  val percents = remember(store,items) {
+    items.mapIndexed { index,item -> store.read("intake/${item.id}/${item.revision}","percent") ?: initialPercents[index] }.toMutableStateList()
+  }
+  val queued=remember(store,items){mutableStateListOf<String>()}
+  fun changed(index:Int) = items[index].id !in queued && (drafts[index] != initial[index] || percents[index] != initialPercents[index])
   var busy by remember{mutableStateOf(false)}
   var error by remember{mutableStateOf<String?>(null)}
   fun update(index:Int,row:MealDraftItem){drafts[index]=row;val item=items[index];store.write("intake/${item.id}/${item.revision}","row",encodeMealDraftRows(listOf(row)))}
@@ -37,20 +42,26 @@ import kotlinx.coroutines.launch
           LifeCard{
             if(original.id in queued)Text("已加入同步队列",color=MaterialTheme.colorScheme.primary)
             OutlinedTextField(row.name,{update(index,row.copy(name=it))},Modifier.fillMaxWidth(),enabled=!busy&&original.id !in queued,label={Text("食物 ${index+1}")})
-            OutlinedTextField(row.quantity,{update(index,row.copy(quantity=it))},Modifier.fillMaxWidth(),enabled=!busy&&original.id !in queued,label={Text("份量")},keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal))
+            OutlinedTextField(row.quantity,{update(index,row.copy(quantity=it))},Modifier.fillMaxWidth(),enabled=!busy&&original.id !in queued,label={Text("原份量（食用比例折算前）")},keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal))
             OutlinedTextField(row.unit,{update(index,row.copy(unit=it))},Modifier.fillMaxWidth(),enabled=!busy&&original.id !in queued,label={Text("单位")})
+            OutlinedTextField(percents[index], { text ->
+              percents[index] = text
+              store.write("intake/${original.id}/${original.revision}","percent",text)
+            }, Modifier.fillMaxWidth(), enabled=!busy&&original.id !in queued,
+              label={Text("实际吃了多少（%）")}, placeholder={Text("未填写时按 100% 统计")},
+              keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal))
             var nutrition by remember{mutableStateOf(false)}
-            TextButton(onClick={nutrition=!nutrition}){Text(if(nutrition)"收起营养" else "营养信息（可选）")}
+            TextButton(onClick={nutrition=!nutrition}){Text(if(nutrition)"收起营养" else "原份营养（可选）")}
             if(nutrition)listOf("热量 kcal" to row.energyKcal,"蛋白质 g" to row.proteinG,"脂肪 g" to row.fatG,"碳水 g" to row.carbG).forEachIndexed{field,(label,value)->OutlinedTextField(value,{text->update(index,when(field){0->row.copy(energyKcal=text);1->row.copy(proteinG=text);2->row.copy(fatG=text);else->row.copy(carbG=text)})},Modifier.fillMaxWidth(),enabled=!busy&&original.id !in queued,label={Text(label)},keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal))}
           }
         }
       }
       error?.let{Text(it,color=MaterialTheme.colorScheme.error)}
-      Button(enabled=!busy&&drafts.indices.any{drafts[it]!=initial[it]&&items[it].id !in queued},onClick={scope.launch{
+      Button(enabled=!busy&&drafts.indices.any(::changed),onClick={scope.launch{
         busy=true;error=null
         try{
           check(app.sessions.active()?.accountId==accountId){"账号已切换"}
-          drafts.indices.filter{drafts[it]!=initial[it]&&items[it].id !in queued}.forEach{index->val original=items[index];repository.correctIntake(original,drafts[index],accountId);queued+=original.id;store.clear("intake/${original.id}/${original.revision}")}
+          drafts.indices.filter(::changed).forEach{index->val original=items[index];repository.correctIntake(original,drafts[index],accountId,percents[index].takeIf { it!=initialPercents[index] });queued+=original.id;store.clear("intake/${original.id}/${original.revision}")}
           message="食物更正已保存到本机，待同步";open=false
         }catch(e:CancellationException){throw e}catch(e:Exception){error=e.message?:"保存失败，已保留输入"}finally{busy=false}
       }},modifier=Modifier.fillMaxWidth()){Text(if(busy)"正在保存" else "保存本餐更正")}

@@ -34,6 +34,8 @@ export const sourceInputSchema = z.object({
   if (source.captured_at !== undefined && source.time_zone === undefined) context.addIssue({ code: "custom", message: "captured_at needs time_zone" });
 });
 
+const consumedFraction = canonicalDecimal.refine(value => Number(value) <= 1, "must be at most one");
+
 export const intakeItemInputSchema = z.object({
   name: z.string().trim().min(1).max(200),
   food_ref_id: stableId.optional(),
@@ -47,7 +49,7 @@ export const intakeItemInputSchema = z.object({
   carb_g: canonicalDecimal.optional(),
   fiber_g: canonicalDecimal.optional(),
   sodium_mg: canonicalDecimal.optional(),
-  consumed_fraction: canonicalDecimal.refine(value => Number(value) <= 1, "must be at most one").optional().describe("Fraction actually consumed of the supplied quantity and nutrient values; defaults to 1 for aggregation. Do not scale nutrients twice."),
+  consumed_fraction: consumedFraction.optional().describe("Fraction actually consumed of the supplied quantity and nutrient values; defaults to 1 for aggregation. Do not scale nutrients twice."),
   provenance: z.enum(["manual","estimated","reference_snapshot","legacy"]).optional(),
   grouping_origin: z.enum(["actual_meal","legacy_meal_bucket"]).optional(),
   estimate: z.boolean().default(false).describe("Set true for estimated amounts or nutrition; evidence_note is then required. Unknown nutrition may be omitted."),
@@ -116,7 +118,15 @@ export const purchaseItemInputSchema=z.object({raw_name:z.string().trim().min(1)
 export const purchaseSceneSchema=z.enum(["online_purchase","offline_purchase","delivery","dine_in","takeaway","home_cooked","drink","service","subscription","transport","entertainment","travel","other"]);
 export const purchaseConsumableSchema=z.object({item_position:z.number().int().nonnegative().max(99),initial_quantity:positiveDecimal.optional(),quantity_unit:z.enum(["g","ml","count"]).optional(),quantity_label:z.string().trim().min(1).max(16).optional(),expected_daily_usage:positiveDecimal.optional()}).strict().refine(v=>(!v.initial_quantity&&!v.expected_daily_usage)||v.quantity_unit!==undefined,{message:"quantities need a unit"});
 export const recordPurchaseInputSchema=datedFactSchema.extend({scene:purchaseSceneSchema,merchant_name_raw:z.string().trim().min(1).max(200).optional(),channel_name_raw:z.string().trim().min(1).max(100).optional(),place_ref:z.string().trim().min(1).max(300).optional(),rating:z.number().int().min(1).max(5).optional(),would_repeat:z.boolean().optional(),items:z.array(purchaseItemInputSchema).max(100).default([]),consumables:z.array(purchaseConsumableSchema).max(100).optional(),payment:purchasePaymentSchema.optional()}).strict().refine(factDateMatches,{path:["occurred_at"],message:"occurred_at does not fall on occurred_on in time_zone"}).refine(value=>value.items.length>0||value.merchant_name_raw!==undefined||value.note!==undefined,{message:"consumption needs an item, merchant, or note"}).refine(value=>!value.consumables||value.consumables.every(c=>c.item_position<value.items.length)&&new Set(value.consumables.map(c=>c.item_position)).size===value.consumables.length,{message:"consumable positions must identify distinct purchase items"});
-export const correctIntakeInputSchema = z.object({ item_id: stableId, expected_revision: z.number().int().positive(), item: intakeItemInputSchema, reason: z.string().trim().min(1).max(500) }).strict();
+export const correctIntakeInputSchema = z.object({
+  item_id: stableId,
+  expected_revision: z.number().int().positive(),
+  reason: z.string().trim().min(1).max(500),
+  item: intakeItemInputSchema.optional().describe("Complete replacement for the intake item. Preserve all facts that still apply."),
+  consumed_fraction: consumedFraction.optional().describe("Only change the fraction actually eaten (0 to 1). Retain the original portion, nutrients and evidence.")
+}).strict().refine(input => (input.item === undefined) !== (input.consumed_fraction === undefined), {
+  message: "supply either a complete item or consumed_fraction"
+}).meta({ oneOf: [{ required: ["item"] }, { required: ["consumed_fraction"] }] });
 export const correctPurchaseInputSchema=z.object({record_id:stableId,expected_revision:z.number().int().positive(),occurred_on:localDate,occurred_at:instant.optional(),time_zone:ianaTimeZone,scene:purchaseSceneSchema,merchant_name_raw:z.string().trim().min(1).max(200).optional(),channel_name_raw:z.string().trim().min(1).max(100).optional(),place_ref:z.string().trim().min(1).max(300).optional(),rating:z.number().int().min(1).max(5).optional(),would_repeat:z.boolean().optional(),note:z.string().trim().min(1).max(2_000).optional(),reason:z.string().trim().min(1).max(500)}).strict().refine(factDateMatches,{path:["occurred_at"],message:"occurred_at does not fall on occurred_on in time_zone"});
 const purchaseItemChangeSchema=z.discriminatedUnion("action",[z.object({action:z.literal("append"),item:purchaseItemInputSchema}).strict(),z.object({action:z.literal("replace"),item_id:stableId,item:purchaseItemInputSchema}).strict()]);
 export const updatePurchaseItemsInputSchema=z.object({record_id:stableId,expected_revision:z.number().int().positive(),detail_state:z.enum(["complete","folded","supplemented"]),folded_item_ids:z.array(stableId).max(100).default([]),changes:z.array(purchaseItemChangeSchema).min(1).max(100),reason:z.string().trim().min(1).max(500)}).strict().superRefine((value,context)=>{if(value.detail_state==="supplemented"&&value.folded_item_ids.length===0)context.addIssue({code:"custom",path:["folded_item_ids"],message:"supplemented details must identify the retained folded source rows"});});

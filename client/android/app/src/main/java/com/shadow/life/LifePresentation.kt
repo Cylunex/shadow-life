@@ -14,6 +14,16 @@ internal fun healthWeek(history:List<HealthDailyOverview>,end:LocalDate=LocalDat
 }
 
 internal fun displayDecimal(value:String)=value.toBigDecimalOrNull()?.stripTrailingZeros()?.toPlainString()?:value
+internal fun consumedAmount(value: String?, fraction: String?): String? =
+  value?.toBigDecimal()?.multiply(fraction?.toBigDecimal() ?: BigDecimal.ONE)?.stripTrailingZeros()?.toPlainString()
+
+internal fun MealFoodSummary.withConsumedNutrition(fraction: String?) = copy(
+  energyKcal = consumedAmount(energyKcal, fraction),
+  proteinG = consumedAmount(proteinG, fraction),
+  fatG = consumedAmount(fatG, fraction),
+  carbG = consumedAmount(carbG, fraction)
+)
+
 internal fun todayMealMacroShares(nutrition:TodayMealNutrition?):List<Pair<String,String>>? {
   if(nutrition?.completeMacros!=true)return null
   val protein=nutrition.proteinG?.toBigDecimalOrNull()?:BigDecimal.ZERO
