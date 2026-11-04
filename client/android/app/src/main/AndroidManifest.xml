@@ -38,6 +38,9 @@
       <intent-filter><action android:name="android.accessibilityservice.AccessibilityService"/></intent-filter>
       <meta-data android:name="android.accessibilityservice" android:resource="@xml/life_screen_capture"/>
     </service>
+    <activity android:name=".LibraryReferenceActivity" android:exported="true" android:excludeFromRecents="true">
+      <intent-filter><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.DEFAULT"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="shadow" android:host="life" android:pathPrefix="/library/"/></intent-filter>
+    </activity>
     <activity android:name=".QuickScreenshotActivity" android:exported="false" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true"/>
     <service android:name=".LifeScreenshotTile" android:label="截图到 Life" android:icon="@android:drawable/ic_menu_camera" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE" android:exported="true"><intent-filter><action android:name="android.service.quicksettings.action.QS_TILE"/></intent-filter></service>
     <service android:name=".LifeRecordingService" android:exported="false" android:foregroundServiceType="microphone"/>

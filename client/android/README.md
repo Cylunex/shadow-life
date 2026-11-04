@@ -62,6 +62,10 @@ write. Shared text is captured with a stable command identity. Every shared atta
 from its temporary content URI into an app-private encrypted file, receives its own stable upload/command
 identity, and is later uploaded and captured by the recoverable sync worker.
 The share ingress identity survives activity/process recreation, while an explicit discard remains discarded.
+
+A library detail can share a reference such as `shadow://life/library/library_example?revision=2`.
+Opening it requests the item from the active account in a read-only view. The app displays a changed-revision
+notice when the saved reference no longer matches and requires an online permission check before showing content.
 Original display names are retained in the encrypted attachment workflow and become the default library title.
 
 ## Daily planning and offline travel

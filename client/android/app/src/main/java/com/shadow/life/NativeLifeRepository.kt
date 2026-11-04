@@ -377,6 +377,18 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     return LibraryPage(page.items.map{LibrarySummary(it.id,it.title,it.kind,it.supporting,it.revision)},page.nextCursor,page.asOf)
   }
 
+  internal suspend fun readLibraryReference(ref:LibraryReference,accountId:String):ReferencedLibraryItem=withContext(Dispatchers.IO) {
+    val session=app.sessions.active()?.takeIf{it.accountId==accountId}?:error("请先登录 Life")
+    val response=networkText("/api/library/items/${ref.id}",null,session)
+    val active=app.sessions.active()
+    check(active?.accountId==session.accountId && active.subjectId==session.subjectId && active.apiBase==session.apiBase){"账号已切换，请重新打开引用"}
+    val value=wireJson.decodeFromString<LibraryItemResultDto>(response)
+    val revision=value.item.currentRevision.toInt()
+    ref.verify(value.item.id,revision,value.item.state.wireValue)
+    val snapshot=value.revisions.firstOrNull{it.itemId==ref.id&&it.revision.toInt()==revision}?:error("这份资料的修订暂时无法读取")
+    ReferencedLibraryItem(value.item.title,revision,snapshot.text,snapshot.url,libraryDetail(value).assets)
+  }
+
   suspend fun detail(domain:LifeDomain,id:String):RecordDetail {
     val path=when(domain){LifeDomain.Meals->"/api/life/records/$id";LifeDomain.Health->"/api/health/records/$id";LifeDomain.Travel->"/api/travel/trips/$id";LifeDomain.Library->"/api/library/items/$id";LifeDomain.Money->"/api/life/records/$id"}
     if(domain==LifeDomain.Library)return libraryDetail(wireJson.decodeFromString(getText(path)))
