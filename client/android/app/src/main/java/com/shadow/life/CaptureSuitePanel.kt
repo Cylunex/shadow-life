@@ -71,14 +71,33 @@ import java.time.LocalDate
   Text("已同步的停留会出现在下方活动列表中，含坐标与精度。",style=MaterialTheme.typography.bodySmall)
  }
  "订单"->{
-  Box{TextButton(onClick={showApps=true}){Text(apps.firstOrNull{it.activityInfo.packageName==selectedApp}?.loadLabel(context.packageManager)?.toString()?:"选择订单来源应用")};DropdownMenu(expanded=showApps,onDismissRequest={showApps=false}){apps.forEach{info->DropdownMenuItem(text={Text(info.loadLabel(context.packageManager).toString())},onClick={selectedApp=info.activityInfo.packageName;val rule=data?.rules?.firstOrNull{it.appPackage==selectedApp};if(rule!=null){platform=rule.platform.wireValue;sourceAccount=rule.sourceAccount;associate=rule.enabled;autoAccounting=rule.autoAccounting}else{platform="generic";sourceAccount="default";associate=true;autoAccounting=false};showApps=false})}}}
+  val prefs=remember { context.getSharedPreferences("activity_capture",Context.MODE_PRIVATE) }
+  val hasSensor=remember { context.getSystemService(android.hardware.SensorManager::class.java).getDefaultSensor(android.hardware.Sensor.TYPE_ACCELEROMETER)!=null }
+  fun selectApp(pkg:String){
+   selectedApp=pkg;val rule=data?.rules?.firstOrNull{it.appPackage==pkg}
+   platform=rule?.platform?.wireValue?:billPlatforms[pkg]?:"generic";sourceAccount=rule?.sourceAccount?:"default"
+   associate=rule?.enabled?:true;autoAccounting=rule?.autoAccounting?:false;showApps=false
+  }
+  Text("摇一摇记账",style=MaterialTheme.typography.titleMedium)
+  Text("选择支付应用，打开单笔账单详情后将手机来回摇一下。Life 只在摇动时收录账单文字；是否生成支出由下方订单规则决定。")
+  Row{billPlatforms.forEach{(pkg,value)->FilterChip(selected=selectedApp==pkg,onClick={selectApp(pkg)},label={Text(capturePlatformName(value))})}}
+  Box{TextButton(onClick={showApps=true}){Text(apps.firstOrNull{it.activityInfo.packageName==selectedApp}?.loadLabel(context.packageManager)?.toString()?:"选择其他订单来源应用")};DropdownMenu(expanded=showApps,onDismissRequest={showApps=false}){apps.forEach{info->DropdownMenuItem(text={Text(info.loadLabel(context.packageManager).toString())},onClick={selectApp(info.activityInfo.packageName)})}}}
+  if(selectedApp in billPlatforms){
+   val key=shakeKey(accountId,selectedApp)
+   var enabled by remember(key){mutableStateOf(prefs.getBoolean(key,false))}
+   Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){Text("在${capturePlatformName(billPlatforms.getValue(selectedApp))}摇一摇补记",Modifier.weight(1f));Switch(checked=enabled,onCheckedChange={enabled=it;prefs.edit().putBoolean(key,it).apply()},enabled=hasSensor||enabled)}
+   Text(if(LifeScreenCaptureService.active==null)"屏幕内容服务：未连接" else "屏幕内容服务：已连接")
+   if(!hasSensor)Text("此设备没有加速度传感器，请手动记账。")
+   TextButton(onClick={context.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))}){Text("启用 Life 屏幕内容服务")}
+   Text("首次使用请启用系统服务并保存下方规则。只用摇一摇时，无需在“应用与活动”中开启自动读取。",style=MaterialTheme.typography.bodySmall)
+  }
   Box{TextButton(onClick={showPlatforms=true}){Text("平台：${capturePlatformName(platform)}")};DropdownMenu(expanded=showPlatforms,onDismissRequest={showPlatforms=false}){listOf("generic","taobao","jd","meituan","alipay","wechat").forEach{value->DropdownMenuItem(text={Text(capturePlatformName(value))},onClick={platform=value;showPlatforms=false})}}}
   OutlinedTextField(value=sourceAccount,onValueChange={sourceAccount=it.take(200)},label={Text("平台账号标识（与账单导入保持一致）")},modifier=Modifier.fillMaxWidth())
   Row{Text("自动关联新采集的订单");Switch(checked=associate,onCheckedChange={associate=it})}
   Row{Text("证据完整时自动记账");Switch(checked=autoAccounting,onCheckedChange={autoAccounting=it})}
   Text("自动记账要求订单或交易身份、明确实付和付款时间、人民币证据以及写入权限；冲突和缺失只保留观察。")
   Button(enabled=!busy&&selectedApp.isNotBlank()&&sourceAccount.isNotBlank(),onClick={run{write("life.set_order_capture",JSONObject().put("app_package",selectedApp).put("platform",platform).put("source_account",sourceAccount.trim()).put("enabled",associate).put("auto_accounting",autoAccounting))}}){Text("保存此应用的规则")}
-  data?.orders?.forEach{order->Card(Modifier.fillMaxWidth()){Column(Modifier.padding(12.dp)){Text("${capturePlatformName(order.platform)} · ${order.externalId}");Text("${mapOf("paid" to "已支付","pending" to "待付款","refunded" to "已退款","refund_pending" to "退款中","cancelled" to "已取消","unknown" to "状态未明确")[order.status]?:order.status} · ${order.sourceCount} 份材料");if(order.conflict)Text("来源存在冲突，未自动覆盖");val fields=runCatching{JSONObject(order.fields)}.getOrNull();mapOf("merchant" to "商家","product" to "商品","paid_amount" to "实付","order_amount" to "订单金额","payment_time" to "付款时间","logistics_no" to "物流单号").forEach{(key,label)->fields?.optString(key)?.takeIf{it.isNotBlank()}?.let{Text("$label：$it")}};Text(if(order.recordId==null)"尚未关联账目" else "已关联账目，同一身份不重复记账")}}}
+  data?.orders?.forEach{order->Card(Modifier.fillMaxWidth()){Column(Modifier.padding(12.dp)){Text("${capturePlatformName(order.platform)} · ${order.externalId}");Text("${mapOf("paid" to "已支付","pending" to "待付款","refunded" to "已退款","refund_pending" to "退款中","cancelled" to "已取消","unknown" to "状态未明确")[order.status]?:order.status} · ${order.sourceCount} 份材料");if(order.conflict)Text("来源存在冲突，未自动覆盖");val fields=runCatching{JSONObject(order.fields)}.getOrNull();mapOf("merchant" to "商家","product" to "商品","paid_amount" to "实付","refund_amount" to "已退／退款金额","order_amount" to "订单金额","payment_time" to "付款时间","logistics_no" to "物流单号").forEach{(key,label)->fields?.optString(key)?.takeIf{it.isNotBlank()}?.let{Text("$label：$it")}};Text(if(order.recordId==null)"尚未关联账目" else "已关联账目，同一身份不重复记账")}}}
  }
  "回顾"->{
   Text("按已采集来源生成十分钟材料、小时主线、日概览及周／月汇总。来源变化后可重算。")

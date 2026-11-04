@@ -13,16 +13,28 @@ export function inspectActivityOrder(text:string){
    return [...values][0]??null;
  }
  function amount(labels:string[]){const value=field(labels);if(value===null)return null;const match=/^(?:[¥￥]\s*)?(\d{1,12})(?:\.(\d{1,2}))?(?:\s*元)?$/u.exec(value);if(!match){issues.push(`${labels[0]}格式无法明确识别`);return null;}return `${BigInt(match[1]!)}.${(match[2]??"").padEnd(2,"0")}`;}
- const order_id=field(["订单号","订单编号"]),transaction_id=field(["交易单号","交易号"]),merchant=field(["商家名称","商户名称","交易对方"]),product=field(["商品名称","商品说明"]);
- const paid_amount=amount(["实付金额","实付款","实际支付"]),order_amount=amount(["订单金额","订单总额"]),refund_amount=amount(["退款金额","已退金额"]);
- const payment_time=field(["付款时间","支付时间"]),order_time=field(["下单时间","订单创建时间"]);
- const statuses=new Set(lines.filter(line=>["支付成功","交易成功","待付款","等待付款","已取消","交易关闭","退款成功","退款处理中"].includes(line)));
+ const order_id=field(["订单号","订单编号"]),transaction_id=field(["交易单号","交易号","微信支付单号","支付宝交易号"]),merchant=field(["商家名称","商户名称","交易对方","收款方"]),product=field(["商品名称","商品说明"]);
+ let paid_amount=amount(["实付金额","实付款","实际支付"]);
+ const order_amount=amount(["订单金额","订单总额"]),refund_amount=amount(["退款金额","已退金额"]);
+ const statusLines=lines.map(line=>line.replace(/^(?:当前状态|交易状态)[:：]\s*/u,""));
+ const statuses=new Set(statusLines.filter(line=>["支付成功","交易成功","待付款","等待付款","已取消","交易关闭","退款成功","退款处理中"].includes(line)));
  const status=statuses.size===1?({"支付成功":"paid","交易成功":"paid","待付款":"pending","等待付款":"pending","已取消":"cancelled","交易关闭":"cancelled","退款成功":"refunded","退款处理中":"refund_pending"} as Record<string,string>)[[...statuses][0]!]!:"unknown";
+ const detail=lines.some(line=>line==="账单详情"||line==="交易详情");
+ // Only a settled single transaction may use its prominent signed debit or transaction time.
+ // A list, credit, refund or unsigned total is never a substitute for a paid amount.
+ const debit=detailDebit(text);
+ if(detail && transaction_id && status==="paid" && debit){
+   if(paid_amount && paid_amount!==debit.amount)issues.push("实付与支出金额存在不同值");
+   else if(!paid_amount && !issues.some(issue=>issue.startsWith("实付金额")))paid_amount=debit.amount;
+ }
+ const timeLabels=["付款时间","支付时间"];
+ if(detail && transaction_id && status==="paid")timeLabels.push("交易时间");
+ const payment_time=field(timeLabels),order_time=field(["下单时间","订单创建时间"]);
  if(statuses.size>1)issues.push("页面包含多个状态，需核对当前交易状态");
  if(!order_id&&!transaction_id)issues.push("缺少明确订单或交易身份");
  if(!paid_amount)issues.push("没有明确实付金额");
  if(!payment_time)issues.push("没有明确付款时间");
- return {parser_version:"screen-order-v1",order_id,transaction_id,merchant,product,paid_amount,order_amount,refund_amount,payment_time,order_time,status,issues,accounting_created:false as const};
+ return {parser_version:"screen-order-v2",order_id,transaction_id,merchant,product,paid_amount,order_amount,refund_amount,payment_time,order_time,status,issues,accounting_created:false as const};
 }
 
 export function mergeOrderObservations(observations:Array<ReturnType<typeof inspectActivityOrder>>){
@@ -42,6 +54,17 @@ export function capturedPaymentIdentity(platform:string,fields:Record<string,unk
  const key=["taobao","jd","meituan"].includes(platform)?"order_id":"transaction_id";
  return typeof fields[key]==="string"?fields[key] as string:undefined;
 }
+// An unlabelled debit is usable only in the heading, before the detail fields.
+function detailDebit(text:string){
+ const lines=text.split(/\r?\n/u).map(s=>s.trim()).filter(Boolean);
+ const title=lines.findIndex(line=>line==="账单详情"||line==="交易详情");
+ if(title<0 || /退款|收入|收款成功/u.test(text))return null;
+ const amounts=lines.map((line,i)=>({i,m:/^([-−+])\s*([¥￥]?)\s*(\d{1,12})(?:\.(\d{1,2}))?(元?)$/u.exec(line)})).filter(x=>x.m);
+ if(amounts.length!==1)return null;
+ const {i,m}=amounts[0]!;
+ if(!m||m[1]==="+"||i<=title||i>title+3||lines.slice(title+1,i).some(l=>/金额|优惠|折扣|手续费|退款|余额|[:：]/u.test(l)))return null;
+ return {amount:`${BigInt(m[3]!)}.${(m[4]??"").padEnd(2,"0")}`,currency:Boolean(m[2]||m[5])};
+}
 /** Currency on an unrelated shipping fee is insufficient evidence for the paid amount. */
 export function capturedPaymentHasCnyEvidence(text:string):boolean{
  if(/(?:\b(?:USD|HKD|JPY|EUR|GBP|AUD|CAD|SGD|KRW)\b|美元|港元|港币|日元|欧元|英镑|韩元|新加坡元|澳元|加元|\$)/iu.test(text))return false;
@@ -52,5 +75,9 @@ export function capturedPaymentHasCnyEvidence(text:string):boolean{
   const paid=/^(?:实付金额|实付款|实际支付)(?:\s*[:：]\s*(.*)|\s*)$/u.exec(lines[i]!);
   if(paid){const value=(paid[1]||lines[i+1]||"").trim();if(/^(?:[¥￥]\s*\d+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?\s*元)$/u.test(value))paidCurrency=true;}
  }
- return explicit||paidCurrency;
+ if(explicit||paidCurrency)return true;
+ const debit=detailDebit(text);
+ if(!debit?.currency)return false;
+ const observed=inspectActivityOrder(text);
+ return Boolean(observed.transaction_id && observed.status==="paid" && debit.amount===observed.paid_amount && !observed.issues.some(i=>i.includes("不同值")));
 }

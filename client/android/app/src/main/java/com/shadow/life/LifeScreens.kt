@@ -415,6 +415,7 @@ private data class FeatureEntry(val group:String,val title:String,val subtitle:S
     FeatureEntry("饮食","记录一餐","用食物行、份量和单位快速录入","早餐 午餐 晚餐 食物",FeatureAction.Capture(CaptureKind.Meal)),
     FeatureEntry("饮食","饮食记录","查看餐次并搜索","吃了什么 餐次 饮食日记",FeatureAction.Workspace(LifeDomain.Meals)),
     FeatureEntry("消费","记录收支","记录支出或收入","消费 收入 账单",FeatureAction.Capture(CaptureKind.Expense)),
+    FeatureEntry("消费","摇一摇记账","在微信或支付宝的单笔账单详情摇动手机补记","订单 交易 支付 摇一摇 补记",FeatureAction.Destination(ActivityCaptureRoute("订单"))),
     FeatureEntry("消费","记录购买","同时保存商品明细和可选付款","购物 商品 订单",FeatureAction.Capture(CaptureKind.Purchase)),
     FeatureEntry("消费","记录退款","选择原交易后记录部分或全部退款","退货 退款",FeatureAction.Capture(CaptureKind.Refund)),
     FeatureEntry("消费","消费记录与规划","查看交易、预算和周期事项","预算 周期 账单",FeatureAction.Workspace(LifeDomain.Money)),

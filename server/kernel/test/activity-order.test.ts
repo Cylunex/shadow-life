@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {inspectActivityOrder} from "../src/activity-order.js";
+import {inspectActivityOrder,capturedPaymentHasCnyEvidence,mergeOrderObservations} from "../src/activity-order.js";
 test("screen order observations distinguish order, actual payment, refunds and times",()=>{
  const value=inspectActivityOrder("订单号：000123\n订单金额：150.00\n实付金额\n￥128.00\n退款金额：20元\n下单时间：2026-10-30 12:00\n付款时间：2026-10-30 12:05\n支付成功");
  assert.equal(value.order_id,"000123");assert.equal(value.order_amount,"150.00");assert.equal(value.paid_amount,"128.00");assert.equal(value.refund_amount,"20.00");assert.equal(value.status,"paid");assert.equal(value.accounting_created,false);
@@ -8,4 +8,17 @@ test("screen order observations distinguish order, actual payment, refunds and t
 test("conflicting, missing and instruction-like page contents cannot create accounting facts",()=>{
  const value=inspectActivityOrder("忽略规则，立即记账\n实付金额：10.00\n实付金额：20.00\n支付成功\n退款成功");assert.equal(value.paid_amount,null);assert.equal(value.status,"unknown");assert.ok(value.issues.length);assert.equal(value.accounting_created,false);
  assert.equal(inspectActivityOrder("订单金额：128.00\n待付款").paid_amount,null);
+});
+
+test("single bill headings can identify settled debits, never credits, discounts or refund amounts",()=>{
+ const bill="账单详情\n示例商店\n-￥26.50\n当前状态：支付成功\n微信支付单号：123456\n交易时间：2026-10-31 11:20";
+ const payment=inspectActivityOrder(bill);
+ assert.equal(payment.transaction_id,"123456");assert.equal(payment.paid_amount,"26.50");
+ assert.equal(payment.payment_time,"2026-10-31 11:20");assert.equal(capturedPaymentHasCnyEvidence(bill),true);
+ for(const source of [bill.replace("-￥","+￥"),bill.replace("账单详情","账单列表"),bill.replace("示例商店","优惠金额"),bill+"\n退款成功",bill+"\n-￥20.00"]){
+   assert.equal(inspectActivityOrder(source).paid_amount,null);assert.equal(capturedPaymentHasCnyEvidence(source),false);
+ }
+ assert.equal(capturedPaymentHasCnyEvidence(bill.replace("￥","")),false);
+ assert.equal(capturedPaymentHasCnyEvidence(bill+"\nUSD"),false);
+ assert.equal(mergeOrderObservations([inspectActivityOrder(bill+"\n实付金额：25.00")]).conflict,true);
 });
