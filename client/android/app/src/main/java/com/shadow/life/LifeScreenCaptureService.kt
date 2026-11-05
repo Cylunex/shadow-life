@@ -141,14 +141,14 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
    val contentHash=hash(text);val key="$account:$name"
    val previous=last[key]
    if(previous!=null&&previous.first==contentHash&&now.epochSecond-previous.second<600){
-     if(shaken)feedback("这页账单近期已收录，可在 Life 查看同步状态")
+     if(shaken)feedback("这页账单近期已收录，回 Life 首页「最近信息」查看")
      return
    }
    val digest=hash("$name:${now.toEpochMilli()}:$text")
    val item=JSONObject().put("source_id","screen_$digest").put("kind","screen_text").put("title",if(shaken)"摇一摇补记 · "+(if(billPlatforms[name]=="wechat")"微信" else "支付宝") else text.lineSequence().first().take(200)).put("text",text).put("app_package",name).put("started_at",now.toString()).put("ended_at",now.toString()).put("time_zone",ZoneId.systemDefault().id)
    NativeLifeRepository(this,app).saveActivities(JSONArray().put(item),account)
    last[key]=contentHash to now.epochSecond;if(last.size>50)last.remove(last.keys.first())
-   if(shaken && app.sessions.active()?.accountId==account)feedback("账单已加入同步队列，可在 Life「订单」查看记账结果")
+   if(shaken && app.sessions.active()?.accountId==account)feedback("账单已加入同步队列，回 Life 首页「最近信息」查看进度和结果")
  }
  override fun onInterrupt(){pending?.cancel()}
  override fun onDestroy(){settings.unregisterOnSharedPreferenceChangeListener(preferenceWatch);unregisterReceiver(screenState);listen(null);stopForeground(STOP_FOREGROUND_REMOVE);BillShakeStatus.message="屏幕内容服务已断开";active=null;scope.cancel();super.onDestroy()}

@@ -3,6 +3,8 @@ package com.shadow.life
 import android.content.Context
 
 enum class TodayCardKind(val key:String,val title:String,val description:String){
+  RecentInfo("recent_info","最近信息","最近采集、同步状态与入账结果"),
+  CaptureOverview("capture_overview","采集与回顾","应用使用、录音、停留与采集管理"),
   Training("training","训练计划","今日主题、自选动作与逐组记录"),
   Focus("focus","生活概览","正在进行的旅程与生活记录入口"),
   Scale("scale","小米体脂秤","直接开启接收并查看本次结果"),
@@ -23,11 +25,11 @@ enum class TodayCardKind(val key:String,val title:String,val description:String)
   DeviceSync("device_sync","其他数据源","Samsung Health 与小米体脂秤")
 }
 
-// Saved layouts keep stable keys and order; training is introduced once by the store.
+// Saved layouts keep stable keys and order; new cards are introduced once by the store.
 val defaultTodayCards=listOf(
-  TodayCardKind.Training,TodayCardKind.Focus,TodayCardKind.QuickCapture,TodayCardKind.Health,
+  TodayCardKind.Training,TodayCardKind.Focus,TodayCardKind.RecentInfo,TodayCardKind.QuickCapture,TodayCardKind.Health,
   TodayCardKind.Meals,TodayCardKind.Money,TodayCardKind.Travel,
-  TodayCardKind.Plans,TodayCardKind.Items,TodayCardKind.Library,TodayCardKind.Scale
+  TodayCardKind.Plans,TodayCardKind.Items,TodayCardKind.Library,TodayCardKind.Scale,TodayCardKind.CaptureOverview
 )
 
 internal fun decodeTodayCards(raw:String?):List<TodayCardKind>{
@@ -45,14 +47,13 @@ class TodayCardLayoutStore(context:Context,private val accountId:String){
   private val preferences=context.applicationContext.getSharedPreferences("life_today_cards",Context.MODE_PRIVATE)
   private val storageKey="cards:$accountId"
   fun current():List<TodayCardKind> {
-    val cards=decodeTodayCards(preferences.getString(storageKey,null))
-    // Introduce the new entry once, then respect later hiding and reordering.
-    if(preferences.getBoolean("training-introduced:$accountId",false))return cards
-    val migrated=introduceTrainingCard(cards)
-    save(migrated)
-    return migrated
+    var cards=decodeTodayCards(preferences.getString(storageKey,null))
+    if(!preferences.getBoolean("training-introduced:$accountId",false))cards=introduceTrainingCard(cards)
+    if(!preferences.getBoolean("capture-cards-introduced:$accountId",false))cards=introduceCaptureCards(cards)
+    save(cards)
+    return cards
   }
-  fun save(cards:List<TodayCardKind>){preferences.edit().putString(storageKey,cards.distinct().joinToString(","){it.key}).putBoolean("training-introduced:$accountId",true).apply()}
+  fun save(cards:List<TodayCardKind>){preferences.edit().putString(storageKey,cards.distinct().joinToString(","){it.key}).putBoolean("training-introduced:$accountId",true).putBoolean("capture-cards-introduced:$accountId",true).apply()}
   fun compact():Set<TodayCardKind> = preferences.getStringSet("compact:$accountId",emptySet()).orEmpty().mapNotNull{key->TodayCardKind.entries.firstOrNull{it.key==key}}.filter{it in compactTodayKinds}.toSet()
   fun saveCompact(value:Set<TodayCardKind>){preferences.edit().putStringSet("compact:$accountId",value.filter{it in compactTodayKinds}.map{it.key}.toSet()).apply()}
   fun reset():List<TodayCardKind> = defaultTodayCards.also(::save)
@@ -62,3 +63,11 @@ internal fun introduceTrainingCard(cards:List<TodayCardKind>):List<TodayCardKind
   if(TodayCardKind.Training in cards)cards else listOf(TodayCardKind.Training)+cards
 
 internal val compactTodayKinds=setOf(TodayCardKind.Health,TodayCardKind.Body,TodayCardKind.Activity,TodayCardKind.Sleep,TodayCardKind.Meals,TodayCardKind.Money)
+
+// Existing cards keep their relative order; neither capture card is pinned.
+internal fun introduceCaptureCards(cards:List<TodayCardKind>):List<TodayCardKind> {
+  val result=cards.toMutableList()
+  if(TodayCardKind.RecentInfo !in result){val focus=result.indexOf(TodayCardKind.Focus);result.add(if(focus>=0)focus+1 else result.size,TodayCardKind.RecentInfo)}
+  if(TodayCardKind.CaptureOverview !in result)result.add(TodayCardKind.CaptureOverview)
+  return result
+}

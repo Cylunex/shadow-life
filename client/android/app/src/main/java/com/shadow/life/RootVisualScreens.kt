@@ -58,7 +58,7 @@ import java.util.Locale
   accountId:String,state:LoadState<TodaySnapshot>,healthState:LoadState<WorkspaceOverview.Health>,deviceStatus:DeviceSyncStatus,queueState:LoadState<QueueSummary>,samsungAvailable:Boolean,onRetry:()->Unit,
   onWorkspace:(LifeDomain,String)->Unit,onItems:()->Unit,onPlans:()->Unit,onLibrary:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onRecords:()->Unit,onInbox:()->Unit,onFeatures:()->Unit,onCapture:(CaptureKind)->Unit,
   onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onProjects:()->Unit,onSettings:()->Unit,
-  trainingState:LoadState<List<NativeTrainingPlan>> = LoadState.Loading,onTraining:()->Unit = {onWorkspace(LifeDomain.Health,"training")},onActivityCapture:()->Unit = onRecords
+  trainingState:LoadState<List<NativeTrainingPlan>> = LoadState.Loading,onTraining:()->Unit = {onWorkspace(LifeDomain.Health,"training")},onActivityCapture:()->Unit = onRecords,onCaptureOrders:()->Unit = onActivityCapture
 ){
   val context=LocalContext.current
   val layoutStore=remember(context,accountId){TodayCardLayoutStore(context,accountId)}
@@ -71,12 +71,13 @@ import java.util.Locale
   RootPage("生活",onProjects,onSettings,onFeatures){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp,8.dp,20.dp,28.dp),verticalArrangement=Arrangement.spacedBy(20.dp)){
     item{FlowRow(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalArrangement=Arrangement.spacedBy(4.dp)){Text(LocalDate.now().format(DateTimeFormatter.ofPattern("M 月 d 日 EEEE",Locale.CHINA)),Modifier.fillMaxWidth(),style=MaterialTheme.typography.titleMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);TextButton(onClick=onFeatures){Text("全部功能")};TextButton(onClick={editCards=true}){Text("编辑首页")}}}
     item{StateContent(state,onRetry){} }
-    item(key="capture-summary"){HomeCaptureSummary(accountId,onActivityCapture)}
     if(cards.isEmpty())item{EmptyState("首页还没有卡片","添加卡片"){editCards=true}}
     cards.forEach{card->if(card in compact&&today!=null)item(key=card.key){
       val label=when(card){TodayCardKind.Health->"${today.health.steps?.toString()?:"—"} 步 · ${today.health.sleepMinutes?.let(::rootMinutes)?:"睡眠 —"}";TodayCardKind.Body->listOfNotNull(today.health.weight,today.health.weightUnit).joinToString(" ").ifBlank{"尚无测量"};TodayCardKind.Activity->"${today.health.steps?.toString()?:"—"} 步";TodayCardKind.Sleep->today.health.sleepMinutes?.let(::rootMinutes)?:"尚无睡眠记录";TodayCardKind.Meals->today.mealCount?.let{"$it 条餐次记录"}?:"尚无已加载餐次";TodayCardKind.Money->today.moneyTotals.joinToString(" · "){"${it.currency} ${displayDecimal(it.netSpending)}"}.ifBlank{"暂无收支"};else->"打开"}
       LifeCard(onClick={when(card){TodayCardKind.Money->onWorkspace(LifeDomain.Money,"overview");TodayCardKind.Meals->onWorkspace(LifeDomain.Meals,"");else->onWorkspace(LifeDomain.Health,when(card){TodayCardKind.Body->"body";TodayCardKind.Sleep->"sleep";TodayCardKind.Activity->"activity";else->"overview"})}}){Text(card.title,style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(label,style=MaterialTheme.typography.titleLarge)}
     }else when(card){
+      TodayCardKind.CaptureOverview->item(key=card.key){HomeCaptureSummary(accountId,onActivityCapture)}
+      TodayCardKind.RecentInfo->item(key=card.key){HomeRecentInfoCard(accountId,onDetail,onRecords,onCaptureOrders,onSettings)}
       TodayCardKind.Training->item(key=card.key){TodayTrainingCard(accountId,trainingState,onTraining)}
       TodayCardKind.Focus->today?.let{item(key=card.key){TodayFocusCard(it,{domain->onWorkspace(domain,"")},onDetail)}}
       TodayCardKind.Scale->item(key=card.key){TodayScaleReceiver(deviceStatus,queueState,onScale,onSettings)}

@@ -27,4 +27,19 @@ class TodayCardLayoutStoreTest {
     assertEquals(cards,moveTodayCard(cards,-1,1))
     assertEquals(cards,moveTodayCard(cards,0,4))
   }
+
+  @Test fun captureCardsAreOrdinaryMovableHideableCards(){
+    val cards=decodeTodayCards("money,recent_info,capture_overview,meals")
+    assertEquals(listOf(TodayCardKind.Money,TodayCardKind.RecentInfo,TodayCardKind.CaptureOverview,TodayCardKind.Meals),cards)
+    assertEquals(TodayCardKind.CaptureOverview,moveTodayCard(cards,2,3).last())
+    assertEquals(listOf(TodayCardKind.Money),decodeTodayCards("money"))
+  }
+
+  @Test fun captureMigrationPreservesExistingCardOrderAndDoesNotPinOverview(){
+    val existing=listOf(TodayCardKind.Money,TodayCardKind.Focus,TodayCardKind.Meals)
+    val migrated=introduceCaptureCards(existing)
+    assertEquals(listOf(TodayCardKind.Money,TodayCardKind.Focus,TodayCardKind.RecentInfo,TodayCardKind.Meals,TodayCardKind.CaptureOverview),migrated)
+    assertEquals(migrated,introduceCaptureCards(migrated))
+    assertEquals(listOf(TodayCardKind.Money,TodayCardKind.Meals,TodayCardKind.RecentInfo,TodayCardKind.CaptureOverview),introduceCaptureCards(listOf(TodayCardKind.Money,TodayCardKind.Meals)))
+  }
 }
