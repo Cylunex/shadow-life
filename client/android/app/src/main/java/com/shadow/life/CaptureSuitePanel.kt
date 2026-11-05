@@ -89,9 +89,10 @@ import java.time.LocalDate
     val rules=data!!.rules.filter{it.platform.wireValue==order.platform&&it.sourceAccount==order.sourceAccount}
     val reason=when{
       order.conflict->"来源存在冲突，需要核对"
-      rules.isNotEmpty()&&rules.none{it.enabled&&it.autoAccounting}->"当前来源未开启自动记账"
       fields?.optString("paid_amount").isNullOrBlank()->"材料中未识别到明确实付金额"
-      else->"请核对付款凭证与采集规则"
+      fields?.optString("payment_time").isNullOrBlank()->"材料中未识别到明确付款时间"
+      order.status!="paid"->"尚未识别为已支付账单"
+      else->"付款身份、币种或采集规则需核对"
     }
     Card(Modifier.fillMaxWidth()){Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
       Text(fields?.optString("merchant")?.takeIf{it.isNotBlank()}?:fields?.optString("product")?.takeIf{it.isNotBlank()}?:capturePlatformName(order.platform),style=MaterialTheme.typography.titleMedium,maxLines=2,overflow=TextOverflow.Ellipsis)
@@ -125,12 +126,12 @@ import java.time.LocalDate
    Text(if(LifeScreenCaptureService.active==null)"屏幕内容服务：未连接" else "屏幕内容服务：已连接")
    if(!hasSensor)Text("此设备没有加速度传感器，请手动记账。")
    TextButton(onClick={context.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))}){Text("启用 Life 屏幕内容服务")}
-   Text("首次使用请启用系统服务并保存下方规则。只用摇一摇时，无需在“应用与活动”中开启自动读取。",style=MaterialTheme.typography.bodySmall)
+   Text("启用系统服务后，在单笔已支付账单详情摇动即可记为消费，同一交易不会重复记账。无需开启自动读取或后台自动记账。",style=MaterialTheme.typography.bodySmall)
   }
   Box{TextButton(onClick={showPlatforms=true}){Text("平台：${capturePlatformName(platform)}")};DropdownMenu(expanded=showPlatforms,onDismissRequest={showPlatforms=false}){listOf("generic","taobao","jd","meituan","alipay","wechat").forEach{value->DropdownMenuItem(text={Text(capturePlatformName(value))},onClick={platform=value;showPlatforms=false})}}}
   OutlinedTextField(value=sourceAccount,onValueChange={sourceAccount=it.take(200)},label={Text("平台账号标识（与账单导入保持一致）")},modifier=Modifier.fillMaxWidth())
   Row{Text("自动关联新采集的订单");Switch(checked=associate,onCheckedChange={associate=it})}
-  Row{Text("证据完整时自动记账");Switch(checked=autoAccounting,onCheckedChange={autoAccounting=it})}
+  Row{Text("后台自动采集：证据完整时记账");Switch(checked=autoAccounting,onCheckedChange={autoAccounting=it})}
   Text("自动记账要求订单或交易身份、明确实付和付款时间、人民币证据以及写入权限；冲突和缺失只保留观察。")
   Button(enabled=!busy&&selectedApp.isNotBlank()&&sourceAccount.isNotBlank(),onClick={run{write("life.set_order_capture",JSONObject().put("app_package",selectedApp).put("platform",platform).put("source_account",sourceAccount.trim()).put("enabled",associate).put("auto_accounting",autoAccounting))}}){Text("保存此应用的规则")}
   }

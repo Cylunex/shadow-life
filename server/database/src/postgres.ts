@@ -1,7 +1,7 @@
 import { writeCaptureCompletion,readCaptureCompletion,initializeCaptureClassification } from "./capture-completion.js";
 import { writeCaptureSuite,readCaptureWorkspace } from "./capture-suite.js";
 import { associateCapturedOrder } from "./capture-orders.js";
-import { activityActionInputSchema, ingestActivityInputSchema, activitiesResultSchema } from "@shadow/contracts";
+import { activityActionInputSchema, recordCapturedExpensesInputSchema, ingestActivityInputSchema, activitiesResultSchema } from "@shadow/contracts";
 import { readMoneyImportFile, writeMoneyImportFile } from "./money-file-import.js";
 import { readMoneyImportHistory } from "./money-import-history.js";
 import { readWellnessDays } from "./wellness-review.js";
@@ -280,6 +280,21 @@ function storeFor(database: Database | Transaction): TransactionStore {
           await database.execute(sql`update activity_captures set library_item_id=${String(archived.actualValues.library_item_id)} where id=${input.id} and subject_id=${subjectId}`);
           return archived;
         }
+        case "life.record_captured_expenses": {
+          const input=recordCapturedExpensesInputSchema.parse(command.input),resources:ExecutionResult["resources"]=[];
+          for(const id of [...input.capture_ids].sort()){
+            const source=(await database.execute(sql`select id,revision from activity_captures where subject_id=${subjectId} and id=${id} and kind='screen_text' and deleted_at is null`)).rows[0];
+            if(!source)throw conflict("采集账单不存在、已删除或不是屏幕账单");
+            resources.push({type:"activity_capture",id,revision:Number(source.revision)});
+            const linked=await associateCapturedOrder(database,subjectId,id,context,nextId,async nested=>{
+              if(nested.capability.startsWith("money."))await storeFor(database).assertWriteDomains(["ledger"],context?.writeEpochs);
+              return storeFor(database).executeDomainWrite({subjectId,command:nested,nextId,...(context?{context}:{})});
+            },command.command_id,true);
+            if(linked)resources.push(...linked);
+          }
+          const unique=[...new Map(resources.map(r=>[`${r.type}:${r.id}`,r])).values()];
+          return {resources:unique,actualValues:{processed:input.capture_ids.length,linked_records:unique.filter(r=>r.type==="consumption_record").length}};
+        }
         case "life.ingest_activity": {
           const input=ingestActivityInputSchema.parse(command.input);let inserted=0;const resources:ExecutionResult["resources"]=[];
           // Stable order prevents reverse batch order from deadlocking concurrent imports.
@@ -292,7 +307,7 @@ function storeFor(database: Database | Transaction): TransactionStore {
           for(const resource of [...resources]){await initializeCaptureClassification(database,subjectId,resource.id);if(input.device_id.startsWith('restore_'))await database.execute(sql`update activity_captures a set library_item_id=r.library_item_id from capture_restore_assets r where a.id=${resource.id} and r.subject_id=${subjectId} and r.archive_id=${input.device_id.slice(8)} and r.source_id=a.source_id`);const linked=await associateCapturedOrder(database,subjectId,resource.id,input.device_id.startsWith("restore_")&&context?{...context,effects:new Set([...context.effects].filter(effect=>effect!=="money.entry.write"&&effect!=="life.purchase.write"))}:context,nextId,async nested=>{
             if(nested.capability.startsWith("money."))await storeFor(database).assertWriteDomains(["ledger"],context?.writeEpochs);
             return storeFor(database).executeDomainWrite({subjectId,command:nested,nextId,...(context?{context}:{})});
-          },command.command_id);if(linked)resources.push(...linked);}
+          },command.command_id,input.record_expenses===true);if(linked)resources.push(...linked);}
           return {resources,actualValues:{inserted,duplicates:input.items.length-inserted}};
         }
 
@@ -788,8 +803,8 @@ function storeFor(database: Database | Transaction): TransactionStore {
     },
     async captureCompletion(subjectId,name,input,context){return readCaptureCompletion(database,subjectId,name,input,context);},
     async captureWorkspace(subjectId,input){return readCaptureWorkspace(database,subjectId,input);},
-    async activitySource(subjectId,id){const result=await database.execute(sql`select a.*,coalesce(c.behavior,'unknown') behavior,coalesce(c.life_domain,'unknown') life_domain,coalesce(c.origin,'unknown') classification_origin,coalesce(c.revision,0) classification_revision,c.project_id,p.title project_title,to_char(started_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') started,to_char(ended_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') ended from activity_captures a left join capture_classifications c on c.capture_id=a.id and c.subject_id=a.subject_id left join life_projects p on p.id=c.project_id and p.subject_id=a.subject_id where a.subject_id=${subjectId} and a.id=${id} and a.deleted_at is null`);const r=result.rows[0];return r?{id:r.id,device_id:r.device_id,source_id:r.source_id,kind:r.kind,started_at:r.started,ended_at:r.ended,time_zone:r.time_zone,title:r.title,library_item_id:r.library_item_id,app_package:r.app_package,text:r.text,latitude:r.latitude,longitude:r.longitude,accuracy_m:r.accuracy_m,behavior:r.behavior,life_domain:r.life_domain,classification_origin:r.classification_origin,classification_revision:Number(r.classification_revision),revision:Number(r.revision),project_id:r.project_id,project_title:r.project_title,protected:r.protected}:undefined;},
-    async activityMaterial(subjectId,id){const result=await database.execute(sql`select id,text from activity_captures where subject_id=${subjectId} and id=${id} and deleted_at is null`);const row=result.rows[0];return row?{id:String(row.id),text:row.text===null?null:String(row.text)}:undefined;},
+    async activitySource(subjectId,id){const result=await database.execute(sql`select a.*,(select o.record_id from capture_orders o join capture_order_sources s on s.order_id=o.id where o.subject_id=a.subject_id and s.capture_id=a.id and o.record_id is not null order by o.id limit 1) consumption_record_id,coalesce(c.behavior,'unknown') behavior,coalesce(c.life_domain,'unknown') life_domain,coalesce(c.origin,'unknown') classification_origin,coalesce(c.revision,0) classification_revision,c.project_id,p.title project_title,to_char(started_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') started,to_char(ended_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') ended from activity_captures a left join capture_classifications c on c.capture_id=a.id and c.subject_id=a.subject_id left join life_projects p on p.id=c.project_id and p.subject_id=a.subject_id where a.subject_id=${subjectId} and a.id=${id} and a.deleted_at is null`);const r=result.rows[0];return r?{consumption_record_id:r.consumption_record_id??null,id:r.id,device_id:r.device_id,source_id:r.source_id,kind:r.kind,started_at:r.started,ended_at:r.ended,time_zone:r.time_zone,title:r.title,library_item_id:r.library_item_id,app_package:r.app_package,text:r.text,latitude:r.latitude,longitude:r.longitude,accuracy_m:r.accuracy_m,behavior:r.behavior,life_domain:r.life_domain,classification_origin:r.classification_origin,classification_revision:Number(r.classification_revision),revision:Number(r.revision),project_id:r.project_id,project_title:r.project_title,protected:r.protected}:undefined;},
+    async activityMaterial(subjectId,id){const result=await database.execute(sql`select id,text,app_package from activity_captures where subject_id=${subjectId} and id=${id} and deleted_at is null`);const row=result.rows[0];return row?{id:String(row.id),text:row.text===null?null:String(row.text),app_package:row.app_package===null?null:String(row.app_package)}:undefined;},
     async activities(subjectId,input){
       const result=await database.execute(sql`with bounds as (select ${input.date}::date::timestamp at time zone ${input.time_zone} lo, (${input.date}::date+1)::timestamp at time zone ${input.time_zone} hi), matched as (select a.* from activity_captures a,bounds b where a.subject_id=${subjectId} and a.deleted_at is null and a.started_at<b.hi and (a.ended_at>b.lo or (a.kind='screen_text' and a.started_at>=b.lo))), page as (select * from matched where (${input.before_id??null}::text is null or (started_at,id)<(select started_at,id from matched where id=${input.before_id??null})) order by started_at desc,id desc limit ${input.limit+1}), ranges as (select range_agg(tstzrange(greatest(started_at,b.lo),least(ended_at,b.hi),'[)')) spans from matched,bounds b where kind='app_usage') select (select coalesce(jsonb_agg(jsonb_build_object('id',id,'device_id',device_id,'source_id',source_id,'kind',kind,'started_at',to_char(started_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'ended_at',to_char(ended_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'time_zone',time_zone,'title',title,'library_item_id',library_item_id,'app_package',app_package,'text',text,'latitude',latitude,'longitude',longitude,'accuracy_m',accuracy_m) order by started_at desc,id desc),'[]'::jsonb) from page) items,(select count(*)::int from matched) total,(select coalesce(sum(extract(epoch from upper(span)-lower(span))),0)::int from ranges,unnest(spans) span) usage_seconds`);
       const row=result.rows[0]!;const items=row.items as Array<Record<string,unknown>>;const more=items.length>input.limit;const selected=items.slice(0,input.limit);

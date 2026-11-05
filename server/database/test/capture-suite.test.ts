@@ -79,3 +79,65 @@ test("long recordings paginate with a subject-bound stable cursor and no missing
  const first=await f.queries.captureWorkspace(f.context,date);assert.equal(first.recordings.length,100);assert.ok(first.recordings_next_before_id);const last=await f.queries.captureWorkspace(f.context,{...date,recordings_before_id:first.recordings_next_before_id});assert.equal(last.recordings.length,1);assert.equal(new Set([...first.recordings,...last.recordings].map(r=>r.id)).size,101);assert.equal(last.recordings_next_before_id,null);
  await assert.rejects(()=>f.queries.captureWorkspace({...f.context,subjectId:"other_subject"},{...date,recordings_before_id:first.recordings_next_before_id}));
 });
+
+const alipayBill=(identity:string,amount="8.8")=>`合成商店\n支出${amount}元\n交易成功\n订单金额\n10.00\n本店回头客红包\n-1.20\n支付时间\n2026-10-30 09:00:00\n商品说明\n合成商品\n订单号\n${identity}\n商家订单号\nMERCHANT-01\n返回\n账单详情\n全部账单`;
+const shake=(id:string,text:string,explicit=true)=>({device_id:"device_shake",...(explicit?{record_expenses:true}:{}),items:[{...screen(id,text).items[0],app_package:"com.eg.android.AlipayGphone",title:"摇一摇补记 · 支付宝"}]});
+test("explicit shake books paid expenses without background opt-in, retries/concurrent captures reuse one record",pgOnly,async t=>{
+ const f=await reviewFixture(t);const bill=alipayBill("SHAKE-ONE");
+ await f.run("life.set_order_capture",{app_package:"com.eg.android.AlipayGphone",platform:"alipay",source_account:"default",enabled:false,auto_accounting:false});
+ await f.run("life.ingest_activity",shake("passive",bill,false));assert.equal((await f.queries.captureWorkspace(f.context,date)).orders.length,0);
+ const receipts=await Promise.all([f.run("life.ingest_activity",shake("shake_a",bill)),f.run("life.ingest_activity",shake("shake_b",bill))]);
+ assert.ok(receipts.every(r=>r.resources.some(v=>v.type==="money_entry")&&r.resources.some(v=>v.type==="consumption_record")));
+ const record=receipts[0]!.resources.find(r=>r.type==="consumption_record")!.id;
+ assert.equal(receipts[1]!.resources.find(r=>r.type==="consumption_record")!.id,record);
+ const retry=await f.run("life.ingest_activity",shake("shake_a",bill));assert.equal(retry.actual_values.duplicates,1);assert.equal(retry.resources.find(r=>r.type==="consumption_record")!.id,record);
+ assert.equal((await f.pool.query("select count(*)::int n from money_entries")).rows[0].n,1);
+ const detail=await f.queries.lifeRecord(f.context,record);assert.equal(detail.kind,"record");if(detail.kind==="record")assert.equal(Number(detail.money_entry?.amount),8.8);
+});
+test("historical capture reprocessing preserves source identity and original account, and links file imports",pgOnly,async t=>{
+ const f=await reviewFixture(t);const input=shake("old_shake",alipayBill("OLD-SHAKE"),false);
+ await f.run("life.set_order_capture",{app_package:"com.eg.android.AlipayGphone",platform:"alipay",source_account:"original",enabled:true,auto_accounting:false});
+ const old=await f.run("life.ingest_activity",input);
+ // A persisted v2 observation must be reparsed from its original text on the same source.
+ await f.pool.query("update capture_order_sources set fields=fields-'paid_amount'-'transaction_id'");
+ const staged=await f.run("money.stage_import",{format:"json",source_name:"合成文件账单",platform:"alipay",source_account:"original",time_zone:"UTC",content:JSON.stringify([{"交易号":"OLD-SHAKE","交易时间":"2026-10-30 09:00:00","交易状态":"交易成功","收/支":"支出","交易对方":"合成商店","金额":"8.80","商品说明":"合成商品"}])});
+ const candidate=(await f.pool.query("select id,revision,issues from money_import_candidates where batch_id=$1",[staged.actual_values.batch_id])).rows[0];assert.deepEqual(candidate.issues,[]);
+ const imported=await f.run("money.resolve_import_candidate",{candidate_id:candidate.id,expected_revision:candidate.revision,decision:"confirm",remember_rule:false,reason:"确认合成账单"});
+ await f.run("life.set_order_capture",{app_package:"com.eg.android.AlipayGphone",platform:"alipay",source_account:"changed",enabled:false,auto_accounting:false});
+ const backfill=await f.run("life.record_captured_expenses",{capture_ids:[old.resources[0]!.id]});assert.equal(backfill.actual_values.processed,1);
+ assert.equal(backfill.resources.find(r=>r.type==="activity_capture")!.id,old.resources[0]!.id);
+ assert.equal(backfill.resources.find(r=>r.type==="consumption_record")!.id,imported.actual_values.record_id);
+ assert.equal((await f.pool.query("select count(*)::int n from money_entries")).rows[0].n,1);
+ assert.equal((await f.queries.captureWorkspace(f.context,date)).orders[0]!.source_account,"original");
+ assert.equal((await f.queries.activitySource(f.context,{id:old.resources[0]!.id})).consumption_record_id,imported.actual_values.record_id);
+ assert.equal((await f.queries.activitySource({...f.context,effects:new Set(["library.item.read"])},{id:old.resources[0]!.id})).consumption_record_id,null);
+});
+test("explicit capture rejects missing grants/restores and does not book pending, refund, incomplete or conflicting evidence",pgOnly,async t=>{
+ const f=await reviewFixture(t);const bill=alipayBill("BLOCKED-SHAKE");
+ await assert.rejects(()=>f.run("life.ingest_activity",shake("no_grants",bill),{...f.context,effects:new Set(["library.item.write"])}),/permission|money.entry.write/i);
+ await assert.rejects(()=>f.run("life.ingest_activity",{...shake("restore",bill),device_id:"restore_archive"}));
+ for(const [i,text] of [bill.replace("交易成功","待付款"),bill.replace("交易成功","退款成功"),bill.replace("支出8.8元","支出8.8"),bill.replace("支付时间","未知时间"),bill+"\n实付金额：9元"].entries())await f.run("life.ingest_activity",shake(`incomplete_${i}`,text.replaceAll("BLOCKED-SHAKE",`INCOMPLETE-${i}`)));
+ assert.equal((await f.pool.query("select count(*)::int n from money_entries")).rows[0].n,0);
+ await f.pool.query("update write_epochs set stage='legacy' where domain='ledger'");await assert.rejects(()=>f.run("life.ingest_activity",shake("fenced_shake",bill)),/fenced/);
+ assert.equal((await f.pool.query("select count(*)::int n from activity_captures where source_id='fenced_shake'")).rows[0].n,0);
+});
+
+test("WeChat explicit gesture without a saved rule creates one expense and reuses it",pgOnly,async t=>{
+ const f=await reviewFixture(t);const text="合成早点店\n主页\n交易详情\n-6.00\n当前状态\n支付成功\n收单机构\n财付通支付科技有限公司\n支付时间\n2026年10月30日 08:30:00\n支付方式\n零钱\n交易单号\nWX-SYNTHETIC-01\n经营单号\nMERCHANT-01";
+ const input=shake("wechat_gesture",text);input.items[0]!.app_package="com.tencent.mm";
+ const first=await f.run("life.ingest_activity",input);const record=first.resources.find(r=>r.type==="consumption_record")!.id;
+ const second=await f.run("life.ingest_activity",{...input,items:[{...input.items[0],source_id:"wechat_repeat"}]});assert.equal(second.resources.find(r=>r.type==="consumption_record")!.id,record);
+ const detail=await f.queries.lifeRecord(f.context,record);assert.equal(detail.kind,"record");if(detail.kind==="record"){assert.equal(Number(detail.money_entry?.amount),6);assert.equal(detail.occurred_on,"2026-10-30");}
+ assert.equal((await f.pool.query("select count(*)::int n from money_entries")).rows[0].n,1);
+});
+
+test("backfill receipts replay, preserve original captures and reject deleted or other-owner sources atomically",pgOnly,async t=>{
+ const f=await reviewFixture(t);await f.run("life.set_order_capture",{app_package:"com.eg.android.AlipayGphone",platform:"alipay",source_account:"default",enabled:true,auto_accounting:false});
+ const captured=await f.run("life.ingest_activity",shake("backfill_a",alipayBill("BACKFILL-A"),false));const id=captured.resources[0]!.id;
+ const before=(await f.pool.query("select fingerprint,text,started_at from activity_captures where id=$1",[id])).rows[0];
+ await assert.rejects(()=>f.run("life.record_captured_expenses",{capture_ids:[id]},{...f.context,subjectId:"other_subject"}));
+ const command=f.command("life.record_captured_expenses",{capture_ids:[id]});const first=await f.executor.execute(f.context,command);assert.equal(first.status,"committed");assert.equal((await f.executor.execute(f.context,command)).replayed,true);
+ const repeat=await f.run("life.record_captured_expenses",{capture_ids:[id]});assert.deepEqual(repeat.resources.filter(r=>r.type==="consumption_record"),first.resources.filter(r=>r.type==="consumption_record"));
+ assert.deepEqual((await f.pool.query("select fingerprint,text,started_at from activity_captures where id=$1",[id])).rows[0],before);
+ await f.run("life.delete_activity",{id});await assert.rejects(()=>f.run("life.record_captured_expenses",{capture_ids:[id]}));assert.equal((await f.pool.query("select count(*)::int n from money_entries")).rows[0].n,1);
+});

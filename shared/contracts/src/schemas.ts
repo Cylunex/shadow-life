@@ -1,6 +1,6 @@
 import { captureCompletionWrites } from "./capture-completion-schemas.js";
 import { captureScreenshotSchema, recordingSegmentSchema, recordingJobSchema, completeRecordingSchema, failRecordingSchema, recordingActionSchema, reviseTranscriptSchema, orderCaptureRuleSchema, activityReviewInputSchema, captureDateSchema, captureWorkspaceResultSchema } from "./capture-suite-schemas.js";
-import { activityActionInputSchema, ingestActivityInputSchema } from "./activity-schemas.js";
+import { activityActionInputSchema, recordCapturedExpensesInputSchema, ingestActivityInputSchema } from "./activity-schemas.js";
 import { z } from "zod";
 import { validateWorkoutDetail } from "./workout-menu.js";
 import { foundationWriteSchemas } from "./foundation-schemas.js";
@@ -571,6 +571,7 @@ export const writeCommandSchemas = {
   "travel.import_track":importTravelTrackInputSchema,
   "travel.restore_bundle":restoreTravelBundleInputSchema,
   "life.ingest_activity": ingestActivityInputSchema,
+  "life.record_captured_expenses":recordCapturedExpensesInputSchema,
   "life.capture_screenshot":captureScreenshotSchema,
   "life.register_recording":recordingSegmentSchema,
   "life.claim_recording":recordingJobSchema,

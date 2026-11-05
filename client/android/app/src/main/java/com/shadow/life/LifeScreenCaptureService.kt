@@ -138,17 +138,17 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
    if(app.sessions.active()?.accountId!=account)return
    val now=Instant.now()
    fun hash(value:String)=MessageDigest.getInstance("SHA-256").digest(value.toByteArray()).joinToString(""){"%02x".format(it)}
-   val contentHash=hash(text);val key="$account:$name"
+   val contentHash=hash(text);val key="$account:$name:${if(shaken)"expense" else "observe"}"
    val previous=last[key]
    if(previous!=null&&previous.first==contentHash&&now.epochSecond-previous.second<600){
-     if(shaken)feedback("这页账单近期已收录，回 Life 首页「最近信息」查看")
+     if(shaken)feedback("这页账单近期已提交记账，回 Life 首页「最近信息」查看")
      return
    }
    val digest=hash("$name:${now.toEpochMilli()}:$text")
    val item=JSONObject().put("source_id","screen_$digest").put("kind","screen_text").put("title",if(shaken)"摇一摇补记 · "+(if(billPlatforms[name]=="wechat")"微信" else "支付宝") else text.lineSequence().first().take(200)).put("text",text).put("app_package",name).put("started_at",now.toString()).put("ended_at",now.toString()).put("time_zone",ZoneId.systemDefault().id)
-   NativeLifeRepository(this,app).saveActivities(JSONArray().put(item),account)
+   NativeLifeRepository(this,app).saveActivities(JSONArray().put(item),account,recordExpenses=shaken)
    last[key]=contentHash to now.epochSecond;if(last.size>50)last.remove(last.keys.first())
-   if(shaken && app.sessions.active()?.accountId==account)feedback("账单已加入同步队列，回 Life 首页「最近信息」查看进度和结果")
+   if(shaken && app.sessions.active()?.accountId==account)feedback("账单已提交记账，完整已支付账单会记为消费；回首页查看结果")
  }
  override fun onInterrupt(){pending?.cancel()}
  override fun onDestroy(){settings.unregisterOnSharedPreferenceChangeListener(preferenceWatch);unregisterReceiver(screenState);listen(null);stopForeground(STOP_FOREGROUND_REMOVE);BillShakeStatus.message="屏幕内容服务已断开";active=null;scope.cancel();super.onDestroy()}

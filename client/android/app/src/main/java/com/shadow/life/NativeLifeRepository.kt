@@ -51,7 +51,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   internal suspend fun captureWrite(capability:String,input:JSONObject,accountId:String):OperationReceipt=withContext(Dispatchers.IO){enqueueCommand(capability,input,expectedAccountId=accountId)}
   internal suspend fun activityOrder(id:String):ActivityOrderResultDto=wireJson.decodeFromString(getText("/api/life/activities/${encode(id)}/order"))
   internal suspend fun activityAction(capability:String,id:String,accountId:String):OperationReceipt=withContext(Dispatchers.IO){enqueueCommand(capability,JSONObject().put("id",id),expectedAccountId=accountId)}
-  internal suspend fun saveActivities(items:JSONArray,accountId:String):OperationReceipt = withContext(Dispatchers.IO){enqueueCommand("life.ingest_activity",JSONObject().put("device_id",app.sessions.installationId()).put("items",items),expectedAccountId=accountId)}
+  internal suspend fun saveActivities(items:JSONArray,accountId:String,recordExpenses:Boolean=false):OperationReceipt = withContext(Dispatchers.IO){enqueueCommand("life.ingest_activity",JSONObject().put("device_id",app.sessions.installationId()).put("items",items).apply{if(recordExpenses)put("record_expenses",true)},expectedAccountId=accountId)}
   suspend fun today(date:LocalDate=LocalDate.now()):TodaySnapshot {
     val zone=ZoneId.systemDefault().id
     val result=wireJson.decodeFromString<LifeTodayResultDto>(getText("/api/today?date=$date&time_zone=${encode(zone)}"))

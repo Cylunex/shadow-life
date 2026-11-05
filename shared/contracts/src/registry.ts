@@ -3,7 +3,7 @@ import { activitySourceResultSchema } from "./activity-schemas.js";
 import { importMoneyFileInputSchema, moneyImportFileInputSchema, moneyImportFileResultSchema } from "./schemas.js";
 import { moneyImportHistoryInputSchema, moneyImportHistoryResultSchema } from "./schemas.js";
 import { captureScreenshotSchema, recordingSegmentSchema, recordingJobSchema, completeRecordingSchema, failRecordingSchema, recordingActionSchema, reviseTranscriptSchema, orderCaptureRuleSchema, activityReviewInputSchema, captureDateSchema, captureWorkspaceResultSchema } from "./capture-suite-schemas.js";
-import { activityOrderResultSchema, activityActionInputSchema, ingestActivityInputSchema, activitiesInputSchema, activitiesResultSchema } from "./activity-schemas.js";
+import { activityOrderResultSchema, activityActionInputSchema, recordCapturedExpensesInputSchema, ingestActivityInputSchema, activitiesInputSchema, activitiesResultSchema } from "./activity-schemas.js";
 import { wellnessReviewInputSchema, wellnessReviewResultSchema } from "./wellness-schemas.js";
 import { agentContextInputSchema, agentContextResultSchema } from "./agent-context-schemas.js";
 import { workoutProgressionInputSchema, workoutProgressionResultSchema } from "./schemas.js";
@@ -121,6 +121,7 @@ type DomainCapabilityName=keyof typeof captureCompletionWrites|keyof typeof capt
   "life.generate_review"|
   "life.get_record"|
   "life.ingest_activity"|
+  "life.record_captured_expenses"|
   "life.link_meal_consumption"|
   "life.list_meals"|
   "life.meal_planning"|
@@ -253,7 +254,8 @@ const domainCapabilityRegistry:Record<DomainCapabilityName,DomainCapability> = {
   "life.capture_workspace":{name:"life.capture_workspace",description:"读取本人录音、转写、已关联订单与分层回顾及来源过期状态。",inputSchema:captureDateSchema,commandSchema:captureDateSchema,resultSchema:captureWorkspaceResultSchema,possibleEffects:["library.item.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["library.item.read"] as const},
   "life.delete_activity":write("life.delete_activity","删除采集记录并保留来源删除标记，重传不恢复；用户另存的资料保留。",activityActionInputSchema,["library.item.write"]),
   "life.archive_activity":write("life.archive_activity","将采集材料另存为一份可检索资料，重复归档返回同一份。",activityActionInputSchema,["library.item.write"]),
-  "life.ingest_activity":{...write("life.ingest_activity","批量保存授权采集材料；仅在已启用规则、完整支付证据和账目权限齐备时自动关联记账。",ingestActivityInputSchema,["library.item.write","money.entry.write","life.purchase.write"]),resolveEffects:()=>["library.item.write"]},
+  "life.ingest_activity":{...write("life.ingest_activity","批量保存授权采集材料；record_expenses 表示用户主动摇一摇或补录，完整已支付证据直接记为消费并按平台账号交易去重；后台采集仍遵循自动记账规则。",ingestActivityInputSchema,["library.item.write","money.entry.write","life.purchase.write"]),resolveEffects:(input:unknown)=>ingestActivityInputSchema.parse(input).record_expenses?["library.item.write","money.entry.write","life.purchase.write"]:["library.item.write"]},
+  "life.record_captured_expenses":write("life.record_captured_expenses","将本人既有采集账单补记为消费；重新识别完整已支付证据，保留原平台账号及来源，沿用交易去重，缺失或冲突不入账。",recordCapturedExpensesInputSchema,["library.item.read","library.item.write","money.entry.write","life.purchase.write"]),
   "life.activity_order":{name:"life.activity_order",description:"从采集页面确定性提取订单、实付、退款与时间的观察，保留冲突和缺失，不创建账目。",inputSchema:activityActionInputSchema,commandSchema:activityActionInputSchema,resultSchema:activityOrderResultSchema,possibleEffects:["library.item.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["library.item.read"] as const},
   "life.activities":{name:"life.activities",description:"按本地日期读取采集活动及已捕获应用区间并集时长，不代表全天覆盖。",inputSchema:activitiesInputSchema,commandSchema:activitiesInputSchema,resultSchema:activitiesResultSchema,possibleEffects:["library.item.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["library.item.read"] as const},
   "life.record_purchase": { ...write("life.record_purchase", "记录购买商品与可选付款。多张订单图与付款凭证用 sources 保存，可用 consumables 按 item_position 同时建立待启用消耗品（数量未知可省略），不代表已经消耗。未知单项金额省略而非 null；实际摄入另记并关联，避免重复付款。", recordPurchaseInputSchema, ["life.purchase.write", "money.entry.write", "money.plan.write"]), resolveEffects(input:unknown){const value=recordPurchaseInputSchema.parse(input);return ["life.purchase.write",...(value.payment?["money.entry.write"]:[]),...(value.consumables?.length?["money.plan.write"]:[])];} },

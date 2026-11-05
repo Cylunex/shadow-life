@@ -3,7 +3,7 @@ import { activitySourceResultSchema } from "@shadow/contracts";
 import { moneyImportFileResultSchema } from "@shadow/contracts";
 import { moneyImportHistoryInputSchema, moneyImportHistoryResultSchema, instant, stableId } from "@shadow/contracts";
 import { captureDateSchema, captureWorkspaceResultSchema } from "@shadow/contracts";
-import { inspectActivityOrder } from "./activity-order.js";
+import { capturedPaymentPlatform, inspectActivityOrder } from "./activity-order.js";
 import { activityActionInputSchema, activityOrderResultSchema, activitiesInputSchema, activitiesResultSchema } from "@shadow/contracts";
 import { wellnessReviewInputSchema } from "@shadow/contracts";
 import { buildWellnessReview, wellnessWindow } from "./wellness-review.js";
@@ -240,7 +240,7 @@ export class QueryService {
   }
   async activitySource(context:RequestContext,input:unknown){
     if(!context.effects.has("library.item.read"))throw permissionDenied("library.item.read");const parsed=activityActionInputSchema.parse(input);
-    return this.unitOfWork.read(async store=>{const source=await store.activitySource?.(context.subjectId,parsed.id);if(!source)throw notFound("Activity source");const result=activitySourceResultSchema.parse(source);if(!context.effects.has("life.project.read")){result.project_id=null;result.project_title=null;}return result;});
+    return this.unitOfWork.read(async store=>{const source=await store.activitySource?.(context.subjectId,parsed.id);if(!source)throw notFound("Activity source");const result=activitySourceResultSchema.parse(source);if(!context.effects.has("money.entry.read"))result.consumption_record_id=null;if(!context.effects.has("life.project.read")){result.project_id=null;result.project_title=null;}return result;});
   }
   async captureWorkspace(context:RequestContext,input:unknown){
     if(!context.effects.has("library.item.read"))throw permissionDenied("library.item.read");
@@ -252,7 +252,7 @@ export class QueryService {
     const parsed=activityActionInputSchema.parse(input);
     const material=await this.unitOfWork.read(async store=>store.activityMaterial?.(context.subjectId,parsed.id));
     if(!material)throw notFound("Activity is unavailable");
-    return activityOrderResultSchema.parse({activity_id:material.id,...inspectActivityOrder(material.text??"")});
+    return activityOrderResultSchema.parse({activity_id:material.id,...inspectActivityOrder(material.text??"",capturedPaymentPlatform(material.app_package??""))});
   }
   async activities(context:RequestContext,input:unknown){
     if(!context.effects.has("library.item.read"))throw permissionDenied("library.item.read");
