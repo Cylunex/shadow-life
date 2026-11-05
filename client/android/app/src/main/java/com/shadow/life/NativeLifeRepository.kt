@@ -429,7 +429,10 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   }
   suspend fun moneyImportReview(batchId:String):MoneyImportReviewSummary=withContext(Dispatchers.IO){
     val body=JSONObject(getText("/api/money/imports/${encode(batchId)}"));val rules=body.getJSONArray("rules");val ruleLabels=(0 until rules.length()).associate{index->val rule=rules.getJSONObject(index);rule.getString("id") to "${rule.getString("match_value")} → ${rule.getJSONObject("replacements")}"};val candidates=body.getJSONArray("candidates")
-    MoneyImportReviewSummary(batchId,(0 until candidates.length()).map{index->val row=candidates.getJSONObject(index);val proposed=row.getJSONObject("proposed");val applied=row.getJSONArray("applied_rule_ids");MoneyImportCandidateSummary(row.getString("id"),row.getInt("revision"),row.getInt("position"),row.getString("status"),row.getJSONObject("raw").toString(2),proposed.optString("entry_type","expense"),proposed.optString("amount"),proposed.optString("occurred_on"),proposed.optString("time_zone","Asia/Shanghai"),proposed.optString("counterparty"),proposed.optString("category"),if(row.isNull("duplicate_of_record_id"))null else row.getString("duplicate_of_record_id"),(0 until applied.length()).map{applied.getString(it)})},ruleLabels)
+    MoneyImportReviewSummary(batchId,(0 until candidates.length()).map{index->val row=candidates.getJSONObject(index);val proposed=row.getJSONObject("proposed");val applied=row.getJSONArray("applied_rule_ids");MoneyImportCandidateSummary(row.getString("id"),row.getInt("revision"),row.getInt("position"),row.getString("status"),row.getJSONObject("raw").toString(2),proposed.optString("entry_type","expense"),proposed.optString("amount"),proposed.optString("occurred_on"),proposed.optString("time_zone","Asia/Shanghai"),proposed.optString("counterparty"),proposed.optString("category"),if(row.isNull("duplicate_of_record_id"))null else row.getString("duplicate_of_record_id"),(0 until applied.length()).map{applied.getString(it)},row.optNullableString("linked_record_id"))},ruleLabels)
+  }
+  suspend fun linkMealConsumption(mealId:String,recordId:String):OperationReceipt=withContext(Dispatchers.IO){
+    enqueueCommand("life.link_meal_consumption",JSONObject().put("meal_id",mealId).put("consumption_record_id",recordId).put("evidence","user_confirmed"))
   }
   suspend fun resolveMoneyImport(candidate:MoneyImportCandidateSummary,decision:String,entryType:String,amount:String,date:String,category:String,originalEntryId:String):OperationReceipt=withContext(Dispatchers.IO){
     require(decision in setOf("confirm","ignore")){"不支持的复核决定"}
@@ -860,6 +863,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       val sections=mutableListOf(
         DetailSection("概要",listOfNotNull(value.mealType?.let{DetailFact("餐次",mealTypeLabel(it.wireValue))},value.occurredOn?.let{DetailFact("日期",it)},value.timeZone?.let{DetailFact("时区",it)},value.note?.let{DetailFact("备注",it)}))
       )
+      sections.add(0,DetailSection("消费关联",listOf(DetailFact("关联情况",if(payments.isNotEmpty()||!value.relatedRecords.isNullOrEmpty())"已有关联，点开下方记录核对商家、日期与金额" else "未显示关联消费；可以先记饮食，再补充关联"))))
       if(items.isNotEmpty())sections+=DetailSection("食物与营养",itemCount=items.size,groups=items.map { item ->
         fun eaten(value: String?) = consumedAmount(value,item.consumedFraction)
         val facts = listOfNotNull(
@@ -877,15 +881,23 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       })
       if(payments.isNotEmpty())sections+=DetailSection("关联付款",itemCount=payments.size,links=payments.map{payment->DetailLink("money_entry",payment.recordId,payment.counterparty?:payment.category?:"交易","${payment.currency} ${payment.amount}")})
       if(sources.isNotEmpty())sections+=DetailSection("来源",sources.take(20).map{source->DetailFact(source.kind,source.capturedAt?:source.capturedOn?:source.externalId?:"已收存")},sources.size)
+      sources.filter{!it.originalText.isNullOrBlank()}.forEach{source->sections+=DetailSection("来源原文 · ${source.kind}",listOf(DetailFact("正文",source.originalText!!)))}
       if(!value.relatedRecords.isNullOrEmpty())sections+=DetailSection("关联消费",links=value.relatedRecords.orEmpty().map{DetailLink(it.kind.wireValue,it.id,it.title,it.supporting)})
       val revision=value.revision;val occurredOn=value.occurredOn;val timeZone=value.timeZone;val mealType=value.mealType
       val seed=if(revision!=null&&occurredOn!=null&&timeZone!=null&&mealType!=null)EditSeed.Meal(value.mealId,revision.toInt(),occurredOn,timeZone,mealType.wireValue,value.note) else null
-      RecordDetail(title,null,value.revision?.toInt(),sections,seed,mealIntakes=items,presentation=DetailPresentation.Meal,heroSupporting=listOfNotNull(value.mealType?.wireValue?.let(::mealTypeLabel),value.occurredOn).joinToString(" · "))
+      RecordDetail(title,null,value.revision?.toInt(),sections,seed,assets=sources.mapNotNull{source->source.assetVersionId?.let{DetailAsset(it,if(source.kind=="image")"image/*" else "application/octet-stream","饮食凭证")}},mealIntakes=items,presentation=DetailPresentation.Meal,heroSupporting=listOfNotNull(value.mealType?.wireValue?.let(::mealTypeLabel),value.occurredOn).joinToString(" · "))
     }
     is LifeRecordResultDtoRecord->{
       val entry=value.moneyEntry;val purchase=value.purchase;val meals=value.meals.orEmpty();val items=value.purchaseItems.orEmpty();val sources=value.sources.orEmpty()
       val title=items.take(3).joinToString("、"){it.rawName}.takeIf(String::isNotBlank)?:entry?.counterparty?:purchase?.merchant?:entry?.category?:meals.firstOrNull()?.items?.joinToString("、"){it.name}?.takeIf(String::isNotBlank)?:"消费详情"
       val sections=mutableListOf(DetailSection("概要",listOfNotNull(DetailFact("状态",value.state.wireValue),DetailFact("日期",value.occurredOn),DetailFact("时区",value.timeZone),value.note?.let{DetailFact("备注",it)})))
+      sections.add(0,DetailSection("消费、付款与饮食",listOfNotNull(
+        value.moneyEntry?.let{DetailFact("付款","已记录，消费与付款只计一笔账")},
+        if(value.moneyEntry==null)DetailFact("付款","未显示付款记录") else null,
+        value.purchase?.let{DetailFact("购买","已记录 · ${items.size} 项明细")},
+        value.meals?.let{DetailFact("饮食",if(it.isEmpty())"未关联餐次；购买食物不会自动计入营养" else "已关联 ${it.size} 餐，可打开核对实际食用内容")},
+        value.sources?.let{DetailFact("凭证",if(it.isEmpty())"未附凭证，录入渠道未记录" else "${it.size} 份来源，见下方原文与原件")}
+      )))
       entry?.let{sections+=DetailSection("金额",listOfNotNull(DetailFact("金额","${it.currency} ${it.amount}"),DetailFact("类型",when(it.entryType.wireValue){"expense"->"支出";"refund"->"退款";else->"收入"}),it.counterparty?.let{item->DetailFact("交易方",item)},it.category?.let{item->DetailFact("分类",item)},it.paymentMethod?.let{item->DetailFact("支付方式",item.wireValue)}))}
       purchase?.let{sections+=DetailSection("消费",listOfNotNull(it.merchant?.let{item->DetailFact("商家",item)},it.amount?.let{amount->DetailFact("金额","${it.currency} $amount")},it.scene?.let{item->DetailFact("场景",item)},it.channelNameRaw?.let{item->DetailFact("渠道",item)},it.rating?.let{item->DetailFact("评分","$item/5")}))}
       if(items.isNotEmpty())sections+=DetailSection("购买明细",itemCount=items.size,groups=items.map{item->DetailGroup(item.id,item.rawName,listOfNotNull(
@@ -895,13 +907,14 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       ))})
       if(meals.isNotEmpty())sections+=DetailSection("关联餐次",itemCount=meals.size,links=meals.map{meal->DetailLink("meal",meal.id,mealTypeLabel(meal.mealType.wireValue),"${meal.occurredOn} · ${meal.items.joinToString("、"){it.name}}")})
       if(sources.isNotEmpty())sections+=DetailSection("来源",sources.take(20).map{source->DetailFact(source.kind,source.capturedAt?:source.capturedOn?:source.externalId?:"已收存")},sources.size)
+      sources.filter{!it.originalText.isNullOrBlank()}.forEach{source->sections+=DetailSection("来源原文 · ${source.kind}",listOf(DetailFact("正文",source.originalText!!)))}
       if(!value.relatedRecords.isNullOrEmpty())sections+=DetailSection("关联记录",links=value.relatedRecords.orEmpty().map{DetailLink(it.kind.wireValue,it.id,it.title,it.supporting)})
       val seed=entry?.let{EditSeed.Money(value.recordId,value.revision.toInt(),it.amount,it.currency,it.occurredOn,it.timeZone,it.category,it.counterparty,it.note)}
       val actions=buildList{
         if(entry?.entryType?.wireValue=="expense"&&entry.currency=="CNY")add(DetailAction("记录这笔交易的退款",CaptureSeed(CaptureKind.Refund,date=LocalDate.now().toString(),secondary=entry.id,contextKind="money_entry",contextId=entry.id,contextLabel=listOfNotNull(entry.counterparty,entry.category,"CNY ${entry.amount}").joinToString(" · "))))
         items.take(10).forEach{item->add(DetailAction("将“${item.rawName}”加入我的物品",CaptureSeed(CaptureKind.OwnedItem,primary=item.rawName,date=value.occurredOn,option="owned",contextKind="purchase_item",contextId=item.id,contextLabel="来自本次购买")))}
       }
-      RecordDetail(title,value.state.wireValue,value.revision.toInt(),sections,seed,actions,DetailPresentation.Money,entry?.let{"${it.currency} ${detailDecimal(it.amount)}"}?:purchase?.amount?.let{"${purchase.currency.orEmpty()} ${detailDecimal(it)}"},value.occurredOn)
+      RecordDetail(title,value.state.wireValue,value.revision.toInt(),sections,seed,actions,DetailPresentation.Money,entry?.let{"${it.currency} ${detailDecimal(it.amount)}"}?:purchase?.amount?.let{"${purchase.currency.orEmpty()} ${detailDecimal(it)}"},value.occurredOn,assets=sources.mapNotNull{source->source.assetVersionId?.let{DetailAsset(it,if(source.kind=="image")"image/*" else "application/octet-stream","消费凭证")}},consumptionRecordId=value.recordId,linkedMealIds=meals.map{it.id})
     }
   }
 

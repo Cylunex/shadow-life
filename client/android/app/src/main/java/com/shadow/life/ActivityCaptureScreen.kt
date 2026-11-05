@@ -26,7 +26,7 @@ import java.security.MessageDigest
 import org.json.JSONArray
 import org.json.JSONObject
 
-@Composable internal fun ActivityCaptureScreen(accountId:String,onBack:()->Unit,onSource:(String)->Unit={},initialTab:String="应用与活动"){
+@Composable internal fun ActivityCaptureScreen(accountId:String,onBack:()->Unit,onSource:(String)->Unit={},initialTab:String="应用与活动",onMoneyRecord:(String)->Unit={}){
   val context=LocalContext.current;val app=context.applicationContext as ShadowApp
   val repository=remember(accountId){NativeLifeRepository(context,app)};val scope=rememberCoroutineScope()
   val preferences=remember(accountId){context.getSharedPreferences("activity_capture",Context.MODE_PRIVATE)}
@@ -48,7 +48,7 @@ import org.json.JSONObject
     LifeDateField(date.toString(),{date=LocalDate.parse(it)},"查看日期",!busy)
     LifeTabs(workspace,{workspace=it},listOf("应用与活动","录音","地点","截图","订单","回顾","分析","检索","设置与导出").map{it to it})
     if(workspace in setOf("分析","检索","设置与导出"))key(workspace){CaptureCompletionPanel(accountId,date,workspace)}
-    if(workspace in setOf("录音","地点","截图","订单","回顾"))key(workspace){CaptureSuitePanel(accountId,date,workspace)}
+    if(workspace in setOf("录音","地点","截图","订单","回顾"))key(workspace){CaptureSuitePanel(accountId,date,workspace,onMoneyRecord)}
     if(workspace=="应用与活动"){
     HorizontalDivider()
     Text("仅统计已捕获的完整应用区间，缺失时段保持未知；应用时长不等于专注时间。")

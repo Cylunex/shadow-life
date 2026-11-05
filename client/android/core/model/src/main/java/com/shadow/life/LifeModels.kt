@@ -153,7 +153,7 @@ data class HealthProgression(val id:String,val title:String,val status:String,va
 data class BudgetProgress(val title:String,val amount:String,val currency:String,val spent:String)
 data class MoneyImportBatchSummary(val id:String,val name:String,val total:Int,val unconfirmed:Int,val duplicates:Int,val uncategorized:Int,val refundsUnlinked:Int)
 data class MoneyImportMonthSummary(val period:String,val unconfirmed:Int,val duplicates:Int,val uncategorized:Int,val refundsUnlinked:Int,val batches:List<MoneyImportBatchSummary>)
-data class MoneyImportCandidateSummary(val id:String,val revision:Int,val position:Int,val status:String,val raw:String,val entryType:String,val amount:String,val occurredOn:String,val timeZone:String,val counterparty:String,val category:String,val duplicateOf:String?,val appliedRules:List<String>)
+data class MoneyImportCandidateSummary(val id:String,val revision:Int,val position:Int,val status:String,val raw:String,val entryType:String,val amount:String,val occurredOn:String,val timeZone:String,val counterparty:String,val category:String,val duplicateOf:String?,val appliedRules:List<String>,val linkedRecordId:String?=null)
 data class MoneyImportReviewSummary(val batchId:String,val candidates:List<MoneyImportCandidateSummary>,val rules:Map<String,String>)
 data class ProjectMilestone(val id:String,val title:String,val dueOn:String?,val state:String,val position:Int)
 data class ProjectAction(val id:String,val title:String,val dueOn:String?,val state:String,val revision:Int,val sourceState:String?,val scheduledAt:String?=null,val scheduledTimeZone:String?=null)
@@ -211,7 +211,7 @@ data class SleepStage(val label:String,val minutes:Int)
 data class RecordDetail(
   val title:String,val state:String?,val revision:Int?,val sections:List<DetailSection>,val editSeed:EditSeed?=null,val actions:List<DetailAction> = emptyList(),
   val presentation:DetailPresentation=DetailPresentation.Generic,val heroValue:String?=null,val heroSupporting:String?=null,val travelSchedule:TravelDetailSchedule?=null,
-  val libraryVisionSourceAssetId:String?=null,val libraryVisionRetryJobId:String?=null,val assets:List<DetailAsset> = emptyList(),val mealIntakes:List<LifeRecordResultDtoMealItemsEntry> = emptyList(),val metrics:List<DetailMetric> = emptyList(),val sleepStages:List<SleepStage> = emptyList(),val trend:List<HealthTrendPoint> = emptyList(),val libraryItemId:String?=null
+  val libraryVisionSourceAssetId:String?=null,val libraryVisionRetryJobId:String?=null,val assets:List<DetailAsset> = emptyList(),val mealIntakes:List<LifeRecordResultDtoMealItemsEntry> = emptyList(),val metrics:List<DetailMetric> = emptyList(),val sleepStages:List<SleepStage> = emptyList(),val trend:List<HealthTrendPoint> = emptyList(),val libraryItemId:String?=null,val consumptionRecordId:String?=null,val linkedMealIds:List<String> = emptyList()
 )
 
 @Serializable data object TodayRoute

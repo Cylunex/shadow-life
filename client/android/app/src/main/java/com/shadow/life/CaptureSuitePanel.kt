@@ -22,7 +22,7 @@ import kotlinx.coroutines.*
 import org.json.*
 import java.time.LocalDate
 
-@Composable internal fun CaptureSuitePanel(accountId:String,date:LocalDate,initialSection:String="录音"){
+@Composable internal fun CaptureSuitePanel(accountId:String,date:LocalDate,initialSection:String="录音",onMoneyRecord:(String)->Unit={}){
  val context=LocalContext.current;val app=context.applicationContext as ShadowApp;val scope=rememberCoroutineScope();val repository=remember(accountId){NativeLifeRepository(context,app)}
  var data by remember(accountId){mutableStateOf<CaptureWorkspaceResultDto?>(null)};var busy by remember(accountId){mutableStateOf(false)};var message by remember(accountId){mutableStateOf<String?>(null)}
  var section by remember(accountId,initialSection){mutableStateOf(initialSection)};var placeName by remember(accountId){mutableStateOf("")};var player by remember(accountId){mutableStateOf<MediaPlayer?>(null)}
@@ -99,7 +99,7 @@ import java.time.LocalDate
   Row{Text("证据完整时自动记账");Switch(checked=autoAccounting,onCheckedChange={autoAccounting=it})}
   Text("自动记账要求订单或交易身份、明确实付和付款时间、人民币证据以及写入权限；冲突和缺失只保留观察。")
   Button(enabled=!busy&&selectedApp.isNotBlank()&&sourceAccount.isNotBlank(),onClick={run{write("life.set_order_capture",JSONObject().put("app_package",selectedApp).put("platform",platform).put("source_account",sourceAccount.trim()).put("enabled",associate).put("auto_accounting",autoAccounting))}}){Text("保存此应用的规则")}
-  data?.orders?.forEach{order->Card(Modifier.fillMaxWidth()){Column(Modifier.padding(12.dp)){Text("${capturePlatformName(order.platform)} · ${order.externalId}");Text("${mapOf("paid" to "已支付","pending" to "待付款","refunded" to "已退款","refund_pending" to "退款中","cancelled" to "已取消","unknown" to "状态未明确")[order.status]?:order.status} · ${order.sourceCount} 份材料");if(order.conflict)Text("来源存在冲突，未自动覆盖");val fields=runCatching{JSONObject(order.fields)}.getOrNull();mapOf("merchant" to "商家","product" to "商品","paid_amount" to "实付","refund_amount" to "已退／退款金额","order_amount" to "订单金额","payment_time" to "付款时间","logistics_no" to "物流单号").forEach{(key,label)->fields?.optString(key)?.takeIf{it.isNotBlank()}?.let{Text("$label：$it")}};Text(if(order.recordId==null)"尚未关联账目" else "已关联账目，同一身份不重复记账")}}}
+  data?.orders?.forEach{order->Card(Modifier.fillMaxWidth()){Column(Modifier.padding(12.dp)){Text("${capturePlatformName(order.platform)} · ${order.externalId}");Text("${mapOf("paid" to "已支付","pending" to "待付款","refunded" to "已退款","refund_pending" to "退款中","cancelled" to "已取消","unknown" to "状态未明确")[order.status]?:order.status} · ${order.sourceCount} 份材料");if(order.conflict)Text("来源存在冲突，未自动覆盖");val fields=runCatching{JSONObject(order.fields)}.getOrNull();mapOf("merchant" to "商家","product" to "商品","paid_amount" to "实付","refund_amount" to "已退／退款金额","order_amount" to "订单金额","payment_time" to "付款时间","logistics_no" to "物流单号").forEach{(key,label)->fields?.optString(key)?.takeIf{it.isNotBlank()}?.let{Text("$label：$it")}};if(order.recordId==null)Text("尚未入账：仅收录订单材料，未计入消费明细") else TextButton(onClick={onMoneyRecord(order.recordId!!)}){Text("已入账 · 查看消费、餐次与凭证 →")}}}}
  }
  "回顾"->{
   Text("按已采集来源生成十分钟材料、小时主线、日概览及周／月汇总。来源变化后可重算。")

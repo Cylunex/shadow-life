@@ -10,23 +10,23 @@ import java.time.LocalDate
 
 @Composable internal fun NativeMoneyImportSection(
   month:LoadState<MoneyImportMonthSummary>,review:LoadState<MoneyImportReviewSummary>?,submit:SubmitState,
-  onMonth:(String)->Unit,onBatch:(String)->Unit,onResolve:(MoneyImportCandidateSummary,String,String,String,String,String,String)->Unit
+  onMonth:(String)->Unit,onBatch:(String)->Unit,onResolve:(MoneyImportCandidateSummary,String,String,String,String,String,String)->Unit,onOpenRecord:(String)->Unit
 ){
   var period by rememberSaveable{mutableStateOf(LocalDate.now().toString().take(7))}
   Column(verticalArrangement=Arrangement.spacedBy(12.dp)){
-    Text("月度账单核对",style=MaterialTheme.typography.headlineSmall)
+    Text("账单待处理",style=MaterialTheme.typography.headlineSmall)
     Text("原始行与精确金额保留；规则只生成可查看的候选，确认后才写入账目。",color=MaterialTheme.colorScheme.onSurfaceVariant)
     Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){OutlinedTextField(period,{period=it},Modifier.weight(1f),label={Text("月份 YYYY-MM")},singleLine=true);Button(enabled=Regex("\\d{4}-(0[1-9]|1[0-2])").matches(period),onClick={onMonth(period)}){Text("查询")}}
     if(month is LoadState.Ready)ReadStatus(month){onMonth(month.value.period)}
     when(month){is LoadState.Loading->CircularProgressIndicator();is LoadState.Failed->Text(month.message,color=MaterialTheme.colorScheme.error);is LoadState.Ready->{val value=month.value;LifeCard{Text("${value.period} · 未确认 ${value.unconfirmed}",style=MaterialTheme.typography.titleLarge);Text("疑似重复 ${value.duplicates} · 未分类 ${value.uncategorized} · 退款待关联 ${value.refundsUnlinked}")};if(value.batches.isEmpty())Text("本月没有导入候选") else value.batches.forEach{batch->LifeCard(onClick={onBatch(batch.id)}){Text(batch.name,style=MaterialTheme.typography.titleMedium);Text("${batch.total} 行 · 未确认 ${batch.unconfirmed} · 重复 ${batch.duplicates} · 未分类 ${batch.uncategorized} · 退款 ${batch.refundsUnlinked}")}}};else->Text("暂无核对批次")}
     if(review is LoadState.Ready)ReadStatus(review){onBatch(review.value.batchId)}
-    when(review){is LoadState.Loading->CircularProgressIndicator();is LoadState.Failed->Text(review.message,color=MaterialTheme.colorScheme.error);is LoadState.Ready->{Text("批次候选",style=MaterialTheme.typography.titleLarge);review.value.candidates.forEach{candidate->MoneyImportCandidateCard(candidate,review.value.rules,submit,onResolve)}};else->Unit}
+    when(review){is LoadState.Loading->CircularProgressIndicator();is LoadState.Failed->Text(review.message,color=MaterialTheme.colorScheme.error);is LoadState.Ready->{Text("批次候选",style=MaterialTheme.typography.titleLarge);review.value.candidates.forEach{candidate->MoneyImportCandidateCard(candidate,review.value.rules,submit,onResolve,onOpenRecord)}};else->Unit}
     if(submit is SubmitState.Rejected)Text(submit.message,color=MaterialTheme.colorScheme.error)
     if(submit is SubmitState.Saved)Text("复核决定已进入加密离线队列；同步完成后可点击更新查看结果。",color=MaterialTheme.colorScheme.primary)
   }
 }
 
-@Composable private fun MoneyImportCandidateCard(candidate:MoneyImportCandidateSummary,rules:Map<String,String>,submit:SubmitState,onResolve:(MoneyImportCandidateSummary,String,String,String,String,String,String)->Unit){
+@Composable private fun MoneyImportCandidateCard(candidate:MoneyImportCandidateSummary,rules:Map<String,String>,submit:SubmitState,onResolve:(MoneyImportCandidateSummary,String,String,String,String,String,String)->Unit,onOpenRecord:(String)->Unit){
   var entryType by rememberSaveable(candidate.id,candidate.revision){mutableStateOf(candidate.entryType)}
   var amount by rememberSaveable(candidate.id,candidate.revision){mutableStateOf(candidate.amount)}
   var date by rememberSaveable(candidate.id,candidate.revision){mutableStateOf(candidate.occurredOn)}
@@ -35,7 +35,9 @@ import java.time.LocalDate
   var rawOpen by rememberSaveable(candidate.id){mutableStateOf(false)}
   LifeCard{
     Text("第 ${candidate.position+1} 行 · ${candidate.status}",style=MaterialTheme.typography.titleMedium)
-    if(candidate.duplicateOf!=null)Text("疑似重复：${candidate.duplicateOf}，请核对后忽略",color=MaterialTheme.colorScheme.error)
+    Text("${candidate.counterparty.ifBlank{"未记录商家"}} · ${candidate.occurredOn} · ${candidate.amount} CNY")
+    candidate.linkedRecordId?.let{id->TextButton(onClick={onOpenRecord(id)}){Text("查看已入账记录 →")}}
+    candidate.duplicateOf?.let{id->TextButton(onClick={onOpenRecord(id)}){Text("疑似重复 · 查看已有记录 →")}}
     if(candidate.appliedRules.isNotEmpty())Text("规则预览：${candidate.appliedRules.joinToString("；"){rules[it]?:it}}")
     if(candidate.status in setOf("pending","invalid")){
       Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf("expense" to "支出","income" to "收入","refund" to "退款").forEach{(type,label)->FilterChip(entryType==type,{entryType=type},label={Text(label)})}}

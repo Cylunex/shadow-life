@@ -1217,3 +1217,10 @@ html,body {background:#000;}
   .header-actions{display:flex;flex-wrap:wrap;justify-content:flex-start;gap:8px}
   .header-actions button{min-height:44px;padding:8px 14px}
 }
+
+/* Consumption workspace and source evidence */
+.money-workspace{min-width:0}.money-search{display:flex;align-items:end;gap:12px}.money-search label{flex:1;min-width:0}.money-workspace .panel-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.money-workspace .panel-actions a{padding:10px}.consumption-chain{border:1px solid var(--border,#ddd);border-radius:16px;padding:16px}.source-original{white-space:pre-wrap;overflow-wrap:anywhere}.money-workspace fieldset{border:0;padding:0;min-width:0}
+
+.section-record-money>.record-browser{display:grid}.workspace>.money-workspace{padding:clamp(20px,3.2vw,32px)}
+
+.money-workspace .panel-actions>button[aria-pressed="true"]{background:#c8f66a;color:#172016;border-color:#c8f66a}.record-detail fieldset{border:0;padding:0;min-width:0}

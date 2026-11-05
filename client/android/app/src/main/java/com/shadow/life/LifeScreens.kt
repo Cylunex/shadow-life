@@ -261,6 +261,7 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
         val detail=state.value
         item{DetailHero(detail)}
         item{DomainDetailContent(detail,onLink)}
+        if(detail.state=="confirmed")detail.consumptionRecordId?.let{id->item{NativeMealConsumptionLink(accountId,id,detail.linkedMealIds)}}
         detail.libraryItemId?.let { id -> item {
           val context=androidx.compose.ui.platform.LocalContext.current
           TextButton(onClick={
@@ -396,8 +397,9 @@ private data class FeatureEntry(val group:String,val title:String,val subtitle:S
     FeatureEntry("饮食","购物清单","打开待采购食材","买菜 采购 待买",FeatureAction.Workspace(LifeDomain.Meals,"shopping")),
     FeatureEntry("饮食","食材库存","查看临期、库存和批次","冰箱 库存 临期",FeatureAction.Workspace(LifeDomain.Meals,"stock")),
     FeatureEntry("饮食","食谱","查看和导入食谱","菜谱 食谱 做饭",FeatureAction.Workspace(LifeDomain.Meals,"recipes")),
+    FeatureEntry("消费","消费与账单","所有入口的消费明细、付款、餐次与凭证","摇一摇 邮件 Agent 手动 支付 购物 消费 关联 原件",FeatureAction.Workspace(LifeDomain.Money,"details")),
     FeatureEntry("消费","次卡余额与使用","查看理发卡、洗车卡和课时","理发卡 课时 剩余几次",FeatureAction.Workspace(LifeDomain.Money,"cards")),
-    FeatureEntry("消费","账单核对","查看导入批次与差异","账单 导入 核对",FeatureAction.Workspace(LifeDomain.Money,"reconcile")),
+    FeatureEntry("消费","账单待处理","查看导入候选并打开关联账目","账单 导入 核对 邮件 App",FeatureAction.Workspace(LifeDomain.Money,"reconcile")),
     FeatureEntry("消费","订阅与周期事项","本期账单及到期事项","续费 扣费 订阅",FeatureAction.Workspace(LifeDomain.Money,"recurring")),
     FeatureEntry("物品与计划","物品保修与说明书","选择已有物品查看凭证和保修","查保修 说明书 保修期 家电",FeatureAction.Destination(ItemsRoute)),
     FeatureEntry("资料","录音与转写","回听录音和查看转写内容","听录音 音频 转写",FeatureAction.Destination(ActivityCaptureRoute("录音"))),

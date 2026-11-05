@@ -34,7 +34,7 @@ export function ObjectPicker({kind,headers,value,onChange,optional=true,label="�
   }
   const currentOptions=loadedScope===scope?options:[];
   const selected=currentOptions.find(item=>item.id===value)??(chosen?.scope===scope&&chosen.option.id===value?chosen.option:undefined);
-  return <div className="object-picker"><label>{label}<input value={query} onChange={event=>setQuery(event.target.value)} placeholder={loading?"正在读取…":"输入关键词从服务端搜索"}/></label><div className="picker-options" role="listbox" aria-label={label}>{optional&&<button type="button" className={!value?"selected":""} onClick={()=>onChange(undefined)}>不关联</button>}{currentOptions.map(item=><button type="button" role="option" aria-selected={item.id===value} className={item.id===value?"selected":""} key={`${item.kind}:${item.id}:${item.revision}`} onClick={()=>{setChosen({scope,option:item});onChange(item);}}><span><b>{item.title}</b>{item.subtitle&&<small>{item.subtitle}</small>}</span><em>v{item.revision}</em></button>)}</div>{loadedScope===scope&&cursor&&<button type="button" className="secondary" disabled={loading} onClick={()=>void more()}>加载更多</button>}{selected&&<span className="reference-chip">{kindLabel(selected.kind)} · {selected.title} · v{selected.revision}</span>}{!loading&&!error&&!currentOptions.length&&<small>当前没有匹配的{kindLabel(kind)}。</small>}{error&&<small className="inline-error">{error}</small>}</div>;
+  return <div className="object-picker"><label>{label}<input value={query} onChange={event=>setQuery(event.target.value)} placeholder={loading?"正在读取…":kind==="meal"?"筛选餐次名称或日期":"输入关键词从服务端搜索"}/></label><div className="picker-options" role="listbox" aria-label={label}>{optional&&<button type="button" className={!value?"selected":""} onClick={()=>onChange(undefined)}>不关联</button>}{currentOptions.map(item=><button type="button" role="option" aria-selected={item.id===value} className={item.id===value?"selected":""} key={`${item.kind}:${item.id}:${item.revision}`} onClick={()=>{setChosen({scope,option:item});onChange(item);}}><span><b>{item.title}</b>{item.subtitle&&<small>{item.subtitle}</small>}</span><em>v{item.revision}</em></button>)}</div>{loadedScope===scope&&cursor&&<button type="button" className="secondary" disabled={loading} onClick={()=>void more()}>加载更多</button>}{kind==="meal"&&query.trim()&&<small>在已加载餐次中筛选；可加载更早餐次继续查找。</small>}{selected&&<span className="reference-chip">{kindLabel(selected.kind)} · {selected.title} · v{selected.revision}</span>}{!loading&&!error&&!currentOptions.length&&<small>当前没有匹配的{kindLabel(kind)}。</small>}{error&&<small className="inline-error">{error}</small>}</div>;
 }
 
 export async function loadObjectOptions(kind:ObjectKind,headers:HeadersInit,query="",cursor?:string):Promise<ObjectPage> {
@@ -42,7 +42,7 @@ export async function loadObjectOptions(kind:ObjectKind,headers:HeadersInit,quer
   const source=generic[kind];
   let route:string;
   if(source){const params=new URLSearchParams({limit:"50"});if(query.trim())params.set("q",query.trim());if(cursor)params.set("cursor",cursor);route=`${source.route}?${params}`;}
-  else {const q=query.trim()?`&q=${encodeURIComponent(query.trim())}`:"",routes:Partial<Record<ObjectKind,string>>={recurring_plan:`/api/money/planning?period=${new Intl.DateTimeFormat("en-CA",{year:"numeric",month:"2-digit"}).format(new Date())}`,owned_item:`/api/life/owned-items?limit=100${q}`,purchase_item:`/api/life/purchase-items?limit=100${q}`,meal:"/api/meals?limit=100",recipe:`/api/life/foods?limit=100${q}`};route=routes[kind]??"/api/meals?limit=100";}
+  else {const q=query.trim()?`&q=${encodeURIComponent(query.trim())}`:"",routes:Partial<Record<ObjectKind,string>>={recurring_plan:`/api/money/planning?period=${new Intl.DateTimeFormat("en-CA",{year:"numeric",month:"2-digit"}).format(new Date())}`,owned_item:`/api/life/owned-items?limit=100${q}`,purchase_item:`/api/life/purchase-items?limit=100${q}`,meal:`/api/meals?limit=50${cursor?`&cursor=${encodeURIComponent(cursor)}`:""}`,recipe:`/api/life/foods?limit=100${q}`};route=routes[kind]??"/api/meals?limit=100";}
   const response=await fetch(route,{headers});
   if(!response.ok)throw new Error(`读取${kindLabel(kind)}失败（HTTP ${response.status}）`);
   const body=await response.json() as Record<string,unknown>;
@@ -50,12 +50,12 @@ export async function loadObjectOptions(kind:ObjectKind,headers:HeadersInit,quer
   if(source)candidates=candidates.filter(value=>{const row=object(value),actual=text(row.kind);return kind==="health_plan"?["habit_plan","goal","workout_plan"].includes(actual):actual===source.recordKind;});
   if(!source&&kind!=="recipe"&&query.trim()){const needle=query.trim().toLocaleLowerCase();candidates=candidates.filter(value=>JSON.stringify(value).toLocaleLowerCase().includes(needle));}
   const items=candidates.map(object).filter(row=>accept(kind,row)).flatMap(row=>{
-    const id=text(row.id??row.meal_id),revision=Number(row.revision??row.current_revision??row.currentRevision),title=text(row.title??row.name??row.counterparty??row.raw_name??row.metric_label??row.metric_key??row.kind);
+    const id=text(row.id??row.meal_id),revision=Number(row.revision??row.current_revision??row.currentRevision),title=text((kind==="meal"?array(row.items).map(item=>text(object(item).name)).join("、")||row.meal_type:undefined)??row.title??row.name??row.counterparty??row.raw_name??row.metric_label??row.metric_key??row.kind);
     if(!id||!Number.isInteger(revision)||revision<1)return[];
     const dates=[row.starts_on,row.ends_on,row.occurred_on,row.due_on].filter(item=>typeof item==="string").join(" 至 "),subtitle=[dates,text(row.state)].filter(Boolean).join(" · ");
     return[{kind,id,revision,title:title||kindLabel(kind),...(subtitle?{subtitle}:{})}];
   });
-  return{items,nextCursor:source&&typeof body.next_cursor==="string"?body.next_cursor:null};
+  return{items,nextCursor:(source||kind==="meal")&&typeof body.next_cursor==="string"?body.next_cursor:null};
 }
 
 function accept(kind:ObjectKind,row:Record<string,unknown>):boolean {
