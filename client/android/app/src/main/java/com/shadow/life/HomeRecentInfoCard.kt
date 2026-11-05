@@ -23,7 +23,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalLayoutApi::class)
-@Composable internal fun HomeRecentInfoCard(accountId:String,onDetail:(LifeDomain,String,String)->Unit,onRecords:()->Unit,onOrders:()->Unit,onSettings:()->Unit){
+@Composable internal fun HomeRecentInfoCard(accountId:String,onDetail:(LifeDomain,String,String)->Unit,onRecords:()->Unit,onOrders:()->Unit,onSettings:()->Unit,inboxState:LoadState<InboxSnapshot> = LoadState.Loading,onInbox:()->Unit = onRecords,onRefreshInbox:()->Unit = {}){
   val context=LocalContext.current
   val app=context.applicationContext as ShadowApp
   val model:HomeRecentInfoModel=viewModel(key="home-recent:$accountId"){HomeRecentInfoModel(app,accountId)}
@@ -37,6 +37,7 @@ import java.time.format.DateTimeFormatter
   }
   val local by localFlow.collectAsStateWithLifecycle(initialValue=emptyList())
   var expanded by rememberSaveable(accountId){mutableStateOf(false)}
+  var messages by rememberSaveable(accountId){mutableStateOf(false)}
   val resolved=model.resolved
   val remote=model.remote
   val loading=model.loading
@@ -49,7 +50,29 @@ import java.time.format.DateTimeFormatter
   val localRows=local.mapNotNull{item->if(item.state=="committed"&&resolved.containsKey(item.key))resolved[item.key] else HomeRecentInfo(item.key,item.at,item.title,recentCaptureState(item.state),preview=item.preview,localState=item.state)}
   val rows=mergeHomeRecentInfo(localRows,remote)
   LifeCard{
-    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("最近信息",style=MaterialTheme.typography.titleMedium);TextButton(onClick={model.refresh(local,manual=true)},enabled=!loading){Text(if(loading)"更新中" else "刷新")}}
+    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("最近记录／消息",style=MaterialTheme.typography.titleMedium);TextButton(onClick={if(messages)onRefreshInbox() else model.refresh(local,manual=true)},enabled=messages||!loading){Text(if(!messages&&loading)"更新中" else "刷新")}}
+    Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+      FilterChip(!messages,{messages=false},label={Text("记录")})
+      val unread=(inboxState as? LoadState.Ready)?.value?.items?.count{it.readState=="unread"}?:0
+      FilterChip(messages,{messages=true},label={Text(if(unread>0)"消息 · $unread 条未读" else "消息")})
+    }
+    if(messages){
+      when(inboxState){
+        is LoadState.Ready->{
+          val notifications=inboxState.value.items.sortedBy{it.readState!="unread"}
+          if(notifications.isEmpty())Text("暂无消息",style=MaterialTheme.typography.bodySmall)
+          notifications.take(2).forEach{notification->Column(Modifier.fillMaxWidth().clickable(onClick=onInbox).padding(vertical=6.dp),verticalArrangement=Arrangement.spacedBy(3.dp)){
+            Text(notification.title,maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodyMedium)
+            Text(notification.body,maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+          }}
+          inboxState.refreshError?.let{Text("消息暂未更新，可刷新重试",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.error)}
+        }
+        is LoadState.Failed->Text("消息暂不可读取，可刷新重试",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.error)
+        is LoadState.Empty->Text(inboxState.reason,style=MaterialTheme.typography.bodySmall)
+        LoadState.Loading->Text("正在读取消息…",style=MaterialTheme.typography.bodySmall)
+      }
+      TextButton(onClick=onInbox){Text("全部消息")}
+    }else{
     if(rows.isEmpty())Text(if(loading)"正在读取最近信息…" else "暂无最近信息，摇一摇收录后可在这里查看。",style=MaterialTheme.typography.bodySmall)
     rows.take(if(expanded)5 else 2).forEach{row->key(row.key){
       Column(Modifier.fillMaxWidth().clickable{if(row.domain!=null&&row.targetId!=null)onDetail(row.domain,row.targetId,row.title) else preview=row}.padding(vertical=6.dp),verticalArrangement=Arrangement.spacedBy(3.dp)){
@@ -62,6 +85,7 @@ import java.time.format.DateTimeFormatter
       TextButton(onClick=onOrders){Text("采集结果")}
       if(rows.size>2)TextButton(onClick={expanded=!expanded}){Text(if(expanded)"收起" else "展开 ${rows.size} 条")}
       TextButton(onClick=onRecords){Text("全部记录")}
+    }
     }
   }
 

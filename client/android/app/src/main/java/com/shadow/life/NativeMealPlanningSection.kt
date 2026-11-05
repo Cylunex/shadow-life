@@ -19,7 +19,7 @@ private fun plusDays(value:String,days:Long)=LocalDate.parse(value).plusDays(day
 @Composable internal fun NativeMealPlanningSection(
   overview:WorkspaceOverview.Meals,actionState:SubmitState,
   onSave:(NativeMealPlanDraft)->Unit,onBuild:(MealPlanningResultDtoMealPlansEntry,String)->Unit,
-  onUpdate:(MealPlanningResultDtoShoppingListsEntryItemsEntry,String)->Unit,onSetStock:(MealPlanningResultDtoStockLotsEntry?,String,String,String,String?)->Unit,onSaveRecipe:(String,String,String,String,String)->Unit,onReset:()->Unit,initialSection:String="planning",accountId:String
+  onUpdate:(MealPlanningResultDtoShoppingListsEntryItemsEntry,String)->Unit,onSetStock:(MealPlanningResultDtoStockLotsEntry?,String,String,String,String?)->Unit,onSaveRecipe:(String,String,String,String,String)->Unit,onReset:()->Unit,initialSection:String="planning",accountId:String,controlledSection:String?=null,onSectionChange:((String)->Unit)?=null
 ){
   val today=LocalDate.now().toString()
   var editing by rememberJsonState(MealPlanningResultDtoMealPlansEntry.serializer())
@@ -49,10 +49,12 @@ private fun plusDays(value:String,days:Long)=LocalDate.parse(value).plusDays(day
     entryDate=startsOn;entries.clear()
     plan?.entries?.forEach{item->entries+=NativeMealPlanEntryDraft(plusDays(item.planDate,if(copy)7 else 0),item.mealType.wireValue,item.title,item.servings,item.recipeId,item.recipeRevision)}
   }
-  var section by rememberSaveable(initialSection){mutableStateOf(initialSection.takeIf{it in setOf("stock","recipes","shopping")}?:"planning")}
+  var savedSection by rememberSaveable(initialSection){mutableStateOf(initialSection.takeIf{it in setOf("stock","recipes","shopping")}?:"planning")}
+  val section=controlledSection?:savedSection
   Column(verticalArrangement=Arrangement.spacedBy(14.dp)){
     when(actionState){is SubmitState.Sending->LinearProgressIndicator(Modifier.fillMaxWidth());is SubmitState.Rejected->Text(actionState.message,color=MaterialTheme.colorScheme.error);is SubmitState.Saved->Text(if(actionState.receipt.queued)"已保存，正在同步" else "已保存",color=MaterialTheme.colorScheme.primary);else->Unit}
-    LifeTabs(section,{section=it},listOf("planning" to "餐单","shopping" to "购物清单","stock" to "食材库存","recipes" to "食谱"))
+    if(controlledSection==null)LifeTabs(section,{savedSection=it},listOf("planning" to "餐单","shopping" to "购物清单","stock" to "食材库存","recipes" to "食谱"))
+    else if(section in setOf("planning","recipes"))LifeTabs(section,{onSectionChange?.invoke(it)},listOf("planning" to "餐单","recipes" to "食谱"))
     if(section=="planning"){
     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("餐单与购物清单",style=MaterialTheme.typography.titleLarge);TextButton(onClick={if(showEditor){showEditor=false}else open(null)}){Text(if(showEditor)"收起编辑" else "新建餐单")}}
 

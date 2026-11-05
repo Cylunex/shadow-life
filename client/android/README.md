@@ -8,8 +8,12 @@ The Android build is split into the five planned Gradle groups: `app`, `core:mod
 storage lives in data; reusable Compose tokens/components live in designsystem; deterministic device protocol
 and sync-round logic live in devices. App owns navigation, feature UI, dependency assembly and workers.
 
-The root navigation is Life / Records / Plans / Library. The centered Life action opens one composer while
-preserving the selected root and its back stack. Manual forms for expense, meal, health, visit and library
+The Life home shows common services, recent records/messages, and the configurable card feed in that order.
+The top-left module picker switches Life, Health, Meals, Money, Travel, Items and Library. Each module keeps its
+own navigation and saved page state; the service center searches both functions and records and opens specific
+sections directly. Contextual quick capture preserves the current module. See the
+[module navigation delivery](../../docs/execution/life-module-navigation-2026-11-05.md).
+Manual forms for expense, meal, health, visit and library
 capture remain available without an Agent. The same composer can start and continue a native Agent conversation;
 only Executor-authenticated operation events are presented as committed results. Records use the paginated
 server-side `life.search` capability, and detail pages render explicit domain sections instead of recursive JSON.

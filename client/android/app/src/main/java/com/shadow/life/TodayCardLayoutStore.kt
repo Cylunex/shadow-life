@@ -27,8 +27,8 @@ enum class TodayCardKind(val key:String,val title:String,val description:String)
 
 // Saved layouts keep stable keys and order; new cards are introduced once by the store.
 val defaultTodayCards=listOf(
-  TodayCardKind.Focus,TodayCardKind.Health,TodayCardKind.Meals,TodayCardKind.Money,TodayCardKind.RecentInfo,
-  TodayCardKind.Scale,TodayCardKind.Training,TodayCardKind.QuickCapture,TodayCardKind.Travel,
+  TodayCardKind.Scale,TodayCardKind.Body,TodayCardKind.Health,TodayCardKind.Meals,TodayCardKind.Money,
+  TodayCardKind.Training,TodayCardKind.QuickCapture,TodayCardKind.Travel,
   TodayCardKind.Plans,TodayCardKind.Items,TodayCardKind.Library,TodayCardKind.CaptureOverview
 )
 
@@ -50,10 +50,11 @@ class TodayCardLayoutStore(context:Context,private val accountId:String){
     var cards=decodeTodayCards(preferences.getString(storageKey,null))
     if(!preferences.getBoolean("training-introduced:$accountId",false))cards=introduceTrainingCard(cards)
     if(!preferences.getBoolean("capture-cards-introduced:$accountId",false))cards=introduceCaptureCards(cards)
+    cards=homeFeedCards(cards)
     save(cards)
     return cards
   }
-  fun save(cards:List<TodayCardKind>){preferences.edit().putString(storageKey,cards.distinct().joinToString(","){it.key}).putBoolean("training-introduced:$accountId",true).putBoolean("capture-cards-introduced:$accountId",true).apply()}
+  fun save(cards:List<TodayCardKind>){preferences.edit().putString(storageKey,homeFeedCards(cards).joinToString(","){it.key}).putBoolean("training-introduced:$accountId",true).putBoolean("capture-cards-introduced:$accountId",true).apply()}
   fun compact():Set<TodayCardKind> = preferences.getStringSet("compact:$accountId",emptySet()).orEmpty().mapNotNull{key->TodayCardKind.entries.firstOrNull{it.key==key}}.filter{it in compactTodayKinds}.toSet()
   fun saveCompact(value:Set<TodayCardKind>){preferences.edit().putStringSet("compact:$accountId",value.filter{it in compactTodayKinds}.map{it.key}.toSet()).apply()}
   fun reset():List<TodayCardKind> = defaultTodayCards.also(::save)
@@ -71,3 +72,6 @@ internal fun introduceCaptureCards(cards:List<TodayCardKind>):List<TodayCardKind
   if(TodayCardKind.CaptureOverview !in result)result.add(TodayCardKind.CaptureOverview)
   return result
 }
+
+// Recent records/messages now have a fixed place above the configurable feed.
+internal fun homeFeedCards(cards:List<TodayCardKind>)=cards.filterNot{it==TodayCardKind.RecentInfo}.distinct()

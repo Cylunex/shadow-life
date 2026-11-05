@@ -70,16 +70,18 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
   val visibilityStore=remember(accountId){HealthMetricVisibilityStore(context,accountId)}
   var hiddenMetrics by remember(accountId){mutableStateOf(visibilityStore.hidden())}
   fun toggleMetric(key:String){hiddenMetrics=if(key in hiddenMetrics)hiddenMetrics-key else hiddenMetrics+key;visibilityStore.save(hiddenMetrics)}
-  val scrollStates=remember{mutableMapOf<String,androidx.compose.foundation.lazy.LazyListState>()}
-  val workspaceScroll=scrollStates.getOrPut(tab){androidx.compose.foundation.lazy.LazyListState()}
+  val workspaceScroll=rememberModuleListState(tab)
   val overview=(overviewState as? LoadState.Ready)?.value as? WorkspaceOverview.Health
-  Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(
-    title={Column{Text("健康");Text(healthSourceLine(overview),style=MaterialTheme.typography.labelMedium,color=healthSourceColor(overview))}},
-    navigationIcon={LifeBackButton(onBack)},
-    actions={IconButton(onClick=onSettings){Icon(Icons.Default.Settings,"健康数据与设备设置")}}
-  )}){padding->
+  Scaffold(containerColor=MaterialTheme.colorScheme.background,
+    topBar={LifeModuleTopBar(LifeModule.Health,onBack,healthSourceLine(overview))},
+    bottomBar={LifeModuleBottomBar(if(tab=="training")"activity" else tab,healthModuleTabs){tab=it}}
+  ){padding->
     LazyColumn(Modifier.fillMaxSize().padding(padding),state=workspaceScroll,contentPadding=PaddingValues(horizontal=20.dp,vertical=10.dp),verticalArrangement=Arrangement.spacedBy(18.dp)){
-      item{Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){healthTabs.forEach{(key,label)->FilterChip(selected=tab==key,onClick={tab=key},label={Text(label)})};FilterChip(selected=false,onClick=onMeals,label={Text("饮食")})}}
+      if(tab in setOf("overview","activity","training","release"))item{Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+        FilterChip(tab=="training",{tab="training"},label={Text("训练")})
+        FilterChip(tab=="release",{tab="release"},label={Text("起飞记录")})
+        TextButton(onClick=onMeals){Text("饮食与营养")}
+      }}
       item{StateContent(overviewState,onRetry){} }
       if(tab=="training")item{trainingContent()}
       if(tab=="release")item{ReleaseHistoryWorkspace(releaseState,onReleaseLoad,onDetail)}
@@ -183,7 +185,7 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun MealsWorkspaceScreen(overviewState:LoadState<WorkspaceOverview>,recordsState:LoadState<RecordPage>,assetPreviews:Map<String,LoadState<ByteArray>>,onLoadAsset:(String)->Unit,onRetry:()->Unit,onLoadMore:()->Unit,onBack:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onMealCapture:(String,String)->Unit,onAddPhoto:(RecordSummary)->Unit,photoState:SubmitState,onStats:()->Unit,mealPlanningState:SubmitState,onSaveMealPlan:(NativeMealPlanDraft)->Unit,onBuildShopping:(MealPlanningResultDtoMealPlansEntry,String)->Unit,onUpdateShopping:(MealPlanningResultDtoShoppingListsEntryItemsEntry,String)->Unit,onSetFoodStock:(MealPlanningResultDtoStockLotsEntry?,String,String,String,String?)->Unit,onSaveRecipe:(String,String,String,String,String)->Unit,onResetMealPlanning:()->Unit,initialTab:String="records",accountId:String,onCopyMeal:(RecordSummary,String)->Unit){
-  var mealTab by rememberSaveable(initialTab){mutableStateOf(if(initialTab in setOf("planning","shopping","stock","recipes"))"planning" else "records")}
+  var mealTab by rememberSaveable(initialTab){mutableStateOf(initialTab.takeIf{it in setOf("planning","shopping","stock","recipes")}?:"records")}
   val context=LocalContext.current
   val repository=remember(accountId){NativeLifeRepository(context,context.applicationContext as ShadowApp)}
   var dayState by remember(accountId){mutableStateOf<LoadState<RecordPage>>(LoadState.Loading)}
@@ -202,8 +204,9 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
     catch(error:Exception){dayState=LoadState.Failed(error.message?:"当天餐次暂时无法读取")}
   }
   val dayRecords=(dayState as? LoadState.Ready)?.value?.items.orEmpty()
-  Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Column{Text("饮食");Text("餐次、餐照与真实营养汇总",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}},navigationIcon={LifeBackButton(onBack)},actions={TextButton(onClick=onStats){Text("订单与消费统计")};FilledTonalIconButton(onClick={onMealCapture(selectedDate,"other")}){Icon(Icons.Default.Add,"记一餐")}})}){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(horizontal=20.dp,vertical=10.dp),verticalArrangement=Arrangement.spacedBy(18.dp)){
-    item{LifeTabs(mealTab,{mealTab=it},listOf("records" to "饮食记录","planning" to "食谱与食材"))}
+  val mealScroll=rememberModuleListState(mealTab)
+  Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={LifeModuleTopBar(LifeModule.Meals,onBack,onCreate={onMealCapture(selectedDate,"other")})},bottomBar={LifeModuleBottomBar(if(mealTab=="recipes")"planning" else mealTab,mealModuleTabs){mealTab=it}}){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),state=mealScroll,contentPadding=PaddingValues(horizontal=20.dp,vertical=10.dp),verticalArrangement=Arrangement.spacedBy(18.dp)){
+    if(mealTab=="records")item{TextButton(onClick=onStats){Text("订单与消费统计")}}
     if(mealTab=="records"){
     item{LifeDateField(selectedDate,{selectedDate=it},"查看日期")}
     item{DateNavigator(selectedDate,{selectedDate=it},dates.distinct().sorted())}
@@ -232,8 +235,8 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
       }
     }
     val planning=(overviewState as? LoadState.Ready)?.value as? WorkspaceOverview.Meals
-    if(mealTab=="planning")item{StateContent(overviewState,onRetry){}}
-    if(planning!=null&&mealTab=="planning")item{NativeMealPlanningSection(planning,mealPlanningState,onSaveMealPlan,onBuildShopping,onUpdateShopping,onSetFoodStock,onSaveRecipe,onResetMealPlanning,initialTab,accountId)}
+    if(mealTab!="records")item{StateContent(overviewState,onRetry){}}
+    if(planning!=null&&mealTab!="records")item{NativeMealPlanningSection(planning,mealPlanningState,onSaveMealPlan,onBuildShopping,onUpdateShopping,onSetFoodStock,onSaveRecipe,onResetMealPlanning,initialTab,accountId,controlledSection=mealTab,onSectionChange={mealTab=it})}
     if(mealTab=="records"){
     item{LifeSection("查找饮食记录"){OutlinedTextField(query,{query=it},Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("搜索食物、餐次或备注")},leadingIcon={Icon(Icons.Default.Search,null)});if(query.isNotBlank())Text("匹配 ${records.size} 条",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}};item{Text("最近记录",style=MaterialTheme.typography.titleLarge)}
     if(recordsState is LoadState.Ready){items(records.size){index->val record=records[index];MealHistoryRow(record,assetPreviews,onLoadAsset,{onAddPhoto(record)}){onDetail(LifeDomain.Meals,record.detailId?:record.id,record.title)}};if(records.isEmpty()&&query.isNotBlank())item{EmptyState("已加载记录中没有匹配内容")};if(recordsState.value.nextCursor!=null)item{TextButton(onClick=onLoadMore,Modifier.fillMaxWidth()){Text("加载更早记录")}}};item{Spacer(Modifier.height(12.dp))}

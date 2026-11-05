@@ -25,6 +25,7 @@ fun configuredProperty(name:String,fallback:String):String {
   return aliases.firstNotNullOfOrNull{externalMapProperties.getProperty(it)?.takeIf(String::isNotBlank)}?:fallback
 }
 android { namespace="com.shadow.life"; compileSdk=36
+  testOptions { unitTests.isIncludeAndroidResources = true }
   defaultConfig {
     applicationId="com.shadow.life"; minSdk=29; targetSdk=36; versionCode=61; versionName="2.1.39"
     fun configured(name:String,fallback:String)=configuredProperty(name,fallback)
@@ -62,4 +63,7 @@ dependencies {
   implementation(libs.amap.maps)
   if(samsungHealthAar!=null){implementation(files(samsungHealthAar));implementation(libs.gson)}
   testImplementation(libs.junit)
+  testImplementation("androidx.compose.ui:ui-test-junit4")
+  testImplementation("org.robolectric:robolectric:4.17")
+  debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

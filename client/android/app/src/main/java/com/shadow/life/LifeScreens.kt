@@ -34,6 +34,11 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun RootPage(title:String,onProjects:()->Unit,onSettings:()->Unit,onSearch:(()->Unit)?=null,content:@Composable (PaddingValues)->Unit){
+  if(LocalLifeModuleNavigation.current!=null){
+    val module=if(title=="资料")LifeModule.Library else LifeModule.Life
+    Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={LifeModuleTopBar(module,subtitle=title.takeUnless{it==module.label})},content=content)
+    return
+  }
   var menu by remember{mutableStateOf(false)}
   Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text(title,style=MaterialTheme.typography.headlineLarge)},colors=TopAppBarDefaults.topAppBarColors(containerColor=MaterialTheme.colorScheme.background),actions={
     LocalLifeAssistant.current?.let{assistant->IconButton(onClick=assistant){Icon(Icons.Default.Face,"Life 助手")}}
@@ -398,6 +403,8 @@ private data class FeatureEntry(val group:String,val title:String,val subtitle:S
     FeatureEntry("饮食","食材库存","查看临期、库存和批次","冰箱 库存 临期",FeatureAction.Workspace(LifeDomain.Meals,"stock")),
     FeatureEntry("饮食","食谱","查看和导入食谱","菜谱 食谱 做饭",FeatureAction.Workspace(LifeDomain.Meals,"recipes")),
     FeatureEntry("消费","消费与账单","所有入口的消费明细、付款、餐次与凭证","摇一摇 邮件 Agent 手动 支付 购物 消费 关联 原件",FeatureAction.Workspace(LifeDomain.Money,"details")),
+    FeatureEntry("消费","消费统计","按原币种查看消费分布与趋势","支出 花了多少 图表 统计",FeatureAction.Workspace(LifeDomain.Money,"stats")),
+    FeatureEntry("消费","月度预算","查看预算用量与剩余额度","预算 限额 剩余",FeatureAction.Workspace(LifeDomain.Money,"budgets")),
     FeatureEntry("消费","次卡余额与使用","查看理发卡、洗车卡和课时","理发卡 课时 剩余几次",FeatureAction.Workspace(LifeDomain.Money,"cards")),
     FeatureEntry("消费","账单待处理","查看导入候选并打开关联账目","账单 导入 核对 邮件 App",FeatureAction.Workspace(LifeDomain.Money,"reconcile")),
     FeatureEntry("消费","订阅与周期事项","本期账单及到期事项","续费 扣费 订阅",FeatureAction.Workspace(LifeDomain.Money,"recurring")),
@@ -433,9 +440,9 @@ private data class FeatureEntry(val group:String,val title:String,val subtitle:S
     if(HealthConnectSync.enabled())add(FeatureEntry("健康","Health Connect 同步","读取系统健康聚合来源","谷歌 health connect",FeatureAction.HealthConnect))
   }}
   val shown=entries.sortedByDescending{query.isNotBlank()&&it.title.contains(query.trim(),ignoreCase=true)}.filter{query.isBlank()||listOf(it.group,it.title,it.subtitle,it.keywords).any{value->value.contains(query.trim(),ignoreCase=true)}}
-  Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text("全部功能")},navigationIcon={LifeBackButton(onBack)})}){padding->
+  Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text("服务中心")},navigationIcon={LifeBackButton(onBack)})}){padding->
     LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
-      item{OutlinedTextField(query,{query=it},Modifier.fillMaxWidth(),singleLine=true,label={Text("搜索功能")},leadingIcon={Icon(Icons.Default.Search,null)});Text("常用动作也会出现在对应工作区和对象详情中。",Modifier.padding(top=8.dp),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+      item{OutlinedTextField(query,{query=it},Modifier.fillMaxWidth(),singleLine=true,label={Text("搜索功能")},leadingIcon={Icon(Icons.Default.Search,null)});Text("按生活领域找功能，也可以直接搜索记录。",Modifier.padding(top=8.dp),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
       if(query.isNotBlank()){
         item{Text("相关记录",style=MaterialTheme.typography.titleLarge);StateContent(matches?:LoadState.Loading,{onFindRecords(query.trim())}){}}
         val found=(matches as? LoadState.Ready)?.value
@@ -446,7 +453,18 @@ private data class FeatureEntry(val group:String,val title:String,val subtitle:S
       }
       if(query.isNotBlank())item{TextButton(onClick={onFindRecords(query.trim())},modifier=Modifier.fillMaxWidth()){Text("查找与“$query”相关的生活记录")}}
       if(shown.isEmpty())item{EmptyState("没有匹配的功能，可查看相关记录或清空搜索")}
-      shown.groupBy{it.group}.forEach{(group,groupEntries)->item("group:$group"){Text(group,Modifier.padding(top=12.dp),style=MaterialTheme.typography.titleLarge)};items(groupEntries,key={"feature:${it.title}"}){entry->LifeCard(onClick={when(val action=entry.action){is FeatureAction.Capture->onCapture(action.kind);is FeatureAction.Workspace->onWorkspace(action.domain,action.tab);is FeatureAction.Destination->onDestination(action.route);FeatureAction.Plans->onPlans();FeatureAction.HealthConnect->onHealthSync();FeatureAction.Samsung->onSamsungSync();FeatureAction.Scale->onScale()}}){Text(entry.title,style=MaterialTheme.typography.titleMedium);Text(entry.subtitle,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
+      shown.groupBy{it.group}.forEach{(group,groupEntries)->
+        item("group:$group"){Text(if(group=="旅行")"出行" else group,Modifier.padding(top=12.dp),style=MaterialTheme.typography.titleLarge)}
+        groupEntries.chunked(if(query.isBlank())2 else 1).forEachIndexed{index,row->item("features:$group:$index"){
+          Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){
+            row.forEach{entry->LifeCard(Modifier.weight(1f),onClick={when(val action=entry.action){is FeatureAction.Capture->onCapture(action.kind);is FeatureAction.Workspace->onWorkspace(action.domain,action.tab);is FeatureAction.Destination->onDestination(action.route);FeatureAction.Plans->onPlans();FeatureAction.HealthConnect->onHealthSync();FeatureAction.Samsung->onSamsungSync();FeatureAction.Scale->onScale()}}){
+              Text(entry.title,style=MaterialTheme.typography.titleSmall)
+              if(query.isNotBlank())Text(entry.subtitle,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            }}
+            if(query.isBlank()&&row.size==1)Spacer(Modifier.weight(1f))
+          }
+        }}
+      }
     }
   }
 }

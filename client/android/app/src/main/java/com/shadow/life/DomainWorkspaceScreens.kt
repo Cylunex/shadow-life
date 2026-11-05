@@ -50,24 +50,23 @@ import kotlin.math.abs
   importMonth:LoadState<MoneyImportMonthSummary>,importReview:LoadState<MoneyImportReviewSummary>?,importSubmit:SubmitState,onLoadImportMonth:(String)->Unit,onOpenImportBatch:(String)->Unit,onResolveImport:(MoneyImportCandidateSummary,String,String,String,String,String,String)->Unit,
   planningPeriod:String,onPlanningPeriod:(String)->Unit,focusId:String="",onCapturedOrders:()->Unit={}
 ){
-  var tab by rememberSaveable(initialTab){mutableStateOf(initialTab.takeIf{it in setOf("overview","details","budgets","recurring","intents","supplies","cards","reconcile")}?:"overview")};var query by rememberSaveable{mutableStateOf("")}
-  val scrollStates=remember{mutableMapOf<String,androidx.compose.foundation.lazy.LazyListState>()}
-  val workspaceScroll=scrollStates.getOrPut(tab){androidx.compose.foundation.lazy.LazyListState()}
+  var tab by rememberSaveable(initialTab){mutableStateOf(initialTab.takeIf{it in setOf("overview","details","stats","budgets","recurring","intents","supplies","cards","reconcile")}?:"overview")};var query by rememberSaveable{mutableStateOf("")}
+  val workspaceScroll=rememberModuleListState(tab)
   LaunchedEffect(tab){if(tab=="cards")onLoadCards("")}
   LaunchedEffect(tab){if(tab=="reconcile")onLoadImportMonth(LocalDate.now().toString().take(7))}
   val overview=(overviewState as? LoadState.Ready)?.value as? WorkspaceOverview.Money
   val records=(recordsState as? LoadState.Ready)?.value?.items.orEmpty()
-  var showAnalysis by rememberSaveable{mutableStateOf(false)}
   var selectedCurrency by rememberSaveable{mutableStateOf<String?>(null)}
   val periodRecords=records.filter{it.recordState!="voided"&&it.subtype in setOf("expense","income","refund")&&it.supporting?.startsWith(overview?.period?:LocalDate.now().toString().take(7))==true}
   val currencies=periodRecords.mapNotNull(::recordCurrency).distinct().sorted()
   val currency=selectedCurrency?.takeIf{it in currencies}?:currencies.firstOrNull()
   val currencyRecords=periodRecords.filter{recordCurrency(it)==currency}
-  Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(
-    title={Column{Text("消费与账单");Text(overview?.period?.let{"$it · 收支与预算"}?:"正在读取账目",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}},
-    navigationIcon={LifeBackButton(onBack)},actions={FilledTonalIconButton(onClick={onCapture(CaptureKind.Expense)}){Icon(Icons.Default.Add,"记一笔")}}
-  )}){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),state=workspaceScroll,contentPadding=PaddingValues(20.dp,10.dp,20.dp,28.dp),verticalArrangement=Arrangement.spacedBy(18.dp)){
-    item{WorkspaceTabs(tab,{tab=it},listOf("overview" to "概览","details" to "消费明细","reconcile" to "账单待处理","budgets" to "预算","recurring" to "订阅","intents" to "想买","supplies" to "消耗品","cards" to "次卡"))}
+  Scaffold(containerColor=MaterialTheme.colorScheme.background,
+    topBar={LifeModuleTopBar(LifeModule.Money,onBack,overview?.period)},
+    bottomBar={LifeModuleBottomBar(tab,moneyModuleTabs){tab=it}}
+  ){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),state=workspaceScroll,contentPadding=PaddingValues(20.dp,10.dp,20.dp,28.dp),verticalArrangement=Arrangement.spacedBy(18.dp)){
+    if(tab=="overview")item{WorkspaceTabs("",{tab=it},listOf("reconcile" to "账单待处理","cards" to "次卡","recurring" to "订阅","intents" to "想买","supplies" to "消耗品"))}
+    if(tab in setOf("reconcile","cards","recurring","intents","supplies"))item{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(when(tab){"reconcile"->"账单待处理";"cards"->"次卡";"recurring"->"订阅与周期事项";"intents"->"想买";else->"消耗品"},Modifier.weight(1f),style=MaterialTheme.typography.titleLarge);TextButton(onClick={tab="overview"}){Text("消费概览")}}}
     if(tab in setOf("budgets","recurring","intents","supplies"))item{
       val month=java.time.YearMonth.parse(planningPeriod)
       Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
@@ -85,6 +84,13 @@ import kotlin.math.abs
     if(focusId.isNotBlank()&&overview!=null)item{Text("提醒关联事项",style=MaterialTheme.typography.titleMedium);if((tab=="recurring"&&overview.occurrenceDetails.none{it.id==focusId})||(tab=="supplies"&&overview.useCycleDetails.none{it.id==focusId}))Text("该事项当前未加载或已不可用，请返回查看其他事项。")}
     if(tab=="details"){item{MoneySearch(query,{query=it},{onSearch(query)},onCapture)};if(recordsState is LoadState.Ready)item{MoneyRecordList(records,onDetail)};if(recordsState is LoadState.Ready&&recordsState.value.nextCursor!=null)item{LoadMoreButton("加载更多明细",onLoadMore)}}
     if(overview!=null&&tab !in setOf("cards","reconcile","details"))when(tab){
+      "stats"->{
+        if(currencies.size>1)item{WorkspaceTabs(currency.orEmpty(),{selectedCurrency=it},currencies.map{it to it})}
+        item{Text("消费统计",style=MaterialTheme.typography.titleLarge);Text("按已加载的本月明细、原币种分别统计",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+        if(currencyRecords.isEmpty())item{EmptyState("当前没有可统计的本月收支明细")}
+        else{item{MoneyBars(currencyRecords,currency.orEmpty(),Modifier.fillMaxWidth().height(120.dp));Text("最近 14 个有收支的日期 · 已加载明细",style=MaterialTheme.typography.bodySmall)};item{MoneyComposition(currencyRecords,currency)}}
+        if(recordsState is LoadState.Ready&&recordsState.value.nextCursor!=null)item{LoadMoreButton("加载更多明细以补充统计",onLoadMore)}
+      }
       "budgets"->item{key(overview.period){NativeBudgetSection(overview,planningState,onSaveBudget,onResetPlanning)}}
       "recurring"->item{key(overview.period){NativeRecurringSection(if(focusId.isBlank())overview else overview.copy(occurrenceDetails=overview.occurrenceDetails.filter{it.id==focusId},recurringDetails=overview.recurringDetails.filter{plan->overview.occurrenceDetails.any{it.id==focusId&&it.planId==plan.id}}),planningState,onSaveRecurring,onOccurrence,onResetPlanning)}}
       "intents"->item{NativeSpendingIntentSection(overview,planningState,records,onSearch,onSaveIntent,onResetPlanning)}
@@ -94,10 +100,7 @@ import kotlin.math.abs
         if(recordsState is LoadState.Ready){
           item{MoneyHero(currencyRecords,overview,currency,recordsState.value.nextCursor!=null,onCapture)}
           item{RecentMoney(records,onDetail){tab="details"}}
-          if(currencyRecords.isNotEmpty()){
-            item{TextButton(onClick={showAnalysis=!showAnalysis}){Text(if(showAnalysis)"收起消费分析" else "消费分布与趋势")}}
-            if(showAnalysis){item{MoneyBars(currencyRecords,currency.orEmpty(),Modifier.fillMaxWidth().height(120.dp));Text("最近 14 个有收支的日期 · 已加载明细",style=MaterialTheme.typography.bodySmall)};item{MoneyComposition(currencyRecords,currency)}}
-          }
+
         }
         if(overview.budgets.isNotEmpty())item{BudgetPreview(overview){tab="budgets"}}
       }
@@ -205,9 +208,10 @@ private fun useCycleLine(item:MoneyUseCycleSummary)=if(item.usageState=="pending
   val dates=trip?.let{travelDates(it,days)}.orEmpty()
   val date=travelSelectedDate(dates,selectedDate.takeIf{selectedDateTripId==trip?.id},LocalDate.now(java.time.ZoneId.of(trip?.timeZone?:"UTC")).toString())
   val day=days.firstOrNull{it.date==date}
-  Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text("旅行")},navigationIcon={LifeBackButton(onBack)},actions={FilledTonalIconButton(onClick={onCapture(CaptureKind.Trip)}){Icon(Icons.Default.Add,"新建旅行")}})}){padding->
-    LazyColumn(Modifier.fillMaxSize().padding(padding),userScrollEnabled=!mapGestureActive,contentPadding=PaddingValues(20.dp,10.dp,20.dp,28.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
-      item{WorkspaceTabs(tab,{tab=it},listOf("overview" to "概览","itinerary" to "行程","map" to "地图","places" to "地点","records" to "记录"))}
+  val workspaceScroll=rememberModuleListState(tab)
+  Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={LifeModuleTopBar(LifeModule.Travel,onBack)},bottomBar={LifeModuleBottomBar(tab,travelModuleTabs){tab=it}}){padding->
+    LazyColumn(Modifier.fillMaxSize().padding(padding),state=workspaceScroll,userScrollEnabled=!mapGestureActive,contentPadding=PaddingValues(20.dp,10.dp,20.dp,28.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
+      if(tab=="overview"||tab=="records")item{TextButton(onClick={tab=if(tab=="records")"overview" else "records"}){Text(if(tab=="records")"返回旅程" else "全部出行记录")}}
       item{StateContent(overviewState,onRetry){} }
       if(value!=null){
         if(value.tripItems.isNotEmpty())item{Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){value.tripItems.forEach{candidate->FilterChip(candidate.id==trip?.id,{if(candidate.id!=trip?.id)onSelectTrip(candidate.id)},label={Text(candidate.title)})}}}

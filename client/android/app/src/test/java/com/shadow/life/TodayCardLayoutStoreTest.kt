@@ -4,6 +4,12 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class TodayCardLayoutStoreTest {
+  @Test fun fixedRecentSectionDoesNotChangeTheRemainingCardOrderOrHiddenChoices(){
+    val saved=decodeTodayCards("money,recent_info,scale,body")
+    assertEquals(listOf(TodayCardKind.Money,TodayCardKind.Scale,TodayCardKind.Body),homeFeedCards(saved))
+    assertEquals(emptyList<TodayCardKind>(),homeFeedCards(listOf(TodayCardKind.RecentInfo)))
+    assertEquals(homeFeedCards(saved),homeFeedCards(homeFeedCards(saved)))
+  }
   @Test fun missingLayoutUsesProductDefault(){
     assertEquals(defaultTodayCards,decodeTodayCards(null))
   }
