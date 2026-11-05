@@ -10220,6 +10220,33 @@
                   "type": "string",
                   "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,119}$"
                 },
+                "payment_context": {
+                  "type": "object",
+                  "properties": {
+                    "platform": {
+                      "type": "string",
+                      "enum": [
+                        "wechat",
+                        "alipay"
+                      ]
+                    },
+                    "source_account": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "trigger": {
+                      "type": "string",
+                      "const": "payment_success"
+                    }
+                  },
+                  "required": [
+                    "platform",
+                    "source_account",
+                    "trigger"
+                  ],
+                  "additionalProperties": false
+                },
                 "kind": {
                   "type": "string",
                   "enum": [
@@ -10405,6 +10432,33 @@
                     "source_id": {
                       "type": "string",
                       "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,119}$"
+                    },
+                    "payment_context": {
+                      "type": "object",
+                      "properties": {
+                        "platform": {
+                          "type": "string",
+                          "enum": [
+                            "wechat",
+                            "alipay"
+                          ]
+                        },
+                        "source_account": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "trigger": {
+                          "type": "string",
+                          "const": "payment_success"
+                        }
+                      },
+                      "required": [
+                        "platform",
+                        "source_account",
+                        "trigger"
+                      ],
+                      "additionalProperties": false
                     },
                     "kind": {
                       "type": "string",
@@ -11967,6 +12021,40 @@
             "items": {
               "type": "object",
               "properties": {
+                "payment_context": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "platform": {
+                          "type": "string",
+                          "enum": [
+                            "wechat",
+                            "alipay"
+                          ]
+                        },
+                        "source_account": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "trigger": {
+                          "type": "string",
+                          "const": "payment_success"
+                        }
+                      },
+                      "required": [
+                        "platform",
+                        "source_account",
+                        "trigger"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "id": {
                   "type": "string",
                   "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,119}$"
@@ -12226,6 +12314,40 @@
             "items": {
               "type": "object",
               "properties": {
+                "payment_context": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "platform": {
+                          "type": "string",
+                          "enum": [
+                            "wechat",
+                            "alipay"
+                          ]
+                        },
+                        "source_account": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "trigger": {
+                          "type": "string",
+                          "const": "payment_success"
+                        }
+                      },
+                      "required": [
+                        "platform",
+                        "source_account",
+                        "trigger"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "id": {
                   "type": "string",
                   "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,119}$"
@@ -17365,7 +17487,7 @@
     },
     "life.ingest_activity": {
       "name": "life.ingest_activity",
-      "description": "批量保存授权采集材料；record_expenses 表示用户主动摇一摇或补录，完整已支付证据直接记为消费并按平台账号交易去重；后台采集仍遵循自动记账规则。",
+      "description": "批量保存授权采集材料；record_expenses 表示用户主动摇一摇、补录或已开启付款后识别，完整已支付证据直接记为消费并按平台账号交易去重；后台采集仍遵循自动记账规则。",
       "possible_effects": [
         "library.item.write",
         "money.entry.write",
@@ -17394,6 +17516,33 @@
                 "source_id": {
                   "type": "string",
                   "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,119}$"
+                },
+                "payment_context": {
+                  "type": "object",
+                  "properties": {
+                    "platform": {
+                      "type": "string",
+                      "enum": [
+                        "wechat",
+                        "alipay"
+                      ]
+                    },
+                    "source_account": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "trigger": {
+                      "type": "string",
+                      "const": "payment_success"
+                    }
+                  },
+                  "required": [
+                    "platform",
+                    "source_account",
+                    "trigger"
+                  ],
+                  "additionalProperties": false
                 },
                 "kind": {
                   "type": "string",
@@ -17517,6 +17666,33 @@
                     "source_id": {
                       "type": "string",
                       "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,119}$"
+                    },
+                    "payment_context": {
+                      "type": "object",
+                      "properties": {
+                        "platform": {
+                          "type": "string",
+                          "enum": [
+                            "wechat",
+                            "alipay"
+                          ]
+                        },
+                        "source_account": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "trigger": {
+                          "type": "string",
+                          "const": "payment_success"
+                        }
+                      },
+                      "required": [
+                        "platform",
+                        "source_account",
+                        "trigger"
+                      ],
+                      "additionalProperties": false
                     },
                     "kind": {
                       "type": "string",

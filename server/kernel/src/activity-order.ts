@@ -1,5 +1,5 @@
 /** Deterministic field observations only; page text is untrusted and never executes commands. */
-export function inspectActivityOrder(text:string,platform?:string){
+export function inspectActivityOrder(text:string,platform?:string,paymentResult=false){
  const lines=text.split(/\r?\n/u).map(s=>s.trim()).filter(Boolean);
  const issues:string[]=[];
  function field(labels:string[]):string|null{
@@ -15,11 +15,11 @@ export function inspectActivityOrder(text:string,platform?:string){
  function amount(labels:string[]){const value=field(labels);if(value===null)return null;const match=/^(?:[¥￥]\s*)?(\d{1,12})(?:\.(\d{1,2}))?(?:\s*元)?$/u.exec(value);if(!match){issues.push(`${labels[0]}格式无法明确识别`);return null;}return `${BigInt(match[1]!)}.${(match[2]??"").padEnd(2,"0")}`;}
  const order_id=field(["订单号","订单编号"]),product=field(["商品名称","商品说明"]);
  let transaction_id=field(["交易单号","交易号","微信支付单号","支付宝交易号"]),merchant=field(["商家名称","商户名称","交易对方","收款方","收款方全称"]);
- let paid_amount=amount(["实付金额","实付款","实际支付"]);
+ let paid_amount=amount(["实付金额","实付款","实际支付","实际付款","支付金额","付款金额"]);
  const order_amount=amount(["订单金额","订单总额"]),refund_amount=amount(["退款金额","已退金额"]);
  const statusLines=lines.map(line=>line.replace(/^(?:当前状态|交易状态)[:：]\s*/u,""));
- const statuses=new Set(statusLines.filter(line=>["支付成功","交易成功","待付款","等待付款","已取消","交易关闭","退款成功","退款处理中"].includes(line)));
- const status=statuses.size===1?({"支付成功":"paid","交易成功":"paid","待付款":"pending","等待付款":"pending","已取消":"cancelled","交易关闭":"cancelled","退款成功":"refunded","退款处理中":"refund_pending"} as Record<string,string>)[[...statuses][0]!]!:"unknown";
+ const statuses=new Set(statusLines.filter(line=>["支付成功","付款成功","交易成功","待付款","等待付款","已取消","交易关闭","退款成功","退款处理中"].includes(line)));
+ const status=statuses.size===1?({"支付成功":"paid","付款成功":"paid","交易成功":"paid","待付款":"pending","等待付款":"pending","已取消":"cancelled","交易关闭":"cancelled","退款成功":"refunded","退款处理中":"refund_pending"} as Record<string,string>)[[...statuses][0]!]!:"unknown";
  const detail=lines.some(line=>line==="账单详情"||line==="交易详情");
  // Only a settled single transaction may use its prominent signed debit or transaction time.
  // A list, credit, refund or unsigned total is never a substitute for a paid amount.
@@ -37,8 +37,12 @@ export function inspectActivityOrder(text:string,platform?:string){
    if(paid_amount && paid_amount!==debit.amount)issues.push("实付与支出金额存在不同值");
    else if(!paid_amount && !issues.some(issue=>issue.startsWith("实付金额")))paid_amount=debit.amount;
  }
+ if(paymentResult&&status==="paid"&&!paid_amount&&["wechat","alipay"].includes(platform??"")){
+   const totals=lines.map(line=>/^[¥￥]\s*(\d{1,12})(?:\.(\d{1,2}))?(?:\s*元)?$/u.exec(line)).filter(m=>m!==null).map(m=>`${BigInt(m[1]!)}.${(m[2]??"").padEnd(2,"0")}`);
+   if(new Set(totals).size===1&&!issues.some(issue=>issue.startsWith("实付金额")))paid_amount=totals[0]!;
+ }
  const timeLabels=["付款时间","支付时间"];
- if(detail && transaction_id && status==="paid")timeLabels.push("交易时间");
+ if((detail||paymentResult) && transaction_id && status==="paid")timeLabels.push("交易时间");
  const payment_time=field(timeLabels)?.replace(/^(\d{4})年(\d{1,2})月(\d{1,2})日/u,(_,y,m,d)=>`${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`)??null,order_time=field(["下单时间","订单创建时间"]);
  if(platform==="wechat"&&detail&&transaction_id&&status==="paid"&&debit&&!merchant){const title=lines.findIndex(line=>line==="交易详情"||line==="账单详情");if(title===2&&lines[1]==="主页")merchant=lines[0]!;}
  if(statuses.size>1)issues.push("页面包含多个状态，需核对当前交易状态");
@@ -77,16 +81,20 @@ function detailDebit(text:string){
  return {amount:`${BigInt(m[3]!)}.${(m[4]??"").padEnd(2,"0")}`,currency:Boolean(m[2]||m[5])};
 }
 /** Currency on an unrelated shipping fee is insufficient evidence for the paid amount. */
-export function capturedPaymentHasCnyEvidence(text:string,platform?:string):boolean{
+export function capturedPaymentHasCnyEvidence(text:string,platform?:string,paymentResult=false):boolean{
  if(/(?:\b(?:USD|HKD|JPY|EUR|GBP|AUD|CAD|SGD|KRW)\b|美元|港元|港币|日元|欧元|英镑|韩元|新加坡元|澳元|加元|\$)/iu.test(text))return false;
  const lines=text.split(/\r?\n/u).map(v=>v.trim()).filter(Boolean);let explicit=false,paidCurrency=false;
  for(let i=0;i<lines.length;i++){
   const currency=/^(?:交易)?(?:币种|货币)\s*[:：]?\s*(.*)$/u.exec(lines[i]!);
   if(currency){const value=(currency[1]||lines[i+1]||"").trim();if(!/^(?:CNY|RMB|人民币)$/iu.test(value))return false;explicit=true;}
-  const paid=/^(?:实付金额|实付款|实际支付)(?:\s*[:：]\s*(.*)|\s*)$/u.exec(lines[i]!);
+  const paid=/^(?:实付金额|实付款|实际支付|实际付款|支付金额|付款金额)(?:\s*[:：]\s*(.*)|\s*)$/u.exec(lines[i]!);
   if(paid){const value=(paid[1]||lines[i+1]||"").trim();if(/^(?:[¥￥]\s*\d+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?\s*元)$/u.test(value))paidCurrency=true;}
  }
  if(explicit||paidCurrency)return true;
+ if(paymentResult&&["wechat","alipay"].includes(platform??"")&&!lines.some(line=>/^(?:实付金额|实付款|实际支付|实际付款|支付金额|付款金额)(?:[:：]|$)/u.test(line))){
+   const value=inspectActivityOrder(text,platform,true);
+   if(value.status==="paid"&&value.paid_amount&&lines.some(line=>/^[¥￥]\s*\d+(?:\.\d{1,2})?(?:\s*元)?$/u.test(line)))return true;
+ }
  if(platform==="alipay"&&alipayDetailDebit(text)){const value=inspectActivityOrder(text,platform);if(value.status==="paid"&&value.transaction_id&&value.paid_amount&&!value.issues.some(i=>i.includes("不同值")))return true;}
  const debit=detailDebit(text);
  if(!debit?.currency){

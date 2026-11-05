@@ -252,7 +252,7 @@ export class QueryService {
     const parsed=activityActionInputSchema.parse(input);
     const material=await this.unitOfWork.read(async store=>store.activityMaterial?.(context.subjectId,parsed.id));
     if(!material)throw notFound("Activity is unavailable");
-    return activityOrderResultSchema.parse({activity_id:material.id,...inspectActivityOrder(material.text??"",capturedPaymentPlatform(material.app_package??""))});
+    return activityOrderResultSchema.parse({activity_id:material.id,...inspectActivityOrder(material.text??"",material.paymentPlatform??capturedPaymentPlatform(material.app_package??""),material.automaticPayment===true)});
   }
   async activities(context:RequestContext,input:unknown){
     if(!context.effects.has("library.item.read"))throw permissionDenied("library.item.read");

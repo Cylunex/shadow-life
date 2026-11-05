@@ -141,3 +141,39 @@ test("backfill receipts replay, preserve original captures and reject deleted or
  assert.deepEqual((await f.pool.query("select fingerprint,text,started_at from activity_captures where id=$1",[id])).rows[0],before);
  await f.run("life.delete_activity",{id});await assert.rejects(()=>f.run("life.record_captured_expenses",{capture_ids:[id]}));assert.equal((await f.pool.query("select count(*)::int n from money_entries")).rows[0].n,1);
 });
+
+test("automatic SDK captures retain payment account provenance and deduplicate against native payment details",pgOnly,async t=>{
+ const f=await reviewFixture(t);
+ const text="支付成功\n付款金额：￥12.50\n交易单号：SDK-PAYMENT-01\n支付时间：2026-10-30 09:00:00\n商家名称：合成商店\n微信支付\n完成";
+ const input={...shake("sdk_payment",text),items:[{...shake("sdk_payment",text).items[0],app_package:"example.merchant",payment_context:{platform:"wechat",source_account:"wallet",trigger:"payment_success"}}]};
+ const first=await f.run("life.ingest_activity",input);const record=first.resources.find(r=>r.type==="consumption_record")!.id;
+ const original=(await f.pool.query("select payment_context from activity_captures where id=$1",[first.resources.find(r=>r.type==="activity_capture")!.id])).rows[0];assert.equal(original.payment_context.platform,"wechat");assert.equal(original.payment_context.source_account,"wallet");
+ await f.run("life.set_order_capture",{app_package:"com.tencent.mm",platform:"wechat",source_account:"wallet",enabled:false,auto_accounting:false});
+ const detail={...shake("native_payment",text.replace("付款金额","实付金额")),items:[{...shake("native_payment",text.replace("付款金额","实付金额")).items[0],app_package:"com.tencent.mm"}]};
+ const second=await f.run("life.ingest_activity",detail);assert.equal(second.resources.find(r=>r.type==="consumption_record")!.id,record);
+ assert.equal((await f.pool.query("select count(*)::int n from money_entries")).rows[0].n,1);
+ await assert.rejects(()=>f.run("life.ingest_activity",{...input,record_expenses:false}));
+ await assert.rejects(()=>f.run("life.ingest_activity",input,{...f.context,effects:new Set(["library.item.write"])}));
+});
+test("incomplete automatic payment pages remain materials without fabricating identity or payment time",pgOnly,async t=>{
+ const f=await reviewFixture(t);const text="支付成功\n￥12.50\n商家名称：合成商店\n完成";
+ const input={...shake("auto_missing",text),items:[{...shake("auto_missing",text).items[0],payment_context:{platform:"alipay",source_account:"default",trigger:"payment_success"}}]};
+ const receipt=await f.run("life.ingest_activity",input);assert.ok(receipt.resources.some(r=>r.type==="activity_capture"));assert.ok(!receipt.resources.some(r=>r.type==="money_entry"));
+ assert.equal((await f.pool.query("select count(*)::int n from money_entries")).rows[0].n,0);
+ const complete=text+"\n交易单号：AUTO-LATER-01\n支付时间：2026-10-30 09:00:00";
+ const booked=await f.run("life.ingest_activity",{...input,items:[{...input.items[0],source_id:"auto_complete",text:complete}]});assert.ok(booked.resources.some(r=>r.type==="money_entry"));
+});
+
+test("payment capture provenance survives export and restore without booking and is erased on deletion",pgOnly,async t=>{
+ const f=await reviewFixture(t);const text="支付成功\n付款金额：￥12.50\n交易单号：RESTORE-PAYMENT-01\n支付时间：2026-10-30 09:00:00\n完成";
+ const item={...shake("context_backup",text).items[0],payment_context:{platform:"alipay",source_account:"backup-wallet",trigger:"payment_success"}};
+ const receipt=await f.run("life.ingest_activity",{device_id:"device_auto",items:[item],record_expenses:true});
+ const id=receipt.resources.find(r=>r.type==="activity_capture")!.id;
+ const exported:any=await f.queries.captureCompletion(f.context,"life.capture_export",{from_on:"2026-10-30",to_on_exclusive:"2026-10-31",time_zone:"UTC"});
+ assert.deepEqual(exported.items[0]!.payment_context,item.payment_context);
+ const count=(await f.pool.query("select count(*)::int n from money_entries")).rows[0].n;
+ await f.run("life.restore_activities",{archive_id:"payment_backup",items:[item]});
+ assert.equal((await f.pool.query("select count(*)::int n from money_entries")).rows[0].n,count);
+ assert.deepEqual((await f.pool.query("select payment_context from activity_captures where device_id='restore_payment_backup'")).rows[0].payment_context,item.payment_context);
+ await f.run("life.delete_activity",{id});assert.equal((await f.pool.query("select payment_context from activity_captures where id=$1",[id])).rows[0].payment_context,null);
+});

@@ -44,7 +44,7 @@ internal class HomeRecentInfoModel(private val app:ShadowApp,private val account
                     if(recordId!=null){
                       val detail=repository.detail(LifeDomain.Money,recordId)
                       HomeRecentInfo(item.key,item.at,listOfNotNull(detail.title,detail.heroValue).joinToString(" · "),if(detail.state=="confirmed")"已入账 · 查看消费" else "账目状态已变化",LifeDomain.Money,recordId)
-                    }else HomeRecentInfo(item.key,item.at,source.title,"已收录材料 · 入账结果见采集结果",LifeDomain.Library,"capture:${source.id}")
+                    }else HomeRecentInfo(item.key,item.at,source.title,if(source.title.startsWith("付款自动识别"))"付款材料已收录 · 详情不全或有冲突，尚未入账" else "已收录材料 · 入账结果见采集结果",LifeDomain.Library,"capture:${source.id}")
                   }
                   else->HomeRecentInfo(item.key,item.at,"采集结果待核对","已同步 · 查看采集结果")
                 }

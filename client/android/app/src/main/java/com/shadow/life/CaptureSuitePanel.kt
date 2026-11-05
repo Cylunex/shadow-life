@@ -78,7 +78,8 @@ import java.time.LocalDate
   val hasSensor=remember { context.getSystemService(android.hardware.SensorManager::class.java).getDefaultSensor(android.hardware.Sensor.TYPE_ACCELEROMETER)!=null }
   fun selectApp(pkg:String){
    selectedApp=pkg;val rule=data?.rules?.firstOrNull{it.appPackage==pkg}
-   platform=rule?.platform?.wireValue?:billPlatforms[pkg]?:"generic";sourceAccount=rule?.sourceAccount?:"default"
+   val localAuto=runCatching{JSONObject(prefs.getString(paymentAutoKey(accountId,pkg),null)?:"{}")}.getOrNull()
+   platform=localAuto?.optString("platform")?.takeIf{it.isNotBlank()}?:rule?.platform?.wireValue?:billPlatforms[pkg]?:"generic";sourceAccount=localAuto?.optString("source_account")?.takeIf{it.isNotBlank()}?:rule?.sourceAccount?:"default"
    associate=rule?.enabled?:true;autoAccounting=rule?.autoAccounting?:false;showApps=false
   }
   if(data==null)Text("正在读取采集结果…")
@@ -114,7 +115,7 @@ import java.time.LocalDate
   TextButton(onClick={showOrderSettings=!showOrderSettings}){Text(if(showOrderSettings)"收起采集设置" else "摇一摇与自动记账设置")}
   if(showOrderSettings){
   Text("摇一摇记账",style=MaterialTheme.typography.titleMedium)
-  Text("选择支付应用，打开单笔账单详情后将手机来回摇一下。Life 只在摇动时收录账单文字；是否生成支出由下方订单规则决定。")
+  Text("选择支付应用，打开单笔账单详情后将手机来回摇一下。主动摇一摇直接提交入账；付款后自动识别可独立开启。")
   Row{billPlatforms.forEach{(pkg,value)->FilterChip(selected=selectedApp==pkg,onClick={selectApp(pkg)},label={Text(capturePlatformName(value))})}}
   Box{TextButton(onClick={showApps=true}){Text(apps.firstOrNull{it.activityInfo.packageName==selectedApp}?.loadLabel(context.packageManager)?.toString()?:"选择其他订单来源应用")};DropdownMenu(expanded=showApps,onDismissRequest={showApps=false}){apps.forEach{info->DropdownMenuItem(text={Text(info.loadLabel(context.packageManager).toString())},onClick={selectApp(info.activityInfo.packageName)})}}}
   if(selectedApp in billPlatforms){
@@ -128,12 +129,34 @@ import java.time.LocalDate
    TextButton(onClick={context.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))}){Text("启用 Life 屏幕内容服务")}
    Text("启用系统服务后，在单笔已支付账单详情摇动即可记为消费，同一交易不会重复记账。无需开启自动读取或后台自动记账。",style=MaterialTheme.typography.bodySmall)
   }
+  if(selectedApp.isNotBlank()&&platform in setOf("wechat","alipay")){
+   val automaticKey=paymentAutoKey(accountId,selectedApp)
+   var automaticEnabled by remember(automaticKey){mutableStateOf(prefs.contains(automaticKey))}
+   Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){Text("付款后自动识别",Modifier.weight(1f));Switch(checked=automaticEnabled,enabled=automaticEnabled||!busy&&sourceAccount.isNotBlank(),onCheckedChange={value->
+     if(!value){automaticEnabled=false;prefs.edit().remove(automaticKey).apply()}
+     else{
+       val binding=JSONObject().put("platform",platform).put("source_account",sourceAccount.trim())
+       val rule=JSONObject().put("app_package",selectedApp).put("platform",platform).put("source_account",sourceAccount.trim()).put("enabled",associate).put("auto_accounting",autoAccounting)
+       run{
+         // Queue the same account scope first so later shake captures use this binding too.
+         write("life.set_order_capture",rule)
+         check(app.sessions.active()?.accountId==accountId){"账号已切换"}
+         prefs.edit().putString(automaticKey,binding.toString()).apply();automaticEnabled=true
+       }
+     }
+   })}
+   Text("仅在此应用可读的支付成功页采集；信息完整后自动入消费，不需要摇动。第三方应用须选择实际付款平台，不能覆盖所有 SDK 页面。",style=MaterialTheme.typography.bodySmall)
+   if(PaymentAutoStatus.accountId==accountId)Text(PaymentAutoStatus.message,style=MaterialTheme.typography.bodySmall)
+   Text(if(LifeScreenCaptureService.active==null)"屏幕内容服务未连接，自动识别尚未运行" else "屏幕内容服务已连接")
+   TextButton(onClick={context.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))}){Text("检查屏幕内容服务")}
+   TextButton(onClick={context.startActivity(Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))}){Text("检查系统后台限制")}
+  }
   Box{TextButton(onClick={showPlatforms=true}){Text("平台：${capturePlatformName(platform)}")};DropdownMenu(expanded=showPlatforms,onDismissRequest={showPlatforms=false}){listOf("generic","taobao","jd","meituan","alipay","wechat").forEach{value->DropdownMenuItem(text={Text(capturePlatformName(value))},onClick={platform=value;showPlatforms=false})}}}
   OutlinedTextField(value=sourceAccount,onValueChange={sourceAccount=it.take(200)},label={Text("平台账号标识（与账单导入保持一致）")},modifier=Modifier.fillMaxWidth())
   Row{Text("自动关联新采集的订单");Switch(checked=associate,onCheckedChange={associate=it})}
   Row{Text("后台自动采集：证据完整时记账");Switch(checked=autoAccounting,onCheckedChange={autoAccounting=it})}
   Text("自动记账要求订单或交易身份、明确实付和付款时间、人民币证据以及写入权限；冲突和缺失只保留观察。")
-  Button(enabled=!busy&&selectedApp.isNotBlank()&&sourceAccount.isNotBlank(),onClick={run{write("life.set_order_capture",JSONObject().put("app_package",selectedApp).put("platform",platform).put("source_account",sourceAccount.trim()).put("enabled",associate).put("auto_accounting",autoAccounting))}}){Text("保存此应用的规则")}
+  Button(enabled=!busy&&selectedApp.isNotBlank()&&sourceAccount.isNotBlank(),onClick={run{write("life.set_order_capture",JSONObject().put("app_package",selectedApp).put("platform",platform).put("source_account",sourceAccount.trim()).put("enabled",associate).put("auto_accounting",autoAccounting));if(prefs.contains(paymentAutoKey(accountId,selectedApp))){prefs.edit().apply{if(platform in setOf("wechat","alipay"))putString(paymentAutoKey(accountId,selectedApp),JSONObject().put("platform",platform).put("source_account",sourceAccount.trim()).toString()) else remove(paymentAutoKey(accountId,selectedApp))}.apply()}}}){Text("保存此应用的规则")}
   }
 
  }

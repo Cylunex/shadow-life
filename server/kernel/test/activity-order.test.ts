@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {inspectActivityOrder,capturedPaymentHasCnyEvidence,mergeOrderObservations} from "../src/activity-order.js";
+test("automatic payment currency belongs to the actual paid amount and transaction time stays explicit",()=>{
+ const result="支付成功\n￥12.50\n交易单号：AUTO-PAYMENT-01\n交易时间：2026-11-05 12:00:00\n完成";
+ assert.equal(inspectActivityOrder(result,"wechat",true).payment_time,"2026-11-05 12:00:00");
+ assert.equal(capturedPaymentHasCnyEvidence(result,"wechat",true),true);
+ assert.equal(capturedPaymentHasCnyEvidence(result+"\n付款金额：100.00","wechat",true),false);
+ assert.equal(capturedPaymentHasCnyEvidence(result+"\n付款金额：12.50","wechat",true),false);
+ assert.equal(capturedPaymentHasCnyEvidence(result+"\n付款金额：￥12.50","wechat",true),true);
+ assert.equal(capturedPaymentHasCnyEvidence(result+"\n币种：JPY","wechat",true),false);
+});
 test("screen order observations distinguish order, actual payment, refunds and times",()=>{
  const value=inspectActivityOrder("订单号：000123\n订单金额：150.00\n实付金额\n￥128.00\n退款金额：20元\n下单时间：2026-10-30 12:00\n付款时间：2026-10-30 12:05\n支付成功");
  assert.equal(value.order_id,"000123");assert.equal(value.order_amount,"150.00");assert.equal(value.paid_amount,"128.00");assert.equal(value.refund_amount,"20.00");assert.equal(value.status,"paid");assert.equal(value.accounting_created,false);

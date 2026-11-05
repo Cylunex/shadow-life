@@ -2692,6 +2692,19 @@ data class CapturePolicyResultDto(
 )
 
 @Serializable
+enum class CaptureSearchResultDtoItemsEntryPaymentContextPlatform(val wireValue: String) {
+  @SerialName("wechat") Wechat("wechat"),
+  @SerialName("alipay") Alipay("alipay")
+}
+
+@Serializable
+data class CaptureSearchResultDtoItemsEntryPaymentContext(
+  @SerialName("platform") val platform: CaptureSearchResultDtoItemsEntryPaymentContextPlatform,
+  @SerialName("source_account") val sourceAccount: String,
+  @SerialName("trigger") val trigger: String
+)
+
+@Serializable
 enum class CaptureSearchResultDtoItemsEntryBehavior(val wireValue: String) {
   @SerialName("unknown") Unknown("unknown"),
   @SerialName("reading") Reading("reading"),
@@ -2720,6 +2733,7 @@ enum class CaptureSearchResultDtoItemsEntryLifeDomain(val wireValue: String) {
 
 @Serializable
 data class CaptureSearchResultDtoItemsEntry(
+  @SerialName("payment_context") val paymentContext: CaptureSearchResultDtoItemsEntryPaymentContext? = null,
   @SerialName("id") val id: String,
   @SerialName("title") val title: String,
   @SerialName("kind") val kind: String,
@@ -2747,6 +2761,19 @@ data class CaptureSearchResultDto(
   @SerialName("items") val items: List<CaptureSearchResultDtoItemsEntry>,
   @SerialName("next_before_id") val nextBeforeId: String?,
   @SerialName("coverage") val coverage: String
+)
+
+@Serializable
+enum class CaptureExportResultDtoItemsEntryPaymentContextPlatform(val wireValue: String) {
+  @SerialName("wechat") Wechat("wechat"),
+  @SerialName("alipay") Alipay("alipay")
+}
+
+@Serializable
+data class CaptureExportResultDtoItemsEntryPaymentContext(
+  @SerialName("platform") val platform: CaptureExportResultDtoItemsEntryPaymentContextPlatform,
+  @SerialName("source_account") val sourceAccount: String,
+  @SerialName("trigger") val trigger: String
 )
 
 @Serializable
@@ -2786,6 +2813,7 @@ data class CaptureExportResultDtoItemsEntryOriginalsEntry(
 
 @Serializable
 data class CaptureExportResultDtoItemsEntry(
+  @SerialName("payment_context") val paymentContext: CaptureExportResultDtoItemsEntryPaymentContext? = null,
   @SerialName("id") val id: String,
   @SerialName("title") val title: String,
   @SerialName("kind") val kind: String,
