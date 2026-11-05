@@ -58,7 +58,7 @@ import java.util.Locale
   accountId:String,state:LoadState<TodaySnapshot>,healthState:LoadState<WorkspaceOverview.Health>,deviceStatus:DeviceSyncStatus,queueState:LoadState<QueueSummary>,samsungAvailable:Boolean,onRetry:()->Unit,
   onWorkspace:(LifeDomain,String)->Unit,onItems:()->Unit,onPlans:()->Unit,onLibrary:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onRecords:()->Unit,onInbox:()->Unit,onFeatures:()->Unit,onCapture:(CaptureKind)->Unit,
   onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onProjects:()->Unit,onSettings:()->Unit,
-  trainingState:LoadState<List<NativeTrainingPlan>> = LoadState.Loading,onTraining:()->Unit = {onWorkspace(LifeDomain.Health,"training")},onActivityCapture:()->Unit = onRecords,onCaptureOrders:()->Unit = onActivityCapture
+  trainingState:LoadState<List<NativeTrainingPlan>> = LoadState.Loading,onTraining:()->Unit = {onWorkspace(LifeDomain.Health,"training")},onActivityCapture:()->Unit = onRecords,onCaptureOrders:()->Unit = onActivityCapture,onCancelScale:()->Unit = {}
 ){
   val context=LocalContext.current
   val layoutStore=remember(context,accountId){TodayCardLayoutStore(context,accountId)}
@@ -80,7 +80,7 @@ import java.util.Locale
       TodayCardKind.RecentInfo->item(key=card.key){HomeRecentInfoCard(accountId,onDetail,onRecords,onCaptureOrders,onSettings)}
       TodayCardKind.Training->item(key=card.key){TodayTrainingCard(accountId,trainingState,onTraining)}
       TodayCardKind.Focus->today?.let{item(key=card.key){TodayFocusCard(it,{domain->onWorkspace(domain,"")},onDetail)}}
-      TodayCardKind.Scale->item(key=card.key){TodayScaleReceiver(deviceStatus,queueState,onScale,onSettings)}
+      TodayCardKind.Scale->item(key=card.key){TodayScaleReceiver(deviceStatus,queueState,onScale,onCancelScale,onSettings)}
       TodayCardKind.Health->today?.let{item(key=card.key){Column(verticalArrangement=Arrangement.spacedBy(10.dp)){TodayHealthOverviewCard(it,health){onWorkspace(LifeDomain.Health,"overview")};if(healthState is LoadState.Ready&&healthState.refreshError!=null)ReadStatus(healthState,onRetry);if(healthState is LoadState.Failed)SectionError("健康趋势暂未加载",onRetry);if(healthState is LoadState.Loading)LinearProgressIndicator(Modifier.fillMaxWidth())}}}
       TodayCardKind.Body->today?.let{item(key=card.key){TodayBodyCard(it,health){val latest=health?.metrics?.firstOrNull{metric->metric.key=="weight"}?.points?.lastOrNull();if(latest!=null)onDetail(LifeDomain.Health,latest.id,"本次称重") else onWorkspace(LifeDomain.Health,"body")}}}
       TodayCardKind.Activity->today?.let{item(key=card.key){TodayActivityCard(it,health){onWorkspace(LifeDomain.Health,"activity")}}}
@@ -102,6 +102,7 @@ import java.util.Locale
   if(editCards)TodayCardManager(cards,updateCards,{cards=layoutStore.reset();compact=emptySet();layoutStore.saveCompact(compact)},{editCards=false},compact){card->compact=if(card in compact)compact-card else compact+card;layoutStore.saveCompact(compact)}
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable private fun TodayFocusCard(value:TodaySnapshot,onWorkspace:(LifeDomain)->Unit,onDetail:(LifeDomain,String,String)->Unit){
   val trip=value.currentTrips.firstOrNull()
   if(trip!=null){
@@ -113,10 +114,12 @@ import java.util.Locale
     }
   }else{
     LifeCard{
-      Text("生活概览",style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.primary)
-      Text("把日常放在一起",style=MaterialTheme.typography.headlineMedium,fontWeight=FontWeight.SemiBold)
-      Text("看看最近的状态，记录此刻，安排下一步。",color=MaterialTheme.colorScheme.onSurfaceVariant)
-      if(value.dueItems.isNotEmpty())TextButton(onClick={onWorkspace(LifeDomain.Money)}){Text("${value.dueItems.size} 项到期账单待处理 ›")}
+      Text("今日概览",style=MaterialTheme.typography.titleMedium)
+      FlowRow(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)){
+        TextButton(onClick={onWorkspace(LifeDomain.Meals)}){Text(value.mealCount?.let{"饮食 $it 餐"}?:"查看饮食")}
+        TextButton(onClick={onWorkspace(LifeDomain.Money)}){Text(value.moneyTotals.joinToString(" · "){"${it.currency} ${displayDecimal(it.netSpending)}"}.ifBlank{"暂无已入账消费"})}
+      }
+      if(value.dueItems.isNotEmpty())TextButton(onClick={onWorkspace(LifeDomain.Money)}){Text("${value.dueItems.size} 项到期账单 ›")}
     }
   }
 }
@@ -125,14 +128,14 @@ import java.util.Locale
   val tone=MaterialTheme.colorScheme.secondary
   PremiumTodayCard(tone,onClick){
     TodayCardHeader("消费","¥",tone,"${value.date} · 净支出")
-    if(value.moneyTotals.isEmpty())Text("当天暂无收支",style=MaterialTheme.typography.titleLarge)
+    if(value.moneyTotals.isEmpty())Text("当天暂无已入账收支",style=MaterialTheme.typography.titleLarge)
     value.moneyTotals.forEach{total->
       Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
         Text(total.currency,Modifier.weight(1f),color=MaterialTheme.colorScheme.onSurfaceVariant)
         Text(displayDecimal(total.netSpending),style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.SemiBold)
       }
     }
-    Text("支出减退款 · 查看明细、预算与周期费用",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    Text("仅统计已入账记录 · 采集结果在消费页查看",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
   }
 }
 
@@ -295,7 +298,7 @@ private fun List<TodayCardKind>.filterNotSame(item:TodayCardKind)=filterNot{it==
     }
   }
 }
-@Composable private fun TodayScaleReceiver(status:DeviceSyncStatus,queue:LoadState<QueueSummary>,onStart:()->Unit,onSettings:()->Unit){
+@Composable private fun TodayScaleReceiver(status:DeviceSyncStatus,queue:LoadState<QueueSummary>,onStart:()->Unit,onCancel:()->Unit,onSettings:()->Unit){
   val queueSummary=(queue as? LoadState.Ready)?.value
   val uploadState=queueSummary?.latestScaleState
   val currentUploadState=uploadState.takeIf{status.scaleState=="queued"}
@@ -303,24 +306,19 @@ private fun List<TodayCardKind>.filterNotSame(item:TodayCardKind)=filterNot{it==
   val tone=todayScaleTone(status.scaleState,currentUploadState)
   val stateLabel=todayScaleStateLabel(status.scaleState,currentUploadState)
   val message=todayScaleMessage(status,currentUploadState)
-  LifeSection("小米体脂秤"){
-    ListeningScaleCard(active,tone){
-        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
-          Surface(Modifier.size(48.dp),shape=RoundedCornerShape(16.dp),color=tone.copy(alpha=.14f)){Box(contentAlignment=Alignment.Center){Text("体",style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold,color=tone)}}
-          Spacer(Modifier.width(12.dp))
-          Column(Modifier.weight(1f)){Text("直接接收体脂秤数据",style=MaterialTheme.typography.titleLarge);Text("点击后再上秤，持续接收 3 分钟",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
-          Surface(shape=RoundedCornerShape(99.dp),color=tone.copy(alpha=.14f)){Text(stateLabel,Modifier.padding(horizontal=10.dp,vertical=6.dp),style=MaterialTheme.typography.labelMedium,color=tone)}
-        }
-        if(status.scaleLastWeight!=null){
-          Row(verticalAlignment=Alignment.Bottom){Text(status.scaleLastWeight,style=MaterialTheme.typography.displayMedium,fontWeight=FontWeight.SemiBold);Spacer(Modifier.width(6.dp));Text("kg",Modifier.padding(bottom=7.dp),style=MaterialTheme.typography.titleMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}
-          Text(listOfNotNull(status.scaleLastModel,todayDeviceTime(status.scaleMeasuredAt)).joinToString(" · ").ifBlank{"最近一次稳定读数"},style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Text(message,color=tone,style=MaterialTheme.typography.bodyMedium)
-        Button(onClick=onStart,enabled=!active,modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)){
-          Text(if(active)todayScaleActionLabel(status.scaleState) else if(status.scaleLastWeight==null)"开启数据接收" else "再测一次")
-        }
-        if(status.scaleState in setOf("needs_config","key_mismatch"))TextButton(onClick=onSettings,modifier=Modifier.align(Alignment.End)){Text("打开 S400 设备密钥设置")}
-        uploadState?.let{state->Text("${if(status.scaleState in setOf("queued","committed"))"本次" else "最近一次"}上传：${todayScaleQueueLabel(state)}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+  ListeningScaleCard(active,tone){
+    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+      Column(Modifier.weight(1f)){
+        Text("小米体脂秤",style=MaterialTheme.typography.titleMedium)
+        Text(status.scaleLastWeight?.let{"$it kg"}?:"尚无称重",style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.SemiBold)
+      }
+      if(active)OutlinedButton(onClick=onCancel){Text("取消接收")}
+      else FilledTonalButton(onClick=onStart){Text(if(status.scaleLastWeight==null)"开始接收" else "再测一次")}
+    }
+    Text(if(active)"$stateLabel · $message" else listOfNotNull(todayDeviceTime(status.scaleMeasuredAt),if(status.scaleState=="cancelled")"已取消接收" else uploadState?.let{todayScaleQueueLabel(it)}).joinToString(" · ").ifBlank{"开始接收后，三分钟内上秤"},style=MaterialTheme.typography.bodySmall,color=tone)
+    if(status.scaleState in setOf("needs_config","key_mismatch","error","needs_permission","timeout")){
+      if(!active)Text(message,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.error)
+      if(status.scaleState in setOf("needs_config","key_mismatch"))TextButton(onClick=onSettings){Text("设置设备密钥")}
     }
   }
 }
@@ -353,7 +351,7 @@ private fun todayScaleStateLabel(state:String,uploadState:String?)=when{
   state=="queued"&&uploadState=="failed"->"上传失败"
   state=="queued"&&uploadState=="reconciling"->"核对中"
   state=="queued"&&uploadState=="pending"->"发送中"
-  else->mapOf("idle" to "未开启","starting" to "正在启动","scanning" to "等待上秤","detected" to "已发现设备","reading" to "正在保存","queued" to "已接收","committed" to "已同步","complete" to "已同步","timeout" to "未收到","needs_permission" to "需授权","needs_config" to "缺少设备密钥","key_mismatch" to "设备密钥不匹配","error" to "接收失败")[state]?:state
+  else->mapOf("idle" to "未开启","cancelled" to "已取消","starting" to "正在启动","scanning" to "等待上秤","detected" to "已发现设备","reading" to "正在保存","queued" to "已接收","committed" to "已同步","complete" to "已同步","timeout" to "未收到","needs_permission" to "需授权","needs_config" to "缺少设备密钥","key_mismatch" to "设备密钥不匹配","error" to "接收失败")[state]?:state
 }
 private fun todayScaleMessage(status:DeviceSyncStatus,uploadState:String?)=when{
   status.scaleState=="queued"&&uploadState=="committed"->"稳定读数已接收，并已同步到 Life"

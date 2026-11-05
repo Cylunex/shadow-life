@@ -53,3 +53,21 @@ test("money titles and search use concrete purchase names only with purchase rea
  assert.equal((await queries.lifeSearch(limited,{q:"咖啡",types:["money"]})).items.length,0);
  assert.equal((await queries.lifeTimeline(limited,{})).items.find(i=>i.id===id)!.title,"支出");
 });
+
+
+test("long purchase and note titles do not reject a money page or truncate stored facts",pgOnly,async t=>{
+ const {run,queries,context,pool}=await reviewFixture(t);
+ const names=Array.from({length:8},(_,i)=>`${"商品".repeat(40)}${i}`);
+ const purchase=await run("life.record_purchase",{...purchaseInput,consumables:[],items:names.map(raw_name=>({raw_name}))});
+ const note="说明".repeat(400)+"可检索尾部";
+ const expense=await run("money.record_entry",{entry_type:"expense",amount:"12.00",currency:"CNY",occurred_on:"2026-09-01",time_zone:"Asia/Shanghai",note});
+ const page=await queries.listDomain(context,"money",{limit:50});
+ assert.equal(page.items.length,2);
+ for(const item of page.items){assert.ok(item.title.length<=500);assert.ok(item.title.endsWith("…"));}
+ assert.equal((await queries.listDomain(context,"money",{query:"可检索尾部"})).items[0]!.id,expense.actual_values.money_entry_id);
+ assert.equal((await pool.query("select note from money_entries where id=$1",[expense.actual_values.money_entry_id])).rows[0].note,note);
+ assert.deepEqual((await pool.query("select raw_name from purchase_items where purchase_id=$1 order by position",[purchase.actual_values.purchase_id])).rows.map(row=>row.raw_name),names);
+ const first=await queries.listDomain(context,"money",{limit:1});
+ const next=await queries.listDomain(context,"money",{limit:1,cursor:first.next_cursor!});
+ assert.notEqual(first.items[0]!.id,next.items[0]!.id);
+});

@@ -61,4 +61,11 @@ class HomeRecentInfoTest {
     assertEquals(listOf(other,local),mergeHomeRecentInfo(listOf(local),listOf(duplicate,other)))
     assertEquals(listOf(other),mergeHomeRecentInfo(listOf(local),listOf(duplicate,other),1))
   }
+  @Test fun automaticRefreshWaitsOneMinuteButManualRefreshIsImmediate(){
+    assertEquals(0L,recentInfoRefreshDelay(null,100))
+    assertEquals(59_000L,recentInfoRefreshDelay(100,1_100))
+    assertEquals(0L,recentInfoRefreshDelay(100,60_100))
+    assertEquals(0L,recentInfoRefreshDelay(100,110,true))
+    assertEquals(60_000L,recentInfoRefreshDelay(100,90))
+  }
 }

@@ -14,6 +14,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -28,6 +30,7 @@ import java.time.LocalDate
  var section by remember(accountId,initialSection){mutableStateOf(initialSection)};var placeName by remember(accountId){mutableStateOf("")};var player by remember(accountId){mutableStateOf<MediaPlayer?>(null)}
  var source by remember(accountId){mutableStateOf<ActivitySourceResultDto?>(null)}
  var deleteSegment by remember(accountId){mutableStateOf<String?>(null)};var editing by remember(accountId){mutableStateOf<CaptureWorkspaceResultDtoRecordingsEntry?>(null)};var editIndex by remember(accountId){mutableIntStateOf(0)};var editText by remember(accountId){mutableStateOf("")}
+ var showOrderSettings by rememberSaveable(accountId){mutableStateOf(false)}
  var selectedApp by remember(accountId){mutableStateOf("")};var platform by remember(accountId){mutableStateOf("generic")};var sourceAccount by remember(accountId){mutableStateOf("default")};var associate by remember(accountId){mutableStateOf(true)};var autoAccounting by remember(accountId){mutableStateOf(false)};var showApps by remember{mutableStateOf(false)};var showPlatforms by remember{mutableStateOf(false)}
  val apps=remember{context.packageManager.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER),0).distinctBy{it.activityInfo.packageName}.filter{it.activityInfo.packageName!=context.packageName}.sortedBy{it.loadLabel(context.packageManager).toString()}}
  var generation by remember(accountId){mutableIntStateOf(0)}
@@ -41,7 +44,7 @@ import java.time.LocalDate
  val locationPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()){if(it[Manifest.permission.ACCESS_FINE_LOCATION]==true||it[Manifest.permission.ACCESS_COARSE_LOCATION]==true)startLocation() else message="未授权位置，地点记录未开始。"}
  LaunchedEffect(date,accountId){data=null;try{refresh()}catch(e:CancellationException){throw e}catch(e:Exception){message=e.message}}
  DisposableEffect(accountId){onDispose{player?.release();player=null}}
- Text("采集与回顾",style=MaterialTheme.typography.titleLarge)
+ Text(if(section=="订单")"采集结果" else "采集与回顾",style=MaterialTheme.typography.titleLarge)
 
  when(section){
  "录音"->{
@@ -78,6 +81,37 @@ import java.time.LocalDate
    platform=rule?.platform?.wireValue?:billPlatforms[pkg]?:"generic";sourceAccount=rule?.sourceAccount?:"default"
    associate=rule?.enabled?:true;autoAccounting=rule?.autoAccounting?:false;showApps=false
   }
+  if(data==null)Text("正在读取采集结果…")
+  else if(data!!.orders.isEmpty())Text("这一天暂无采集订单。")
+  data?.orders?.forEach{order->
+    var expandedOrder by rememberSaveable(order.id){mutableStateOf(false)}
+    val fields=runCatching{JSONObject(order.fields)}.getOrNull()
+    val rules=data!!.rules.filter{it.platform.wireValue==order.platform&&it.sourceAccount==order.sourceAccount}
+    val reason=when{
+      order.conflict->"来源存在冲突，需要核对"
+      rules.isNotEmpty()&&rules.none{it.enabled&&it.autoAccounting}->"当前来源未开启自动记账"
+      fields?.optString("paid_amount").isNullOrBlank()->"材料中未识别到明确实付金额"
+      else->"请核对付款凭证与采集规则"
+    }
+    Card(Modifier.fillMaxWidth()){Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
+      Text(fields?.optString("merchant")?.takeIf{it.isNotBlank()}?:fields?.optString("product")?.takeIf{it.isNotBlank()}?:capturePlatformName(order.platform),style=MaterialTheme.typography.titleMedium,maxLines=2,overflow=TextOverflow.Ellipsis)
+      Text("${capturePlatformName(order.platform)} · ${order.sourceCount} 份材料",style=MaterialTheme.typography.bodySmall)
+      mapOf("paid_amount" to "实付","order_amount" to "订单金额","payment_time" to "付款时间").forEach{(key,label)->fields?.optString(key)?.takeIf{it.isNotBlank()}?.let{Text("$label：$it",maxLines=2,overflow=TextOverflow.Ellipsis)}}
+      TextButton(onClick={expandedOrder=!expandedOrder}){Text(if(expandedOrder)"收起订单详情" else "订单详情")}
+      if(expandedOrder){
+        Text("订单号：${order.externalId}",style=MaterialTheme.typography.bodySmall)
+        Text("状态：${mapOf("paid" to "已支付","pending" to "待付款","refunded" to "已退款","refund_pending" to "退款中","cancelled" to "已取消","unknown" to "未明确")[order.status]?:order.status}",style=MaterialTheme.typography.bodySmall)
+        mapOf("merchant" to "商家","product" to "商品","refund_amount" to "退款金额","logistics_no" to "物流单号").forEach{(key,label)->fields?.optString(key)?.takeIf{it.isNotBlank()}?.let{Text("$label：$it")}}
+        if(order.conflict)Text("来源存在冲突，未自动覆盖",color=MaterialTheme.colorScheme.error)
+      }
+      if(order.recordId==null){
+        Text("尚未入账 · $reason",color=MaterialTheme.colorScheme.onSurfaceVariant)
+        TextButton(onClick={showOrderSettings=true;rules.firstOrNull()?.let{selectApp(it.appPackage)}}){Text("查看采集规则")}
+      }else TextButton(onClick={onMoneyRecord(order.recordId!!)}){Text("已入账 · 查看消费详情 →")}
+    }}
+  }
+  TextButton(onClick={showOrderSettings=!showOrderSettings}){Text(if(showOrderSettings)"收起采集设置" else "摇一摇与自动记账设置")}
+  if(showOrderSettings){
   Text("摇一摇记账",style=MaterialTheme.typography.titleMedium)
   Text("选择支付应用，打开单笔账单详情后将手机来回摇一下。Life 只在摇动时收录账单文字；是否生成支出由下方订单规则决定。")
   Row{billPlatforms.forEach{(pkg,value)->FilterChip(selected=selectedApp==pkg,onClick={selectApp(pkg)},label={Text(capturePlatformName(value))})}}
@@ -99,7 +133,8 @@ import java.time.LocalDate
   Row{Text("证据完整时自动记账");Switch(checked=autoAccounting,onCheckedChange={autoAccounting=it})}
   Text("自动记账要求订单或交易身份、明确实付和付款时间、人民币证据以及写入权限；冲突和缺失只保留观察。")
   Button(enabled=!busy&&selectedApp.isNotBlank()&&sourceAccount.isNotBlank(),onClick={run{write("life.set_order_capture",JSONObject().put("app_package",selectedApp).put("platform",platform).put("source_account",sourceAccount.trim()).put("enabled",associate).put("auto_accounting",autoAccounting))}}){Text("保存此应用的规则")}
-  data?.orders?.forEach{order->Card(Modifier.fillMaxWidth()){Column(Modifier.padding(12.dp)){Text("${capturePlatformName(order.platform)} · ${order.externalId}");Text("${mapOf("paid" to "已支付","pending" to "待付款","refunded" to "已退款","refund_pending" to "退款中","cancelled" to "已取消","unknown" to "状态未明确")[order.status]?:order.status} · ${order.sourceCount} 份材料");if(order.conflict)Text("来源存在冲突，未自动覆盖");val fields=runCatching{JSONObject(order.fields)}.getOrNull();mapOf("merchant" to "商家","product" to "商品","paid_amount" to "实付","refund_amount" to "已退／退款金额","order_amount" to "订单金额","payment_time" to "付款时间","logistics_no" to "物流单号").forEach{(key,label)->fields?.optString(key)?.takeIf{it.isNotBlank()}?.let{Text("$label：$it")}};if(order.recordId==null)Text("尚未入账：仅收录订单材料，未计入消费明细") else TextButton(onClick={onMoneyRecord(order.recordId!!)}){Text("已入账 · 查看消费、餐次与凭证 →")}}}}
+  }
+
  }
  "回顾"->{
   Text("按已采集来源生成十分钟材料、小时主线、日概览及周／月汇总。来源变化后可重算。")

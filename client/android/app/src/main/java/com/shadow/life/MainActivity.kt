@@ -57,7 +57,9 @@ class MainActivity:ComponentActivity(){
     }
   }
   private val notificationPermission=registerForActivityResult(ActivityResultContracts.RequestPermission()){granted->notificationAuthorization=if(granted)"enabled" else "denied";if(!granted)loginError="系统通知未开启，提醒仍会保留在 Life 收件箱"}
+  private var scaleStartRequested=false
   private val scalePermissions=registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()){granted->
+    if(!scaleStartRequested)return@registerForActivityResult
     if(granted.isNotEmpty()&&granted.values.all{it})startScaleService() else{
       session?.let{(application as ShadowApp).deviceSync.updateScale(it.accountId,"needs_permission","未获得附近设备权限，无法接收体脂秤广播")}
     }
@@ -65,6 +67,7 @@ class MainActivity:ComponentActivity(){
 
   override fun onCreate(savedInstanceState:Bundle?){
     super.onCreate(savedInstanceState)
+    scaleStartRequested=savedInstanceState?.getBoolean("scale_start_requested")?:false
     enableEdgeToEdge()
     val app=application as ShadowApp
     scalePreferences=ScalePreferences(this);scaleSettings=scalePreferences.current()
@@ -74,11 +77,11 @@ class MainActivity:ComponentActivity(){
     session=app.sessions.active()
     val appearances=AppearanceStore(this)
     appearance=appearances.current()
-    setContent{LifeTheme(appearance){val model:NativeLifeViewModel=viewModel();LifeApp(session,model,appearance,loginError,pendingShare,notificationAuthorization,openInboxNonce,scaleSettings,{payload->model.importShare(payload){pendingShare=null}},{pendingShare=null},{loginError=null},{appearance=it;appearances.save(it)},::login,::logout,::syncHealth,::syncSamsung,::startScale,::saveScaleSettings,::requestNotifications)}}
+    setContent{LifeTheme(appearance){val model:NativeLifeViewModel=viewModel();LifeApp(session,model,appearance,loginError,pendingShare,notificationAuthorization,openInboxNonce,scaleSettings,{payload->model.importShare(payload){pendingShare=null}},{pendingShare=null},{loginError=null},{appearance=it;appearances.save(it)},::login,::logout,::syncHealth,::syncSamsung,::startScale,::saveScaleSettings,::requestNotifications,::cancelScale)}}
   }
   override fun onStart(){super.onStart();session?.let(::restoreSession)}
   override fun onDestroy(){oidc.close();super.onDestroy()}
-  override fun onSaveInstanceState(outState:Bundle){super.onSaveInstanceState(outState);outState.putBoolean(SHARE_PRESENT,pendingShare!=null);pendingShare?.let{payload->outState.putString(SHARE_ID,payload.ingressId);outState.putString(SHARE_TEXT,payload.text);outState.putStringArrayList(SHARE_URIS,ArrayList(payload.uris))}}
+  override fun onSaveInstanceState(outState:Bundle){super.onSaveInstanceState(outState);outState.putBoolean("scale_start_requested",scaleStartRequested);outState.putBoolean(SHARE_PRESENT,pendingShare!=null);pendingShare?.let{payload->outState.putString(SHARE_ID,payload.ingressId);outState.putString(SHARE_TEXT,payload.text);outState.putStringArrayList(SHARE_URIS,ArrayList(payload.uris))}}
   override fun onNewIntent(intent:Intent){super.onNewIntent(intent);setIntent(intent);intent.sharePayload()?.let{pendingShare=it};if(intent.getBooleanExtra(OPEN_INBOX_EXTRA,false))openInboxNonce++}
 
   private fun login(){launchLogin(LoginMode.Interactive)}
@@ -130,11 +133,18 @@ class MainActivity:ComponentActivity(){
   private fun requestNotifications(){if(Build.VERSION.SDK_INT>=33)notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) else notificationAuthorization="enabled"}
   private fun startScale(){
     val current=session?:return
+    scaleStartRequested=true
     loginError=null
     val required=if(Build.VERSION.SDK_INT>=31)arrayOf(Manifest.permission.BLUETOOTH_SCAN,Manifest.permission.BLUETOOTH_CONNECT) else arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
     val missing=required.filter{ContextCompat.checkSelfPermission(this,it)!=PackageManager.PERMISSION_GRANTED}
     (application as ShadowApp).deviceSync.updateScale(current.accountId,"starting",if(missing.isEmpty())"正在启动蓝牙接收" else "请允许附近设备权限以开始接收")
     if(missing.isEmpty())startScaleService() else scalePermissions.launch(missing.toTypedArray())
+  }
+  private fun cancelScale(){
+    scaleStartRequested=false
+    val current=session?:return
+    (application as ShadowApp).deviceSync.updateScale(current.accountId,"cancelled","已取消接收，已保存的读数会继续同步")
+    startService(Intent(this,ScaleScanService::class.java).setAction(ScaleScanService.ACTION_CANCEL).putExtra(ScaleScanService.EXTRA_ACCOUNT_ID,current.accountId))
   }
   private fun startScaleService(){
     val current=session?:return

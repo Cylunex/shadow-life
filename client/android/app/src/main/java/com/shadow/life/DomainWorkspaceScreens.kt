@@ -57,8 +57,9 @@ import kotlin.math.abs
   LaunchedEffect(tab){if(tab=="reconcile")onLoadImportMonth(LocalDate.now().toString().take(7))}
   val overview=(overviewState as? LoadState.Ready)?.value as? WorkspaceOverview.Money
   val records=(recordsState as? LoadState.Ready)?.value?.items.orEmpty()
+  var showAnalysis by rememberSaveable{mutableStateOf(false)}
   var selectedCurrency by rememberSaveable{mutableStateOf<String?>(null)}
-  val periodRecords=records.filter{it.subtype in setOf("expense","income","refund")&&it.supporting?.startsWith(overview?.period?:LocalDate.now().toString().take(7))==true}
+  val periodRecords=records.filter{it.recordState!="voided"&&it.subtype in setOf("expense","income","refund")&&it.supporting?.startsWith(overview?.period?:LocalDate.now().toString().take(7))==true}
   val currencies=periodRecords.mapNotNull(::recordCurrency).distinct().sorted()
   val currency=selectedCurrency?.takeIf{it in currencies}?:currencies.firstOrNull()
   val currencyRecords=periodRecords.filter{recordCurrency(it)==currency}
@@ -66,7 +67,6 @@ import kotlin.math.abs
     title={Column{Text("消费与账单");Text(overview?.period?.let{"$it · 收支与预算"}?:"正在读取账目",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}},
     navigationIcon={LifeBackButton(onBack)},actions={FilledTonalIconButton(onClick={onCapture(CaptureKind.Expense)}){Icon(Icons.Default.Add,"记一笔")}}
   )}){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),state=workspaceScroll,contentPadding=PaddingValues(20.dp,10.dp,20.dp,28.dp),verticalArrangement=Arrangement.spacedBy(18.dp)){
-    item{TextButton(onClick=onCapturedOrders){Text("摇一摇与采集订单 · 查看处理状态 →")}}
     item{WorkspaceTabs(tab,{tab=it},listOf("overview" to "概览","details" to "消费明细","reconcile" to "账单待处理","budgets" to "预算","recurring" to "订阅","intents" to "想买","supplies" to "消耗品","cards" to "次卡"))}
     if(tab in setOf("budgets","recurring","intents","supplies"))item{
       val month=java.time.YearMonth.parse(planningPeriod)
@@ -77,7 +77,9 @@ import kotlin.math.abs
       }
       if(planningPeriod!=java.time.YearMonth.now().toString())TextButton(onClick={onPlanningPeriod(java.time.YearMonth.now().toString())},enabled=planningState !is SubmitState.Sending){Text("回到本月")}
     }
-    item{StateContent(overviewState,onRetry){} }
+    if(overviewState !is LoadState.Ready||overviewState.refreshing||overviewState.refreshError!=null||overviewState.updateAvailable)item{StateContent(overviewState,onRetry){} }
+    if(recordsState !is LoadState.Ready||recordsState.refreshing||recordsState.refreshError!=null||recordsState.updateAvailable)item{StateContent(recordsState,onRetry){} }
+    if(tab in setOf("overview","details"))item{TextButton(onClick=onCapturedOrders){Text("采集结果 · 查看未入账订单 →")}}
     if(tab=="cards")item{NativeServiceCardsSection(cardsState,selectedCard,cardSubmit,records,onLoadCards,onSearch,onMoreCards,onOpenCard,onCloseCard,onOlderUses,onSaveCard,onCardUse,onResetCard)}
     if(tab=="reconcile")item{NativeMoneyImportSection(importMonth,importReview,importSubmit,onLoadImportMonth,onOpenImportBatch,onResolveImport){id->onDetail(LifeDomain.Money,id,"账单关联记录")}}
     if(focusId.isNotBlank()&&overview!=null)item{Text("提醒关联事项",style=MaterialTheme.typography.titleMedium);if((tab=="recurring"&&overview.occurrenceDetails.none{it.id==focusId})||(tab=="supplies"&&overview.useCycleDetails.none{it.id==focusId}))Text("该事项当前未加载或已不可用，请返回查看其他事项。")}
@@ -88,12 +90,18 @@ import kotlin.math.abs
       "intents"->item{NativeSpendingIntentSection(overview,planningState,records,onSearch,onSaveIntent,onResetPlanning)}
       "supplies"->item{NativeUseCycleSection(if(focusId.isBlank())overview else overview.copy(useCycleDetails=overview.useCycleDetails.filter{it.id==focusId}),planningState,onSaveCycle,onConsumableUse,onResetPlanning)}
       else->{
-        item{LifeCard{Text("所有入口，在这里查看",style=MaterialTheme.typography.titleMedium);Text("摇一摇、Agent、邮件、App 账单和手动录入的正式记录汇总在消费明细；尚未入账的导入候选在账单待处理。",color=MaterialTheme.colorScheme.onSurfaceVariant);Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){FilledTonalButton(onClick={tab="details"}){Text("查看消费明细")};OutlinedButton(onClick={tab="reconcile"}){Text("账单待处理")}}}}
-        if(recordsState is LoadState.Ready)item{RecentMoney(records,onDetail){tab="details"}}
         if(currencies.size>1)item{Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){currencies.forEach{code->FilterChip(currency==code,{selectedCurrency=code},{Text(code)})}}}
-        if(recordsState is LoadState.Ready){item{MoneyHero(currencyRecords,overview,currency,recordsState.value.nextCursor!=null,onCapture)};item{MoneyComposition(currencyRecords,currency)}};item{BudgetPreview(overview){tab="budgets"}};item{UseCyclePreview(overview){tab="supplies"}};item{RecurringPreview(overview){tab="recurring"}}}
+        if(recordsState is LoadState.Ready){
+          item{MoneyHero(currencyRecords,overview,currency,recordsState.value.nextCursor!=null,onCapture)}
+          item{RecentMoney(records,onDetail){tab="details"}}
+          if(currencyRecords.isNotEmpty()){
+            item{TextButton(onClick={showAnalysis=!showAnalysis}){Text(if(showAnalysis)"收起消费分析" else "消费分布与趋势")}}
+            if(showAnalysis){item{MoneyBars(currencyRecords,currency.orEmpty(),Modifier.fillMaxWidth().height(120.dp));Text("最近 14 个有收支的日期 · 已加载明细",style=MaterialTheme.typography.bodySmall)};item{MoneyComposition(currencyRecords,currency)}}
+          }
+        }
+        if(overview.budgets.isNotEmpty())item{BudgetPreview(overview){tab="budgets"}}
+      }
     }
-    item{StateContent(recordsState,onRetry){} }
   }}
 }
 
@@ -109,8 +117,6 @@ import kotlin.math.abs
       FilledTonalIconButton(onClick={onCapture(CaptureKind.Expense)}){Icon(Icons.Default.Add,"记消费")}
     }
     if(records.isNotEmpty()){
-      MoneyBars(records,currency.orEmpty(),Modifier.fillMaxWidth().height(120.dp))
-      Text("净支出趋势 · 最近 14 个有收支的日期",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
       Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){
         VisualStat("支出",totals.expense.stripTrailingZeros().toPlainString(),currency.orEmpty(),MaterialTheme.colorScheme.tertiary,Modifier.weight(1f))
         VisualStat("收入",totals.income.stripTrailingZeros().toPlainString(),currency.orEmpty(),MaterialTheme.colorScheme.primary,Modifier.weight(1f))
@@ -174,9 +180,9 @@ import kotlin.math.abs
 @Composable private fun UseCyclePreview(value:WorkspaceOverview.Money,onOpen:()->Unit){LifeSection("消耗品余量",action={TextButton(onClick=onOpen){Text("全部")}}){if(value.useCycles.isEmpty())EmptyState("没有正在追踪的消耗品") else LifeCard(onClick=onOpen){Text("${value.useCycles.size} 个使用周期",style=MaterialTheme.typography.titleLarge);value.useCycles.first().let{Text(useCycleLine(it),color=if(it.balanceStatus in setOf("replenish_now","depleted","needs_specification"))MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)}}}}
 private fun useCycleLine(item:MoneyUseCycleSummary)=if(item.usageState=="pending")"待启用 / 未记开封" else when(item.balanceStatus){"needs_specification"->"待补规格，不预测提醒日期";"replenish_now"->"已到补货阈值 · 剩余 ${item.remaining.orEmpty()} ${item.unit.orEmpty()}";"depleted"->"已耗尽";else->listOfNotNull(item.remaining?.let{"按记录剩余 $it ${item.unit.orEmpty()}"},item.estimatedRemaining?.let{"日用量估算剩余 $it ${item.unit.orEmpty()}"},item.projectedDepletionOn?.let{"预计 $it 耗尽"}).joinToString(" · ").ifBlank{statusUi(item.balanceStatus)}}
 
-@Composable private fun MoneySearch(query:String,onQuery:(String)->Unit,onSubmit:()->Unit,onCapture:(CaptureKind)->Unit){LifeSection("消费明细"){Text("点开一笔，查看付款、购买明细、关联餐次和原件。未记录付款的购买不计入支出。",color=MaterialTheme.colorScheme.onSurfaceVariant);Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){OutlinedTextField(query,onQuery,Modifier.weight(1f),singleLine=true,placeholder={Text("商家、分类或备注")},leadingIcon={Icon(Icons.Default.Search,null)});FilledTonalIconButton(onClick=onSubmit,enabled=true){Icon(Icons.Default.Search,"搜索")}};Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(7.dp)){listOf(CaptureKind.Expense,CaptureKind.Purchase,CaptureKind.Refund).forEach{kind->AssistChip({onCapture(kind)},{Text(kind.label)})}}}}
+@Composable private fun MoneySearch(query:String,onQuery:(String)->Unit,onSubmit:()->Unit,onCapture:(CaptureKind)->Unit){LifeSection("消费明细"){Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){OutlinedTextField(query,onQuery,Modifier.weight(1f),singleLine=true,placeholder={Text("商家、分类或备注")},leadingIcon={Icon(Icons.Default.Search,null)});FilledTonalIconButton(onClick=onSubmit,enabled=true){Icon(Icons.Default.Search,"搜索")}};Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(7.dp)){listOf(CaptureKind.Expense,CaptureKind.Purchase,CaptureKind.Refund).forEach{kind->AssistChip({onCapture(kind)},{Text(kind.label)})}}}}
 @Composable private fun MoneyRecordList(records:List<RecordSummary>,onDetail:(LifeDomain,String,String)->Unit){Column(verticalArrangement=Arrangement.spacedBy(8.dp)){if(records.isEmpty())EmptyState("没有匹配的正式明细") else records.forEach{record->MoneyRecordCard(record){onDetail(LifeDomain.Money,record.detailId?:record.id,record.title)}}}}
-@Composable private fun RecentMoney(records:List<RecordSummary>,onDetail:(LifeDomain,String,String)->Unit,onAll:()->Unit){LifeSection("最近明细",action={TextButton(onClick=onAll){Text("全部")}}){records.take(5).forEach{record->MoneyRecordCard(record){onDetail(LifeDomain.Money,record.detailId?:record.id,record.title)}};if(records.isEmpty())EmptyState("还没有收支明细")}}
+@Composable private fun RecentMoney(records:List<RecordSummary>,onDetail:(LifeDomain,String,String)->Unit,onAll:()->Unit){LifeSection("最近明细",action={TextButton(onClick=onAll){Text("全部")}}){records.take(3).forEach{record->MoneyRecordCard(record){onDetail(LifeDomain.Money,record.detailId?:record.id,record.title)}};if(records.isEmpty())EmptyState("还没有收支明细")}}
 @Composable private fun MoneyRecordCard(record:RecordSummary,onClick:()->Unit){Surface(Modifier.fillMaxWidth().clickable(role=Role.Button,onClick=onClick),shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surface,border=androidx.compose.foundation.BorderStroke(1.dp,MaterialTheme.colorScheme.outline.copy(alpha=.55f))){Row(Modifier.padding(15.dp),verticalAlignment=Alignment.CenterVertically){Surface(Modifier.size(42.dp),shape=RoundedCornerShape(14.dp),color=(if(record.subtype=="income")MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary).copy(alpha=.13f)){Box(contentAlignment=Alignment.Center){Text(if(record.kind=="purchase")"购" else if(record.subtype=="income")"入" else if(record.subtype=="refund")"退" else "支")}};Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(record.title,style=MaterialTheme.typography.titleMedium,maxLines=1,overflow=TextOverflow.Ellipsis);Text(listOfNotNull(record.supporting,if(record.recordState=="voided")"已作废" else if(record.kind=="purchase")"未记录付款" else statusUi(record.subtype.orEmpty())).joinToString(" · "),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};Text(record.trailing.orEmpty(),style=MaterialTheme.typography.titleMedium,color=if(record.subtype=="income"||record.subtype=="refund")MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)}}}
 
 @OptIn(ExperimentalMaterial3Api::class)

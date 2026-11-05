@@ -29,6 +29,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.job
+import kotlinx.coroutines.joinAll
 import org.json.JSONArray
 import org.json.JSONObject
 import java.math.BigDecimal
@@ -49,20 +51,35 @@ class ScaleScanService:Service(){
   private var scanner:BluetoothLeScanner?=null;private var callback:ScanCallback?=null;private var accountId:String?=null;private var sawAdvertisement=false
   private val pending=mutableMapOf<String,Measurement>();private val s400=mutableMapOf<String,Measurement>();private val sent=mutableMapOf<String,Long>()
   private val pendingFlush=mutableMapOf<String,Runnable>();private val s400Flush=mutableMapOf<String,Runnable>();private var lastBindkeyWarningMs=0L
-  private val finish=Runnable{update("没有收到稳定读数，请重新开秤");updateStatus("timeout","三分钟内未收到稳定读数");stopSelf()}
+  @Volatile private var accepting=false
+  @Volatile private var scanGeneration=0
+  private val finish=Runnable{accepting=false;update("没有收到稳定读数，请重新开秤");updateStatus("timeout","三分钟内未收到稳定读数");stopSelf()}
 
   override fun onBind(intent:Intent?):IBinder?=null
   override fun onCreate(){super.onCreate();getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel(CHANNEL,"体脂秤称重",NotificationManager.IMPORTANCE_LOW))}
   override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{
-    accountId=intent?.getStringExtra(EXTRA_ACCOUNT_ID);sawAdvertisement=false;updateStatus("scanning","正在扫描，三分钟内上秤即可");startForeground(NOTIFICATION_ID,notification("三分钟内上秤即可记录"));handler.removeCallbacks(finish);handler.postDelayed(finish,TIMEOUT_MS);restartScan();return START_NOT_STICKY
+    if(intent?.action==ACTION_CANCEL){
+      if(accountId==null||accountId==intent.getStringExtra(EXTRA_ACCOUNT_ID)){
+        accepting=false;val generation=++scanGeneration
+        handler.removeCallbacksAndMessages(null);stopScan();pending.clear();s400.clear();pendingFlush.clear();s400Flush.clear()
+        updateStatus("cancelled","已取消接收，已保存的读数会继续同步")
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        // Finish any stable reading already being saved before destroying its coroutine scope.
+        val writes=scope.coroutineContext.job.children.toList()
+        scope.launch{writes.joinAll();handler.post{if(generation==scanGeneration){updateStatus("cancelled","已取消接收，已保存的读数会继续同步");stopSelf()}}}
+      }
+      return START_NOT_STICKY
+    }
+    scanGeneration++;accepting=true;accountId=intent?.getStringExtra(EXTRA_ACCOUNT_ID);sawAdvertisement=false;updateStatus("scanning","正在扫描，三分钟内上秤即可");startForeground(NOTIFICATION_ID,notification("三分钟内上秤即可记录"));handler.removeCallbacks(finish);handler.postDelayed(finish,TIMEOUT_MS);restartScan();return START_NOT_STICKY
   }
-  override fun onDestroy(){handler.removeCallbacksAndMessages(null);stopScan();scope.cancel();super.onDestroy()}
+  override fun onDestroy(){accepting=false;handler.removeCallbacksAndMessages(null);stopScan();scope.cancel();super.onDestroy()}
 
   @SuppressLint("MissingPermission")
   private fun restartScan(){stopScan();if(!hasBluetoothScanPermission()){update("没有蓝牙扫描权限");updateStatus("needs_permission","请授权附近设备后重试");return};val manager=getSystemService(BluetoothManager::class.java);val adapter=manager?.adapter;if(adapter==null||!adapter.isEnabled){update("蓝牙未开启");updateStatus("error","蓝牙未开启");return};scanner=adapter.bluetoothLeScanner;if(scanner==null){update("蓝牙不可用");updateStatus("error","蓝牙扫描不可用");return}
+    val generation=scanGeneration
     val active=object:ScanCallback(){
-      override fun onScanResult(callbackType:Int,result:ScanResult){val record=result.scanRecord?:return;val address=result.device?.address?:"unknown";record.getServiceData(bodyUuid)?.let{data->handler.post{advertisement("体脂秤 2");XiaomiScaleParser.parseScale2(data)?.let{accept(address,it)}}};record.getServiceData(miBeaconUuid)?.let{data->handler.post{advertisement("S400");acceptS400(address,data)}}}
-      override fun onScanFailed(errorCode:Int){Log.w(TAG,"BLE scan failed code=$errorCode");update("扫描失败（$errorCode），请重试");updateStatus("error","扫描失败（$errorCode）");callback=null;scanner=null}
+      override fun onScanResult(callbackType:Int,result:ScanResult){if(!accepting||generation!=scanGeneration)return;val record=result.scanRecord?:return;val address=result.device?.address?:"unknown";record.getServiceData(bodyUuid)?.let{data->handler.post{if(!accepting||generation!=scanGeneration)return@post;advertisement("体脂秤 2");XiaomiScaleParser.parseScale2(data)?.let{accept(address,it)}}};record.getServiceData(miBeaconUuid)?.let{data->handler.post{if(!accepting||generation!=scanGeneration)return@post;advertisement("S400");acceptS400(address,data)}}}
+      override fun onScanFailed(errorCode:Int){if(!accepting||generation!=scanGeneration)return;Log.w(TAG,"BLE scan failed code=$errorCode");update("扫描失败（$errorCode），请重试");updateStatus("error","扫描失败（$errorCode）");callback=null;scanner=null}
     };callback=active
     val settings=ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES).setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE).setReportDelay(0).build()
     val filters=listOf(ScanFilter.Builder().setServiceData(bodyUuid,byteArrayOf()).build(),ScanFilter.Builder().setServiceData(miBeaconUuid,byteArrayOf()).build())
@@ -90,8 +107,8 @@ class ScaleScanService:Service(){
   private fun measurement(address:String,frame:XiaomiScaleFrame):Measurement{val zone=ZoneId.systemDefault();val instant=normalize(frame.measuredAt,zone);val weight=frame.weightKg?:0.0;val key="${instant.epochSecond/60}-${kotlin.math.round(weight*200)}-${sha256(address).take(12)}";return Measurement(key,address,frame,instant,zone)}
   private fun normalize(value:LocalDateTime?,zone:ZoneId):Instant{val now=Instant.now();if(value==null)return now.epochSecond.let{Instant.ofEpochSecond(it-it%60)};val candidate=runCatching{value.atZone(zone).toInstant()}.getOrElse{return now};val delta=Duration.between(candidate,now).toMillis();if(kotlin.math.abs(delta)<=10*60_000)return candidate;val quantum=15*60_000L;return candidate.plusMillis((delta.toDouble()/quantum).roundToLong()*quantum)}
 
-  private fun enqueue(measurement:Measurement){val now=System.currentTimeMillis();sent.entries.removeIf{now-it.value>10*60_000};if(sent.putIfAbsent(measurement.key,now)!=null)return;val weight=measurement.frame.weightKg?:return;update("已收到稳定读数，正在安全保存…");updateStatus("reading","已收到稳定读数，正在安全保存")
-    scope.launch{val app=application as ShadowApp;val session=app.sessions.active()?.takeIf{it.accountId==accountId};if(session==null){update("登录已失效，读数未保存");updateStatus("error","登录已失效，读数未保存");return@launch}
+  private fun enqueue(measurement:Measurement){if(!accepting)return;val generation=scanGeneration;val receivingAccount=accountId;val now=System.currentTimeMillis();sent.entries.removeIf{now-it.value>10*60_000};if(sent.putIfAbsent(measurement.key,now)!=null)return;val weight=measurement.frame.weightKg?:return;update("已收到稳定读数，正在安全保存…");updateStatus("reading","已收到稳定读数，正在安全保存")
+    scope.launch{val app=application as ShadowApp;val session=app.sessions.active()?.takeIf{it.accountId==receivingAccount};if(session==null){update("登录已失效，读数未保存");updateStatus("error","登录已失效，读数未保存");return@launch}
       val settings=runCatching{ScalePreferences(this@ScaleScanService).current()}.getOrNull();val observations=JSONArray().put(observation("weight",decimal(weight),"kg","${measurement.frame.model}:weight"))
       measurement.frame.impedanceLow?.let{observations.put(observation("impedance_low",decimal(it),"ohm","${measurement.frame.model}:impedance_low"))};measurement.frame.impedanceHigh?.let{observations.put(observation("impedance_high",decimal(it),"ohm","${measurement.frame.model}:impedance_high"))};measurement.frame.heartRate?.let{observations.put(observation("heart_rate",it.toString(),"bpm","${measurement.frame.model}:heart_rate"))}
       val profile=settings?.profile();val impedance=measurement.frame.impedanceLow;val composition=if(profile!=null&&impedance!=null)xiaomiBodyComposition(weight,impedance,profile,measurement.instant.atZone(measurement.zone).toLocalDate()) else null
@@ -101,15 +118,15 @@ class ScaleScanService:Service(){
       val date=measurement.instant.atZone(measurement.zone).toLocalDate().toString();val payload=JSONObject().put("occurred_on",date).put("occurred_at",measurement.instant.toString()).put("time_zone",measurement.zone.id).put("group_kind","measurement").put("observations",observations)
       val instance="android-scale-${sha256(measurement.address).take(24)}";val fingerprint=sha256("${measurement.frame.model}|${measurement.address}")
       val command=healthDeviceRecordCommand(session.accountId,session.subjectId,"scale",instance,fingerprint,"body",measurement.key,measurement.instant.toEpochMilli(),payload,"xiaomi-ble-2")
-      try{app.queue.enqueueCommand(session,command.commandId,command.capability,command.body);app.deviceSync.recordScale(session.accountId,decimal(weight),measurement.frame.model,measurement.instant.toEpochMilli());SyncScheduler.schedule(this@ScaleScanService,session.accountId);Log.i(TAG,"stable measurement queued model=${measurement.frame.model}");update("已保存 ${decimal(weight)} kg${if(composition!=null)"，含体成分" else if(impedance!=null)"，请补档案以计算体成分" else ""}");handler.postDelayed({stopSelf()},4_000)}catch(error:Exception){Log.w(TAG,"measurement queue failed",error);update("读数保存失败，请重试");updateStatus("error","读数保存失败，请重试")}
+      try{app.queue.enqueueCommand(session,command.commandId,command.capability,command.body);app.deviceSync.recordScale(session.accountId,decimal(weight),measurement.frame.model,measurement.instant.toEpochMilli(),updateState=accepting&&generation==scanGeneration);SyncScheduler.schedule(this@ScaleScanService,session.accountId);Log.i(TAG,"stable measurement queued model=${measurement.frame.model}");update("已保存 ${decimal(weight)} kg${if(composition!=null)"，含体成分" else if(impedance!=null)"，请补档案以计算体成分" else ""}");handler.post{if(generation==scanGeneration&&accepting){accepting=false;stopScan();handler.removeCallbacks(finish);handler.postDelayed({if(generation==scanGeneration)stopSelf()},4_000)}}}catch(error:Exception){Log.w(TAG,"measurement queue failed",error);if(generation==scanGeneration&&accepting){update("读数保存失败，请重试");updateStatus("error","读数保存失败，请重试")}}
     }
   }
   private fun observation(metric:String,value:String,unit:String,source:String,autofilled:Boolean=false)=JSONObject().put("metric_key",metric).put("value",value).put("unit",unit).put("original_field",source).put("autofilled",autofilled)
   private fun decimal(value:Double)=BigDecimal.valueOf(value).setScale(6,RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()
   private fun sha256(value:String)=MessageDigest.getInstance("SHA-256").digest(value.toByteArray()).joinToString(""){"%02x".format(it)}
   private fun notification(text:String):Notification{val open=PendingIntent.getActivity(this,0,Intent(this,MainActivity::class.java),PendingIntent.FLAG_IMMUTABLE);return NotificationCompat.Builder(this,CHANNEL).setSmallIcon(R.mipmap.ic_launcher).setContentTitle("Shadow Life 体脂秤").setContentText(text).setContentIntent(open).setOngoing(true).build()}
-  private fun update(text:String){handler.post{getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID,notification(text))}}
+  private fun update(text:String){handler.post{if(!accepting)return@post;getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID,notification(text))}}
   private fun advertisement(model:String){if(sawAdvertisement)return;sawAdvertisement=true;Log.i(TAG,"BLE advertisement detected model=$model");updateStatus("detected","已发现 $model 广播，等待稳定读数")}
   private fun updateStatus(state:String,message:String){accountId?.let{(application as ShadowApp).deviceSync.updateScale(it,state,message)}}
-  companion object{const val EXTRA_ACCOUNT_ID="account_id";private const val TAG="ScaleScan";private const val CHANNEL="shadow-life-scale";private const val NOTIFICATION_ID=1201;private const val TIMEOUT_MS=3*60_000L;private const val SETTLE_MS=12_000L}
+  companion object{const val ACTION_CANCEL="com.shadow.life.CANCEL_SCALE";const val EXTRA_ACCOUNT_ID="account_id";private const val TAG="ScaleScan";private const val CHANNEL="shadow-life-scale";private const val NOTIFICATION_ID=1201;private const val TIMEOUT_MS=3*60_000L;private const val SETTLE_MS=12_000L}
 }

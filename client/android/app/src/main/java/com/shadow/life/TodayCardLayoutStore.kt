@@ -27,9 +27,9 @@ enum class TodayCardKind(val key:String,val title:String,val description:String)
 
 // Saved layouts keep stable keys and order; new cards are introduced once by the store.
 val defaultTodayCards=listOf(
-  TodayCardKind.Training,TodayCardKind.Focus,TodayCardKind.RecentInfo,TodayCardKind.QuickCapture,TodayCardKind.Health,
-  TodayCardKind.Meals,TodayCardKind.Money,TodayCardKind.Travel,
-  TodayCardKind.Plans,TodayCardKind.Items,TodayCardKind.Library,TodayCardKind.Scale,TodayCardKind.CaptureOverview
+  TodayCardKind.Focus,TodayCardKind.Health,TodayCardKind.Meals,TodayCardKind.Money,TodayCardKind.RecentInfo,
+  TodayCardKind.Scale,TodayCardKind.Training,TodayCardKind.QuickCapture,TodayCardKind.Travel,
+  TodayCardKind.Plans,TodayCardKind.Items,TodayCardKind.Library,TodayCardKind.CaptureOverview
 )
 
 internal fun decodeTodayCards(raw:String?):List<TodayCardKind>{
