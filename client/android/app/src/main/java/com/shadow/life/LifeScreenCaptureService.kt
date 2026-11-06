@@ -187,10 +187,19 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
    val pkg=root?.packageName?.toString()
    if(pkg==packageName){root.recycle();feedback("已识别摇动。打开支付账单或已开启的外卖订单详情再摇动");return}
    if(pkg==null){root?.recycle();feedback("已识别摇动，但当前页面不可读取，请打开单笔账单详情");return}
-   if(pkg in takeoutPackages && settings.getBoolean(shakeKey(account,pkg),false)){
+   if(pkg in takeoutPackages){
      root.recycle();if(takeoutWork?.isActive==true)return
+     if(!settings.getBoolean(shakeKey(account,pkg),false)){
+       feedback("此应用的摇一摇尚未开启，请到 Life「订单 → 摇一摇与自动记账设置」选择此应用并打开开关")
+       return
+     }
      pending?.cancel();automatic?.cancel();autoCycle.invalidate()
-     takeoutWork=scope.launch(Dispatchers.Main){try{collectTakeoutOrder(account,pkg);feedback(BillShakeStatus.message)}catch(e:TimeoutCancellationException){feedback("订单采集超时，请使用系统长截图分享给 Life")}catch(e:CancellationException){throw e}catch(e:Exception){feedback(e.message?:"订单采集未完成，请分享长截图")}}
+     feedback("已识别摇动，正在读取外卖订单，请保持页面不动")
+     takeoutWork=scope.launch(Dispatchers.Main){try{
+       // Let the short toast disappear before capturing the order's pixels.
+       delay(2200)
+       collectTakeoutOrder(account,pkg);feedback(BillShakeStatus.message)
+     }catch(e:TimeoutCancellationException){feedback("订单采集超时，请使用系统长截图分享给 Life")}catch(e:CancellationException){throw e}catch(e:Exception){feedback(e.message?:"订单采集未完成，请分享长截图")}}
      return
    }
    if(pkg !in billPlatforms || !settings.getBoolean(shakeKey(account,pkg),false)){root.recycle();return}
