@@ -58,7 +58,15 @@ internal suspend fun LifeScreenCaptureService.collectTakeoutOrder(account:String
  val frames=mutableListOf<Pair<Int,Bitmap>>()
  TakeoutOcr().use{ocr->
   suspend fun frame():Pair<Bitmap,List<OrderTextBox>>{checkPage();val bitmap=orderScreenshot();try{val boxes=ocr.read(bitmap);checkPage();return bitmap to boxes}catch(e:Throwable){bitmap.recycle();throw e}}
-  var first=frame();if(!isTakeoutPage(first.second)){first.first.recycle();error("请打开一笔外卖订单详情，再摇一摇")}
+  var first=frame()
+  // A shake can start midway down an order. Its brand/title may be offscreen,
+  // and accessible WebView text can retain a heading that OCR splits or misses.
+  val orderPage=try{
+   checkPage()
+   val knownTakeoutApp=pkg in dedicatedTakeoutPackages
+   isTakeoutPage(first.second,knownTakeoutApp)||rootInActiveWindow?.let{root->isTakeoutDetailText(readCapturePage(root).orEmpty(),knownTakeoutApp)}==true
+  }catch(e:Throwable){first.first.recycle();throw e}
+  if(!orderPage){first.first.recycle();error("未识别出单笔订单明细，请展开商品或订单信息后重试，也可分享系统长截图")}
   try{
    // Return to the top before collecting; bounded and checked after every movement.
    var atTop=false

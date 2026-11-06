@@ -5,12 +5,27 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 internal val takeoutPackages=mapOf("me.ele" to "eleme","me.ele.mall" to "eleme","com.taobao.taobao" to "eleme","com.sankuai.meituan" to "meituan","com.sankuai.meituan.takeoutnew" to "meituan")
+// General shopping apps still need visible takeout evidence.
+internal val dedicatedTakeoutPackages=setOf("me.ele","me.ele.mall","com.sankuai.meituan.takeoutnew")
 internal data class OrderTextBox(val x:Int,val y:Int,val width:Int,val height:Int,val text:String){val bottom get()=y+height}
 internal fun takeoutText(boxes:List<OrderTextBox>)=boxes.sortedWith(compareBy<OrderTextBox>{it.y}.thenBy{it.x}).joinToString("\n"){it.text}
-internal fun isTakeoutPage(boxes:List<OrderTextBox>):Boolean {
- val text=takeoutText(boxes).replace(" ","").replace("支付万式","支付方式")
- return (text.contains("订单已送到指定位置")||text.contains("订单已完成")||text.contains("订单详情")||text.contains("已送达"))&&
-  (text.contains("闪购")||text.contains("蜂鸟")||text.contains("美团")||text.contains("配送"))
+internal fun isTakeoutPage(boxes:List<OrderTextBox>,knownTakeoutApp:Boolean=false)=isTakeoutDetailText(takeoutText(boxes),knownTakeoutApp)
+/** Classification only: node text may supplement OCR, but never supplies product positions. */
+internal fun isTakeoutDetailText(raw:String,knownTakeoutApp:Boolean=false):Boolean {
+ val lines=raw.lineSequence().map{it.replace(Regex("\\s+"),"")}.filter{it.isNotEmpty()}.toList()
+ if(lines.any{it in setOf("我的订单","全部订单","订单列表","搜索订单")})return false
+ val text=lines.joinToString("").replace("支付万式","支付方式")
+ val platform=knownTakeoutApp||listOf("闪购","饿了么","蜂鸟","美团").any(text::contains)
+ if(!platform)return false
+ val orderNumber=Regex("订单(?:号|编号)[:：]?\\d{8,40}").containsMatchIn(text)
+ val footer=listOf("下单时间","支付方式","订单信息","收货信息").count(text::contains)
+ if(orderNumber&&footer>=2)return true
+ val quantities=Regex("[×xX*]\\d{1,3}(?!\\d)").findAll(text).count()
+ val money=Regex("(?:[¥￥]|实付[:：]?)\\d").containsMatchIn(text)
+ val fees=listOf("打包费","包装费","配送费","配迭费").any(text::contains)
+ if(text.contains("价格明细")&&fees&&money)return true
+ val detailHeading=listOf("订单详情","订单已完成","订单已送到","订单已送达","已送达","已完成配送","订单配送中","骑手正在配送","商家正在备餐","订单已取消").any(text::contains)
+ return detailHeading&&money&&(quantities>0||fees||orderNumber)
 }
 internal fun takeoutEnded(boxes:List<OrderTextBox>):Boolean {
  val text=takeoutText(boxes).replace(" ","").replace("支付万式","支付方式")
