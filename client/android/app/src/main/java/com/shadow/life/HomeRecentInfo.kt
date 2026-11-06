@@ -44,8 +44,15 @@ internal fun recentCaptureState(state:String)=when(state){
   "committed"->"材料已同步 · 正在读取入账结果"
   else->"状态待核对"
 }
-internal fun mergeHomeRecentInfo(local:List<HomeRecentInfo>,remote:List<HomeRecentInfo>,limit:Int=5):List<HomeRecentInfo> =
-  (local+remote).distinctBy{if(it.domain!=null&&it.targetId!=null)"${it.domain}:${it.targetId}" else it.key}.sortedByDescending{it.at}.take(limit)
+internal fun mergeHomeRecentInfo(local:List<HomeRecentInfo>,remote:List<HomeRecentInfo>,limit:Int=5):List<HomeRecentInfo> {
+  fun identity(row:HomeRecentInfo)=if(row.domain!=null&&row.targetId!=null)"${row.domain}:${row.targetId}" else row.key
+  val captures=local.groupBy(::identity).map{(_,rows)->
+    val latest=rows.maxBy{it.at}
+    val representative=rows.filter{it.status.startsWith("已入账")}.maxByOrNull{it.at}?:latest
+    if(rows.size>1&&representative.domain==LifeDomain.Money)representative.copy(at=latest.at,status="${representative.status} · ${rows.size} 份采集材料") else representative
+  }
+  return (captures+remote).distinctBy(::identity).sortedByDescending{it.at}.take(limit)
+}
 
 internal fun hasNewCaptureResults(local:List<RecentCaptureInfo>,resolvedKeys:Set<String>):Boolean =
   local.any{it.state=="committed"&&it.key !in resolvedKeys}

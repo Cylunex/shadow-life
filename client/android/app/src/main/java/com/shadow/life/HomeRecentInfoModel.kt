@@ -45,10 +45,10 @@ internal class HomeRecentInfoModel(private val app:ShadowApp,private val account
                   }
                   item.sourceId!=null->{
                     val source=repository.activitySource(item.sourceId)
-                    val recordId=source.consumptionRecordId
+                    val recordId=source.consumptionRecordId?:source.relatedConsumptionRecordId
                     if(recordId!=null){
                       val detail=repository.detail(LifeDomain.Money,recordId)
-                      HomeRecentInfo(item.key,item.at,listOfNotNull(detail.title,detail.heroValue).joinToString(" · "),if(detail.state=="confirmed")"已入账 · 查看消费" else "账目状态已变化",LifeDomain.Money,recordId)
+                      HomeRecentInfo(item.key,item.at,listOfNotNull(detail.title,detail.heroValue).joinToString(" · "),if(detail.state=="confirmed"){if(source.consumptionRecordId==null)"付款页已归组 · 查看对应消费" else "已入账 · 查看消费"} else "账目状态已变化",LifeDomain.Money,recordId)
                     }else HomeRecentInfo(item.key,item.at,source.title,if(source.title.startsWith("付款自动识别")||source.title.startsWith("摇一摇补记"))"材料已收录 · 尚未入账，查看采集结果" else "材料已收录",LifeDomain.Library,"capture:${source.id}")
                   }
                   else->HomeRecentInfo(item.key,item.at,"采集结果待核对","已同步 · 查看采集结果")

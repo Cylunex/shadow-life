@@ -69,6 +69,15 @@ class HomeRecentInfoTest {
     assertEquals(0L,recentInfoRefreshDelay(100,110,true))
     assertEquals(60_000L,recentInfoRefreshDelay(100,90))
   }
+  @Test fun automaticAndShakeSourcesShowOneExpenseAndRetainMaterialCount(){
+    val auto=HomeRecentInfo("auto",10,"旧材料","付款页已归组 · 查看对应消费",LifeDomain.Money,"record_a")
+    val shake=HomeRecentInfo("shake",20,"餐厅 · 19.98","已入账 · 查看消费",LifeDomain.Money,"record_a")
+    val other=shake.copy(key="other",targetId="record_b",at=15)
+    val rows=mergeHomeRecentInfo(listOf(auto,other,shake),listOf(shake.copy(key="timeline")))
+    assertEquals(2,rows.size);assertEquals("餐厅 · 19.98",rows.first().title)
+    assertEquals("已入账 · 查看消费 · 2 份采集材料",rows.first().status)
+    assertEquals(20L,rows.first().at)
+  }
   @Test fun newlyCommittedCaptureBypassesBackgroundRefreshThrottle(){
     val paid=recentCaptureEntries("cmd_a",123,"committed",body(),receipt(paidResources)).single()
     assertTrue(hasNewCaptureResults(listOf(paid),emptySet()))

@@ -16296,6 +16296,18 @@
               }
             ]
           },
+          "related_consumption_record_id": {
+            "description": "可撤回的付款材料展示归组，不是交易身份关联，不用于记账；原始材料和真实消费保持独立。",
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,119}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "behavior": {
             "type": "string"
           },

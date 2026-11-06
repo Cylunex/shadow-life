@@ -240,7 +240,7 @@ export class QueryService {
   }
   async activitySource(context:RequestContext,input:unknown){
     if(!context.effects.has("library.item.read"))throw permissionDenied("library.item.read");const parsed=activityActionInputSchema.parse(input);
-    return this.unitOfWork.read(async store=>{const source=await store.activitySource?.(context.subjectId,parsed.id);if(!source)throw notFound("Activity source");const result=activitySourceResultSchema.parse(source);if(!context.effects.has("money.entry.read"))result.consumption_record_id=null;if(!context.effects.has("life.project.read")){result.project_id=null;result.project_title=null;}return result;});
+    return this.unitOfWork.read(async store=>{const source=await store.activitySource?.(context.subjectId,parsed.id);if(!source)throw notFound("Activity source");const result=activitySourceResultSchema.parse(source);if(!context.effects.has("money.entry.read")){result.consumption_record_id=null;result.related_consumption_record_id=null;}if(!context.effects.has("life.project.read")){result.project_id=null;result.project_title=null;}return result;});
   }
   async captureWorkspace(context:RequestContext,input:unknown){
     if(!context.effects.has("library.item.read"))throw permissionDenied("library.item.read");

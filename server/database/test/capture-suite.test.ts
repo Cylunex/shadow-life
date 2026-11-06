@@ -196,3 +196,19 @@ test("payment capture provenance survives export and restore without booking and
  assert.deepEqual((await f.pool.query("select payment_context from activity_captures where device_id='restore_payment_backup'")).rows[0].payment_context,item.payment_context);
  await f.run("life.delete_activity",{id});assert.equal((await f.pool.query("select payment_context from activity_captures where id=$1",[id])).rows[0].payment_context,null);
 });
+
+test("anonymous payment materials group on read, withdraw on ambiguity and never create another expense",pgOnly,async t=>{
+ const f=await reviewFixture(t);
+ const text="完成\n支付成功￥8.80\n支付成功\n8.80\n￥8.80\n订单金额\n付款方式\n示例银行信用卡(1234)";
+ const automatic=await f.run("life.ingest_activity",{...shake("anonymous_result",text),items:[{...shake("anonymous_result",text).items[0],started_at:"2026-10-30T09:00:02Z",ended_at:"2026-10-30T09:00:02Z",payment_context:{platform:"alipay",source_account:"default",trigger:"payment_success"}}]});
+ const id=automatic.resources.find(v=>v.type==="activity_capture")!.id;
+ assert.equal((await f.queries.activitySource(f.context,{id})).related_consumption_record_id,null);
+ const bill=alipayBill("GROUP-ONE")+"\n付款方式\n示例银行信用卡(1234)";
+ const saved=await f.run("life.ingest_activity",shake("group_detail",bill));
+ const record=saved.resources.find(v=>v.type==="consumption_record")!.id;
+ let source=await f.queries.activitySource(f.context,{id});assert.equal(source.consumption_record_id,null);assert.equal(source.related_consumption_record_id,record);assert.equal(source.text,text);
+ assert.equal((await f.pool.query("select count(*)::int n from money_entries")).rows[0].n,1);
+ assert.equal((await f.queries.activitySource({...f.context,effects:new Set(["library.item.read"])},{id})).related_consumption_record_id,null);
+ await f.run("life.ingest_activity",shake("group_competing",bill.replace("GROUP-ONE","GROUP-TWO")));
+ source=await f.queries.activitySource(f.context,{id});assert.equal(source.related_consumption_record_id,null);
+});

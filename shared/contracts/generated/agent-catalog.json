@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "747343d9d37a7f87f3b403629a8f6a9114699da7e5381c00934603b5103ac846",
+  "catalog_revision": "faa9e38ed1ad7bba56f335a5650e197d8fc4ecddb9133e7e7d448dc9c638e844",
   "terms": [
     {
       "id": "activity_capture",
@@ -21219,6 +21219,18 @@
             ]
           },
           "consumption_record_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,119}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "related_consumption_record_id": {
+            "description": "可撤回的付款材料展示归组，不是交易身份关联，不用于记账；原始材料和真实消费保持独立。",
             "anyOf": [
               {
                 "type": "string",
