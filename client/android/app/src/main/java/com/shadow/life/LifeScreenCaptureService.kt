@@ -55,14 +55,17 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
  }
  override fun onServiceConnected(){
    super.onServiceConnected();active=this
+   shakeWatch?.cancel()
+   listen(null)
    settings.registerOnSharedPreferenceChangeListener(preferenceWatch)
    refreshShake()
-   scope.launch(Dispatchers.Main){while(isActive){delay(5000);refreshShake()}}
+   shakeWatch=scope.launch(Dispatchers.Main){while(isActive){delay(5000);refreshShake()}}
  }
 
  private val scope=CoroutineScope(SupervisorJob()+Dispatchers.IO)
  private var pending:Job?=null
  private var automatic:Job?=null
+ private var shakeWatch:Job?=null
  private val paymentReader=Executors.newSingleThreadExecutor()
  private val paymentReading=AtomicBoolean(false)
  private suspend fun readPaymentFrame(pkg:String,window:Int):String?=withTimeoutOrNull(650){
@@ -127,10 +130,10 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
  private val settings by lazy { getSharedPreferences("activity_capture",MODE_PRIVATE) }
  private var listeningAccount:String?=null
  private var foreground=false
- private var listeningSince=0L
- private var gesture=BillShakeGesture()
+ private val shakeMonitor=BillShakeMonitor()
 
  private fun refreshShake(){
+   if(active!==this)return
    val account=(application as ShadowApp).sessions.active()?.accountId
    val enabled=account!=null && billPlatforms.keys.any{settings.getBoolean(shakeKey(account,it),false)}
    if(!enabled){
@@ -144,36 +147,46 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
        .setContentTitle("Life 摇一摇记账已开启").setContentText("打开支付账单详情后摇动；可回 Life 关闭").setContentIntent(open).setOngoing(true).build()
      if(Build.VERSION.SDK_INT>=34)startForeground(5204,notification,ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE) else startForeground(5204,notification)
      foreground=true
-   }catch(_:Exception){listen(null);BillShakeStatus.message="系统未允许后台监听，请回 Life 关闭再开启摇一摇";return}
+   }catch(e:Exception){
+     android.util.Log.w("LifeShake","Foreground listening unavailable",e)
+     listen(null);BillShakeStatus.message="系统未允许后台监听，请解除 Life 电池与后台限制，服务会自动重试";return
+   }
    val unlocked=getSystemService(PowerManager::class.java).isInteractive && !getSystemService(KeyguardManager::class.java).isKeyguardLocked
+   val recovering=unlocked && listeningAccount==account && shakeMonitor.needsRestart(android.os.SystemClock.elapsedRealtime())
+   if(recovering){
+     android.util.Log.w("LifeShake","Sensor samples stalled; registering listener again")
+     listen(null)
+   }
    listen(account.takeIf{unlocked})
    if(!unlocked)BillShakeStatus.message="锁屏时暂停摇动检测"
-   else if(listeningAccount!=null && !BillShakeStatus.sampling && android.os.SystemClock.elapsedRealtime()-listeningSince>5000)
-     BillShakeStatus.message="尚未收到传感器数据，请检查系统后台限制或重新启用屏幕内容服务"
+   else if(recovering && listeningAccount!=null)BillShakeStatus.message="传感器数据中断，已重新监听；若持续出现，请解除 Life 后台限制"
  }
  private fun listen(account:String?){
    if(account==listeningAccount)return
-   sensors.unregisterListener(this);listeningAccount=null;gesture=BillShakeGesture()
+   sensors.unregisterListener(this);listeningAccount=null;shakeMonitor.stop()
    BillShakeStatus.sampling=false
    if(account!=null){
-     if(sensors.registerListener(this,sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),SensorManager.SENSOR_DELAY_GAME)){
-       listeningAccount=account;listeningSince=android.os.SystemClock.elapsedRealtime();BillShakeStatus.message="等待传感器，可在这里摇动测试"
+     val registered=try{sensors.registerListener(this,sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),SensorManager.SENSOR_DELAY_GAME)}
+       catch(e:RuntimeException){android.util.Log.w("LifeShake","Sensor registration failed",e);false}
+     if(registered){
+       listeningAccount=account;shakeMonitor.start(android.os.SystemClock.elapsedRealtime());BillShakeStatus.message="等待传感器，可在这里摇动测试"
      }else BillShakeStatus.message="加速度传感器不可用"
    }
  }
  override fun onAccuracyChanged(sensor:Sensor?,accuracy:Int){}
  override fun onSensorChanged(event:SensorEvent){
    val account=listeningAccount?:return
+   if(active!==this)return
+   val shaken=shakeMonitor.sample(event.timestamp/1_000_000,android.os.SystemClock.elapsedRealtime(),event.values[0],event.values[1],event.values[2])?:return
    if(!BillShakeStatus.sampling){BillShakeStatus.sampling=true;BillShakeStatus.message="已收到传感器数据，可摇动测试"}
-   if(!gesture.sample(event.timestamp/1_000_000,event.values[0],event.values[1],event.values[2]))return
+   if(!shaken)return
    val app=application as ShadowApp
-   if(app.sessions.active()?.accountId!=account ||
-      getSystemService(KeyguardManager::class.java).isKeyguardLocked || !getSystemService(PowerManager::class.java).isInteractive){refreshShake();return}
+   if(app.sessions.active()?.accountId!=account || !unlocked()){refreshShake();return}
    val root=rootInActiveWindow
    val pkg=root?.packageName?.toString()
-   if(pkg==packageName){feedback("已识别摇动。现在打开支付宝或微信的单笔账单详情再摇动");return}
-   if(pkg==null){feedback("已识别摇动，但当前页面不可读取，请打开单笔账单详情");return}
-   if(pkg !in billPlatforms || !settings.getBoolean(shakeKey(account,pkg),false))return
+   if(pkg==packageName){root.recycle();feedback("已识别摇动。现在打开支付宝或微信的单笔账单详情再摇动");return}
+   if(pkg==null){root?.recycle();feedback("已识别摇动，但当前页面不可读取，请打开单笔账单详情");return}
+   if(pkg !in billPlatforms || !settings.getBoolean(shakeKey(account,pkg),false)){root.recycle();return}
    val text=readCapturePage(root,billOnly=true)
    if(text==null || !resemblesBillDetail(text)){
      feedback("已识别摇动，未读到单笔账单详情；请点进一笔账单并展开交易号");return
@@ -237,7 +250,15 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
    if(shaken && app.sessions.active()?.accountId==account)feedback("账单已提交记账，完整已支付账单会记为消费；回首页查看结果")
  }
  override fun onInterrupt(){pending?.cancel();automatic?.cancel();autoCycle.invalidate()}
- override fun onDestroy(){settings.unregisterOnSharedPreferenceChangeListener(preferenceWatch);unregisterReceiver(screenState);listen(null);stopForeground(STOP_FOREGROUND_REMOVE);BillShakeStatus.message="屏幕内容服务已断开";active=null;autoCycle.invalidate();automatic?.cancel();paymentReader.shutdownNow();scope.cancel();super.onDestroy()}
+ private fun disconnect(){
+   shakeWatch?.cancel();shakeWatch=null
+   settings.unregisterOnSharedPreferenceChangeListener(preferenceWatch)
+   listen(null);stopForeground(STOP_FOREGROUND_REMOVE);foreground=false
+   if(active===this){active=null;BillShakeStatus.message="屏幕内容服务已断开，请检查系统后台限制与辅助服务开关"}
+   autoCycle.invalidate();automatic?.cancel();pending?.cancel()
+ }
+ override fun onUnbind(intent:Intent?):Boolean{disconnect();return super.onUnbind(intent)}
+ override fun onDestroy(){disconnect();unregisterReceiver(screenState);paymentReader.shutdownNow();scope.cancel();super.onDestroy()}
 }
 
 /** Reads visible text and descriptions; a truncated or sensitive tree is never accepted. */
