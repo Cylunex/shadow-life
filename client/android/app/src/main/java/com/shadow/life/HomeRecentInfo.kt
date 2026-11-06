@@ -1,6 +1,9 @@
 package com.shadow.life
 
 import kotlinx.serialization.json.*
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.joinAll
 
 internal data class RecentCaptureInfo(
   val key:String,val at:Long,val title:String,val state:String,val preview:String?,
@@ -38,11 +41,20 @@ internal fun recentCaptureState(state:String)=when(state){
   "unknown"->"结果待确认 · 正在核对"
   "failed"->"同步失败 · 查看重试入口"
   "blocked"->"同步受阻 · 查看账号与队列"
-  "committed"->"已同步 · 等待更新结果"
+  "committed"->"材料已同步 · 正在读取入账结果"
   else->"状态待核对"
 }
 internal fun mergeHomeRecentInfo(local:List<HomeRecentInfo>,remote:List<HomeRecentInfo>,limit:Int=5):List<HomeRecentInfo> =
   (local+remote).distinctBy{if(it.domain!=null&&it.targetId!=null)"${it.domain}:${it.targetId}" else it.key}.sortedByDescending{it.at}.take(limit)
 
-internal fun recentInfoRefreshDelay(lastAttempt:Long?,now:Long,manual:Boolean=false):Long =
-  if(manual||lastAttempt==null)0 else (60_000L-(now-lastAttempt).coerceAtLeast(0)).coerceAtLeast(0)
+internal fun hasNewCaptureResults(local:List<RecentCaptureInfo>,resolvedKeys:Set<String>):Boolean =
+  local.any{it.state=="committed"&&it.key !in resolvedKeys}
+
+internal fun recentInfoRefreshDelay(lastAttempt:Long?,now:Long,manual:Boolean=false,newResults:Boolean=false):Long =
+  if(manual||newResults||lastAttempt==null)0 else (60_000L-(now-lastAttempt).coerceAtLeast(0)).coerceAtLeast(0)
+
+// Publish each verified result immediately; a slow older source must not hide a new receipt.
+internal suspend fun resolveRecentCaptures(
+  items:List<RecentCaptureInfo>,read:suspend (RecentCaptureInfo)->HomeRecentInfo?,
+  publish:(String,HomeRecentInfo?)->Unit
+)=coroutineScope{items.map{item->launch{publish(item.key,read(item))}}.joinAll()}

@@ -18,21 +18,26 @@ internal class HomeRecentInfoModel(private val app:ShadowApp,private val account
   private var lastAttempt:Long?=null
   private var work:Job?=null
   private var latest:List<RecentCaptureInfo> = emptyList()
+  private var request=0L
 
   fun refresh(local:List<RecentCaptureInfo>,manual:Boolean=false){
     latest=local
-    if(loading)return
-    if(work?.isActive==true){if(!manual)return;work?.cancel()}
+    val newResults=hasNewCaptureResults(local,resolved.keys)
+    if(loading&&!manual&&!newResults)return
+    if(work?.isActive==true){if(!manual&&!newResults)return;work?.cancel()}
+    val currentRequest=++request
     work=viewModelScope.launch{
-      delay(recentInfoRefreshDelay(lastAttempt,SystemClock.elapsedRealtime(),manual))
+      delay(recentInfoRefreshDelay(lastAttempt,SystemClock.elapsedRealtime(),manual,newResults))
       if(app.sessions.active()?.accountId!=accountId)return@launch
       val snapshot=latest
+      val keys=snapshot.map{it.key}.toSet()
+      resolved=resolved.filterKeys{it in keys}
       lastAttempt=SystemClock.elapsedRealtime();loading=true;error=null
       try{
         coroutineScope{
           launch{
-            val entries=snapshot.filter{it.state=="committed"}.map{item->async{
-              val row=try{
+            resolveRecentCaptures(snapshot.filter{it.state=="committed"},read={item->
+              try{
                 when{
                   item.moneyRecordId!=null->{
                     val detail=repository.detail(LifeDomain.Money,item.moneyRecordId)
@@ -44,27 +49,26 @@ internal class HomeRecentInfoModel(private val app:ShadowApp,private val account
                     if(recordId!=null){
                       val detail=repository.detail(LifeDomain.Money,recordId)
                       HomeRecentInfo(item.key,item.at,listOfNotNull(detail.title,detail.heroValue).joinToString(" · "),if(detail.state=="confirmed")"已入账 · 查看消费" else "账目状态已变化",LifeDomain.Money,recordId)
-                    }else HomeRecentInfo(item.key,item.at,source.title,if(source.title.startsWith("付款自动识别"))"付款材料已收录 · 详情不全或有冲突，尚未入账" else "已收录材料 · 入账结果见采集结果",LifeDomain.Library,"capture:${source.id}")
+                    }else HomeRecentInfo(item.key,item.at,source.title,if(source.title.startsWith("付款自动识别")||source.title.startsWith("摇一摇补记"))"材料已收录 · 尚未入账，查看采集结果" else "材料已收录",LifeDomain.Library,"capture:${source.id}")
                   }
                   else->HomeRecentInfo(item.key,item.at,"采集结果待核对","已同步 · 查看采集结果")
                 }
               }catch(e:CancellationException){throw e}catch(_:Exception){HomeRecentInfo(item.key,item.at,"采集结果暂不可读取","已同步 · 可刷新重试")}
-              item.key to row
-            }}.awaitAll().toMap()
-            if(app.sessions.active()?.accountId==accountId)resolved=entries
+            },publish={key,row->
+              if(currentRequest==request&&app.sessions.active()?.accountId==accountId)resolved=resolved+(key to row)
+            })
           }
           launch{
             try{
               val page=repository.timeline()
-              if(app.sessions.active()?.accountId==accountId)remote=page.items.filter{it.kind!="activity_capture"}.map{item->HomeRecentInfo("record:${item.domain}:${item.recordId?:item.id}",runCatching{Instant.parse(item.happenedAt).toEpochMilli()}.getOrDefault(0),item.title,"${item.domain.label()} · 已记录",item.domain,item.recordId?:item.id)}
-            }catch(e:CancellationException){throw e}catch(_:Exception){if(app.sessions.active()?.accountId==accountId)error="最近记录未更新，可稍后刷新。"}
+              if(currentRequest==request&&app.sessions.active()?.accountId==accountId)remote=page.items.filter{it.kind!="activity_capture"}.map{item->HomeRecentInfo("record:${item.domain}:${item.recordId?:item.id}",runCatching{Instant.parse(item.happenedAt).toEpochMilli()}.getOrDefault(0),item.title,"${item.domain.label()} · 已记录",item.domain,item.recordId?:item.id)}
+            }catch(e:CancellationException){throw e}catch(_:Exception){if(currentRequest==request&&app.sessions.active()?.accountId==accountId)error="最近记录未更新，可稍后刷新。"}
           }
         }
       }finally{
-        loading=false
-        work=null
+        if(currentRequest==request){loading=false;work=null}
       }
-      if(latest!=snapshot)refresh(latest)
+      if(currentRequest==request&&latest!=snapshot)refresh(latest)
     }
   }
 }

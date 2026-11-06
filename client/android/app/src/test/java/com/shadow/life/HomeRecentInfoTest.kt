@@ -2,6 +2,7 @@ package com.shadow.life
 
 import org.junit.Assert.*
 import org.junit.Test
+import kotlinx.coroutines.*
 
 class HomeRecentInfoTest {
   private val item="""{"source_id":"shake_a","kind":"screen_text","title":"摇一摇补记 · 微信","text":"付款材料"}"""
@@ -68,4 +69,27 @@ class HomeRecentInfoTest {
     assertEquals(0L,recentInfoRefreshDelay(100,110,true))
     assertEquals(60_000L,recentInfoRefreshDelay(100,90))
   }
+  @Test fun newlyCommittedCaptureBypassesBackgroundRefreshThrottle(){
+    val paid=recentCaptureEntries("cmd_a",123,"committed",body(),receipt(paidResources)).single()
+    assertTrue(hasNewCaptureResults(listOf(paid),emptySet()))
+    assertEquals(0L,recentInfoRefreshDelay(100,110,newResults=hasNewCaptureResults(listOf(paid),emptySet())))
+    assertFalse(hasNewCaptureResults(listOf(paid),setOf(paid.key)))
+    assertFalse(hasNewCaptureResults(listOf(paid.copy(state="pending")),emptySet()))
+    assertEquals(59_990L,recentInfoRefreshDelay(100,110,newResults=false))
+  }
+
+  @Test fun fastCaptureResultIsPublishedBeforeSlowOlderReadFinishes()=runBlocking{
+    val older=RecentCaptureInfo("older",1,"old","committed",null)
+    val newer=RecentCaptureInfo("newer",2,"new","committed",null)
+    val slow=CompletableDeferred<Unit>();val fastPublished=CompletableDeferred<Unit>()
+    val published=mutableListOf<String>()
+    val job=launch{resolveRecentCaptures(listOf(older,newer),read={item->
+      if(item.key=="older")slow.await()
+      HomeRecentInfo(item.key,item.at,"消费","已入账")
+    },publish={key,_->published+=key;if(key=="newer")fastPublished.complete(Unit)})}
+    withTimeout(2000){fastPublished.await()}
+    assertEquals(listOf("newer"),published);assertFalse(job.isCompleted)
+    slow.complete(Unit);job.join();assertEquals(listOf("newer","older"),published)
+  }
+
 }
