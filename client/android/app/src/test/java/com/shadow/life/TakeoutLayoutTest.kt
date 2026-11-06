@@ -3,6 +3,25 @@ import org.junit.Test
 import org.junit.Assert.*
 class TakeoutLayoutTest {
  private fun b(y:Int,text:String,x:Int=200)=OrderTextBox(x,y,200,30,text)
+ @Test fun readingLowerContentAlwaysMovesFingerUpward(){
+  for(height in listOf(1280,1920,2400)){val (start,end)=takeoutForwardSwipeY(height)
+   assertTrue(start>end);assertTrue(start<height*.9f);assertTrue(end>height*.2f)
+  }
+ }
+ @Test fun stationaryBodyIgnoresClockChangesOcrOrderingAndSmallJitter(){
+  val old=listOf(b(25,"20:59"),b(60,"订单详情"),b(400,"合成商品甲"),b(600,"合成商品乙"),b(800,"合成商品丙"),b(1000,"合成商品丁"))
+  val next=listOf(b(25,"21:00"),b(60,"订单详情"))+old.drop(2).reversed().map{it.copy(y=it.y+3)}
+  assertTrue(takeoutViewportUnchanged(old,next,1400))
+  assertFalse(takeoutViewportUnchanged(old,next.map{if(it.y>200)it.copy(y=it.y-100)else it},1400))
+  assertFalse(takeoutViewportUnchanged(old,next.map{if(it.y>200)it.copy(text="其他内容${it.y}")else it},1400))
+  assertFalse(takeoutViewportUnchanged(old.take(2),next.take(2),1400))
+ }
+ @Test fun finalShortScrollAlignsWithoutUsingFixedHeader(){
+  val old=listOf(b(60,"订单详情"),b(700,"合成商品甲"),b(850,"合成商品乙"),b(1000,"价格明细"))
+  val next=listOf(old.first())+old.drop(1).map{it.copy(y=it.y-80)}
+  assertEquals(80,takeoutScrollOffset(old,next,1400))
+  assertNull(takeoutScrollOffset(old,old.map{it.copy(y=it.y+3)},1400))
+ }
  @Test fun alignsMovingContentAndIgnoresFixedHeaderAndRepeatedQuantities(){
   val old=listOf(b(50,"订单详情"),b(700,"合成商品甲"),b(740,"×1"),b(900,"合成商品乙"),b(940,"×1"),b(1200,"商品合计"))
   val next=listOf(b(50,"订单详情"))+old.drop(1).map{it.copy(y=it.y-400)}

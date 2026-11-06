@@ -32,10 +32,22 @@ internal fun takeoutEnded(boxes:List<OrderTextBox>):Boolean {
  return (text.contains("订单号")||text.contains("订单编号"))&&text.contains("下单时间")&&text.contains("支付方式")&&
   (text.contains("安心权益")||text.contains("常见问题")||text.contains("订单信息"))
 }
+/** Finger moves upward so the next, lower section of the order becomes visible. */
+internal fun takeoutForwardSwipeY(height:Int)=height*.78f to height*.42f
+/** Compare stable body anchors; status-bar time and OCR ordering are not scroll progress. */
+internal fun takeoutViewportUnchanged(previous:List<OrderTextBox>,next:List<OrderTextBox>,screenHeight:Int):Boolean {
+ fun anchors(boxes:List<OrderTextBox>)=boxes.filter{it.y in (screenHeight*15/100)..(screenHeight*86/100)}
+  .map{it.copy(text=it.text.replace(Regex("\\s+"),""))}
+  .filter{it.text.length>=3&&!Regex("^[\\d¥￥.×xX*]+$").matches(it.text)}
+ val before=anchors(previous);val after=anchors(next)
+ val matched=before.filter{a->after.any{b->a.text==b.text&&abs(a.x-b.x)<=20&&abs(a.y-b.y)<=12}}.map{it.text}.distinct().size
+ val total=maxOf(before.map{it.text}.distinct().size,after.map{it.text}.distinct().size)
+ return matched>=3&&matched.toDouble()/total>=.75
+}
 /** Align by independent text anchors, not global string deduplication. Fixed toolbars have zero shift. */
 internal fun takeoutScrollOffset(previous:List<OrderTextBox>,next:List<OrderTextBox>,screenHeight:Int):Int? {
  val candidates=previous.flatMap { a->if(a.text.length<3||Regex("^[\\d\\s¥￥.×x]+$").matches(a.text))emptyList() else next.filter{it.text==a.text&&abs(it.x-a.x)<20}.map{a to (a.y-it.y)} }
-  .filter{it.second in (screenHeight/6)..(screenHeight*4/5)}
+  .filter{it.second in 24..(screenHeight*4/5)}
  val best=candidates.maxByOrNull{candidate->candidates.count{abs(it.second-candidate.second)<=12}}?:return null
  val votes=candidates.filter{abs(it.second-best.second)<=12}
  if(votes.map{it.first.text}.distinct().size<2)return null

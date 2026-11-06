@@ -127,7 +127,7 @@ import java.time.LocalDate
   if(showOrderSettings){
   Text("摇一摇记账",style=MaterialTheme.typography.titleMedium)
   Text("每个应用需要单独开启。先点下方应用名称，再打开出现的摇一摇开关；新增的闪购／美团默认关闭。")
-  Text("选择应用，打开单笔账单或外卖订单详情后摇一下。外卖会自动滚动采集，过程中请保持页面不动；也可分享系统长截图。")
+  Text("选择应用，打开单笔账单后摇一下。外卖请先回到订单顶部再摇动，Life 会向上滑动读取下方内容；采集时保持页面不动，也可分享系统长截图。")
   FlowRow{(billPlatforms+takeoutPackages).forEach{(pkg,value)->FilterChip(selected=selectedApp==pkg,onClick={selectApp(pkg)},label={Text(apps.firstOrNull{it.activityInfo.packageName==pkg}?.loadLabel(context.packageManager)?.toString()?:mapOf("com.taobao.taobao" to "淘宝内闪购","me.ele.mall" to "闪购零售","com.sankuai.meituan.takeoutnew" to "美团外卖")[pkg]?:capturePlatformName(value))})}}
   Box{TextButton(onClick={showApps=true}){Text(apps.firstOrNull{it.activityInfo.packageName==selectedApp}?.loadLabel(context.packageManager)?.toString()?:"选择其他订单来源应用")};DropdownMenu(expanded=showApps,onDismissRequest={showApps=false}){apps.forEach{info->DropdownMenuItem(text={Text(info.loadLabel(context.packageManager).toString())},onClick={selectApp(info.activityInfo.packageName)})}}}
   if(selectedApp in billPlatforms || selectedApp in takeoutPackages){

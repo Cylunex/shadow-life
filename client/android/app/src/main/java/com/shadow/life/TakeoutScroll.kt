@@ -29,8 +29,9 @@ private suspend fun AccessibilityService.orderScreenshot():Bitmap=suspendCancell
   override fun onFailure(errorCode:Int){if(continuation.isActive)continuation.resumeWithException(IllegalStateException("页面暂不可截图，请稍后重试或分享系统长截图"))}
  })
 }
-private suspend fun AccessibilityService.orderSwipe(width:Int,height:Int,down:Boolean):Boolean=suspendCancellableCoroutine{c->
- val path=Path().apply{moveTo(width*.5f,height*(if(down).42f else .78f));lineTo(width*.5f,height*(if(down).78f else .42f))}
+private suspend fun AccessibilityService.orderSwipeForward(width:Int,height:Int):Boolean=suspendCancellableCoroutine{c->
+ val (startY,endY)=takeoutForwardSwipeY(height)
+ val path=Path().apply{moveTo(width*.5f,startY);lineTo(width*.5f,endY)}
  val gesture=GestureDescription.Builder().addStroke(GestureDescription.StrokeDescription(path,0,400)).build()
  val submitted=dispatchGesture(gesture,object:AccessibilityService.GestureResultCallback(){override fun onCompleted(g:GestureDescription){if(c.isActive)c.resume(true)};override fun onCancelled(g:GestureDescription){if(c.isActive)c.resume(false)}},null)
  if(!submitted&&c.isActive)c.resume(false)
@@ -58,7 +59,7 @@ internal suspend fun LifeScreenCaptureService.collectTakeoutOrder(account:String
  val frames=mutableListOf<Pair<Int,Bitmap>>()
  TakeoutOcr().use{ocr->
   suspend fun frame():Pair<Bitmap,List<OrderTextBox>>{checkPage();val bitmap=orderScreenshot();try{val boxes=ocr.read(bitmap);checkPage();return bitmap to boxes}catch(e:Throwable){bitmap.recycle();throw e}}
-  var first=frame()
+  val first=frame()
   // A shake can start midway down an order. Its brand/title may be offscreen,
   // and accessible WebView text can retain a heading that OCR splits or misses.
   val orderPage=try{
@@ -68,15 +69,7 @@ internal suspend fun LifeScreenCaptureService.collectTakeoutOrder(account:String
   }catch(e:Throwable){first.first.recycle();throw e}
   if(!orderPage){first.first.recycle();error("未识别出单笔订单明细，请展开商品或订单信息后重试，也可分享系统长截图")}
   try{
-   // Return to the top before collecting; bounded and checked after every movement.
-   var atTop=false
-   for(attempt in 0 until 10){
-    val old=takeoutText(first.second)
-    checkPage();check(orderSwipe(first.first.width,first.first.height,true)){"滚动被中断"};delay(650)
-    val next=frame();first.first.recycle();first=next
-    if(takeoutText(next.second)==old){atTop=true;break}
-   }
-   check(atTop){"未能回到订单顶部，请手动回顶部后重试"}
+   // Start with the current viewport. Never pull down to rewind or refresh the app.
    val width=first.first.width;val screenHeight=first.first.height
    frames+=0 to first.first;var previous=first.second;var combined=previous;var offset=0;var complete=false
    for(index in 0 until 12){
@@ -87,9 +80,9 @@ internal suspend fun LifeScreenCaptureService.collectTakeoutOrder(account:String
      combined=combined.filter{it.y<offset}+refreshed.second.map{it.copy(y=it.y+offset)};previous=refreshed.second
     }
     if(takeoutEnded(combined)){complete=true;break}
-    checkPage();check(orderSwipe(width,screenHeight,false)){"滚动被中断"};delay(650)
+    checkPage();check(orderSwipeForward(width,screenHeight)){"滚动被中断"};delay(650)
     val next=frame()
-    if(takeoutText(previous)==takeoutText(next.second)){next.first.recycle();break}
+    if(takeoutViewportUnchanged(previous,next.second,screenHeight)){next.first.recycle();break}
     val delta=takeoutScrollOffset(previous,next.second,screenHeight)
     if(delta==null){next.first.recycle();error("跨屏内容无法可靠对齐，请使用系统长截图分享给 Life")}
     val nextOffset=offset+delta
