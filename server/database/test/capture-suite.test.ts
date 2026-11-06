@@ -82,6 +82,25 @@ test("long recordings paginate with a subject-bound stable cursor and no missing
 
 const alipayBill=(identity:string,amount="8.8")=>`合成商店\n支出${amount}元\n交易成功\n订单金额\n10.00\n本店回头客红包\n-1.20\n支付时间\n2026-10-30 09:00:00\n商品说明\n合成商品\n订单号\n${identity}\n商家订单号\nMERCHANT-01\n返回\n账单详情\n全部账单`;
 const shake=(id:string,text:string,explicit=true)=>({device_id:"device_shake",...(explicit?{record_expenses:true}:{}),items:[{...screen(id,text).items[0],app_package:"com.eg.android.AlipayGphone",title:"摇一摇补记 · 支付宝"}]});
+test("Alipay title-first capture books the heading debit and backfill reuses the original source",pgOnly,async t=>{
+ const f=await reviewFixture(t);
+ const bill="返回\n全部账单\n\uE642\n账单详情\n支出18.60元\n交易成功\n支付时间\n2026-10-30 09:00:00\n付款方式\n示例银行卡\n商品说明\n合成午餐\n收款方全称\n示例餐厅\n订单号\nTITLE-FIRST-01\n商家订单号\n商家可扫码退款或查询交易\nMERCHANT-TITLE-01";
+ await f.run("life.set_order_capture",{app_package:"com.eg.android.AlipayGphone",platform:"alipay",source_account:"original",enabled:true,auto_accounting:false});
+ const captured=await f.run("life.ingest_activity",shake("title_first_old",bill,false));
+ const id=captured.resources.find(r=>r.type==="activity_capture")!.id;
+ await f.pool.query("update capture_order_sources set fields=fields-'paid_amount'-'transaction_id'");
+ const backfill=await f.run("life.record_captured_expenses",{capture_ids:[id]});
+ const record=backfill.resources.find(r=>r.type==="consumption_record")!.id;
+ const repeat=await f.run("life.ingest_activity",shake("title_first_again",bill));
+ assert.equal(repeat.resources.find(r=>r.type==="consumption_record")!.id,record);
+ assert.equal((await f.queries.activitySource(f.context,{id})).consumption_record_id,record);
+ const workspace=await f.queries.captureWorkspace(f.context,date);
+ assert.equal(workspace.orders.length,1);assert.equal(workspace.orders[0]!.source_count,2);
+ assert.equal(workspace.orders[0]!.source_account,"original");assert.equal(workspace.orders[0]!.conflict,false);
+ const detail=await f.queries.lifeRecord(f.context,record);assert.equal(detail.kind,"record");
+ if(detail.kind==="record"){assert.equal(Number(detail.money_entry?.amount),18.6);assert.equal(detail.occurred_on,"2026-10-30");}
+ assert.equal((await f.pool.query("select count(*)::int n from money_entries")).rows[0].n,1);
+});
 test("explicit shake books paid expenses without background opt-in, retries/concurrent captures reuse one record",pgOnly,async t=>{
  const f=await reviewFixture(t);const bill=alipayBill("SHAKE-ONE");
  await f.run("life.set_order_capture",{app_package:"com.eg.android.AlipayGphone",platform:"alipay",source_account:"default",enabled:false,auto_accounting:false});

@@ -107,15 +107,21 @@ export function capturedPaymentHasCnyEvidence(text:string,platform?:string,payme
  return Boolean(observed.transaction_id && observed.status==="paid" && debit.amount===observed.paid_amount && !observed.issues.some(i=>i.includes("不同值")));
 }
 
-/** Alipay accessibility traversal places the page title last, but the labelled debit first.
+/** Alipay accessibility traversal can place navigation/title before or after the debit.
  * Discounts and the order total are separate fields and never replace the settled debit. */
 function alipayDetailDebit(text:string){
  const lines=text.split(/\r?\n/u).map(s=>s.trim()).filter(Boolean);
  if(!lines.includes("账单详情")||!lines.includes("商家订单号")||!lines.includes("订单号")||!lines.includes("支付时间"))return null;
  const debits=lines.map((line,index)=>({index,match:/^支出\s*(?:[¥￥]\s*)?(\d{1,12})(?:\.(\d{1,2}))?\s*元$/u.exec(line)})).filter(x=>x.match);
- if(debits.length!==1||debits[0]!.index>2||lines.some(line=>/^(?:收入|退款金额|已退金额)/u.test(line)))return null;
+ if(debits.length!==1||lines.some(line=>/^(?:收入|退款金额|已退金额)/u.test(line)))return null;
  const {match,index}=debits[0]!;
- const merchant=index===1&&!/[:：]|详情|金额|支付|交易|订单/u.test(lines[0]!)?lines[0]!:null;
+ const title=lines.indexOf("账单详情");
+ // Keep the legacy title-last layout, or anchor to the heading after navigation.
+ // A debit inside product text, notes, discounts or later detail fields is not the heading.
+ const detailField=/^(?:支付时间|付款时间|交易时间|付款方式|支付方式|商品说明|商品名称|订单号|商家订单号|收款方|收款方全称|收单机构|清算机构|备注|说明)(?:[:：]|$)|金额|优惠|折扣|手续费|余额/u;
+ if(!((title>index&&index<=2)||(index>title&&index<=title+3)))return null;
+ if(lines.slice(title<index?title+1:0,index).some(line=>detailField.test(line)))return null;
+ const merchant=index===1&&!/[:：]|详情|金额|支付|交易|订单|返回|全部账单/u.test(lines[0]!)?lines[0]!:null;
  return {amount:`${BigInt(match![1]!)}.${(match![2]??"").padEnd(2,"0")}`,merchant};
 }
 

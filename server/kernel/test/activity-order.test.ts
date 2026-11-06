@@ -49,3 +49,29 @@ test("WeChat wallet bill uses its signed debit and Chinese timestamp within the 
  for(const unsafe of [bill.replace("-6.00","+6.00"),bill.replace("零钱","未知外币账户"),bill.replace("财付通支付科技有限公司","未知机构"),bill.replace("支付成功","退款成功"),bill+"\nUSD"]){assert.equal(capturedPaymentHasCnyEvidence(unsafe,"wechat"),false);}
  assert.equal(capturedPaymentHasCnyEvidence(bill),false);
 });
+
+test("Alipay debit is located relative to the bill heading after navigation nodes",()=>{
+ const details="交易成功\n支付时间\n2026-10-30 09:00:00\n付款方式\n示例银行卡\n商品说明\n合成午餐\n收款方全称\n示例餐厅\n订单号\nALIPAY-HEADING-01\n商家订单号\n商家可扫码退款或查询交易\nMERCHANT-HEADING-01";
+ for(const prefix of ["返回\n全部账单\n\uE642\n","返回\n全部账单\n","导航\n返回\n全部账单\n\uE642\n"]){
+  for(const heading of ["账单详情\n支出18.60元","账单详情\n示例餐厅\n支出18.60元"]){
+   const bill=prefix+heading+"\n"+details;
+   const parsed=inspectActivityOrder(bill,"alipay");
+   assert.equal(parsed.paid_amount,"18.60");assert.equal(parsed.transaction_id,"ALIPAY-HEADING-01");
+   assert.equal(parsed.merchant,"示例餐厅");assert.deepEqual(parsed.issues,[]);
+   assert.equal(capturedPaymentHasCnyEvidence(bill,"alipay"),true);
+  }
+ }
+ const bill="返回\n全部账单\n\uE642\n账单详情\n支出18.60元\n"+details;
+ for(const unsafe of [
+  bill.replace("账单详情","账单列表"),bill.replace("支出18.60元","收入18.60元"),
+  bill.replace("支出18.60元\n","")+"\n支出18.60元",
+  bill.replace("支出18.60元","商品说明\n支出18.60元"),
+  bill.replace("支出18.60元","优惠金额\n支出18.60元"),
+  bill.replace("支出18.60元","备注\n支出18.60元"),
+  bill.replace("支出18.60元","一\n二\n三\n支出18.60元"),
+  bill+"\n支出20元",bill.replace("交易成功","待付款"),bill.replace("交易成功","退款成功")
+ ])assert.equal(inspectActivityOrder(unsafe,"alipay").paid_amount,null);
+ assert.equal(capturedPaymentHasCnyEvidence(bill+"\n币种：USD","alipay"),false);
+ const conflict=inspectActivityOrder(bill+"\n实付金额：20元","alipay");
+ assert.ok(conflict.issues.some(issue=>issue.includes("不同值")));
+});
