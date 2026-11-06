@@ -48,8 +48,8 @@ internal class HomeRecentInfoModel(private val app:ShadowApp,private val account
                     val recordId=source.consumptionRecordId?:source.relatedConsumptionRecordId
                     if(recordId!=null){
                       val detail=repository.detail(LifeDomain.Money,recordId)
-                      HomeRecentInfo(item.key,item.at,listOfNotNull(detail.title,detail.heroValue).joinToString(" · "),if(detail.state=="confirmed"){if(source.consumptionRecordId==null)"付款页已归组 · 查看对应消费" else "已入账 · 查看消费"} else "账目状态已变化",LifeDomain.Money,recordId)
-                    }else HomeRecentInfo(item.key,item.at,source.title,if(source.title.startsWith("付款自动识别")||source.title.startsWith("摇一摇补记"))"材料已收录 · 尚未入账，查看采集结果" else "材料已收录",LifeDomain.Library,"capture:${source.id}")
+                      HomeRecentInfo(item.key,item.at,listOfNotNull(detail.title,detail.heroValue).joinToString(" · "),if(detail.state=="confirmed"){if(source.consumptionRecordId==null)"付款页已归组 · 查看对应消费" else "已入账 · 查看消费"} else "账目状态已变化",LifeDomain.Money,recordId,originalLibraryId=source.libraryItemId,captureOrderId=source.captureOrderId)
+                    }else HomeRecentInfo(item.key,item.at,source.title,if(source.text?.startsWith("life.takeout.v1\n")==true)"订单文字已提取 · 查看文字" else if(source.title.startsWith("付款自动识别")||source.title.startsWith("摇一摇补记"))"材料已收录 · 尚未入账，查看采集结果" else "材料已收录",LifeDomain.Library,"capture:${source.id}",originalLibraryId=source.libraryItemId,captureOrderId=source.captureOrderId)
                   }
                   else->HomeRecentInfo(item.key,item.at,"采集结果待核对","已同步 · 查看采集结果")
                 }

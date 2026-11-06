@@ -55,6 +55,21 @@ export function inspectActivityOrder(text:string,platform?:string,paymentResult=
 }
 
 export function mergeOrderObservations(observations:Array<ReturnType<typeof inspectActivityOrder>>){
+ const takeouts=observations.filter((o):o is NonNullable<ReturnType<typeof inspectTakeoutOrder>>=>"takeout" in o);
+ if(takeouts.length>0&&takeouts.length===observations.length){
+  // Repeated OCR is a set of observations of one external order, not additive items.
+  // Select one coherent snapshot; never splice quantities or prices across scans.
+  const rank=(o:typeof takeouts[number])=>[Number(o.takeout.amounts_reconciled),Number(o.takeout.complete),-o.issues.length,o.takeout.items.length];
+  let chosen=takeouts[0]!;
+  for(const o of takeouts.slice(1)){const a=rank(o),b=rank(chosen);const different=a.findIndex((v,i)=>v!==b[i]);if(different<0||a[different]!>b[different]!)chosen=o;}
+  const contradiction=["order_id","paid_amount","order_amount","order_time"] as const;
+  let conflict=contradiction.some(key=>new Set(takeouts.map(o=>o[key]).filter(v=>v!==null)).size>1);
+  conflict=conflict||new Set(takeouts.map(o=>o.takeout.payment_method).filter(v=>v!==null)).size>1;
+  const withdrawn=takeouts.filter(o=>/取消|退款/u.test(o.takeout.delivery_status??""));
+  if(withdrawn.length){chosen=withdrawn.at(-1)!;conflict=true;}
+  const {parser_version,issues,accounting_created,status,...fields}=chosen;
+  return {fields:fields as Record<string,unknown>,status:"unknown",conflict};
+ }
  const merged:Record<string,unknown>={};let conflict=false;
  const statuses=new Set<string>();for(const observation of observations){if(observation.status!=="unknown")statuses.add(observation.status);
   for(const [key,value] of Object.entries(observation)){if(["issues","parser_version","accounting_created","status"].includes(key)||value===null)continue;if(merged[key]!==undefined&&JSON.stringify(merged[key])!==JSON.stringify(value))conflict=true;else merged[key]=value;}

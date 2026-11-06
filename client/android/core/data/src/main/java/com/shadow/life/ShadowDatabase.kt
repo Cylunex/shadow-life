@@ -14,7 +14,7 @@ data class CommittedCommandRow(val commandId:String,val accountId:String,val sub
   @Query("select * from pending_commands where accountId=:account and subjectId=:subject and capability='life.record_meal' and encryptionVersion=1 and state in ('pending','uploading','unknown','blocked','failed','committed') order by createdAt desc limit 500")
   fun observeMeals(account:String,subject:String):Flow<List<PendingCommand>>
 
-  @Query("select * from pending_commands where accountId=:account and subjectId=:subject and capability='life.ingest_activity' and encryptionVersion=1 order by createdAt desc,commandId desc limit 100")
+  @Query("select * from pending_commands where accountId=:account and subjectId=:subject and capability in ('life.ingest_activity','life.capture_screenshot') and encryptionVersion=1 order by createdAt desc,commandId desc limit 100")
   fun observeRecentCaptures(account:String,subject:String):Flow<List<PendingCommand>>
 
   @Query("delete from pending_commands where accountId=:account and subjectId=:subject and state='committed' and createdAt<:before and capability in ('life.ingest_activity','life.register_recording','life.capture_screenshot','life.restore_activities','life.restore_recording')")suspend fun pruneCommittedCaptures(account:String,subject:String,before:Long):Int

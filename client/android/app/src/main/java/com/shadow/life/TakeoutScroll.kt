@@ -57,8 +57,19 @@ internal suspend fun LifeScreenCaptureService.collectTakeoutOrder(account:String
   val root=rootInActiveWindow?:error("页面已离开");try{check(root.packageName?.toString()==pkg&&root.windowId==window){"订单页面已切换，采集已停止"}}finally{root.recycle()}
  }
  val frames=mutableListOf<Pair<Int,Bitmap>>()
+ var nativeUsed=false
  TakeoutOcr().use{ocr->
-  suspend fun frame():Pair<Bitmap,List<OrderTextBox>>{checkPage();val bitmap=orderScreenshot();try{val boxes=ocr.read(bitmap);checkPage();return bitmap to boxes}catch(e:Throwable){bitmap.recycle();throw e}}
+  suspend fun frame():Pair<Bitmap,List<OrderTextBox>>{
+   checkPage();val bitmap=orderScreenshot()
+   try{
+    checkPage()
+    val root=rootInActiveWindow
+    val native=if(root==null)emptyList() else if(root.packageName?.toString()!=pkg||root.windowId!=window){root.recycle();emptyList()} else readTakeoutNodeBoxes(root,bitmap.width,bitmap.height).orEmpty()
+    val merged=mergeTakeoutText(ocr.read(bitmap),native)
+    checkPage();nativeUsed=nativeUsed||merged.nativeUsed>0
+    return bitmap to merged.boxes
+   }catch(e:Throwable){bitmap.recycle();throw e}
+  }
   val first=frame()
   // A shake can start midway down an order. Its brand/title may be offscreen,
   // and accessible WebView text can retain a heading that OCR splits or misses.
@@ -97,11 +108,12 @@ internal suspend fun LifeScreenCaptureService.collectTakeoutOrder(account:String
    val bytes=try{ByteArrayOutputStream().also{check(image.compress(Bitmap.CompressFormat.JPEG,90,it))}.toByteArray()}finally{image.recycle()}
    check(bytes.size<=10_000_000){"截图超过上传限制"};checkPage()
    val now=Instant.now();val id="takeout_${UUID.randomUUID().toString().replace("-","")}"
-   val metadata=JSONObject().put("capability","life.capture_screenshot").put("input",JSONObject().put("title",if(complete)"摇一摇外卖订单" else "外卖订单 · 部分页面").put("captured_at",now.toString()).put("time_zone",ZoneId.systemDefault().id).put("app_package",pkg).put("text",text))
+   val method=if(nativeUsed)"无障碍＋OCR" else "OCR"
+   val metadata=JSONObject().put("capability","life.capture_screenshot").put("input",JSONObject().put("title",(if(complete)"摇一摇外卖订单" else "外卖订单 · 部分页面")+" · $method").put("captured_at",now.toString()).put("time_zone",ZoneId.systemDefault().id).put("app_package",pkg).put("text",text))
    withContext(Dispatchers.IO){val session=app.sessions.active()?.takeIf{it.accountId==account}?:error("账号已切换")
     app.queue.enqueueAttachment(session,id,"cmd_$id","image/jpeg",LocalDate.now().toString(),"外卖订单",bytes.inputStream(),File(filesDir,"attachments/$id.enc"),metadata.toString());SyncScheduler.schedule(this@collectTakeoutOrder,account)
    }
-   BillShakeStatus.message=if(complete)"订单与长截图已保存，可到 Life「订单」查看" else "已保存部分订单，请展开价格明细／订单信息后补充截图"
+   BillShakeStatus.message=if(complete)"订单文字（$method）与原截图已保存，可回 Life 查看文字" else "已保存部分订单文字（$method），请展开价格明细／订单信息后补充"
   }finally{if(frames.isEmpty())first.first.recycle();frames.forEach{it.second.recycle()}}
  }
 }}

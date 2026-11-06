@@ -2871,6 +2871,7 @@ data class ActivitySourceResultDto(
   @SerialName("latitude") val latitude: Double?,
   @SerialName("longitude") val longitude: Double?,
   @SerialName("accuracy_m") val accuracyM: Double?,
+  @SerialName("capture_order_id") val captureOrderId: String? = null,
   @SerialName("consumption_record_id") val consumptionRecordId: String? = null,
   @SerialName("related_consumption_record_id") val relatedConsumptionRecordId: String? = null,
   @SerialName("behavior") val behavior: String,

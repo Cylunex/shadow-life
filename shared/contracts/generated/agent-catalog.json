@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "2375f999750967931604fc47881d4ad64354c28cf54fd72d168cc77d769bb4cf",
+  "catalog_revision": "c5f8ec269295270cbcacf6d5023a5f210a729668f1fd15d895055309f3512015",
   "terms": [
     {
       "id": "activity_capture",
@@ -21316,6 +21316,18 @@
             "type": [
               "number",
               "null"
+            ]
+          },
+          "capture_order_id": {
+            "description": "来源所属的采集订单，用于同一订单的多份材料展示归组。",
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,119}$"
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "consumption_record_id": {

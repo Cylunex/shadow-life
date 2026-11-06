@@ -16285,6 +16285,18 @@
               "null"
             ]
           },
+          "capture_order_id": {
+            "description": "来源所属的采集订单，用于同一订单的多份材料展示归组。",
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,119}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "consumption_record_id": {
             "anyOf": [
               {

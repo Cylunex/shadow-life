@@ -3,8 +3,26 @@ package com.shadow.life
 import org.junit.Assert.*
 import org.junit.Test
 import kotlinx.coroutines.*
+import kotlinx.serialization.json.*
 
 class HomeRecentInfoTest {
+  private val takeoutText="life.takeout.v1\n"+"""{"blocks":[[20,20,200,30,"合成外卖店"],[800,100,200,30,"实付¥19.98"]]}"""
+  private fun takeoutBody()=buildJsonObject{put("command_id","cmd_order");put("capability","life.capture_screenshot");putJsonObject("input"){put("title","外卖订单");put("text",takeoutText)}}.toString()
+  private fun takeoutReceipt(capability:String="life.capture_screenshot",extra:String="")="""{"protocol":"shadow.execution-result","command_id":"cmd_order","capability":"$capability","status":"committed","resources":[{"type":"library_item","id":"library_order"},{"type":"activity_capture","id":"source_order"}$extra]}"""
+  @Test fun screenshotOrderTextAppearsInRecentCapturesWithoutInventingPayment(){
+    val pending=recentCaptureEntries("cmd_order",123,"pending",takeoutBody(),null).single()
+    assertEquals("合成外卖店\n实付¥19.98",pending.preview)
+    val committed=recentCaptureEntries("cmd_order",123,"committed",takeoutBody(),takeoutReceipt()).single()
+    assertEquals("source_order",committed.sourceId);assertNull(committed.moneyRecordId);assertNull(committed.preview)
+    assertNull(recentCaptureEntries("cmd_order",123,"committed",takeoutBody(),takeoutReceipt("life.ingest_activity")).single().sourceId)
+    assertNull(recentCaptureEntries("cmd_order",123,"committed",takeoutBody(),takeoutReceipt(extra=",{\"type\":\"activity_capture\",\"id\":\"other\"}")).single().sourceId)
+  }
+  @Test fun textResultTakesPrecedenceOverItsOriginalImageOnly(){
+    val text=HomeRecentInfo("capture",30,"订单文字","已提取",LifeDomain.Library,"capture:source_order",originalLibraryId="library_order")
+    val original=HomeRecentInfo("image",31,"截图","已保存",LifeDomain.Library,"library_order")
+    val unrelated=original.copy(key="another",targetId="another_image",at=20)
+    assertEquals(listOf(text,unrelated),mergeHomeRecentInfo(listOf(text),listOf(original,unrelated)))
+  }
   private val item="""{"source_id":"shake_a","kind":"screen_text","title":"摇一摇补记 · 微信","text":"付款材料"}"""
   private fun body(items:String=item)="""{"command_id":"cmd_a","capability":"life.ingest_activity","input":{"device_id":"shake","items":[$items]}}"""
   private fun receipt(resources:String="""{"type":"activity_capture","id":"source_a"}""",commandId:String="cmd_a")="""{"protocol":"shadow.execution-result","command_id":"$commandId","capability":"life.ingest_activity","status":"committed","resources":[$resources]}"""
@@ -99,6 +117,17 @@ class HomeRecentInfoTest {
     withTimeout(2000){fastPublished.await()}
     assertEquals(listOf("newer"),published);assertFalse(job.isCompleted)
     slow.complete(Unit);job.join();assertEquals(listOf("newer","older"),published)
+  }
+
+  @Test fun repeatedTakeoutShowsOneOrderAndKeepsDifferentOrdersSeparate(){
+    val first=HomeRecentInfo("first",10,"订单","订单文字已提取",LifeDomain.Library,"capture:s1",originalLibraryId="l1",captureOrderId="o1")
+    val second=first.copy(key="second",at=20,targetId="capture:s2",originalLibraryId="l2")
+    val other=first.copy(key="other",at=15,targetId="capture:s3",originalLibraryId="l3",captureOrderId="o2")
+    val images=listOf("l1","l2","l3").map{HomeRecentInfo(it,30,"截图","原件",LifeDomain.Library,it)}
+    val rows=mergeHomeRecentInfo(listOf(first,second,other),images)
+    assertEquals(2,rows.size);assertEquals("capture:s2",rows.first().targetId)
+    assertEquals("订单文字已提取 · 2 份采集材料",rows.first().status)
+    assertEquals("o2",rows.last().captureOrderId)
   }
 
 }

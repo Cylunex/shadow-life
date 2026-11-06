@@ -19,3 +19,18 @@ test("OCR punctuation and fee label variants stay reconciled; cancelled orders r
  data.blocks[0]![4]='订单已取消';
  assert.ok(inspectTakeoutOrder(takeoutPrefix+JSON.stringify(data))!.issues.some(v=>v.includes('取消')));
 });
+
+test("repeat takeout selects a coherent complete snapshot and ignores OCR wording differences",()=>{
+ const full=inspectTakeoutOrder(takeoutFixture())!;
+ const partial=structuredClone(full);partial.takeout.complete=false;partial.takeout.items=partial.takeout.items.slice(0,1);partial.takeout.amounts_reconciled=false;partial.issues=["不完整"];
+ const corrected=structuredClone(full);corrected.merchant="合成外卖店（分店）";corrected.takeout.items[0]!.name="修正后的商品";
+ const result=mergeOrderObservations([full,corrected,partial]);
+ assert.equal(result.conflict,false);assert.deepEqual(result.fields.takeout,corrected.takeout);assert.equal(result.fields.merchant,corrected.merchant);
+ assert.equal((result.fields.takeout as typeof full.takeout).items.length,8);
+});
+test("repeat takeout retains financial contradictions and withdrawal warnings",()=>{
+ const full=inspectTakeoutOrder(takeoutFixture())!;
+ for(const key of ["paid_amount","order_amount","order_time","order_id"] as const){const changed=structuredClone(full);changed[key]="different";assert.equal(mergeOrderObservations([full,changed]).conflict,true,key);}
+ const cancelled=structuredClone(full);cancelled.takeout.delivery_status="订单已取消";
+ const result=mergeOrderObservations([cancelled,full]);assert.equal(result.conflict,true);assert.equal((result.fields.takeout as typeof full.takeout).delivery_status,"订单已取消");
+});

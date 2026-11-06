@@ -216,9 +216,14 @@ test("anonymous payment materials group on read, withdraw on ambiguity and never
 test("takeout screenshot text creates a source-linked order without another payment or configured rule",pgOnly,async t=>{
  const {readFileSync}=await import("node:fs");const takeoutFixture=()=>readFileSync(new URL("../../kernel/test/fixtures/takeout-a.txt",import.meta.url),"utf8");
  const f=await reviewFixture(t);const asset=await new AssetService(f.pool).store(f.context.subjectId,"image/jpeg",Buffer.from([255,216,255]));
- for(let i=0;i<2;i++)await f.run("life.capture_screenshot",{asset_version_id:asset.asset_version_id,title:"合成长订单",captured_at:"2026-10-30T01:00:00Z",time_zone:"UTC",app_package:"com.shadow.life.shared_order",text:takeoutFixture()});
+ const sources:string[]=[];
+ for(let i=0;i<2;i++){const receipt=await f.run("life.capture_screenshot",{asset_version_id:asset.asset_version_id,title:"合成长订单",captured_at:"2026-10-30T01:00:00Z",time_zone:"UTC",app_package:"com.shadow.life.shared_order",text:takeoutFixture().replace("合成外卖店",i?"合成外卖店（分店）":"合成外卖店")});sources.push(receipt.resources.find(r=>r.type==="activity_capture")!.id);}
  const page=await f.queries.captureWorkspace(f.context,date);assert.equal(page.orders.length,1);assert.equal(page.orders[0]!.source_count,2);assert.equal(page.orders[0]!.conflict,false);assert.equal(page.orders[0]!.record_id,null);
  const fields=JSON.parse(page.orders[0]!.fields);assert.equal(fields.takeout.items.length,8);assert.equal(fields.takeout.amounts_reconciled,true);
+ for(const id of sources)assert.equal((await f.queries.activitySource(f.context,{id})).capture_order_id,page.orders[0]!.id);
+ await f.pool.query("update capture_orders set conflict=true where id=$1",[page.orders[0]!.id]);
+ const refreshed=await f.run("life.record_captured_expenses",{capture_ids:sources});assert.ok(!refreshed.resources.some(r=>r.type==="money_entry"||r.type==="consumption_record"));
+ const repaired=await f.queries.captureWorkspace(f.context,date);assert.equal(repaired.orders.length,1);assert.equal(repaired.orders[0]!.source_count,2);assert.equal(repaired.orders[0]!.conflict,false);
  assert.equal((await f.pool.query("select count(*)::int n from money_entries")).rows[0].n,0);
 });
 

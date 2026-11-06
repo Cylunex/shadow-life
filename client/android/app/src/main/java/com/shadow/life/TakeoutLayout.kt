@@ -3,6 +3,7 @@ package com.shadow.life
 import kotlin.math.abs
 import org.json.JSONArray
 import org.json.JSONObject
+import kotlinx.serialization.json.*
 
 internal val takeoutPackages=mapOf("me.ele" to "eleme","me.ele.mall" to "eleme","com.taobao.taobao" to "eleme","com.sankuai.meituan" to "meituan","com.sankuai.meituan.takeoutnew" to "meituan")
 // General shopping apps still need visible takeout evidence.
@@ -62,4 +63,4 @@ internal fun takeoutEnvelope(platform:String,width:Int,height:Int,boxes:List<Ord
  val text="life.takeout.v1\n"+JSONObject().put("platform",platform).put("width",width).put("height",height).put("complete",complete).put("blocks",blocks)
  check(text.length<=12000&&boxes.size<=500){"订单内容过长，请分次分享订单截图"};return text
 }
-internal fun captureReadableText(text:String):String=if(text.startsWith("life.takeout.v1\n"))runCatching{val blocks=JSONObject(text.substringAfter('\n')).getJSONArray("blocks");(0 until blocks.length()).joinToString("\n"){blocks.getJSONArray(it).getString(4)}}.getOrDefault("订单材料") else text
+internal fun captureReadableText(text:String):String=if(text.startsWith("life.takeout.v1\n"))runCatching{Json.parseToJsonElement(text.substringAfter('\n')).jsonObject.getValue("blocks").jsonArray.sortedWith(compareBy({it.jsonArray[1].jsonPrimitive.int},{it.jsonArray[0].jsonPrimitive.int})).joinToString("\n"){it.jsonArray[4].jsonPrimitive.content}}.getOrDefault("订单材料") else text

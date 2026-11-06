@@ -11,13 +11,24 @@ internal data class RecentCaptureInfo(
 )
 internal data class HomeRecentInfo(
   val key:String,val at:Long,val title:String,val status:String,
-  val domain:LifeDomain?=null,val targetId:String?=null,val preview:String?=null,val localState:String?=null
+  val domain:LifeDomain?=null,val targetId:String?=null,val preview:String?=null,val localState:String?=null,
+  val originalLibraryId:String?=null,val captureOrderId:String?=null
 )
 private fun JsonObject.text(key:String)=this[key]?.jsonPrimitive?.contentOrNull
 
 internal fun recentCaptureEntries(commandId:String,at:Long,state:String,body:String,receipt:String?):List<RecentCaptureInfo> = runCatching {
   val command=Json.parseToJsonElement(body).jsonObject
-  if(command.text("command_id")!=commandId||command.text("capability")!="life.ingest_activity")return emptyList()
+  if(command.text("command_id")!=commandId)return emptyList()
+  if(command.text("capability")=="life.capture_screenshot"){
+    val input=command["input"]!!.jsonObject;val text=input.text("text")?:return emptyList()
+    if(!text.startsWith("life.takeout.v1\n"))return emptyList()
+    val saved=receipt?.takeIf{it.isNotBlank()}?.let{Json.parseToJsonElement(it).jsonObject}
+    val verified=state=="committed"&&saved?.text("protocol")=="shadow.execution-result"&&saved.text("status")=="committed"&&saved.text("command_id")==commandId&&saved.text("capability")=="life.capture_screenshot"
+    val sources=if(verified)saved!!["resources"]?.jsonArray?.map{it.jsonObject}?.filter{it.text("type")=="activity_capture"}.orEmpty() else emptyList()
+    return listOf(RecentCaptureInfo("$commandId:takeout",at,if(state=="committed")"订单文字已同步" else input.text("title")?:"外卖订单文字",state,
+      if(state=="committed")null else captureReadableText(text),sources.singleOrNull()?.text("id")))
+  }
+  if(command.text("capability")!="life.ingest_activity")return emptyList()
   val all=command["input"]!!.jsonObject["items"]!!.jsonArray.map{it.jsonObject}
   val saved=receipt?.takeIf{it.isNotBlank()}?.let{Json.parseToJsonElement(it).jsonObject}
   val verified=state=="committed"&&saved?.text("protocol")=="shadow.execution-result"&&saved.text("status")=="committed"&&saved.text("command_id")==commandId&&saved.text("capability")=="life.ingest_activity"
@@ -45,13 +56,14 @@ internal fun recentCaptureState(state:String)=when(state){
   else->"状态待核对"
 }
 internal fun mergeHomeRecentInfo(local:List<HomeRecentInfo>,remote:List<HomeRecentInfo>,limit:Int=5):List<HomeRecentInfo> {
-  fun identity(row:HomeRecentInfo)=if(row.domain!=null&&row.targetId!=null)"${row.domain}:${row.targetId}" else row.key
+  fun identity(row:HomeRecentInfo)=if(row.captureOrderId!=null&&row.domain!=LifeDomain.Money)"capture_order:${row.captureOrderId}" else if(row.domain!=null&&row.targetId!=null)"${row.domain}:${row.targetId}" else row.key
   val captures=local.groupBy(::identity).map{(_,rows)->
     val latest=rows.maxBy{it.at}
     val representative=rows.filter{it.status.startsWith("已入账")}.maxByOrNull{it.at}?:latest
-    if(rows.size>1&&representative.domain==LifeDomain.Money)representative.copy(at=latest.at,status="${representative.status} · ${rows.size} 份采集材料") else representative
+    if(rows.size>1&&(representative.domain==LifeDomain.Money||representative.captureOrderId!=null))representative.copy(at=latest.at,status="${representative.status} · ${rows.size} 份采集材料") else representative
   }
-  return (captures+remote).distinctBy(::identity).sortedByDescending{it.at}.take(limit)
+  val originals=local.mapNotNull{it.originalLibraryId}.toSet()
+  return (captures+remote.filterNot{it.domain==LifeDomain.Library&&it.targetId in originals}).distinctBy(::identity).sortedByDescending{it.at}.take(limit)
 }
 
 internal fun hasNewCaptureResults(local:List<RecentCaptureInfo>,resolvedKeys:Set<String>):Boolean =
