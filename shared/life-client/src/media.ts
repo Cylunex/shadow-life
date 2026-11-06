@@ -71,3 +71,32 @@ export async function uploadLocalFile(client: LifeClient, roots: readonly string
   if (!uploaded.success || uploaded.data.sha256 !== createHash("sha256").update(bytes).digest("hex") || uploaded.data.bytes !== bytes.length || uploaded.data.media_type !== "application/octet-stream") throw new ToolFailure({ protocol: "shadow.error", code: "outcome_unknown", message: "File upload receipt does not match the original. Recover before claiming delivery." });
   return uploaded.data;
 }
+
+const attachmentInput = z.object({ path: z.string().min(1).max(4096), media_type: z.string().max(160).regex(/^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/u).default("application/octet-stream") }).strict();
+export const uploadAttachmentTool = {
+  name: "assets.upload_local_attachment", description: "上传用户明确选择的图片或普通文件原件（最多 20 MiB），仅限已配置的媒体缓存目录。复用通用 assets API；不解析、执行文件或创建账目／资料记录。返回不可变原件回执供调用方关联。",
+  inputSchema: z.toJSONSchema(attachmentInput), annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }
+};
+
+export async function uploadLocalAttachment(client: LifeClient, roots: readonly string[], args: unknown) {
+  const { path, media_type: requestedType } = attachmentInput.parse(args);
+  if (!isAbsolute(path) || !roots.some(root => inside(resolve(path), root))) fail("Attachment must be inside an approved media-cache directory.");
+  const canonicalRoots = (await Promise.all(roots.map(root => realpath(root).catch(() => null)))).filter((root): root is string => root !== null);
+  const canonical = await realpath(path).catch(() => fail("Attachment is unavailable."));
+  if (!canonicalRoots.some(root => inside(canonical, root))) fail("Attachment resolves outside approved media-cache directories.");
+  const file = await open(canonical, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+  let bytes: Buffer;
+  try {
+    const info = await file.stat();
+    if (!info.isFile() || info.size < 1 || info.size > maxBytes) fail("Attachment must be a regular file between 1 byte and 20 MiB.");
+    const buffer = Buffer.alloc(info.size + 1); let used = 0;
+    while (used < buffer.length) { const read = await file.read(buffer, used, buffer.length - used, null); if (!read.bytesRead) break; used += read.bytesRead; }
+    if (used !== info.size) fail("Attachment changed while being read.");
+    bytes = buffer.subarray(0, used);
+  } finally { await file.close(); }
+  const type = requestedType.startsWith("image/") ? mediaType(bytes) : requestedType;
+  const uploaded = uploadResult.safeParse(await client.request("/api/assets", { method: "POST", headers: { "content-type": type }, body: new Uint8Array(bytes) }, true));
+  if (!uploaded.success || uploaded.data.sha256 !== createHash("sha256").update(bytes).digest("hex") || uploaded.data.bytes !== bytes.length || uploaded.data.media_type !== type)
+    throw new ToolFailure({ protocol: "shadow.error", code: "outcome_unknown", message: "Attachment receipt does not match the original; retry the same bytes before claiming delivery." });
+  return uploaded.data;
+}

@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { isAbsolute } from "node:path";
 import { LifeClient, toolError, isCapability } from "@shadow/life-client/client";
-import { uploadLocalImage, uploadLocalFile, uploadTool, uploadFileTool } from "@shadow/life-client/media";
+import { uploadLocalImage, uploadLocalFile, uploadTool, uploadFileTool, uploadAttachmentTool, uploadLocalAttachment } from "@shadow/life-client/media";
 import { agentScenarioNameSchema } from "@shadow/contracts";
 
 // One JSON document in/out; no protocol handshake or resident MCP process.
@@ -18,9 +18,10 @@ export async function runSkill(configPath: string, action: string, name?: string
     ...(config.proxySecret ? { proxySecret: config.proxySecret } : {}),
     ...(config.proxyClientId ? { proxyClientId: config.proxyClientId } : {}),
     ...(config.scenario ? { scenario: agentScenarioNameSchema.parse(config.scenario) } : {}) });
-  if (action === "catalog") return [...await client.listTools(), ...(roots.length ? [uploadTool, ...(client.allows("money.import_file") ? [uploadFileTool] : [])] : [])];
+  if (action === "catalog") return [...await client.listTools(), ...(roots.length ? [uploadTool, uploadAttachmentTool, ...(client.allows("money.import_file") ? [uploadFileTool] : [])] : [])];
   if (action !== "call" || !name) throw new Error("Usage: skill --config <private.json> catalog | call <capability> [input.json]; default input is stdin");
   try {
+    if (name === uploadAttachmentTool.name) return await uploadLocalAttachment(client, roots, args);
     if (name === uploadTool.name) return await uploadLocalImage(client, roots, args);
     if (name === uploadFileTool.name) return await uploadLocalFile(client, roots, args);
     if (!isCapability(name)) throw new Error("Unknown capability");

@@ -61,3 +61,17 @@ Losna 的 Life 接入默认 `transport: "skill"`，`command` 指向本 skill 的
 旧 MCP 仅保留显式 `transport: "mcp"` 的兼容入口，详见
 [历史配置参考](mcp-legacy.md)。不再作为新接入默认值。既有生产启动器切换属于明确部署任务，
 本次代码修改不自动部署、改线上配置或停用既有进程。
+
+## Bot 与通用文件原件
+
+`assets.upload_local_attachment` 供用户主动选择的图片和普通文件使用：
+
+```json
+{"path":"/REPLACE_MEDIA_CACHE/document.pdf","media_type":"application/pdf"}
+```
+
+它沿用配置中的身份和 `mediaRoots`，直接调用现有 `POST /api/assets`，每个文件最多 20 MiB；
+返回原件版本、字节数、实际 MIME 和 SHA-256，并核对原始字节。图片按内容识别栅格格式。
+上传仅保存原件，不导入账单、不解析文件、不创建资料记录，也不自动发送 Bot 消息。
+相同原件重试使用 Life 已有的内容身份去重。Bot 负责把回执绑定到明确的聊天入口；
+失败回执不能当成“已上传”。该入口只注册到 skill CLI，不新增 MCP 工具或数据库合同。
