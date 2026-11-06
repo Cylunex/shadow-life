@@ -26,8 +26,13 @@ export function decideStatementCandidate(c: StatementCandidate, entries: readonl
   if (c.issues.includes("external_id_payload_changed")) return pending("source_identity_conflict");
   if (c.external_id && peers.some(other => other.id !== c.id && other.status !== "ignored" && other.platform === c.platform && other.source_account === c.source_account && other.external_id === c.external_id && direction(other.identity_kind) === direction(c.identity_kind) && !sameFacts(other.source_proposed, c.source_proposed))) return pending("source_identity_conflict");
   if (c.duplicate_of_record_id) return ignore("existing_source_identity");
+  // A peer may have been confirmed earlier in this file after staging duplicate pointers.
+  // This applies to refunds too, before testing the remaining refundable balance.
+  const ownDuplicate = c.external_id ? peers.find(other => other.id !== c.id && other.status === "confirmed" && other.platform === c.platform && other.source_account === c.source_account && other.external_id === c.external_id && direction(other.identity_kind) === direction(c.identity_kind)) : undefined;
+  if (ownDuplicate) return ignore("existing_source_identity");
+  if ((source["收/支"] ?? source["收支"]) === "不计收支" && p.entry_type !== "refund" || ["交易关闭", "芝麻免押下单成功", "解冻成功", "还款成功"].includes(source["交易状态"] ?? source["当前状态"]) || source["订单状态"] === "交易关闭") return ignore("non_accounting_transaction");
+  if (c.issues.includes("zero_amount")) return ignore("zero_cashflow");
   if (c.issues.length) {
-    if (source["收/支"] === "不计收支" && p.entry_type !== "refund" || ["交易关闭", "芝麻免押下单成功", "解冻成功", "还款成功"].includes(source["交易状态"]) || source["订单状态"] === "交易关闭") return ignore("non_accounting_transaction");
     return pending("invalid_source_fields");
   }
   if (!p.amount || !p.occurred_on || p.currency !== "CNY" || !["expense", "income", "refund"].includes(p.entry_type)) return pending("invalid_source_fields");
@@ -37,11 +42,13 @@ export function decideStatementCandidate(c: StatementCandidate, entries: readonl
     const originals = peers.filter(other => other.platform === c.platform && other.source_account === c.source_account && statementOrder(other) === order && other.proposed.entry_type === "expense" && (other.status === "confirmed" || other.duplicate_of_record_id));
     const refs = [...new Set(originals.map(other => other.linked_record_id ?? other.duplicate_of_record_id).filter(Boolean))];
     const original = refs.length === 1 ? entries.find(e => e.record_id === refs[0] && e.entry_type === "expense" && e.currency === p.currency) : undefined;
-    if (!original || p.occurred_on < original.occurred_on || statementAmount(original.refunded) + statementAmount(p.amount) > statementAmount(original.amount)) return pending("refund_original_missing");
+    if (!original) return pending("refund_original_missing");
+    // An amount/date overlap is not proof of duplication, but cannot authorize a second refund.
+    if (entries.some(e => sameEntry(c, e))) return pending("possible_existing_refund");
+    if (p.occurred_on < original.occurred_on) return pending("refund_before_original");
+    if (statementAmount(original.refunded) + statementAmount(p.amount) > statementAmount(original.amount)) return pending("refund_balance_exceeded");
     return { decision: "confirm", reason: "unique_refund_original", original_entry_id: original.id };
   }
-  const ownDuplicate = c.external_id ? peers.find(other => other.id !== c.id && other.status === "confirmed" && other.platform === c.platform && other.source_account === c.source_account && other.external_id === c.external_id && direction(other.identity_kind) === direction(c.identity_kind)) : undefined;
-  if (ownDuplicate) return ignore("existing_source_identity");
   const order = statementOrder(c);
   const cross = order ? peers.filter(other => other.platform !== c.platform && other.source_account === c.source_account && (other.status === "confirmed" || other.duplicate_of_record_id) && sameFacts(other.proposed, p) && ((other.external_id && other.external_id.length >= 12 && order.split(/[^0-9]+/u).includes(other.external_id)) || statementOrder(other) === order)) : [];
   if (new Set(cross.map(other => other.linked_record_id ?? other.duplicate_of_record_id).filter(Boolean)).size === 1) return ignore("cross_platform_order_identity");

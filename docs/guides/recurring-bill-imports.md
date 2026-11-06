@@ -38,7 +38,8 @@ Content-Type: application/json
 ## 解析与账目事实
 
 - 淘宝按订单及续行分组，实付金额只记一次；商品数量、金额、型号和链接保留在来源明细，不把商品金额相加替代实付。
-- 京东保留原支付与独立退款。金额中的退款注记不把原支出改成净额。
+- 金额支持人民币符号和末尾“元”；明确零金额保留为 `zero_amount` 候选，不产生零元账目。
+- 京东保留原支付与独立退款，支持完整的“已退款”“已全额退款”“已部分退款”及“已退款6.50”金额注记；金额中的退款注记不把原支出改成净额，未知注记仍是异常。明确退款类型优先于“交易成功／不计收支”的平台兼容推断。
 - 美团保留交易号和实付，退款须有自己的事件证据；商家订单号不是每次退款的唯一标识。
 - 仅有“已退款”等订单状态不能制造退款。明确退款仍要求 `original_entry_id`，沿用原有金额与关联约束。
 - 未完成、未结算或缺关键状态的订单保留为无效候选；普通字段更正不能把它们改成已付款。
@@ -82,7 +83,7 @@ Content-Type: application/json
 
 ## 个人 Agent 接入
 
-`personal` 与 `personal-money-void` MCP profile 均可发现和使用 `money.stage_import`、
+`life-operator` skill CLI 的 `personal` 与 `personal-money-void` profile 均可发现和使用 `money.stage_import`、
 `money.resolve_import_candidate`、`money.import_review`、`money.import_history` 和 `money.import_month`。
 实际调用仍由服务端授权、主体、写入 epoch 和场景范围约束；没有开放导入规则管理或其他管理能力。
 
@@ -92,7 +93,7 @@ Content-Type: application/json
 
 ## 原始账单文件的程序处理
 
-Losna 仅交付原件并检查结果。MCP `assets.upload_local_file` 从已配置的私有缓存读取最多 20 MiB 的普通文件，
+Losna 仅交付原件并检查结果。Skill CLI 的 `assets.upload_local_file` 从已配置的私有缓存读取最多 20 MiB 的普通文件，
 通过既有 `/api/assets` 保存原字节，核对摘要、长度和不可变版本。随后以稳定命令调用 `money.import_file`：
 
 ```json
@@ -116,8 +117,11 @@ Life 程序解码 UTF-8/GB18030 CSV、JSON、单个非空工作表的 XLSX，以
 PDF、图片和自由文本账单属于显式未支持格式。原件及展开总量最多 20 MiB，最多 50,000 行；
 完整订单分片进入原文本解析路径，每片通常 100 行，单个订单最多 500 行。
 
-正常且唯一的交易自动通过原候选处理路径入账；已确认来源、明确的跨平台订单关联和精确旧支付跳过重复，
-关闭订单及不计收支明细不制造消费。相似旧账、来源冲突、字段不完整、缺少唯一退款原账或退款余额不足时保留异常。
+正常且唯一的交易自动通过原候选处理路径入账；已确认来源、明确的跨平台订单关联和精确旧支付跳过重复。
+文件内按原始分片和行序处理，先付款后退款；同来源退款重行先去重，再核对原账与余额。关闭订单、明确零金额及
+不计收支的非退款明细不制造消费，跳过非现金行不依赖解析是否恰好报错。退款同日同额但来源不同只标记
+`possible_existing_refund`，不凭相似度忽略，也不自动重复入账；原账缺失、退款早于原账、余额不足分别返回
+`refund_original_missing`、`refund_before_original`、`refund_balance_exceeded`。相似旧账、来源冲突及字段不完整仍保留异常。
 处理不调用模型，也没有逐条审批页。完整历史自动核对有 100,000 条候选/有效账目的覆盖上限，超过时明确失败。
 
 同一个文件及来源账号、平台、时区、ZIP 成员的重复交付复用原处理对象，文件名及密码不决定业务身份。
@@ -131,5 +135,14 @@ PDF、图片和自由文本账单属于显式未支持格式。原件及展开�
 
 服务端仅需要 Python 3 与 `server/database/python/requirements.txt` 的 AES ZIP 依赖。
 `SHADOW_STATEMENT_CONFIG_FILE` 只指定仓库外 JSON 配置路径，结构见 `server/database/python/config.example.json`。
-MCP 可用 `SHADOW_MCP_CONFIG_FILE` 指定缓存目录和超时配置，结构见 `server/mcp/config.example.json`；旧环境配置继续兼容。
-实际配置、秘密和附件都不提交仓库。解密和账单处理只在服务端运行，MCP 仍只是 HTTP 适配，不导入数据库或业务实现。
+Skill CLI 配置结构见 `client/cli/config/skill.example.json`，私有配置路径由启动器传入；旧 MCP 仅保持兼容。
+实际配置、秘密和附件都不提交仓库。解密和账单处理只在服务端运行，CLI 只经 HTTP 调用共同 Executor。
+
+## 历史异常与收尾
+
+历史核对按 [Life operator 账单流程](../../skills/life-operator/references/bill-reconciliation.md) 执行：分页查全、
+按证据处理异常、保留稳定命令和 `execution_id`、读回关联与金额汇总，再结束 Life 任务及已存在的外部事项。
+批次的剩余数是 `pending + invalid`；文件状态中的 `pending` 已包含两者。候选数量不等于交易数量。
+
+解析器版本 3 仅用于新建批次；既有文件与批次的身份、原件、终态及已确认账目保持原样。重复提交旧文件不会
+借升级重新解析、再次入账或自动清理历史重复；既有异常使用原候选与当前修订显式处理。

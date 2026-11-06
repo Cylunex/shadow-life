@@ -1,6 +1,6 @@
 ---
 name: life-operator
-description: Record, correct, and query personal meals, purchases, spending, prepaid service cards, consumables and actual uses, health measurements, travel, items, plans, and library records through the Shadow Life skill CLI. Use for everyday logging, order screenshots, historical corrections, consumption statistics, or record completeness checks.
+description: Record, correct, and query personal meals, purchases, spending, prepaid service cards, consumables and actual uses, health measurements, travel, items, plans, and library records through the Shadow Life skill CLI. Use for everyday logging, order screenshots, statement imports and reconciliation, historical corrections, consumption statistics, or record completeness checks.
 ---
 
 # Life operator
@@ -64,7 +64,9 @@ The examples contain fictional records and illustrative IDs; replace them with r
   Check `money.import_file_status` and the original receipt; report counts and exceptional missing facts.
   Do not parse/split a statement or decide every row in the agent. Unknown outcomes recover the same key.
   Text staging/review remains available for explicit manual corrections; never substitute SQL for Life.
-  See [statement imports](../../docs/guides/recurring-bill-imports.md).
+  For pending historical batches, duplicates, refunds or reconciliation closeout, read
+  [bill reconciliation](references/bill-reconciliation.md). See
+  [statement imports](../../docs/guides/recurring-bill-imports.md) for parser and API boundaries.
 - Keep purchases, payments, actual intake, visits and plans distinct. For confirmed dining with order
   details or multiple images, prefer `life.record_dining` so related facts commit together.
 - For 次卡/理发卡/洗车卡/课时包, track the purchased entitlement and explicit uses separately; see the service-card workflow. Never infer first use from purchase or duplicate its payment.

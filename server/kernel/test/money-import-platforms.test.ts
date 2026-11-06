@@ -3,6 +3,39 @@ import test from "node:test";
 import { applyMoneyImportRules, parseMoneyStatement } from "../src/money-import.js";
 
 const timeZone = "Asia/Shanghai";
+test("CNY suffixes and explicit JD refund annotations preserve gross payment and raw evidence", () => {
+  for (const amount of ["36.50元", "￥36.50 元", "36.50(已退款6.50)", "36.50元（已退款6.50元）", "36.50(已退款)", "36.50（已部分退款）"]) {
+    const raw = { 交易时间: "2026-10-01 12:00:00", 金额: amount, "收/支": "支出", 交易状态: "已部分退款", 交易订单号: "synthetic-pay" };
+    const [c] = parseMoneyStatement({ format: "json", platform: "jd", timeZone, content: JSON.stringify([raw]) });
+    assert.equal(c!.proposed.amount, "36.50");
+    assert.equal(c!.identityKind, "expense");
+    assert.deepEqual(c!.issues, []);
+    assert.deepEqual(c!.raw.rows, [raw]);
+  }
+  for (const amount of ["36.50(退款待确认)", "36.50(已退款6.501)", "36.50元余款", "36.50(已退款6.50）"]) {
+    const [c] = parseMoneyStatement({ format: "json", platform: "jd", timeZone, content: JSON.stringify([{ 交易时间: "2026-10-01", 金额: amount, "收/支": "支出", 交易状态: "交易成功" }]) });
+    assert.ok(c!.issues.includes("invalid_amount"));
+    assert.equal(c!.proposed.amount, undefined);
+  }
+});
+
+test("explicit JD refunds cannot be overwritten by a successful non-balance transaction", () => {
+  const [c] = parseMoneyStatement({ format: "json", platform: "jd", timeZone, content: JSON.stringify([{ 交易时间: "2026-10-02", 金额: "6.50元", "收/支": "不计收支", 交易类型: "退款", 交易状态: "交易成功", 交易订单号: "synthetic-payment", 退款单号: "synthetic-refund" }]) });
+  assert.equal(c!.proposed.entry_type, "refund");
+  assert.equal(c!.identityKind, "refund");
+  assert.equal(c!.externalId, "synthetic-refund");
+  assert.deepEqual(c!.issues, []);
+});
+
+test("literal zero cashflow is distinguished from missing or malformed money", () => {
+  for (const amount of ["0", "0.00元", "￥0.00"]) {
+    const [c] = parseMoneyStatement({ format: "json", timeZone, content: JSON.stringify([{ date: "2026-10-01", type: "expense", amount }]) });
+    assert.deepEqual(c!.issues, ["zero_amount"]);
+    assert.equal(c!.proposed.amount, undefined);
+    assert.equal(c!.raw.amount, amount);
+  }
+});
+
 function table(headers: string[], rows: string[][]): string {
   return [headers, headers.map(() => "---"), ...rows].map(row => `| ${row.join(" | ")} |`).join("\n");
 }

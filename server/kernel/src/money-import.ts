@@ -64,7 +64,7 @@ function genericCandidate(raw: Record<string, unknown>, timeZone: string): Money
   const occurred = pick(text, aliases.occurredOn), date = occurred ? normalizeDate(occurred, timeZone) : undefined;
   if (!occurred) issues.push("missing_date"); else if (!date) issues.push("invalid_date"); else { proposed.occurred_on = date; if (/[ T].*(?:Z|[+-]\d{2}:?\d{2})$/u.test(occurred)) warnings.push("timestamp_date_in_requested_time_zone"); }
   const amountText = pick(text, aliases.amount), amount = amountText ? normalizeAmount(amountText) : undefined;
-  if (!amountText) issues.push("missing_amount"); else if (!amount) issues.push("invalid_amount"); else proposed.amount = amount.value;
+  if (!amountText) issues.push("missing_amount"); else if (!amount) issues.push("invalid_amount"); else if (amount.value === "0.00") issues.push("zero_amount"); else proposed.amount = amount.value;
   const typeText = pick(text, aliases.entryType), entryType = typeText ? normalizeType(typeText) : undefined;
   if (typeText && !entryType) issues.push("invalid_entry_type"); else if (entryType) proposed.entry_type = entryType; else if (amount?.negative) { proposed.entry_type = "expense"; warnings.push("type_inferred_from_negative_amount"); } else issues.push("missing_entry_type");
   const currency = pick(text, aliases.currency); if (currency && !["CNY", "RMB", "人民币"].includes(currency.trim().toUpperCase())) issues.push("unsupported_currency");
@@ -81,19 +81,20 @@ function platformCandidate(raw: Record<string, unknown>, timeZone: string, platf
   const status = value("交易状态", "当前状态"), sourceType = value("交易类型"), direction = value("收/支", "收支");
   const refund = /退款/u.test(sourceType ?? "") || (direction !== "支出" && /^(?:退款成功|已退款|已全额退款)$/u.test(status ?? ""));
   let entryType: MoneyImportEntryType | undefined = refund ? "refund" : direction ? normalizeType(direction) : undefined;
-  if (platform === "jd" && status === "交易成功" && (!direction || direction === "不计收支")) entryType = "expense";
+  if (platform === "jd" && !refund && status === "交易成功" && (!direction || direction === "不计收支")) entryType = "expense";
   if (platform === "meituan" && !entryType && sourceType && /^(?:支付|付款|消费)$/u.test(sourceType)) entryType = "expense";
   // A successful payment whose status later contains a refund remains the original expense.
   if (direction === "支出" && /退款/u.test(status ?? "") && !/退款/u.test(sourceType ?? "")) entryType = "expense";
   const occurred = platform === "meituan" ? value("交易成功时间", "交易创建时间") : value(...aliases.occurredOn);
   const originalAmount = platform === "meituan" ? value("实付金额", "订单金额") : value(...aliases.amount);
-  const amount = platform === "jd" ? originalAmount?.replace(/[（(](?:已全额退款|已部分退款)[）)]$/u, "") : originalAmount;
+  // Strip only a complete, recognized JD annotation. It describes the payment, not a net amount.
+  const amount = platform === "jd" ? originalAmount?.replace(/\s*(?:\((?:已全额退款|已部分退款|已退款(?:\d+(?:\.\d{1,2})?元?)?)\)|（(?:已全额退款|已部分退款|已退款(?:\d+(?:\.\d{1,2})?元?)?)）)$/u, "").trim() : originalAmount;
   const idNames = refund ? ["退款单号", "退款交易号", "交易单号", "交易订单号", "交易号"] : ["交易单号", "交易订单号", "交易号"];
   const externalId = value(...idNames);
   const result = genericCandidate({ date: occurred, amount, type: entryType ?? direction ?? sourceType, transaction_id: externalId, merchant: value(...aliases.counterparty), category: value(...aliases.category), payment_method: value(...aliases.paymentMethod), currency: value(...aliases.currency), note: [value("订单标题", "交易说明", "商品", "商品说明"), value("备注", "note", "memo")].filter(Boolean).join("；") }, timeZone);
   result.platform = platform;
   result.raw = { platform, rows: [raw] };
-  if (status && !["交易成功", "支付成功", "退款成功", "支付完成", "已支付", "对方已收钱", "已收钱", "已存入零钱", "已转账"].includes(status) && !/^已(?:全额)?退款(?:[（(].*[）)])?$/u.test(status)) result.issues.push("non_completed_transaction");
+  if (status && !["交易成功", "支付成功", "退款成功", "支付完成", "已支付", "对方已收钱", "已收钱", "已存入零钱", "已转账"].includes(status) && !/^已(?:全额|部分)?退款(?:[（(].*[）)])?$/u.test(status)) result.issues.push("non_completed_transaction");
   if ((platform === "jd" || platform === "alipay" || platform === "wechat") && !status) result.issues.push("missing_transaction_status");
   if (platform === "meituan" && !value("交易成功时间") && !["交易成功", "支付成功", "退款成功", "已支付"].includes(status ?? "")) result.issues.push("unsettled_transaction");
   if (result.proposed.entry_type === "refund") result.warnings.push("refund_unlinked");
@@ -166,7 +167,7 @@ function normalizeDate(value: string, timeZone: string): string | undefined {
   return dateOnly;
 }
 function normalizeAmount(value: string): { value: string; negative: boolean } | undefined {
-  let text = value.trim().replace(/^[￥¥]\s*/u, ""), negative = false;
+  let text = value.trim().replace(/^[￥¥]\s*/u, "").replace(/\s*元$/u, "").trim(), negative = false;
   if (text.startsWith("(") && text.endsWith(")")) { negative = true; text = text.slice(1, -1); }
   if (text.startsWith("-")) { negative = true; text = text.slice(1); }
   if (text.startsWith("+")) text = text.slice(1);
@@ -175,7 +176,6 @@ function normalizeAmount(value: string): { value: string; negative: boolean } | 
   const [wholeRaw, fractionRaw = ""] = text.split("."), whole = wholeRaw!.replace(/^0+(?=\d)/u, "");
   if (whole.length > 18) return undefined;
   const canonical = `${whole}.${fractionRaw.padEnd(2, "0")}`;
-  if (canonical === "0.00") return undefined;
   return { value: canonical, negative };
 }
 function normalizeType(value: string): MoneyImportEntryType | undefined {

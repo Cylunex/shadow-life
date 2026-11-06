@@ -46,7 +46,10 @@ export async function writeMoneyImportFile(database: Database, subjectId: string
   const facts = await database.execute<StatementEntry>(sql`select entry.id,entry.record_id,entry.amount::text,entry.currency,entry.entry_type,entry.occurred_on::text,entry.occurred_at::text,entry.counterparty,coalesce((select sum(back.amount) from refunds refund join money_entries back on back.id=refund.refund_entry_id join consumption_records r on r.id=back.record_id where refund.original_entry_id=entry.id and refund.subject_id=${subjectId} and refund.link_state='linked' and r.state='confirmed'),0)::text refunded from money_entries entry join consumption_records record on record.id=entry.record_id where entry.subject_id=${subjectId} and record.state='confirmed' limit 100001`);
   if (all.rows.length > 100000 || facts.rows.length > 100000) throw invalidInput("Statement history exceeds automatic processing coverage.", ["asset_version_id"]);
   const peers = all.rows, entries = facts.rows;
-  const selected = peers.filter(c => batchIds.includes(c.batch_id) && ["pending", "invalid"].includes(c.status));
+  // UUID order is unrelated to source order. Process the first occurrence before its duplicates,
+  // including overlaps spanning chunks, so they can see the just-confirmed source identity.
+  const selected = peers.filter(c => batchIds.includes(c.batch_id) && ["pending", "invalid"].includes(c.status))
+    .sort((a, b) => batchIds.indexOf(a.batch_id) - batchIds.indexOf(b.batch_id) || Number(a.position) - Number(b.position));
   // Detect cross-platform same-day/same-amount source ambiguity before any row is written.
   const conflicting = new Set<string>();
   const key = (c: StatementCandidate) => JSON.stringify([c.proposed.occurred_on, c.proposed.currency, c.proposed.entry_type, c.proposed.amount && statementAmount(c.proposed.amount).toString()]);

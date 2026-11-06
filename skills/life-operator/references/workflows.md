@@ -11,6 +11,7 @@
 | Correct consumed quantity/time | `life.get_record`, `life.correct_intake` / `life.correct_meal` | Current exact item/meal revision, retaining history |
 | Fill missing order line items | `life.update_purchase_items` | Repair the original purchase without a second charge/order |
 | Refund | `money.record_refund` | Link to the original money entry; the meal remains consumed |
+| Statement import / historical bill reconciliation | `money.import_file`, `money.import_file_status`, `money.import_history` / `money.import_review` | Follow [bill reconciliation](bill-reconciliation.md) for exceptions, evidence, resumable corrections and task closeout |
 | Spending / consumed-item rankings | `life.consumption_stats` | Explicit date window, counting unit, currency and coverage |
 | Backfill captured paid bills | `life.activities` / `life.search`, `life.activity_source`, `life.record_captured_expenses` | Use existing capture IDs; preserve originals and platform/account identity; read linked records after the receipt |
 | Historical record lookup | `life.search`, domain record tools | Date/type filters and `next_cursor` |

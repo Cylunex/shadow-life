@@ -27,6 +27,38 @@ test("closed orders and non-cashflow rows do not become expenses", () => {
   assert.equal(decideStatementCandidate(c, [], [c]).decision, "ignore");
   const uncertain = candidate({ issues: ["missing_date"] });
   assert.equal(decideStatementCandidate(uncertain, [], [uncertain]).decision, "pending");
+  for (const raw of [{ "收/支": "不计收支" }, { 收支: "不计收支" }, { 当前状态: "交易关闭" }]) {
+    const noncash = candidate({ raw, issues: [] });
+    assert.equal(decideStatementCandidate(noncash, [], [noncash]).reason, "non_accounting_transaction");
+  }
+  const zero = candidate({ issues: ["zero_amount"], proposed: { ...c.proposed, amount: undefined } });
+  assert.equal(decideStatementCandidate(zero, [], [zero]).reason, "zero_cashflow");
+});
+
+test("same-file refund duplicates finish before the already-used balance is checked", () => {
+  const original = candidate({ status: "confirmed", linked_record_id: "record" });
+  const refund = candidate({ id: "refund", identity_kind: "refund", external_id: "refund_001", proposed: { ...original.proposed, entry_type: "refund" }, source_proposed: { ...original.source_proposed, entry_type: "refund" } });
+  const done = { ...refund, id: "prior_refund", status: "confirmed", linked_record_id: "refund_record" };
+  assert.deepEqual(decideStatementCandidate(refund, [{ ...entry, refunded: entry.amount }], [original, done, refund]), { decision: "ignore", reason: "existing_source_identity" });
+  const changed = { ...refund, source_proposed: { ...refund.source_proposed, amount: "9.00" } };
+  assert.equal(decideStatementCandidate(changed, [entry], [original, done, changed]).reason, "source_identity_conflict");
+});
+
+test("refund overlaps stay unresolved and missing originals differ from exhausted balances", () => {
+  const original = candidate({ status: "confirmed", linked_record_id: "record" });
+  const refund = candidate({ id: "refund", identity_kind: "refund", external_id: "refund_001", proposed: { ...original.proposed, entry_type: "refund", amount: "2.00" }, source_proposed: { ...original.source_proposed, entry_type: "refund", amount: "2.00" } });
+  const existing = { ...entry, id: "refund_money", record_id: "refund_record", entry_type: "refund", amount: "2.00" };
+  assert.equal(decideStatementCandidate(refund, [entry, existing], [original, refund]).reason, "possible_existing_refund");
+  assert.equal(decideStatementCandidate(refund, [{ ...entry, refunded: "11.00" }], [original, refund]).reason, "refund_balance_exceeded");
+  assert.equal(decideStatementCandidate(refund, [entry], [refund]).reason, "refund_original_missing");
+  assert.equal(decideStatementCandidate(refund, [{ ...entry, occurred_on: "2026-10-02" }], [original, refund]).reason, "refund_before_original");
+  // A same order ID in another account is not the original payment.
+  assert.equal(decideStatementCandidate(refund, [entry], [{ ...original, source_account: "another" }, refund]).reason, "refund_original_missing");
+});
+
+test("same amount and date with a different merchant never prove duplicate payment", () => {
+  const c = candidate({ proposed: { ...candidate().proposed, counterparty: "另一合成商家" } });
+  assert.equal(decideStatementCandidate(c, [entry], [c]).decision, "pending");
 });
 test("complete Taobao orders remain in one bounded chunk and huge orders fail explicitly", () => {
   const rows = Array.from({ length: 99 }, (_, i) => ({ 订单号: String(i) }));

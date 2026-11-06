@@ -33,7 +33,7 @@ import type { MoneyImportPlatform } from "@shadow/kernel";
 type Database = NodePgDatabase<typeof schema>;
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
-const moneyImportParserVersion="2";
+const moneyImportParserVersion="3";
 type ImportIdentity={platform:string;sourceAccount:string;externalId:string;identityKind:string|null};
 function importIdentityKey(subjectId:string,identity:ImportIdentity):string{
   return JSON.stringify([subjectId,"money-import-identity",identity.platform,identity.sourceAccount,identity.externalId]);
