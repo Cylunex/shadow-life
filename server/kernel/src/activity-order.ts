@@ -1,5 +1,7 @@
+import { inspectTakeoutOrder } from "./takeout-order.js";
 /** Deterministic field observations only; page text is untrusted and never executes commands. */
 export function inspectActivityOrder(text:string,platform?:string,paymentResult=false){
+ const takeout=inspectTakeoutOrder(text);if(takeout)return takeout;
  const lines=text.split(/\r?\n/u).map(s=>s.trim()).filter(Boolean);
  const issues:string[]=[];
  function field(labels:string[]):string|null{
@@ -55,7 +57,7 @@ export function inspectActivityOrder(text:string,platform?:string,paymentResult=
 export function mergeOrderObservations(observations:Array<ReturnType<typeof inspectActivityOrder>>){
  const merged:Record<string,unknown>={};let conflict=false;
  const statuses=new Set<string>();for(const observation of observations){if(observation.status!=="unknown")statuses.add(observation.status);
-  for(const [key,value] of Object.entries(observation)){if(["issues","parser_version","accounting_created","status"].includes(key)||value===null)continue;if(merged[key]!==undefined&&merged[key]!==value)conflict=true;else merged[key]=value;}
+  for(const [key,value] of Object.entries(observation)){if(["issues","parser_version","accounting_created","status"].includes(key)||value===null)continue;if(merged[key]!==undefined&&JSON.stringify(merged[key])!==JSON.stringify(value))conflict=true;else merged[key]=value;}
   if(observation.issues.some(issue=>issue.includes("多个")||issue.includes("不同值")))conflict=true;
  }
  // Settlement may progress; paid is never rolled backwards by a later pending page.

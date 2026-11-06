@@ -2927,6 +2927,7 @@ data class CaptureWorkspaceResultDtoOrdersEntry(
   @SerialName("source_count") val sourceCount: Long,
   @SerialName("fields") val fields: String,
   @SerialName("record_id") val recordId: String?,
+  @SerialName("related_record_id") val relatedRecordId: String? = null,
   @SerialName("conflict") val conflict: Boolean
 )
 
@@ -3000,6 +3001,34 @@ enum class ActivityOrderResultDtoStatus(val wireValue: String) {
 }
 
 @Serializable
+enum class ActivityOrderResultDtoTakeoutPlatform(val wireValue: String) {
+  @SerialName("eleme") Eleme("eleme"),
+  @SerialName("meituan") Meituan("meituan")
+}
+
+@Serializable
+data class ActivityOrderResultDtoTakeoutItemsEntry(
+  @SerialName("name") val name: String,
+  @SerialName("quantity") val quantity: Long,
+  @SerialName("paid_amount") val paidAmount: String?,
+  @SerialName("option") val option: Boolean
+)
+
+@Serializable
+data class ActivityOrderResultDtoTakeout(
+  @SerialName("platform") val platform: ActivityOrderResultDtoTakeoutPlatform,
+  @SerialName("complete") val complete: Boolean,
+  @SerialName("amounts_reconciled") val amountsReconciled: Boolean,
+  @SerialName("delivery_status") val deliveryStatus: String?,
+  @SerialName("payment_method") val paymentMethod: String?,
+  @SerialName("items") val items: List<ActivityOrderResultDtoTakeoutItemsEntry>,
+  @SerialName("packing_fee") val packingFee: String?,
+  @SerialName("delivery_fee") val deliveryFee: String?,
+  @SerialName("discount_amount") val discountAmount: String?,
+  @SerialName("issues") val issues: List<String>
+)
+
+@Serializable
 data class ActivityOrderResultDto(
   @SerialName("activity_id") val activityId: String,
   @SerialName("parser_version") val parserVersion: String,
@@ -3014,7 +3043,8 @@ data class ActivityOrderResultDto(
   @SerialName("order_time") val orderTime: String?,
   @SerialName("status") val status: ActivityOrderResultDtoStatus,
   @SerialName("issues") val issues: List<String>,
-  @SerialName("accounting_created") val accountingCreated: Boolean
+  @SerialName("accounting_created") val accountingCreated: Boolean,
+  @SerialName("takeout") val takeout: ActivityOrderResultDtoTakeout? = null
 )
 
 @Serializable

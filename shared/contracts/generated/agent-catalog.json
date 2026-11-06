@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "faa9e38ed1ad7bba56f335a5650e197d8fc4ecddb9133e7e7d448dc9c638e844",
+  "catalog_revision": "2375f999750967931604fc47881d4ad64354c28cf54fd72d168cc77d769bb4cf",
   "terms": [
     {
       "id": "activity_capture",
@@ -21085,6 +21085,106 @@
           "accounting_created": {
             "type": "boolean",
             "const": false
+          },
+          "takeout": {
+            "type": "object",
+            "properties": {
+              "platform": {
+                "type": "string",
+                "enum": [
+                  "eleme",
+                  "meituan"
+                ]
+              },
+              "complete": {
+                "type": "boolean"
+              },
+              "amounts_reconciled": {
+                "type": "boolean"
+              },
+              "delivery_status": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "payment_method": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "items": {
+                "maxItems": 100,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "paid_amount": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "option": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "quantity",
+                    "paid_amount",
+                    "option"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "packing_fee": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "delivery_fee": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "discount_amount": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "issues": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "platform",
+              "complete",
+              "amounts_reconciled",
+              "delivery_status",
+              "payment_method",
+              "items",
+              "packing_fee",
+              "delivery_fee",
+              "discount_amount",
+              "issues"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -24871,6 +24971,12 @@
                   "type": "string"
                 },
                 "record_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "related_record_id": {
                   "type": [
                     "string",
                     "null"

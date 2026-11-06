@@ -245,7 +245,7 @@ export class QueryService {
   async captureWorkspace(context:RequestContext,input:unknown){
     if(!context.effects.has("library.item.read"))throw permissionDenied("library.item.read");
     const parsed=captureDateSchema.parse(input);
-    return this.unitOfWork.read(async store=>{if(!store.captureWorkspace)throw invalidInput("Capture storage unavailable",[]);const result=captureWorkspaceResultSchema.parse(await store.captureWorkspace(context.subjectId,parsed));if(!context.effects.has("money.entry.read"))for(const order of result.orders)order.record_id=null;return result;});
+    return this.unitOfWork.read(async store=>{if(!store.captureWorkspace)throw invalidInput("Capture storage unavailable",[]);const result=captureWorkspaceResultSchema.parse(await store.captureWorkspace(context.subjectId,parsed));if(!context.effects.has("money.entry.read"))for(const order of result.orders){order.record_id=null;order.related_record_id=null;}return result;});
   }
   async activityOrder(context:RequestContext,input:unknown){
     if(!context.effects.has("library.item.read"))throw permissionDenied("library.item.read");

@@ -2,7 +2,7 @@ import { paymentCaptureContextSchema } from "@shadow/contracts";
 import { sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type { ExecutionResult,UniversalCommandEnvelope } from "@shadow/contracts";
-import { inspectActivityOrder,mergeOrderObservations,capturedPaymentIdentity,capturedPaymentPlatform,capturedPaymentHasCnyEvidence,parseMoneyStatement,type RequestContext } from "@shadow/kernel";
+import { readTakeoutCapture,inspectActivityOrder,mergeOrderObservations,capturedPaymentIdentity,capturedPaymentPlatform,capturedPaymentHasCnyEvidence,parseMoneyStatement,type RequestContext } from "@shadow/kernel";
 type DB=Pick<NodePgDatabase<any>,"execute">;
 type Result={resources:ExecutionResult["resources"];actualValues:ExecutionResult["actual_values"]};
 export async function associateCapturedOrder(db:DB,subject:string,captureId:string,context:RequestContext|undefined,nextId:(kind:string)=>string,nested:(command:UniversalCommandEnvelope)=>Promise<Result>,commandId:string,recordExpense=false):Promise<ExecutionResult["resources"]|undefined>{
@@ -14,7 +14,8 @@ export async function associateCapturedOrder(db:DB,subject:string,captureId:stri
  const observedContext=paymentCaptureContextSchema.safeParse(captured.payment_context);
  const paymentContext=observedContext.success?observedContext.data:undefined;
  const paymentPlatform=capturedPaymentPlatform(String(captured.app_package));
- const rule:Record<string,unknown>|undefined=recordExpense?(associated??paymentContext??configured??(paymentPlatform?{platform:paymentPlatform,source_account:"default"}:undefined)):(configured?.enabled?configured:undefined);
+ const takeout=readTakeoutCapture(String(captured.text));
+ const rule:Record<string,unknown>|undefined=takeout?{platform:takeout.platform,source_account:configured?.platform===takeout.platform?configured.source_account:"default"}:recordExpense?(associated??paymentContext??configured??(paymentPlatform?{platform:paymentPlatform,source_account:"default"}:undefined)):(configured?.enabled?configured:undefined);
  if(!rule)return;
  async function recordResources(recordId:string):Promise<ExecutionResult["resources"]>{
    const rows=(await db.execute(sql`select r.id,r.revision,m.id money_id,m.revision money_revision from consumption_records r join money_entries m on m.record_id=r.id and m.subject_id=${subject} where r.id=${recordId} and r.subject_id=${subject}`)).rows;
@@ -41,6 +42,7 @@ export async function associateCapturedOrder(db:DB,subject:string,captureId:stri
  const sources=await db.execute(sql`select a.text,a.payment_context from capture_order_sources s join activity_captures a on a.id=s.capture_id and a.deleted_at is null where s.order_id=${id} order by a.started_at,a.id`);
  const merged=mergeOrderObservations(sources.rows.map(s=>inspectActivityOrder(String(s.text??""),String(rule.platform),paymentCaptureContextSchema.safeParse(s.payment_context).success)));
  await db.execute(sql`update capture_orders set fields=${JSON.stringify(merged.fields)}::jsonb,status=${merged.status},conflict=${merged.conflict} where id=${id}`);
+ if(takeout)return; // Order observations never create another payment.
  if(old?.record_id)return recordExpense?recordResources(String(old.record_id)):undefined;
  if((!recordExpense&&!rule.auto_accounting)||merged.conflict||merged.status!=="paid")return;
  if(!context?.effects.has("money.entry.write")||!context.effects.has("life.purchase.write"))return;

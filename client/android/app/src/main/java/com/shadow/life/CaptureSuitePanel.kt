@@ -84,7 +84,10 @@ import java.time.LocalDate
   }
   if(data==null)Text("正在读取采集结果…")
   else if(data!!.orders.isEmpty())Text("这一天暂无采集订单。")
-  data?.orders?.forEach{order->
+  data?.orders?.groupBy{it.recordId?:it.relatedRecordId?:it.id}?.values?.map{group->
+    val shown=group.firstOrNull{runCatching{JSONObject(it.fields).has("takeout")}.getOrDefault(false)}?:group.first()
+    shown.copy(sourceCount=group.sumOf{it.sourceCount},relatedRecordId=shown.relatedRecordId?:group.firstNotNullOfOrNull{it.recordId})
+  }?.forEach{order->
     var expandedOrder by rememberSaveable(order.id){mutableStateOf(false)}
     val fields=runCatching{JSONObject(order.fields)}.getOrNull()
     val rules=data!!.rules.filter{it.platform.wireValue==order.platform&&it.sourceAccount==order.sourceAccount}
@@ -106,7 +109,15 @@ import java.time.LocalDate
         mapOf("merchant" to "商家","product" to "商品","refund_amount" to "退款金额","logistics_no" to "物流单号").forEach{(key,label)->fields?.optString(key)?.takeIf{it.isNotBlank()}?.let{Text("$label：$it")}}
         if(order.conflict)Text("来源存在冲突，未自动覆盖",color=MaterialTheme.colorScheme.error)
       }
-      if(order.recordId==null){
+      if(fields?.has("takeout")==true){
+        val detail=fields.getJSONObject("takeout");val items=detail.optJSONArray("items")
+        Text(if(detail.optBoolean("amounts_reconciled"))"商品与费用已核对" else "部分信息待补充")
+        fun amount(data:JSONObject,key:String)=if(data.isNull(key))"待识别" else "¥${data.optString(key)}"
+        if(expandedOrder&&items!=null)for(i in 0 until items.length()){val item=items.getJSONObject(i);Text("${item.optString("name")} ×${item.optInt("quantity")} · ${amount(item,"paid_amount")}")}
+        if(expandedOrder){Text("打包费 ${amount(detail,"packing_fee")} · 配送费 ${amount(detail,"delivery_fee")}");val issues=detail.optJSONArray("issues");if(issues!=null)for(i in 0 until issues.length())Text(issues.getString(i))}
+        Text("订单已收录；付款以支付账单为准，不重复记账。")
+        order.relatedRecordId?.let{id->TextButton(onClick={onMoneyRecord(id)}){Text("对应付款 · 查看已有消费 →")}}
+      }else if(order.recordId==null){
         Text("尚未入账 · $reason",color=MaterialTheme.colorScheme.onSurfaceVariant)
         TextButton(onClick={showOrderSettings=true;rules.firstOrNull()?.let{selectApp(it.appPackage)}}){Text("查看采集规则")}
       }else TextButton(onClick={onMoneyRecord(order.recordId!!)}){Text("已入账 · 查看消费详情 →")}
@@ -115,19 +126,19 @@ import java.time.LocalDate
   TextButton(onClick={showOrderSettings=!showOrderSettings}){Text(if(showOrderSettings)"收起采集设置" else "摇一摇与自动记账设置")}
   if(showOrderSettings){
   Text("摇一摇记账",style=MaterialTheme.typography.titleMedium)
-  Text("选择支付应用，打开单笔账单详情后将手机来回摇一下。主动摇一摇直接提交入账；付款后自动识别可独立开启。")
-  Row{billPlatforms.forEach{(pkg,value)->FilterChip(selected=selectedApp==pkg,onClick={selectApp(pkg)},label={Text(capturePlatformName(value))})}}
+  Text("选择应用，打开单笔账单或外卖订单详情后摇一下。外卖会自动滚动采集，过程中请保持页面不动；也可分享系统长截图。")
+  FlowRow{(billPlatforms+takeoutPackages).forEach{(pkg,value)->FilterChip(selected=selectedApp==pkg,onClick={selectApp(pkg)},label={Text(apps.firstOrNull{it.activityInfo.packageName==pkg}?.loadLabel(context.packageManager)?.toString()?:mapOf("com.taobao.taobao" to "淘宝内闪购","me.ele.mall" to "闪购零售","com.sankuai.meituan.takeoutnew" to "美团外卖")[pkg]?:capturePlatformName(value))})}}
   Box{TextButton(onClick={showApps=true}){Text(apps.firstOrNull{it.activityInfo.packageName==selectedApp}?.loadLabel(context.packageManager)?.toString()?:"选择其他订单来源应用")};DropdownMenu(expanded=showApps,onDismissRequest={showApps=false}){apps.forEach{info->DropdownMenuItem(text={Text(info.loadLabel(context.packageManager).toString())},onClick={selectApp(info.activityInfo.packageName)})}}}
-  if(selectedApp in billPlatforms){
+  if(selectedApp in billPlatforms || selectedApp in takeoutPackages){
    val key=shakeKey(accountId,selectedApp)
    var enabled by remember(key){mutableStateOf(prefs.getBoolean(key,false))}
-   Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){Text("在${capturePlatformName(billPlatforms.getValue(selectedApp))}摇一摇补记",Modifier.weight(1f));Switch(checked=enabled,onCheckedChange={enabled=it;prefs.edit().putBoolean(key,it).apply()},enabled=hasSensor||enabled)}
+   Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){Text("在${capturePlatformName(billPlatforms[selectedApp]?:takeoutPackages.getValue(selectedApp))}摇一摇补记",Modifier.weight(1f));Switch(checked=enabled,onCheckedChange={enabled=it;prefs.edit().putBoolean(key,it).apply()},enabled=hasSensor||enabled)}
    Text(BillShakeStatus.message)
    Text("可留在此页摇动测试；识别成功会显示提示，随后再进入单笔账单详情。",style=MaterialTheme.typography.bodySmall)
    Text(if(LifeScreenCaptureService.active==null)"屏幕内容服务：未连接" else "屏幕内容服务：已连接")
    if(!hasSensor)Text("此设备没有加速度传感器，请手动记账。")
    TextButton(onClick={context.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))}){Text("启用 Life 屏幕内容服务")}
-   Text("启用系统服务后，在单笔已支付账单详情摇动即可记为消费，同一交易不会重复记账。无需开启自动读取或后台自动记账。",style=MaterialTheme.typography.bodySmall)
+   Text("支付账单证据完整时入账；外卖采集保存商品与费用，不重复新增付款。跨屏失败可改为分享系统长截图。",style=MaterialTheme.typography.bodySmall)
   }
   if(selectedApp.isNotBlank()&&platform in setOf("wechat","alipay")){
    val automaticKey=paymentAutoKey(accountId,selectedApp)
@@ -178,4 +189,4 @@ import java.time.LocalDate
  deleteSegment?.let{id->AlertDialog(onDismissRequest={deleteSegment=null},title={Text("删除录音与转写？")},text={Text("删除后不再可回听或检索，相同片段重传不会恢复。")},confirmButton={TextButton(onClick={deleteSegment=null;player?.release();player=null;run{write("life.delete_recording",JSONObject().put("segment_id",id))}}){Text("删除")}},dismissButton={TextButton(onClick={deleteSegment=null}){Text("取消")}})}
 }
 
-private fun capturePlatformName(value:String)=mapOf("generic" to "通用","taobao" to "淘宝","jd" to "京东","meituan" to "美团","alipay" to "支付宝","wechat" to "微信")[value]?:value
+private fun capturePlatformName(value:String)=mapOf("generic" to "通用","taobao" to "淘宝","jd" to "京东","eleme" to "淘宝闪购","meituan" to "美团","alipay" to "支付宝","wechat" to "微信")[value]?:value

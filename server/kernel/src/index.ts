@@ -37,3 +37,5 @@ export * from "./activity-order.js";
 export * from "./payment-capture-group.js";
 
 export * from "./capture-insights.js";
+
+export * from "./takeout-order.js";

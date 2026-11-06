@@ -20,3 +20,5 @@ export * from "./home-workout.js";
 export * from "./wellness-schemas.js";
 
 export * from "./capture-completion-schemas.js";
+
+export * from "./takeout-schemas.js";

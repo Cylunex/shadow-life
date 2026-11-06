@@ -212,3 +212,23 @@ test("anonymous payment materials group on read, withdraw on ambiguity and never
  await f.run("life.ingest_activity",shake("group_competing",bill.replace("GROUP-ONE","GROUP-TWO")));
  source=await f.queries.activitySource(f.context,{id});assert.equal(source.related_consumption_record_id,null);
 });
+
+test("takeout screenshot text creates a source-linked order without another payment or configured rule",pgOnly,async t=>{
+ const {readFileSync}=await import("node:fs");const takeoutFixture=()=>readFileSync(new URL("../../kernel/test/fixtures/takeout-a.txt",import.meta.url),"utf8");
+ const f=await reviewFixture(t);const asset=await new AssetService(f.pool).store(f.context.subjectId,"image/jpeg",Buffer.from([255,216,255]));
+ for(let i=0;i<2;i++)await f.run("life.capture_screenshot",{asset_version_id:asset.asset_version_id,title:"合成长订单",captured_at:"2026-10-30T01:00:00Z",time_zone:"UTC",app_package:"com.shadow.life.shared_order",text:takeoutFixture()});
+ const page=await f.queries.captureWorkspace(f.context,date);assert.equal(page.orders.length,1);assert.equal(page.orders[0]!.source_count,2);assert.equal(page.orders[0]!.conflict,false);assert.equal(page.orders[0]!.record_id,null);
+ const fields=JSON.parse(page.orders[0]!.fields);assert.equal(fields.takeout.items.length,8);assert.equal(fields.takeout.amounts_reconciled,true);
+ assert.equal((await f.pool.query("select count(*)::int n from money_entries")).rows[0].n,0);
+});
+
+test("complete takeout and payment materials group without joining their external identities",pgOnly,async t=>{
+ const {readFileSync}=await import("node:fs");const takeoutFixture=()=>readFileSync(new URL("../../kernel/test/fixtures/takeout-a.txt",import.meta.url),"utf8");const f=await reviewFixture(t);
+ const text=alipayBill("TAKEOUT-PAYMENT").replace("支出8.8元","支出19.98元").replace("2026-10-30 09:00:00","2026-10-30 19:17:57").replace("合成商品","合成外卖店外卖订单");
+ const bill=await f.run("life.ingest_activity",shake("takeout_payment",text));
+ await f.run("life.ingest_activity",{device_id:"screenshot_capture",items:[{...screen("takeout_order",takeoutFixture()).items[0],app_package:"com.shadow.life.shared_order"}]});
+ const page=await f.queries.captureWorkspace(f.context,date);const order=page.orders.find(o=>o.platform==='eleme')!;
+ assert.equal(order.record_id,null);assert.equal(order.related_record_id,bill.resources.find(r=>r.type==='consumption_record')!.id);
+ assert.equal((await f.queries.captureWorkspace({...f.context,effects:new Set(['library.item.read'])},date)).orders.find(o=>o.platform==='eleme')!.related_record_id,null);
+ assert.equal((await f.pool.query("select count(*)::int n from money_entries")).rows[0].n,1);
+});

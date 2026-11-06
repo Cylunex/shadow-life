@@ -27,7 +27,7 @@ fun configuredProperty(name:String,fallback:String):String {
 android { namespace="com.shadow.life"; compileSdk=36
   testOptions { unitTests.isIncludeAndroidResources = true }
   defaultConfig {
-    applicationId="com.shadow.life"; minSdk=29; targetSdk=36; versionCode=64; versionName="2.1.42"
+    applicationId="com.shadow.life"; minSdk=29; targetSdk=36; versionCode=65; versionName="2.1.43"
     fun configured(name:String,fallback:String)=configuredProperty(name,fallback)
     fun quoted(value:String)="\"${value.replace("\\","\\\\").replace("\"","\\\"")}\""
     val healthConnectEnabled=configured("HEALTH_CONNECT_ENABLED","false").toBooleanStrictOrNull()
@@ -54,6 +54,8 @@ kotlin { jvmToolchain(17) }
 dependencies {
   implementation(project(":core:model")); implementation(project(":core:data")); implementation(project(":core:designsystem")); implementation(project(":devices"))
   implementation(platform(libs.compose.bom)); implementation(libs.activity.compose); implementation(libs.compose.material3); implementation(libs.compose.icons); implementation(libs.compose.foundation); implementation(libs.lifecycle.viewmodel.compose); implementation(libs.lifecycle.runtime.compose); implementation(libs.navigation.compose); implementation(libs.kotlinx.serialization.json)
+  implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
+  implementation("com.google.mlkit:text-recognition:16.0.1")
   implementation(libs.work.runtime)
   implementation(libs.browser)
   implementation(libs.health.connect)

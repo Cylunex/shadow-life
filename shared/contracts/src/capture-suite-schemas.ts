@@ -14,7 +14,7 @@ export const orderCaptureRuleSchema=z.object({app_package:z.string().trim().min(
 export const activityReviewInputSchema=z.object({date:z.iso.date(),time_zone:zone,period:z.enum(["day","week","month"])}).strict();
 export const captureWorkspaceResultSchema=z.object({
  recordings:z.array(z.object({id,session_id:id,title:z.string(),started_at:time,ended_at:time,asset_version_id:id,state:z.enum(["queued","running","completed","failed"]),revision:z.number().int().positive(),attempt:z.number().int().nonnegative(),spans:z.array(transcriptSpanSchema),error:z.string().nullable(),processor_version:z.string().nullable(),audio_available:z.boolean(),protected:z.boolean()}).strict()).max(100),
- orders:z.array(z.object({id,platform:z.string(),source_account:z.string(),external_id:z.string(),status:z.string(),source_count:z.number().int().nonnegative(),fields:z.string(),record_id:z.string().nullable(),conflict:z.boolean()}).strict()).max(100),
+ orders:z.array(z.object({id,platform:z.string(),source_account:z.string(),external_id:z.string(),status:z.string(),source_count:z.number().int().nonnegative(),fields:z.string(),record_id:z.string().nullable(),related_record_id:z.string().nullable().optional(),conflict:z.boolean()}).strict()).max(100),
  rules:z.array(orderCaptureRuleSchema).max(100),
  reviews:z.array(z.object({id,period:z.enum(["day","week","month"]),from_on:z.iso.date(),to_on_exclusive:z.iso.date(),time_zone:zone,revision:z.number().int().positive(),stale:z.boolean(),body:z.string(),source_refs:z.array(z.object({id,title:z.string(),started_at:time}).strict()).max(500),source_count:z.number().int().nonnegative(),generated_at:time}).strict()).max(12),
  recordings_next_before_id:id.nullable(),truncated:z.boolean(),transcription_available:z.boolean()

@@ -1,3 +1,4 @@
+import { takeoutDetailsSchema } from "./takeout-schemas.js";
 import { z } from "zod";
 const stableId=z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,119}$/);
 const instant=z.iso.datetime({offset:true});
@@ -11,7 +12,7 @@ export const activitiesInputSchema=z.object({date:localDate,time_zone:ianaTimeZo
 export type ActivitiesInput=z.infer<typeof activitiesInputSchema>;
 export const activitiesResultSchema=z.object({items:z.array(z.object({id:stableId,device_id:stableId,source_id:stableId,kind:z.enum(["app_usage","manual","screen_text","stay","recording"]),started_at:instant,ended_at:instant,time_zone:ianaTimeZone,title:z.string(),library_item_id:stableId.nullable(),app_package:z.string().nullable(),text:z.string().nullable(),latitude:z.number().nullable(),longitude:z.number().nullable(),accuracy_m:z.number().nullable()}).strict()).max(100),next_before_id:stableId.nullable(),total:z.number().int().nonnegative(),usage_seconds:z.number().int().nonnegative(),coverage:z.literal("captured_intervals_only")}).strict();
 
-export const activityOrderResultSchema=z.object({activity_id:stableId,parser_version:z.string(),order_id:z.string().nullable(),transaction_id:z.string().nullable(),merchant:z.string().nullable(),product:z.string().nullable(),paid_amount:z.string().nullable(),order_amount:z.string().nullable(),refund_amount:z.string().nullable(),payment_time:z.string().nullable(),order_time:z.string().nullable(),status:z.enum(["paid","pending","cancelled","refunded","refund_pending","unknown"]),issues:z.array(z.string()),accounting_created:z.literal(false)}).strict();
+export const activityOrderResultSchema=z.object({activity_id:stableId,parser_version:z.string(),order_id:z.string().nullable(),transaction_id:z.string().nullable(),merchant:z.string().nullable(),product:z.string().nullable(),paid_amount:z.string().nullable(),order_amount:z.string().nullable(),refund_amount:z.string().nullable(),payment_time:z.string().nullable(),order_time:z.string().nullable(),status:z.enum(["paid","pending","cancelled","refunded","refund_pending","unknown"]),issues:z.array(z.string()),accounting_created:z.literal(false),takeout:takeoutDetailsSchema.optional()}).strict();
 
 export const activitySourceResultSchema=activitiesResultSchema.shape.items.element.extend({consumption_record_id:stableId.nullable().optional(),related_consumption_record_id:stableId.nullable().optional().describe("可撤回的付款材料展示归组，不是交易身份关联，不用于记账；原始材料和真实消费保持独立。"),behavior:z.string(),life_domain:z.string(),classification_origin:z.string(),revision:z.number().int().positive(),classification_revision:z.number().int().nonnegative(),project_id:stableId.nullable(),project_title:z.string().nullable(),protected:z.boolean()}).strict();
 

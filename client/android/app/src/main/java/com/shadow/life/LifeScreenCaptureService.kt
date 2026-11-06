@@ -39,7 +39,7 @@ internal object BillShakeStatus{
  var message:String by mutableStateOf("等待启用屏幕内容服务")
 }
 
-/** Read-only, explicitly allowed packages; no gestures or key interception; screenshots require a separate explicit action. */
+/** Explicitly allowed apps; takeout scrolling and screenshots require an intentional shake. */
 class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
  companion object {var active:LifeScreenCaptureService? by mutableStateOf(null);private set}
  private val screenState=object:BroadcastReceiver(){
@@ -66,6 +66,7 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
  private var pending:Job?=null
  private var automatic:Job?=null
  private var shakeWatch:Job?=null
+ private var takeoutWork:Job?=null
  private val paymentReader=Executors.newSingleThreadExecutor()
  private val paymentReading=AtomicBoolean(false)
  private suspend fun readPaymentFrame(pkg:String,window:Int):String?=withTimeoutOrNull(650){
@@ -135,7 +136,7 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
  private fun refreshShake(){
    if(active!==this)return
    val account=(application as ShadowApp).sessions.active()?.accountId
-   val enabled=account!=null && billPlatforms.keys.any{settings.getBoolean(shakeKey(account,it),false)}
+   val enabled=account!=null && (billPlatforms.keys+takeoutPackages.keys).any{settings.getBoolean(shakeKey(account,it),false)}
    if(!enabled){
      listen(null);if(foreground){stopForeground(STOP_FOREGROUND_REMOVE);foreground=false}
      BillShakeStatus.message="摇一摇未开启";return
@@ -184,8 +185,14 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
    if(app.sessions.active()?.accountId!=account || !unlocked()){refreshShake();return}
    val root=rootInActiveWindow
    val pkg=root?.packageName?.toString()
-   if(pkg==packageName){root.recycle();feedback("已识别摇动。现在打开支付宝或微信的单笔账单详情再摇动");return}
+   if(pkg==packageName){root.recycle();feedback("已识别摇动。打开支付账单或已开启的外卖订单详情再摇动");return}
    if(pkg==null){root?.recycle();feedback("已识别摇动，但当前页面不可读取，请打开单笔账单详情");return}
+   if(pkg in takeoutPackages && settings.getBoolean(shakeKey(account,pkg),false)){
+     root.recycle();if(takeoutWork?.isActive==true)return
+     pending?.cancel();automatic?.cancel();autoCycle.invalidate()
+     takeoutWork=scope.launch(Dispatchers.Main){try{collectTakeoutOrder(account,pkg);feedback(BillShakeStatus.message)}catch(e:TimeoutCancellationException){feedback("订单采集超时，请使用系统长截图分享给 Life")}catch(e:CancellationException){throw e}catch(e:Exception){feedback(e.message?:"订单采集未完成，请分享长截图")}}
+     return
+   }
    if(pkg !in billPlatforms || !settings.getBoolean(shakeKey(account,pkg),false)){root.recycle();return}
    val text=readCapturePage(root,billOnly=true)
    if(text==null || !resemblesBillDetail(text)){
@@ -199,6 +206,7 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
  }
  private fun feedback(message:String){BillShakeStatus.message=message;Toast.makeText(this,message,Toast.LENGTH_LONG).show()}
  override fun onAccessibilityEvent(event:AccessibilityEvent?){
+   if(takeoutWork?.isActive==true)return
    if(event==null||event.eventType !in setOf(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,AccessibilityEvent.TYPE_WINDOWS_CHANGED))return
    val app=application as ShadowApp;val session=app.sessions.active()?:return
    if(!unlocked()){autoCycle.invalidate();automatic?.cancel();pending?.cancel();return}
@@ -249,8 +257,9 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
    last[key]=contentHash to now.epochSecond;if(last.size>50)last.remove(last.keys.first())
    if(shaken && app.sessions.active()?.accountId==account)feedback("账单已提交记账，完整已支付账单会记为消费；回首页查看结果")
  }
- override fun onInterrupt(){pending?.cancel();automatic?.cancel();autoCycle.invalidate()}
+ override fun onInterrupt(){takeoutWork?.cancel();pending?.cancel();automatic?.cancel();autoCycle.invalidate()}
  private fun disconnect(){
+   takeoutWork?.cancel();takeoutWork=null
    shakeWatch?.cancel();shakeWatch=null
    settings.unregisterOnSharedPreferenceChangeListener(preferenceWatch)
    listen(null);stopForeground(STOP_FOREGROUND_REMOVE);foreground=false
