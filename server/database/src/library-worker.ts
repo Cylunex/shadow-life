@@ -3,7 +3,7 @@ import { CommandExecutor, KernelError, sha256Fingerprinter, systemClock, uuidIds
 import { PostgresUnitOfWork } from "./postgres.js";
 import type { Pool } from "pg";
 import { AssetService } from "./asset-service.js";
-import { configuredVisionProcessor, visionProcessorName, type VisionProcessor } from "./vision-processor.js";
+import { configuredVisionProcessor, visionProcessorName, llmVisionProcessorPrefix, screenshotVisionProcessor, type VisionProcessor } from "./vision-processor.js";
 
 import { extractHtml, htmlProcessorName } from "./html-extract.js";
 
@@ -21,7 +21,7 @@ export async function processPendingLibrary(pool:Pool,limit=20,vision:VisionProc
   if(!Number.isInteger(limit)||limit<1||limit>100)throw new RangeError("library processing limit must be between 1 and 100");
   // Reading candidates grants no ownership. Claim each immediately before doing its work;
   // simultaneous dispatchers resolve their race in the same public Executor transaction.
-  const candidates=await pool.query<{id:string;subject_id:string;source_asset_version_id:string;attempts:number;kind:string;requested_processor:string}>("select id,subject_id,source_asset_version_id,attempts,kind,requested_processor from library_processing_jobs where ((kind='text_extract' and requested_processor in ('builtin-text-v1','builtin-html-v1')) or (kind='vision' and requested_processor=$2)) and (not capture_automatic or coalesce((select (policy->>'process_screenshots')::boolean from capture_policies where subject_id=library_processing_jobs.subject_id),true)) and (state='queued' or (state='running' and lease_expires_at<=clock_timestamp())) order by updated_at,id limit $1",[limit,visionProcessorName]);
+  const candidates=await pool.query<{id:string;subject_id:string;source_asset_version_id:string;attempts:number;kind:string;requested_processor:string}>("select id,subject_id,source_asset_version_id,attempts,kind,requested_processor from library_processing_jobs where ((kind='text_extract' and requested_processor in ('builtin-text-v1','builtin-html-v1')) or (kind='vision' and (requested_processor=$2 or requested_processor like 'llm-vision-v1:%'))) and (not capture_automatic or coalesce((select (policy->>'process_screenshots')::boolean from capture_policies where subject_id=library_processing_jobs.subject_id),true)) and (state='queued' or (state='running' and lease_expires_at<=clock_timestamp())) order by updated_at,id limit $1",[limit,visionProcessorName]);
   const executor=new CommandExecutor({unitOfWork:new PostgresUnitOfWork(pool),ids:uuidIds,clock:systemClock,fingerprinter:sha256Fingerprinter});
   const assets=new AssetService(pool),results:Array<{job_id:string;state:"completed"|"failed"|"superseded";error?:string}>=[];
   for(const job of candidates.rows){
@@ -38,7 +38,8 @@ export async function processPendingLibrary(pool:Pool,limit=20,vision:VisionProc
       let extractedText:string|undefined;
       let text:string,snippets:Array<{text:string;locator:Record<string,unknown>}>,suggestion:Awaited<ReturnType<VisionProcessor["process"]>>["candidate"]|undefined,processorVersion="builtin-text-v1";
       if(job.kind==="vision"){
-        const result=await vision.process(source.bytes,source.media_type);suggestion=result.candidate;processorVersion=result.processorVersion;
+        const processor=job.requested_processor.startsWith(llmVisionProcessorPrefix)?screenshotVisionProcessor(job.requested_processor.slice(llmVisionProcessorPrefix.length)):vision;
+        const result=await processor.process(source.bytes,source.media_type);suggestion=result.candidate;processorVersion=result.processorVersion;
         text=[suggestion.title,suggestion.document_date,suggestion.category,suggestion.summary,suggestion.content].filter(Boolean).join("\n");
         snippets=[...splitLibraryText(text).map(part=>({text:part.text,locator:{source:"vision_candidate",...part.locator}})),...suggestion.locators.filter(item=>item.quote).map(item=>({text:item.quote!,locator:{page:item.page,source:"vision_quote"}}))];
       }else if(job.requested_processor===htmlProcessorName){

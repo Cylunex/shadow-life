@@ -295,7 +295,7 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
         }
 
         if(detail.actions.isNotEmpty())item{Column(Modifier.fillMaxWidth().padding(top=14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){(if(showActions)detail.actions else detail.actions.take(2)).forEach{action->OutlinedButton(onClick={onAction(action)},Modifier.fillMaxWidth().heightIn(min=52.dp)){Text(action.label)}};if(detail.actions.size>2)TextButton(onClick={showActions=!showActions}){Text(if(showActions)"收起操作" else "更多操作（${detail.actions.size}）")}}}
-        detail.libraryVisionSourceAssetId?.let{assetId->item{OutlinedButton(onClick={onQueueLibraryVision(assetId)},Modifier.fillMaxWidth().padding(top=8.dp),enabled=submitState !is SubmitState.Sending){Text("开始视觉理解")}}}
+        detail.libraryVisionSourceAssetId?.let{assetId->item{OutlinedButton(onClick={onQueueLibraryVision(assetId)},Modifier.fillMaxWidth().padding(top=8.dp),enabled=submitState !is SubmitState.Sending){Text("用所选 LLM 识图")}}}
         detail.libraryVisionRetryJobId?.let{jobId->item{OutlinedButton(onClick={onRetryLibraryVision(jobId)},Modifier.fillMaxWidth().padding(top=8.dp),enabled=submitState !is SubmitState.Sending){Text("重试视觉理解")}}}
         if(detail.libraryVisionSourceAssetId!=null||detail.libraryVisionRetryJobId!=null)item{when(submitState){is SubmitState.Rejected->Text(submitState.message,color=MaterialTheme.colorScheme.error);is SubmitState.Saved->Text("命令已保存，刷新详情查看处理状态");else->Unit}}
 

@@ -50,6 +50,15 @@ test("WeChat wallet bill uses its signed debit and Chinese timestamp within the 
  assert.equal(capturedPaymentHasCnyEvidence(bill),false);
 });
 
+test("WeChat merchant heading survives navigation and interleaved service controls",()=>{
+ const details="主页\n交易详情\n-6.00\n当前状态\n支付成功\n收单机构\n财付通支付科技有限公司\n支付时间\n2026年11月05日 08:30:00\n支付方式\n零钱\n交易单号\nWX-NAV-01";
+ const heading="返回\n合成早点铺\n联系\n交易服务\n对订单有疑惑\n发起群收款\n本服务由财付通提供\n";
+ assert.equal(inspectActivityOrder(heading+details,"wechat").merchant,"合成早点铺");
+ assert.equal(inspectActivityOrder(heading+details+"\n商家名称：明确商户","wechat").merchant,"明确商户");
+ assert.equal(inspectActivityOrder(heading+"另一个候选标题\n"+details,"wechat").merchant,null);
+ assert.equal(inspectActivityOrder(heading+details.replace("支付成功","退款成功"),"wechat").merchant,null);
+});
+
 test("Alipay debit is located relative to the bill heading after navigation nodes",()=>{
  const details="交易成功\n支付时间\n2026-10-30 09:00:00\n付款方式\n示例银行卡\n商品说明\n合成午餐\n收款方全称\n示例餐厅\n订单号\nALIPAY-HEADING-01\n商家订单号\n商家可扫码退款或查询交易\nMERCHANT-HEADING-01";
  for(const prefix of ["返回\n全部账单\n\uE642\n","返回\n全部账单\n","导航\n返回\n全部账单\n\uE642\n"]){

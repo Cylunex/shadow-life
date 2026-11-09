@@ -17,7 +17,7 @@ export const captureWorkspaceResultSchema=z.object({
  orders:z.array(z.object({id,platform:z.string(),source_account:z.string(),external_id:z.string(),status:z.string(),source_count:z.number().int().nonnegative(),fields:z.string(),record_id:z.string().nullable(),related_record_id:z.string().nullable().optional(),conflict:z.boolean()}).strict()).max(100),
  rules:z.array(orderCaptureRuleSchema).max(100),
  reviews:z.array(z.object({id,period:z.enum(["day","week","month"]),from_on:z.iso.date(),to_on_exclusive:z.iso.date(),time_zone:zone,revision:z.number().int().positive(),stale:z.boolean(),body:z.string(),source_refs:z.array(z.object({id,title:z.string(),started_at:time}).strict()).max(500),source_count:z.number().int().nonnegative(),generated_at:time}).strict()).max(12),
- recordings_next_before_id:id.nullable(),truncated:z.boolean(),transcription_available:z.boolean()
+ recordings_next_before_id:id.nullable(),truncated:z.boolean(),transcription_available:z.boolean(),screenshot_models:z.array(z.object({id:z.string(),name:z.string()}).strict()).max(21).optional()
 }).strict();
 
 const remoteTranscriptConfigSchema=z.object({url:z.url(),model:z.string().min(1).max(100),token_file:z.string().optional(),language:z.string().max(20).optional(),timeout_ms:z.number().int().min(1000).max(180000).default(120000)}).strict();
@@ -27,4 +27,4 @@ export const transcriptResponseSchema=z.object({text:z.string().optional(),segme
 export type TranscriptConfig=z.infer<typeof transcriptConfigSchema>;
 export type TranscriptSpans=z.infer<typeof completeRecordingSchema>["spans"];
 
-export const captureScreenshotSchema=z.object({asset_version_id:id,title:z.string().trim().min(1).max(200),captured_at:time,time_zone:zone,app_package:z.string().trim().min(1).max(300).optional(),text:z.string().trim().min(1).max(12000).optional()}).strict().refine(v=>!v.text||Boolean(v.app_package),{message:"Visible screenshot text requires its source application"});
+export const captureScreenshotSchema=z.object({asset_version_id:id,title:z.string().trim().min(1).max(200),captured_at:time,time_zone:zone,app_package:z.string().trim().min(1).max(300).optional(),text:z.string().trim().min(1).max(12000).optional(),recognition:z.enum(["losna","llm","save"]).optional(),batch_id:id.optional(),vision_model_id:z.string().regex(/^[a-z][a-z0-9_-]{0,39}$/u).optional()}).strict().refine(v=>!v.text||Boolean(v.app_package),{message:"Visible screenshot text requires its source application"}).refine(v=>!v.vision_model_id||v.recognition==="llm",{message:"A selected vision model requires LLM recognition"});

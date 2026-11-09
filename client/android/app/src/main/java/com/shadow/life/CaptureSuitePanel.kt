@@ -126,21 +126,22 @@ import java.time.LocalDate
   TextButton(onClick={showOrderSettings=!showOrderSettings}){Text(if(showOrderSettings)"收起采集设置" else "摇一摇与自动记账设置")}
   if(showOrderSettings){
   Text("摇一摇记账",style=MaterialTheme.typography.titleMedium)
-  Text("每个应用需要单独开启。先点下方应用名称，再打开出现的摇一摇开关；新增的闪购／美团默认关闭。")
-  Text("选择应用，打开单笔账单后摇一下。外卖请先回到订单顶部再摇动，Life 会向上滑动读取下方内容；采集时保持页面不动，也可分享系统长截图。")
+  Text("每个应用需要单独开启。先点下方应用名称，再打开出现的摇一摇开关；新增来源应用默认关闭。")
+  Text("选择应用，打开订单顶部后摇一下。美团可读页面使用无障碍文字，其他页面采集长截图；用浮条的“下一屏、完成保存、取消”控制范围。也可分享系统长截图。")
   FlowRow{(billPlatforms+takeoutPackages).forEach{(pkg,value)->FilterChip(selected=selectedApp==pkg,onClick={selectApp(pkg)},label={Text(apps.firstOrNull{it.activityInfo.packageName==pkg}?.loadLabel(context.packageManager)?.toString()?:mapOf("com.taobao.taobao" to "淘宝内闪购","me.ele.mall" to "闪购零售","com.sankuai.meituan.takeoutnew" to "美团外卖")[pkg]?:capturePlatformName(value))})}}
   Box{TextButton(onClick={showApps=true}){Text(apps.firstOrNull{it.activityInfo.packageName==selectedApp}?.loadLabel(context.packageManager)?.toString()?:"选择其他订单来源应用")};DropdownMenu(expanded=showApps,onDismissRequest={showApps=false}){apps.forEach{info->DropdownMenuItem(text={Text(info.loadLabel(context.packageManager).toString())},onClick={selectApp(info.activityInfo.packageName)})}}}
-  if(selectedApp in billPlatforms || selectedApp in takeoutPackages){
+  if(selectedApp.isNotBlank()){
    val key=shakeKey(accountId,selectedApp)
    var enabled by remember(key){mutableStateOf(prefs.getBoolean(key,false))}
-   Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){Text("在${capturePlatformName(billPlatforms[selectedApp]?:takeoutPackages.getValue(selectedApp))}摇一摇补记",Modifier.weight(1f));Switch(checked=enabled,onCheckedChange={enabled=it;prefs.edit().putBoolean(key,it).apply()},enabled=hasSensor||enabled)}
+   Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){Text("此应用摇一摇采集",Modifier.weight(1f));Switch(checked=enabled,onCheckedChange={enabled=it;prefs.edit().putBoolean(key,it).apply()},enabled=hasSensor||enabled)}
    Text(BillShakeStatus.message)
    Text("可留在此页摇动测试；识别成功会显示提示，随后再进入单笔账单详情。",style=MaterialTheme.typography.bodySmall)
    Text(if(LifeScreenCaptureService.active==null)"屏幕内容服务：未连接" else "屏幕内容服务：已连接")
    if(!hasSensor)Text("此设备没有加速度传感器，请手动记账。")
    TextButton(onClick={context.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))}){Text("启用 Life 屏幕内容服务")}
-   Text("支付账单证据完整时入账；外卖采集保存商品与费用，不重复新增付款。跨屏失败可改为分享系统长截图。",style=MaterialTheme.typography.bodySmall)
+   Text("支付账单证据完整时入账；订单材料不重复新增付款。长截图按所选方式交给 LLM 或 Losna，不使用本地 OCR。",style=MaterialTheme.typography.bodySmall)
   }
+  OrderImageProcessingSettings(context,accountId,data?.screenshotModels.orEmpty().map{it.id to it.name})
   if(selectedApp.isNotBlank()&&platform in setOf("wechat","alipay")){
    val automaticKey=paymentAutoKey(accountId,selectedApp)
    var automaticEnabled by remember(automaticKey){mutableStateOf(prefs.contains(automaticKey))}
@@ -191,3 +192,20 @@ import java.time.LocalDate
 }
 
 private fun capturePlatformName(value:String)=mapOf("generic" to "通用","taobao" to "淘宝","jd" to "京东","eleme" to "淘宝闪购","meituan" to "美团","alipay" to "支付宝","wechat" to "微信")[value]?:value
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun OrderImageProcessingSettings(context:Context,accountId:String,models:List<Pair<String,String>>){
+ val prefs=remember(context){context.getSharedPreferences("activity_capture",Context.MODE_PRIVATE)}
+ var mode by remember(accountId){mutableStateOf(OrderCaptureSettings.mode(context,accountId))}
+ var model by remember(accountId){mutableStateOf(OrderCaptureSettings.model(context,accountId))}
+ var choices by remember(accountId){mutableStateOf(false)}
+ Text("长截图与分享图片",style=MaterialTheme.typography.titleMedium)
+ FlowRow{listOf("losna" to "Losna 自动识别","llm" to "LLM 识图","save" to "仅保存，稍后识别").forEach{(value,label)->FilterChip(selected=mode==value,onClick={mode=value;prefs.edit().putString(OrderCaptureSettings.modeKey(accountId),value).apply()},label={Text(label)})}}
+ if(mode=="llm"||mode=="save"){
+  Box{TextButton(onClick={choices=true}){Text(models.firstOrNull{it.first==model}?.second?:"默认视觉模型")};DropdownMenu(expanded=choices,onDismissRequest={choices=false}){models.forEach{(id,label)->DropdownMenuItem(text={Text(label)},onClick={model=id;prefs.edit().putString(OrderCaptureSettings.modelKey(accountId),id).apply();choices=false})}}}
+  if(models.isEmpty())Text("尚未配置 LLM 视觉模型，原图会保存，暂不自动识别。")
+ }
+ if(mode=="save")Text("保存后可在资料详情点“用所选 LLM 识图”；模型在这里选择。")
+ Text("无障碍可读的美团订单直接保存文字；长图保留原件，识别结果不等同于新增付款。",style=MaterialTheme.typography.bodySmall)
+}

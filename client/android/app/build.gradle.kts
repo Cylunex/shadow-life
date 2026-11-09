@@ -54,8 +54,6 @@ kotlin { jvmToolchain(17) }
 dependencies {
   implementation(project(":core:model")); implementation(project(":core:data")); implementation(project(":core:designsystem")); implementation(project(":devices"))
   implementation(platform(libs.compose.bom)); implementation(libs.activity.compose); implementation(libs.compose.material3); implementation(libs.compose.icons); implementation(libs.compose.foundation); implementation(libs.lifecycle.viewmodel.compose); implementation(libs.lifecycle.runtime.compose); implementation(libs.navigation.compose); implementation(libs.kotlinx.serialization.json)
-  implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
-  implementation("com.google.mlkit:text-recognition:16.0.1")
   implementation(libs.work.runtime)
   implementation(libs.browser)
   implementation(libs.health.connect)

@@ -2981,6 +2981,12 @@ data class CaptureWorkspaceResultDtoReviewsEntry(
 )
 
 @Serializable
+data class CaptureWorkspaceResultDtoScreenshotModelsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("name") val name: String
+)
+
+@Serializable
 data class CaptureWorkspaceResultDto(
   @SerialName("recordings") val recordings: List<CaptureWorkspaceResultDtoRecordingsEntry>,
   @SerialName("orders") val orders: List<CaptureWorkspaceResultDtoOrdersEntry>,
@@ -2988,7 +2994,8 @@ data class CaptureWorkspaceResultDto(
   @SerialName("reviews") val reviews: List<CaptureWorkspaceResultDtoReviewsEntry>,
   @SerialName("recordings_next_before_id") val recordingsNextBeforeId: String?,
   @SerialName("truncated") val truncated: Boolean,
-  @SerialName("transcription_available") val transcriptionAvailable: Boolean
+  @SerialName("transcription_available") val transcriptionAvailable: Boolean,
+  @SerialName("screenshot_models") val screenshotModels: List<CaptureWorkspaceResultDtoScreenshotModelsEntry>? = null
 )
 
 @Serializable

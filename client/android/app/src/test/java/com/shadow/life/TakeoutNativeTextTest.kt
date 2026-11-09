@@ -27,20 +27,8 @@ class TakeoutNativeTextTest {
   val rows=listOf(box("¥",x=800,w=20),box("0",x=825,w=25),box("×",y=250,x=200,w=20),box("1",y=250,x=225,w=20),box("¥",y=400,x=800,w=20),box("19",y=400,x=825,w=40),box(".98",y=400,x=870,w=50))
   assertEquals(setOf("¥0","×1","¥19.98"),joinTakeoutNumericRuns(rows).map{it.text}.toSet())
  }
- @Test fun nativeTextCorrectsOcrAndOcrFillsMissingNodes(){
-  val ocr=listOf(box("错字店名"),box("实付¥19.96",300,800),box("打包费",500))
-  val native=listOf(box("正确店名"),box("19.98",300,880,100))
-  val merged=mergeTakeoutText(ocr,native)
-  assertEquals(listOf("正确店名","实付¥19.98","打包费"),merged.boxes.map{it.text});assertEquals(2,merged.nativeUsed)
-  assertEquals(ocr,mergeTakeoutText(ocr,emptyList()).boxes)
- }
- @Test fun doesNotEraseCombinedPriceLinesOrPricesWithStandaloneLabels(){
-  val ocr=listOf(box("总优惠¥20 实付¥19.98",200,500,500),box("实付¥12.50",400,800,200))
-  val native=listOf(box("19.98",200,900,100),box("实付",400,800,100))
-  assertEquals(ocr,mergeTakeoutText(ocr,native).boxes)
- }
  @Test fun nativeOnlyMissingZeroAndRepeatedAmountsStayDistinct(){
-  val native=listOf(box("¥0",200,900,60),box("¥0",400,900,60))
-  assertEquals(native,mergeTakeoutText(emptyList(),native).boxes)
+  val first=Node("¥0",bounds=box("",200,900,60));val second=Node("¥0",bounds=box("",400,900,60))
+  assertEquals(listOf("¥0","¥0"),readTakeoutNodeBoxes(Node(children=listOf(first,second)),1080,2400)!!.map{it.text})
  }
 }

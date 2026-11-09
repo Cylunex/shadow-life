@@ -46,7 +46,15 @@ export function inspectActivityOrder(text:string,platform?:string,paymentResult=
  const timeLabels=["付款时间","支付时间"];
  if((detail||paymentResult) && transaction_id && status==="paid")timeLabels.push("交易时间");
  const payment_time=field(timeLabels)?.replace(/^(\d{4})年(\d{1,2})月(\d{1,2})日/u,(_,y,m,d)=>`${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`)??null,order_time=field(["下单时间","订单创建时间"]);
- if(platform==="wechat"&&detail&&transaction_id&&status==="paid"&&debit&&!merchant){const title=lines.findIndex(line=>line==="交易详情"||line==="账单详情");if(title===2&&lines[1]==="主页")merchant=lines[0]!;}
+ if(platform==="wechat"&&detail&&transaction_id&&status==="paid"&&debit&&!merchant){
+   const title=lines.findIndex(line=>line==="交易详情"||line==="账单详情");
+   if(title>0&&lines[title-1]==="主页"){
+     // Accessibility traversal may put navigation and service buttons before the heading.
+     const navigation=new Set(["返回","联系","交易服务","对订单有疑惑","发起群收款","本服务由财付通提供"]);
+     const candidates=lines.slice(0,title-1).filter(line=>!navigation.has(line));
+     if(candidates.length===1&&candidates[0]!.length<=200&&!/[:：]|详情|金额|支付|交易|订单|退款|收入/u.test(candidates[0]!))merchant=candidates[0]!;
+   }
+ }
  if(statuses.size>1)issues.push("页面包含多个状态，需核对当前交易状态");
  if(!order_id&&!transaction_id)issues.push("缺少明确订单或交易身份");
  if(!paid_amount)issues.push("没有明确实付金额");

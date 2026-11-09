@@ -1,4 +1,5 @@
 import {takeoutCaptureSchema} from "@shadow/contracts";
+import {inspectMeituanOrder} from "./meituan-order.js";
 export const takeoutPrefix="life.takeout.v1\n";
 export function readTakeoutCapture(text:string){if(!text.startsWith(takeoutPrefix))return null;try{const result=takeoutCaptureSchema.safeParse(JSON.parse(text.slice(takeoutPrefix.length)));return result.success?result.data:null;}catch{return null;}}
 const compact=(s:string)=>s.replace(/(\d)[,，](\d{2})(?!\d)/gu,"$1.$2").replace(/\s+/gu,"").replaceAll("：",":").replace(/支付万式/gu,"支付方式").replace(/配迭费/gu,"配送费").replace(/总优[患恵]/gu,"总优惠");
@@ -8,6 +9,7 @@ function feePrice(s:string){return price(s)??money(cents(/^[^\d]*?(\d{1,8}(?:\.\
 function price(s:string){return money(cents(/(?:[¥￥]|实付:?)(\d{1,8}(?:\.\d{1,2})?)/u.exec(compact(s))?.[1]??null));}
 export function inspectTakeoutOrder(text:string){
  const capture=readTakeoutCapture(text);if(!capture)return null;
+ if(capture.platform==="meituan")return inspectMeituanOrder(capture);
  const boxes=capture.blocks.map(([x,y,w,h,text])=>({x,y,w,h,text:compact(text)})).sort((a,b)=>a.y-b.y||a.x-b.x);
  const rows:Array<{y:number;h:number;parts:typeof boxes}>=[];
  for(const b of boxes){let row=rows.find(r=>Math.abs(r.y+r.h/2-b.y-b.h/2)<Math.min(r.h,b.h)*0.6);if(!row){row={y:b.y,h:b.h,parts:[]};rows.push(row);}row.parts.push(b);}
@@ -20,7 +22,7 @@ export function inspectTakeoutOrder(text:string){
  const summary=find(/价格明细/u),footer=find(/订单号|订单编号/u),fees=find(/打包费|包装费|配送费/u);
  const issues:string[]=[];
  const paidRow=summary<0?null:usable.slice(summary,Math.min(footer<0?usable.length:footer,summary+4)).map((_,j)=>line(summary+j)).find(s=>/实付/u.test(s));
- const paid_amount=paidRow?price(paidRow.slice(paidRow.lastIndexOf("实付"))):null;
+ let paid_amount=paidRow?price(paidRow.slice(paidRow.lastIndexOf("实付"))):null;
  const total=value(/总价[:：]?/u),order_amount=total?price(total):null;
  const discount=summary<0?null:usable.slice(summary,summary+3).map((_,j)=>line(summary+j)).find(s=>/总优惠/u.test(s));
  const discount_amount=discount?price(discount.slice(discount.indexOf("总优惠")+3)):null;
@@ -43,11 +45,17 @@ export function inspectTakeoutOrder(text:string){
  const merchantBox=boxes.find(b=>b.y<(quantities[0]?.y??itemEnd)&&b.text.includes("闪购")&&b.text.length>2);
  let merchant=merchantBox?.text.replace(/^.*?闪购/u,"").replace(/[>›〉]$/u,"")||null;
  if(!merchant){const marker=boxes.find(b=>b.text==="闪购");merchant=marker?boxes.find(b=>b.x>marker.x+marker.w*.5&&b.x<capture.width*.7&&!/蜂鸟|准时达/u.test(b.text)&&Math.abs(b.y-marker.y)<marker.h)?.text??null:null;}
- const rawId=value(/(?:订单号|订单编号)[:：]?/u),order_id=rawId?/(\d{8,40})/u.exec(rawId.replace(/复制/gu,"").replace(/\s+/gu,""))?.[1]??null:null;
+ const rawId=value(/(?:订单号|订单编号)[:：]?/u);
+ const identities=rawId?[...new Set([...rawId.replace(/复制/gu,"").matchAll(/\d{8,40}/gu)].map(m=>m[0]))]:[];
+ const order_id=identities.length===1?identities[0]!:null;
+ if(identities.length>1)issues.push("订单号存在多个不同值，请核对原始材料");
  const rawTime=value(/下单时间[:：]?/u);const order_time=rawTime?/\d{4}-\d{2}-\d{2}\s*\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?/u.exec(rawTime)?.[0]?.replace(/^(\d{4}-\d{2}-\d{2})(\d)/u,"$1 $2")??null:null;
  const payment_method=value(/支付方式[:：]?/u)?.match(/支付宝|微信支付|微信|银行卡|余额/u)?.[0]??null;
  const delivery_status=boxes.find(b=>/订单已送到指定位置|订单已完成|已送达|订单已取消|退款成功/u.test(b.text))?.text??null;
  if(delivery_status&&/取消|退款/u.test(delivery_status))issues.push("订单已取消或退款，保留原始材料");
+ if(paid_amount&&order_amount&&discount_amount&&(cents(order_amount)!-cents(discount_amount)!)!==cents(paid_amount)){
+  paid_amount=null;issues.push("订单实付与总价减优惠不一致，未采用疑似拼接金额");
+ }
  if(!capture.complete)issues.push("页面采集未完整结束");if(!order_id)issues.push("缺少订单号");if(!order_time)issues.push("缺少下单时间");if(!paid_amount)issues.push("缺少订单总实付");if(!items.length)issues.push("缺少商品明细");
  if(items.some(i=>i.paid_amount===null))issues.push("部分商品行实付未识别，请核对原图");
  const allAmounts=items.length>0&&items.every(i=>i.paid_amount!==null)&&packing_fee!==null&&delivery_fee!==null;

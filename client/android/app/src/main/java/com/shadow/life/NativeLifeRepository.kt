@@ -420,7 +420,13 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     val workspace=JSONObject(getText("/api/travel/workspace?trip_id=${encode(tripId)}"))
     renderNativeOfflineItinerary(tripId,detail.toString(),workspace.toString())
   }
-  suspend fun queueLibraryVision(itemId:String,assetVersionId:String):OperationReceipt=withContext(Dispatchers.IO){enqueueCommand("library.queue_processing",JSONObject().put("item_id",itemId).put("source_asset_version_id",assetVersionId).put("kind","vision").put("requested_processor","configured-vision-v1"))}
+  suspend fun queueLibraryVision(itemId:String,assetVersionId:String):OperationReceipt=withContext(Dispatchers.IO){
+    val account=app.sessions.active()?.accountId?:error("请先登录")
+    val model=OrderCaptureSettings.model(context,account)
+    check(captureWorkspace(LocalDate.now()).screenshotModels.orEmpty().any{it.id==model}){"所选 LLM 视觉模型不可用，请在订单采集设置选择模型"}
+    check(app.sessions.active()?.accountId==account){"账号已切换"}
+    enqueueCommand("library.queue_processing",JSONObject().put("item_id",itemId).put("source_asset_version_id",assetVersionId).put("kind","vision").put("requested_processor","llm-vision-v1:"+model),expectedAccountId=account)
+  }
   suspend fun retryLibraryVision(jobId:String):OperationReceipt=withContext(Dispatchers.IO){enqueueCommand("library.retry_processing",JSONObject().put("job_id",jobId))}
 
   suspend fun moneyImportMonth(period:String):MoneyImportMonthSummary=withContext(Dispatchers.IO){
@@ -513,7 +519,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   suspend fun enqueueShare(payload:SharePayload):Int=withContext(Dispatchers.IO){
     val session=app.sessions.active()?:error("请先登录 Shadow Life");var accepted=0
     payload.text?.trim()?.takeIf(String::isNotBlank)?.let{text->val title=text.lineSequence().firstOrNull()?.take(120)?.ifBlank{"分享的文字"}?:"分享的文字";enqueueCommand("library.capture",JSONObject().put("title",title).put("item_type",if(text.startsWith("http://")||text.startsWith("https://"))"link" else "note").put(if(text.startsWith("http://")||text.startsWith("https://"))"url" else "text",text).put("tags",JSONArray().put("losna:process").put("losna:batch:${payload.ingressId.take(48)}")),"cmd_android_share_${payload.ingressId.take(48)}_text");accepted++}
-    for((index,uriText) in payload.uris.withIndex()){val uri=Uri.parse(uriText);val mediaType=context.contentResolver.getType(uri)?:"application/octet-stream";val metadata=if(mediaType in setOf("image/jpeg","image/png","image/webp"))sharedTakeoutMetadata(context,uri).orEmpty() else "";check(app.sessions.active()?.accountId==session.accountId){"账号已切换"};val input=context.contentResolver.openInputStream(uri)?:error("无法读取分享附件");val attachmentId="attachment_${payload.ingressId.take(48)}_${index}";val commandId="cmd_android_share_${payload.ingressId.take(48)}_$index";val target=java.io.File(context.filesDir,"pending-attachments/$attachmentId.bin");input.use{app.queue.enqueueAttachment(session,attachmentId,commandId,mediaType,LocalDate.now().toString(),displayName(uri),it,target,metadata)};accepted++}
+    for((index,uriText) in payload.uris.withIndex()){val uri=Uri.parse(uriText);val mediaType=context.contentResolver.getType(uri)?:"application/octet-stream";val metadata=if(mediaType in setOf("image/jpeg","image/png","image/webp"))sharedImageMetadata(context,session.accountId,payload.ingressId) else "";check(app.sessions.active()?.accountId==session.accountId){"账号已切换"};val input=context.contentResolver.openInputStream(uri)?:error("无法读取分享附件");val attachmentId="attachment_${payload.ingressId.take(48)}_${index}";val commandId="cmd_android_share_${payload.ingressId.take(48)}_$index";val target=java.io.File(context.filesDir,"pending-attachments/$attachmentId.bin");input.use{app.queue.enqueueAttachment(session,attachmentId,commandId,mediaType,LocalDate.now().toString(),displayName(uri),it,target,metadata)};accepted++}
     if(accepted==0)error("分享内容为空");SyncScheduler.schedule(context,session.accountId);accepted
   }
 
@@ -821,7 +827,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     val editSeed=latest?.let{EditSeed.Library(item.id,item.currentRevision.toInt(),item.title,it.text,it.url,it.tags,it.documentDate,it.category)}
     val visionMedia=setOf("application/pdf","image/png","image/jpeg","image/tiff","image/webp")
     val source=value.sources.firstOrNull{it.source.assetVersionId!=null&&it.asset?.mediaType in visionMedia}?.source?.assetVersionId
-    return RecordDetail(item.title,item.state.wireValue,item.currentRevision.toInt(),sections,editSeed,presentation=DetailPresentation.Library,libraryItemId=item.id,heroSupporting=item.itemType,libraryVisionSourceAssetId=source?.takeIf{value.processingJobs.none{job->job.kind.wireValue=="vision"}},libraryVisionRetryJobId=value.processingJobs.firstOrNull{it.kind.wireValue=="vision"&&it.state.wireValue=="failed"}?.id,assets=value.sources.mapNotNull{entry->val id=entry.source.assetVersionId;val media=entry.asset?.mediaType;if(id!=null&&media!=null)DetailAsset(id,media,item.title)else null}.distinctBy{it.versionId})
+    return RecordDetail(item.title,item.state.wireValue,item.currentRevision.toInt(),sections,editSeed,presentation=DetailPresentation.Library,libraryItemId=item.id,heroSupporting=item.itemType,libraryVisionSourceAssetId=source?.takeIf{value.processingJobs.none{job->job.kind.wireValue=="vision"&&job.requestedProcessor.startsWith("llm-vision-v1:")}},libraryVisionRetryJobId=value.processingJobs.firstOrNull{it.kind.wireValue=="vision"&&it.requestedProcessor.startsWith("llm-vision-v1:")&&it.state.wireValue=="failed"}?.id,assets=value.sources.mapNotNull{entry->val id=entry.source.assetVersionId;val media=entry.asset?.mediaType;if(id!=null&&media!=null)DetailAsset(id,media,item.title)else null}.distinctBy{it.versionId})
   }
 
   private fun travelDetail(value:TravelTripResultDto):RecordDetail{

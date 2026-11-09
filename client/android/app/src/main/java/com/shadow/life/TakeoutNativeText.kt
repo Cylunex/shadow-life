@@ -26,7 +26,7 @@ internal fun readTakeoutNodeBoxes(root:TakeoutTextNode,width:Int,height:Int):Lis
    if(!descendants){
     val b=node.bounds;val x=b.x.coerceAtLeast(0);val y=b.y.coerceAtLeast(0)
     val right=(b.x+b.width).coerceAtMost(width);val bottom=b.bottom.coerceAtMost(height)
-    // A whole card's description has no reliable per-line geometry: OCR handles it.
+    // A whole card's description has no reliable per-line geometry; do not invent positions.
     if(text.length<=300&&!text.contains('\n')&&right>x&&bottom>y&&b.height<=height*.12)
      result+=OrderTextBox(x,y,right-x,bottom-y,text)
    }
@@ -68,30 +68,4 @@ internal fun joinTakeoutNumericRuns(input:List<OrderTextBox>):List<OrderTextBox>
   }
  }
  return result
-}
-
-internal data class TakeoutTextMerge(val boxes:List<OrderTextBox>,val nativeUsed:Int)
-/** Prefer localized native text; retain OCR where nodes are absent or spatially ambiguous. */
-internal fun mergeTakeoutText(ocr:List<OrderTextBox>,native:List<OrderTextBox>):TakeoutTextMerge {
- val result=ocr.toMutableList();var used=0
- for(n in native){
-  val matches=result.indices.filter{i->val o=result[i]
-   val intersection=(minOf(n.x+n.width,o.x+o.width)-maxOf(n.x,o.x)).coerceAtLeast(0).toLong()*(minOf(n.bottom,o.bottom)-maxOf(n.y,o.y)).coerceAtLeast(0)
-   val area=minOf(n.width.toLong()*n.height,o.width.toLong()*o.height)
-   area>0&&intersection.toDouble()/area>=.65&&abs(n.y+n.height/2-o.y-o.height/2)<=maxOf(n.height,o.height)*.6
-  }
-  if(matches.isEmpty()){result+=n;used++;continue}
-  if(matches.size!=1)continue
-  val index=matches.single();val old=result[index];var text=n.text.trim()
-  val scalar=Regex("^(?:实付\\s*)?[¥￥]\\s*\\d+(?:[.,]\\d{1,2})?$|^[×xX*]\\s*\\d{1,3}$").matches(old.text.trim())
-  if(n.width<old.width*.65&&!scalar)continue
-  if(scalar&&!text.any(Char::isDigit))continue
-  if(Regex("^\\d{1,8}(?:[.,]\\d{1,2})?$").matches(text)){
-   val prefix=Regex("^(实付\\s*[¥￥]?|[¥￥]|[×xX*])\\s*\\d").find(old.text)?.groupValues?.get(1)
-   if(prefix!=null)text=prefix+text
-  }
-  // Preserve the OCR line's tight glyph rectangle for downstream row alignment.
-  result[index]=old.copy(text=text);used++
- }
- return TakeoutTextMerge(result,used)
 }

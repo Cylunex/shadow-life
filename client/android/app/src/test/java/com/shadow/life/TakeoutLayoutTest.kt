@@ -49,6 +49,11 @@ class TakeoutLayoutTest {
   assertTrue(isTakeoutDetailText("订单号\n800000000000001\n下单时间\n2026-10-30 19:00:00\n支付方式\n支付宝",true))
   assertFalse(isTakeoutDetailText("订单号\n800000000000001\n下单时间",true))
  }
+ @Test fun meituanMetadataBeforeProductsDoesNotEndCollection(){
+  val metadata=listOf(b(100,"订单已完成"),b(200,"美团快送"),b(300,"订单号码"),b(340,"300000000000000001"),b(400,"下单时间"),b(440,"2026-11-01 12:20:01"),b(500,"支付方式"),b(540,"在线支付"),b(600,"订单信息"),b(700,"商品费用"))
+  assertTrue(isTakeoutPage(metadata));assertFalse(takeoutEnded(metadata))
+  assertTrue(takeoutEnded(metadata+listOf(b(800,"合计"),b(800,"¥20.60",900))))
+ }
  @Test fun rejectsOrderListsShopMenusAndPaymentPages(){
   assertFalse(isTakeoutDetailText("我的订单\n订单已送达\n×1\n实付¥19.98\n再来一单",true))
   assertFalse(isTakeoutDetailText("全部订单\n订单详情\n×1\n实付¥19.98",true))

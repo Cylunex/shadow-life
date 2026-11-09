@@ -6565,6 +6565,22 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 12000
+          },
+          "recognition": {
+            "type": "string",
+            "enum": [
+              "losna",
+              "llm",
+              "save"
+            ]
+          },
+          "batch_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "vision_model_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,39}$"
           }
         },
         "required": [
@@ -6622,6 +6638,22 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 12000
+              },
+              "recognition": {
+                "type": "string",
+                "enum": [
+                  "losna",
+                  "llm",
+                  "save"
+                ]
+              },
+              "batch_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{7,127}$"
+              },
+              "vision_model_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_-]{0,39}$"
               }
             },
             "required": [
@@ -7602,6 +7634,22 @@
             "minLength": 1,
             "maxLength": 12000
           },
+          "recognition": {
+            "type": "string",
+            "enum": [
+              "losna",
+              "llm",
+              "save"
+            ]
+          },
+          "batch_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "vision_model_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,39}$"
+          },
           "archive_id": {
             "type": "string",
             "pattern": "^[a-z0-9_]{8,80}$"
@@ -7668,6 +7716,22 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 12000
+              },
+              "recognition": {
+                "type": "string",
+                "enum": [
+                  "losna",
+                  "llm",
+                  "save"
+                ]
+              },
+              "batch_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{7,127}$"
+              },
+              "vision_model_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_-]{0,39}$"
               },
               "archive_id": {
                 "type": "string",
@@ -16795,6 +16859,26 @@
           },
           "transcription_available": {
             "type": "boolean"
+          },
+          "screenshot_models": {
+            "maxItems": 21,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [

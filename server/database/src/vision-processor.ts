@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { libraryVisionCandidateSchema } from "@shadow/contracts";
 
 export const visionProcessorName="configured-vision-v1";
+export const llmVisionProcessorPrefix="llm-vision-v1:";
 export type VisionCandidate={title:string;document_date:string|null;category:string|null;summary:string;content:string;locators:Array<{page:number;quote:string|null}>};
 export interface VisionProcessor{readonly available:boolean;readonly reason:string|null;process(bytes:Buffer,mediaType:string):Promise<{candidate:VisionCandidate;processorVersion:string}>;}
 type VisionPage={page:number;media_type:string;data_base64:string};
@@ -58,8 +59,20 @@ export async function visionPages(bytes:Buffer,mediaType:string,env:NodeJS.Proce
   }finally{await rm(directory,{recursive:true,force:true});}
 }
 
-export function configuredVisionProcessor(env:NodeJS.ProcessEnv=process.env):VisionProcessor{
-  const config=fileConfig(env),status=visionAvailability(env);let resolved=env;try{resolved=effectiveEnvironment(env);}catch{}const url=endpoint(resolved);
+/** Only remote model choices are offered to screenshot callers; local OCR is never a fallback. */
+export function screenshotVisionModels(env:NodeJS.ProcessEnv=process.env):Array<{id:string;name:string}>{
+ const config=fileConfig(env);if(config?.kind==='tesseract'||!visionAvailability(env).available)return[];
+ const models=config?.kind==='http'?config.models?.map(({id,name})=>({id,name}))??[]:[];
+ return models.some(model=>model.id==='default')?models:[{id:'default',name:'默认视觉模型'},...models];
+}
+export function screenshotVisionProcessor(modelId:string,env:NodeJS.ProcessEnv=process.env):VisionProcessor{
+ if(!screenshotVisionModels(env).some(model=>model.id===modelId))return{available:false,reason:'所选 LLM 视觉模型不可用；不会回退到本地 OCR',async process(){throw new Error('所选 LLM 视觉模型不可用；不会回退到本地 OCR');}};
+ const config=fileConfig(env);const selected=config?.kind==='http'?(config.models?.find(model=>model.id===modelId)??(modelId==='default'&&!config.model?config.models?.[0]:undefined)):undefined;
+ return configuredVisionProcessor(env,selected?.model,true);
+}
+export function configuredVisionProcessor(env:NodeJS.ProcessEnv=process.env,selectedModel?:string,requireRemote=false):VisionProcessor{
+  const config=fileConfig(env),status=visionAvailability(env);let resolved=env;try{resolved=effectiveEnvironment(env);}catch{}if(selectedModel)resolved={...resolved,SHADOW_LIBRARY_VISION_MODEL:selectedModel};const url=endpoint(resolved);
+  if(requireRemote&&config?.kind==='tesseract')return{available:false,reason:'截图只允许 LLM 识图',async process(){throw new Error('截图只允许 LLM 识图，不会回退到本地 OCR');}};
   if(config?.kind==='tesseract')return{...status,async process(bytes,mediaType){
     if(!status.available)throw new Error(status.reason??'OCR 不可用');const pages=await visionPages(bytes,mediaType,env);const deadline=Date.now()+90000;const texts=[];const locators=[];
     for(const page of pages){if(Date.now()>=deadline)throw new Error('本机 OCR 超时');const text=await new Promise<string>((resolve,reject)=>{const child=spawn(config.binary,['stdin','stdout','-l',config.languages,'--psm','3'],{stdio:['pipe','pipe','pipe'],env:{...process.env,OMP_THREAD_LIMIT:'2'}});let output='';let overflow=false;const timer=setTimeout(()=>child.kill('SIGKILL'),Math.min(config.timeout_ms,Math.max(1,deadline-Date.now())));child.stdout.setEncoding('utf8');child.stderr.resume();child.stdout.on('data',value=>{output+=String(value);if(output.length>30000){overflow=true;child.kill('SIGKILL');}});child.stdin.on('error',()=>{});child.on('error',()=>{clearTimeout(timer);reject(new Error('本机 OCR 启动失败'));});child.on('close',code=>{clearTimeout(timer);code===0&&!overflow?resolve(output.trim()):reject(new Error('本机 OCR 失败、超时或文字超限'));});child.stdin.end(Buffer.from(page.data_base64,'base64'));});if(text){texts.push(text);locators.push({page:page.page,quote:text.slice(0,300)});}}

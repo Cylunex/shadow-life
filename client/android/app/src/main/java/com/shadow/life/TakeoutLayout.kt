@@ -5,20 +5,20 @@ import org.json.JSONArray
 import org.json.JSONObject
 import kotlinx.serialization.json.*
 
-internal val takeoutPackages=mapOf("me.ele" to "eleme","me.ele.mall" to "eleme","com.taobao.taobao" to "eleme","com.sankuai.meituan" to "meituan","com.sankuai.meituan.takeoutnew" to "meituan")
+internal val takeoutPackages=mapOf("me.ele" to "eleme","me.ele.mall" to "eleme","com.taobao.taobao" to "eleme","com.jingdong.app.mall" to "jd","com.sankuai.meituan" to "meituan","com.sankuai.meituan.takeoutnew" to "meituan")
 // General shopping apps still need visible takeout evidence.
 internal val dedicatedTakeoutPackages=setOf("me.ele","me.ele.mall","com.sankuai.meituan.takeoutnew")
 internal data class OrderTextBox(val x:Int,val y:Int,val width:Int,val height:Int,val text:String){val bottom get()=y+height}
 internal fun takeoutText(boxes:List<OrderTextBox>)=boxes.sortedWith(compareBy<OrderTextBox>{it.y}.thenBy{it.x}).joinToString("\n"){it.text}
 internal fun isTakeoutPage(boxes:List<OrderTextBox>,knownTakeoutApp:Boolean=false)=isTakeoutDetailText(takeoutText(boxes),knownTakeoutApp)
-/** Classification only: node text may supplement OCR, but never supplies product positions. */
+/** Classify visible native order text without recognizing pixels. */
 internal fun isTakeoutDetailText(raw:String,knownTakeoutApp:Boolean=false):Boolean {
  val lines=raw.lineSequence().map{it.replace(Regex("\\s+"),"")}.filter{it.isNotEmpty()}.toList()
  if(lines.any{it in setOf("我的订单","全部订单","订单列表","搜索订单")})return false
  val text=lines.joinToString("").replace("支付万式","支付方式")
  val platform=knownTakeoutApp||listOf("闪购","饿了么","蜂鸟","美团").any(text::contains)
  if(!platform)return false
- val orderNumber=Regex("订单(?:号|编号)[:：]?\\d{8,40}").containsMatchIn(text)
+ val orderNumber=Regex("订单(?:号码|号|编号)[:：]?\\d{8,40}").containsMatchIn(text)
  val footer=listOf("下单时间","支付方式","订单信息","收货信息").count(text::contains)
  if(orderNumber&&footer>=2)return true
  val quantities=Regex("[×xX*]\\d{1,3}(?!\\d)").findAll(text).count()
@@ -30,12 +30,13 @@ internal fun isTakeoutDetailText(raw:String,knownTakeoutApp:Boolean=false):Boole
 }
 internal fun takeoutEnded(boxes:List<OrderTextBox>):Boolean {
  val text=takeoutText(boxes).replace(" ","").replace("支付万式","支付方式")
+ if(text.contains("商品费用"))return (text.contains("订单号码")||text.contains("订单号"))&&text.contains("下单时间")&&text.contains("支付方式")&&boxes.any{it.text=="合计"||it.text=="实付"}
  return (text.contains("订单号")||text.contains("订单编号"))&&text.contains("下单时间")&&text.contains("支付方式")&&
   (text.contains("安心权益")||text.contains("常见问题")||text.contains("订单信息"))
 }
 /** Finger moves upward so the next, lower section of the order becomes visible. */
 internal fun takeoutForwardSwipeY(height:Int)=height*.78f to height*.42f
-/** Compare stable body anchors; status-bar time and OCR ordering are not scroll progress. */
+/** Compare stable body anchors; status-bar time and node ordering are not scroll progress. */
 internal fun takeoutViewportUnchanged(previous:List<OrderTextBox>,next:List<OrderTextBox>,screenHeight:Int):Boolean {
  fun anchors(boxes:List<OrderTextBox>)=boxes.filter{it.y in (screenHeight*15/100)..(screenHeight*86/100)}
   .map{it.copy(text=it.text.replace(Regex("\\s+"),""))}

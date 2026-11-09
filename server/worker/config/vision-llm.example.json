@@ -1,0 +1,10 @@
+{
+  "kind": "http",
+  "url": "https://vision.example.com/api/vision",
+  "model": "REPLACE_DEFAULT_VISION_MODEL",
+  "token_file": "/REPLACE_PRIVATE_DIRECTORY/vision-token.txt",
+  "models": [
+    { "id": "fast", "name": "快速视觉模型", "model": "REPLACE_FAST_VISION_MODEL" },
+    { "id": "detail", "name": "精细视觉模型", "model": "REPLACE_DETAIL_VISION_MODEL" }
+  ]
+}

@@ -48,6 +48,7 @@ internal fun LifeScreenCaptureService.captureRequestedScreenshot(){
      val id="screenshot_${UUID.randomUUID().toString().replace("-","")}";val now=observedAt;val metadata=JSONObject().put("capability","life.capture_screenshot").put("input",JSONObject().put("title","截图 ${LocalDateTime.now()}").put("captured_at",now.toString()).put("time_zone",ZoneId.systemDefault().id))
      if(sourcePackage!=null&&currentRoot?.packageName?.toString()==sourcePackage)metadata.getJSONObject("input").put("app_package",sourcePackage)
      if(matchedText!=null)metadata.getJSONObject("input").put("text",matchedText)
+     OrderCaptureSettings.apply(this@captureRequestedScreenshot,session.accountId,metadata.getJSONObject("input"))
      app.queue.enqueueAttachment(session,id,"cmd_$id","image/png",LocalDate.now().toString(),"截图收录",bytes.toByteArray().inputStream(),File(filesDir,"attachments/$id.enc"),metadata.toString());SyncScheduler.schedule(this@captureRequestedScreenshot,session.accountId)
      withContext(Dispatchers.Main){Toast.makeText(this@captureRequestedScreenshot,"截图已加密保存，正在同步到 Life",Toast.LENGTH_LONG).show()}
     }catch(e:CancellationException){throw e}catch(_:Exception){withContext(Dispatchers.Main){Toast.makeText(this@captureRequestedScreenshot,"截图未保存，请回到 Life 检查账号和存储",Toast.LENGTH_LONG).show()}}finally{bitmap.recycle()}

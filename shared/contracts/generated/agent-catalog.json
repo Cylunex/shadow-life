@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "c5f8ec269295270cbcacf6d5023a5f210a729668f1fd15d895055309f3512015",
+  "catalog_revision": "eea9268332a68b6441ae962a8b4e4fd4aa61738a29b452707a370b665d2e1554",
   "terms": [
     {
       "id": "activity_capture",
@@ -24155,6 +24155,22 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 12000
+          },
+          "recognition": {
+            "type": "string",
+            "enum": [
+              "losna",
+              "llm",
+              "save"
+            ]
+          },
+          "batch_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "vision_model_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,39}$"
           }
         },
         "required": [
@@ -25170,6 +25186,26 @@
           },
           "transcription_available": {
             "type": "boolean"
+          },
+          "screenshot_models": {
+            "maxItems": 21,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [
@@ -41481,6 +41517,22 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 12000
+          },
+          "recognition": {
+            "type": "string",
+            "enum": [
+              "losna",
+              "llm",
+              "save"
+            ]
+          },
+          "batch_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "vision_model_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,39}$"
           },
           "archive_id": {
             "type": "string",

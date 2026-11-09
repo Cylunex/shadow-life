@@ -136,7 +136,7 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
  private fun refreshShake(){
    if(active!==this)return
    val account=(application as ShadowApp).sessions.active()?.accountId
-   val enabled=account!=null && (billPlatforms.keys+takeoutPackages.keys).any{settings.getBoolean(shakeKey(account,it),false)}
+   val enabled=account!=null && settings.all.any{(key,value)->key.startsWith("bill_shake:$account:")&&value==true}
    if(!enabled){
      listen(null);if(foreground){stopForeground(STOP_FOREGROUND_REMOVE);foreground=false}
      BillShakeStatus.message="摇一摇未开启";return
@@ -187,14 +187,14 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
    val pkg=root?.packageName?.toString()
    if(pkg==packageName){root.recycle();feedback("已识别摇动。打开支付账单或已开启的外卖订单详情再摇动");return}
    if(pkg==null){root?.recycle();feedback("已识别摇动，但当前页面不可读取，请打开单笔账单详情");return}
-   if(pkg in takeoutPackages){
+   if(pkg !in billPlatforms){
      root.recycle();if(takeoutWork?.isActive==true)return
      if(!settings.getBoolean(shakeKey(account,pkg),false)){
-       feedback("此应用的摇一摇尚未开启，请到 Life「订单 → 摇一摇与自动记账设置」选择此应用并打开开关")
+       if(pkg in takeoutPackages)feedback("此应用的摇一摇尚未开启，请到 Life「订单 → 摇一摇与自动记账设置」选择此应用并打开开关")
        return
      }
      pending?.cancel();automatic?.cancel();autoCycle.invalidate()
-     feedback("已识别摇动，正在读取外卖订单，请保持页面不动")
+     feedback("已识别摇动，使用浮条选择下一屏、完成保存或取消")
      takeoutWork=scope.launch(Dispatchers.Main){try{
        // Let the short toast disappear before capturing the order's pixels.
        delay(2200)
