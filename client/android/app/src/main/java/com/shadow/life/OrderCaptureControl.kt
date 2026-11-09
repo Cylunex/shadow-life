@@ -18,6 +18,7 @@ internal class OrderCaptureControl {
  var terminal:OrderCaptureAction?=null;private set
  fun request(action:OrderCaptureAction){if(terminal!=null)return;if(action!=OrderCaptureAction.Next)terminal=action;requests.trySend(action)}
  suspend fun awaitAction():OrderCaptureAction=terminal?:requests.receive()
+ fun requireFinish(){check(terminal==OrderCaptureAction.Finish){"只有点击完成保存才能提交采集"}}
 }
 
 /** Accessibility overlays need no separate draw-over-other-apps permission. */
@@ -42,7 +43,7 @@ internal class OrderCaptureOverlay(service:AccessibilityService,val control:Orde
   val width=service.resources.displayMetrics.widthPixels-dp(24)
   manager.addView(view,WindowManager.LayoutParams(width,WindowManager.LayoutParams.WRAP_CONTENT,WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL;y=dp(36)})
  }
- fun status(text:String,busy:Boolean=false){label.text=text;next.isEnabled=!busy}
+ fun status(text:String,busy:Boolean=false,nextAllowed:Boolean=true){label.text=text;next.isEnabled=!busy&&nextAllowed}
  fun visible(value:Boolean){view.visibility=if(value)View.VISIBLE else View.INVISIBLE}
  override fun close(){if(view.isAttachedToWindow)manager.removeViewImmediate(view)}
 }
