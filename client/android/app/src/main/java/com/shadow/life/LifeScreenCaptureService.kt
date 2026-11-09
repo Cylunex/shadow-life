@@ -68,6 +68,8 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
  private var shakeWatch:Job?=null
  private var takeoutWork:Job?=null
  private val paymentReader=Executors.newSingleThreadExecutor()
+ internal val orderReader=OrderNativeTextReader()
+ internal fun orderActivity(pkg:String,window:Int)=activityByWindow[window]?.takeIf{it.first==pkg}?.second.orEmpty()
  private val paymentReading=AtomicBoolean(false)
  private suspend fun readPaymentFrame(pkg:String,window:Int):String?=withTimeoutOrNull(650){
    suspendCancellableCoroutine { continuation ->
@@ -185,6 +187,7 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
    if(app.sessions.active()?.accountId!=account || !unlocked()){refreshShake();return}
    val root=rootInActiveWindow
    val pkg=root?.packageName?.toString()
+   android.util.Log.i("LifeShake","Gesture recognized; source=${pkg?:"unavailable"}")
    if(pkg==packageName){root.recycle();feedback("已识别摇动。打开支付账单或已开启的外卖订单详情再摇动");return}
    if(pkg==null){root?.recycle();feedback("已识别摇动，但当前页面不可读取，请打开单笔账单详情");return}
    if(pkg !in billPlatforms){
@@ -213,7 +216,7 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
      catch(e:CancellationException){throw e}catch(_:Exception){feedback("账单未保存，请回 Life 检查登录与存储")}
    }
  }
- private fun feedback(message:String){BillShakeStatus.message=message;Toast.makeText(this,message,Toast.LENGTH_LONG).show()}
+ private fun feedback(message:String){BillShakeStatus.message=message;android.util.Log.i("LifeShake",message);Toast.makeText(this,message,Toast.LENGTH_LONG).show()}
  override fun onAccessibilityEvent(event:AccessibilityEvent?){
    if(takeoutWork?.isActive==true)return
    if(event==null||event.eventType !in setOf(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,AccessibilityEvent.TYPE_WINDOWS_CHANGED))return
@@ -276,7 +279,7 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
    autoCycle.invalidate();automatic?.cancel();pending?.cancel()
  }
  override fun onUnbind(intent:Intent?):Boolean{disconnect();return super.onUnbind(intent)}
- override fun onDestroy(){disconnect();unregisterReceiver(screenState);paymentReader.shutdownNow();scope.cancel();super.onDestroy()}
+ override fun onDestroy(){disconnect();unregisterReceiver(screenState);paymentReader.shutdownNow();orderReader.close();scope.cancel();super.onDestroy()}
 }
 
 /** Reads visible text and descriptions; a truncated or sensitive tree is never accepted. */

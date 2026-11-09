@@ -93,20 +93,20 @@ import java.time.LocalDate
     val rules=data!!.rules.filter{it.platform.wireValue==order.platform&&it.sourceAccount==order.sourceAccount}
     val reason=when{
       order.conflict->"来源存在冲突，需要核对"
-      fields?.optString("paid_amount").isNullOrBlank()->"材料中未识别到明确实付金额"
-      fields?.optString("payment_time").isNullOrBlank()->"材料中未识别到明确付款时间"
+      capturedOrderField(fields,"paid_amount").isNullOrBlank()->"材料中未识别到明确实付金额"
+      capturedOrderField(fields,"payment_time").isNullOrBlank()->"材料中未识别到明确付款时间"
       order.status!="paid"->"尚未识别为已支付账单"
       else->"付款身份、币种或采集规则需核对"
     }
     Card(Modifier.fillMaxWidth()){Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
-      Text(fields?.optString("merchant")?.takeIf{it.isNotBlank()}?:fields?.optString("product")?.takeIf{it.isNotBlank()}?:capturePlatformName(order.platform),style=MaterialTheme.typography.titleMedium,maxLines=2,overflow=TextOverflow.Ellipsis)
+      Text(capturedOrderField(fields,"merchant")?:capturedOrderField(fields,"product")?:capturePlatformName(order.platform),style=MaterialTheme.typography.titleMedium,maxLines=2,overflow=TextOverflow.Ellipsis)
       Text("${capturePlatformName(order.platform)} · ${order.sourceCount} 份材料",style=MaterialTheme.typography.bodySmall)
-      mapOf("paid_amount" to "实付","order_amount" to "订单金额","payment_time" to "付款时间").forEach{(key,label)->fields?.optString(key)?.takeIf{it.isNotBlank()}?.let{Text("$label：$it",maxLines=2,overflow=TextOverflow.Ellipsis)}}
+      mapOf("paid_amount" to "实付","order_amount" to "订单金额","payment_time" to "付款时间").forEach{(key,label)->capturedOrderField(fields,key)?.let{Text("$label：$it",maxLines=2,overflow=TextOverflow.Ellipsis)}}
       TextButton(onClick={expandedOrder=!expandedOrder}){Text(if(expandedOrder)"收起订单详情" else "订单详情")}
       if(expandedOrder){
         Text("订单号：${order.externalId}",style=MaterialTheme.typography.bodySmall)
         Text("状态：${mapOf("paid" to "已支付","pending" to "待付款","refunded" to "已退款","refund_pending" to "退款中","cancelled" to "已取消","unknown" to "未明确")[order.status]?:order.status}",style=MaterialTheme.typography.bodySmall)
-        mapOf("merchant" to "商家","product" to "商品","refund_amount" to "退款金额","logistics_no" to "物流单号").forEach{(key,label)->fields?.optString(key)?.takeIf{it.isNotBlank()}?.let{Text("$label：$it")}}
+        mapOf("merchant" to "商家","product" to "商品","refund_amount" to "退款金额","logistics_no" to "物流单号").forEach{(key,label)->capturedOrderField(fields,key)?.let{Text("$label：$it")}}
         if(order.conflict)Text("来源存在冲突，未自动覆盖",color=MaterialTheme.colorScheme.error)
       }
       if(fields?.has("takeout")==true){
@@ -209,3 +209,5 @@ private fun OrderImageProcessingSettings(context:Context,accountId:String,models
  if(mode=="save")Text("保存后可在资料详情点“用所选 LLM 识图”；模型在这里选择。")
  Text("无障碍可读的美团订单直接保存文字；长图保留原件，识别结果不等同于新增付款。",style=MaterialTheme.typography.bodySmall)
 }
+
+private fun capturedOrderField(fields:JSONObject?,key:String):String? = fields?.takeUnless{it.isNull(key)}?.optString(key)?.takeIf{it.isNotBlank()&&it!="null"}

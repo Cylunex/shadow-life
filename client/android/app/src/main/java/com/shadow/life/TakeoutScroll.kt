@@ -26,7 +26,7 @@ private suspend fun AccessibilityService.orderScreenshot():Bitmap=suspendCancell
    if(bitmap==null){if(continuation.isActive)continuation.resumeWithException(IllegalStateException("截图不可读取"))}
    else if(continuation.isActive)continuation.resume(bitmap) else bitmap.recycle()
   }
-  override fun onFailure(errorCode:Int){if(continuation.isActive)continuation.resumeWithException(IllegalStateException("页面暂不可截图，请稍后重试或分享系统长截图"))}
+  override fun onFailure(errorCode:Int){android.util.Log.w("LifeShake","Screenshot unavailable; code=$errorCode");if(continuation.isActive)continuation.resumeWithException(IllegalStateException("页面暂不可截图，请稍后重试或分享系统长截图"))}
  })
 }
 private suspend fun AccessibilityService.orderSwipeForward(width:Int,height:Int):Boolean=suspendCancellableCoroutine{c->
@@ -61,12 +61,16 @@ internal suspend fun LifeScreenCaptureService.collectTakeoutOrder(account:String
   check(power.isInteractive&&!lock.isKeyguardLocked){"锁屏后停止采集"}
   sourceRoot().recycle()
  }
- fun nativeFrame():List<OrderTextBox>{
-  checkPage();val root=sourceRoot()
-  return readTakeoutNodeBoxes(root,width,screenHeight)?:error("当前页面包含不可采集内容，请关闭输入框后重试")
+ suspend fun nativeFrame():List<OrderTextBox>?{
+  checkPage()
+  val result=orderReader.read{val root=sourceRoot();readTakeoutNodeBoxes(root,width,screenHeight)}
+  checkPage();return result
  }
- val firstNative=nativeFrame()
+ val activity=orderActivity(pkg,window)
+ val candidate=attemptsNativeOrderText(pkg,activity)
+ val firstNative=if(candidate)nativeFrame().orEmpty() else emptyList()
  val native=takeoutPackages[pkg]=="meituan"&&isTakeoutPage(firstNative,pkg in dedicatedTakeoutPackages)
+ android.util.Log.i("LifeShake","Order route=${if(native)"accessibility" else "long_screenshot"}; activity=$activity; native_boxes=${firstNative.size}")
  val control=OrderCaptureControl();val overlay=OrderCaptureOverlay(this@collectTakeoutOrder,control)
  val frames=mutableListOf<Pair<Int,Bitmap>>()
  var combined=firstNative;var previous=firstNative;var offset=0;var pages=1;var stopNote:String?=null
@@ -92,6 +96,7 @@ internal suspend fun LifeScreenCaptureService.collectTakeoutOrder(account:String
    if(control.terminal==OrderCaptureAction.Cancel)throw CancellationException("用户取消采集")
    if(native){
     val next=nativeFrame()
+    if(next==null){stopNote="后续无障碍文字暂不可读，已保存此前范围";break}
     if(takeoutViewportUnchanged(previous,next,screenHeight))break
     val delta=takeoutScrollOffset(previous,next,screenHeight)
     if(delta==null){stopNote="后续文字未可靠对齐，可补充采集";break}
