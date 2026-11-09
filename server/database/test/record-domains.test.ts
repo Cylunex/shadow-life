@@ -3,6 +3,7 @@ import test from "node:test";
 import { createServer } from "node:http";
 import { AssetService, configuredVisionProcessor, processPendingLibrary, visionAvailability, type VisionProcessor } from "../src/index.js";
 import { pgOnly, reviewFixture } from "./review-fixture.js";
+import { sha256Fingerprinter } from "@shadow/kernel";
 
 test("configured vision adapter validates its local stub protocol and availability",async t=>{
   assert.equal(visionAvailability({}).available,false);
@@ -74,6 +75,19 @@ test("unconfigured vision fails visibly and retries through the Executor",pgOnly
   const vision:VisionProcessor={available:true,reason:null,async process(){return{processorVersion:"stub-vision-v1",candidate:{title:"待处理图片",document_date:null,category:null,summary:"人工核对",content:"可检索内容",locators:[{page:1,quote:"可检索内容"}]}};}};
   assert.deepEqual((await processPendingLibrary(f.pool,20,vision)).map(item=>item.state),["completed"]);
   detail=await f.queries.libraryItem(f.context,itemId);assert.equal(detail.processing_jobs[0]!.attempts,2);assert.equal(detail.revisions[0]!.text,"人工核对");
+});
+
+test("vision recognition preserves captured order page numbers and original batch",pgOnly,async t=>{
+  const vision:VisionProcessor={available:true,reason:null,async process(){return{processorVersion:"stub-llm-v1",candidate:{title:"模型识别的商户",document_date:null,category:null,summary:"可核对的商品与费用",content:"第三屏可见订单正文",locators:[{page:1,quote:"订单正文"}]}};}};
+  const f=await reviewFixture(t),asset=await new AssetService(f.pool).store(f.context.subjectId,"image/png",Buffer.from("synthetic order viewport"));
+  const title="订单逐屏截图 · 第 3/9 屏（含重叠）",tags=["截图收录","losna:process","losna:batch:synthetic_order"];
+  const captured=await f.run("library.capture",{title,item_type:"image",tags,source:{kind:"image",captured_on:"2026-09-10",asset_version_id:asset.asset_version_id}}),itemId=String(captured.actual_values.library_item_id);
+  await f.run("library.queue_processing",{item_id:itemId,source_asset_version_id:asset.asset_version_id,kind:"vision",requested_processor:"configured-vision-v1"});
+  assert.equal((await processPendingLibrary(f.pool,20,vision))[0]!.state,"completed");
+  const detail=await f.queries.libraryItem(f.context,itemId);
+  assert.equal(detail.item.title,title);assert.deepEqual(detail.revisions[0]!.tags,tags);assert.equal(detail.item.current_revision,2);
+  assert.equal(detail.processing_jobs[0]!.suggestion!.title,"模型识别的商户");assert.equal(detail.sources[0]!.asset!.id,asset.asset_version_id);
+  assert.equal(detail.proofs.find(proof=>proof.revision===2)!.content_hash,sha256Fingerprinter.fingerprint({title,text:"可核对的商品与费用",url:null,tags,documentDate:null,category:null}));
 });
 
 test("purchase-only orders retain each original and post one expense without recording intake", pgOnly, async t => {

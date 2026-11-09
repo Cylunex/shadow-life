@@ -688,13 +688,16 @@ function storeFor(database: Database | Transaction): TransactionStore {
           // while the worker was running wins; the worker never overwrites that edit.
           let recognizedRevision:number|undefined;
           if(input.suggestion&&value.revision===1){
+            // Capture page numbers describe the original sequence, independent
+            // of a vision model's proposed document title.
+            const recognizedTitle=/^订单(?:长截图|逐屏截图)/u.test(value.title)?value.title:input.suggestion.title;
             const original=(await database.execute<{tags:string[];url:string|null}>(sql`select tags,url from library_revisions where item_id=${value.item_id} and revision=1`)).rows[0];
-            const updated=await database.execute<{source_id:string|null}>(sql`update library_items set title=${input.suggestion.title},current_revision=2 where id=${value.item_id} and subject_id=${subjectId} and current_revision=1 returning source_id`);
+            const updated=await database.execute<{source_id:string|null}>(sql`update library_items set title=${recognizedTitle},current_revision=2 where id=${value.item_id} and subject_id=${subjectId} and current_revision=1 returning source_id`);
             if(updated.rowCount){
               recognizedRevision=2;
               const summary=input.suggestion.summary;
               await database.execute(sql`insert into library_revisions(item_id,revision,text,url,tags,document_date,category,source_processing_job_id,reason) values(${value.item_id},2,${summary},${original?.url??null},${JSON.stringify(original?.tags??[])}::jsonb,${input.suggestion.document_date}::date,${input.suggestion.category},${input.job_id},'视觉模型识别；可直接更正')`);
-              const contentHash=sha256Fingerprinter.fingerprint({title:input.suggestion.title,text:summary,url:original?.url??null,tags:original?.tags??[],documentDate:input.suggestion.document_date,category:input.suggestion.category});
+              const contentHash=sha256Fingerprinter.fingerprint({title:recognizedTitle,text:summary,url:original?.url??null,tags:original?.tags??[],documentDate:input.suggestion.document_date,category:input.suggestion.category});
               const assetHashes=(await database.execute<{content_hash:string}>(sql`select version.sha256 content_hash from sources source join asset_versions version on version.id=source.asset_version_id where source.id=${updated.rows[0]!.source_id} and source.subject_id=${subjectId}`)).rows.map(row=>row.content_hash);
               await database.execute(sql`insert into library_proofs(id,item_id,subject_id,revision,content_hash,asset_hashes) values(${nextId("proof")},${value.item_id},${subjectId},2,${contentHash},${JSON.stringify(assetHashes)}::jsonb)`);
             }
