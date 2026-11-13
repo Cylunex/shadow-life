@@ -54,6 +54,14 @@ await withOfflinePostgres(async url=>{
     await panel.getByRole('link',{name:'70.5 kg',exact:true}).click();await page.waitForURL(/domain=health.*kind=measurement/);
     assert.equal((await pool.query('select count(*)::int n from operations')).rows[0].n,before);
     await page.goto(`${origin}?tab=record&section=health`);await panel.getByLabel('截至日期').fill(date);
+    const morning=page.getByRole('region',{name:'睡眠与晨起感受'});
+    await morning.getByLabel('查看截至').fill(date);
+    await morning.getByLabel('精力（0–10）').fill('0');
+    await morning.getByLabel('备注').fill('逐日晨评回读');
+    await morning.getByRole('button',{name:'保存晨评'}).click();
+    await morning.getByText(/首次填写于/).waitFor();
+    assert.equal(await morning.getByLabel('精力（0–10）').inputValue(),'0');
+    assert.equal(await morning.getByLabel('备注').inputValue(),'逐日晨评回读');
     const weekly=panel.getByRole('region',{name:'每周一个行动'});
     await weekly.getByLabel('下一周想做的一件事').fill('周三晚饭后散步一次');
     await weekly.getByRole('button',{name:'保存下周行动'}).click();

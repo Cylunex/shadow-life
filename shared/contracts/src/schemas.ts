@@ -301,6 +301,24 @@ export const healthObservationMetricSchema=z.enum(["weight","height","bmi","body
 const healthProjectionTimeSchema=z.object({occurred_on:localDate,occurred_at:instant.optional(),time_zone:ianaTimeZone}).strict().refine(factDateMatches,{path:["occurred_at"],message:"occurred_at does not fall on occurred_on in time_zone"});
 export const healthObservationPayloadSchema=healthProjectionTimeSchema.extend({group_kind:z.enum(["measurement","legacy_daily_form","lab_report","fitness_test"]).default("measurement"),observations:z.array(z.object({metric_key:healthObservationMetricSchema,value:canonicalDecimal,unit:z.string().trim().min(1).max(32),original_field:z.string().trim().min(1).max(100).optional(),autofilled:z.boolean().default(false)}).strict()).min(1).max(100)}).strict();
 export const healthWellbeingPayloadSchema=z.object({occurred_on:localDate,time_zone:ianaTimeZone,mood_score:z.number().int().min(0).max(10).nullable().optional(),energy_level:z.number().int().min(0).max(10).nullable().optional(),sleep_quality:z.number().int().min(0).max(10).nullable().optional(),morning_erection:z.boolean().nullable().optional(),notes:z.string().max(2_000).nullable().optional()}).strict();
+export const saveMorningCheckinSchema = z.object({
+  wake_date:localDate, time_zone:ianaTimeZone, filled_at:instant,
+  energy_level:z.number().int().min(0).max(10).nullable(),
+  sleep_quality:z.number().int().min(0).max(10).nullable(),
+  notes:z.string().trim().max(2000).nullable(),
+  expected_revision:z.number().int().positive().optional(),
+}).strict().refine(value => value.energy_level !== null || value.sleep_quality !== null || Boolean(value.notes),
+  "请至少填写一项晨起感受");
+export const morningWindowInputSchema = z.object({to:localDate,time_zone:ianaTimeZone}).strict();
+export const morningWindowResultSchema = z.object({
+  days:z.array(z.object({
+    wake_date:localDate, sleep:z.object({id:stableId, minutes:z.number().int().nonnegative()}).strict().nullable(),
+    checkin:z.object({
+      id:stableId, revision:z.number().int().positive(), filled_at:instant,
+      energy_level:z.number().int().nullable(), sleep_quality:z.number().int().nullable(), notes:z.string().nullable(),
+    }).strict().nullable(),
+  }).strict()).max(14),
+}).strict();
 export const healthSleepPayloadSchema=z.object({wake_date:localDate,time_zone:ianaTimeZone,started_at:instant.optional(),ended_at:instant.optional(),total_minutes:z.number().int().nonnegative(),deep_minutes:z.number().int().nonnegative().optional(),light_minutes:z.number().int().nonnegative().optional(),rem_minutes:z.number().int().nonnegative().optional(),awake_minutes:z.number().int().nonnegative().optional()}).strict().refine(value=>!value.started_at||!value.ended_at||value.ended_at>=value.started_at,{path:["ended_at"],message:"ended_at must not be before started_at"});
 export const healthWorkoutPayloadSchema=z.object({occurred_on:localDate,time_zone:ianaTimeZone,session_type:z.string().trim().min(1).max(100),started_at:instant.optional(),duration_minutes:z.number().int().nonnegative().optional(),distance_km:canonicalDecimal.optional(),calories_kcal:canonicalDecimal.optional(),rpe:z.number().int().min(0).max(10).optional(),heart_rate_avg:z.number().int().positive().optional(),detail:z.json().optional()}).strict().superRefine((value,context)=>{validateWorkoutDetail(value.detail,"actual",context);if(value.detail&&typeof value.detail==="object"&&!Array.isArray(value.detail)&&"strength_session" in value.detail&&value.session_type!=="strength_training")context.addIssue({code:"custom",path:["session_type"],message:"structured strength_session requires strength_training"});}).refine(value=>factDateMatches({...value,occurred_at:value.started_at}),{path:["started_at"],message:"started_at does not fall on occurred_on in time_zone"});
 export const recordWorkoutInputSchema=healthWorkoutPayloadSchema.extend({plan_id:stableId.optional()}).strict().refine(value=>factDateMatches({...value,occurred_at:value.started_at}),{path:["started_at"],message:"started_at does not fall on occurred_on in time_zone"});
@@ -548,6 +566,7 @@ export const writeCommandSchemas = {
   "money.set_import_rule":setMoneyImportRuleInputSchema,
   "health.record_measurement": recordHealthMeasurementInputSchema,
   "health.correct_measurement":correctHealthMeasurementInputSchema,
+  "health.save_morning_checkin":saveMorningCheckinSchema,
   "health.record_workout":recordWorkoutInputSchema,
   "health.ingest_raw": ingestHealthRawInputSchema,
   "health.ingest_batch": ingestHealthBatchInputSchema,

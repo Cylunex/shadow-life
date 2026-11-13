@@ -169,6 +169,12 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     return RecordPage(meals.values.toList(),null,asOf)
   }
 
+  internal suspend fun morningWindow(to:String,zone:String):JSONArray =
+    JSONObject(getText("/api/health/morning-window?to=${encode(to)}&time_zone=${encode(zone)}")).getJSONArray("days")
+  internal suspend fun saveMorningCheckin(input:JSONObject,accountId:String):OperationReceipt = withContext(Dispatchers.IO){
+    enqueueCommand("health.save_morning_checkin",input,expectedAccountId=accountId)
+  }
+
   suspend fun previousExercise(id:String, unit:String, equipment:String):String? {
     val path = "/api/health/exercise-history?id=${encode(id)}&unit=${encode(unit)}&equipment=${encode(equipment)}"
     val sessions = JSONObject(getText(path)).getJSONArray("sessions")

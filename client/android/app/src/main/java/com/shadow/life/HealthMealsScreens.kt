@@ -83,6 +83,7 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
         TextButton(onClick=onMeals){Text("饮食与营养")}
       }}
       item{StateContent(overviewState,onRetry){} }
+      if(tab=="sleep")item{MorningCheckinCard(accountId)}
       if(tab=="training")item{trainingContent()}
       if(tab=="release")item{ReleaseHistoryWorkspace(releaseState,onReleaseLoad,onDetail)}
       if(overview!=null){

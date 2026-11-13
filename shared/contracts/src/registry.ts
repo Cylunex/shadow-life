@@ -6,6 +6,7 @@ import { captureScreenshotSchema, recordingSegmentSchema, recordingJobSchema, co
 import { activityOrderResultSchema, activityActionInputSchema, recordCapturedExpensesInputSchema, ingestActivityInputSchema, activitiesInputSchema, activitiesResultSchema } from "./activity-schemas.js";
 import { wellnessReviewInputSchema, wellnessReviewResultSchema } from "./wellness-schemas.js";
 import { agentContextInputSchema, agentContextResultSchema } from "./agent-context-schemas.js";
+import { saveMorningCheckinSchema, morningWindowInputSchema, morningWindowResultSchema } from "./schemas.js";
 import { exerciseHistoryInputSchema, exerciseHistoryResultSchema } from "./workout-menu.js";
 import { workoutProgressionInputSchema, workoutProgressionResultSchema } from "./schemas.js";
 import { setFoodStockInputSchema } from "./schemas.js";
@@ -75,6 +76,8 @@ type DomainCapabilityName=keyof typeof captureCompletionWrites|keyof typeof capt
   "health.sleep_insights"|
   "health.sources"|
   "health.trend"|
+  "health.save_morning_checkin"|
+  "health.morning_window"|
   "health.exercise_history"|
   "health.workout_progression"|
   "library.annotate"|
@@ -372,6 +375,8 @@ const domainCapabilityRegistry:Record<DomainCapabilityName,DomainCapability> = {
   "health.records":{name:"health.records",description:"读取手工与来源归一化后的健康事实及其有效状态。",inputSchema:domainRecordsInputSchema,commandSchema:domainRecordsInputSchema,resultSchema:domainRecordsResultSchema,possibleEffects:["health.measurement.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["health.measurement.read"] as const},
   "health.get_record":{name:"health.get_record",description:"读取一条健康事实及其原始来源身份，不回传设备游标。",inputSchema:resourceDetailInputSchema,commandSchema:resourceDetailInputSchema,resultSchema:healthRecordResultSchema,possibleEffects:["health.measurement.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["health.measurement.read"] as const},
   "health.release_history":{name:"health.release_history",description:"按日期读取私密起飞记录、次数和覆盖，不计入运动。",inputSchema:healthReleaseHistoryInputSchema,commandSchema:healthReleaseHistoryInputSchema,resultSchema:healthReleaseHistoryResultSchema,possibleEffects:["health.measurement.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["health.measurement.read"] as const},
+  "health.save_morning_checkin":write("health.save_morning_checkin","按醒来日与本人时区保存或更正手工晨起感受，保留首次填写时间。",saveMorningCheckinSchema,["health.measurement.write"]),
+  "health.morning_window":{name:"health.morning_window",description:"逐日对照截至指定日期的十四天主睡眠与本人晨评。",inputSchema:morningWindowInputSchema,commandSchema:morningWindowInputSchema,resultSchema:morningWindowResultSchema,possibleEffects:["health.measurement.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["health.measurement.read"] as const},
   "health.exercise_history": {name:"health.exercise_history",description:"按动作、器械与单位读取最近三次有效力量训练的实际完成组。",inputSchema:exerciseHistoryInputSchema,commandSchema:exerciseHistoryInputSchema,resultSchema:exerciseHistoryResultSchema,possibleEffects:["health.measurement.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["health.measurement.read"] as const},
   "health.workout_progression":{name:"health.workout_progression",description:"根据关联计划的实际训练和强度给出有证据的下一次时长建议；数据不足时不推断。",inputSchema:workoutProgressionInputSchema,commandSchema:workoutProgressionInputSchema,resultSchema:workoutProgressionResultSchema,possibleEffects:["health.measurement.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["health.measurement.read"] as const},
   "health.trend":{name:"health.trend",description:"按类型读取健康趋势、日期覆盖和来源，不补造缺失点。",inputSchema:healthTrendInputSchema,commandSchema:healthTrendInputSchema,resultSchema:healthTrendResultSchema,possibleEffects:["health.measurement.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["health.measurement.read"] as const},

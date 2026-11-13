@@ -240,3 +240,8 @@ do not imply a visit. Actual visits and private reservation details retain their
 ### 从所购物品找回售后原件
 
 从 `life.get_record` 的购买明细选择本人明确持有的一项，以其 `purchase_item_id` 执行 `life.save_owned_item`。仅填写订单或本人提供的 `return_by`、`warranty_ends_on`。物品详情中的 `purchase.record_id` 可回到原消费记录，`sources` 中有权访问的资产版本即原件。更新时省略 `purchase_item_id` 或 `documents` 保留各自关联，显式传 `null` 或空数组才移除。订阅续费沿用 `money.planning` 和已有周期实例的处理入口。
+
+### 晨起感受与力量训练回看
+
+- 以 `health.morning_window` 读取所选时区和醒来日截至的 14 天。本人明确填写时用 `health.save_morning_checkin`，更正沿用该晨评的修订。缺测或未填保持未知。
+- 以 `health.exercise_history` 传入动作 ID、器械和次数／秒数单位，读取最多三次有效训练。换动作时仅实际完成的组进入 `health.record_workout`。
