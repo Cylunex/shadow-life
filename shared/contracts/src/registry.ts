@@ -6,6 +6,7 @@ import { captureScreenshotSchema, recordingSegmentSchema, recordingJobSchema, co
 import { activityOrderResultSchema, activityActionInputSchema, recordCapturedExpensesInputSchema, ingestActivityInputSchema, activitiesInputSchema, activitiesResultSchema } from "./activity-schemas.js";
 import { wellnessReviewInputSchema, wellnessReviewResultSchema } from "./wellness-schemas.js";
 import { agentContextInputSchema, agentContextResultSchema } from "./agent-context-schemas.js";
+import { stockRecipeQuerySchema,stockRecipesResultSchema } from "./schemas.js";
 import { purchasePriceSpecSchema,pricesInputSchema,pricesResultSchema } from "./schemas.js";
 import { saveAmountEvidenceSchema,amountEvidenceInputSchema,amountEvidenceResultSchema } from "./schemas.js";
 import { intervalEventSchema,intervalOccurrenceSchema,intervalQuerySchema,intervalResultSchema } from "./schemas.js";
@@ -120,6 +121,7 @@ type DomainCapabilityName=keyof typeof captureCompletionWrites|keyof typeof capt
   "life.consumption_stats"|
   "life.correct_intake"|
   "life.correct_meal"|
+  "life.stock_recipes"|
   "life.set_price_spec"|"life.purchase_prices"|
   "life.save_amount_evidence"|"life.amount_evidence"|
   "life.save_interval_event"|"life.record_occurrence"|"life.interval_events"|
@@ -284,6 +286,7 @@ const domainCapabilityRegistry:Record<DomainCapabilityName,DomainCapability> = {
   "life.attach_meal_source":write("life.attach_meal_source","为既有餐次关联原图；source.asset_version_id 来自上传结果，使用最新 expected_meal_revision。餐照用 meal_photo、订单用 order_screenshot，其余证据用 evidence。",attachMealSourceInputSchema,["life.meal.write","library.source.link"]),
   "life.set_personal_alias":write("life.set_personal_alias","保存个人食物、商家、模板或支付方式别名。",setPersonalAliasInputSchema,["life.meal.write"]),
   "life.correct_intake": write("life.correct_intake", "先 life.get_record 查摄入条目与当前版本。只改实际食用比例时提交 consumed_fraction（半份填 0.5）；其他更正提交完整 item。", correctIntakeInputSchema, ["life.meal.write"]),
+  "life.stock_recipes":{name:"life.stock_recipes",description:"从本人现有食品批次查找用得上的食谱、可做份数基准和当前缺项。",inputSchema:stockRecipeQuerySchema,commandSchema:stockRecipeQuerySchema,resultSchema:stockRecipesResultSchema,possibleEffects:["life.meal.read","life.meal_plan.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["life.meal.read","life.meal_plan.read"] as const},
   "life.set_price_spec":write("life.set_price_spec","为本人确认的商品行补充同款名称、包装规格、已知行优惠和价格口径。",purchasePriceSpecSchema,["life.purchase.write","life.meal.read","money.entry.read"]),
   "life.purchase_prices":{name:"life.purchase_prices",description:"按规格、单品、币种和行价口径回看常购价与样本覆盖。",inputSchema:pricesInputSchema,commandSchema:pricesInputSchema,resultSchema:pricesResultSchema,possibleEffects:["life.meal.read","money.entry.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["life.meal.read","money.entry.read"] as const},
   "life.save_amount_evidence":write("life.save_amount_evidence","为实付、优惠或配送费标注来源原件、页码、原图像素选区或文字依据。",saveAmountEvidenceSchema,["life.purchase.write","life.meal.read","money.entry.read"]),
@@ -370,7 +373,7 @@ const domainCapabilityRegistry:Record<DomainCapabilityName,DomainCapability> = {
   "life.save_action_item":{...write("life.save_action_item","保存项目行动项；可明确镜像一个周期实例或习惯定义，避免重复到期事实。",saveActionItemInputSchema,["life.project.write","money.entry.read","health.measurement.read"]),resolveEffects(input:unknown){const value=saveActionItemInputSchema.parse(input);return["life.project.write",...(value.recurring_occurrence_id?["money.entry.read"]:[]),...(value.health_habit_id?["health.measurement.read"]:[])];}},
   "life.save_meal_plan":{...write("life.save_meal_plan","按精确食谱版本保存餐单快照；计划不代表已经购买或摄入。",saveMealPlanInputSchema,["life.meal_plan.write","life.meal.read"]),resolveEffects(input:unknown){const value=saveMealPlanInputSchema.parse(input);return["life.meal_plan.write",...(value.entries.some(entry=>entry.recipe_id)?["life.meal.read"]:[])];}},
   "life.set_food_stock":write("life.set_food_stock","显式维护本人食品库存批次；购买状态不会自动改变库存。",setFoodStockInputSchema,["life.meal_plan.write"]),
-  "life.build_shopping_list":write("life.build_shopping_list","从一个精确餐单修订的食谱快照确定性汇总购物清单，不生成购买或摄入事实。",buildShoppingListInputSchema,["life.meal_plan.write"]),
+  "life.build_shopping_list":{...write("life.build_shopping_list","从精确餐单修订汇总购物清单；可指定 shortfall_on 只加入当天库存缺项。",buildShoppingListInputSchema,["life.meal_plan.write","life.meal_plan.read"]),resolveEffects:(v:unknown)=>buildShoppingListInputSchema.parse(v).shortfall_on?["life.meal_plan.write","life.meal_plan.read"]:["life.meal_plan.write"]},
   "life.update_shopping_item":{...write("life.update_shopping_item","更新清单项状态；买到时可关联明确购买明细，但不会生成餐次。",updateShoppingItemInputSchema,["life.meal_plan.write","life.meal.read"]),resolveEffects(input:unknown){const value=updateShoppingItemInputSchema.parse(input);return["life.meal_plan.write",...(value.purchase_item_id?["life.meal.read"]:[])];}},
   "money.record_foreign_entry":{...write("money.record_foreign_entry","记录原币金额、源精度、支付日和独立换算快照；换算不会覆盖原始金额。",recordForeignEntryInputSchema,["money.entry.write","travel.trip.read"]),resolveEffects(input:unknown){const value=recordForeignEntryInputSchema.parse(input);return["money.entry.write",...(value.trip_id?["travel.trip.read"]:[])];}},
   "money.update_shared_allocation":write("money.update_shared_allocation","以乐观版本更新共同费用份额的待结算、已结算或免除状态。",updateSharedExpenseAllocationInputSchema,["money.entry.write"]),

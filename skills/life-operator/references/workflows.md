@@ -255,3 +255,5 @@ do not imply a visit. Actual visits and private reservation details retain their
 - 用 `life.amount_evidence` 核对实付、优惠或配送费。原件可唯一定位且版本明确时，用 `life.save_amount_evidence` 保存字段来源；原图像素坐标同时带原始宽高。文字证据保存原文，多屏重叠而位置不明时仅保留可核对的原件或页码。
 
 - 查常购价用 `life.purchase_prices`，返回可比行、原单与可换算覆盖。购买行缺少整行包装数量、净含量或优惠依据时可用 `life.set_price_spec` 补充。整单券不摊派，价格按同款、币种、单位和行价口径呈现。
+
+- 从批次找菜用 `life.stock_recipes`，传批次和计划日期。已过期批次不计，未知数量或不兼容单位保留未知。选定食谱后沿用餐单，生成购物清单时带 `shortfall_on` 才按当日全部库存扣减，餐单与采购不会改变食材库存。

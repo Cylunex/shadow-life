@@ -89,6 +89,7 @@ private fun plusDays(value:String,days:Long)=LocalDate.parse(value).plusDays(day
     if(lots.isEmpty())Text("当前筛选下没有已加载批次。",color=MaterialTheme.colorScheme.onSurfaceVariant)
     lots.forEach{lot->LifeCard{
       Text("${lot.name} · ${lot.quantity} ${lot.unit}")
+      StockRecipesCard(accountId,lot.id,today)
       val deadline=attention[lot.id]
       Text(listOfNotNull(lot.expiresOn,deadlineLabel(deadline?.state?.wireValue,deadline?.daysUntil)).joinToString(" · "))
       lot.note?.takeIf(String::isNotBlank)?.let{Text(it,style=MaterialTheme.typography.bodySmall)}

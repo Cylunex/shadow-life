@@ -1,3 +1,4 @@
+import { stockRecipes,subtractStock } from "./stock-recipes.js";
 import { readPrices,savePriceSpec } from "./purchase-prices.js";
 import { readAmountEvidence,writeAmountEvidence } from "./amount-evidence.js";
 import { readIntervals,saveIntervalEvent,saveIntervalOccurrence } from "./interval-events.js";
@@ -769,7 +770,8 @@ function storeFor(database: Database | Transaction): TransactionStore {
           for(const extra of input.extras)rawRows.push({name:extra.name,...(extra.quantity&&extra.unit?{quantity:extra.quantity,unit:extra.unit}:{}),sourceIds:[]});
           const grouped=new Map<string,{name:string;quantity?:string;unit?:string;sourceIds:string[]}>();
           for(const row of rawRows){const key=`${row.name.trim().toLowerCase()}\u0000${row.unit??""}\u0000${row.quantity===undefined?"unquantified":"quantity"}`,current=grouped.get(key);if(!current){grouped.set(key,{...row,sourceIds:[...row.sourceIds]});continue;}current.sourceIds=[...new Set([...current.sourceIds,...row.sourceIds])];if(current.quantity&&row.quantity){const sum=await database.execute<{value:string}>(sql`select (${current.quantity}::numeric+${row.quantity}::numeric)::text value`);current.quantity=trimNumeric(sum.rows[0]!.value)??"0";}}
-          const rows=[...grouped.values()];if(!rows.length)throw conflict("meal plan has no quantifiable ingredients and no extras");
+          const rows=input.shortfall_on?await subtractStock(database,subjectId,input.shortfall_on,[...grouped.values()]):[...grouped.values()];
+          if(!rows.length)throw conflict(input.shortfall_on?"现有库存已满足餐单，无需采购":"meal plan has no quantifiable ingredients and no extras");
           const id=nextId("shopping_list");await database.execute(sql`insert into shopping_lists(id,subject_id,meal_plan_id,meal_plan_revision,title,state) values(${id},${subjectId},${input.meal_plan_id},${input.expected_meal_plan_revision},${input.title},'open')`);const resources:Array<{type:"shopping_list_item";id:string;revision:number}>=[];
           for(const row of rows){const itemId=nextId("shopping_item");resources.push({type:"shopping_list_item",id:itemId,revision:1});await database.execute(sql`insert into shopping_list_items(id,shopping_list_id,name,quantity,unit,source_entry_ids,state) values(${itemId},${id},${row.name},${row.quantity??null}::numeric,${row.unit??null},${JSON.stringify(row.sourceIds)}::jsonb,'needed')`);}
           return{resources:[{type:"shopping_list",id,revision:1},...resources],actualValues:{shopping_list_id:id,meal_plan_id:input.meal_plan_id,meal_plan_revision:input.expected_meal_plan_revision,items:rows.length,state:"open"}};
@@ -851,6 +853,7 @@ function storeFor(database: Database | Transaction): TransactionStore {
           max(occurred_on) filter(where not explicit_denial and done_count>0) latest_on,count(*)::int rows_count from facts`);
       const row=result.rows[0]!;return{from:input.from,to:input.to,items:row.items,total_count:row.total_count,recorded_days:row.recorded_days,latest_on:row.latest_on,truncated:row.rows_count>input.limit,as_of:new Date().toISOString()};
     },
+    stockRecipes(subjectId,input){return stockRecipes(database,subjectId,input);},
     purchasePrices(subjectId,input){return readPrices(database,subjectId,input);},
     amountEvidence(subjectId,record,library){return readAmountEvidence(database,subjectId,record,library);},
     intervalEvents(subjectId,input,cards,items){return readIntervals(database,subjectId,input,cards,items);},

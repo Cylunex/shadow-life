@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "feede856e2598950ca20623e198b4964d935d2865223df8cc30eb63d4d23ca8a",
+  "catalog_revision": "f3646f92a019433edede22e8b856be7532596f632077efa9d637289a45b28867",
   "terms": [
     {
       "id": "activity_capture",
@@ -973,6 +973,7 @@
         "life.meal_planning",
         "life.save_meal_plan",
         "life.set_food_stock",
+        "life.stock_recipes",
         "life.build_shopping_list",
         "life.update_shopping_item",
         "life.save_food",
@@ -1362,6 +1363,7 @@
         "money.plan.write",
         "travel.visit.write",
         "life.meal.read",
+        "life.meal_plan.read",
         "money.entry.read",
         "life.item.read",
         "life.project.read",
@@ -1381,7 +1383,6 @@
         "library.asset.read",
         "notifications.read",
         "life.review.read",
-        "life.meal_plan.read",
         "operations.read"
       ],
       "scenarios": [],
@@ -2974,6 +2975,7 @@
         "money.plan.write",
         "travel.visit.write",
         "life.meal.read",
+        "life.meal_plan.read",
         "money.entry.read",
         "life.item.read",
         "life.project.read",
@@ -2993,7 +2995,6 @@
         "library.asset.read",
         "notifications.read",
         "life.review.read",
-        "life.meal_plan.read",
         "operations.read"
       ],
       "scenarios": [],
@@ -3604,6 +3605,7 @@
         "money.plan.write",
         "travel.visit.write",
         "life.meal.read",
+        "life.meal_plan.read",
         "money.entry.read",
         "life.item.read",
         "life.project.read",
@@ -3623,7 +3625,6 @@
         "library.asset.read",
         "notifications.read",
         "life.review.read",
-        "life.meal_plan.read",
         "operations.read"
       ],
       "scenarios": [],
@@ -6533,6 +6534,7 @@
         "money.plan.write",
         "travel.visit.write",
         "life.meal.read",
+        "life.meal_plan.read",
         "money.entry.read",
         "life.item.read",
         "life.project.read",
@@ -6552,7 +6554,6 @@
         "library.asset.read",
         "notifications.read",
         "life.review.read",
-        "life.meal_plan.read",
         "operations.read"
       ],
       "scenarios": [],
@@ -24265,11 +24266,12 @@
     },
     {
       "name": "life.build_shopping_list",
-      "description": "从一个精确餐单修订的食谱快照确定性汇总购物清单，不生成购买或摄入事实。",
+      "description": "从精确餐单修订汇总购物清单；可指定 shortfall_on 只加入当天库存缺项。",
       "domain": "life",
       "mode": "write",
       "possible_effects": [
-        "life.meal_plan.write"
+        "life.meal_plan.write",
+        "life.meal_plan.read"
       ],
       "scenarios": [
         "planning"
@@ -24278,6 +24280,11 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "shortfall_on": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
           "meal_plan_id": {
             "type": "string",
             "pattern": "^[a-z][a-z0-9_]{7,127}$"
@@ -52181,6 +52188,208 @@
           "actual_values",
           "warnings",
           "replayed"
+        ],
+        "additionalProperties": false
+      },
+      "matched_terms": []
+    },
+    {
+      "name": "life.stock_recipes",
+      "description": "从本人现有食品批次查找用得上的食谱、可做份数基准和当前缺项。",
+      "domain": "life",
+      "mode": "read",
+      "possible_effects": [
+        "life.meal.read",
+        "life.meal_plan.read"
+      ],
+      "scenarios": [
+        "planning"
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "lot_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "on": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "offset": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "limit": {
+            "default": 15,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "required": [
+          "lot_id",
+          "on",
+          "offset",
+          "limit"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "lot": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{7,127}$"
+              },
+              "name": {
+                "type": "string"
+              },
+              "revision": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "quantity": {
+                "type": "string"
+              },
+              "unit": {
+                "type": "string"
+              },
+              "expires_on": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "revision",
+              "quantity",
+              "unit",
+              "expires_on"
+            ],
+            "additionalProperties": false
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "revision": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "servings": {
+                  "type": "string"
+                },
+                "short_count": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "unknown_count": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "ingredients": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "unit": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "required": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "available": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "missing": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "unit",
+                      "required",
+                      "available",
+                      "missing"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "revision",
+                "servings",
+                "short_count",
+                "unknown_count",
+                "ingredients"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "lot",
+          "items",
+          "next_offset"
         ],
         "additionalProperties": false
       },

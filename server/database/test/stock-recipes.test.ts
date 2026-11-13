@@ -1,0 +1,22 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {pgOnly,reviewFixture} from "./review-fixture.js";
+test("expiry recipe matching sums valid batches, uses complete inventory and writes only actual shortfalls",pgOnly,async t=>{
+  const {run,queries,context}=await reviewFixture(t),on="2026-11-13";
+  const stock=(name:string,quantity:string,unit:string,expires_on:string)=>run("life.set_food_stock",{name,quantity,unit,expires_on});
+  const selected=await stock("鸡蛋","2","个",on);await stock("鸡蛋","2","个","2026-11-14");
+  const expired=await stock("鸡蛋","8","个","2026-11-12");await stock("番茄","1","个",on);await stock("面粉","5","袋",on);
+  const ingredient=(name:string,quantity:string,unit:string)=>({name,quantity,unit,estimate:false});
+  const base=ingredient("鸡蛋","4","个");
+  const recipe=(title:string,items:ReturnType<typeof ingredient>[])=>run("life.save_recipe",{title,servings:"2",items,state:"active"});
+  await recipe("煮蛋",[base]);const dish=await recipe("番茄炒蛋",[base,ingredient("番茄","2","个")]);
+  await recipe("蛋饼",[base,ingredient("面粉","100","克")]);
+  const read=(lot_id:unknown)=>queries.stockRecipes(context,{lot_id,on});
+  const result=await read(selected.actual_values.food_stock_lot_id??selected.resources[0]!.id);
+  assert.deepEqual(result.items.map(r=>[r.title,r.short_count,r.unknown_count]),[["煮蛋",0,0],["番茄炒蛋",1,0],["蛋饼",0,1]]);
+  assert.deepEqual((await read(expired.resources[0]!.id)).items,[]);
+  const plan=await run("life.save_meal_plan",{title:"午饭",starts_on:on,ends_on:on,time_zone:"Asia/Shanghai",entries:[{title:"番茄炒蛋",meal_type:"lunch",plan_date:on,servings:"2",recipe_id:dish.actual_values.recipe_id,recipe_revision:1}]});
+  const list=await run("life.build_shopping_list",{meal_plan_id:plan.actual_values.meal_plan_id,expected_meal_plan_revision:1,title:"缺项",shortfall_on:on});
+  const resultList=(await queries.mealPlanning(context,{limit:10})).shopping_lists.find(l=>l.id===list.actual_values.shopping_list_id);
+  assert.deepEqual(resultList!.items.map(r=>[r.name,Number(r.quantity),r.unit]),[["番茄",1,"个"]]);
+});
