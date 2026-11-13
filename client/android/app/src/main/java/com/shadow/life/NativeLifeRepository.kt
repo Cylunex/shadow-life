@@ -169,30 +169,20 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     return RecordPage(meals.values.toList(),null,asOf)
   }
 
-  suspend fun previousExercise(id:String,unit:String,equipment:String):String?{
-    var cursor:String?=null
-    val seen=mutableSetOf<String>()
-    do{
-      val page=records(LifeDomain.Health,cursor=cursor)
-      for(record in page.items.filter{it.kind=="workout_session"}){
-        val result=wireJson.decodeFromString<HealthRecordResultDto>(getText("/api/health/records/${record.id}")) as? HealthRecordResultDtoWorkoutSession?:continue
-        if(!result.fact.effective)continue
-        val exercises=JSONObject(result.fact.detail?.toString()?:"{}").optJSONObject("strength_session")?.optJSONArray("exercises")?:continue
-        for(index in 0 until exercises.length()){
-          val row=exercises.getJSONObject(index)
-          val exercise=row.optJSONObject("exercise")?:continue
-          if(exercise.optString("id")!=id||exercise.optString("unit")!=unit||exercise.optString("equipment")!=equipment)continue
-          val sets=row.optJSONArray("sets")?:continue
-          val values=(0 until sets.length()).map{sets.getJSONObject(it)}.mapNotNull{set->
-            if(!set.has(unit))null else (if(set.has("load_kg"))"${set.getString("load_kg")} kg / 只 × " else "")+"${set.getInt(unit)} "+if(unit=="seconds")"秒" else "次"
-          }
-          if(values.isNotEmpty())return "${result.fact.occurredOn} · ${values.joinToString("，")}"
-        }
+  suspend fun previousExercise(id:String, unit:String, equipment:String):String? {
+    val path = "/api/health/exercise-history?id=${encode(id)}&unit=${encode(unit)}&equipment=${encode(equipment)}"
+    val sessions = JSONObject(getText(path)).getJSONArray("sessions")
+    return (0 until sessions.length()).joinToString("；") { index ->
+      val session = sessions.getJSONObject(index)
+      val sets = session.getJSONArray("sets")
+      val summary = (0 until sets.length()).joinToString("，") { position ->
+        val set = sets.getJSONObject(position)
+        val load = if (set.has("load_kg")) "${set.getString("load_kg")} kg / 只 × " else ""
+        val suffix = if (unit == "seconds") "秒" else "次"
+        "${load}${set.getInt(unit)} $suffix"
       }
-      cursor=page.nextCursor
-      check(cursor==null||seen.add(cursor)){"训练分页未能继续"}
-    }while(cursor!=null)
-    return null
+      "${session.getString("occurred_on")} · $summary"
+    }.takeIf { it.isNotEmpty() }
   }
 
   suspend fun recipeCatalog(query:String):JSONObject=JSONObject(getText("/api/life/foods?limit=100&q=${encode(query)}"))

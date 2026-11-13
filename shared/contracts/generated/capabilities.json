@@ -69048,6 +69048,134 @@
         "additionalProperties": false
       }
     },
+    "health.exercise_history": {
+      "name": "health.exercise_history",
+      "description": "按动作、器械与单位读取最近三次有效力量训练的实际完成组。",
+      "possible_effects": [
+        "health.measurement.read"
+      ],
+      "idempotency": "not-applicable",
+      "status_query": "operations.get",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{1,79}$"
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "reps",
+              "seconds"
+            ]
+          },
+          "equipment": {
+            "type": "string",
+            "enum": [
+              "bodyweight",
+              "dumbbell"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "unit",
+          "equipment"
+        ],
+        "additionalProperties": false
+      },
+      "command_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{1,79}$"
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "reps",
+              "seconds"
+            ]
+          },
+          "equipment": {
+            "type": "string",
+            "enum": [
+              "bodyweight",
+              "dumbbell"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "unit",
+          "equipment"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "sessions": {
+            "maxItems": 3,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "record_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "occurred_on": {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                },
+                "sets": {
+                  "minItems": 1,
+                  "maxItems": 30,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "reps": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1000
+                      },
+                      "seconds": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 7200
+                      },
+                      "load_kg": {
+                        "type": "string",
+                        "pattern": "^(?:0|[1-9]\\d{0,2})(?:\\.\\d{1,3})?$"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "record_id",
+                "occurred_on",
+                "sets"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "sessions"
+        ],
+        "additionalProperties": false
+      }
+    },
     "health.workout_progression": {
       "name": "health.workout_progression",
       "description": "根据关联计划的实际训练和强度给出有证据的下一次时长建议；数据不足时不推断。",

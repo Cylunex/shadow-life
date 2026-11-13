@@ -155,7 +155,25 @@ internal fun trainingMenuOrDefault(candidate:JSONObject?,fallback:JSONObject):JS
               TextButton(onClick={expanded=if(expanded==row.id)null else row.id}){Text(if(expanded==row.id)"收起动作说明" else "动作说明 / 教学")}
               if(expanded==row.id){Text(exercise.getString("guidance"));Text(exercise.getString("caution"),style=MaterialTheme.typography.bodySmall);TextButton(onClick={uriHandler.openUri(exercise.getString("source_url"))}){Text("打开教学参考")}}
               if(draft.started){
-                previous?.let{Text("上次同动作 · $it",style=MaterialTheme.typography.bodySmall)}
+                var choosingReplacement by remember(row.id) { mutableStateOf(false) }
+                Box {
+                  TextButton(enabled=!pending,onClick={choosingReplacement=true}) { Text("换动作") }
+                  DropdownMenu(expanded=choosingReplacement,onDismissRequest={choosingReplacement=false}) {
+                    for (replacement in menu.getJSONArray("exercises").trainingObjects().filter { it.getString("id") != row.id }) {
+                      DropdownMenuItem(text={Text(replacement.getString("name"))},onClick={
+                        choosingReplacement=false
+                        try {
+                          val id=replacement.getString("id")
+                          val next=draft.replaceExercise(row.id,TrainingExerciseDraft(id,replacement.toString()))
+                          update(next)
+                          activeExercise=next.exercises.indexOfFirst { it.id == id }
+                          error=null
+                        } catch (failure:IllegalArgumentException) { error=failure.message }
+                      })
+                    }
+                  }
+                }
+                previous?.let{Text("最近同动作 · $it",style=MaterialTheme.typography.bodySmall)}
                 row.sets.forEachIndexed{setIndex,set->
                   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){
                     Text("${setIndex+1}",modifier=Modifier.width(20.dp))

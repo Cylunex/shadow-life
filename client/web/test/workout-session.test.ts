@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { homeWorkoutMenu } from "@shadow/contracts";
-import { blankSet, buildSessionWorkout, completedSetCount, emptyWorkout, readWorkoutDraft, restSeconds, validWorkoutSet, workoutDraftKey, type WorkoutDraft } from "../src/workout-session.js";
+import { blankSet, replaceSessionExercise, buildSessionWorkout, completedSetCount, emptyWorkout, readWorkoutDraft, restSeconds, validWorkoutSet, workoutDraftKey, type WorkoutDraft } from "../src/workout-session.js";
 const press=homeWorkoutMenu.exercises.find(item=>item.id==="floor_press")!;
 const timed=homeWorkoutMenu.exercises.find(item=>item.unit==="seconds")!;
 const draft=():WorkoutDraft=>({...emptyWorkout("2026-10-18","Asia/Shanghai","chest","health_plan_test"),exercises:[{exercise:press,sets:[blankSet()]}]});
@@ -30,4 +30,18 @@ test("corrupt or ambiguous persisted drafts cannot replay as actual exercise",()
   assert.equal(readWorkoutDraft(storage({...draft(),timeZone:"not-a-zone"}),"test"),null);
   const input=draft();input.exercises.push(input.exercises[0]!);assert.equal(readWorkoutDraft(storage(input),"test"),null);
   assert.equal(readWorkoutDraft(storage({...draft(),exercises:[{exercise:press,sets:[{value:"",load:"",completed:true}]}]}),"test"),null);
+});
+
+test("replacement retains performed sets and resets the remaining inputs for the new unit",()=>{
+  const input=draft();
+  input.started=true;
+  input.restUntil=1666;
+  input.exercises[0]!.sets=[{value:"10",load:"4.5",completed:true},{value:"8",load:"4",completed:false}];
+  const next=replaceSessionExercise(input,press.id,timed);
+  assert.equal(next.restUntil,1666);
+  assert.deepEqual(next.exercises[0]!.sets,[input.exercises[0]!.sets[0]]);
+  assert.deepEqual(next.exercises[1]!.sets,[blankSet()]);
+  const back=replaceSessionExercise(next,timed.id,press);
+  assert.equal(back.exercises.length,1);
+  assert.deepEqual(back.exercises[0]!.sets,[input.exercises[0]!.sets[0],blankSet()]);
 });

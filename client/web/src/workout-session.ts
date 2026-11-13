@@ -11,6 +11,22 @@ export function validWorkoutSet(set:WorkoutSetDraft,exercise:WorkoutExercise):bo
     (exercise.equipment!=="dumbbell"||!set.load.trim()||/^(?:0|[1-9]\d{0,2})(?:\.\d{1,3})?$/u.test(set.load.trim()));
 }
 export function completedSetCount(draft:WorkoutDraft):number{return draft.exercises.reduce((sum,row)=>sum+row.sets.filter(set=>set.completed).length,0);}
+export function replaceSessionExercise(draft:WorkoutDraft, sourceId:string, replacement:WorkoutExercise):WorkoutDraft {
+  const source = draft.exercises.find(row => row.exercise.id === sourceId);
+  if (!source || !draft.started || replacement.id === sourceId) throw new Error("请选择其他动作");
+  const completed = source.sets.filter(set => set.completed);
+  const blanks = Array.from({length: Math.max(1,source.sets.length - completed.length)}, () => blankSet());
+  const target = draft.exercises.find(row => row.exercise.id === replacement.id);
+  if ((target?.sets.length ?? 0) + blanks.length > 30) throw new Error("替代动作已达到组数上限");
+  if (completed.length && !target && draft.exercises.length === 30) throw new Error("本次训练已达到动作上限");
+  const exercises = draft.exercises.flatMap(row => {
+    if (row === target) return [{...row, sets:[...row.sets, ...blanks]}];
+    if (row !== source) return [row];
+    const retained = completed.length ? [{...row, sets:completed}] : [];
+    return target ? retained : [...retained, {exercise:replacement, sets:blanks}];
+  });
+  return {...draft, exercises};
+}
 export function buildSessionWorkout(draft:WorkoutDraft){
   const exercises=draft.exercises.flatMap(row=>{
     const sets=row.sets.filter(set=>set.completed).map(set=>{

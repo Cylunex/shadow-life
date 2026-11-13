@@ -835,6 +835,23 @@ function storeFor(database: Database | Transaction): TransactionStore {
           max(occurred_on) filter(where not explicit_denial and done_count>0) latest_on,count(*)::int rows_count from facts`);
       const row=result.rows[0]!;return{from:input.from,to:input.to,items:row.items,total_count:row.total_count,recorded_days:row.recorded_days,latest_on:row.latest_on,truncated:row.rows_count>input.limit,as_of:new Date().toISOString()};
     },
+    async exerciseHistory(subjectId, exercise) {
+      const result = await database.execute(sql`
+        select session.id as record_id, session.occurred_on::text, item->'sets' as sets
+        from health_workout_sessions session
+        cross join lateral jsonb_array_elements(
+          case when jsonb_typeof(session.detail->'strength_session'->'exercises') = 'array'
+               then session.detail->'strength_session'->'exercises' else '[]'::jsonb end
+        ) as item
+        where session.subject_id = ${subjectId} and session.effective
+          and session.session_type = 'strength_training' and session.detail->'strength_session'->>'version' = '1'
+          and item->'exercise'->>'id' = ${exercise.id}
+          and item->'exercise'->>'unit' = ${exercise.unit}
+          and item->'exercise'->>'equipment' = ${exercise.equipment}
+        order by session.occurred_on desc, session.created_at desc, session.id desc
+        limit 3`);
+      return {sessions:result.rows};
+    },
     async workoutProgressionPlans(subjectId,planId){const plans=await database.execute<{id:string;title:string;revision:number}>(sql`select id,title,revision from workout_plans where subject_id=${subjectId} and (${planId??null}::text is null and state='active' or id=${planId??null}) order by created_at desc,id desc limit 20`);const ids=plans.rows.map(plan=>plan.id);if(!ids.length)return[];const rows=await database.execute<Record<string,unknown>&import("@shadow/kernel").WorkoutProgressionSession&{plan_id:string}>(sql`select id,plan_id,occurred_on::text,session_type,duration_minutes,rpe,revision from (select session.*,row_number() over(partition by plan_id order by occurred_on desc,created_at desc,id desc) rank from health_workout_sessions session where subject_id=${subjectId} and effective and plan_id in (${sql.join(ids.map(id=>sql`${id}`),sql`,`)}) ) sessions where rank<=2 order by occurred_on desc,id desc`);return plans.rows.map(plan=>({id:plan.id,title:plan.title,revision:plan.revision,sessions:rows.rows.filter(row=>row.plan_id===plan.id)}));},
     async healthTrend(subjectId,input){
       const rows=await database.execute<{id:string;occurred_on:string;occurred_at:string|null;value:string;unit:string;source_kind:string;revision:number}>(sql`select id,occurred_on::text,case when occurred_at is null then null else to_char(occurred_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') end occurred_at,value::text,unit,source_kind,original_field,revision from (select measurement.id,measurement.occurred_on,measurement.occurred_at,measurement.time_zone,measurement.created_at,measurement.value,measurement.unit,coalesce(source.kind,'manual') source_kind,null::text original_field,measurement.revision from health_measurements measurement left join sources source on source.id=measurement.source_id where measurement.subject_id=${subjectId} and measurement.metric=${input.metric_key} and measurement.effective union all select observation.id,observation.occurred_on,observation.occurred_at,observation.time_zone,observation.created_at,observation.value,observation.unit,coalesce(instance.source_type,'normalized') source_kind,observation.original_field,observation.revision from health_observations observation join health_raw_records raw on raw.id=observation.raw_id left join health_source_instances instance on instance.id=raw.source_instance_id where observation.subject_id=${subjectId} and observation.metric_key=${input.metric_key} and observation.effective) points where (${input.from??null}::date is null or occurred_on>=${input.from??null}::date) and (${input.to??null}::date is null or occurred_on<=${input.to??null}::date) order by coalesce(occurred_at,occurred_on::timestamp at time zone time_zone) desc,created_at desc,id desc limit ${input.limit+1}`);

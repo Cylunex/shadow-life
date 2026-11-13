@@ -16,6 +16,26 @@ import kotlinx.serialization.json.Json
   val completedSets:Int get()=exercises.sumOf{exercise->exercise.sets.count{it.completed}}
 }
 
+internal fun TrainingDraft.replaceExercise(sourceId:String, replacement:TrainingExerciseDraft):TrainingDraft {
+  require(started && commandId.isBlank() && replacement.id != sourceId) { "请选择其他动作" }
+  val source = exercises.first { it.id == sourceId }
+  val completed = source.sets.filter { it.completed }
+  val blanks = List(maxOf(1, source.sets.size - completed.size)) { TrainingSetDraft() }
+  val target = exercises.find { it.id == replacement.id }
+  require((target?.sets?.size ?: 0) + blanks.size <= 30) { "替代动作已达到组数上限" }
+  require(completed.isEmpty() || target != null || exercises.size < 30) { "本次训练已达到动作上限" }
+  return copy(exercises = exercises.flatMap { row ->
+    when (row.id) {
+      replacement.id -> listOf(row.copy(sets = row.sets + blanks))
+      sourceId -> buildList {
+        if (completed.isNotEmpty()) add(row.copy(sets = completed))
+        if (target == null) add(replacement.copy(sets = blanks))
+      }
+      else -> listOf(row)
+    }
+  })
+}
+
 internal fun validTrainingSet(set:TrainingSetDraft,unit:String,dumbbell:Boolean):Boolean =
   set.value.toIntOrNull()?.let{it in 1..(if(unit=="reps")1000 else 7200)}==true &&
     (!dumbbell||set.load.isBlank()||Regex("(?:0|[1-9]\\d{0,2})(?:\\.\\d{1,3})?").matches(set.load.trim()))

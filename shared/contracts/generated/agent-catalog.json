@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "eea9268332a68b6441ae962a8b4e4fd4aa61738a29b452707a370b665d2e1554",
+  "catalog_revision": "665043478d62d39d5a65800557b0fd92b7f5afc8bb0a5b65f22f192465513c02",
   "terms": [
     {
       "id": "activity_capture",
@@ -523,12 +523,14 @@
       "capabilities": [
         "health.set_plan",
         "health.record_workout",
+        "health.exercise_history",
         "health.workout_progression",
         "health.records",
         "health.get_record"
       ],
       "lookup_tools": [
         "health.records",
+        "health.exercise_history",
         "health.workout_progression"
       ]
     },
@@ -775,6 +777,7 @@
         "health.sources",
         "health.sleep_insights",
         "life.wellness_review",
+        "health.exercise_history",
         "health.workout_progression",
         "health.set_plan"
       ],
@@ -9430,6 +9433,108 @@
             ]
           }
         }
+      },
+      "matched_terms": []
+    },
+    {
+      "name": "health.exercise_history",
+      "description": "按动作、器械与单位读取最近三次有效力量训练的实际完成组。",
+      "domain": "health",
+      "mode": "read",
+      "possible_effects": [
+        "health.measurement.read"
+      ],
+      "scenarios": [
+        "health"
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{1,79}$"
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "reps",
+              "seconds"
+            ]
+          },
+          "equipment": {
+            "type": "string",
+            "enum": [
+              "bodyweight",
+              "dumbbell"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "unit",
+          "equipment"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "sessions": {
+            "maxItems": 3,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "record_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "occurred_on": {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                },
+                "sets": {
+                  "minItems": 1,
+                  "maxItems": 30,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "reps": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1000
+                      },
+                      "seconds": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 7200
+                      },
+                      "load_kg": {
+                        "type": "string",
+                        "pattern": "^(?:0|[1-9]\\d{0,2})(?:\\.\\d{1,3})?$"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "record_id",
+                "occurred_on",
+                "sets"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "sessions"
+        ],
+        "additionalProperties": false
       },
       "matched_terms": []
     },

@@ -12,6 +12,18 @@ class TrainingDraftTest {
     assertEquals(draft,Json.decodeFromString<TrainingDraft>(Json.encodeToString(draft)))
     assertEquals("2026-10-18",draft.date)
   }
+  @Test fun replaceRetainsFinishedSetsAndClearsIncompatibleUnfinishedInputs(){
+    val press = TrainingExerciseDraft("press","{}",listOf(TrainingSetDraft("10","4",true),TrainingSetDraft("8","4")))
+    val plank = TrainingExerciseDraft("plank","{}")
+    val input = TrainingDraft("2026-10-18","Asia/Shanghai",started=true,exercises=listOf(press),restUntil=1666)
+    val next = input.replaceExercise("press",plank)
+    assertEquals(listOf(press.sets.first()),next.exercises.first().sets)
+    assertEquals(listOf(TrainingSetDraft()),next.exercises.last().sets)
+    val back = next.replaceExercise("plank",press)
+    assertEquals(1,back.exercises.size)
+    assertEquals(1666L,back.restUntil)
+    assertEquals(listOf(press.sets.first(),TrainingSetDraft()),back.exercises.first().sets)
+  }
   @Test fun validationUsesExerciseUnitAndDoesNotInventWeight(){
     assertTrue(validTrainingSet(TrainingSetDraft("10"),"reps",true))
     assertTrue(validTrainingSet(TrainingSetDraft("20"),"seconds",false))

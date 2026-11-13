@@ -57,6 +57,7 @@ export interface TransactionStore {
   activityMaterial?(subjectId:string,id:string):Promise<{id:string;text:string|null;app_package?:string|null;automaticPayment?:boolean;paymentPlatform?:string}|undefined>;
   activities?(subjectId:string,input:import("@shadow/contracts").ActivitiesInput):Promise<unknown>;
   healthReleaseHistory(subjectId:string,input:{from:string;to:string;limit:number}):Promise<unknown>;
+  exerciseHistory(subjectId:string, input:import("@shadow/contracts").ExerciseHistoryInput):Promise<unknown>;
   workoutProgressionPlans(subjectId:string,planId?:string):Promise<import("./workout-progression.js").WorkoutProgressionPlan[]>;
   healthTrend(subjectId:string,input:{metric_key:string;from?:string|undefined;to?:string|undefined;limit:number}):Promise<unknown>;
   healthSources(subjectId:string):Promise<unknown>;
