@@ -6,6 +6,7 @@ import { captureScreenshotSchema, recordingSegmentSchema, recordingJobSchema, co
 import { activityOrderResultSchema, activityActionInputSchema, recordCapturedExpensesInputSchema, ingestActivityInputSchema, activitiesInputSchema, activitiesResultSchema } from "./activity-schemas.js";
 import { wellnessReviewInputSchema, wellnessReviewResultSchema } from "./wellness-schemas.js";
 import { agentContextInputSchema, agentContextResultSchema } from "./agent-context-schemas.js";
+import { saveAmountEvidenceSchema,amountEvidenceInputSchema,amountEvidenceResultSchema } from "./schemas.js";
 import { intervalEventSchema,intervalOccurrenceSchema,intervalQuerySchema,intervalResultSchema } from "./schemas.js";
 import { saveDishPreferenceSchema, dishPreferencesInputSchema, dishPreferencesResultSchema } from "./schemas.js";
 import { saveTripConnectionSchema, tripConnectionsInputSchema, tripConnectionsResultSchema } from "./schemas.js";
@@ -118,6 +119,7 @@ type DomainCapabilityName=keyof typeof captureCompletionWrites|keyof typeof capt
   "life.consumption_stats"|
   "life.correct_intake"|
   "life.correct_meal"|
+  "life.save_amount_evidence"|"life.amount_evidence"|
   "life.save_interval_event"|"life.record_occurrence"|"life.interval_events"|
   "life.save_dish_preference"|
   "life.dish_preferences"|
@@ -280,6 +282,8 @@ const domainCapabilityRegistry:Record<DomainCapabilityName,DomainCapability> = {
   "life.attach_meal_source":write("life.attach_meal_source","为既有餐次关联原图；source.asset_version_id 来自上传结果，使用最新 expected_meal_revision。餐照用 meal_photo、订单用 order_screenshot，其余证据用 evidence。",attachMealSourceInputSchema,["life.meal.write","library.source.link"]),
   "life.set_personal_alias":write("life.set_personal_alias","保存个人食物、商家、模板或支付方式别名。",setPersonalAliasInputSchema,["life.meal.write"]),
   "life.correct_intake": write("life.correct_intake", "先 life.get_record 查摄入条目与当前版本。只改实际食用比例时提交 consumed_fraction（半份填 0.5）；其他更正提交完整 item。", correctIntakeInputSchema, ["life.meal.write"]),
+  "life.save_amount_evidence":write("life.save_amount_evidence","为实付、优惠或配送费标注来源原件、页码、原图像素选区或文字依据。",saveAmountEvidenceSchema,["life.purchase.write","life.meal.read","money.entry.read"]),
+  "life.amount_evidence":{name:"life.amount_evidence",description:"核对确认消费中每个金额的原件版本、定位与原文。",inputSchema:amountEvidenceInputSchema,commandSchema:amountEvidenceInputSchema,resultSchema:amountEvidenceResultSchema,possibleEffects:["life.meal.read","money.entry.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["life.meal.read","money.entry.read"] as const},
   "life.save_interval_event":write("life.save_interval_event","新建、更名或归档本人要记住上次日期的事项。",intervalEventSchema,["life.project.write"]),
   "life.record_occurrence":{...write("life.record_occurrence","记录、更正或撤销某次实际发生，可关联已有核销或维护记录。",intervalOccurrenceSchema,["life.project.write","money.entry.read","life.item.read"]),resolveEffects:(input:unknown)=>{const kind=intervalOccurrenceSchema.parse(input).source_kind;return ["life.project.write",...(kind?[kind==="service_card_use"?"money.entry.read":"life.item.read"]:[])];}},
   "life.interval_events":{name:"life.interval_events",description:"按本地日历查询上次发生、距今天数和相邻间隔，只计算当前可读且有效的来源。",inputSchema:intervalQuerySchema,commandSchema:intervalQuerySchema,resultSchema:intervalResultSchema,possibleEffects:["life.project.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["life.project.read"] as const},

@@ -58,6 +58,7 @@ export interface TransactionStore {
   activities?(subjectId:string,input:import("@shadow/contracts").ActivitiesInput):Promise<unknown>;
   healthReleaseHistory(subjectId:string,input:{from:string;to:string;limit:number}):Promise<unknown>;
   morningWindow(subjectId:string, to:string, timeZone:string):Promise<unknown>;
+  amountEvidence(subjectId:string,recordId:string,canReadLibrary:boolean):Promise<unknown>;
   intervalEvents(subjectId:string,input:import("@shadow/contracts").IntervalQuery,canReadCards:boolean,canReadItems:boolean):Promise<unknown>;
   dishPreferences(subjectId:string,input:import("@shadow/contracts").DishPreferenceQuery):Promise<unknown>;
   tripConnections(subjectId:string, tripId:string):Promise<unknown>;

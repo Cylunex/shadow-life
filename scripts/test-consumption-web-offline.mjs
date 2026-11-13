@@ -56,7 +56,10 @@ await withOfflinePostgres(async url=>{
     await page.getByText('还没有标记菜品。',{exact:true}).waitFor();
     await page.getByRole('link',{name:/返回消费与账单/}).click();
     await page.getByRole('link').filter({hasText:'合成午餐店'}).click();await page.getByRole('heading',{name:'消费、付款与饮食'}).waitFor();
-    await page.getByText('查看来源原文',{exact:true}).click();await page.getByText('合成邮件：午餐实付25元',{exact:true}).waitFor();
+    await page.getByText('核对金额来源',{exact:true}).click();
+    await page.getByRole('button',{name:/实付 25 · 查看依据/}).click();
+    await page.locator('blockquote').filter({hasText:'午餐实付25元'}).waitFor();
+    await page.getByText('查看来源原文',{exact:true}).click();await page.locator('.source-original').getByText('合成邮件：午餐实付25元',{exact:true}).or(page.locator('p.source-original').filter({hasText:'午餐实付25元'})).first().waitFor();
     await page.getByText('关联已有饮食记录',{exact:true}).click();await page.getByRole('option').filter({hasText:'合成米饭'}).click();await page.getByRole('button',{name:'关联这餐',exact:true}).click();
     await page.getByText('已关联，并已重新读取实际结果。付款金额不会再记一次。',{exact:true}).waitFor();
     assert.equal(await page.locator('.record-detail-content').count(),1);assert.equal(await page.locator('.record-hero').count(),1);

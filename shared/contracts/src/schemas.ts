@@ -362,6 +362,23 @@ export const recordVisitInputSchema = datedFactSchema.extend({
 });
 export const savePlaceInputSchema=z.object({place_id:stableId.optional(),expected_revision:z.number().int().positive().optional(),name:z.string().trim().min(1).max(200),address:z.string().trim().min(1).max(500).optional(),latitude:z.number().min(-90).max(90).optional(),longitude:z.number().min(-180).max(180).optional(),tags:z.array(z.string().trim().min(1).max(64)).max(30).default([]),favorite:z.boolean().default(false)}).strict().superRefine((value,context)=>{if((value.place_id===undefined)!==(value.expected_revision===undefined))context.addIssue({code:"custom",message:"place_id and expected_revision must be supplied together"});if((value.latitude===undefined)!==(value.longitude===undefined))context.addIssue({code:"custom",message:"latitude and longitude must be supplied together"});});
 export const tripPlanItemSchema=z.object({stop_id:stableId.optional(),title:z.string().trim().min(1).max(200),starts_at:instant.optional(),place_id:stableId.optional(),note:z.string().max(1000).optional()}).strict();
+const evidenceField=z.enum(["paid","discount","delivery"]);
+export type EvidenceField=z.infer<typeof evidenceField>;
+const pixel=z.number().int().nonnegative().max(100000);
+const evidenceRegion=z.object({space:z.literal("original_pixels"),x:pixel,y:pixel,width:pixel.positive(),height:pixel.positive(),image_width:pixel.positive(),image_height:pixel.positive()}).strict()
+  .refine(r=>r.x+r.width<=r.image_width&&r.y+r.height<=r.image_height,"选区必须在原图内");
+export const saveAmountEvidenceSchema=z.object({
+  record_id:stableId,field:evidenceField,amount:storedAmount,source_id:stableId,asset_version_id:stableId.optional(),
+  page:z.number().int().min(1).max(10000).optional(),region:evidenceRegion.optional(),quote:z.string().trim().min(1).max(500).optional(),
+  expected_revision:z.number().int().positive().optional(),
+}).strict().refine(v=>Boolean(v.asset_version_id)||(!v.page&&!v.region&&!!v.quote),"文字原件应提供原文；页码与选区需要原件版本");
+export const amountEvidenceInputSchema=z.object({record_id:stableId}).strict();
+export const amountEvidenceResultSchema=z.object({
+  items:z.array(z.object({field:evidenceField,amount:storedAmount,source_id:stableId,asset_version_id:stableId.nullable(),
+    page:z.number().int().positive().nullable(),region:evidenceRegion.nullable(),quote:z.string().nullable(),id:stableId.nullable(),revision:z.number().int().nullable()})),
+  sources:z.array(z.object({id:stableId,kind:z.string(),asset_version_id:stableId.nullable()}))
+});
+export type AmountEvidence=z.infer<typeof amountEvidenceResultSchema>;
 const optionalRevision=z.number().int().positive().optional();
 const intervalSource=z.enum(["service_card_use","owned_item_event"]);
 export const intervalEventSchema=z.object({
@@ -605,6 +622,7 @@ export const writeCommandSchemas = {
   "life.set_personal_alias":setPersonalAliasInputSchema,
   "life.record_purchase": recordPurchaseInputSchema,
   "life.correct_intake": correctIntakeInputSchema,
+  "life.save_amount_evidence":saveAmountEvidenceSchema,
   "life.save_interval_event":intervalEventSchema,
   "life.record_occurrence":intervalOccurrenceSchema,
   "life.save_dish_preference":saveDishPreferenceSchema,
@@ -717,7 +735,7 @@ export const universalCommandEnvelopeSchema = z.object({
 });
 
 export const resourceReferenceSchema = z.object({
-  type: z.enum(["agent_intention", "agent_task", "agent_learning", "agent_subscription", "meal", "meal_template", "food", "recipe", "personal_alias", "intake_item", "consumption_record", "purchase", "purchase_item", "money_entry", "refund", "budget", "recurring_plan", "recurring_occurrence", "spending_intent", "use_cycle", "service_card", "service_card_use", "consumable_use", "money_import_file", "money_import_batch", "money_import_candidate", "money_import_rule", "health_measurement", "health_workout_session", "health_raw", "health_sync_cursor", "health_plan", "trip", "trip_segment", "reservation", "visit", "place", "travel_map", "trip_track", "trip_day_plan", "interval_event","interval_occurrence", "dish_preference", "trip_connection", "trip_checklist", "trip_member", "trip_plan_version", "trip_run", "trip_stop_outcome", "library_item", "library_annotation", "library_derivation", "library_processing_job", "library_reading_state", "library_legacy_link", "agent_context_pack", "agent_memory", "notification_preferences", "notification", "notification_installation", "notification_delivery", "owned_item", "owned_item_event", "life_review", "life_project", "action_item", "meal_plan", "shopping_list", "shopping_list_item", "food_stock_lot", "money_fx_snapshot", "shared_expense_allocation", "source", "activity_capture", "thread", "run", "task"]),
+  type: z.enum(["agent_intention", "agent_task", "agent_learning", "agent_subscription", "meal", "meal_template", "food", "recipe", "personal_alias", "intake_item", "consumption_record", "purchase", "purchase_item", "money_entry", "refund", "budget", "recurring_plan", "recurring_occurrence", "spending_intent", "use_cycle", "service_card", "service_card_use", "consumable_use", "money_import_file", "money_import_batch", "money_import_candidate", "money_import_rule", "health_measurement", "health_workout_session", "health_raw", "health_sync_cursor", "health_plan", "trip", "trip_segment", "reservation", "visit", "place", "travel_map", "trip_track", "trip_day_plan", "amount_evidence", "interval_event","interval_occurrence", "dish_preference", "trip_connection", "trip_checklist", "trip_member", "trip_plan_version", "trip_run", "trip_stop_outcome", "library_item", "library_annotation", "library_derivation", "library_processing_job", "library_reading_state", "library_legacy_link", "agent_context_pack", "agent_memory", "notification_preferences", "notification", "notification_installation", "notification_delivery", "owned_item", "owned_item_event", "life_review", "life_project", "action_item", "meal_plan", "shopping_list", "shopping_list_item", "food_stock_lot", "money_fx_snapshot", "shared_expense_allocation", "source", "activity_capture", "thread", "run", "task"]),
   id: stableId,
   revision: z.number().int().positive()
 }).strict();

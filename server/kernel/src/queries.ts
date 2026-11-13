@@ -13,6 +13,7 @@ import type { FoundationQueryName } from "@shadow/contracts";
 import { queryAgentContext, revalidateAgentContext } from "./agent-context.js";
 import { buildWorkoutProgression } from "./workout-progression.js";
 import { discoverAgentCapabilities, exportAgentCatalog, queryAgentGlossary, queryAgentScenarios, validateAgentTool } from "./agent-catalog.js";
+import { amountEvidenceInputSchema,amountEvidenceResultSchema } from "@shadow/contracts";
 import { intervalQuerySchema,intervalResultSchema } from "@shadow/contracts";
 import { dishPreferencesInputSchema, dishPreferencesResultSchema } from "@shadow/contracts";
 import { tripConnectionsInputSchema, tripConnectionsResultSchema } from "@shadow/contracts";
@@ -155,6 +156,12 @@ export class QueryService {
     const page=await this.unitOfWork.read(store=>store.listDomain(context.subjectId,domain,{includePurchase:context.effects.has("life.meal.read"),...(query?{query}:{}),limit,...(asOf?{asOf}:{}),...(before?{before:{at:before.at,kind:before.kind,id:before.id}}:{})}));asOf=page.asOf;const items=page.items.map(({_page_at,...item})=>item);const last=page.items.at(-1),next=page.hasMore&&last?Buffer.from(JSON.stringify({domain,query,at:last._page_at,kind:last.kind,id:last.id,as_of:asOf} satisfies Cursor)).toString("base64url"):null;return domainRecordsResultSchema.parse({items,next_cursor:next,as_of:asOf});
   }
   async healthReleaseHistory(context:RequestContext,input:unknown){if(!context.effects.has("health.measurement.read"))throw permissionDenied("health.measurement.read");const parsed=healthReleaseHistoryInputSchema.parse(input);return healthReleaseHistoryResultSchema.parse(await this.unitOfWork.read(store=>store.healthReleaseHistory(context.subjectId,parsed)));}
+  async amountEvidence(context:RequestContext,input:unknown){
+    if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");
+    if(!context.effects.has("life.meal.read"))throw permissionDenied("life.meal.read");
+    const {record_id}=amountEvidenceInputSchema.parse(input);
+    return amountEvidenceResultSchema.parse(await this.unitOfWork.read(store=>store.amountEvidence(context.subjectId,record_id,context.effects.has("library.item.read"))));
+  }
   async intervalEvents(context:RequestContext,input:unknown){
     if(!context.effects.has("life.project.read"))throw permissionDenied("life.project.read");
     const options=intervalQuerySchema.parse(input);
