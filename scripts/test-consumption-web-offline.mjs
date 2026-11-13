@@ -23,7 +23,7 @@ await withOfflinePostgres(async url=>{
     const run=(capability,input)=>executor.execute(context,{protocol:'shadow.command',command_id:`cmd_${randomUUID()}`,capability,input});
     const date=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai'}).format(new Date()),fact={occurred_on:date,time_zone:'Asia/Shanghai'};
     const paid=await run('money.record_entry',{...fact,entry_type:'expense',amount:'25.00',currency:'CNY',counterparty:'合成午餐店',source:{kind:'text',captured_on:date,original_text:'合成邮件：午餐实付25元'}});
-    await run('life.record_purchase',{...fact,scene:'offline_purchase',merchant_name_raw:'合成食材店',items:[{raw_name:'水果'}]});
+    await run('life.record_purchase',{...fact,scene:'offline_purchase',merchant_name_raw:'合成食材店',items:[{raw_name:'水果',quantity:'1',unit:'袋',line_amount:'12.00'}]});
     const meal=await run('life.record_meal',{...fact,meal_type:'lunch',items:[{name:'合成米饭',estimate:false}]});
     const staged=await run('money.stage_import',{format:'csv',source_name:'合成支付App账单.csv',time_zone:'Asia/Shanghai',content:`交易时间,交易类型,交易对方,商品,收/支,金额(元),支付方式,当前状态,交易单号\n${date} 12:00:00,商户消费,合成账单商家,午餐,支出,18.00,零钱,支付成功,synthetic-order-one`});
     const app=createApp({unitOfWork,executor,queries,developmentAuth:true});
@@ -45,6 +45,11 @@ await withOfflinePostgres(async url=>{
     assert.match(await page.locator('.money-workspace').innerText(),/未记录付款/);
     await page.screenshot({path:join(output,'money-desktop.png'),fullPage:true});
     await page.getByRole('link').filter({hasText:'合成食材店'}).click();
+    await page.getByText('我的常购价',{exact:true}).click();
+    await page.getByRole('button',{name:'补规格与口径'}).click();
+    await page.getByLabel('整行购买份数').fill('2');await page.getByLabel('每份净含量').fill('500');
+    await page.getByLabel('含量单位').selectOption('g');await page.getByRole('button',{name:'保存规格'}).click();
+    await page.getByText(/12 CNY\/kg/).waitFor();
     await page.getByText('门店菜品偏好',{exact:true}).click();
     await page.getByLabel('从本单带入').selectOption({label:'水果'});
     await page.getByLabel('下次选择').selectOption('repeat');await page.getByLabel('口味备注').fill('买小份');

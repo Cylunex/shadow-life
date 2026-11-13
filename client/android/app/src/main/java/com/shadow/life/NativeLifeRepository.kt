@@ -411,6 +411,10 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       put("items",JSONArray().apply{items.forEach{item->put(JSONObject().put("title",item.title).put("state",item.state).apply{if(item.id.isNotBlank())put("id",item.id);item.note?.let{put("note",it)}})}})
     })
   }
+  internal suspend fun purchasePrices(item:String?=null,product:String?=null,before:JSONObject?=null):JSONObject{
+    val params=listOfNotNull(item?.let{"item_id="+encode(it)},product?.let{"product="+encode(it)},before?.let{"before_on="+encode(it.getString("before_on"))+"&before_id="+encode(it.getString("before_id"))})
+    return JSONObject(getText("/api/life/purchase-prices?"+params.joinToString("&")))
+  }
   internal suspend fun amountEvidence(recordId:String):JSONObject=JSONObject(getText("/api/life/amount-evidence?record_id="+encode(recordId)))
   internal suspend fun intervalEvents(date:String,after:String?=null):JSONObject =
     JSONObject(getText("/api/life/interval-events?as_of="+encode(date)+(after?.let{"&after_id="+encode(it)}?:"")))

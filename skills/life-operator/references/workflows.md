@@ -253,3 +253,5 @@ do not imply a visit. Actual visits and private reservation details retain their
 - 「上次是什么时候」用 `life.interval_events` 按当地日期查看；新事项用 `life.save_interval_event`，明确发生或补记用 `life.record_occurrence`。可传既有核销或物品事件 ID 引用其实际日期；源记录撤销或失去权限后，查询自动重算相邻间隔。
 
 - 用 `life.amount_evidence` 核对实付、优惠或配送费。原件可唯一定位且版本明确时，用 `life.save_amount_evidence` 保存字段来源；原图像素坐标同时带原始宽高。文字证据保存原文，多屏重叠而位置不明时仅保留可核对的原件或页码。
+
+- 查常购价用 `life.purchase_prices`，返回可比行、原单与可换算覆盖。购买行缺少整行包装数量、净含量或优惠依据时可用 `life.set_price_spec` 补充。整单券不摊派，价格按同款、币种、单位和行价口径呈现。

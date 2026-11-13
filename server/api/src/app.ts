@@ -123,6 +123,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.get("/api/life/memories",async context=>context.json(await dependencies.queries.lifeMemories(context.get("requestContext"),{date:context.req.query("date"),time_zone:context.req.query("time_zone")})));
   app.get("/api/money/summary", async (context) => context.json(await dependencies.queries.summarizeMoney(context.get("requestContext"))));
   app.get("/api/health/releases",async context=>context.json(await dependencies.queries.healthReleaseHistory(context.get("requestContext"),healthReleaseHistoryInputSchema.parse({from:context.req.query("from"),to:context.req.query("to"),limit:Number(context.req.query("limit")??"1000")}))));
+  app.get("/api/life/purchase-prices",async context=>context.json(await dependencies.queries.purchasePrices(context.get("requestContext"),context.req.query())));
   app.get("/api/life/amount-evidence",async context=>context.json(await dependencies.queries.amountEvidence(context.get("requestContext"),context.req.query())));
   app.get("/api/life/interval-events",async context=>context.json(await dependencies.queries.intervalEvents(context.get("requestContext"),context.req.query())));
   app.get("/api/life/dish-preferences",async context=>context.json(await dependencies.queries.dishPreferences(context.get("requestContext"),context.req.query())));
@@ -233,6 +234,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         if(capabilityName==="money.summarize")return dependencies.queries.summarizeMoney(requestContext);
         if(capabilityName==="money.records"||capabilityName==="health.records"||capabilityName==="travel.records"||capabilityName==="library.records")return dependencies.queries.listDomain(requestContext,capabilityName.split(".")[0] as "money"|"health"|"travel"|"library",parsed as {query?:string|undefined;limit?:number|undefined;cursor?:string|undefined});
         if(capabilityName==="health.release_history")return dependencies.queries.healthReleaseHistory(requestContext,parsed);
+        if(capabilityName==="life.purchase_prices")return dependencies.queries.purchasePrices(requestContext,parsed);
         if(capabilityName==="life.amount_evidence")return dependencies.queries.amountEvidence(requestContext,parsed);
         if(capabilityName==="life.interval_events")return dependencies.queries.intervalEvents(requestContext,parsed);
         if(capabilityName==="life.dish_preferences")return dependencies.queries.dishPreferences(requestContext,parsed);

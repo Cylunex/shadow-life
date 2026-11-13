@@ -267,7 +267,7 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
         item{DetailHero(detail)}
         item{DomainDetailContent(detail,onLink)}
         if(detail.state=="confirmed")detail.consumptionRecordId?.let{id->item{AmountEvidenceCard(accountId,id)}}
-        if(detail.state=="confirmed")detail.dishPurchase?.let{purchase->item{DishPreferenceCard(accountId,purchase)}}
+        if(detail.state=="confirmed")detail.dishPurchase?.let{purchase->item{DishPreferenceCard(accountId,purchase)};if(purchase.items.isNotEmpty())item{PriceHistoryCard(accountId,purchase)}}
         if(detail.state=="confirmed")detail.consumptionRecordId?.let{id->item{NativeMealConsumptionLink(accountId,id,detail.linkedMealIds)}}
         detail.libraryItemId?.let { id -> item {
           val context=androidx.compose.ui.platform.LocalContext.current
