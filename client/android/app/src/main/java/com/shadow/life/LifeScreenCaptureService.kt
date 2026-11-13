@@ -197,7 +197,7 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
        return
      }
      pending?.cancel();automatic?.cancel();autoCycle.invalidate()
-     feedback("已识别摇动，使用浮条选择下一屏、完成保存或取消")
+     feedback("已识别摇动，打开订单采集浮条，点完成保存或取消")
      takeoutWork=scope.launch(Dispatchers.Main){try{
        // Let the short toast disappear before capturing the order's pixels.
        delay(2200)

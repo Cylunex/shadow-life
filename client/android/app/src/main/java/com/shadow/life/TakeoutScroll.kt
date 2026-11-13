@@ -9,7 +9,6 @@ import android.view.accessibility.AccessibilityNodeInfo
 import kotlinx.coroutines.*
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
@@ -17,9 +16,9 @@ import java.time.LocalDate
 import java.util.UUID
 import org.json.JSONObject
 
-private suspend fun AccessibilityService.orderScreenshot():Bitmap=suspendCancellableCoroutine{continuation->
+private suspend fun AccessibilityService.orderScreenshot(window:Int):Bitmap=suspendCancellableCoroutine{continuation->
  if(Build.VERSION.SDK_INT<30){continuation.resumeWithException(IllegalStateException("自动长页采集需要 Android 11，请分享系统长截图"));return@suspendCancellableCoroutine}
- takeScreenshot(Display.DEFAULT_DISPLAY,mainExecutor,object:AccessibilityService.TakeScreenshotCallback{
+ val callback=object:AccessibilityService.TakeScreenshotCallback{
   override fun onSuccess(result:AccessibilityService.ScreenshotResult){
    val buffer=result.hardwareBuffer
    val bitmap=try{Bitmap.wrapHardwareBuffer(buffer,result.colorSpace)?.let{try{it.copy(Bitmap.Config.ARGB_8888,false)}finally{it.recycle()}}}finally{buffer.close()}
@@ -27,7 +26,8 @@ private suspend fun AccessibilityService.orderScreenshot():Bitmap=suspendCancell
    else if(continuation.isActive)continuation.resume(bitmap) else bitmap.recycle()
   }
   override fun onFailure(errorCode:Int){android.util.Log.w("LifeShake","Screenshot unavailable; code=$errorCode");if(continuation.isActive)continuation.resumeWithException(IllegalStateException("页面暂不可截图，请稍后重试或分享系统长截图"))}
- })
+ }
+ if(Build.VERSION.SDK_INT>=34) takeScreenshotOfWindow(window,mainExecutor,callback) else takeScreenshot(Display.DEFAULT_DISPLAY,mainExecutor,callback)
 }
 private suspend fun AccessibilityService.orderSwipeForward(width:Int,height:Int):Boolean=suspendCancellableCoroutine{c->
  val (startY,endY)=takeoutForwardSwipeY(height)
@@ -36,7 +36,7 @@ private suspend fun AccessibilityService.orderSwipeForward(width:Int,height:Int)
  val submitted=dispatchGesture(gesture,object:AccessibilityService.GestureResultCallback(){override fun onCompleted(g:GestureDescription){if(c.isActive)c.resume(true)};override fun onCancelled(g:GestureDescription){if(c.isActive)c.resume(false)}},null)
  if(!submitted&&c.isActive)c.resume(false)
 }
-/** An intentional shake starts a bounded session. The user chooses every next viewport. */
+/** An intentional shake starts a bounded session. Only explicit finish enqueues the captured material. */
 internal suspend fun LifeScreenCaptureService.collectTakeoutOrder(account:String,pkg:String)=withContext(Dispatchers.Main){
  val app=application as ShadowApp
  val initial=rootInActiveWindow?:error("当前页面不可读取");val window=initial.windowId;initial.recycle()
@@ -71,33 +71,84 @@ internal suspend fun LifeScreenCaptureService.collectTakeoutOrder(account:String
  val firstNative=if(candidate)nativeFrame().orEmpty() else emptyList()
  val native=takeoutPackages[pkg]=="meituan"&&isTakeoutPage(firstNative,pkg in dedicatedTakeoutPackages)
  android.util.Log.i("LifeShake","Order route=${if(native)"accessibility" else "long_screenshot"}; activity=$activity; native_boxes=${firstNative.size}")
- val control=OrderCaptureControl();val overlay=OrderCaptureOverlay(this@collectTakeoutOrder,control)
- val frames=mutableListOf<Pair<Int,Bitmap>>()
- val imageProgress=OrderImageProgress(width,screenHeight)
+ val control=OrderCaptureControl();val overlay=OrderCaptureOverlay(this@collectTakeoutOrder,control,!native)
+ val frames=mutableListOf<ByteArray>()
+ lateinit var imageProgress:OrderImageProgress
+ var imageWidth=width;var imageHeight=screenHeight
+ var manual=false
+ var previousImage:OrderImageSample?=null
+ var pendingSample:OrderImageSample?=null
+ var stalled=0
  var combined=firstNative;var previous=firstNative;var offset=0;var pages=1;var stopNote:String?=null;var nextAllowed=true
+ var lastScreenshotAt=0L
  suspend fun imageFrame():Bitmap{
-  checkPage();overlay.visible(false)
-  try{delay(180);checkPage();val bitmap=orderScreenshot();try{checkPage();check(bitmap.width==width&&bitmap.height==screenHeight){"屏幕尺寸已变化，请重新开始采集"};return bitmap}catch(e:Throwable){bitmap.recycle();throw e}}finally{overlay.visible(true)}
+  delay((550L-(android.os.SystemClock.elapsedRealtime()-lastScreenshotAt)).coerceAtLeast(0L))
+  checkPage();if(Build.VERSION.SDK_INT<34)overlay.visible(false)
+  try{if(Build.VERSION.SDK_INT<34)delay(180);checkPage();lastScreenshotAt=android.os.SystemClock.elapsedRealtime();val bitmap=orderScreenshot(window);try{checkPage();check(frames.isEmpty() || bitmap.width==imageWidth&&bitmap.height==imageHeight){"屏幕尺寸已变化，请重新开始采集"};return bitmap}catch(e:Throwable){bitmap.recycle();throw e}}finally{overlay.visible(true)}
+ }
+ suspend fun captureViewport(waitForStill:Boolean=false):Boolean {
+  val bitmap=imageFrame()
+  try {
+   return withContext(Dispatchers.Default) {
+    val sample=orderImageSample(bitmap)
+    val previousSample=previousImage
+    if(previousSample==null){
+     imageWidth=bitmap.width;imageHeight=bitmap.height
+     check(imageHeight<=18000 && imageWidth.toLong()*imageHeight<=24_000_000){"当前屏幕超过截图大小限制"}
+     imageProgress=OrderImageProgress(imageWidth,imageHeight)
+    } else {
+     if(orderImageStill(previousSample,sample)){pendingSample=null;return@withContext false}
+     if(waitForStill){
+      val pending=pendingSample
+      pendingSample=sample
+      if(pending==null || !orderImageStill(pending,sample))return@withContext false
+     }
+     // Changed pixels with an apparent zero shift may be an expanding row.
+     // Keep that viewport as a new segment instead of dropping its evidence.
+     val delta=orderImageOffset(previousSample,sample,imageHeight)
+     if(!imageProgress.add(delta?.takeIf{it>=16}))return@withContext false
+    }
+    frames.add(bitmap.orderImageBytes())
+    previousImage=sample;pendingSample=null;pages=frames.size
+    true
+   }
+  } finally { bitmap.recycle() }
  }
  try{
-  if(!native){check(screenHeight<=18000&&width.toLong()*screenHeight<=24_000_000){"当前屏幕超过截图大小限制"};frames+=0 to imageFrame()}
+  if(!native)captureViewport()
   val deadline=android.os.SystemClock.elapsedRealtime()+300_000
   while(true){
    checkPage()
    val ended=native&&takeoutEnded(combined)
-   nextAllowed=nextAllowed&&pages<12
-   val note=if(pages>=12)"已到 12 屏上限，请完成保存或取消" else stopNote
-   overlay.status("${if(native)"美团无障碍文字" else if(imageProgress.separateImages)"逐屏截图（含重叠）" else "长截图"} · $pages 屏${note?.let{"\n$it"}?:if(ended)" · 已读到合计，可完成" else ""}",nextAllowed=nextAllowed)
-   var action:OrderCaptureAction?=null
-   while(action==null){checkPage();action=withTimeoutOrNull(800){control.awaitAction()};check(action!=null||android.os.SystemClock.elapsedRealtime()<deadline){"采集等待超时，未保存；请重新摇动开始"}}
-   if(action==OrderCaptureAction.Cancel)throw CancellationException("用户取消采集")
-   if(action==OrderCaptureAction.Finish)break
+   nextAllowed=nextAllowed && (if(native) pages<12 else imageProgress.canReadNext && frames.sumOf{it.size.toLong()}<32_000_000)
+   val note=if(!nextAllowed && (!native || pages>=12))"已到采集上限，请完成保存或取消" else stopNote
+   val mode=if(native)"美团无障碍文字" else if(manual)"手动慢滑，停稳收录" else "自动滚动"
+   overlay.manual(manual)
+   overlay.status("$mode · $pages 屏"+(note?.let{"\n$it"}?:if(ended)" · 已读到合计，可完成" else ""),nextAllowed=nextAllowed)
+   check(android.os.SystemClock.elapsedRealtime()<deadline){"采集等待超时，未保存"}
+   val action=withTimeoutOrNull(800){control.awaitAction()}
    if(control.terminal==OrderCaptureAction.Cancel)throw CancellationException("用户取消采集")
-   if(control.terminal==OrderCaptureAction.Finish)break
+   if(control.terminal==OrderCaptureAction.Finish){
+    if(!native && manual && nextAllowed)captureViewport()
+    break
+   }
    if(!nextAllowed)continue
+   if(action==OrderCaptureAction.ToggleMode){
+    manual=!manual;pendingSample=null;stalled=0;stopNote=null;continue
+   }
+   if(native && action!=OrderCaptureAction.Next)continue
+   if(!native && manual){
+    captureViewport(waitForStill=true)
+    continue
+   }
    stopNote=null
    overlay.status("正在读取下一屏…",true)
-   checkPage();check(orderSwipeForward(width,screenHeight)){"滚动被中断"};delay(700)
+   checkPage()
+   if(!orderSwipeForward(width,screenHeight)){
+    if(native){stopNote="滚动被中断，可重试";continue}
+    manual=true;stopNote="滑动被中断，可手动慢滑或完成";continue
+   }
+   delay(700)
    if(control.terminal==OrderCaptureAction.Cancel)throw CancellationException("用户取消采集")
    if(native){
     val next=nativeFrame()
@@ -108,22 +159,17 @@ internal suspend fun LifeScreenCaptureService.collectTakeoutOrder(account:String
     val newOffset=offset+delta
     if(newOffset+screenHeight>18000){stopNote="已到文字高度上限，请完成保存或取消";nextAllowed=false;continue}
     combined=mergeTakeoutBoxes(combined,next,newOffset,offset,screenHeight);offset=newOffset;previous=next
+    pages++
    }else{
-    val next=imageFrame()
-    val delta=try{withContext(Dispatchers.Default){orderImageOffset(orderImageSample(frames.last().second),orderImageSample(next),screenHeight)}}catch(e:Throwable){next.recycle();throw e}
-    if(!imageProgress.add(delta)){next.recycle();stopNote="画面未移动，可重试下一屏或完成保存";continue}
-    if(!imageProgress.separateImages)offset=imageProgress.height-screenHeight
-    frames+=offset to next
-    android.util.Log.i("LifeShake","Order next captured; pages=${imageProgress.pages}; overlap=${delta?:"unknown"}; separate_images=${imageProgress.separateImages}; waiting_for_finish=true")
-    if(imageProgress.separateImages)stopNote="本次保留每屏原图，完成后一起识别；可继续下一屏"
+    if(captureViewport())stalled=0 else stalled++
+    if(stalled>=2){manual=true;stopNote="画面已停止，可完成或手动慢滑"}
    }
-   pages++
    // Finish during a swipe includes the resulting viewport; no subsequent swipe is submitted.
    if(control.terminal==OrderCaptureAction.Finish)break
   }
   checkPage();if(control.terminal==OrderCaptureAction.Cancel)throw CancellationException("用户取消采集")
   control.requireFinish()
-  android.util.Log.i("LifeShake","Order finish selected; pages=$pages; route=${if(native)"accessibility" else if(imageProgress.separateImages)"separate_images" else "long_screenshot"}")
+  android.util.Log.i("LifeShake","Order finish selected; pages=$pages; route=${if(native)"accessibility" else "long_screenshot"}")
   val now=Instant.now();val id="order_${UUID.randomUUID().toString().replace("-","")}"
   if(native){
    val complete=takeoutEnded(combined)
@@ -132,31 +178,21 @@ internal suspend fun LifeScreenCaptureService.collectTakeoutOrder(account:String
    NativeLifeRepository(this@collectTakeoutOrder,app).saveActivities(org.json.JSONArray().put(item),account)
    BillShakeStatus.message=(if(complete)"美团订单文字已保存，未使用截图或 OCR" else "已保存所选范围的订单文字；商品或订单信息可能不完整")+(stopNote?.let{"；$it"}?:"")
   }else{
-   // Preserve every original when overlap is uncertain. Do not fabricate a stitch
-   // or discard the newly captured viewport; Losna receives one shared batch.
-   val images=if(imageProgress.separateImages)frames.map{it.second} else {
-    val height=offset+screenHeight
-    val image=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);val canvas=Canvas(image);canvas.drawColor(Color.WHITE)
-    for(i in frames.indices){val (y,bitmap)=frames[i];val start=if(i==0)0 else (y+frames[i-1].first+screenHeight)/2;val end=if(i==frames.lastIndex)height else (frames[i+1].first+y+screenHeight)/2
-     canvas.drawBitmap(bitmap,Rect(0,start-y,width,end-y),Rect(0,start,width,end),null)
-    }
-    listOf(image)
-   }
-   val encoded=try{withContext(Dispatchers.Default){images.map{bitmap->ByteArrayOutputStream().also{check(bitmap.compress(Bitmap.CompressFormat.JPEG,90,it))}.toByteArray().also{check(it.size<=10_000_000){"截图超过上传限制，请缩短采集范围"}}}}}finally{if(!imageProgress.separateImages)images.forEach{it.recycle()}}
+   val encoded=withContext(Dispatchers.Default){encodeOrderSegments(frames,imageProgress.segments,imageWidth,imageHeight)}
    checkPage();control.requireFinish()
    val input=OrderCaptureSettings.apply(this@collectTakeoutOrder,account,JSONObject().put("captured_at",now.toString()).put("time_zone",ZoneId.systemDefault().id).put("app_package",pkg).put("batch_id",id))
    withContext(Dispatchers.IO){val session=app.sessions.active()?.takeIf{it.accountId==account}?:error("账号已切换")
     encoded.forEachIndexed{i,bytes->
      val attachmentId=if(encoded.size==1)id else "${id}_${i+1}"
-     val title=if(imageProgress.separateImages)"订单逐屏截图 · 第 ${i+1}/$pages 屏（含重叠）" else "订单长截图 · $pages 屏"
+     val title=if(encoded.size>1)"订单长截图 · 第 ${i+1}/${encoded.size} 段（含重叠）" else "订单长截图 · $pages 屏"
      val metadata=JSONObject().put("capability","life.capture_screenshot").put("input",JSONObject(input.toString()).put("title",title))
      app.queue.enqueueAttachment(session,attachmentId,"cmd_$attachmentId","image/jpeg",LocalDate.now().toString(),title,bytes.inputStream(),File(filesDir,"attachments/$attachmentId.enc"),metadata.toString())
     }
     SyncScheduler.schedule(this@collectTakeoutOrder,account)
    }
    val route=when(input.getString("recognition")){"llm"->"同步后请求所选 LLM 识图，结果见资料详情";"save"->"可在资料详情手动选择 LLM 识图";else->"同步后交给 Losna 识别"}
-   BillShakeStatus.message="已保存 $pages 屏${if(imageProgress.separateImages)"原图（同一批次，含重叠）" else "长截图"}，$route"
+   BillShakeStatus.message="已保存 $pages 屏${if(encoded.size>1)"，共 ${encoded.size} 段" else "长截图"}，$route"
   }
  }catch(e:CancellationException){if(control.terminal==OrderCaptureAction.Cancel)BillShakeStatus.message="本次采集已取消，未保存";throw e}
- finally{try{overlay.close()}finally{frames.forEach{it.second.recycle()}}}
+ finally{overlay.close()}
 }
