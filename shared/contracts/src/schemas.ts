@@ -362,6 +362,26 @@ export const recordVisitInputSchema = datedFactSchema.extend({
 });
 export const savePlaceInputSchema=z.object({place_id:stableId.optional(),expected_revision:z.number().int().positive().optional(),name:z.string().trim().min(1).max(200),address:z.string().trim().min(1).max(500).optional(),latitude:z.number().min(-90).max(90).optional(),longitude:z.number().min(-180).max(180).optional(),tags:z.array(z.string().trim().min(1).max(64)).max(30).default([]),favorite:z.boolean().default(false)}).strict().superRefine((value,context)=>{if((value.place_id===undefined)!==(value.expected_revision===undefined))context.addIssue({code:"custom",message:"place_id and expected_revision must be supplied together"});if((value.latitude===undefined)!==(value.longitude===undefined))context.addIssue({code:"custom",message:"latitude and longitude must be supplied together"});});
 export const tripPlanItemSchema=z.object({stop_id:stableId.optional(),title:z.string().trim().min(1).max(200),starts_at:instant.optional(),place_id:stableId.optional(),note:z.string().max(1000).optional()}).strict();
+const dishText=z.string().trim().min(1).max(200);
+const dishChoice=z.enum(["repeat","avoid","try","cleared"]);
+export const saveDishPreferenceSchema=z.object({
+  shop_source:dishText, shop_name:dishText, dish_name:dishText, preference:dishChoice,
+  purchase_item_id:stableId.optional(), note:z.string().trim().max(1000).optional(),
+  expected_revision:z.number().int().positive().optional(),
+}).strict().refine(v=>v.preference!=="cleared"||v.expected_revision!==undefined,"清除偏好需要当前修订");
+export const dishPreferencesInputSchema=z.object({
+  shop_source:dishText.optional(), shop_name:dishText.optional(), before_at:instant.optional(), before_id:stableId.optional(),
+  limit:z.coerce.number().int().min(1).max(100).default(40),
+}).strict().refine(v=>Boolean(v.before_at)===Boolean(v.before_id),"分页位置不完整");
+export type DishPreferenceQuery=z.infer<typeof dishPreferencesInputSchema>;
+export const dishPreferencesResultSchema=z.object({
+  items:z.array(z.object({id:stableId,shop_source:dishText,shop_name:dishText,dish_name:dishText,
+    preference:dishChoice.exclude(["cleared"]),note:z.string().nullable(),revision:z.number().int().positive(),
+    purchase_item_id:stableId.nullable(),updated_at:instant}).strict()),
+  next:z.object({before_at:instant,before_id:stableId}).nullable(),
+}).strict();
+export type DishPreference=z.infer<typeof dishPreferencesResultSchema>["items"][number];
+
 const connectionModeSchema=z.enum(["walk","metro","bus","rail","taxi","car","other"]);
 export const saveTripConnectionSchema=z.object({
   trip_id:stableId, day_plan_id:stableId, plan_revision:z.number().int().positive(),
@@ -556,6 +576,7 @@ export const writeCommandSchemas = {
   "life.set_personal_alias":setPersonalAliasInputSchema,
   "life.record_purchase": recordPurchaseInputSchema,
   "life.correct_intake": correctIntakeInputSchema,
+  "life.save_dish_preference":saveDishPreferenceSchema,
   "life.correct_purchase": correctPurchaseInputSchema,
   "life.update_purchase_items":updatePurchaseItemsInputSchema,
   "life.void_purchase": voidRecordInputSchema,
@@ -665,7 +686,7 @@ export const universalCommandEnvelopeSchema = z.object({
 });
 
 export const resourceReferenceSchema = z.object({
-  type: z.enum(["agent_intention", "agent_task", "agent_learning", "agent_subscription", "meal", "meal_template", "food", "recipe", "personal_alias", "intake_item", "consumption_record", "purchase", "purchase_item", "money_entry", "refund", "budget", "recurring_plan", "recurring_occurrence", "spending_intent", "use_cycle", "service_card", "service_card_use", "consumable_use", "money_import_file", "money_import_batch", "money_import_candidate", "money_import_rule", "health_measurement", "health_workout_session", "health_raw", "health_sync_cursor", "health_plan", "trip", "trip_segment", "reservation", "visit", "place", "travel_map", "trip_track", "trip_day_plan", "trip_connection", "trip_checklist", "trip_member", "trip_plan_version", "trip_run", "trip_stop_outcome", "library_item", "library_annotation", "library_derivation", "library_processing_job", "library_reading_state", "library_legacy_link", "agent_context_pack", "agent_memory", "notification_preferences", "notification", "notification_installation", "notification_delivery", "owned_item", "owned_item_event", "life_review", "life_project", "action_item", "meal_plan", "shopping_list", "shopping_list_item", "food_stock_lot", "money_fx_snapshot", "shared_expense_allocation", "source", "activity_capture", "thread", "run", "task"]),
+  type: z.enum(["agent_intention", "agent_task", "agent_learning", "agent_subscription", "meal", "meal_template", "food", "recipe", "personal_alias", "intake_item", "consumption_record", "purchase", "purchase_item", "money_entry", "refund", "budget", "recurring_plan", "recurring_occurrence", "spending_intent", "use_cycle", "service_card", "service_card_use", "consumable_use", "money_import_file", "money_import_batch", "money_import_candidate", "money_import_rule", "health_measurement", "health_workout_session", "health_raw", "health_sync_cursor", "health_plan", "trip", "trip_segment", "reservation", "visit", "place", "travel_map", "trip_track", "trip_day_plan", "dish_preference", "trip_connection", "trip_checklist", "trip_member", "trip_plan_version", "trip_run", "trip_stop_outcome", "library_item", "library_annotation", "library_derivation", "library_processing_job", "library_reading_state", "library_legacy_link", "agent_context_pack", "agent_memory", "notification_preferences", "notification", "notification_installation", "notification_delivery", "owned_item", "owned_item_event", "life_review", "life_project", "action_item", "meal_plan", "shopping_list", "shopping_list_item", "food_stock_lot", "money_fx_snapshot", "shared_expense_allocation", "source", "activity_capture", "thread", "run", "task"]),
   id: stableId,
   revision: z.number().int().positive()
 }).strict();

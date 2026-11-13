@@ -35,6 +35,17 @@ await withOfflinePostgres(async url=>{
     await page.getByRole('heading',{name:'消费与账单',exact:true}).waitFor();await page.getByRole('link').filter({hasText:'合成食材店'}).waitFor();
     assert.match(await page.locator('.money-workspace').innerText(),/未记录付款/);
     await page.screenshot({path:join(output,'money-desktop.png'),fullPage:true});
+    await page.getByRole('link').filter({hasText:'合成食材店'}).click();
+    await page.getByText('门店菜品偏好',{exact:true}).click();
+    await page.getByLabel('从本单带入').selectOption({label:'水果'});
+    await page.getByLabel('下次选择').selectOption('repeat');await page.getByLabel('口味备注').fill('买小份');
+    await page.getByRole('button',{name:'保存菜品偏好'}).click();
+    await page.getByText('合成食材店 · 水果',{exact:true}).waitFor();
+    assert.equal((await queries.dishPreferences(context,{})).items[0].note,'买小份');
+    await page.getByRole('button',{name:'修改偏好'}).click();
+    await page.getByRole('button',{name:'清除偏好'}).click();
+    await page.getByText('还没有标记菜品。',{exact:true}).waitFor();
+    await page.getByRole('link',{name:/返回消费与账单/}).click();
     await page.getByRole('link').filter({hasText:'合成午餐店'}).click();await page.getByRole('heading',{name:'消费、付款与饮食'}).waitFor();
     await page.getByText('查看来源原文',{exact:true}).click();await page.getByText('合成邮件：午餐实付25元',{exact:true}).waitFor();
     await page.getByText('关联已有饮食记录',{exact:true}).click();await page.getByRole('option').filter({hasText:'合成米饭'}).click();await page.getByRole('button',{name:'关联这餐',exact:true}).click();

@@ -6,6 +6,7 @@ import { captureScreenshotSchema, recordingSegmentSchema, recordingJobSchema, co
 import { activityOrderResultSchema, activityActionInputSchema, recordCapturedExpensesInputSchema, ingestActivityInputSchema, activitiesInputSchema, activitiesResultSchema } from "./activity-schemas.js";
 import { wellnessReviewInputSchema, wellnessReviewResultSchema } from "./wellness-schemas.js";
 import { agentContextInputSchema, agentContextResultSchema } from "./agent-context-schemas.js";
+import { saveDishPreferenceSchema, dishPreferencesInputSchema, dishPreferencesResultSchema } from "./schemas.js";
 import { saveTripConnectionSchema, tripConnectionsInputSchema, tripConnectionsResultSchema } from "./schemas.js";
 import { saveMorningCheckinSchema, morningWindowInputSchema, morningWindowResultSchema } from "./schemas.js";
 import { exerciseHistoryInputSchema, exerciseHistoryResultSchema } from "./workout-menu.js";
@@ -116,6 +117,8 @@ type DomainCapabilityName=keyof typeof captureCompletionWrites|keyof typeof capt
   "life.consumption_stats"|
   "life.correct_intake"|
   "life.correct_meal"|
+  "life.save_dish_preference"|
+  "life.dish_preferences"|
   "life.correct_purchase"|
   "life.daily_record_check"|
   "life.day"|
@@ -275,6 +278,8 @@ const domainCapabilityRegistry:Record<DomainCapabilityName,DomainCapability> = {
   "life.attach_meal_source":write("life.attach_meal_source","为既有餐次关联原图；source.asset_version_id 来自上传结果，使用最新 expected_meal_revision。餐照用 meal_photo、订单用 order_screenshot，其余证据用 evidence。",attachMealSourceInputSchema,["life.meal.write","library.source.link"]),
   "life.set_personal_alias":write("life.set_personal_alias","保存个人食物、商家、模板或支付方式别名。",setPersonalAliasInputSchema,["life.meal.write"]),
   "life.correct_intake": write("life.correct_intake", "先 life.get_record 查摄入条目与当前版本。只改实际食用比例时提交 consumed_fraction（半份填 0.5）；其他更正提交完整 item。", correctIntakeInputSchema, ["life.meal.write"]),
+  "life.save_dish_preference":{...write("life.save_dish_preference","按本人选择的门店、来源和菜品标记还会点、避开或想试。",saveDishPreferenceSchema,["life.purchase.write","life.meal.read"]),resolveEffects:(input:unknown)=>saveDishPreferenceSchema.parse(input).purchase_item_id?["life.purchase.write","life.meal.read"]:["life.purchase.write"]},
+  "life.dish_preferences":{name:"life.dish_preferences",description:"按最近标记分页查看本人门店菜品偏好。",inputSchema:dishPreferencesInputSchema,commandSchema:dishPreferencesInputSchema,resultSchema:dishPreferencesResultSchema,possibleEffects:["life.meal.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["life.meal.read"] as const},
   "life.correct_purchase":write("life.correct_purchase","按预期版本修正消费描述并保留聚合快照。",correctPurchaseInputSchema,["life.purchase.write"]),
   "life.update_purchase_items":write("life.update_purchase_items","按消费记录版本安全追加或修正商品明细；保留折叠来源行、完整修订快照且不新建订单或金额。",updatePurchaseItemsInputSchema,["life.purchase.write"]),
   "life.void_purchase":write("life.void_purchase","撤销一条消费；有关联退款时拒绝破坏金额关系。",voidRecordInputSchema,["life.purchase.write","money.entry.write"]),

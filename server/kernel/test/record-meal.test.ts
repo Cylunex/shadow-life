@@ -28,6 +28,7 @@ class MemoryUnitOfWork implements UnitOfWork {
       listDomain: async () => ({items:[],hasMore:false,asOf:"2026-09-09T00:00:00.000Z"}),
       healthReleaseHistory:async()=>({}),
       morningWindow:async()=>({days:[]}),
+      dishPreferences:async()=>({items:[],next:null}),
       tripConnections:async()=>({items:[],as_of:new Date().toISOString()}),
       exerciseHistory:async()=>({sessions:[]}),
       workoutProgressionPlans:async()=>[],healthTrend:async()=>({metric_key:"weight",points:[],coverage:{from:null,to:null,points:0,truncated:false},as_of:new Date().toISOString()}),

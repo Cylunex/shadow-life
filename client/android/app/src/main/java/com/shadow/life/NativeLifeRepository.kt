@@ -411,6 +411,12 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       put("items",JSONArray().apply{items.forEach{item->put(JSONObject().put("title",item.title).put("state",item.state).apply{if(item.id.isNotBlank())put("id",item.id);item.note?.let{put("note",it)}})}})
     })
   }
+  internal suspend fun dishPreferences(shop:String,beforeAt:String?=null,beforeId:String?=null):JSONObject {
+    val filters=mutableListOf<String>()
+    if(shop.isNotBlank())filters.add("shop_name="+encode(shop))
+    if(beforeAt!=null&&beforeId!=null){filters.add("before_at="+encode(beforeAt));filters.add("before_id="+encode(beforeId))}
+    return JSONObject(getText("/api/life/dish-preferences?"+filters.joinToString("&")))
+  }
   internal suspend fun tripConnections(tripId:String):JSONObject = JSONObject(getText("/api/travel/connections?trip_id=${encode(tripId)}"))
   internal suspend fun connectionReservations(tripId:String):List<JSONObject> =
     JSONObject(getText("/api/travel/trips/${encode(tripId)}")).getJSONArray("reservations").objects()
@@ -920,7 +926,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         if(entry?.entryType?.wireValue=="expense"&&entry.currency=="CNY")add(DetailAction("记录这笔交易的退款",CaptureSeed(CaptureKind.Refund,date=LocalDate.now().toString(),secondary=entry.id,contextKind="money_entry",contextId=entry.id,contextLabel=listOfNotNull(entry.counterparty,entry.category,"CNY ${entry.amount}").joinToString(" · "))))
         items.take(10).forEach{item->add(DetailAction("将“${item.rawName}”加入我的物品",CaptureSeed(CaptureKind.OwnedItem,primary=item.rawName,date=value.occurredOn,option="owned",contextKind="purchase_item",contextId=item.id,contextLabel="来自本次购买")))}
       }
-      RecordDetail(title,value.state.wireValue,value.revision.toInt(),sections,seed,actions,DetailPresentation.Money,entry?.let{"${it.currency} ${detailDecimal(it.amount)}"}?:purchase?.amount?.let{"${purchase.currency.orEmpty()} ${detailDecimal(it)}"},value.occurredOn,assets=sources.mapNotNull{source->source.assetVersionId?.let{DetailAsset(it,if(source.kind=="image")"image/*" else "application/octet-stream","消费凭证")}},consumptionRecordId=value.recordId,linkedMealIds=meals.map{it.id})
+      RecordDetail(title,value.state.wireValue,value.revision.toInt(),sections,seed,actions,DetailPresentation.Money,entry?.let{"${it.currency} ${detailDecimal(it.amount)}"}?:purchase?.amount?.let{"${purchase.currency.orEmpty()} ${detailDecimal(it)}"},value.occurredOn,assets=sources.mapNotNull{source->source.assetVersionId?.let{DetailAsset(it,if(source.kind=="image")"image/*" else "application/octet-stream","消费凭证")}},consumptionRecordId=value.recordId,linkedMealIds=meals.map{it.id},dishPurchase=purchase?.let{DishPurchase(it.merchant.orEmpty(),it.placeRef?:it.channelNameRaw?:"手记",items.filterNot{item->item.rawName.endsWith("等多件")}.map{item->item.id to item.rawName})})
     }
   }
 
