@@ -249,3 +249,5 @@ do not imply a visit. Actual visits and private reservation details retain their
 - 用 `travel.connections` 查旅程中当前可见的衔接。保存手填估时用 `travel.save_connection`，带日计划修订、出发点和相邻停留或已确认预订；改动已有估时还需其自身修订。负余量表示按该估计无法按时到达。
 
 - 菜品偏好用 `life.dish_preferences` 按门店查找。本人明确标记时调用 `life.save_dish_preference`，带门店、地点或渠道、菜名与做法；已购可关联确认的购买行，想试的菜可手记。修改或清除带当前修订。整单评价继续走 `life.correct_purchase`。
+
+- 「上次是什么时候」用 `life.interval_events` 按当地日期查看；新事项用 `life.save_interval_event`，明确发生或补记用 `life.record_occurrence`。可传既有核销或物品事件 ID 引用其实际日期；源记录撤销或失去权限后，查询自动重算相邻间隔。

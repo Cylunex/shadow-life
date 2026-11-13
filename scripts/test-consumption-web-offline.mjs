@@ -31,6 +31,15 @@ await withOfflinePostgres(async url=>{
     web=await createServer({root:`${root}/client/web`,configFile:false,envFile:false,plugins:[react()],define:{__SHADOW_AMAP_CONFIG__:'null',__SHADOW_GOOGLE_MAPS_KEY__:'""'},server:{host:'127.0.0.1',port:0,proxy:{'/api':{target:`http://127.0.0.1:${server.address().port}`}}}});await web.listen();const origin=web.resolvedUrls.local[0];
     browser=await chromium.launch({headless:true,...(process.env.SHADOW_TEST_BROWSER_EXECUTABLE?{executablePath:process.env.SHADOW_TEST_BROWSER_EXECUTABLE}:{}),args:['--disable-background-networking']});
     page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];page.on('pageerror',e=>{errors.push(e.message);console.error('PAGE ERROR',e.message)});
+    await page.goto(origin+'?tab=record&section=timeline');
+    await page.getByText('上次是什么时候',{exact:true}).click();
+    await page.getByLabel('新事项').fill('换滤芯');
+    await page.getByRole('button',{name:'创建事项'}).click();
+    await page.getByRole('button',{name:'今天做了'}).click();
+    await page.getByText(/上次 .*距今 0 天/).waitFor();
+    await page.getByRole('button',{name:'更正记录'}).click();
+    await page.getByRole('button',{name:'撤销这次记录'}).click();
+    await page.getByRole('button',{name:'更正记录'}).waitFor({state:'detached'});
     await page.goto(origin);await page.getByRole('button',{name:'消费与账单 明细、关联与导入'}).click();
     await page.getByRole('heading',{name:'消费与账单',exact:true}).waitFor();await page.getByRole('link').filter({hasText:'合成食材店'}).waitFor();
     assert.match(await page.locator('.money-workspace').innerText(),/未记录付款/);

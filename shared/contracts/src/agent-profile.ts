@@ -11,7 +11,7 @@ export const personalOperatorTools: ReadonlySet<CapabilityName> = new Set<Capabi
   "life.record_meal", "life.record_purchase", "life.record_dining",
   "life.correct_meal", "life.add_intake", "life.remove_intake", "life.correct_intake",
   "life.add_meal_payment", "life.attach_meal_source", "life.link_meal_consumption",
-  "life.save_dish_preference","life.dish_preferences",
+  "life.save_interval_event","life.record_occurrence","life.interval_events","life.save_dish_preference","life.dish_preferences",
   "life.correct_purchase", "life.update_purchase_items", "life.set_personal_alias",
   "life.save_meal_template", "life.record_meal_from_template",
   "life.save_owned_item", "life.record_owned_item_event",
