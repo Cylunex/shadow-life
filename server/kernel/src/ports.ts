@@ -52,9 +52,9 @@ export interface TransactionStore {
   executeDomainWrite(value: { subjectId: string; command: UniversalCommandEnvelope; context?: RequestContext; nextId(type: string): string }): Promise<{ resources: ExecutionResult["resources"]; actualValues: ExecutionResult["actual_values"]; warnings?: string[] }>;
   listDomain(subjectId:string,domain:"money"|"health"|"travel"|"library",options:{view?:"events"|"facts";includePurchase?:boolean;query?:string;limit:number;asOf?:string;before?:{at:string;kind:string;id:string}}):Promise<{items:readonly DomainRecordPageItem[];hasMore:boolean;asOf:string}>;
   captureCompletion?(subjectId:string,name:string,input:unknown,context:RequestContext):Promise<unknown>;
-  captureWorkspace?(subjectId:string,input:{date:string;time_zone:string;recordings_before_id?:string|undefined}):Promise<unknown>;
+  captureWorkspace?(subjectId:string,input:{date:string;time_zone:string;recordings_before_id?:string|undefined},canReadMeals?:boolean):Promise<unknown>;
   activitySource?(subjectId:string,id:string):Promise<unknown>;
-  activityMaterial?(subjectId:string,id:string):Promise<{id:string;text:string|null;app_package?:string|null;automaticPayment?:boolean;paymentPlatform?:string}|undefined>;
+  activityMaterial?(subjectId:string,id:string):Promise<{id:string;text:string|null;app_package?:string|null;captured_at?:string;time_zone?:string;record_id?:string|null;automaticPayment?:boolean;paymentPlatform?:string}|undefined>;
   activities?(subjectId:string,input:import("@shadow/contracts").ActivitiesInput):Promise<unknown>;
   healthReleaseHistory(subjectId:string,input:{from:string;to:string;limit:number}):Promise<unknown>;
   morningWindow(subjectId:string, to:string, timeZone:string):Promise<unknown>;
@@ -103,6 +103,8 @@ export interface TransactionStore {
   travelTrip(subjectId:string,id:string):Promise<unknown|undefined>;
   travelWorkspace(subjectId:string,tripId?:string):Promise<unknown|undefined>;
   travelExportData(subjectId:string,tripId:string):Promise<unknown|undefined>;
+  screenshotSource?(subjectId:string,itemId:string):Promise<{app_package:string|null;text:string|null}|undefined>;
+  screenshotRecord?(subjectId:string,itemId:string,transactionId:string):Promise<string|null>;
   libraryItem(subjectId:string,id:string):Promise<unknown|undefined>;
   libraryProcessingQueue(subjectId:string,kind:string|undefined,limit:number):Promise<unknown>;
   agentContextPack(subjectId:string,id:string,threadId?:string):Promise<unknown|undefined>;

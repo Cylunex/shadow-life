@@ -129,8 +129,19 @@ test("historical capture reprocessing preserves source identity and original acc
  assert.equal(backfill.resources.find(r=>r.type==="consumption_record")!.id,imported.actual_values.record_id);
  assert.equal((await f.pool.query("select count(*)::int n from money_entries")).rows[0].n,1);
  assert.equal((await f.queries.captureWorkspace(f.context,date)).orders[0]!.source_account,"original");
+ const order=await f.queries.activityOrder(f.context,{id:old.resources[0]!.id});
+ assert.equal(order.product,"合成商品");assert.equal(order.payment_time,"2026-10-30 09:00:00");
+ assert.equal(order.consumption_record_id,imported.actual_values.record_id);assert.equal(order.captured_at,"2026-10-30T01:00:00.000Z");
  const evidence=await f.queries.activitySource(f.context,{id:old.resources[0]!.id});
  assert.equal(evidence.consumption_record_id,imported.actual_values.record_id);
+ const image=await new AssetService(f.pool).store(f.context.subjectId,"image/png",Buffer.from("imported-bill"));
+ // Current account binding is explicit, and the original import is retained.
+ await f.run("life.set_order_capture",{app_package:"com.eg.android.AlipayGphone",platform:"alipay",source_account:"original",enabled:true,auto_accounting:false});
+ const shot=await f.run("life.capture_screenshot",{title:"支付原件",asset_version_id:image.asset_version_id,app_package:"com.eg.android.AlipayGphone",text:alipayBill("OLD-SHAKE"),captured_at:"2026-11-01T12:00:00Z",time_zone:"UTC",recognition:"save"});
+ const observed=(await f.queries.libraryItem(f.context,String(shot.actual_values.library_item_id))).payment_observation;
+ assert.equal(observed?.product,"合成商品");assert.equal(observed?.consumption_record_id,imported.actual_values.record_id);
+ const restricted=await f.queries.libraryItem({...f.context,effects:new Set(["library.item.read"])},String(shot.actual_values.library_item_id));
+ assert.equal(restricted.payment_observation?.consumption_record_id,undefined);
  assert.equal(evidence.linked_ledger?.state,"confirmed");
  const search=await f.queries.captureCompletion(f.context,"life.capture_search",{from_on:"2026-10-30",to_on_exclusive:"2026-10-31",time_zone:"UTC",kind:"screen_text"});
  assert.equal(captureSearchResultSchema.parse(search).items.find(r=>r.id===old.resources[0]!.id)?.linked_ledger?.record_id,imported.actual_values.record_id);

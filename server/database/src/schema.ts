@@ -55,6 +55,7 @@ export const intakeItems = pgTable("intake_items", {
   provenance:text("provenance"),
   groupingOrigin:text("grouping_origin"),
   estimate: boolean("estimate").default(false).notNull(),
+  weightBasis: text("weight_basis"),
   evidenceNote: text("evidence_note"),
   revision: integer("revision").default(1).notNull()
 }, (table) => [uniqueIndex("intake_items_meal_position_unique").on(table.mealId, table.position)]);

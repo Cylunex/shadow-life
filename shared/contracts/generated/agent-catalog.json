@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "8c2f9cb5a8792b721f67005f9578078662286ca1e53fe6332e20f455e883cbf3",
+  "catalog_revision": "b1db42dacd16c7807b4a963a1ddbbde111249840bf13f45c066890768224b7ee",
   "terms": [
     {
       "id": "activity_capture",
@@ -21190,6 +21190,115 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "payment_observation": {
+            "type": "object",
+            "properties": {
+              "consumption_record_id": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "source_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{7,127}$"
+              },
+              "asset_version_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{7,127}$"
+              },
+              "item_revision": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "processing_job_id": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "captured_at": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "time_zone": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "merchant": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "product": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "paid_amount": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "payment_time": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "transaction_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "issues": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "source_id",
+              "asset_version_id",
+              "item_revision",
+              "processing_job_id",
+              "captured_at",
+              "time_zone",
+              "merchant",
+              "product",
+              "paid_amount",
+              "payment_time",
+              "transaction_id",
+              "issues"
+            ],
+            "additionalProperties": false
+          },
           "item": {
             "type": "object",
             "properties": {
@@ -25499,7 +25608,7 @@
     },
     {
       "name": "life.activity_order",
-      "description": "从采集页面确定性提取订单、实付、退款与时间的观察，保留冲突和缺失，不创建账目。",
+      "description": "读取有来源的商品说明、商户、实付、支付与采集时间；获准时返回关联消费编号用于核对文件账单。",
       "domain": "life",
       "mode": "read",
       "possible_effects": [
@@ -25527,6 +25636,26 @@
           "activity_id": {
             "type": "string",
             "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,119}$"
+          },
+          "captured_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+          },
+          "time_zone": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "consumption_record_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,119}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "parser_version": {
             "type": "string"
@@ -26048,6 +26177,13 @@
               "amount_g": {
                 "type": "string",
                 "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+              },
+              "weight_basis": {
+                "type": "string",
+                "enum": [
+                  "measured_net",
+                  "payment_derived"
+                ]
               },
               "energy_kcal": {
                 "type": "string",
@@ -29922,7 +30058,7 @@
     },
     {
       "name": "life.capture_workspace",
-      "description": "读取本人录音、转写、已关联订单与分层回顾及来源过期状态。",
+      "description": "按日分列原始图片凭据与获准读取的正式餐次，读取录音、转写、订单与分层回顾。",
       "domain": "life",
       "mode": "read",
       "possible_effects": [
@@ -29960,6 +30096,77 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "image_materials": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "item_id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "source_id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "captured_at": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "captured_on": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "item_id",
+                "source_id",
+                "title",
+                "captured_at",
+                "captured_on"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "recorded_meals": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "meal_id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "meal_type": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "meal_id",
+                "meal_type"
+              ],
+              "additionalProperties": false
+            }
+          },
           "recordings": {
             "maxItems": 100,
             "type": "array",
@@ -32975,6 +33182,13 @@
               "amount_g": {
                 "type": "string",
                 "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+              },
+              "weight_basis": {
+                "type": "string",
+                "enum": [
+                  "measured_net",
+                  "payment_derived"
+                ]
               },
               "energy_kcal": {
                 "type": "string",
@@ -36382,6 +36596,13 @@
                             "type": "string",
                             "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                           },
+                          "weight_basis": {
+                            "type": "string",
+                            "enum": [
+                              "measured_net",
+                              "payment_derived"
+                            ]
+                          },
                           "energy_kcal": {
                             "type": "string",
                             "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
@@ -37916,6 +38137,20 @@
                             "type": "integer",
                             "exclusiveMinimum": 0,
                             "maximum": 9007199254740991
+                          },
+                          "weight_basis": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "measured_net",
+                                  "payment_derived"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -38326,6 +38561,20 @@
                       "type": "integer",
                       "exclusiveMinimum": 0,
                       "maximum": 9007199254740991
+                    },
+                    "weight_basis": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "measured_net",
+                            "payment_derived"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -39927,6 +40176,20 @@
                         "type": "integer",
                         "exclusiveMinimum": 0,
                         "maximum": 9007199254740991
+                      },
+                      "weight_basis": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "measured_net",
+                              "payment_derived"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
                     },
                     "required": [
@@ -40369,6 +40632,13 @@
                                     "amount_g": {
                                       "type": "string",
                                       "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                                    },
+                                    "weight_basis": {
+                                      "type": "string",
+                                      "enum": [
+                                        "measured_net",
+                                        "payment_derived"
+                                      ]
                                     },
                                     "energy_kcal": {
                                       "type": "string",
@@ -40863,6 +41133,11 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "on": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
           "merchant": {
             "type": "string",
             "minLength": 1,
@@ -40894,6 +41169,120 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "stall_prices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "stall": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160,
+                  "pattern": "^[^｜|\\p{Cc}]+$"
+                },
+                "price_name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160,
+                  "pattern": "^[^｜|\\p{Cc}]+$"
+                },
+                "valid_from": {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                },
+                "valid_to_exclusive": {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                },
+                "terms": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "mode": {
+                          "type": "string",
+                          "const": "by_weight"
+                        },
+                        "price_cny": {
+                          "type": "string",
+                          "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                        },
+                        "per_grams": {
+                          "type": "string",
+                          "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                        },
+                        "staple_fee_cny": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                            },
+                            {
+                              "type": "string",
+                              "const": "0.00"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "mode",
+                        "price_cny",
+                        "per_grams",
+                        "staple_fee_cny"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "mode": {
+                          "type": "string",
+                          "const": "per_portion"
+                        },
+                        "price_cny": {
+                          "type": "string",
+                          "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                        },
+                        "staple_fee_cny": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                            },
+                            {
+                              "type": "string",
+                              "const": "0.00"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "mode",
+                        "price_cny",
+                        "staple_fee_cny"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                "evidence_note": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                }
+              },
+              "required": [
+                "stall",
+                "price_name",
+                "valid_from",
+                "terms",
+                "evidence_note"
+              ],
+              "additionalProperties": false
+            }
+          },
           "merchant": {
             "type": "string"
           },
@@ -44106,6 +44495,13 @@
                   "type": "string",
                   "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                 },
+                "weight_basis": {
+                  "type": "string",
+                  "enum": [
+                    "measured_net",
+                    "payment_derived"
+                  ]
+                },
                 "energy_kcal": {
                   "type": "string",
                   "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
@@ -44203,6 +44599,13 @@
                 "amount_g": {
                   "type": "string",
                   "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                },
+                "weight_basis": {
+                  "type": "string",
+                  "enum": [
+                    "measured_net",
+                    "payment_derived"
+                  ]
                 },
                 "energy_kcal": {
                   "type": "string",
@@ -44918,6 +45321,13 @@
                 "amount_g": {
                   "type": "string",
                   "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                },
+                "weight_basis": {
+                  "type": "string",
+                  "enum": [
+                    "measured_net",
+                    "payment_derived"
+                  ]
                 },
                 "energy_kcal": {
                   "type": "string",
@@ -48202,7 +48612,7 @@
     },
     {
       "name": "life.remember_merchant_dish",
-      "description": "按门店复用食品编号并追加出处，餐盘估重不会改写标准份量。",
+      "description": "按门店复用食品编号并追加出处，可记档口价目、主食固定费与生效期。",
       "domain": "life",
       "mode": "write",
       "possible_effects": [
@@ -48230,6 +48640,117 @@
             "minLength": 1,
             "maxLength": 160,
             "pattern": "^[^｜|\\p{Cc}]+$"
+          },
+          "stall_price": {
+            "type": "object",
+            "properties": {
+              "stall": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160,
+                "pattern": "^[^｜|\\p{Cc}]+$"
+              },
+              "price_name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160,
+                "pattern": "^[^｜|\\p{Cc}]+$"
+              },
+              "valid_from": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "valid_to_exclusive": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "terms": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "mode": {
+                        "type": "string",
+                        "const": "by_weight"
+                      },
+                      "price_cny": {
+                        "type": "string",
+                        "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                      },
+                      "per_grams": {
+                        "type": "string",
+                        "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                      },
+                      "staple_fee_cny": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                          },
+                          {
+                            "type": "string",
+                            "const": "0.00"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "mode",
+                      "price_cny",
+                      "per_grams",
+                      "staple_fee_cny"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "mode": {
+                        "type": "string",
+                        "const": "per_portion"
+                      },
+                      "price_cny": {
+                        "type": "string",
+                        "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                      },
+                      "staple_fee_cny": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+                          },
+                          {
+                            "type": "string",
+                            "const": "0.00"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "mode",
+                      "price_cny",
+                      "staple_fee_cny"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "evidence_note": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "required": [
+              "stall",
+              "price_name",
+              "valid_from",
+              "terms",
+              "evidence_note"
+            ],
+            "additionalProperties": false
           },
           "evidence": {
             "oneOf": [
@@ -54689,6 +55210,13 @@
                   "type": "string",
                   "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                 },
+                "weight_basis": {
+                  "type": "string",
+                  "enum": [
+                    "measured_net",
+                    "payment_derived"
+                  ]
+                },
                 "energy_kcal": {
                   "type": "string",
                   "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
@@ -56538,6 +57066,13 @@
                 "amount_g": {
                   "type": "string",
                   "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                },
+                "weight_basis": {
+                  "type": "string",
+                  "enum": [
+                    "measured_net",
+                    "payment_derived"
+                  ]
                 },
                 "energy_kcal": {
                   "type": "string",

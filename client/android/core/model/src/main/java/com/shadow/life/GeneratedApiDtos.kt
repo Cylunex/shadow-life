@@ -790,6 +790,12 @@ enum class ListMealsResultDtoItemsEntryMealType(val wireValue: String) {
 }
 
 @Serializable
+enum class ListMealsResultDtoItemsEntryItemsEntryWeightBasis(val wireValue: String) {
+  @SerialName("measured_net") MeasuredNet("measured_net"),
+  @SerialName("payment_derived") PaymentDerived("payment_derived")
+}
+
+@Serializable
 data class ListMealsResultDtoItemsEntryItemsEntry(
   @SerialName("id") val id: String,
   @SerialName("name") val name: String,
@@ -808,7 +814,8 @@ data class ListMealsResultDtoItemsEntryItemsEntry(
   @SerialName("provenance") val provenance: String?,
   @SerialName("grouping_origin") val groupingOrigin: String?,
   @SerialName("estimate") val estimate: Boolean,
-  @SerialName("revision") val revision: Long
+  @SerialName("revision") val revision: Long,
+  @SerialName("weight_basis") val weightBasis: ListMealsResultDtoItemsEntryItemsEntryWeightBasis? = null
 )
 
 @Serializable
@@ -1535,6 +1542,12 @@ data class MealPlanningResultDtoMealPlansEntryEntriesEntryRecipeSnapshotRecipe(
 )
 
 @Serializable
+enum class MealPlanningResultDtoMealPlansEntryEntriesEntryRecipeSnapshotItemsEntryWeightBasis(val wireValue: String) {
+  @SerialName("measured_net") MeasuredNet("measured_net"),
+  @SerialName("payment_derived") PaymentDerived("payment_derived")
+}
+
+@Serializable
 enum class MealPlanningResultDtoMealPlansEntryEntriesEntryRecipeSnapshotItemsEntryProvenance(val wireValue: String) {
   @SerialName("manual") Manual("manual"),
   @SerialName("estimated") Estimated("estimated"),
@@ -1556,6 +1569,7 @@ data class MealPlanningResultDtoMealPlansEntryEntriesEntryRecipeSnapshotItemsEnt
   @SerialName("quantity") val quantity: String? = null,
   @SerialName("unit") val unit: String? = null,
   @SerialName("amount_g") val amountG: String? = null,
+  @SerialName("weight_basis") val weightBasis: MealPlanningResultDtoMealPlansEntryEntriesEntryRecipeSnapshotItemsEntryWeightBasis? = null,
   @SerialName("energy_kcal") val energyKcal: String? = null,
   @SerialName("protein_g") val proteinG: String? = null,
   @SerialName("fat_g") val fatG: String? = null,
@@ -2056,6 +2070,23 @@ data class ProjectDirectoryResultDto(
 )
 
 @Serializable
+data class LibraryItemResultDtoPaymentObservation(
+  @SerialName("consumption_record_id") val consumptionRecordId: String? = null,
+  @SerialName("source_id") val sourceId: String,
+  @SerialName("asset_version_id") val assetVersionId: String,
+  @SerialName("item_revision") val itemRevision: Long,
+  @SerialName("processing_job_id") val processingJobId: String?,
+  @SerialName("captured_at") val capturedAt: String?,
+  @SerialName("time_zone") val timeZone: String?,
+  @SerialName("merchant") val merchant: String?,
+  @SerialName("product") val product: String?,
+  @SerialName("paid_amount") val paidAmount: String?,
+  @SerialName("payment_time") val paymentTime: String?,
+  @SerialName("transaction_id") val transactionId: String?,
+  @SerialName("issues") val issues: List<String>
+)
+
+@Serializable
 enum class LibraryItemResultDtoItemState(val wireValue: String) {
   @SerialName("active") Active("active"),
   @SerialName("deleted") Deleted("deleted")
@@ -2255,6 +2286,7 @@ data class LibraryItemResultDtoLegacyLinksEntry(
 
 @Serializable
 data class LibraryItemResultDto(
+  @SerialName("payment_observation") val paymentObservation: LibraryItemResultDtoPaymentObservation? = null,
   @SerialName("item") val item: LibraryItemResultDtoItem,
   @SerialName("revisions") val revisions: List<LibraryItemResultDtoRevisionsEntry>,
   @SerialName("sources") val sources: List<LibraryItemResultDtoSourcesEntry>,
@@ -2936,6 +2968,21 @@ data class ActivitySourceResultDto(
 )
 
 @Serializable
+data class CaptureWorkspaceResultDtoImageMaterialsEntry(
+  @SerialName("item_id") val itemId: String,
+  @SerialName("source_id") val sourceId: String,
+  @SerialName("title") val title: String,
+  @SerialName("captured_at") val capturedAt: String?,
+  @SerialName("captured_on") val capturedOn: String?
+)
+
+@Serializable
+data class CaptureWorkspaceResultDtoRecordedMealsEntry(
+  @SerialName("meal_id") val mealId: String,
+  @SerialName("meal_type") val mealType: String
+)
+
+@Serializable
 enum class CaptureWorkspaceResultDtoRecordingsEntryState(val wireValue: String) {
   @SerialName("queued") Queued("queued"),
   @SerialName("running") Running("running"),
@@ -3039,6 +3086,8 @@ data class CaptureWorkspaceResultDtoScreenshotModelsEntry(
 
 @Serializable
 data class CaptureWorkspaceResultDto(
+  @SerialName("image_materials") val imageMaterials: List<CaptureWorkspaceResultDtoImageMaterialsEntry>? = null,
+  @SerialName("recorded_meals") val recordedMeals: List<CaptureWorkspaceResultDtoRecordedMealsEntry>? = null,
   @SerialName("recordings") val recordings: List<CaptureWorkspaceResultDtoRecordingsEntry>,
   @SerialName("orders") val orders: List<CaptureWorkspaceResultDtoOrdersEntry>,
   @SerialName("rules") val rules: List<CaptureWorkspaceResultDtoRulesEntry>,
@@ -3090,6 +3139,9 @@ data class ActivityOrderResultDtoTakeout(
 @Serializable
 data class ActivityOrderResultDto(
   @SerialName("activity_id") val activityId: String,
+  @SerialName("captured_at") val capturedAt: String? = null,
+  @SerialName("time_zone") val timeZone: String? = null,
+  @SerialName("consumption_record_id") val consumptionRecordId: String? = null,
   @SerialName("parser_version") val parserVersion: String,
   @SerialName("order_id") val orderId: String?,
   @SerialName("transaction_id") val transactionId: String?,
@@ -3238,6 +3290,12 @@ enum class LifeRecordResultDtoRecordMealsEntryMealType(val wireValue: String) {
 }
 
 @Serializable
+enum class LifeRecordResultDtoRecordMealsEntryItemsEntryWeightBasis(val wireValue: String) {
+  @SerialName("measured_net") MeasuredNet("measured_net"),
+  @SerialName("payment_derived") PaymentDerived("payment_derived")
+}
+
+@Serializable
 data class LifeRecordResultDtoRecordMealsEntryItemsEntry(
   @SerialName("id") val id: String,
   @SerialName("meal_id") val mealId: String,
@@ -3259,7 +3317,8 @@ data class LifeRecordResultDtoRecordMealsEntryItemsEntry(
   @SerialName("grouping_origin") val groupingOrigin: String?,
   @SerialName("estimate") val estimate: Boolean,
   @SerialName("evidence_note") val evidenceNote: String?,
-  @SerialName("revision") val revision: Long
+  @SerialName("revision") val revision: Long,
+  @SerialName("weight_basis") val weightBasis: LifeRecordResultDtoRecordMealsEntryItemsEntryWeightBasis? = null
 )
 
 @Serializable
@@ -3335,6 +3394,12 @@ enum class LifeRecordResultDtoMealMealType(val wireValue: String) {
 }
 
 @Serializable
+enum class LifeRecordResultDtoMealItemsEntryWeightBasis(val wireValue: String) {
+  @SerialName("measured_net") MeasuredNet("measured_net"),
+  @SerialName("payment_derived") PaymentDerived("payment_derived")
+}
+
+@Serializable
 data class LifeRecordResultDtoMealItemsEntry(
   @SerialName("id") val id: String,
   @SerialName("meal_id") val mealId: String,
@@ -3356,7 +3421,8 @@ data class LifeRecordResultDtoMealItemsEntry(
   @SerialName("grouping_origin") val groupingOrigin: String?,
   @SerialName("estimate") val estimate: Boolean,
   @SerialName("evidence_note") val evidenceNote: String?,
-  @SerialName("revision") val revision: Long
+  @SerialName("revision") val revision: Long,
+  @SerialName("weight_basis") val weightBasis: LifeRecordResultDtoMealItemsEntryWeightBasis? = null
 )
 
 @Serializable

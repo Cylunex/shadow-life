@@ -48,6 +48,16 @@ export async function rememberMerchantDish(db:Database,{subjectId,command,nextId
   await db.execute(sql`insert into merchant_food_evidence(food_id,kind,source_key,meal_id,intake_id,library_item_id,note)
     values(${id},${evidence.kind},${key},${evidence.kind==="meal_intake"?evidence.meal_id:null},${evidence.kind==="meal_intake"?evidence.intake_id:null},
       ${evidence.kind==="menu_photo"?evidence.library_item_id:null},${evidence.note??null}) on conflict do nothing`);
+  if(v.stall_price){
+    const price=v.stall_price;
+    // Same effective date is immutable, including under concurrent writers.
+    const saved=await db.execute(sql`insert into merchant_stall_prices(subject_id,merchant,stall,price_name,valid_from,valid_to_exclusive,terms,evidence_note)
+      values(${subjectId},${merchant.toLowerCase()},${price.stall},${price.price_name},${price.valid_from}::date,${price.valid_to_exclusive??null}::date,${JSON.stringify(price.terms)}::jsonb,${price.evidence_note})
+      on conflict(subject_id,merchant,stall,price_name,valid_from) do update set terms=excluded.terms
+      where merchant_stall_prices.terms=excluded.terms and merchant_stall_prices.valid_to_exclusive is not distinct from excluded.valid_to_exclusive
+        and merchant_stall_prices.evidence_note=excluded.evidence_note returning valid_from`);
+    if(!saved.rowCount)throw conflict("该档口价目在此生效日已有不同依据或价格");
+  }
   return {resources:[{type:"food",id,revision:existing?.revision??1}],actualValues:{food_id:id,merchant,dish:v.dish,reused:!!existing}};
 }
 
@@ -70,5 +80,11 @@ export async function merchantMenu(db:Database,subject:string,v:ReturnType<typeo
     ${v.query?sql`and strpos(lower(m.dish),lower(${v.query}))>0`:sql` `}
     ${v.after?sql`and f.id>${v.after}`:sql` `} order by f.id limit ${v.limit+1}`);
   const items=rows.rows.slice(0,v.limit);
-  return {merchant,items,next:rows.rows.length>v.limit?items.at(-1)!.id:null};
+  const prices=await db.execute(sql`with periods as (
+    select *,least(valid_to_exclusive,lead(valid_from) over(partition by stall,price_name order by valid_from)) until
+    from merchant_stall_prices where subject_id=${subject} and merchant=${merchant.toLowerCase()})
+    select stall,price_name,valid_from::text,until::text valid_to_exclusive,terms,evidence_note from periods
+    where valid_from<=coalesce(${v.on??null}::date,current_date) and (until is null or until>coalesce(${v.on??null}::date,current_date))
+    order by stall,price_name`);
+  return {merchant,items,stall_prices:prices.rows.map(p=>({...p,valid_to_exclusive:p.valid_to_exclusive??undefined})),next:rows.rows.length>v.limit?items.at(-1)!.id:null};
 }

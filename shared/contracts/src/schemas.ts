@@ -36,6 +36,7 @@ export const sourceInputSchema = z.object({
 
 const consumedFraction = canonicalDecimal.refine(value => Number(value) <= 1, "must be at most one");
 
+const weightBasis=z.enum(["measured_net","payment_derived"]);
 export const intakeItemInputSchema = z.object({
   name: z.string().trim().min(1).max(200),
   food_ref_id: stableId.optional(),
@@ -43,6 +44,7 @@ export const intakeItemInputSchema = z.object({
   quantity: positiveDecimal.optional().describe("Decimal string paired with unit. Omit unknown quantities; do not send null or invent grams."),
   unit: z.string().trim().min(1).max(32).optional(),
   amount_g: positiveDecimal.optional(),
+  weight_basis: weightBasis.optional(),
   energy_kcal: canonicalDecimal.optional(),
   protein_g: canonicalDecimal.optional(),
   fat_g: canonicalDecimal.optional(),
@@ -57,6 +59,9 @@ export const intakeItemInputSchema = z.object({
 }).strict().superRefine((item, context) => {
   if ((item.quantity === undefined) !== (item.unit === undefined)) {
     context.addIssue({ code: "custom", message: "quantity and unit must be supplied together" });
+  }
+  if (item.weight_basis && (!item.amount_g || !item.evidence_note || item.weight_basis==="payment_derived" && !item.estimate)) {
+    context.addIssue({code:"custom",path:["weight_basis"],message:"Net weight requires grams and an evidence note. Payment-derived weight must be marked estimated."});
   }
   if (item.estimate && item.evidence_note === undefined) {
     context.addIssue({ code: "custom", message: "estimated values need an evidence_note" });
@@ -414,13 +419,20 @@ export const tripDiaryInputSchema=z.object({trip_id:stableId,on:localDate.option
 export const tripDiaryResultSchema=z.object({items:z.array(z.object({id:stableId,local_day:localDate,position:z.number().int(),body:z.string(),refs:z.array(diaryRef.extend({title:z.string(),asset_version_id:stableId.nullable()})),revision:z.number().int()})),next_offset:z.number().int().nullable()});
 
 const menuLabel=z.string().trim().min(1).max(160).regex(/^[^｜|\p{Cc}]+$/u);
-export const rememberMerchantDishSchema=z.object({merchant:menuLabel.optional(),dish:menuLabel,evidence:z.discriminatedUnion("kind",[
+const stallPriceSchema=z.object({
+  stall:menuLabel,price_name:menuLabel,valid_from:localDate,valid_to_exclusive:localDate.optional(),
+  terms:z.discriminatedUnion("mode",[
+    z.object({mode:z.literal("by_weight"),price_cny:cnyAmount,per_grams:positiveDecimal,staple_fee_cny:cnyAmount.or(z.literal("0.00"))}).strict(),
+    z.object({mode:z.literal("per_portion"),price_cny:cnyAmount,staple_fee_cny:cnyAmount.or(z.literal("0.00"))}).strict()
+  ]),evidence_note:z.string().trim().min(1).max(500)
+}).strict().refine(v=>!v.valid_to_exclusive||v.valid_from<v.valid_to_exclusive,{message:"Invalid price validity interval"});
+export const rememberMerchantDishSchema=z.object({merchant:menuLabel.optional(),dish:menuLabel,stall_price:stallPriceSchema.optional(),evidence:z.discriminatedUnion("kind",[
   z.object({kind:z.literal("meal_intake"),meal_id:stableId,intake_id:stableId,note:z.string().trim().min(1).max(500).optional()}).strict(),
   z.object({kind:z.literal("menu_photo"),library_item_id:stableId,note:z.string().trim().min(1).max(500).optional()}).strict(),
   z.object({kind:z.literal("note"),note:z.string().trim().min(1).max(500)}).strict()
 ])}).strict();
-export const merchantMenuInputSchema=z.object({merchant:menuLabel.optional(),query:z.string().trim().min(1).max(160).optional(),after:stableId.optional(),limit:z.coerce.number().int().min(1).max(100).default(40)}).strict();
-export const merchantMenuResultSchema=z.object({merchant:z.string(),items:z.array(z.object({id:stableId,dish:z.string(),name:z.string(),revision:z.number().int(),
+export const merchantMenuInputSchema=z.object({on:localDate.optional(),merchant:menuLabel.optional(),query:z.string().trim().min(1).max(160).optional(),after:stableId.optional(),limit:z.coerce.number().int().min(1).max(100).default(40)}).strict();
+export const merchantMenuResultSchema=z.object({stall_prices:z.array(stallPriceSchema).optional(),merchant:z.string(),items:z.array(z.object({id:stableId,dish:z.string(),name:z.string(),revision:z.number().int(),
   serving_amount:z.string().nullable(),serving_unit:z.string().nullable(),nutrients:z.record(z.string(),z.unknown()),provenance:z.string().nullable(),
   evidence:z.array(z.object({kind:z.enum(["note","meal_intake","menu_photo"]),meal_id:stableId.nullable(),intake_id:stableId.nullable(),library_item_id:stableId.nullable(),note:z.string().nullable()}))})),next:stableId.nullable()});
 
@@ -650,6 +662,9 @@ export const completeLibraryProcessingInputSchema=z.object({job_id:stableId,atte
 export const libraryProcessingQueueInputSchema=z.object({kind:z.enum(["text_extract","ocr","transcript","vision"]).optional(),limit:z.number().int().min(1).max(100).default(20)}).strict();
 export const libraryProcessingQueueResultSchema=z.object({items:z.array(z.object({id:stableId,item_id:stableId,source_asset_version_id:stableId,kind:z.enum(["text_extract","ocr","transcript","vision"]),requested_processor:z.string().nullable(),state:z.enum(["queued","running"]),attempts:z.number().int().nonnegative(),lease_expires_at:instant.nullable(),created_at:instant,title:z.string(),media_type:z.string(),sha256:z.string().regex(/^[0-9a-f]{64}$/u),byte_size:z.string().regex(/^\d+$/u)}).strict()).max(100),as_of:instant}).strict();
 export const libraryItemResultSchema=z.object({
+  payment_observation:z.object({consumption_record_id:stableId.nullable().optional(),source_id:stableId,asset_version_id:stableId,item_revision:z.number().int(),processing_job_id:stableId.nullable(),
+    captured_at:instant.nullable(),time_zone:z.string().nullable(),merchant:z.string().nullable(),product:z.string().nullable(),
+    paid_amount:z.string().nullable(),payment_time:z.string().nullable(),transaction_id:z.string().nullable(),issues:z.array(z.string())}).strict().optional(),
   item:z.object({id:stableId,title:z.string(),item_type:z.string(),current_revision:z.number().int().positive(),source_id:stableId.nullable(),state:z.enum(["active","deleted"]),created_at:instant}).strict(),
   revisions:z.array(z.object({item_id:stableId,revision:z.number().int().positive(),text:z.string().nullable(),url:z.string().nullable(),tags:z.array(z.string()),document_date:localDate.nullable(),category:z.string().nullable(),source_processing_job_id:stableId.nullable(),reason:z.string().nullable(),created_at:instant}).strict()),
   sources:z.array(z.object({source:z.object({id:stableId,kind:z.string(),external_id:z.string().nullable(),captured_on:localDate.nullable(),captured_at:instant.nullable(),time_zone:z.string().nullable(),original_text:z.string().nullable(),asset_version_id:stableId.nullable(),revision:z.number().int().positive()}).strict(),asset:z.object({id:stableId,asset_id:stableId,media_type:z.string(),sha256:z.string().regex(/^[0-9a-f]{64}$/u),byte_size:z.string().regex(/^\d+$/u),created_at:instant}).strict().nullable()}).strict()),
@@ -937,7 +952,7 @@ export const mealViewSchema = z.object({
   meal_type: z.enum(["breakfast", "lunch", "dinner", "snack", "other"]),
   note: z.string().nullable(),
   revision: z.number().int().positive(),
-  items: z.array(z.object({ id: stableId, name: z.string(), food_ref_id:stableId.nullable(),free_text:z.string().nullable(),quantity: canonicalDecimal.nullable(), unit: z.string().nullable(),amount_g:canonicalDecimal.nullable(), energy_kcal: canonicalDecimal.nullable(),protein_g:canonicalDecimal.nullable(),fat_g:canonicalDecimal.nullable(),carb_g:canonicalDecimal.nullable(),fiber_g:canonicalDecimal.nullable(),sodium_mg:canonicalDecimal.nullable(),consumed_fraction:canonicalDecimal.nullable(),provenance:z.string().nullable(),grouping_origin:z.string().nullable(), estimate: z.boolean(), revision: z.number().int().positive() }).strict()),
+  items: z.array(z.object({ id: stableId, name: z.string(), food_ref_id:stableId.nullable(),free_text:z.string().nullable(),quantity: canonicalDecimal.nullable(), unit: z.string().nullable(),amount_g:canonicalDecimal.nullable(), energy_kcal: canonicalDecimal.nullable(),protein_g:canonicalDecimal.nullable(),fat_g:canonicalDecimal.nullable(),carb_g:canonicalDecimal.nullable(),fiber_g:canonicalDecimal.nullable(),sodium_mg:canonicalDecimal.nullable(),consumed_fraction:canonicalDecimal.nullable(),provenance:z.string().nullable(),grouping_origin:z.string().nullable(), estimate: z.boolean(), revision: z.number().int().positive(),weight_basis:weightBasis.nullable().optional()}).strict()),
   payments: z.array(z.object({ id: stableId, amount: cnyAmount, currency: z.literal("CNY"),payment_method:paymentMethodSchema.nullable() }).strict()),
   source_ids: z.array(stableId),
   sources: z.array(z.object({
@@ -959,7 +974,7 @@ export const moneySummarySchema = z.object({
 export const listMealsInputSchema = z.object({ limit: z.number().int().min(1).max(100).default(20),cursor:z.string().max(1_000).optional() }).strict();
 export const listMealsResultSchema = z.object({ items: z.array(mealViewSchema),next_cursor:z.string().nullable(),as_of:instant }).strict();
 const lifeRecordSourceSchema=z.object({id:stableId,kind:z.string(),external_id:z.string().nullable(),captured_on:localDate.nullable(),captured_at:instant.nullable(),time_zone:ianaTimeZone.nullable(),original_text:z.string().nullable(),asset_version_id:stableId.nullable(),revision:z.number().int().positive()}).strict();
-const lifeRecordIntakeSchema=z.object({id:stableId,meal_id:stableId,position:z.number().int().nonnegative(),name:z.string(),food_ref_id:stableId.nullable(),free_text:z.string().nullable(),quantity:canonicalDecimal.nullable(),unit:z.string().nullable(),amount_g:canonicalDecimal.nullable(),energy_kcal:canonicalDecimal.nullable(),protein_g:canonicalDecimal.nullable(),fat_g:canonicalDecimal.nullable(),carb_g:canonicalDecimal.nullable(),fiber_g:canonicalDecimal.nullable(),sodium_mg:canonicalDecimal.nullable(),consumed_fraction:canonicalDecimal.nullable(),provenance:z.string().nullable(),grouping_origin:z.string().nullable(),estimate:z.boolean(),evidence_note:z.string().nullable(),revision:z.number().int().positive()}).strict();
+const lifeRecordIntakeSchema=z.object({id:stableId,meal_id:stableId,position:z.number().int().nonnegative(),name:z.string(),food_ref_id:stableId.nullable(),free_text:z.string().nullable(),quantity:canonicalDecimal.nullable(),unit:z.string().nullable(),amount_g:canonicalDecimal.nullable(),energy_kcal:canonicalDecimal.nullable(),protein_g:canonicalDecimal.nullable(),fat_g:canonicalDecimal.nullable(),carb_g:canonicalDecimal.nullable(),fiber_g:canonicalDecimal.nullable(),sodium_mg:canonicalDecimal.nullable(),consumed_fraction:canonicalDecimal.nullable(),provenance:z.string().nullable(),grouping_origin:z.string().nullable(),estimate:z.boolean(),evidence_note:z.string().nullable(),revision:z.number().int().positive(),weight_basis:weightBasis.nullable().optional()}).strict();
 const lifeRecordMoneyEntrySchema=z.object({id:stableId,record_id:stableId,entry_type:z.enum(["expense","income","refund"]),amount:storedAmount,currency:currencyCode,occurred_on:localDate,occurred_at:instant.nullable(),time_zone:ianaTimeZone,note:z.string().nullable(),category:z.string().nullable(),counterparty:z.string().nullable(),source_id:stableId.nullable().optional(),payment_method:paymentMethodSchema.nullable(),source_scale:z.number().int().min(0).max(6),revision:z.number().int().positive()}).strict();
 const lifeRecordPurchaseSchema=z.object({id:stableId,record_id:stableId,merchant:z.string().nullable(),amount:storedAmount.nullable(),currency:currencyCode,category:z.string().nullable(),occurred_on:localDate,occurred_at:instant.nullable(),time_zone:ianaTimeZone,note:z.string().nullable(),source_id:stableId.nullable().optional(),scene:z.string().nullable(),channel_name_raw:z.string().nullable(),place_ref:z.string().nullable(),rating:z.number().int().min(1).max(5).nullable(),would_repeat:z.boolean().nullable(),revision:z.number().int().positive()}).strict();
 const lifeRecordPurchaseItemSchema=z.object({id:stableId,purchase_id:stableId,position:z.number().int().nonnegative(),raw_name:z.string(),quantity:canonicalDecimal.nullable(),unit_price:storedAmount.nullable(),unit:z.string().nullable(),line_amount:storedAmount.nullable(),category_key:z.string().nullable()}).strict();

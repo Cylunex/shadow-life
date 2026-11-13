@@ -268,3 +268,9 @@ do not imply a visit. Actual visits and private reservation details retain their
 - 售后通过 `money.save_return_case` 关联购买行，写寄回日、预计退款和明确的分配金额。读 `money.return_cases` 核验差额。
 - 用 `travel.rail_ticket` 从指定资料及旅程取候选。再次分享或改签时先读 matched。票价保留在票据中，实际付款有独立依据时再记。
 - 在个人配置下运行 `life --config <配置文件> describe <能力名>` 查看可执行输入和只读属性。健康、旅行、资料、时间线支持从 `agent.discover` 按场景和只读条件发现能力。
+
+### 食堂档口、付款材料与餐次
+
+- 用同一时区逐日读取 `life.capture_workspace`。按采集日列出 `image_materials` 中的原件，再单列 `recorded_meals` 中已记餐次及类型。图片可能是餐照、订单或无关图片，需回读原件；一单多段只计一笔凭据。只有早餐入账时，报告午餐有几组材料、正式午餐有几条。读取不到餐次权限时标为未知。结果截断后使用日期检索分页补齐。
+- 摇一摇文字用 `life.activity_order`，长图用 `library.get_item.payment_observation`。引用活动 ID 或原件、版本和识图任务；区分商品说明、收款商户、实付、支付时刻及采集时刻。分享图的采集时刻是 Life 收到材料的时间。一个食堂收款方可覆盖多个档口，须用商品说明或价目原件确认。缺少支付时刻时保留未知。同笔交易经 `consumption_record_id` 读 `money.consumption_sources`，列出已关联的邮件／文件账单、候选关系及编号。若只有图像交易号，先核实平台及账号；同额同日只能提供查找线索。
+- 用 `life.remember_merchant_dish.stall_price` 保存档口、价目名称、币种为人民币的单价、每份或每若干克计价、主食固定费、生效日和原始依据。用 `life.merchant_menu` 传用餐日期 `on` 查当日价目。称重净重填 `amount_g`、`weight_basis=measured_net` 和称重依据。按付款反算时，先核对该价目及固定费确实适用于本单，并核清折扣和其他费用，再以（用于称重菜的金额 ÷ 单价）× 计价克数推算，标 `payment_derived`、`estimate=true` 和具体算式。食品编号复用原值。照片、价格与付款凭据均可先保留，正式餐次按明确用餐事实及授权写入。

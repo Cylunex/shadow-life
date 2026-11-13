@@ -8,16 +8,16 @@ export function inspectActivityOrder(text:string,platform?:string,paymentResult=
    const values=new Set<string>();
    for(let i=0;i<lines.length;i++)for(const label of labels){
      const line=lines[i]!;
-     if(line===label||line===`${label}：`||line===`${label}:`){if(lines[i+1])values.add(lines[i+1]!);}
+     if(line===label||line===`${label}：`||line===`${label}:`){if(lines[i+1] && !/^(?:商品说明|商品名称|商品描述|交易对方|商户名称|实付金额|支付时间|付款时间|交易时间|交易单号|订单号|付款方式|支付方式|商家订单号|收款方全称)(?:[:：]|$)/u.test(lines[i+1]!))values.add(lines[i+1]!);}
      else if(line.startsWith(`${label}：`)||line.startsWith(`${label}:`))values.add(line.slice(label.length+1).trim());
    }
    if(values.size>1){issues.push(`${labels[0]}存在多个不同值`);return null;}
    return [...values][0]??null;
  }
  function amount(labels:string[]){const value=field(labels);if(value===null)return null;const match=/^(?:[¥￥]\s*)?(\d{1,12})(?:\.(\d{1,2}))?(?:\s*元)?$/u.exec(value);if(!match){issues.push(`${labels[0]}格式无法明确识别`);return null;}return `${BigInt(match[1]!)}.${(match[2]??"").padEnd(2,"0")}`;}
- const order_id=field(["订单号","订单编号"]),product=field(["商品名称","商品说明"]);
- let transaction_id=field(["交易单号","交易号","微信支付单号","支付宝交易号"]),merchant=field(["商家名称","商户名称","交易对方","收款方","收款方全称"]);
- let paid_amount=amount(["实付金额","实付款","实际支付","实际付款","支付金额","付款金额"]);
+ const order_id=field(["订单号","订单编号"]),product=field(["商品说明","商品描述"])??(issues.some(issue=>issue.startsWith("商品说明"))?null:field(["商品名称"]));
+ let transaction_id=field(["交易单号","交易号","微信支付单号","支付宝交易号"]),merchant=field(["商家名称","商户名称","商户","交易对方","收款方","收款方全称"]);
+ let paid_amount=amount(["实付金额","实付","实付款","实际支付","实际付款","支付金额","付款金额"]);
  const order_amount=amount(["订单金额","订单总额"]),refund_amount=amount(["退款金额","已退金额"]);
  const statusLines=lines.map(line=>line.replace(/^(?:当前状态|交易状态)[:：]\s*/u,""));
  const statuses=new Set(statusLines.filter(line=>["支付成功","付款成功","交易成功","待付款","等待付款","已取消","交易关闭","退款成功","退款处理中"].includes(line)));
@@ -59,7 +59,7 @@ export function inspectActivityOrder(text:string,platform?:string,paymentResult=
  if(!order_id&&!transaction_id)issues.push("缺少明确订单或交易身份");
  if(!paid_amount)issues.push("没有明确实付金额");
  if(!payment_time)issues.push("没有明确付款时间");
- return {parser_version:"screen-order-v3",order_id,transaction_id,merchant,product,paid_amount,order_amount,refund_amount,payment_time,order_time,status,issues,accounting_created:false as const};
+ return {parser_version:"screen-order-v4",order_id,transaction_id,merchant,product,paid_amount,order_amount,refund_amount,payment_time,order_time,status,issues,accounting_created:false as const};
 }
 
 export function mergeOrderObservations(observations:Array<ReturnType<typeof inspectActivityOrder>>){

@@ -33,3 +33,27 @@ test("store menu reuses legacy foods, serializes concurrent enrolment and never 
   assert.equal(prior.evidence.find(r=>r.kind==="meal_intake")?.intake_id,item.id);
   assert.equal((await pool.query("select count(*)::int n from meals")).rows[0].n,1);
 });
+
+test("stall price periods and net weight evidence remain independent of receipt counts",pgOnly,async t=>{
+  const f=await reviewFixture(t),merchant="合成食堂",dish="青菜";
+  const base={merchant,dish,evidence:{kind:"note",note:"合成价目原件"}};
+  const price={stall:"自选菜",price_name:"称重菜",valid_from:"2026-10-01",terms:{mode:"by_weight",price_cny:"2.00",per_grams:"100",staple_fee_cny:"1.00"},evidence_note:"菜单第一行"};
+  const first=await f.run("life.remember_merchant_dish",{...base,stall_price:price});
+  const updated=await f.run("life.remember_merchant_dish",{...base,stall_price:{...price,valid_from:"2026-11-01",terms:{...price.terms,price_cny:"3.00"}}});
+  assert.equal(first.actual_values.food_id,updated.actual_values.food_id);
+  const old=await f.queries.merchantMenu(f.context,{merchant,on:"2026-10-31"});
+  assert.equal(old.stall_prices?.[0]?.valid_to_exclusive,"2026-11-01");
+  assert.equal(old.stall_prices?.[0]?.terms.price_cny,"2.00");
+  const item={name:dish,amount_g:"100",weight_basis:"payment_derived",estimate:true,evidence_note:"(3-1)/2×100"};
+  const meal={occurred_on:"2026-10-31",time_zone:"UTC",meal_type:"breakfast",items:[item]};
+  await assert.rejects(()=>f.run("life.record_meal",{...meal,items:[{...item,estimate:false}]}));
+  const receipt=await f.run("life.record_meal",meal);
+  const detail=await f.queries.lifeRecord(f.context,String(receipt.actual_values.meal_id));
+  assert.ok(detail.kind==="meal");assert.equal(detail.items?.[0]?.weight_basis,"payment_derived");
+  const asset=await new AssetService(f.pool).store(f.context.subjectId,"image/png",Buffer.from("synthetic"));
+  for(let i=0;i<5;i++)await f.run("life.capture_screenshot",{asset_version_id:asset.asset_version_id,title:"合成凭据"+i,captured_at:"2026-10-31T12:00:00Z",time_zone:"UTC",recognition:"save"});
+  const day={date:"2026-10-31",time_zone:"UTC"},workspace=await f.queries.captureWorkspace(f.context,day);
+  assert.equal(workspace.image_materials?.length,5);assert.deepEqual(workspace.recorded_meals,[{meal_id:receipt.actual_values.meal_id,meal_type:"breakfast"}]);
+  const limited=await f.queries.captureWorkspace({...f.context,effects:new Set(["library.item.read"])},day);
+  assert.equal(limited.recorded_meals,undefined);
+});

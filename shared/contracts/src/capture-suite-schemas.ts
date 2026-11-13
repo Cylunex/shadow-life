@@ -13,6 +13,8 @@ export const reviseTranscriptSchema=z.object({segment_id:id,expected_revision:z.
 export const orderCaptureRuleSchema=z.object({app_package:z.string().trim().min(1).max(300),platform:z.enum(["generic","taobao","jd","meituan","alipay","wechat"]),source_account:z.string().trim().min(1).max(200),enabled:z.boolean(),auto_accounting:z.boolean().default(false)}).strict();
 export const activityReviewInputSchema=z.object({date:z.iso.date(),time_zone:zone,period:z.enum(["day","week","month"])}).strict();
 export const captureWorkspaceResultSchema=z.object({
+ image_materials:z.array(z.object({item_id:id,source_id:id,title:z.string(),captured_at:time.nullable(),captured_on:z.iso.date().nullable()}).strict()).optional(),
+ recorded_meals:z.array(z.object({meal_id:id,meal_type:z.string()}).strict()).optional(),
  recordings:z.array(z.object({id,session_id:id,title:z.string(),started_at:time,ended_at:time,asset_version_id:id,state:z.enum(["queued","running","completed","failed"]),revision:z.number().int().positive(),attempt:z.number().int().nonnegative(),spans:z.array(transcriptSpanSchema),error:z.string().nullable(),processor_version:z.string().nullable(),audio_available:z.boolean(),protected:z.boolean()}).strict()).max(100),
  orders:z.array(z.object({id,platform:z.string(),source_account:z.string(),external_id:z.string(),status:z.string(),source_count:z.number().int().nonnegative(),fields:z.string(),record_id:z.string().nullable(),related_record_id:z.string().nullable().optional(),conflict:z.boolean()}).strict()).max(100),
  rules:z.array(orderCaptureRuleSchema).max(100),
