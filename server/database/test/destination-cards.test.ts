@@ -1,0 +1,21 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {pgOnly,reviewFixture} from "./review-fixture.js";
+test("driver card resolves only the visible active overnight stay or personal place; cancellation drops its address",pgOnly,async t=>{
+  const {run,queries,context,unitOfWork,pool}=await reviewFixture(t);
+  const {actual_values:{trip_id}}=await run("travel.create_trip",{title:"两夜",starts_on:"2026-11-12",ends_on:"2026-11-14",time_zone:"Asia/Shanghai"});
+  const {actual_values:{reservation_id}}=await run("travel.add_reservation",{trip_id,reservation_type:"hotel",title:"桥边旅馆",starts_at:"2026-11-12T06:00:00Z",ends_at:"2026-11-14T03:00:00Z",visibility:"private",confirmation_code:"PRIVATE-CODE"});
+  const input={trip_id,on:"2026-11-13",reservation_id,address:"桥街18号",local_name:"Bridge Inn",entrance:"河边入口"};
+  await run("travel.save_destination",input);
+  const read=(ctx=context)=>queries.destinations(ctx,{trip_id});
+  const row=(await read()).items[1]!;assert.equal(row.local_name,"Bridge Inn");assert.equal(row.address,"桥街18号");assert.ok(!JSON.stringify(row).includes("PRIVATE-CODE"));
+  assert.equal((await read()).items.length,2);
+  const viewer={...context,subjectId:"subject_card_viewer"};await unitOfWork.ensurePrincipal(viewer.subjectId);
+  await pool.query("insert into trip_members(trip_id,subject_id,role,visibility) values($1,$2,'viewer','shared')",[trip_id,viewer.subjectId]);
+  assert.deepEqual((await read(viewer)).items,[]);
+  await run("travel.void_reservation",{reservation_id,expected_revision:1,reason:"误录"});
+  const withdrawn=(await read()).items[0]!;assert.equal(withdrawn.name,null);assert.equal(withdrawn.address,null);
+  const place=await run("travel.save_place",{name:"市立美术馆",address:"湖街2号"});
+  await run("travel.save_destination",{trip_id,on:input.on,place_id:place.actual_values.place_id,expected_revision:1});
+  assert.equal((await read()).items[0]?.address,"湖街2号");
+});

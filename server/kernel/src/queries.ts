@@ -18,6 +18,7 @@ import { pricesInputSchema,pricesResultSchema } from "@shadow/contracts";
 import { amountEvidenceInputSchema,amountEvidenceResultSchema } from "@shadow/contracts";
 import { intervalQuerySchema,intervalResultSchema } from "@shadow/contracts";
 import { dishPreferencesInputSchema, dishPreferencesResultSchema } from "@shadow/contracts";
+import {destinationQuerySchema,destinationsResultSchema} from "@shadow/contracts";
 import { tripConnectionsInputSchema, tripConnectionsResultSchema } from "@shadow/contracts";
 import { morningWindowInputSchema, morningWindowResultSchema } from "@shadow/contracts";
 import { exerciseHistoryInputSchema, exerciseHistoryResultSchema } from "@shadow/contracts";
@@ -183,6 +184,10 @@ export class QueryService {
     if(!context.effects.has("life.meal.read"))throw permissionDenied("life.meal.read");
     const filters=dishPreferencesInputSchema.parse(input);
     return dishPreferencesResultSchema.parse(await this.unitOfWork.read(store=>store.dishPreferences(context.subjectId,filters)));
+  }
+  async destinations(context:RequestContext,input:unknown){
+    if(!context.effects.has("travel.trip.read"))throw permissionDenied("travel.trip.read");
+    const filters=destinationQuerySchema.parse(input);return destinationsResultSchema.parse(await this.unitOfWork.read(store=>store.destinations(context.subjectId,filters)));
   }
   async tripConnections(context:RequestContext,input:unknown) {
     if (!context.effects.has("travel.trip.read")) throw permissionDenied("travel.trip.read");

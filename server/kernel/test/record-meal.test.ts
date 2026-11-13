@@ -33,6 +33,7 @@ class MemoryUnitOfWork implements UnitOfWork {
       amountEvidence:async()=>({items:[],sources:[]}),
       intervalEvents:async()=>({events:[],next:null}),
       dishPreferences:async()=>({items:[],next:null}),
+      destinations:async()=>({as_of:new Date().toISOString(),items:[]}),
       tripConnections:async()=>({items:[],as_of:new Date().toISOString()}),
       exerciseHistory:async()=>({sessions:[]}),
       workoutProgressionPlans:async()=>[],healthTrend:async()=>({metric_key:"weight",points:[],coverage:{from:null,to:null,points:0,truncated:false},as_of:new Date().toISOString()}),

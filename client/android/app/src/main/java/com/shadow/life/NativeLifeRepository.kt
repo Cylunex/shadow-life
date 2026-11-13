@@ -425,6 +425,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     if(beforeAt!=null&&beforeId!=null){filters.add("before_at="+encode(beforeAt));filters.add("before_id="+encode(beforeId))}
     return JSONObject(getText("/api/life/dish-preferences?"+filters.joinToString("&")))
   }
+  internal suspend fun destinations(trip:String,date:String?=null):JSONObject=JSONObject(getText("/api/travel/destinations?trip_id="+encode(trip)+(date?.let{"&on="+encode(it)}?:"")))
   internal suspend fun tripConnections(tripId:String):JSONObject = JSONObject(getText("/api/travel/connections?trip_id=${encode(tripId)}"))
   internal suspend fun connectionReservations(tripId:String):List<JSONObject> =
     JSONObject(getText("/api/travel/trips/${encode(tripId)}")).getJSONArray("reservations").objects()
@@ -432,6 +433,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     val detail=JSONObject(getText("/api/travel/trips/${encode(tripId)}"))
     val workspace=JSONObject(getText("/api/travel/workspace?trip_id=${encode(tripId)}"))
     workspace.put("connections",tripConnections(tripId))
+    workspace.put("destinations",destinations(tripId))
     renderNativeOfflineItinerary(tripId,detail.toString(),workspace.toString())
   }
   suspend fun queueLibraryVision(itemId:String,assetVersionId:String):OperationReceipt=withContext(Dispatchers.IO){

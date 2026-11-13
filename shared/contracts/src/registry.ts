@@ -11,6 +11,7 @@ import { purchasePriceSpecSchema,pricesInputSchema,pricesResultSchema } from "./
 import { saveAmountEvidenceSchema,amountEvidenceInputSchema,amountEvidenceResultSchema } from "./schemas.js";
 import { intervalEventSchema,intervalOccurrenceSchema,intervalQuerySchema,intervalResultSchema } from "./schemas.js";
 import { saveDishPreferenceSchema, dishPreferencesInputSchema, dishPreferencesResultSchema } from "./schemas.js";
+import {destinationCardSchema,destinationQuerySchema,destinationsResultSchema} from "./schemas.js";
 import { saveTripConnectionSchema, tripConnectionsInputSchema, tripConnectionsResultSchema } from "./schemas.js";
 import { saveMorningCheckinSchema, morningWindowInputSchema, morningWindowResultSchema } from "./schemas.js";
 import { exerciseHistoryInputSchema, exerciseHistoryResultSchema } from "./workout-menu.js";
@@ -228,6 +229,7 @@ type DomainCapabilityName=keyof typeof captureCompletionWrites|keyof typeof capt
   "travel.restore_bundle"|
   "travel.save_map"|
   "travel.save_place"|
+  "travel.save_destination"|"travel.destinations"|
   "travel.save_connection"|
   "travel.connections"|
   "travel.set_checklist"|
@@ -338,6 +340,8 @@ const domainCapabilityRegistry:Record<DomainCapabilityName,DomainCapability> = {
   "travel.record_visit": {...write("travel.record_visit", "记录实际到访地点，可关联旅程。", recordVisitInputSchema, ["travel.visit.write","library.source.link"]),resolveEffects(input:unknown){const value=recordVisitInputSchema.parse(input);return["travel.visit.write",...(value.source?["library.source.link"]:[])];}},
   "travel.save_place":write("travel.save_place","保存稳定地点、标签和收藏状态。",savePlaceInputSchema,["travel.trip.write"]),
   "travel.set_day_plan":write("travel.set_day_plan","设置旅程某日的有序计划。",setTripDayPlanInputSchema,["travel.trip.write"]),
+  "travel.save_destination":write("travel.save_destination","从当天住宿或自选地点保存个人目的地卡、当地名称与入口提示。",destinationCardSchema,["travel.trip.write"]),
+  "travel.destinations":{name:"travel.destinations",description:"按旅程日期读取本人可见的有效住宿目的地与手选地址。",inputSchema:destinationQuerySchema,commandSchema:destinationQuerySchema,resultSchema:destinationsResultSchema,possibleEffects:["travel.trip.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["travel.trip.read"] as const},
   "travel.save_connection":write("travel.save_connection","为当天停留点与下一站或预订保存计划离开时刻、交通估时和到站提前量。",saveTripConnectionSchema,["travel.trip.write"]),
   "travel.connections":{name:"travel.connections",description:"核对可见行程衔接的目的时刻、机动分钟和端点状态。",inputSchema:tripConnectionsInputSchema,commandSchema:tripConnectionsInputSchema,resultSchema:tripConnectionsResultSchema,possibleEffects:["travel.trip.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["travel.trip.read"] as const},
   "travel.set_checklist":write("travel.set_checklist","按版本维护旅程清单，计划状态与实际到访独立。",setTripChecklistInputSchema,["travel.trip.write"]),

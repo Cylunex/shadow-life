@@ -3,6 +3,7 @@ import { readPrices,savePriceSpec } from "./purchase-prices.js";
 import { readAmountEvidence,writeAmountEvidence } from "./amount-evidence.js";
 import { readIntervals,saveIntervalEvent,saveIntervalOccurrence } from "./interval-events.js";
 import { readDishPreferences, saveDishPreference } from "./dish-preferences.js";
+import {destinations,saveDestination} from "./destination-cards.js";
 import { readTripConnections, writeTripConnection } from "./trip-connections.js";
 import { readMorningWindow, writeMorningCheckin } from "./morning-checkin.js";
 import { readRelatedPaymentRecord } from "./payment-capture-group.js";
@@ -649,6 +650,7 @@ function storeFor(database: Database | Transaction): TransactionStore {
         case "life.save_interval_event":return saveIntervalEvent(database,{subjectId,command,nextId});
         case "life.record_occurrence":return saveIntervalOccurrence(database,{subjectId,command,nextId});
         case "life.save_dish_preference":return saveDishPreference(database,{subjectId,command,nextId});
+        case "travel.save_destination":return saveDestination(database,{subjectId,command,nextId});
         case "travel.save_connection":{
           await tripForWrite(saveTripConnectionSchema.parse(command.input).trip_id);
           return writeTripConnection(database,{subjectId,command,nextId});
@@ -858,6 +860,7 @@ function storeFor(database: Database | Transaction): TransactionStore {
     amountEvidence(subjectId,record,library){return readAmountEvidence(database,subjectId,record,library);},
     intervalEvents(subjectId,input,cards,items){return readIntervals(database,subjectId,input,cards,items);},
     dishPreferences(subjectId,input){return readDishPreferences(database,subjectId,input);},
+    destinations(subjectId,input){return destinations(database,subjectId,input);},
     tripConnections(subjectId,tripId){return readTripConnections(database,subjectId,tripId);},
     morningWindow(subjectId,to,timeZone) { return readMorningWindow(database,subjectId,to,timeZone); },
     async exerciseHistory(subjectId, exercise) {

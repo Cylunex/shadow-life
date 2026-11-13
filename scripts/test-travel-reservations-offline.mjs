@@ -51,6 +51,17 @@ await withOfflinePostgres(async url=>{
     await panel.getByText('湖畔两晚住宿',{exact:true}).waitFor();
     await page.getByLabel('行程日期').selectOption('2026-10-28');
     await panel.getByText('夜间列车',{exact:true}).waitFor();
+    const destination=page.getByRole('region',{name:'目的地卡'});
+    await destination.getByRole('button',{name:'编辑目的地卡'}).click();
+    await destination.getByLabel('当地名称').fill('Lake Inn');await destination.getByLabel('街道地址').fill('湖畔路8号');
+    await destination.getByLabel('入口说明').fill('从北门入');await destination.getByRole('button',{name:'保存目的地',exact:true}).click();
+    await destination.getByText(/湖畔路8号/).waitFor();await destination.getByRole('button',{name:'给司机看'}).click();
+    const driver=page.getByRole('dialog',{name:'给司机看的目的地'});await driver.getByText('Lake Inn').waitFor();
+    assert.ok(!(await driver.textContent()).includes('SYNTHETIC-BOOKING'));await driver.getByRole('button',{name:'关闭大字卡'}).click();
+    const cardDownload=page.waitForEvent('download');await destination.getByRole('button',{name:'保存离线目的地卡'}).click();
+    await (await cardDownload).saveAs(output+'/driver.html');
+    const {readFile:readCard}=await import('node:fs/promises');const savedCard=await readCard(output+'/driver.html','utf8');
+    assert.ok(savedCard.includes('从北门入'));assert.ok(!savedCard.includes('SYNTHETIC-BOOKING'));assert.ok(!savedCard.includes('夜间列车'));
     const connections=page.getByRole('region',{name:'行程衔接'});
     await connections.getByRole('button',{name:'添加衔接'}).click();
     await connections.getByLabel('要赶到哪里').selectOption({label:'杭州东站'});

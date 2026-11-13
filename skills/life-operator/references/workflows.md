@@ -257,3 +257,5 @@ do not imply a visit. Actual visits and private reservation details retain their
 - 查常购价用 `life.purchase_prices`，返回可比行、原单与可换算覆盖。购买行缺少整行包装数量、净含量或优惠依据时可用 `life.set_price_spec` 补充。整单券不摊派，价格按同款、币种、单位和行价口径呈现。
 
 - 从批次找菜用 `life.stock_recipes`，传批次和计划日期。已过期批次不计，未知数量或不兼容单位保留未知。选定食谱后沿用餐单，生成购物清单时带 `shortfall_on` 才按当日全部库存扣减，餐单与采购不会改变食材库存。
+
+- 旅程目的地用 `travel.destinations` 按当地日读取。未指定个人卡时取当天仍有效且有权查看的住宿；也可用 `travel.save_destination` 选择地点、填写当地名和入口。司机视图只带地点名、地址和入口说明。

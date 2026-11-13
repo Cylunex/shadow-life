@@ -63,6 +63,7 @@ export interface TransactionStore {
   amountEvidence(subjectId:string,recordId:string,canReadLibrary:boolean):Promise<unknown>;
   intervalEvents(subjectId:string,input:import("@shadow/contracts").IntervalQuery,canReadCards:boolean,canReadItems:boolean):Promise<unknown>;
   dishPreferences(subjectId:string,input:import("@shadow/contracts").DishPreferenceQuery):Promise<unknown>;
+  destinations(subjectId:string,input:import("@shadow/contracts").DestinationQuery):Promise<unknown>;
   tripConnections(subjectId:string, tripId:string):Promise<unknown>;
   exerciseHistory(subjectId:string, input:import("@shadow/contracts").ExerciseHistoryInput):Promise<unknown>;
   workoutProgressionPlans(subjectId:string,planId?:string):Promise<import("./workout-progression.js").WorkoutProgressionPlan[]>;

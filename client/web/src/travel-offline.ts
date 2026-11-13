@@ -1,4 +1,5 @@
-import type { TripConnection } from "@shadow/contracts";
+import {driverHtml} from "./travel-destination.js";
+import type { TripConnection, Destinations } from "@shadow/contracts";
 import { connectionDescription, connectionModes } from "./travel-connections.js";
 import { isConfirmedOvernight, reservationsForDay, reservationDayLabel, reservationStateLabel, reservationTypeLabel, type TravelReservation } from "./travel-reservations.js";
 import { formatInTimeZone } from "./travel-time.js";
@@ -12,17 +13,18 @@ const escape=(value:unknown)=>String(value??"").replace(/[&<>"']/gu,char=>({"&":
 const local=(instant:string|null,zone:string)=>instant?formatInTimeZone(instant,zone).replace("T"," "):"时间待定";
 const dayOf=(instant:string|null,zone:string)=>instant?formatInTimeZone(instant,zone).slice(0,10):"";
 
-export function renderOfflineItinerary(detail:OfflineTripDetail,checklist:TravelChecklist|null,connections?:{items:TripConnection[];as_of:string}):string{
+export function renderOfflineItinerary(detail:OfflineTripDetail,checklist:TravelChecklist|null,connections?:{items:TripConnection[];as_of:string},destinations?:Destinations):string{
   const {trip}=detail,zone=trip.time_zone,days=[...new Set([...itineraryDates(trip,detail.day_plans),...[...detail.reservations,...detail.segments].flatMap(item=>[dayOf(item.starts_at,zone),dayOf(item.ends_at,zone)]).filter(Boolean)])].sort();
   const rows=days.map(date=>{
     const plan=detail.day_plans.find(item=>item.plan_date===date);
+    const destination=destinations?.items.find(r=>r.on_date===date&&r.name);
     const stops=plan?.items.map((stop,index)=>`<li>${index+1}. ${escape(stop.starts_at?local(stop.starts_at,zone).slice(11):"时间待定")} · ${escape(stop.title)}${stop.note?`<small>${escape(stop.note)}</small>`:""}</li>`).join("")??"";
     const lodging=detail.reservations.filter(item=>isConfirmedOvernight(item,date,zone)).map(item=>`<li>${escape(item.title)}（${escape(reservationStateLabel(item.state))}）<small>入住 ${escape(local(item.starts_at,zone))} · 退房 ${escape(local(item.ends_at,zone))}</small></li>`).join("");
     const bookings=reservationsForDay(detail.reservations,date,zone).map(item=>`<li>${escape(item.starts_at?local(item.starts_at,zone).slice(11):"开始时间未定")} · ${escape(item.title)}（${escape(reservationTypeLabel(item.reservation_type))}，${escape(reservationStateLabel(item.state))}）${item.starts_at&&dayOf(item.starts_at,zone)!==date?`<small>开始：${escape(local(item.starts_at,zone))}</small>`:""}${reservationDayLabel(item,date,zone)?`<small>${escape(reservationDayLabel(item,date,zone))}</small>`:""}${item.service_number?`<small>班次：${escape(item.service_number)}</small>`:""}${item.origin||item.destination?` ${escape(item.origin)} → ${escape(item.destination)}`:""}${item.ends_at?`<small>结束：${escape(local(item.ends_at,zone))}</small>`:""}${item.confirmation_code?`<small>确认号：${escape(item.confirmation_code)}</small>`:""}${item.seat?`<small>座位：${escape(item.seat)}</small>`:""}</li>`).join("");
     const segments=detail.segments.filter(item=>dayOf(item.starts_at,zone)===date).map(item=>`<li>${escape(local(item.starts_at,zone).slice(11))} · ${escape(item.origin)} → ${escape(item.destination)}（${escape(item.mode)}）${item.ends_at?`<small>到达：${escape(local(item.ends_at,zone))}</small>`:""}${item.note?`<small>${escape(item.note)}</small>`:""}</li>`).join("");
     const estimates=connections?.items.filter(row=>row.plan_date===date).map(row=>
       `<li>${escape(row.from_title)} → ${escape(row.to_title)} · ${connectionModes[row.mode]} ${row.travel_minutes??"—"} 分钟 · 提前 ${row.buffer_minutes} 分钟 · ${escape(connectionDescription(row))}</li>`).join("");
-    return`<section><h2>${escape(date)}</h2>${date<trip.starts_on||date>trip.ends_on?"<small>旅程日期范围外的安排</small>":""}<h3>计划停留</h3><ol>${stops||"<li>当天尚无计划</li>"}</ol>${estimates?`<h3>衔接估时</h3><small>${escape(connections?.as_of)}</small><ul>${estimates}</ul>`:""}<h3>当晚住宿（按预订区间）</h3><ul>${lodging||"<li>暂无已确认且区间已知的住宿预订</li>"}</ul><h3>预订</h3><ul>${bookings||"<li>暂无日期关联到当天的预订</li>"}</ul><h3>交通</h3><ul>${segments||"<li>暂无按开始时间归入当天的交通</li>"}</ul></section>`;
+    return`<section><h2>${escape(date)}</h2>${date<trip.starts_on||date>trip.ends_on?"<small>旅程日期范围外的安排</small>":""}${destination?`<h3>目的地卡</h3>${driverHtml(destination)}<small>${escape(destinations?.as_of)}</small>`:""}<h3>计划停留</h3><ol>${stops||"<li>当天尚无计划</li>"}</ol>${estimates?`<h3>衔接估时</h3><small>${escape(connections?.as_of)}</small><ul>${estimates}</ul>`:""}<h3>当晚住宿（按预订区间）</h3><ul>${lodging||"<li>暂无已确认且区间已知的住宿预订</li>"}</ul><h3>预订</h3><ul>${bookings||"<li>暂无日期关联到当天的预订</li>"}</ul><h3>交通</h3><ul>${segments||"<li>暂无按开始时间归入当天的交通</li>"}</ul></section>`;
   }).join("");
   const unknownBookings=detail.reservations.filter(item=>!item.starts_at).map(item=>`<li>${escape(item.title)}（${escape(reservationStateLabel(item.state))}）${item.ends_at?`<small>结束：${escape(local(item.ends_at,zone))}</small>`:""}${item.confirmation_code?`<small>确认号：${escape(item.confirmation_code)}</small>`:""}${item.seat?`<small>座位：${escape(item.seat)}</small>`:""}</li>`).join("");
   const unknownSegments=detail.segments.filter(item=>!item.starts_at).map(item=>`<li>${escape(item.origin)} → ${escape(item.destination)}（${escape(item.mode)}）${item.ends_at?`<small>到达：${escape(local(item.ends_at,zone))}</small>`:""}${item.note?`<small>${escape(item.note)}</small>`:""}</li>`).join("");

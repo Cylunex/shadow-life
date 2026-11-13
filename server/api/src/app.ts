@@ -128,6 +128,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.get("/api/life/amount-evidence",async context=>context.json(await dependencies.queries.amountEvidence(context.get("requestContext"),context.req.query())));
   app.get("/api/life/interval-events",async context=>context.json(await dependencies.queries.intervalEvents(context.get("requestContext"),context.req.query())));
   app.get("/api/life/dish-preferences",async context=>context.json(await dependencies.queries.dishPreferences(context.get("requestContext"),context.req.query())));
+  app.get("/api/travel/destinations",async context=>context.json(await dependencies.queries.destinations(context.get("requestContext"),context.req.query())));
   app.get("/api/travel/connections", async context =>
     context.json(await dependencies.queries.tripConnections(context.get("requestContext"),context.req.query())));
   app.get("/api/health/morning-window", async context =>
@@ -240,6 +241,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         if(capabilityName==="life.amount_evidence")return dependencies.queries.amountEvidence(requestContext,parsed);
         if(capabilityName==="life.interval_events")return dependencies.queries.intervalEvents(requestContext,parsed);
         if(capabilityName==="life.dish_preferences")return dependencies.queries.dishPreferences(requestContext,parsed);
+        if(capabilityName==="travel.destinations")return dependencies.queries.destinations(requestContext,parsed);
         if(capabilityName==="travel.connections")return dependencies.queries.tripConnections(requestContext,parsed);
         if(capabilityName==="health.morning_window")return dependencies.queries.morningWindow(requestContext,parsed);
         if(capabilityName==="health.exercise_history")return dependencies.queries.exerciseHistory(requestContext,parsed);
