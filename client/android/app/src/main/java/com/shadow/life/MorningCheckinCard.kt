@@ -59,15 +59,23 @@ import java.time.ZoneId
     }
     val row=rows.find{it.getString("wake_date")==selected}
     val previous=row?.optJSONObject("checkin")
-    key(accountId,selected,previous?.optInt("revision")){
+    key(accountId,selected){
       var energy by rememberSaveable{mutableStateOf(previous?.optIntOrNull("energy_level")?.toString().orEmpty())}
       var quality by rememberSaveable{mutableStateOf(previous?.optIntOrNull("sleep_quality")?.toString().orEmpty())}
       var notes by rememberSaveable{mutableStateOf(previous?.takeUnless{it.isNull("notes")}?.getString("notes").orEmpty())}
+      var dirty by rememberSaveable{mutableStateOf(false)}
+      LaunchedEffect(previous?.optInt("revision")){
+        if(!dirty){
+          energy=previous?.optIntOrNull("energy_level")?.toString().orEmpty()
+          quality=previous?.optIntOrNull("sleep_quality")?.toString().orEmpty()
+          notes=previous?.takeUnless{it.isNull("notes")}?.getString("notes").orEmpty()
+        }
+      }
       if(row!=null || pending==null){
         Text("$selected 醒来感受")
-        OutlinedTextField(energy,{if(it.isEmpty()||it.toIntOrNull() in 0..10)energy=it},label={Text("精力（0–10）")})
-        OutlinedTextField(quality,{if(it.isEmpty()||it.toIntOrNull() in 0..10)quality=it},label={Text("睡眠质量（0–10）")})
-        OutlinedTextField(notes,{if(it.length<=2000)notes=it},label={Text("备注")})
+        OutlinedTextField(energy,{if(it.isEmpty()||it.toIntOrNull() in 0..10){dirty=true;energy=it}},label={Text("精力（0–10）")})
+        OutlinedTextField(quality,{if(it.isEmpty()||it.toIntOrNull() in 0..10){dirty=true;quality=it}},label={Text("睡眠质量（0–10）")})
+        OutlinedTextField(notes,{if(it.length<=2000){dirty=true;notes=it}},label={Text("备注")})
         Button(enabled=!busy&&pending==null&&(energy.isNotEmpty()||quality.isNotEmpty()||notes.isNotBlank()),onClick={
           busy=true
           val input=JSONObject().put("wake_date",selected).put("time_zone",zone)

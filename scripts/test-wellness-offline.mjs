@@ -62,6 +62,14 @@ await withOfflinePostgres(async url=>{
     await morning.getByText(/首次填写于/).waitFor();
     assert.equal(await morning.getByLabel('精力（0–10）').inputValue(),'0');
     assert.equal(await morning.getByLabel('备注').inputValue(),'逐日晨评回读');
+    await morning.getByLabel('备注').fill('保留我的更正');
+    await run('health.save_morning_checkin',{wake_date:date,time_zone:'Asia/Shanghai',filled_at:new Date().toISOString(),energy_level:2,sleep_quality:null,notes:'另一端填写',expected_revision:1});
+    await morning.getByRole('button',{name:'保存晨评'}).click();
+    await Promise.all([page.waitForResponse(response=>response.url().includes('/api/health/morning-window')&&response.ok()),morning.getByRole('button',{name:'重新读取'}).click()]);
+    assert.equal(await morning.getByLabel('备注').inputValue(),'保留我的更正');
+    await morning.getByRole('button',{name:'保存晨评'}).click();
+    await morning.getByRole('alert').waitFor({state:'detached'});
+
     const weekly=panel.getByRole('region',{name:'每周一个行动'});
     await weekly.getByLabel('下一周想做的一件事').fill('周三晚饭后散步一次');
     await weekly.getByRole('button',{name:'保存下周行动'}).click();
