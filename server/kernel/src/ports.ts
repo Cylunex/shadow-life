@@ -58,6 +58,7 @@ export interface TransactionStore {
   activities?(subjectId:string,input:import("@shadow/contracts").ActivitiesInput):Promise<unknown>;
   healthReleaseHistory(subjectId:string,input:{from:string;to:string;limit:number}):Promise<unknown>;
   morningWindow(subjectId:string, to:string, timeZone:string):Promise<unknown>;
+  tripConnections(subjectId:string, tripId:string):Promise<unknown>;
   exerciseHistory(subjectId:string, input:import("@shadow/contracts").ExerciseHistoryInput):Promise<unknown>;
   workoutProgressionPlans(subjectId:string,planId?:string):Promise<import("./workout-progression.js").WorkoutProgressionPlan[]>;
   healthTrend(subjectId:string,input:{metric_key:string;from?:string|undefined;to?:string|undefined;limit:number}):Promise<unknown>;

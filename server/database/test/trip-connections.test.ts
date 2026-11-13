@@ -1,0 +1,31 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { reviewFixture,pgOnly } from "./review-fixture.js";
+test("trip margins recompute against current endpoints and exclude private reservations for members",pgOnly,async t=>{
+  const {run,queries,context,pool,unitOfWork}=await reviewFixture(t);
+  const date="2026-11-13",zone="Asia/Shanghai";
+  const trip=await run("travel.create_trip",{title:"博物馆到车站",starts_on:date,ends_on:date,time_zone:zone});
+  const trip_id=String(trip.actual_values.trip_id);
+  const planInput={trip_id,plan_date:date,items:[{title:"博物馆"},{title:"车站",starts_at:date+"T10:00:00Z"}]};
+  await run("travel.set_day_plan",planInput);
+  const {day_plans:[day]}=await queries.travelTrip(context,trip_id);
+  assert.ok(day);
+  const input={trip_id,day_plan_id:day.id,plan_revision:1,from_stop_id:day.items[0]!.stop_id,to_stop_id:day.items[1]!.stop_id,
+    departure_at:date+"T08:30:00Z",mode:"metro",travel_minutes:45,buffer_minutes:25};
+  const read=(ctx=context)=>queries.tripConnections(ctx,{trip_id});
+  await run("travel.save_connection",input);
+  assert.equal((await read()).items[0]!.margin_minutes,20);
+  await run("travel.save_connection",{...input,expected_revision:1,departure_at:date+"T09:00:00Z"});
+  assert.equal((await read()).items[0]!.margin_minutes,-10);
+  await assert.rejects(()=>run("travel.save_connection",input),/已更新/);
+  const booking=await run("travel.add_reservation",{trip_id,reservation_type:"rail",title:"私人车票",visibility:"private",starts_at:date+"T10:00:00Z"});
+  const {to_stop_id,...rest}=input;
+  await run("travel.save_connection",{...rest,reservation_id:booking.actual_values.reservation_id,travel_minutes:null});
+  assert.ok((await read()).items.some(row=>row.status==="missing_time"));
+  const viewer={...context,subjectId:"subject_trip_viewer"};
+  await unitOfWork.ensurePrincipal(viewer.subjectId);
+  await pool.query("insert into trip_members(trip_id,subject_id,role,visibility) values($1,$2,'viewer','shared')",[trip_id,viewer.subjectId]);
+  assert.equal((await read(viewer)).items.length,1);
+  await run("travel.set_day_plan",{...planInput,expected_revision:1,items:[day.items[0],{title:"新停留点"},day.items[1]]});
+  assert.equal((await read(viewer)).items[0]!.status,"check_stops");
+});

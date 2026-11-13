@@ -6,6 +6,7 @@ import { captureScreenshotSchema, recordingSegmentSchema, recordingJobSchema, co
 import { activityOrderResultSchema, activityActionInputSchema, recordCapturedExpensesInputSchema, ingestActivityInputSchema, activitiesInputSchema, activitiesResultSchema } from "./activity-schemas.js";
 import { wellnessReviewInputSchema, wellnessReviewResultSchema } from "./wellness-schemas.js";
 import { agentContextInputSchema, agentContextResultSchema } from "./agent-context-schemas.js";
+import { saveTripConnectionSchema, tripConnectionsInputSchema, tripConnectionsResultSchema } from "./schemas.js";
 import { saveMorningCheckinSchema, morningWindowInputSchema, morningWindowResultSchema } from "./schemas.js";
 import { exerciseHistoryInputSchema, exerciseHistoryResultSchema } from "./workout-menu.js";
 import { workoutProgressionInputSchema, workoutProgressionResultSchema } from "./schemas.js";
@@ -216,6 +217,8 @@ type DomainCapabilityName=keyof typeof captureCompletionWrites|keyof typeof capt
   "travel.restore_bundle"|
   "travel.save_map"|
   "travel.save_place"|
+  "travel.save_connection"|
+  "travel.connections"|
   "travel.set_checklist"|
   "travel.set_day_plan"|
   "travel.set_member"|
@@ -314,6 +317,8 @@ const domainCapabilityRegistry:Record<DomainCapabilityName,DomainCapability> = {
   "travel.record_visit": {...write("travel.record_visit", "记录实际到访地点，可关联旅程。", recordVisitInputSchema, ["travel.visit.write","library.source.link"]),resolveEffects(input:unknown){const value=recordVisitInputSchema.parse(input);return["travel.visit.write",...(value.source?["library.source.link"]:[])];}},
   "travel.save_place":write("travel.save_place","保存稳定地点、标签和收藏状态。",savePlaceInputSchema,["travel.trip.write"]),
   "travel.set_day_plan":write("travel.set_day_plan","设置旅程某日的有序计划。",setTripDayPlanInputSchema,["travel.trip.write"]),
+  "travel.save_connection":write("travel.save_connection","为当天停留点与下一站或预订保存计划离开时刻、交通估时和到站提前量。",saveTripConnectionSchema,["travel.trip.write"]),
+  "travel.connections":{name:"travel.connections",description:"核对可见行程衔接的目的时刻、机动分钟和端点状态。",inputSchema:tripConnectionsInputSchema,commandSchema:tripConnectionsInputSchema,resultSchema:tripConnectionsResultSchema,possibleEffects:["travel.trip.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["travel.trip.read"] as const},
   "travel.set_checklist":write("travel.set_checklist","按版本维护旅程清单，计划状态与实际到访独立。",setTripChecklistInputSchema,["travel.trip.write"]),
   "travel.set_member":write("travel.set_member","设置旅程成员角色和可见范围。",setTripMemberInputSchema,["travel.trip.write"]),
   "travel.publish_plan":write("travel.publish_plan","将当前日程发布为不可变版本，运行不会隐式切换。",publishTripPlanInputSchema,["travel.trip.write"]),

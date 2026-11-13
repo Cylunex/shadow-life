@@ -245,3 +245,5 @@ do not imply a visit. Actual visits and private reservation details retain their
 
 - 以 `health.morning_window` 读取所选时区和醒来日截至的 14 天。本人明确填写时用 `health.save_morning_checkin`，更正沿用该晨评的修订。缺测或未填保持未知。
 - 以 `health.exercise_history` 传入动作 ID、器械和次数／秒数单位，读取最多三次有效训练。换动作时仅实际完成的组进入 `health.record_workout`。
+
+- 用 `travel.connections` 查旅程中当前可见的衔接。保存手填估时用 `travel.save_connection`，带日计划修订、出发点和相邻停留或已确认预订；改动已有估时还需其自身修订。负余量表示按该估计无法按时到达。

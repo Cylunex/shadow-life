@@ -257,7 +257,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         places=result.places.size,
         maps=result.maps.size,
         activeRun=result.activeRun!=null,
-        tripItems=result.trips.map{trip->TravelTripSummary(trip.id,trip.title,trip.startsOn,trip.endsOn,trip.timeZone,trip.visibility?.wireValue,result.activeRun?.tripId==trip.id)},
+        tripItems=result.trips.map{trip->TravelTripSummary(trip.id,trip.title,trip.startsOn,trip.endsOn,trip.timeZone,trip.visibility?.wireValue,result.activeRun?.tripId==trip.id,trip.isOwner||trip.role?.wireValue=="editor")},
         placeItems=result.places.map{place->TravelPlaceSummary(place.id,place.name,place.address,place.latitude?.toDoubleOrNull(),place.longitude?.toDoubleOrNull(),place.tags,place.favorite)},
         visitItems=result.visits.map{visit->TravelVisitSummary(visit.id,visit.tripId,visit.placeName,visit.latitude?.toDoubleOrNull(),visit.longitude?.toDoubleOrNull(),visit.occurredOn,visit.occurredAt)},
         mapItems=result.maps.map{map->TravelMapSummary(map.id,map.title,map.description,map.state.wireValue,map.items.map{TravelMapItemSummary(it.placeId,it.status.wireValue,it.note)})},
@@ -411,9 +411,13 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       put("items",JSONArray().apply{items.forEach{item->put(JSONObject().put("title",item.title).put("state",item.state).apply{if(item.id.isNotBlank())put("id",item.id);item.note?.let{put("note",it)}})}})
     })
   }
+  internal suspend fun tripConnections(tripId:String):JSONObject = JSONObject(getText("/api/travel/connections?trip_id=${encode(tripId)}"))
+  internal suspend fun connectionReservations(tripId:String):List<JSONObject> =
+    JSONObject(getText("/api/travel/trips/${encode(tripId)}")).getJSONArray("reservations").objects()
   suspend fun prepareOfflineItinerary(tripId:String):NativeOfflineItinerary=withContext(Dispatchers.IO){
     val detail=JSONObject(getText("/api/travel/trips/${encode(tripId)}"))
     val workspace=JSONObject(getText("/api/travel/workspace?trip_id=${encode(tripId)}"))
+    workspace.put("connections",tripConnections(tripId))
     renderNativeOfflineItinerary(tripId,detail.toString(),workspace.toString())
   }
   suspend fun queueLibraryVision(itemId:String,assetVersionId:String):OperationReceipt=withContext(Dispatchers.IO){

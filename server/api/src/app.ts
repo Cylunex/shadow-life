@@ -123,6 +123,8 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.get("/api/life/memories",async context=>context.json(await dependencies.queries.lifeMemories(context.get("requestContext"),{date:context.req.query("date"),time_zone:context.req.query("time_zone")})));
   app.get("/api/money/summary", async (context) => context.json(await dependencies.queries.summarizeMoney(context.get("requestContext"))));
   app.get("/api/health/releases",async context=>context.json(await dependencies.queries.healthReleaseHistory(context.get("requestContext"),healthReleaseHistoryInputSchema.parse({from:context.req.query("from"),to:context.req.query("to"),limit:Number(context.req.query("limit")??"1000")}))));
+  app.get("/api/travel/connections", async context =>
+    context.json(await dependencies.queries.tripConnections(context.get("requestContext"),context.req.query())));
   app.get("/api/health/morning-window", async context =>
     context.json(await dependencies.queries.morningWindow(context.get("requestContext"),context.req.query())));
   app.get("/api/health/exercise-history", async context =>
@@ -228,6 +230,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         if(capabilityName==="money.summarize")return dependencies.queries.summarizeMoney(requestContext);
         if(capabilityName==="money.records"||capabilityName==="health.records"||capabilityName==="travel.records"||capabilityName==="library.records")return dependencies.queries.listDomain(requestContext,capabilityName.split(".")[0] as "money"|"health"|"travel"|"library",parsed as {query?:string|undefined;limit?:number|undefined;cursor?:string|undefined});
         if(capabilityName==="health.release_history")return dependencies.queries.healthReleaseHistory(requestContext,parsed);
+        if(capabilityName==="travel.connections")return dependencies.queries.tripConnections(requestContext,parsed);
         if(capabilityName==="health.morning_window")return dependencies.queries.morningWindow(requestContext,parsed);
         if(capabilityName==="health.exercise_history")return dependencies.queries.exerciseHistory(requestContext,parsed);
         if(capabilityName==="health.workout_progression")return dependencies.queries.workoutProgression(requestContext,parsed);

@@ -116,7 +116,7 @@ data class TravelPlaceSummary(val id:String,val name:String,val address:String?,
 data class TravelVisitSummary(val id:String,val tripId:String?,val placeName:String,val latitude:Double?,val longitude:Double?,val occurredOn:String,val occurredAt:String?)
 data class TravelMapItemSummary(val placeId:String,val status:String,val note:String?)
 data class TravelMapSummary(val id:String,val title:String,val description:String?,val state:String,val items:List<TravelMapItemSummary>)
-data class TravelTripSummary(val id:String,val title:String,val startsOn:String,val endsOn:String,val timeZone:String,val visibility:String?,val active:Boolean)
+data class TravelTripSummary(val id:String,val title:String,val startsOn:String,val endsOn:String,val timeZone:String,val visibility:String?,val active:Boolean,val canEdit:Boolean=false)
 data class TravelStopSummary(val id:String,val title:String,val startsAt:String?,val placeId:String?,val note:String?)
 data class TravelDaySummary(val id:String,val tripId:String,val date:String,val stops:List<TravelStopSummary>,val revision:Int?=null)
 data class TravelChecklistItemSummary(val id:String,val title:String,val state:String,val note:String?)

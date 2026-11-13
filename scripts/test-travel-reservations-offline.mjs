@@ -35,7 +35,7 @@ await withOfflinePostgres(async url=>{
     await reserve('待定活动',{reservation_type:'activity',starts_at:undefined,ends_at:undefined,state:'pending'});
     const wrong=await reserve('不应显示的误录');await run('travel.void_reservation',{reservation_id:wrong.actual_values.reservation_id,expected_revision:1,reason:'合成回归作废'});
     await run('travel.add_reservation',{trip_id:otherId,title:'另一旅程专属预订',reservation_type:'activity',state:'pending',visibility:'private'});
-    await run('travel.set_day_plan',{trip_id:tripId,plan_date:'2026-10-28',items:[{title:'西湖散步',starts_at:'2026-10-28T01:00:00Z'}]});
+    await run('travel.set_day_plan',{trip_id:tripId,plan_date:'2026-10-28',items:[{title:'西湖散步',starts_at:'2026-10-28T01:00:00Z'},{title:'杭州东站',starts_at:'2026-10-28T10:00:00Z'}]});
     const app=createApp({unitOfWork,executor,queries,developmentAuth:true});
     server=serve({fetch:app.fetch,hostname:'127.0.0.1',port:0});await new Promise(resolve=>server.listening?resolve():server.once('listening',resolve));
     web=await createServer({root:`${root}/client/web`,configFile:false,envFile:false,plugins:[react()],define:{__SHADOW_AMAP_CONFIG__:'null',__SHADOW_GOOGLE_MAPS_KEY__:'""'},server:{host:'127.0.0.1',port:0,proxy:{'/api':{target:`http://127.0.0.1:${server.address().port}`}}}});await web.listen();const origin=web.resolvedUrls.local[0];
@@ -51,6 +51,20 @@ await withOfflinePostgres(async url=>{
     await panel.getByText('湖畔两晚住宿',{exact:true}).waitFor();
     await page.getByLabel('行程日期').selectOption('2026-10-28');
     await panel.getByText('夜间列车',{exact:true}).waitFor();
+    const connections=page.getByRole('region',{name:'行程衔接'});
+    await connections.getByRole('button',{name:'添加衔接'}).click();
+    await connections.getByLabel('要赶到哪里').selectOption({label:'杭州东站'});
+    const departure=connections.getByLabel('预计离开');
+    await departure.fill('2026-10-28T16:30');
+    await connections.getByLabel('交通方式').selectOption('metro');
+    await connections.getByLabel('交通分钟').fill('45');
+    await connections.getByLabel('提前到达分钟').fill('25');
+    await connections.getByRole('button',{name:'保存衔接'}).click();
+    await connections.getByText('可机动 20 分钟',{exact:true}).waitFor();
+    await connections.getByRole('button',{name:'调整估时'}).click();
+    await departure.fill('2026-10-28T17:00');
+    await connections.getByRole('button',{name:'保存衔接'}).click();
+    await connections.getByText('来不及，差 10 分钟',{exact:true}).waitFor();
     assert.equal(await panel.locator('.reservation-night').count(),1);
     assert.equal(await panel.getByText('取消的酒店',{exact:true}).count(),0);
     assert.match(await panel.textContent(),/候补/);
@@ -77,7 +91,7 @@ await withOfflinePostgres(async url=>{
 
     await page.setViewportSize({width:390,height:844});await page.getByLabel('行程日期').selectOption('2026-10-28');await panel.getByLabel('预订范围').selectOption('day');await panel.getByText('夜间列车',{exact:true}).waitFor();await screenshot('reservations-narrow');await panel.screenshot({path:`${output}/reservation-panel-narrow.png`});
     const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'下载离线行程单',exact:true}).click();const download=await downloadPromise;await download.saveAs(`${output}/trip.html`);
-    const {readFile}=await import('node:fs/promises');const offline=await readFile(`${output}/trip.html`,'utf8');assert.ok(!offline.includes('不应显示的误录'));assert.ok(offline.includes('退房日'));assert.ok(offline.includes('新候补车票'));
+    const {readFile}=await import('node:fs/promises');const offline=await readFile(`${output}/trip.html`,'utf8');assert.ok(!offline.includes('不应显示的误录'));assert.ok(offline.includes('退房日'));assert.ok(offline.includes('新候补车票'));assert.ok(offline.includes('来不及，差 10 分钟'));
     const offlinePage=await context.newPage();await offlinePage.setContent(offline);await context.setOffline(true);await offlinePage.getByRole('heading',{name:'江南双城行',exact:true}).waitFor();assert.ok(await offlinePage.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await offlinePage.screenshot({path:`${output}/offline-narrow.png`,fullPage:true});await context.setOffline(false);await offlinePage.close();
     console.log('PASS desktop/390px layout and real download usable offline');
 

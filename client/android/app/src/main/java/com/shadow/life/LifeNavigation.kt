@@ -91,7 +91,7 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
             viewModel.moneyImportMonth,viewModel.moneyImportReview,viewModel.moneyImportSubmit,viewModel::loadMoneyImportMonth,viewModel::openMoneyImportBatch,viewModel::resolveMoneyImport,viewModel.moneyPeriod,viewModel::selectMoneyPeriod,route.focus,onCapturedOrders={nav.navigate(ActivityCaptureRoute("订单"))}
           )
           LifeDomain.Travel->TravelWorkspaceScreen(
-            visibleOverview,visibleWorkspace,{viewModel.reloadWorkspace()},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,capture,route.tab,viewModel::selectTravelTrip,{seed->openComposer(seed)},viewModel.submit,viewModel::saveTravelDay,viewModel::editAgain,viewModel::saveTravelChecklist,viewModel.offlineItinerary,viewModel::prepareOfflineItinerary
+            visibleOverview,visibleWorkspace,{viewModel.reloadWorkspace()},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,capture,route.tab,viewModel::selectTravelTrip,{seed->openComposer(seed)},viewModel.submit,viewModel::saveTravelDay,viewModel::editAgain,viewModel::saveTravelChecklist,viewModel.offlineItinerary,viewModel::prepareOfflineItinerary,session.accountId
           )
           else->WorkspaceScreen(domain,visibleOverview,visibleWorkspace,viewModel.deviceSyncStatus,viewModel.queueStatus,SamsungHealthBridge.available(),{viewModel.loadWorkspace(domain,it)},{viewModel.reloadWorkspace()},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,capture,onHealthSync,onSamsungSync,onScale,{nav.navigate(SettingsRoute)})
         }

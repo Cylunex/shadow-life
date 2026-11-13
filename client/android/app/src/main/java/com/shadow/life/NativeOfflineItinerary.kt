@@ -45,9 +45,14 @@ fun renderNativeOfflineItinerary(tripId:String,detailJson:String,workspaceJson:S
     val stops=rows(plans[date]?.rows("items").orEmpty()){item->
       escapeHtml(localTime(item.text("starts_at"),zone).ifBlank{"时间待定"})+" · "+escapeHtml(item.text("title"))+small("",item.text("note"))
     }
+    val estimates=workspace["connections"] as? JsonObject
+    val connections=estimates?.rows("items").orEmpty().filter{it.text("plan_date")==date}
+    val marginHtml=if(connections.isEmpty())"" else "<h3>衔接估时</h3>${small("",estimates?.text("as_of").orEmpty())}<ul>${rows(connections){item->
+      escapeHtml(item.text("from_title")+" → "+item.text("to_title")+" · "+connectionLabel(item.text("status"),item.text("margin_minutes").toIntOrNull()))
+    }}</ul>"
     val lodging=rows(reservations.filter{it.text("reservation_type")=="hotel"&&it.text("state") !in setOf("cancelled","refunded")&&day(it).isNotBlank()&&day(it,"ends_at").isNotBlank()&&day(it)<=date&&date<day(it,"ends_at")},::booking)
     val outside=if(date<start.toString()||date>end.toString())"<small>旅程日期范围外的安排</small>" else ""
-    "<section><h2>${escapeHtml(date)}</h2>$outside<h3>计划停留</h3><ol>$stops</ol><h3>当晚住宿（按预订区间）</h3><ul>$lodging</ul><h3>预订</h3><ul>${rows(reservations.filter{day(it)==date},::booking)}</ul><h3>交通</h3><ul>${rows(segments.filter{day(it)==date},::transit)}</ul></section>"
+    "<section><h2>${escapeHtml(date)}</h2>$outside<h3>计划停留</h3><ol>$stops</ol>$marginHtml<h3>当晚住宿（按预订区间）</h3><ul>$lodging</ul><h3>预订</h3><ul>${rows(reservations.filter{day(it)==date},::booking)}</ul><h3>交通</h3><ul>${rows(segments.filter{day(it)==date},::transit)}</ul></section>"
   }
   val actual=rows(detail.rows("visits")){item->escapeHtml(item.text("occurred_on")+" · "+item.text("place_name"))}
   val title=trip.text("title");val safeName=title.replace(Regex("[^\\p{L}\\p{N}_-]+"),"-").take(80)
