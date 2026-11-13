@@ -81,3 +81,5 @@ Android 健康、饮食与运动的下一轮页面设计、参考产品及分批
 消费、账单导入、采集订单与饮食关联的统一查看路径见[消费与账单链路](docs/architecture/consumption-bill-chain.md)。
 
 支付成功页的只读归组与淘宝闪购长订单采集方案见[闪购订单与付款材料](docs/architecture/flash-order-capture.md)。
+
+两轮产品调研的 20 项建议、首批实现与逐项验收见 [Life 功能优化与实现方案](docs/architecture/life-feature-plan-2026-11-13.md)。
