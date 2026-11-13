@@ -1,0 +1,1 @@
+DROP TABLE merchant_food_evidence,merchant_foods;

@@ -29,11 +29,13 @@ export async function readPrices(database:Database,subject:string,v:PriceQuery){
         when '升' then 'L' when 'l' then 'L' when '毫升' then 'ml' when 'ml' then 'ml' when '件' then '件' end) unit,
       coalesce(s.pack_count,1) pack_count,coalesce(s.pack_size,i.quantity) pack_size,coalesce(s.price_basis,'listed') price_basis,
       coalesce(s.discount,0) discount,s.revision,
-      exists(select 1 from money_entries orig join refunds f on f.original_entry_id=orig.id and f.subject_id=p.subject_id and f.link_state='linked'
-        join money_entries back on back.id=f.refund_entry_id join consumption_records rr on rr.id=back.record_id and rr.state='confirmed'
-        where orig.record_id=p.record_id) has_refund
+      coalesce(ref.total,0)>0 has_refund,ref.unassigned,coalesce(ref.line_refund,0) line_refund
     from purchases p join consumption_records r on r.id=p.record_id and r.state='confirmed'
     join purchase_items i on i.purchase_id=p.id and i.detail_role<>'folded_summary'
+    left join lateral(select sum(f.amount) total,bool_or(f.amount<>alloc.total) unassigned,sum(alloc.item_total) line_refund
+      from active_purchase_refunds f cross join lateral(select coalesce(sum(a.amount),0) total,
+        coalesce(sum(a.amount) filter(where c.purchase_item_id=i.id),0) item_total from return_allocations a join return_cases c on c.id=a.case_id
+        where a.refund_entry_id=f.refund_entry_id) alloc where f.subject_id=p.subject_id and f.record_id=p.record_id) ref on true
     left join purchase_price_specs s on s.purchase_item_id=i.id and s.subject_id=p.subject_id
     left join personal_aliases a on a.subject_id=p.subject_id and a.target_kind='food' and a.alias=i.raw_name
     where p.subject_id=${subject}
@@ -42,7 +44,7 @@ export async function readPrices(database:Database,subject:string,v:PriceQuery){
       case when unit in('g','ml') then pack_count*pack_size/1000 when unit is not null then pack_count*pack_size end quantity
     from base
   ), samples as (
-    select *,case when quantity>0 and line_amount>=discount and not has_refund then round((line_amount-discount)/quantity,6) end unit_price
+    select *,case when quantity>0 and line_amount>=discount+line_refund and not coalesce(unassigned,false) then round((line_amount-discount-line_refund)/quantity,6) end unit_price
     from priced
   )`;
   const stats=(await database.execute<{total:number;identified:number;convertible:number;comparable:number;qualified:number}>(sql`${data}

@@ -1,0 +1,35 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {AssetService} from "../src/index.js";
+import {pgOnly,reviewFixture} from "./review-fixture.js";
+test("store menu reuses legacy foods, serializes concurrent enrolment and never turns menu images into meals",pgOnly,async t=>{
+  const {run,queries,context,pool}=await reviewFixture(t),merchant="合成东食堂",dish="炒青菜";
+  const old=await run("life.save_food",{name:merchant+"｜"+dish,provenance:"历史餐次与摄入出处",serving_amount:"80",serving_unit:"g",nutrients:{fiber_g:"1"}});
+  assert.equal((await queries.merchantMenu(context,{merchant})).items[0]?.id,old.actual_values.food_id);
+  await run("life.save_food",{name:"普通名称｜规格"});
+  assert.equal((await queries.merchantMenu(context,{merchant:"普通名称"})).items.length,0);
+  assert.equal((await pool.query("select count(*)::int n from merchant_foods")).rows[0].n,0);
+  const input={merchant,dish,evidence:{kind:"note",note:"明示菜名"}};
+  const writes=await Promise.all([run("life.remember_merchant_dish",input),run("life.remember_merchant_dish",input)]);
+  assert.ok(writes.every(r=>r.actual_values.food_id===old.actual_values.food_id));
+  const food=String(old.actual_values.food_id);
+  const meal=await run("life.record_meal",{occurred_on:"2026-11-13",time_zone:"Asia/Shanghai",meal_type:"lunch",
+    items:[{name:dish,food_ref_id:food,amount_g:"52",estimate:true,evidence_note:"当餐估重"}]});
+  const meal_id=String(meal.actual_values.meal_id);
+  const item=(await pool.query("select id,food_ref_id from intake_items where meal_id=$1",[meal_id])).rows[0];assert.equal(item.food_ref_id,food);
+  await run("life.remember_merchant_dish",{merchant,dish,evidence:{kind:"meal_intake",meal_id,intake_id:item.id}});
+  const other=await run("life.remember_merchant_dish",{...input,merchant:"合成西食堂"});assert.notEqual(other.actual_values.food_id,food);
+  const pic=await new AssetService(pool).store(context.subjectId,"image/png",Buffer.from("synthetic menu"));
+  const library=await run("library.capture",{title:"合成菜单",item_type:"image",tags:[],source:{kind:"image",captured_on:"2026-11-13",asset_version_id:pic.asset_version_id}});
+  await run("life.remember_merchant_dish",{merchant,dish:"凉菜",evidence:{kind:"menu_photo",library_item_id:library.actual_values.library_item_id}});
+  const pref={key:"dining.usual_canteen",scope:"daily",kind:"preference",category:"dietary",assertion:"explicit",statement:"常去食堂："+merchant};
+  const selected=await run("agent.set_intention",pref);
+  const first=await queries.merchantMenu(context,{limit:1});assert.equal(first.merchant,merchant);assert.ok(first.next);
+  const second=await queries.merchantMenu(context,{after:first.next,limit:1});assert.notEqual(second.items[0]?.id,first.items[0]?.id);
+  await run("agent.set_intention",{...pref,id:selected.actual_values.id,expected_revision:1,statement:"常去食堂：合成西食堂",reason:"更换门店"});
+  assert.equal((await queries.merchantMenu(context,{})).items[0]?.id,other.actual_values.food_id);
+  const prior=(await queries.merchantMenu(context,{merchant,query:dish})).items[0]!;
+  assert.equal(prior.id,food);assert.equal(prior.provenance,"历史餐次与摄入出处");assert.equal(Number(prior.serving_amount),80);
+  assert.equal(prior.evidence.find(r=>r.kind==="meal_intake")?.intake_id,item.id);
+  assert.equal((await pool.query("select count(*)::int n from meals")).rows[0].n,1);
+});

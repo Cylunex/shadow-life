@@ -19,6 +19,20 @@ import { amountEvidenceInputSchema,amountEvidenceResultSchema } from "@shadow/co
 import { intervalQuerySchema,intervalResultSchema } from "@shadow/contracts";
 import { dishPreferencesInputSchema, dishPreferencesResultSchema } from "@shadow/contracts";
 import {destinationQuerySchema,destinationsResultSchema} from "@shadow/contracts";
+import {routeComparisonInputSchema,routeComparisonResultSchema} from "@shadow/contracts";
+import {eveningSleepInputSchema,eveningSleepResultSchema} from "@shadow/contracts";
+import {savedFiltersInputSchema,savedFiltersResultSchema} from "@shadow/contracts";
+import {tripDiaryInputSchema,tripDiaryResultSchema} from "@shadow/contracts";
+import {merchantMenuInputSchema,merchantMenuResultSchema} from "@shadow/contracts";
+import {returnCasesInputSchema,returnCasesResultSchema} from "@shadow/contracts";
+import {consumptionSourcesInputSchema,consumptionSourcesResultSchema} from "@shadow/contracts";
+import {railTicketInputSchema,railTicketResultSchema} from "@shadow/contracts";
+import {containerQuerySchema,containerQueryResultSchema} from "@shadow/contracts";
+import {labCompareInputSchema,labCompareResultSchema} from "@shadow/contracts";
+import {episodesInputSchema,episodesResultSchema} from "@shadow/contracts";
+import {clipsInputSchema,clipsResultSchema} from "@shadow/contracts";
+import {offlineDayInputSchema,offlineDayResultSchema} from "@shadow/contracts";
+import {reconciliationInputSchema,reconciliationResultSchema} from "@shadow/contracts";
 import { tripConnectionsInputSchema, tripConnectionsResultSchema } from "@shadow/contracts";
 import { morningWindowInputSchema, morningWindowResultSchema } from "@shadow/contracts";
 import { exerciseHistoryInputSchema, exerciseHistoryResultSchema } from "@shadow/contracts";
@@ -189,6 +203,76 @@ export class QueryService {
     if(!context.effects.has("travel.trip.read"))throw permissionDenied("travel.trip.read");
     const filters=destinationQuerySchema.parse(input);return destinationsResultSchema.parse(await this.unitOfWork.read(store=>store.destinations(context.subjectId,filters)));
   }
+  async routeComparison(context:RequestContext,input:unknown){
+    for(const effect of ["health.measurement.read"])if(!context.effects.has(effect))throw permissionDenied(effect);
+    const filters=routeComparisonInputSchema.parse(input);
+    return routeComparisonResultSchema.parse(await this.unitOfWork.read(store=>store.routeComparison(context.subjectId,filters,context.effects)));
+  }
+  async eveningSleep(context:RequestContext,input:unknown){
+    for(const effect of ["health.measurement.read"])if(!context.effects.has(effect))throw permissionDenied(effect);
+    const filters=eveningSleepInputSchema.parse(input);
+    return eveningSleepResultSchema.parse(await this.unitOfWork.read(store=>store.eveningSleep(context.subjectId,filters,context.effects)));
+  }
+  async librarySavedFilters(context:RequestContext,input:unknown){
+    for(const effect of ["library.item.read"])if(!context.effects.has(effect))throw permissionDenied(effect);
+    const filters=savedFiltersInputSchema.parse(input);
+    return savedFiltersResultSchema.parse(await this.unitOfWork.read(store=>store.librarySavedFilters(context.subjectId,filters,context.effects)));
+  }
+  async tripDiary(context:RequestContext,input:unknown){
+    for(const effect of ["travel.trip.read"])if(!context.effects.has(effect))throw permissionDenied(effect);
+    const filters=tripDiaryInputSchema.parse(input);
+    return tripDiaryResultSchema.parse(await this.unitOfWork.read(store=>store.tripDiary(context.subjectId,filters,context.effects)));
+  }
+  async merchantMenu(context:RequestContext,input:unknown){
+    for(const effect of ["life.meal.read"])if(!context.effects.has(effect))throw permissionDenied(effect);
+    const filters=merchantMenuInputSchema.parse(input);
+    return merchantMenuResultSchema.parse(await this.unitOfWork.read(store=>store.merchantMenu(context.subjectId,filters,context.effects)));
+  }
+  async returnCases(context:RequestContext,input:unknown){
+    for(const effect of ["money.entry.read"])if(!context.effects.has(effect))throw permissionDenied(effect);
+    const filters=returnCasesInputSchema.parse(input);
+    return returnCasesResultSchema.parse(await this.unitOfWork.read(store=>store.returnCases(context.subjectId,filters,context.effects)));
+  }
+  async consumptionSources(context:RequestContext,input:unknown){
+    for(const effect of ["money.entry.read"])if(!context.effects.has(effect))throw permissionDenied(effect);
+    const filters=consumptionSourcesInputSchema.parse(input);
+    return consumptionSourcesResultSchema.parse(await this.unitOfWork.read(store=>store.consumptionSources(context.subjectId,filters,context.effects)));
+  }
+  async railTicket(context:RequestContext,input:unknown){
+    for(const effect of ["travel.trip.read", "library.item.read"])if(!context.effects.has(effect))throw permissionDenied(effect);
+    const filters=railTicketInputSchema.parse(input);
+    return railTicketResultSchema.parse(await this.unitOfWork.read(store=>store.railTicket(context.subjectId,filters,context.effects)));
+  }
+  async containers(context:RequestContext,input:unknown){
+    for(const effect of ["life.item.read"])if(!context.effects.has(effect))throw permissionDenied(effect);
+    const filters=containerQuerySchema.parse(input);
+    return containerQueryResultSchema.parse(await this.unitOfWork.read(store=>store.containers(context.subjectId,filters,context.effects)));
+  }
+  async labResults(context:RequestContext,input:unknown){
+    for(const effect of ["health.measurement.read", "library.item.read"])if(!context.effects.has(effect))throw permissionDenied(effect);
+    const filters=labCompareInputSchema.parse(input);
+    return labCompareResultSchema.parse(await this.unitOfWork.read(store=>store.labResults(context.subjectId,filters,context.effects)));
+  }
+  async episodes(context:RequestContext,input:unknown){
+    for(const effect of ["health.measurement.read"])if(!context.effects.has(effect))throw permissionDenied(effect);
+    const filters=episodesInputSchema.parse(input);
+    return episodesResultSchema.parse(await this.unitOfWork.read(store=>store.episodes(context.subjectId,filters,context.effects)));
+  }
+  async clips(context:RequestContext,input:unknown){
+    for(const effect of ["library.item.read"])if(!context.effects.has(effect))throw permissionDenied(effect);
+    const filters=clipsInputSchema.parse(input);
+    return clipsResultSchema.parse(await this.unitOfWork.read(store=>store.clips(context.subjectId,filters,context.effects)));
+  }
+  async offlineDay(context:RequestContext,input:unknown){
+    for(const effect of ["library.item.read"])if(!context.effects.has(effect))throw permissionDenied(effect);
+    const filters=offlineDayInputSchema.parse(input);
+    return offlineDayResultSchema.parse(await this.unitOfWork.read(store=>store.offlineDay(context.subjectId,filters,context.effects)));
+  }
+  async reconcileExpenses(context:RequestContext,input:unknown){
+    for(const effect of ["money.entry.read"])if(!context.effects.has(effect))throw permissionDenied(effect);
+    const filters=reconciliationInputSchema.parse(input);
+    return reconciliationResultSchema.parse(await this.unitOfWork.read(store=>store.reconcileExpenses(context.subjectId,filters,context.effects)));
+  }
   async tripConnections(context:RequestContext,input:unknown) {
     if (!context.effects.has("travel.trip.read")) throw permissionDenied("travel.trip.read");
     const {trip_id}=tripConnectionsInputSchema.parse(input);
@@ -295,7 +379,7 @@ export class QueryService {
   }
   async activitySource(context:RequestContext,input:unknown){
     if(!context.effects.has("library.item.read"))throw permissionDenied("library.item.read");const parsed=activityActionInputSchema.parse(input);
-    return this.unitOfWork.read(async store=>{const source=await store.activitySource?.(context.subjectId,parsed.id);if(!source)throw notFound("Activity source");const result=activitySourceResultSchema.parse(source);if(!context.effects.has("money.entry.read")){result.consumption_record_id=null;result.related_consumption_record_id=null;}if(!context.effects.has("life.project.read")){result.project_id=null;result.project_title=null;}return result;});
+    return this.unitOfWork.read(async store=>{const source=await store.activitySource?.(context.subjectId,parsed.id);if(!source)throw notFound("Activity source");const result=activitySourceResultSchema.parse(source);if(!context.effects.has("money.entry.read")){result.consumption_record_id=null;result.related_consumption_record_id=null;delete result.linked_ledger;}if(!context.effects.has("life.project.read")){result.project_id=null;result.project_title=null;}return result;});
   }
   async captureWorkspace(context:RequestContext,input:unknown){
     if(!context.effects.has("library.item.read"))throw permissionDenied("library.item.read");

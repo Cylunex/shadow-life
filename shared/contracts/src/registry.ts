@@ -12,6 +12,14 @@ import { saveAmountEvidenceSchema,amountEvidenceInputSchema,amountEvidenceResult
 import { intervalEventSchema,intervalOccurrenceSchema,intervalQuerySchema,intervalResultSchema } from "./schemas.js";
 import { saveDishPreferenceSchema, dishPreferencesInputSchema, dishPreferencesResultSchema } from "./schemas.js";
 import {destinationCardSchema,destinationQuerySchema,destinationsResultSchema} from "./schemas.js";
+import {saveWorkoutRouteSchema,saveRestDaySchema,routeComparisonInputSchema,routeComparisonResultSchema,eveningSleepInputSchema,eveningSleepResultSchema} from "./schemas.js";
+import {savedFilterSchema,tripDiaryEntrySchema,savedFiltersInputSchema,savedFiltersResultSchema,tripDiaryInputSchema,tripDiaryResultSchema} from "./schemas.js";
+import {rememberMerchantDishSchema,merchantMenuInputSchema,merchantMenuResultSchema} from "./schemas.js";
+import {saveReturnCaseSchema,returnCasesInputSchema,returnCasesResultSchema,consumptionSourcesInputSchema,consumptionSourcesResultSchema} from "./schemas.js";
+import {saveContainerSchema,placeItemSchema,railTicketInputSchema,railTicketResultSchema,containerQuerySchema,containerQueryResultSchema} from "./schemas.js";
+import {labResultInputSchema,saveEpisodeSchema,labCompareInputSchema,labCompareResultSchema,episodesInputSchema,episodesResultSchema} from "./schemas.js";
+import {saveClipSchema,saveOfflineIntervalSchema,clipsInputSchema,clipsResultSchema,offlineDayInputSchema,offlineDayResultSchema} from "./schemas.js";
+import {reconciliationInputSchema,reconciliationResultSchema} from "./schemas.js";
 import { saveTripConnectionSchema, tripConnectionsInputSchema, tripConnectionsResultSchema } from "./schemas.js";
 import { saveMorningCheckinSchema, morningWindowInputSchema, morningWindowResultSchema } from "./schemas.js";
 import { exerciseHistoryInputSchema, exerciseHistoryResultSchema } from "./workout-menu.js";
@@ -230,6 +238,32 @@ type DomainCapabilityName=keyof typeof captureCompletionWrites|keyof typeof capt
   "travel.save_map"|
   "travel.save_place"|
   "travel.save_destination"|"travel.destinations"|
+  "health.set_workout_route"|
+  "health.set_rest_day"|
+  "health.route_comparison"|
+  "health.evening_sleep"|
+  "library.save_filter"|
+  "travel.save_diary_entry"|
+  "library.saved_filters"|
+  "travel.diary"|
+  "life.remember_merchant_dish"|
+  "life.merchant_menu"|
+  "money.save_return_case"|
+  "money.return_cases"|
+  "money.consumption_sources"|
+  "life.save_container"|
+  "life.place_item"|
+  "travel.rail_ticket"|
+  "life.containers"|
+  "health.save_lab_result"|
+  "health.save_episode"|
+  "health.lab_results"|
+  "health.episodes"|
+  "life.save_clip"|
+  "life.save_offline_interval"|
+  "life.clips"|
+  "life.offline_day"|
+  "money.reconcile_expenses"|
   "travel.save_connection"|
   "travel.connections"|
   "travel.set_checklist"|
@@ -342,6 +376,32 @@ const domainCapabilityRegistry:Record<DomainCapabilityName,DomainCapability> = {
   "travel.set_day_plan":write("travel.set_day_plan","设置旅程某日的有序计划。",setTripDayPlanInputSchema,["travel.trip.write"]),
   "travel.save_destination":write("travel.save_destination","从当天住宿或自选地点保存个人目的地卡、当地名称与入口提示。",destinationCardSchema,["travel.trip.write"]),
   "travel.destinations":{name:"travel.destinations",description:"按旅程日期读取本人可见的有效住宿目的地与手选地址。",inputSchema:destinationQuerySchema,commandSchema:destinationQuerySchema,resultSchema:destinationsResultSchema,possibleEffects:["travel.trip.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["travel.trip.read"] as const},
+  "health.set_workout_route":write("health.set_workout_route","为本人运动标记路线和用时口径。",saveWorkoutRouteSchema,["health.measurement.write"]),
+  "health.set_rest_day":write("health.set_rest_day","明确标记或取消本人当地日期的休息日。",saveRestDaySchema,["health.measurement.write"]),
+  "health.route_comparison":{name:"health.route_comparison",description:"按个人路线、运动类型和用时口径查看实际运动记录。",inputSchema:routeComparisonInputSchema,commandSchema:routeComparisonInputSchema,resultSchema:routeComparisonResultSchema,possibleEffects:["health.measurement.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["health.measurement.read"] as const},
+  "health.evening_sleep":{name:"health.evening_sleep",description:"对照晚间运动和明确休息日之后的主睡眠、样本和缺测。",inputSchema:eveningSleepInputSchema,commandSchema:eveningSleepInputSchema,resultSchema:eveningSleepResultSchema,possibleEffects:["health.measurement.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["health.measurement.read"] as const},
+  "library.save_filter":write("library.save_filter","为现有资料检索保存命名条件。",savedFilterSchema,["library.item.write"]),
+  "travel.save_diary_entry":write("travel.save_diary_entry","按旅程本地日期保存私人小记和有权使用的实际到访或材料。",tripDiaryEntrySchema,["travel.trip.write"]),
+  "library.saved_filters":{name:"library.saved_filters",description:"读取个人命名筛选，用 query 打开当前资料检索。",inputSchema:savedFiltersInputSchema,commandSchema:savedFiltersInputSchema,resultSchema:savedFiltersResultSchema,possibleEffects:["library.item.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["library.item.read"] as const},
+  "travel.diary":{name:"travel.diary",description:"按日期和顺序回看本人的旅行小记及当前可见材料。",inputSchema:tripDiaryInputSchema,commandSchema:tripDiaryInputSchema,resultSchema:tripDiaryResultSchema,possibleEffects:["travel.trip.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["travel.trip.read"] as const},
+  "life.remember_merchant_dish":{...write("life.remember_merchant_dish","按门店复用食品编号并追加出处，餐盘估重不会改写标准份量。",rememberMerchantDishSchema,["life.meal.write","life.meal.read","library.item.read","agent.run"]),resolveEffects:(raw:unknown)=>{const v=rememberMerchantDishSchema.parse(raw);return ["life.meal.write",...(!v.merchant?["agent.run"]:[]),...(v.evidence.kind==="meal_intake"?["life.meal.read"]:v.evidence.kind==="menu_photo"?["library.item.read"]:[])];}},
+  "life.merchant_menu":{name:"life.merchant_menu",description:"在本人门店食品库分页找菜，返回可直接用于摄入条目的 food ID。",inputSchema:merchantMenuInputSchema,commandSchema:merchantMenuInputSchema,resultSchema:merchantMenuResultSchema,possibleEffects:["life.meal.read","agent.run"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:(raw:unknown)=>merchantMenuInputSchema.parse(raw).merchant?["life.meal.read"]:["life.meal.read","agent.run"]},
+  "money.save_return_case":write("money.save_return_case","跟踪购买行的预计退款和寄回日期，将已关联的实际到账退款分配给售后事项。",saveReturnCaseSchema,["money.entry.write", "money.entry.read"]),
+  "money.return_cases":{name:"money.return_cases",description:"查看购买行的售后、退款到账与差额。",inputSchema:returnCasesInputSchema,commandSchema:returnCasesInputSchema,resultSchema:returnCasesResultSchema,possibleEffects:["money.entry.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["money.entry.read"] as const},
+  "money.consumption_sources":{name:"money.consumption_sources",description:"从消费记录追溯入账来源、导入候选、疑似重复及安卓订单冲突。",inputSchema:consumptionSourcesInputSchema,commandSchema:consumptionSourcesInputSchema,resultSchema:consumptionSourcesResultSchema,possibleEffects:["money.entry.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["money.entry.read"] as const},
+  "life.save_container":write("life.save_container","创建或移动个人收纳容器，按当前父链显示路径。",saveContainerSchema,["life.item.write"]),
+  "life.place_item":write("life.place_item","将本人物品放入或移出指定收纳容器。",placeItemSchema,["life.item.write"]),
+  "travel.rail_ticket":{name:"travel.rail_ticket",description:"从中文铁路确认材料提取预订候选，定位同旅程内本人已有预订。",inputSchema:railTicketInputSchema,commandSchema:railTicketInputSchema,resultSchema:railTicketResultSchema,possibleEffects:["travel.trip.read", "library.item.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["travel.trip.read", "library.item.read"] as const},
+  "life.containers":{name:"life.containers",description:"扫码、搜索或浏览当前收纳位置及物品。",inputSchema:containerQuerySchema,commandSchema:containerQuerySchema,resultSchema:containerQueryResultSchema,possibleEffects:["life.item.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["life.item.read"] as const},
+  "health.save_lab_result":write("health.save_lab_result","按原报告版本和页码记录体检原始结果、单位及参考范围。",labResultInputSchema,["health.measurement.write", "library.item.read"]),
+  "health.save_episode":write("health.save_episode","记录、更正或结束本人不适发作及期间的进展。",saveEpisodeSchema,["health.measurement.write"]),
+  "health.lab_results":{name:"health.lab_results",description:"按报告查看检验结果，或手选两条结果原样对照。",inputSchema:labCompareInputSchema,commandSchema:labCompareInputSchema,resultSchema:labCompareResultSchema,possibleEffects:["health.measurement.read", "library.item.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["health.measurement.read", "library.item.read"] as const},
+  "health.episodes":{name:"health.episodes",description:"查询期间内有交集的本人发作，保留日期精度。",inputSchema:episodesInputSchema,commandSchema:episodesInputSchema,resultSchema:episodesResultSchema,possibleEffects:["health.measurement.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["health.measurement.read"] as const},
+  "life.save_clip":write("life.save_clip","按音频时间保存精选片段和当时可用转写。",saveClipSchema,["library.item.write", "library.item.read"]),
+  "life.save_offline_interval":write("life.save_offline_interval","添加或更正本人补记的线下活动区间。",saveOfflineIntervalSchema,["library.item.write"]),
+  "life.clips":{name:"life.clips",description:"读取一日或一周选取的录音片段和可用原声。",inputSchema:clipsInputSchema,commandSchema:clipsInputSchema,resultSchema:clipsResultSchema,possibleEffects:["library.item.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["library.item.read"] as const},
+  "life.offline_day":{name:"life.offline_day",description:"查看采集与手工区间及其不重复累计时间。",inputSchema:offlineDayInputSchema,commandSchema:offlineDayInputSchema,resultSchema:offlineDayResultSchema,possibleEffects:["library.item.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["library.item.read"] as const},
+  "money.reconcile_expenses":{name:"money.reconcile_expenses",description:"按正式账发生日统计期间支出，显示同日同额疑似重复、渠道及身份凭证；不调整总额。",inputSchema:reconciliationInputSchema,commandSchema:reconciliationInputSchema,resultSchema:reconciliationResultSchema,possibleEffects:["money.entry.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["money.entry.read"] as const},
   "travel.save_connection":write("travel.save_connection","为当天停留点与下一站或预订保存计划离开时刻、交通估时和到站提前量。",saveTripConnectionSchema,["travel.trip.write"]),
   "travel.connections":{name:"travel.connections",description:"核对可见行程衔接的目的时刻、机动分钟和端点状态。",inputSchema:tripConnectionsInputSchema,commandSchema:tripConnectionsInputSchema,resultSchema:tripConnectionsResultSchema,possibleEffects:["travel.trip.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["travel.trip.read"] as const},
   "travel.set_checklist":write("travel.set_checklist","按版本维护旅程清单，计划状态与实际到访独立。",setTripChecklistInputSchema,["travel.trip.write"]),

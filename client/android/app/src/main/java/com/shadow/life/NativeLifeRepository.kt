@@ -411,6 +411,10 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       put("items",JSONArray().apply{items.forEach{item->put(JSONObject().put("title",item.title).put("state",item.state).apply{if(item.id.isNotBlank())put("id",item.id);item.note?.let{put("note",it)}})}})
     })
   }
+  internal suspend fun personalRecordsPage(path:String,params:Map<String,String>):JSONObject{
+    require(path.startsWith("/api/") && !path.contains("..") && !path.contains("?"))
+    return JSONObject(getText(path+"?"+params.entries.joinToString("&"){encode(it.key)+"="+encode(it.value)}))
+  }
   internal suspend fun stockRecipes(lot:String,on:String,offset:Int):JSONObject=JSONObject(getText("/api/life/stock-recipes?lot_id="+encode(lot)+"&on="+encode(on)+"&offset="+offset))
   internal suspend fun purchasePrices(item:String?=null,product:String?=null,before:JSONObject?=null):JSONObject{
     val params=listOfNotNull(item?.let{"item_id="+encode(it)},product?.let{"product="+encode(it)},before?.let{"before_on="+encode(it.getString("before_on"))+"&before_id="+encode(it.getString("before_id"))})

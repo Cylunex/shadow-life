@@ -11,11 +11,11 @@ export const personalOperatorTools: ReadonlySet<CapabilityName> = new Set<Capabi
   "life.record_meal", "life.record_purchase", "life.record_dining",
   "life.correct_meal", "life.add_intake", "life.remove_intake", "life.correct_intake",
   "life.add_meal_payment", "life.attach_meal_source", "life.link_meal_consumption",
-  "life.save_interval_event","life.record_occurrence","life.interval_events","life.save_amount_evidence","life.amount_evidence","life.set_price_spec","life.purchase_prices","life.save_dish_preference","life.dish_preferences",
+  "life.save_interval_event","life.record_occurrence","life.interval_events","life.save_amount_evidence","life.amount_evidence","life.set_price_spec","life.purchase_prices","life.save_dish_preference","life.remember_merchant_dish","life.merchant_menu","life.save_container","life.place_item","life.containers","life.save_clip","life.save_offline_interval","life.clips","life.offline_day","life.dish_preferences",
   "life.correct_purchase", "life.update_purchase_items", "life.set_personal_alias",
   "life.save_meal_template", "life.record_meal_from_template",
   "life.save_owned_item", "life.record_owned_item_event",
-  "money.save_service_card", "money.record_service_card_use", "money.service_cards",
+  "money.save_service_card", "money.record_service_card_use", "money.save_return_case","money.return_cases","money.consumption_sources","money.reconcile_expenses","money.service_cards",
   "money.record_entry", "money.record_refund", "money.correct_entry", "money.set_use_cycle", "money.record_consumable_use",
   "health.record_measurement", "health.correct_measurement", "health.record_workout",
   "travel.create_trip", "travel.correct_trip", "travel.add_reservation",
@@ -27,9 +27,9 @@ export const personalOperatorTools: ReadonlySet<CapabilityName> = new Set<Capabi
   "life.food_catalog", "life.get_record", "life.owned_items", "life.reviews",
   "money.summarize", "money.records", "money.planning",
   "money.import_file", "money.import_file_status", "money.stage_import", "money.resolve_import_candidate", "money.import_review", "money.import_history", "money.import_month",
-  "health.records", "health.get_record", "health.trend", "health.sources", "health.daily", "health.save_morning_checkin", "health.morning_window", "health.sleep_insights", "life.wellness_review", "health.exercise_history", "health.workout_progression",
-  "travel.records", "travel.get_trip", "travel.save_destination","travel.destinations","travel.save_connection","travel.connections","travel.workspace",
-  "library.records", "library.get_item", "library.queue_processing", "agent.memories", "notifications.list", "operations.get",
+  "health.records", "health.get_record", "health.trend", "health.sources", "health.daily", "health.save_morning_checkin", "health.set_workout_route","health.set_rest_day","health.route_comparison","health.evening_sleep","health.save_lab_result","health.save_episode","health.lab_results","health.episodes","health.morning_window", "health.sleep_insights", "life.wellness_review", "health.exercise_history", "health.workout_progression",
+  "travel.records", "travel.get_trip", "travel.save_destination","travel.destinations","travel.save_diary_entry","travel.diary","travel.rail_ticket","travel.save_connection","travel.connections","travel.workspace",
+  "library.save_filter","library.saved_filters","library.records", "library.get_item", "library.queue_processing", "agent.memories", "notifications.list", "operations.get",
   "operations.find", "life.projects", "life.planning_agenda", "life.meal_planning", "money.foreign_entries",
   "life.save_project", "life.save_action_item", "life.save_meal_plan", "life.stock_recipes","life.build_shopping_list", "life.update_shopping_item",
   "life.save_food", "life.save_recipe", "life.record_meal_from_recipe", "life.generate_review",
@@ -42,4 +42,21 @@ export function profileAllows(profile: McpProfile, name: CapabilityName, scenari
   const inProfile = profile === "authorized" || personalOperatorTools.has(name) || profile === "personal-money-void" && name === "money.void_entry";
   const common = name.startsWith("agent.") && ["agent.context", "agent.discover", "agent.glossary", "agent.scenarios", "agent.catalog", "agent.intentions", "agent.workspace", "agent.objects", "agent.tasks", "agent.learning", "agent.changes", "agent.export", "agent.set_intention", "agent.save_task", "agent.save_learning", "agent.set_subscription", "agent.ack_changes", "agent.restore"].includes(name) || name === "operations.find" || name === "operations.get";
   return inProfile && (!scenario || common || agentScenarios.find(item => item.name === scenario)?.capabilities.includes(name) === true);
+}
+
+// Minimum authorization for a useful invocation. Optional source links and individual inputs
+// are checked again by the executor. Mixed-domain directories can return a partial view.
+export function capabilityVisible(capability:{name:string;idempotency:string;possibleEffects:readonly string[]},effects:ReadonlySet<string>):boolean{
+  const all=capability.possibleEffects;
+  if(["life.today","life.timeline","life.day","life.memories","life.search","life.get_record","life.planning_agenda"].includes(capability.name))
+    return all.some(e=>effects.has(e));
+  if(capability.name==="life.merchant_menu"||capability.name==="life.consumption_stats")return effects.has("life.meal.read");
+  if(capability.idempotency==="required"){
+    if(capability.name==="life.record_dining")return effects.has("life.meal.write")&&effects.has("life.purchase.write");
+    const requiredTogether=["life.generate_activity_review","life.record_captured_expenses","life.add_meal_payment","life.attach_meal_source",
+      "life.set_price_spec","life.save_amount_evidence","life.void_purchase","life.link_meal_consumption","money.import_file",
+      "money.save_return_case","health.save_lab_result","life.save_clip","life.set_capture_goal"];
+    if(!requiredTogether.includes(capability.name))return !!all[0]&&effects.has(all[0]);
+  }
+  return all.every(e=>effects.has(e));
 }

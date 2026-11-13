@@ -19,7 +19,12 @@ export async function runSkill(configPath: string, action: string, name?: string
     ...(config.proxyClientId ? { proxyClientId: config.proxyClientId } : {}),
     ...(config.scenario ? { scenario: agentScenarioNameSchema.parse(config.scenario) } : {}) });
   if (action === "catalog") return [...await client.listTools(), ...(roots.length ? [uploadTool, uploadAttachmentTool, ...(client.allows("money.import_file") ? [uploadFileTool] : [])] : [])];
-  if (action !== "call" || !name) throw new Error("Usage: skill --config <private.json> catalog | call <capability> [input.json]; default input is stdin");
+  if(action==="describe"&&name){
+    const tool=(await client.listTools()).find(t=>t.name===name);
+    if(!tool)throw new Error("Capability unavailable for this profile and account");
+    return tool;
+  }
+  if (action !== "call" || !name) throw new Error("Usage: skill --config <private.json> catalog | describe <capability> | call <capability> [input.json]; default input is stdin");
   try {
     if (name === uploadAttachmentTool.name) return await uploadLocalAttachment(client, roots, args);
     if (name === uploadTool.name) return await uploadLocalImage(client, roots, args);

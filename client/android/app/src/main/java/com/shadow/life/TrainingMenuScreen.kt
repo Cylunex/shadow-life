@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -57,6 +58,7 @@ internal fun trainingMenuOrDefault(candidate:JSONObject?,fallback:JSONObject):JS
   var draft by remember(accountId){mutableStateOf(store.read()?:emptyDraft())}
   var activeExercise by androidx.compose.runtime.saveable.rememberSaveable(accountId){mutableIntStateOf(0)}
   var tab by androidx.compose.runtime.saveable.rememberSaveable(accountId,initialTab){mutableStateOf(initialTab)}
+  var preferred by rememberSaveable(accountId){mutableStateOf("")}
   var menu by remember(accountId){mutableStateOf(builtIn.copyJson())}
   var focus by remember(accountId){mutableStateOf(draft.focus)}
   var equipment by remember(accountId){mutableStateOf("all")}
@@ -78,7 +80,11 @@ internal fun trainingMenuOrDefault(candidate:JSONObject?,fallback:JSONObject):JS
   fun choosePlan(plan:NativeTrainingPlan?){
     if(draft.exercises.isNotEmpty()){error="当前组合已保留，请先完成或清空，再切换计划";tab="today";return}
     menu=trainingMenuOrDefault(plan?.detail?.optJSONObject("workout_menu"),builtIn)
-    val theme=trainingTheme(menu);update(emptyDraft(plan?.id.orEmpty(),theme));focus=theme;name=plan?.title?:"居家力量 · 自选动作";error=null
+    val theme=trainingTheme(menu)
+    val preferredIds=menu.optJSONArray("preferred_exercises")
+    val menuExercises=menu.getJSONArray("exercises").trainingObjects()
+    val defaults=(0 until (preferredIds?.length()?:0)).mapNotNull{i->menuExercises.find{it.getString("id")==preferredIds?.optString(i)}?.let{TrainingExerciseDraft(it.getString("id"),it.toString())}}
+    preferred="";update(emptyDraft(plan?.id.orEmpty(),theme).copy(exercises=defaults));focus=theme;name=plan?.title?:"居家力量 · 自选动作";error=null
   }
   fun updateExercise(id:String,change:(TrainingExerciseDraft)->TrainingExerciseDraft){update(draft.copy(exercises=draft.exercises.map{if(it.id==id)change(it) else it}))}
   LaunchedEffect(accountId){onLoad()}
@@ -165,6 +171,7 @@ internal fun trainingMenuOrDefault(candidate:JSONObject?,fallback:JSONObject):JS
                         try {
                           val id=replacement.getString("id")
                           val next=draft.replaceExercise(row.id,TrainingExerciseDraft(id,replacement.toString()))
+                          preferred=(if(preferred.isBlank())draft.exercises.map{it.id} else preferred.split(",")).map{if(it==row.id)id else it}.distinct().joinToString(",")
                           update(next)
                           activeExercise=next.exercises.indexOfFirst { it.id == id }
                           error=null
@@ -206,6 +213,14 @@ internal fun trainingMenuOrDefault(candidate:JSONObject?,fallback:JSONObject):JS
               }catch(failure:IllegalArgumentException){error=failure.message?:"请检查实际组数"}
             }){Text("结束并保存 · ${draft.completedSets} 组")}
           }
+          if(preferred.isNotBlank())TextButton(enabled=!pending&&state is LoadState.Ready&&!(submit is SubmitState.Saved&&submit.receipt.capability=="health.set_plan"),onClick={
+            val updated=menu.copyJson().put("preferred_exercises",JSONArray(preferred.split(",")))
+            val detail=(selected?.detail?.copyJson()?:JSONObject()).put("workout_menu",updated)
+            val schedule=selected?.schedule?.copyJson()?:JSONObject().put("days",JSONArray(menu.getJSONArray("days").trainingObjects().map{it.getInt("weekday")}))
+            val input=JSONObject().put("kind","workout").put("name",name.trim()).put("state","active").put("schedule",schedule).put("detail",detail)
+            selected?.let{input.put("plan_id",it.id).put("expected_revision",it.revision)}
+            onReset();onSave("health.set_plan",input,null)
+          }){Text("以后也这样练")}
           TextButton(enabled=!pending&&draft.completedSets==0,onClick={update(emptyDraft(draft.planId,draft.focus));onReset()}){Text("清空未完成的组合")}
         }
       }

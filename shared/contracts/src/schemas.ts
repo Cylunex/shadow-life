@@ -393,6 +393,95 @@ export const pricesResultSchema=z.object({
 });
 export type PurchasePrices=z.infer<typeof pricesResultSchema>;
 
+const durationBasis=z.enum(["moving","elapsed","unknown"]);
+export const saveWorkoutRouteSchema=z.object({workout_id:stableId,route:z.string().trim().min(1).max(160).nullable(),duration_basis:durationBasis,expected_revision:z.number().int().positive().optional()}).strict();
+export const routeComparisonInputSchema=z.object({workout_id:stableId.optional(),route:z.string().trim().min(1).max(160).optional(),session_type:z.string().max(100).optional(),duration_basis:durationBasis.optional(),offset:z.coerce.number().int().min(0).default(0),limit:z.coerce.number().int().min(1).max(100).default(30)}).strict().refine(v=>!!v.workout_id!==!!v.route,"请选择记录或路线");
+export const routeComparisonResultSchema=z.object({items:z.array(z.object({id:stableId,session_type:z.string(),occurred_on:localDate,distance_km:z.string().nullable(),duration_minutes:z.number().nullable(),rpe:z.number().nullable(),heart_rate_avg:z.number().nullable(),route:z.string().nullable(),duration_basis:durationBasis.nullable(),revision:z.number().nullable(),minutes_per_km:z.string().nullable()})),next_offset:z.number().int().nullable()});
+export const saveRestDaySchema=z.object({occurred_on:localDate,time_zone:ianaTimeZone,is_rest:z.boolean(),expected_revision:z.number().int().positive().optional()}).strict();
+export const eveningSleepInputSchema=z.object({from:localDate,to:localDate,time_zone:ianaTimeZone}).strict().refine(v=>v.from<=v.to&&Date.parse(v.to)-Date.parse(v.from)<366*86400000,"日期区间最多 366 天");
+const sleepGroupSummary=z.object({days:z.number().int(),samples:z.number().int(),missing:z.number().int(),average_minutes:z.number().nullable()});
+export const eveningSleepResultSchema=z.object({time_zone:ianaTimeZone,evening_starts:z.literal("18:00"),evening:sleepGroupSummary,rest:sleepGroupSummary,days:z.array(z.object({
+  date:localDate,wake_date:localDate,rest_revision:z.number().int().nullable(),is_rest:z.boolean(),group:z.enum(["evening","rest","other","unknown"]),
+  sleep_id:stableId.nullable(),sleep_minutes:z.number().int().nullable(),workouts:z.array(z.object({id:stableId,started_at:instant.nullable()}))
+}))});
+
+export const savedFilterSchema=z.object({id:stableId.optional(),expected_revision:z.number().int().positive().optional(),name:z.string().trim().min(1).max(120),query:z.string().trim().min(1).max(200),archived:z.boolean().default(false)}).strict().refine(v=>!!v.id===!!v.expected_revision);
+export const savedFiltersInputSchema=z.object({id:stableId.optional(),after:stableId.optional(),limit:z.coerce.number().int().min(1).max(100).default(50)}).strict();
+export const savedFiltersResultSchema=z.object({items:z.array(z.object({id:stableId,name:z.string(),query:z.string(),revision:z.number().int()})),next:stableId.nullable()});
+const diaryRef=z.object({kind:z.enum(["visit","photo","audio"]),id:stableId}).strict();
+export const tripDiaryEntrySchema=z.object({id:stableId.optional(),expected_revision:z.number().int().positive().optional(),trip_id:stableId,local_day:localDate,position:z.number().int().min(0).max(10000).default(0),body:z.string().trim().max(8000).default(""),refs:z.array(diaryRef).max(30).default([])}).strict().refine(v=>!!v.id===!!v.expected_revision&&(!!v.body||!!v.refs.length)&&new Set(v.refs.map(r=>r.kind+r.id)).size===v.refs.length);
+export const tripDiaryInputSchema=z.object({trip_id:stableId,on:localDate.optional(),offset:z.coerce.number().int().min(0).default(0),limit:z.coerce.number().int().min(1).max(100).default(20)}).strict();
+export const tripDiaryResultSchema=z.object({items:z.array(z.object({id:stableId,local_day:localDate,position:z.number().int(),body:z.string(),refs:z.array(diaryRef.extend({title:z.string(),asset_version_id:stableId.nullable()})),revision:z.number().int()})),next_offset:z.number().int().nullable()});
+
+const menuLabel=z.string().trim().min(1).max(160).regex(/^[^｜|\p{Cc}]+$/u);
+export const rememberMerchantDishSchema=z.object({merchant:menuLabel.optional(),dish:menuLabel,evidence:z.discriminatedUnion("kind",[
+  z.object({kind:z.literal("meal_intake"),meal_id:stableId,intake_id:stableId,note:z.string().trim().min(1).max(500).optional()}).strict(),
+  z.object({kind:z.literal("menu_photo"),library_item_id:stableId,note:z.string().trim().min(1).max(500).optional()}).strict(),
+  z.object({kind:z.literal("note"),note:z.string().trim().min(1).max(500)}).strict()
+])}).strict();
+export const merchantMenuInputSchema=z.object({merchant:menuLabel.optional(),query:z.string().trim().min(1).max(160).optional(),after:stableId.optional(),limit:z.coerce.number().int().min(1).max(100).default(40)}).strict();
+export const merchantMenuResultSchema=z.object({merchant:z.string(),items:z.array(z.object({id:stableId,dish:z.string(),name:z.string(),revision:z.number().int(),
+  serving_amount:z.string().nullable(),serving_unit:z.string().nullable(),nutrients:z.record(z.string(),z.unknown()),provenance:z.string().nullable(),
+  evidence:z.array(z.object({kind:z.enum(["note","meal_intake","menu_photo"]),meal_id:stableId.nullable(),intake_id:stableId.nullable(),library_item_id:stableId.nullable(),note:z.string().nullable()}))})),next:stableId.nullable()});
+
+export const saveReturnCaseSchema=z.object({
+  case_id:stableId.optional(),expected_revision:z.number().int().positive().optional(),purchase_item_id:stableId,
+  expected_amount:positiveDecimal,currency:currencyCode,returned_on:localDate.optional(),note:z.string().trim().max(2000).optional(),
+  allocations:z.array(z.object({refund_entry_id:stableId,amount:positiveDecimal}).strict()).max(100).default([])
+}).strict().refine(v=>Boolean(v.case_id)===Boolean(v.expected_revision) && new Set(v.allocations.map(a=>a.refund_entry_id)).size===v.allocations.length,"编辑需带修订；退款不能重复");
+export const returnCasesInputSchema=z.object({purchase_item_id:stableId.optional(),offset:z.coerce.number().int().nonnegative().default(0),limit:z.coerce.number().int().min(1).max(100).default(30)}).strict();
+const returnAllocationSchema=z.object({refund_entry_id:stableId,amount:z.string(),allocated:z.string(),available:z.string()}).strict();
+export const returnCasesResultSchema=z.object({items:z.array(z.object({id:stableId,purchase_item_id:stableId,record_id:stableId,name:z.string(),revision:z.number(),currency:currencyCode,
+  expected_amount:z.string(),received:z.string(),remaining:z.string(),returned_on:localDate.nullable(),note:z.string().nullable(),refunds:z.array(returnAllocationSchema)}).strict()),next_offset:z.number().nullable()}).strict();
+export const consumptionSourcesInputSchema=z.object({record_id:stableId}).strict();
+export const consumptionSourcesResultSchema=z.object({record_id:stableId,state:z.string(),items:z.array(z.object({
+  relation:z.enum(["linked","suspected_duplicate","order_conflict"]),kind:z.enum(["source","mail","import_candidate","android_order"]),
+  id:stableId,external_id:z.string().nullable(),batch_id:stableId.nullable(),source_name:z.string().nullable(),capture_ids:z.array(stableId)
+}).strict())}).strict();
+const revisionEdit={id:stableId.optional(),expected_revision:z.number().int().positive().optional()};
+const matchesRevision=(v:{id?:string|undefined;expected_revision?:number|undefined})=>Boolean(v.id)===Boolean(v.expected_revision);
+const featureLabel=z.string().trim().min(1).max(200);
+const featurePage={offset:z.coerce.number().int().nonnegative().default(0),limit:z.coerce.number().int().min(1).max(100).default(40)};
+export const railTicketInputSchema=z.object({library_item_id:stableId,trip_id:stableId}).strict();
+export const railTicketResultSchema=z.object({library_item_id:stableId,library_revision:z.number(),quote:z.string(),date:localDate.nullable(),
+  starts_at:instant.nullable(),service_number:z.string().nullable(),origin:z.string().nullable(),destination:z.string().nullable(),confirmation_code:z.string().nullable(),
+  printed_fare:z.string().nullable(),matched:z.array(z.object({id:stableId,revision:z.number(),title:z.string()}))}).strict();
+export const saveContainerSchema=z.object({...revisionEdit,label:featureLabel,parent_id:stableId.nullable().default(null)}).strict().refine(matchesRevision);
+export const placeItemSchema=z.object({item_id:stableId,expected_revision:z.number().int().positive(),container_id:stableId.nullable()}).strict();
+export const containerQuerySchema=z.object({container_id:stableId.optional(),query:featureLabel.optional(),...featurePage}).strict();
+const storedPath=z.array(z.string());
+export const containerQueryResultSchema=z.object({containers:z.array(z.object({id:stableId,label:z.string(),parent_id:stableId.nullable(),revision:z.number(),path:storedPath})),
+  items:z.array(z.object({id:stableId,name:z.string(),container_id:stableId.nullable(),path:storedPath,revision:z.number()})),more_containers:z.boolean(),more_items:z.boolean()}).strict();
+export const labResultInputSchema=z.object({...revisionEdit,report_id:stableId,report_revision:z.number().int().positive(),page:z.number().int().min(1),
+  tested_on:localDate,raw_name:featureLabel,value:featureLabel,unit:featureLabel.optional(),reference:featureLabel.optional()}).strict().refine(matchesRevision);
+export const labCompareInputSchema=z.object({report_id:stableId.optional(),left_id:stableId.optional(),right_id:stableId.optional(),...featurePage}).strict()
+  .refine(v=>Boolean(v.left_id)===Boolean(v.right_id)&&(!v.left_id||v.left_id!==v.right_id));
+export const labCompareResultSchema=z.object({items:z.array(z.object({id:stableId,revision:z.number(),report_id:stableId,report_revision:z.number(),report_title:z.string(),
+  page:z.number(),tested_on:localDate,raw_name:z.string(),value:z.string(),unit:z.string().nullable(),reference:z.string().nullable()})),next_offset:z.number().nullable()}).strict();
+const episodePoint=z.object({at:instant,severity:z.number().int().min(0).max(10).optional(),note:featureLabel.optional()}).strict().refine(v=>v.severity!==undefined||!!v.note);
+export const saveEpisodeSchema=z.object({...revisionEdit,title:featureLabel,started_on:localDate,time_zone:ianaTimeZone,started_at:instant.optional(),ended_on:localDate.optional(),ended_at:instant.optional(),
+  points:z.array(episodePoint).max(100).default([]),note:z.string().trim().max(4000).optional()}).strict().refine(matchesRevision)
+  .refine(v=>factDateMatches({occurred_on:v.started_on,occurred_at:v.started_at,time_zone:v.time_zone})&&(!v.ended_at||!!v.ended_on&&factDateMatches({occurred_on:v.ended_on,occurred_at:v.ended_at,time_zone:v.time_zone}))
+    &&(!v.ended_on||v.ended_on>=v.started_on)&&(!v.started_at||!v.ended_at||Date.parse(v.ended_at)>=Date.parse(v.started_at))
+    &&v.points.every(p=>{const day=new Intl.DateTimeFormat("sv-SE",{timeZone:v.time_zone}).format(new Date(p.at));return day>=v.started_on&&(!v.ended_on||day<=v.ended_on)&&(!v.started_at||Date.parse(p.at)>=Date.parse(v.started_at))&&(!v.ended_at||Date.parse(p.at)<=Date.parse(v.ended_at));}),"发作时间及进展须位于所填本地日期与区间内");
+export const episodesInputSchema=z.object({from:localDate.optional(),to:localDate.optional(),id:stableId.optional(),...featurePage}).strict();
+export const episodesResultSchema=z.object({items:z.array(z.object({id:stableId,revision:z.number(),title:z.string(),started_on:localDate,time_zone:ianaTimeZone,started_at:instant.nullable(),ended_on:localDate.nullable(),
+  ended_at:instant.nullable(),points:z.array(episodePoint),note:z.string().nullable(),duration_minutes:z.number().nullable()})),next_offset:z.number().nullable()}).strict();
+export const saveClipSchema=z.object({...revisionEdit,segment_id:stableId,title:featureLabel,start_ms:z.number().int().min(0),end_ms:z.number().int().positive(),selected:z.boolean().default(true)}).strict()
+  .refine(matchesRevision).refine(v=>v.end_ms>v.start_ms);
+export const clipsInputSchema=z.object({from:localDate,to:localDate,time_zone:ianaTimeZone,selected:z.enum(["all","selected"]).default("selected"),...featurePage}).strict().refine(v=>v.to>=v.from);
+export const clipsResultSchema=z.object({items:z.array(z.object({id:stableId,revision:z.number(),segment_id:stableId,title:z.string(),local_day:localDate,start_ms:z.number(),end_ms:z.number(),
+  selected:z.boolean(),quote:z.string().nullable(),asset_version_id:stableId.nullable()})),next_offset:z.number().nullable()}).strict();
+export const saveOfflineIntervalSchema=z.object({...revisionEdit,title:featureLabel,started_at:instant,ended_at:instant,time_zone:ianaTimeZone}).strict().refine(matchesRevision)
+  .refine(v=>{const ms=Date.parse(v.ended_at)-Date.parse(v.started_at);return ms>0&&ms<=86400000;});
+export const offlineDayInputSchema=z.object({date:localDate,time_zone:ianaTimeZone,...featurePage}).strict();
+export const offlineDayResultSchema=z.object({active_minutes:z.number(),coverage:z.literal("unknown_outside_observations"),items:z.array(z.object({id:stableId,revision:z.number(),title:z.string(),kind:z.string(),
+  editable:z.boolean(),started_at:instant,ended_at:instant})),next_offset:z.number().nullable()}).strict();
+export const reconciliationInputSchema=z.object({from:localDate,to:localDate,currency:currencyCode.default("CNY"),offset:z.coerce.number().int().nonnegative().default(0),limit:z.coerce.number().int().min(1).max(100).default(30)}).strict().refine(v=>v.to>=v.from&&Date.parse(v.to)-Date.parse(v.from)<93*86400000);
+const reconciliationEntry=z.object({record_id:stableId,occurred_at:instant.nullable(),payment_method:z.string().nullable(),counterparty:z.string().nullable(),
+  import_ids:z.array(z.string()),order_ids:z.array(z.string())});
+export const reconciliationResultSchema=z.object({from:localDate,to:localDate,currency:currencyCode,confirmed_expenses:z.number(),gross_amount:z.string(),candidate_groups:z.number(),
+  items:z.array(z.object({occurred_on:localDate,amount:z.string(),records:z.array(reconciliationEntry),basis:z.enum(["same_day_amount","same_time_amount"])})),next_offset:z.number().nullable()}).strict();
 const evidenceField=z.enum(["paid","discount","delivery"]);
 export type EvidenceField=z.infer<typeof evidenceField>;
 const pixel=z.number().int().nonnegative().max(100000);
@@ -709,6 +798,18 @@ export const writeCommandSchemas = {
   "travel.record_visit": recordVisitInputSchema,
   "travel.save_place":savePlaceInputSchema,
   "travel.save_destination":destinationCardSchema,
+  "health.set_workout_route":saveWorkoutRouteSchema,
+  "health.set_rest_day":saveRestDaySchema,
+  "library.save_filter":savedFilterSchema,
+  "travel.save_diary_entry":tripDiaryEntrySchema,
+  "life.remember_merchant_dish":rememberMerchantDishSchema,
+  "money.save_return_case":saveReturnCaseSchema,
+  "life.save_container":saveContainerSchema,
+  "life.place_item":placeItemSchema,
+  "health.save_lab_result":labResultInputSchema,
+  "health.save_episode":saveEpisodeSchema,
+  "life.save_clip":saveClipSchema,
+  "life.save_offline_interval":saveOfflineIntervalSchema,
   "travel.save_connection":saveTripConnectionSchema,
   "travel.set_day_plan":setTripDayPlanInputSchema,
   "travel.set_checklist":setTripChecklistInputSchema,
@@ -777,7 +878,7 @@ export const universalCommandEnvelopeSchema = z.object({
 });
 
 export const resourceReferenceSchema = z.object({
-  type: z.enum(["agent_intention", "agent_task", "agent_learning", "agent_subscription", "meal", "meal_template", "food", "recipe", "personal_alias", "intake_item", "consumption_record", "purchase", "purchase_item", "money_entry", "refund", "budget", "recurring_plan", "recurring_occurrence", "spending_intent", "use_cycle", "service_card", "service_card_use", "consumable_use", "money_import_file", "money_import_batch", "money_import_candidate", "money_import_rule", "health_measurement", "health_workout_session", "health_raw", "health_sync_cursor", "health_plan", "trip", "trip_segment", "reservation", "visit", "place", "travel_map", "trip_track", "trip_day_plan", "purchase_price_spec", "amount_evidence", "interval_event","interval_occurrence", "dish_preference", "destination_card", "trip_connection", "trip_checklist", "trip_member", "trip_plan_version", "trip_run", "trip_stop_outcome", "library_item", "library_annotation", "library_derivation", "library_processing_job", "library_reading_state", "library_legacy_link", "agent_context_pack", "agent_memory", "notification_preferences", "notification", "notification_installation", "notification_delivery", "owned_item", "owned_item_event", "life_review", "life_project", "action_item", "meal_plan", "shopping_list", "shopping_list_item", "food_stock_lot", "money_fx_snapshot", "shared_expense_allocation", "source", "activity_capture", "thread", "run", "task"]),
+  type: z.enum(["agent_intention", "agent_task", "agent_learning", "agent_subscription", "meal", "meal_template", "food", "recipe", "personal_alias", "intake_item", "consumption_record", "purchase", "purchase_item", "money_entry", "refund", "budget", "recurring_plan", "recurring_occurrence", "spending_intent", "use_cycle", "service_card", "service_card_use", "consumable_use", "money_import_file", "money_import_batch", "money_import_candidate", "money_import_rule", "health_measurement", "health_workout_session", "health_raw", "health_sync_cursor", "health_plan", "trip", "trip_segment", "reservation", "visit", "place", "travel_map", "trip_track", "trip_day_plan", "purchase_price_spec", "amount_evidence", "interval_event","interval_occurrence", "dish_preference", "destination_card", "workout_route", "workout_rest_day", "library_saved_filter", "trip_diary_entry", "return_case", "storage_container", "lab_observation", "symptom_episode", "recording_clip", "trip_connection", "trip_checklist", "trip_member", "trip_plan_version", "trip_run", "trip_stop_outcome", "library_item", "library_annotation", "library_derivation", "library_processing_job", "library_reading_state", "library_legacy_link", "agent_context_pack", "agent_memory", "notification_preferences", "notification", "notification_installation", "notification_delivery", "owned_item", "owned_item_event", "life_review", "life_project", "action_item", "meal_plan", "shopping_list", "shopping_list_item", "food_stock_lot", "money_fx_snapshot", "shared_expense_allocation", "source", "activity_capture", "thread", "run", "task"]),
   id: stableId,
   revision: z.number().int().positive()
 }).strict();

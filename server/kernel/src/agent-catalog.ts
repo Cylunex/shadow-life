@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import {
-  agentCatalogInputSchema, agentCatalogSnapshotSchema, profileAllows, type McpProfile,
+  agentCatalogInputSchema, agentCatalogSnapshotSchema, capabilityVisible, profileAllows, type McpProfile,
   agentDiscoverInputSchema, agentDiscoverResultSchema, agentGlossaryInputSchema, agentGlossaryResultSchema,
   agentScenariosInputSchema, agentScenariosResultSchema, agentValidateInputSchema, agentValidateResultSchema,
   buildAgentCatalogDocument, capabilityRegistry, type AgentCapability, type AgentScenarioName, type AgentTerm, type CapabilityName
@@ -32,7 +32,7 @@ function isLookup(query: string): boolean {
 }
 const termMatches = (query: string, term: AgentTerm) => matches(query, [term.id, term.title, ...term.aliases]);
 function visibleNames(context: RequestContext, profile: McpProfile = "authorized", scenario?: AgentScenarioName): Set<string> {
-  return new Set(Object.entries(capabilityRegistry).filter(([name, item]) => profileAllows(profile, name as CapabilityName, scenario) && item.possibleEffects.some(effect => context.effects.has(effect))).map(([, item]) => item.name));
+  return new Set(Object.entries(capabilityRegistry).filter(([name, item]) => profileAllows(profile, name as CapabilityName, scenario) && capabilityVisible(item, context.effects)).map(([, item]) => item.name));
 }
 function visibleTerms(names: ReadonlySet<string>): AgentTerm[] {
   return catalog.terms.map(term => ({ ...term, capabilities: term.capabilities.filter(name => names.has(name)), lookup_tools: term.lookup_tools.filter(name => names.has(name)) }))

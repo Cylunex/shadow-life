@@ -1,3 +1,9 @@
+import {serve} from "@hono/node-server";
+import {mkdtemp,writeFile,rm} from "node:fs/promises";
+import {tmpdir} from "node:os";
+import {join} from "node:path";
+import {execFile} from "node:child_process";
+import {promisify} from "node:util";
 import { trackPoolShutdown } from "./pool-teardown.js";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -20,7 +26,7 @@ async function fixture(t:TestContext){
   const run=(capability:string,input:unknown)=>executor.execute(context,{protocol:"shadow.command",capability,command_id:`cmd_${randomUUID()}`,input});
   const headers={authorization:`Bearer dev:${subjectId}`,"content-type":"application/json"};
   const app=(runtime:AgentRuntimeAdapter,repository=new AgentRepository(pool))=>createApp({unitOfWork,executor,queries,developmentAuth:true,agent:{repository,runtime,nextId:type=>uuidIds.next(type)}});
-  return{pool,context,run,headers,app,queries};
+  return{pool,context,run,headers,app,queries,unitOfWork,executor};
 }
 const completed:AgentRuntimeAdapter={id:"local-stub",available:true,async *run(request){yield{id:"done",type:"run.completed",runId:request.runId};},async *submitToolResult(){throw Error("unexpected continuation");}};
 
@@ -109,4 +115,29 @@ test("F09 API: a different instance requests stop and the live owner's heartbeat
   const observer=app(completed),stop=await observer.request(`/api/runs/${id}/stop`,{method:"POST",headers});assert.equal((await stop.json() as {status:string}).status,"stopping");
   assert.match(await body,/"state":"interrupted"/);
   assert.equal((await owner.run(context.subjectId,id))?.status,"interrupted");
+});
+
+test("personal CLI describes, discovers and executes the same read operations against a migrated Life API",pgOnly,async t=>{
+  const {unitOfWork,executor,queries,context}=await fixture(t);
+  const app=createApp({unitOfWork,executor,queries,developmentAuth:true});
+  const server=serve({fetch:app.fetch,hostname:"127.0.0.1",port:0});
+  if(!server.listening)await new Promise<void>(resolve=>server.once("listening",resolve));
+  t.after(()=>new Promise<void>(resolve=>server.close(()=>resolve())));
+  const address=server.address();assert.ok(address&&typeof address==="object");
+  const dir=await mkdtemp(join(tmpdir(),"life-cli-"));t.after(()=>rm(dir,{recursive:true,force:true}));
+  const config=join(dir,"config.json");await writeFile(config,JSON.stringify({api:`http://127.0.0.1:${address.port}`,token:"dev:"+context.subjectId,profile:"personal"}));
+  const cli=new URL("../../../skills/life-operator/scripts/life",import.meta.url).pathname;
+  const call=async(...args:string[])=>JSON.parse((await promisify(execFile)(cli,["--config",config,...args],{maxBuffer:12*1024*1024})).stdout);
+  const input=join(dir,"input.json");
+  const names=["health.workout_progression","life.meal_planning","travel.workspace","library.records","life.merchant_menu"];
+  const catalog=await call("catalog");
+  await writeFile(input,JSON.stringify({names,read_only:true,limit:20}));
+  const discovered=await call("call","agent.discover",input);
+  for(const name of names){
+    assert.ok(catalog.find((c:{name:string})=>c.name===name)?.annotations.readOnlyHint,name);
+    assert.equal(discovered.capabilities.find((c:{name:string})=>c.name===name)?.mode,"read",name);
+    assert.equal((await call("describe",name)).annotations.readOnlyHint,true);
+    await writeFile(input,JSON.stringify(name==="life.merchant_menu"?{merchant:"合成食堂"}:{}));
+    assert.ok(await call("call",name,input));
+  }
 });

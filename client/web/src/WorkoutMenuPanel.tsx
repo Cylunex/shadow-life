@@ -14,6 +14,10 @@ export function WorkoutMenuPanel({headers,capabilities,execute,date,timeZone,onC
   const [name,setName]=useState("居家力量 · 自选动作"),[error,setError]=useState(""),[message,setMessage]=useState(""),[pending,setPending]=useState(false),[loaded,setLoaded]=useState(false),[loadError,setLoadError]=useState("");
   const [now,setNow]=useState(Date.now()),[restLength,setRestLength]=useState(60),[draftWarning,setDraftWarning]=useState("");
   const [activeExercise,setActiveExercise]=useState(0),[previous,setPrevious]=useState<string>();
+  const [preferred,setPreferred]=useState<string[]>([]);
+  function plannedDraft(base:WorkoutDraft,m:typeof menu):WorkoutDraft{
+    return {...base,exercises:(m.preferred_exercises??[]).flatMap(id=>{const exercise=m.exercises.find(e=>e.id===id);return exercise?[{exercise,sets:[blankSet()]}]:[];})};
+  }
   const currentExercise=draft.exercises[activeExercise]?.exercise;
   useEffect(()=>{
     const controller=new AbortController();setPrevious(undefined);
@@ -22,17 +26,17 @@ export function WorkoutMenuPanel({headers,capabilities,execute,date,timeZone,onC
   },[headers,identityKey,draft.started,currentExercise?.id]);
   const initialized=useRef(false),canWrite=capabilities.has("health.record_workout"),selected=plans.find(plan=>plan.id===draft.planId);
   useEffect(()=>{const controller=new AbortController();setLoadError("");void loadMenuPlans(fetch,headers,controller.signal).then(items=>{setPlans(items);setLoaded(true);}).catch(caught=>{if(!controller.signal.aborted)setLoadError(String(caught));});return()=>controller.abort();},[headers]);
-  useEffect(()=>{if(!loaded||initialized.current)return;initialized.current=true;const plan=plans.find(item=>item.id===draft.planId)??(draft.exercises.length?undefined:suggestedPlan(plans,date));const nextMenu=menuForPlan(plan);setMenu(nextMenu);setName(plan?.title??"居家力量 · 自选动作");if(!draft.exercises.length){const theme=workoutThemeForDate(nextMenu,date);setDraft(emptyWorkout(date,timeZone,theme,plan?.id));setFocus(theme);}},[loaded,plans,date,timeZone,draft.planId,draft.exercises.length]);
+  useEffect(()=>{if(!loaded||initialized.current)return;initialized.current=true;const plan=plans.find(item=>item.id===draft.planId)??(draft.exercises.length?undefined:suggestedPlan(plans,date));const nextMenu=menuForPlan(plan);setMenu(nextMenu);setName(plan?.title??"居家力量 · 自选动作");if(!draft.exercises.length){const theme=workoutThemeForDate(nextMenu,date);setDraft(plannedDraft(emptyWorkout(date,timeZone,theme,plan?.id),nextMenu));setFocus(theme);}},[loaded,plans,date,timeZone,draft.planId,draft.exercises.length]);
   useEffect(()=>{try{if(draft.exercises.length)sessionStorage.setItem(storageKey,JSON.stringify(draft));else sessionStorage.removeItem(storageKey);}catch{setDraftWarning("当前浏览器无法保存草稿，请在离开前保存已完成训练。");}},[draft,storageKey]);
   useEffect(()=>{if(!draft.restUntil)return;setNow(Date.now());if(draft.restUntil<=Date.now())return;const timer=window.setInterval(()=>{const current=Date.now();setNow(current);if(current>=draft.restUntil)window.clearInterval(timer);},250);return()=>window.clearInterval(timer);},[draft.restUntil]);
   function selectPlan(id:string){
     if(draft.exercises.length){setError("当前组合已保留，请先完成或清空，再切换计划");setTab("today");return;}
     const plan=plans.find(item=>item.id===id),nextMenu=menuForPlan(plan),theme=workoutThemeForDate(nextMenu,date);
-    setMenu(nextMenu);setDraft(emptyWorkout(date,timeZone,theme,id));setFocus(theme);setName(plan?.title??"居家力量 · 自选动作");setError("");setMessage("");
+    setMenu(nextMenu);setPreferred([]);setDraft(plannedDraft(emptyWorkout(date,timeZone,theme,id),nextMenu));setFocus(theme);setName(plan?.title??"居家力量 · 自选动作");setError("");setMessage("");
   }
   function updateExercise(id:string,change:(row:SessionExercise)=>SessionExercise){setDraft(current=>({...current,exercises:current.exercises.map(row=>row.exercise.id===id?change(row):row)}));}
   function moveExercise(index:number,offset:number){setDraft(current=>{const next=[...current.exercises];next.splice(index+offset,0,next.splice(index,1)[0]!);return{...current,exercises:next};});}
-  async function savePlan(){setPending(true);setError("");setMessage("");try{const result=await execute("health.set_plan",buildMenuPlan(menu,name,selected),"workout:menu");if(result.status!=="committed")throw new Error("保存结果尚未确认，请检查执行回执后重试");const next=await loadMenuPlans(fetch,headers);setPlans(next);setDraft(current=>({...current,planId:String(result.actual_values.health_plan_id)}));setMessage("动作菜单已保存");}catch(caught){setError(caught instanceof Error?caught.message:String(caught));}finally{setPending(false);}}
+  async function savePlan(nextMenu=menu){setPending(true);setError("");setMessage("");try{const result=await execute("health.set_plan",buildMenuPlan(nextMenu,name,selected),"workout:menu");if(result.status!=="committed")throw new Error("保存结果尚未确认，请检查执行回执后重试");const next=await loadMenuPlans(fetch,headers);setPlans(next);setDraft(current=>({...current,planId:String(result.actual_values.health_plan_id)}));setMenu(nextMenu);setPreferred([]);setMessage("动作菜单已保存");}catch(caught){setError(caught instanceof Error?caught.message:String(caught));}finally{setPending(false);}}
   async function record(){setPending(true);setError("");setMessage("");try{
     const result=await execute("health.record_workout",buildSessionWorkout(draft),"workout:strength");if(result.status!=="committed")throw new Error("记录结果尚未确认，请检查执行回执后重试");
     setDraft(emptyWorkout(date,timeZone,draft.focus,draft.planId));setMessage("训练已保存，只记录了确认完成的组");
@@ -62,6 +66,7 @@ export function WorkoutMenuPanel({headers,capabilities,execute,date,timeZone,onC
             if (!replacement) return;
             try {
               const next = replaceSessionExercise(draft, row.exercise.id, replacement);
+              setPreferred([...new Set((preferred.length?preferred:draft.exercises.map(x=>x.exercise.id)).map(id=>id===row.exercise.id?replacement.id:id))]);
               setDraft(next);
               setActiveExercise(next.exercises.findIndex(item => item.exercise.id === replacement.id));
               setError("");
@@ -76,6 +81,7 @@ export function WorkoutMenuPanel({headers,capabilities,execute,date,timeZone,onC
         <button type="button" className="secondary" disabled={pending||completed>0} onClick={()=>{setDraft(emptyWorkout(date,timeZone,draft.focus,draft.planId));setError("");}}>清空未完成的组合</button>
       </>}
     </section>}
+    {preferred.length>0&&capabilities.has("health.set_plan")&&<button type="button" disabled={pending} onClick={()=>void savePlan({...menu,preferred_exercises:preferred})}>以后也这样练</button>}
     {tab==="library"&&<section aria-label="动作库"><div className="panel-heading"><h3>动作库</h3><span>{menu.exercises.length} 个备选</span></div><label>搜索动作<input type="search" placeholder="卧推、飞鸟、平板…" value={query} onChange={event=>setQuery(event.target.value)}/></label><div className="menu-focus" role="group" aria-label="身体部位">{menu.priorities.map(key=><button type="button" key={key} className={focus===key?"":"secondary"} aria-pressed={focus===key} onClick={()=>setFocus(key)}>{workoutFocusLabels[key]}</button>)}</div>
       <div className="menu-filters"><label>器械<select aria-label="器械" value={equipment} onChange={event=>setEquipment(event.target.value)}><option value="all">徒手和哑铃</option><option value="bodyweight">徒手</option><option value="dumbbell">哑铃</option></select></label><label>难度<select aria-label="难度" value={difficulty} onChange={event=>setDifficulty(event.target.value)}><option value="all">全部难度</option>{Object.entries(workoutDifficultyLabels).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label></div>
       <div className="menu-exercises">{visible.map(exercise=>{const chosen=draft.exercises.some(row=>row.exercise.id===exercise.id);return <article key={exercise.id}><div className="panel-heading"><div><small>{workoutFocusLabels[exercise.focus]} · {exercise.equipment==="bodyweight"?"徒手":"哑铃"}</small><h3>{exercise.name}</h3></div><span className="training-badge">{workoutDifficultyLabels[exercise.difficulty]}</span></div><details><summary>动作说明 / 教学</summary><p>{exercise.guidance}</p><p className="menu-caution">{exercise.caution}</p><a href={exercise.source_url} target="_blank" rel="noreferrer">打开教学参考</a></details><button type="button" className="secondary" disabled={pending||chosen||draft.exercises.length>=30} onClick={()=>setDraft(current=>({...current,exercises:[...current.exercises,{exercise,sets:[blankSet()]}]}))}>{chosen?"✓ 已加入":"＋ 加入训练"}</button></article>;})}</div>

@@ -374,6 +374,7 @@ private fun todayDeviceTime(value:Long):String?=value.takeIf{it>0}?.let{Instant.
     item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){listOf("events" to "生活事件","facts" to "全部数据").forEach{(key,label)->FilterChip(recordsView==key,{onRecordsView(key)},label={Text(label)})}}}
     item{TextButton(onClick=onActivity,modifier=Modifier.fillMaxWidth()){Icon(Icons.Default.Info,null);Spacer(Modifier.width(8.dp));Text("活动、采集与回顾")}}
     if(searchState==null)item{RecordFilters(domain,{domain=it},period,{period=it})}
+    if(searchState==null&&accountId.isNotBlank())item{PersonalRecordsCard(accountId)}
     if(searchState==null&&accountId.isNotBlank())item{IntervalEventsCard(accountId)}
     if(searchState==null)item{LifeCard{DayMemorySection(selectedDay,day,memories,onDay,onDayMore,onDaySource)}}
     else item{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text("全部领域的搜索结果",Modifier.weight(1f),color=MaterialTheme.colorScheme.onSurfaceVariant);TextButton(onClick={query="";submittedQuery="";onClearSearch()}){Text("退出搜索")}}}

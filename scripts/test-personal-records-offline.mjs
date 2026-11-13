@@ -1,0 +1,47 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {mkdir,mkdtemp,writeFile} from 'node:fs/promises';
+import {join,resolve} from 'node:path';
+import {tmpdir} from 'node:os';
+import {withOfflinePostgres} from './offline-postgres.mjs';
+import {PostgresUnitOfWork,migrate} from '../server/database/src/index.ts';
+import {CommandExecutor,QueryService,sha256Fingerprinter,systemClock,uuidIds} from '../server/kernel/src/index.ts';
+import {createApp} from '../server/api/src/app.ts';
+import {chromium} from 'playwright';
+const root=resolve(import.meta.dirname,'..'),require=createRequire(`${root}/server/api/package.json`),{serve}=require('@hono/node-server');
+const webRequire=createRequire(`${root}/client/web/package.json`),{createServer}=await import(webRequire.resolve('vite')),{default:react}=await import(webRequire.resolve('@vitejs/plugin-react'));
+const output=process.env.SHADOW_WEB_TEST_ARTIFACTS??await mkdtemp(join(tmpdir(),'life-personal-records-'));await mkdir(output,{recursive:true});
+await withOfflinePostgres(async url=>{
+  const unitOfWork=new PostgresUnitOfWork({connectionString:url}),pool=unitOfWork.pool;let browser,web,server;
+  try{
+    await migrate(pool);await pool.query("update write_epochs set stage='life',epoch=epoch+1");await unitOfWork.ensurePrincipal('subject_example');
+    const executor=new CommandExecutor({unitOfWork,ids:uuidIds,clock:systemClock,fingerprinter:sha256Fingerprinter}),queries=new QueryService(unitOfWork);
+    const app=createApp({unitOfWork,executor,queries,developmentAuth:true});
+    server=serve({fetch:app.fetch,hostname:'127.0.0.1',port:0});await new Promise(resolve=>server.listening?resolve():server.once('listening',resolve));
+    web=await createServer({root:`${root}/client/web`,configFile:false,envFile:false,plugins:[react()],define:{__SHADOW_AMAP_CONFIG__:'null',__SHADOW_GOOGLE_MAPS_KEY__:'""'},server:{host:'127.0.0.1',port:0,proxy:{'/api':{target:`http://127.0.0.1:${server.address().port}`}}}});await web.listen();
+    browser=await chromium.launch({headless:true,...(process.env.SHADOW_TEST_BROWSER_EXECUTABLE?{executablePath:process.env.SHADOW_TEST_BROWSER_EXECUTABLE}:{channel:'chrome'})});
+    const page=await browser.newPage({viewport:{width:1440,height:1000},timezoneId:'Asia/Shanghai'}),errors=[];page.on('pageerror',error=>errors.push(error.message));
+    const origin=web.resolvedUrls.local[0];await page.goto(origin+'?tab=record&section=timeline');
+    const panel=page.locator('details').filter({has:page.locator('summary',{hasText:'生活记录与复盘'})}).first();
+    await panel.locator('summary').first().click();
+    await panel.getByLabel('方向',{exact:true}).selectOption({label:'线下时间线'});
+    await panel.getByLabel('操作',{exact:true}).selectOption({label:'补记或更正区间'});
+    await panel.getByLabel('标题',{exact:true}).fill('合成散步');
+    await panel.getByLabel('开始时刻',{exact:true}).fill('2026-11-13T09:00');
+    await panel.getByLabel('结束时刻',{exact:true}).fill('2026-11-13T09:30');
+    await panel.getByRole('button',{name:'补记或更正区间',exact:true}).click();
+    await panel.getByText(/已保存 ·/).waitFor();
+    await panel.getByLabel('操作',{exact:true}).selectOption({label:'查看当天区间'});
+    await panel.getByLabel('日期',{exact:true}).fill('2026-11-13');
+    await panel.getByRole('button',{name:'查询',exact:true}).click();
+    await panel.getByText(/已记录 30 分钟/).waitFor();
+    await panel.getByLabel('方向',{exact:true}).selectOption({label:'收纳位置'});
+    await panel.getByLabel('操作',{exact:true}).selectOption({label:'新增或移动容器'});
+    await panel.getByLabel('容器名称',{exact:true}).fill('合成蓝箱');
+    await panel.getByRole('button',{name:'新增或移动容器',exact:true}).click();await panel.getByText(/已保存 ·/).waitFor();
+    await panel.getByLabel('操作',{exact:true}).selectOption({label:'浏览容器'});
+    await panel.getByRole('button',{name:'查询',exact:true}).click();
+    await panel.getByRole('button',{name:'显示容器二维码'}).click();await panel.getByAltText('容器二维码').waitFor();
+    assert.deepEqual(errors,[]);console.log('个人记录 Web 验证通过：线下半小时与容器二维码');
+  }finally{if(browser)await browser.close();if(web)await web.close();if(server)await new Promise(resolve=>server.close(resolve));await unitOfWork.close();}
+});

@@ -259,3 +259,12 @@ do not imply a visit. Actual visits and private reservation details retain their
 - 从批次找菜用 `life.stock_recipes`，传批次和计划日期。已过期批次不计，未知数量或不兼容单位保留未知。选定食谱后沿用餐单，生成购物清单时带 `shortfall_on` 才按当日全部库存扣减，餐单与采购不会改变食材库存。
 
 - 旅程目的地用 `travel.destinations` 按当地日读取。未指定个人卡时取当天仍有效且有权查看的住宿；也可用 `travel.save_destination` 选择地点、填写当地名和入口。司机视图只带地点名、地址和入口说明。
+
+- 门店食品库使用 `life.merchant_menu`，传门店、可选菜名检索词与返回的 `after` 分页；省略门店时读取已明确保存的常去食堂。使用 `life.remember_merchant_dish` 收录，同店菜名返回原食品编号，出处可选餐次及摄入行、菜单照片或明确文字。记餐让 `items[].food_ref_id` 指向返回的 `food_id`，当餐估重留在摄入行；包装营养或标准份量应有单独依据。单纯菜单照片只收录食品。
+
+### 支出核对、铁路票据与日常记录
+
+- 周报先用 `money.reconcile_expenses` 按正式账发生日读取笔数和总额。对于同日同额候选，查看双方的交易时刻、支付渠道、交易对方及导入／订单标识。比较采集日和正式账发生日时读 `life.capture_search` 或 `life.activity_source` 的 `linked_ledger`。消费详情用 `money.consumption_sources` 查看关联依据。疑似重复保留在正式合计中。
+- 售后通过 `money.save_return_case` 关联购买行，写寄回日、预计退款和明确的分配金额。读 `money.return_cases` 核验差额。
+- 用 `travel.rail_ticket` 从指定资料及旅程取候选。再次分享或改签时先读 matched。票价保留在票据中，实际付款有独立依据时再记。
+- 在个人配置下运行 `life --config <配置文件> describe <能力名>` 查看可执行输入和只读属性。健康、旅行、资料、时间线支持从 `agent.discover` 按场景和只读条件发现能力。

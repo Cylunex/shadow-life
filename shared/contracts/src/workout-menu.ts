@@ -16,10 +16,12 @@ export const workoutMenuSchema = z.object({
   version: z.literal(1), priorities: z.array(workoutFocusSchema).length(5),
   days: z.array(z.object({ weekday: z.number().int().min(1).max(7), focus: workoutFocusSchema, secondary: z.array(workoutFocusSchema).max(4) }).strict()).min(1).max(7),
   exercises: z.array(workoutExerciseSchema).min(1).max(100),
+  preferred_exercises:z.array(z.string()).min(1).max(30).optional(),
 }).strict().superRefine((value, ctx) => {
   if (new Set(value.priorities).size !== 5) ctx.addIssue({code:"custom",path:["priorities"],message:"priorities must include each focus exactly once"});
   if (new Set(value.days.map(day=>day.weekday)).size !== value.days.length) ctx.addIssue({code:"custom",path:["days"],message:"weekday must be unique"});
   if (new Set(value.exercises.map(item=>item.id)).size !== value.exercises.length) ctx.addIssue({code:"custom",path:["exercises"],message:"exercise IDs must be unique"});
+  if(value.preferred_exercises&&(new Set(value.preferred_exercises).size!==value.preferred_exercises.length||value.preferred_exercises.some(id=>!value.exercises.some(e=>e.id===id))))ctx.addIssue({code:"custom",path:["preferred_exercises"],message:"preferred exercises must be distinct menu entries"});
   value.days.forEach((day, index)=>{if(new Set([day.focus,...day.secondary]).size!==day.secondary.length+1)ctx.addIssue({code:"custom",path:["days",index],message:"daily focuses must be distinct"});});
 });
 export type WorkoutMenu = z.infer<typeof workoutMenuSchema>;

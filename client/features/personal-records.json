@@ -1,0 +1,1047 @@
+[
+  {
+    "title": "路线与训练复盘",
+    "actions": [
+      {
+        "title": "选运动记录",
+        "cap": "health.records",
+        "fields": [],
+        "path": "/api/health",
+        "rows": "items",
+        "pick": {
+          "workout_id": "id"
+        }
+      },
+      {
+        "title": "查看路线",
+        "cap": "health.route_comparison",
+        "fields": [
+          {
+            "key": "route",
+            "label": "路线名称",
+            "type": "text"
+          },
+          {
+            "key": "session_type",
+            "label": "运动类型",
+            "type": "text"
+          },
+          {
+            "key": "duration_basis",
+            "label": "用时口径",
+            "type": "choice",
+            "choices": {
+              "elapsed": "总用时",
+              "moving": "移动用时",
+              "unknown": "未知"
+            }
+          }
+        ],
+        "path": "/api/health/route-comparison",
+        "rows": "items",
+        "pick": {
+          "workout_id": "id",
+          "expected_revision": "revision",
+          "route": "route",
+          "duration_basis": "duration_basis"
+        }
+      },
+      {
+        "title": "读取运动标记",
+        "cap": "health.route_comparison",
+        "fields": [
+          {
+            "key": "workout_id",
+            "label": "运动记录",
+            "type": "id"
+          }
+        ],
+        "path": "/api/health/route-comparison",
+        "rows": "items",
+        "pick": {
+          "workout_id": "id",
+          "expected_revision": "revision",
+          "route": "route",
+          "duration_basis": "duration_basis"
+        }
+      },
+      {
+        "title": "保存路线标记",
+        "cap": "health.set_workout_route",
+        "fields": [
+          {
+            "key": "workout_id",
+            "label": "运动记录",
+            "type": "id"
+          },
+          {
+            "key": "route",
+            "label": "路线名称",
+            "type": "text"
+          },
+          {
+            "key": "duration_basis",
+            "label": "用时口径",
+            "type": "choice",
+            "initial": "unknown",
+            "choices": {
+              "unknown": "未知",
+              "elapsed": "总用时",
+              "moving": "移动用时"
+            }
+          },
+          {
+            "key": "expected_revision",
+            "label": "当前版本",
+            "type": "int"
+          }
+        ]
+      },
+      {
+        "title": "晚间训练后的睡眠",
+        "cap": "health.evening_sleep",
+        "fields": [
+          {
+            "key": "from",
+            "label": "开始日期",
+            "type": "date",
+            "initial": "week"
+          },
+          {
+            "key": "to",
+            "label": "结束日期",
+            "type": "date",
+            "initial": "today"
+          },
+          {
+            "key": "time_zone",
+            "label": "时区",
+            "type": "zone",
+            "initial": "zone"
+          }
+        ],
+        "path": "/api/health/evening-sleep",
+        "rows": "days",
+        "pick": {
+          "occurred_on": "date",
+          "expected_revision": "rest_revision",
+          "is_rest": "is_rest"
+        }
+      },
+      {
+        "title": "记录休息日",
+        "cap": "health.set_rest_day",
+        "fields": [
+          {
+            "key": "occurred_on",
+            "label": "发生日期",
+            "type": "date",
+            "initial": "today"
+          },
+          {
+            "key": "time_zone",
+            "label": "时区",
+            "type": "zone",
+            "initial": "zone"
+          },
+          {
+            "key": "is_rest",
+            "label": "休息日",
+            "type": "bool",
+            "initial": "true"
+          },
+          {
+            "key": "expected_revision",
+            "label": "当前版本",
+            "type": "int"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "资料筛选",
+    "actions": [
+      {
+        "title": "已存筛选",
+        "cap": "library.saved_filters",
+        "fields": [],
+        "path": "/api/library/saved-filters",
+        "rows": "items",
+        "pick": {
+          "id": "id",
+          "expected_revision": "revision",
+          "name": "name",
+          "query": "query",
+          "q": "query"
+        }
+      },
+      {
+        "title": "查看匹配资料",
+        "cap": "library.records",
+        "fields": [
+          {
+            "key": "q",
+            "label": "搜索资料",
+            "type": "text"
+          }
+        ],
+        "path": "/api/library",
+        "rows": "items"
+      },
+      {
+        "title": "保存筛选",
+        "cap": "library.save_filter",
+        "fields": [
+          {
+            "key": "name",
+            "label": "名称",
+            "type": "text"
+          },
+          {
+            "key": "query",
+            "label": "搜索词",
+            "type": "text"
+          },
+          {
+            "key": "id",
+            "label": "所选记录",
+            "type": "id"
+          },
+          {
+            "key": "expected_revision",
+            "label": "当前版本",
+            "type": "int"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "旅行小记与票据",
+    "actions": [
+      {
+        "title": "选旅程",
+        "cap": "travel.records",
+        "fields": [],
+        "path": "/api/travel",
+        "rows": "items",
+        "pick": {
+          "trip_id": "id"
+        }
+      },
+      {
+        "title": "按天翻小记",
+        "cap": "travel.diary",
+        "fields": [
+          {
+            "key": "trip_id",
+            "label": "旅程",
+            "type": "id"
+          }
+        ],
+        "path": "/api/travel/diary",
+        "rows": "items",
+        "pick": {
+          "id": "id",
+          "expected_revision": "revision",
+          "position": "position",
+          "body": "body",
+          "refs": "refs",
+          "local_day": "local_day"
+        }
+      },
+      {
+        "title": "保存私人小记",
+        "cap": "travel.save_diary_entry",
+        "fields": [
+          {
+            "key": "trip_id",
+            "label": "旅程",
+            "type": "id"
+          },
+          {
+            "key": "local_day",
+            "label": "小记日期",
+            "type": "date",
+            "initial": "today"
+          },
+          {
+            "key": "body",
+            "label": "小记内容",
+            "type": "long"
+          },
+          {
+            "key": "position",
+            "label": "当天排序",
+            "type": "int",
+            "initial": "0"
+          },
+          {
+            "key": "refs",
+            "label": "关联的到访、照片、录音",
+            "type": "refs"
+          },
+          {
+            "key": "id",
+            "label": "所选记录",
+            "type": "id"
+          },
+          {
+            "key": "expected_revision",
+            "label": "当前版本",
+            "type": "int"
+          }
+        ]
+      },
+      {
+        "title": "选票据资料",
+        "cap": "library.records",
+        "fields": [
+          {
+            "key": "q",
+            "label": "搜索资料",
+            "type": "text"
+          }
+        ],
+        "path": "/api/library",
+        "rows": "items",
+        "pick": {
+          "library_item_id": "id"
+        }
+      },
+      {
+        "title": "从铁路确认单填预订",
+        "cap": "travel.rail_ticket",
+        "fields": [
+          {
+            "key": "library_item_id",
+            "label": "票据资料",
+            "type": "id"
+          },
+          {
+            "key": "trip_id",
+            "label": "旅程",
+            "type": "id"
+          }
+        ],
+        "path": "/api/travel/rail-ticket",
+        "rows": "ticket"
+      }
+    ]
+  },
+  {
+    "title": "售后与消费来源",
+    "actions": [
+      {
+        "title": "选择购买明细",
+        "cap": "life.purchase_prices",
+        "fields": [],
+        "path": "/api/life/purchase-prices",
+        "rows": "items",
+        "pick": {
+          "purchase_item_id": "id",
+          "record_id": "record_id"
+        }
+      },
+      {
+        "title": "售后进度",
+        "cap": "money.return_cases",
+        "fields": [
+          {
+            "key": "purchase_item_id",
+            "label": "购买明细",
+            "type": "id"
+          }
+        ],
+        "path": "/api/money/return-cases",
+        "rows": "items",
+        "pick": {
+          "purchase_item_id": "purchase_item_id",
+          "case_id": "id",
+          "expected_revision": "revision",
+          "expected_amount": "expected_amount",
+          "currency": "currency",
+          "returned_on": "returned_on",
+          "note": "note",
+          "allocations": "refunds"
+        }
+      },
+      {
+        "title": "记录寄回或退款分配",
+        "cap": "money.save_return_case",
+        "fields": [
+          {
+            "key": "purchase_item_id",
+            "label": "购买明细",
+            "type": "id"
+          },
+          {
+            "key": "expected_amount",
+            "label": "预计退款",
+            "type": "decimal"
+          },
+          {
+            "key": "currency",
+            "label": "币种",
+            "type": "text",
+            "initial": "CNY"
+          },
+          {
+            "key": "returned_on",
+            "label": "寄回日期",
+            "type": "date"
+          },
+          {
+            "key": "allocations",
+            "label": "到账退款与分配金额",
+            "type": "allocations"
+          },
+          {
+            "key": "note",
+            "label": "备注",
+            "type": "long"
+          },
+          {
+            "key": "case_id",
+            "label": "售后事项",
+            "type": "id"
+          },
+          {
+            "key": "expected_revision",
+            "label": "当前版本",
+            "type": "int"
+          }
+        ]
+      },
+      {
+        "title": "追溯消费来源",
+        "cap": "money.consumption_sources",
+        "fields": [
+          {
+            "key": "record_id",
+            "label": "消费记录",
+            "type": "id"
+          }
+        ],
+        "path": "/api/money/consumption-sources",
+        "rows": "items"
+      },
+      {
+        "title": "核对期间支出",
+        "cap": "money.reconcile_expenses",
+        "fields": [
+          {
+            "key": "from",
+            "label": "开始日期",
+            "type": "date",
+            "initial": "week"
+          },
+          {
+            "key": "to",
+            "label": "结束日期",
+            "type": "date",
+            "initial": "today"
+          },
+          {
+            "key": "currency",
+            "label": "币种",
+            "type": "text",
+            "initial": "CNY"
+          }
+        ],
+        "path": "/api/money/reconcile-expenses",
+        "rows": "items"
+      }
+    ]
+  },
+  {
+    "title": "收纳位置",
+    "actions": [
+      {
+        "title": "浏览容器",
+        "cap": "life.containers",
+        "fields": [
+          {
+            "key": "query",
+            "label": "搜索词",
+            "type": "text"
+          },
+          {
+            "key": "container_id",
+            "label": "收纳容器",
+            "type": "id"
+          }
+        ],
+        "path": "/api/life/containers",
+        "rows": "containers",
+        "pick": {
+          "id": "id",
+          "expected_revision": "revision",
+          "container_id": "id",
+          "label": "label",
+          "parent_id": "parent_id"
+        }
+      },
+      {
+        "title": "查找物品",
+        "cap": "life.containers",
+        "fields": [
+          {
+            "key": "query",
+            "label": "搜索词",
+            "type": "text"
+          },
+          {
+            "key": "container_id",
+            "label": "收纳容器",
+            "type": "id"
+          }
+        ],
+        "path": "/api/life/containers",
+        "rows": "items",
+        "pick": {
+          "item_id": "id",
+          "expected_revision": "revision",
+          "container_id": "container_id"
+        }
+      },
+      {
+        "title": "新增或移动容器",
+        "cap": "life.save_container",
+        "fields": [
+          {
+            "key": "label",
+            "label": "容器名称",
+            "type": "text"
+          },
+          {
+            "key": "parent_id",
+            "label": "父容器",
+            "type": "id"
+          },
+          {
+            "key": "id",
+            "label": "所选记录",
+            "type": "id"
+          },
+          {
+            "key": "expected_revision",
+            "label": "当前版本",
+            "type": "int"
+          }
+        ]
+      },
+      {
+        "title": "移动物品",
+        "cap": "life.place_item",
+        "fields": [
+          {
+            "key": "item_id",
+            "label": "物品",
+            "type": "id"
+          },
+          {
+            "key": "container_id",
+            "label": "收纳容器",
+            "type": "id"
+          },
+          {
+            "key": "expected_revision",
+            "label": "当前版本",
+            "type": "int"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "体检项目对照",
+    "actions": [
+      {
+        "title": "选择报告",
+        "cap": "library.records",
+        "fields": [
+          {
+            "key": "q",
+            "label": "搜索资料",
+            "type": "text"
+          }
+        ],
+        "path": "/api/library",
+        "rows": "items",
+        "pick": {
+          "report_id": "id",
+          "report_revision": "revision"
+        }
+      },
+      {
+        "title": "报告项目",
+        "cap": "health.lab_results",
+        "fields": [
+          {
+            "key": "report_id",
+            "label": "报告资料",
+            "type": "id"
+          }
+        ],
+        "path": "/api/health/lab-results",
+        "rows": "items",
+        "pick": {
+          "id": "id",
+          "expected_revision": "revision",
+          "raw_name": "raw_name",
+          "value": "value",
+          "unit": "unit",
+          "reference": "reference",
+          "report_id": "report_id",
+          "report_revision": "report_revision",
+          "page": "page",
+          "tested_on": "tested_on"
+        }
+      },
+      {
+        "title": "登记报告项目",
+        "cap": "health.save_lab_result",
+        "fields": [
+          {
+            "key": "report_id",
+            "label": "报告资料",
+            "type": "id"
+          },
+          {
+            "key": "report_revision",
+            "label": "报告版本",
+            "type": "int",
+            "initial": "1"
+          },
+          {
+            "key": "tested_on",
+            "label": "检测日期",
+            "type": "date",
+            "initial": "today"
+          },
+          {
+            "key": "page",
+            "label": "页码",
+            "type": "int",
+            "initial": "1"
+          },
+          {
+            "key": "raw_name",
+            "label": "报告项目原名",
+            "type": "text"
+          },
+          {
+            "key": "value",
+            "label": "报告原始结果",
+            "type": "text"
+          },
+          {
+            "key": "unit",
+            "label": "原始单位",
+            "type": "text"
+          },
+          {
+            "key": "reference",
+            "label": "报告参考区间",
+            "type": "text"
+          },
+          {
+            "key": "id",
+            "label": "所选记录",
+            "type": "id"
+          },
+          {
+            "key": "expected_revision",
+            "label": "当前版本",
+            "type": "int"
+          }
+        ]
+      },
+      {
+        "title": "对照选中的两项",
+        "cap": "health.lab_results",
+        "fields": [
+          {
+            "key": "left_id",
+            "label": "第一项检验结果",
+            "type": "id"
+          },
+          {
+            "key": "right_id",
+            "label": "第二项检验结果",
+            "type": "id"
+          }
+        ],
+        "path": "/api/health/lab-results",
+        "rows": "items"
+      }
+    ]
+  },
+  {
+    "title": "不适发作",
+    "actions": [
+      {
+        "title": "期间的发作",
+        "cap": "health.episodes",
+        "fields": [
+          {
+            "key": "from",
+            "label": "开始日期",
+            "type": "date",
+            "initial": "week"
+          },
+          {
+            "key": "to",
+            "label": "结束日期",
+            "type": "date",
+            "initial": "today"
+          }
+        ],
+        "path": "/api/health/episodes",
+        "rows": "items",
+        "pick": {
+          "id": "id",
+          "title": "title",
+          "started_on": "started_on",
+          "started_at": "started_at",
+          "ended_on": "ended_on",
+          "ended_at": "ended_at",
+          "time_zone": "time_zone",
+          "points": "points",
+          "note": "note",
+          "expected_revision": "revision"
+        }
+      },
+      {
+        "title": "记录或结束发作",
+        "cap": "health.save_episode",
+        "fields": [
+          {
+            "key": "title",
+            "label": "标题",
+            "type": "text"
+          },
+          {
+            "key": "started_on",
+            "label": "开始日期",
+            "type": "date",
+            "initial": "today"
+          },
+          {
+            "key": "started_at",
+            "label": "开始时刻",
+            "type": "instant"
+          },
+          {
+            "key": "ended_on",
+            "label": "结束日期",
+            "type": "date"
+          },
+          {
+            "key": "ended_at",
+            "label": "结束时刻",
+            "type": "instant"
+          },
+          {
+            "key": "time_zone",
+            "label": "时区",
+            "type": "zone",
+            "initial": "zone"
+          },
+          {
+            "key": "points",
+            "label": "发作过程",
+            "type": "points"
+          },
+          {
+            "key": "note",
+            "label": "备注",
+            "type": "long"
+          },
+          {
+            "key": "id",
+            "label": "所选记录",
+            "type": "id"
+          },
+          {
+            "key": "expected_revision",
+            "label": "当前版本",
+            "type": "int"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "精选录音",
+    "actions": [
+      {
+        "title": "选择当天录音",
+        "cap": "life.capture_workspace",
+        "fields": [
+          {
+            "key": "date",
+            "label": "日期",
+            "type": "date",
+            "initial": "today"
+          },
+          {
+            "key": "time_zone",
+            "label": "时区",
+            "type": "zone",
+            "initial": "zone"
+          }
+        ],
+        "path": "/api/life/capture-workspace",
+        "rows": "recordings",
+        "pick": {
+          "segment_id": "id",
+          "title": "title"
+        }
+      },
+      {
+        "title": "本周精选",
+        "cap": "life.clips",
+        "fields": [
+          {
+            "key": "from",
+            "label": "开始日期",
+            "type": "date",
+            "initial": "week"
+          },
+          {
+            "key": "to",
+            "label": "结束日期",
+            "type": "date",
+            "initial": "today"
+          },
+          {
+            "key": "time_zone",
+            "label": "时区",
+            "type": "zone",
+            "initial": "zone"
+          }
+        ],
+        "path": "/api/life/clips",
+        "rows": "items",
+        "pick": {
+          "id": "id",
+          "expected_revision": "revision",
+          "title": "title",
+          "segment_id": "segment_id",
+          "start_ms": "start_ms",
+          "end_ms": "end_ms",
+          "selected": "selected"
+        }
+      },
+      {
+        "title": "保存录音片段",
+        "cap": "life.save_clip",
+        "fields": [
+          {
+            "key": "segment_id",
+            "label": "录音",
+            "type": "id"
+          },
+          {
+            "key": "title",
+            "label": "标题",
+            "type": "text"
+          },
+          {
+            "key": "start_ms",
+            "label": "开始秒数",
+            "type": "seconds",
+            "initial": "0"
+          },
+          {
+            "key": "end_ms",
+            "label": "结束秒数",
+            "type": "seconds"
+          },
+          {
+            "key": "selected",
+            "label": "入选本周精选",
+            "type": "bool",
+            "initial": "true"
+          },
+          {
+            "key": "id",
+            "label": "所选记录",
+            "type": "id"
+          },
+          {
+            "key": "expected_revision",
+            "label": "当前版本",
+            "type": "int"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "线下时间线",
+    "actions": [
+      {
+        "title": "查看当天区间",
+        "cap": "life.offline_day",
+        "fields": [
+          {
+            "key": "date",
+            "label": "日期",
+            "type": "date",
+            "initial": "today"
+          },
+          {
+            "key": "time_zone",
+            "label": "时区",
+            "type": "zone",
+            "initial": "zone"
+          }
+        ],
+        "path": "/api/life/offline-day",
+        "rows": "items",
+        "pick": {
+          "id": "id",
+          "expected_revision": "revision",
+          "started_at": "started_at",
+          "ended_at": "ended_at",
+          "title": "title"
+        }
+      },
+      {
+        "title": "补记或更正区间",
+        "cap": "life.save_offline_interval",
+        "fields": [
+          {
+            "key": "title",
+            "label": "标题",
+            "type": "text"
+          },
+          {
+            "key": "started_at",
+            "label": "开始时刻",
+            "type": "instant"
+          },
+          {
+            "key": "ended_at",
+            "label": "结束时刻",
+            "type": "instant"
+          },
+          {
+            "key": "time_zone",
+            "label": "时区",
+            "type": "zone",
+            "initial": "zone"
+          },
+          {
+            "key": "id",
+            "label": "所选记录",
+            "type": "id"
+          },
+          {
+            "key": "expected_revision",
+            "label": "当前版本",
+            "type": "int"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "门店食品库",
+    "actions": [
+      {
+        "title": "查门店菜单",
+        "cap": "life.merchant_menu",
+        "fields": [
+          {
+            "key": "merchant",
+            "label": "门店（可用常去食堂）",
+            "type": "text"
+          },
+          {
+            "key": "query",
+            "label": "搜索词",
+            "type": "text"
+          }
+        ],
+        "path": "/api/life/merchant-menu",
+        "rows": "items",
+        "pick": {
+          "food_ref_id": "id",
+          "dish": "dish"
+        }
+      },
+      {
+        "title": "收录门店菜品",
+        "cap": "life.remember_merchant_dish",
+        "fields": [
+          {
+            "key": "merchant",
+            "label": "门店（可用常去食堂）",
+            "type": "text"
+          },
+          {
+            "key": "dish",
+            "label": "菜名",
+            "type": "text"
+          },
+          {
+            "key": "evidence",
+            "label": "收录出处",
+            "type": "evidence"
+          }
+        ]
+      },
+      {
+        "title": "记入本次餐食",
+        "cap": "life.record_meal",
+        "fields": [
+          {
+            "key": "dish",
+            "label": "菜名",
+            "type": "text"
+          },
+          {
+            "key": "food_ref_id",
+            "label": "菜单食品",
+            "type": "id"
+          },
+          {
+            "key": "amount_g",
+            "label": "本次估重（克）",
+            "type": "decimal"
+          },
+          {
+            "key": "meal_type",
+            "label": "餐次",
+            "type": "choice",
+            "initial": "lunch",
+            "choices": {
+              "breakfast": "早餐",
+              "lunch": "午餐",
+              "dinner": "晚餐",
+              "snack": "加餐",
+              "other": "其他"
+            }
+          },
+          {
+            "key": "occurred_on",
+            "label": "发生日期",
+            "type": "date",
+            "initial": "today"
+          },
+          {
+            "key": "time_zone",
+            "label": "时区",
+            "type": "zone",
+            "initial": "zone"
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,1 @@
+DROP TABLE trip_diary_entries,library_saved_filters;

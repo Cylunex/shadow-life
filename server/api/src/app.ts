@@ -1,3 +1,4 @@
+import {capabilityVisible} from "@shadow/contracts";
 import { captureDateSchema, activitiesInputSchema } from "@shadow/contracts";
 import { wellnessReviewInputSchema } from "@shadow/contracts";
 import { runEventsPageResultSchema, runPageInputSchema, runPageResultSchema, threadRunsResultSchema, agentDiscoveryInstructions, workoutProgressionInputSchema } from "@shadow/contracts";
@@ -21,7 +22,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.use("*",async(context,next)=>{const started=Date.now(),requestId=safeRequestId(context.req.header("x-request-id"));try{await next();}finally{context.header("X-Request-Id",requestId);const path=new URL(context.req.url).pathname;if(path.startsWith("/api/")||path.startsWith("/auth/"))console.log(JSON.stringify({event:"http.request",request_id:requestId,method:context.req.method,route:requestLogRoute(path),status:context.res.status,duration_ms:Date.now()-started}));}});
   const assets=new AssetService(dependencies.unitOfWork.pool);
   const activeRuns=new Map<string,{subjectId:string;controller:AbortController}>();
-  const visibleCapabilities=(effects:ReadonlySet<string>)=>Object.values(capabilityRegistry).filter(item=>item.possibleEffects.some(effect=>effects.has(effect)));
+  const visibleCapabilities=(effects:ReadonlySet<string>)=>Object.values(capabilityRegistry).filter(item=>capabilityVisible(item,effects));
   app.get("/healthz", (context) => context.json({ status: "ok" }));
   if(dependencies.webSession)installWebSessionRoutes(app,dependencies.webSession);
   app.get("/readyz", async (context) => {
@@ -74,7 +75,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
     context.header("Cache-Control", "no-store");
     const name = context.req.param("name");
     const capability = Object.hasOwn(capabilityRegistry, name) ? capabilityRegistry[name as keyof typeof capabilityRegistry] : undefined;
-    return capability === undefined||!capability.possibleEffects.some(effect=>context.get("requestContext").effects.has(effect)) ? context.json({ protocol: "shadow.error", code: "not_found", message: "Capability not found." }, 404) : context.json({ name: capability.name, description: capability.description, possible_effects: capability.possibleEffects, input_schema: z.toJSONSchema(capability.inputSchema), result_schema: z.toJSONSchema(capability.resultSchema) });
+    return capability === undefined||!capabilityVisible(capability,context.get("requestContext").effects) ? context.json({ protocol: "shadow.error", code: "not_found", message: "Capability not found." }, 404) : context.json({ name: capability.name, description: capability.description, possible_effects: capability.possibleEffects, input_schema: z.toJSONSchema(capability.inputSchema), result_schema: z.toJSONSchema(capability.resultSchema) });
   });
   app.post("/api/commands/batch", async (context) => {
     const requestContext=context.get("requestContext");
@@ -129,6 +130,20 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.get("/api/life/interval-events",async context=>context.json(await dependencies.queries.intervalEvents(context.get("requestContext"),context.req.query())));
   app.get("/api/life/dish-preferences",async context=>context.json(await dependencies.queries.dishPreferences(context.get("requestContext"),context.req.query())));
   app.get("/api/travel/destinations",async context=>context.json(await dependencies.queries.destinations(context.get("requestContext"),context.req.query())));
+  app.get("/api/health/route-comparison",async context=>context.json(await dependencies.queries.routeComparison(context.get("requestContext"),context.req.query())));
+  app.get("/api/health/evening-sleep",async context=>context.json(await dependencies.queries.eveningSleep(context.get("requestContext"),context.req.query())));
+  app.get("/api/library/saved-filters",async context=>context.json(await dependencies.queries.librarySavedFilters(context.get("requestContext"),context.req.query())));
+  app.get("/api/travel/diary",async context=>context.json(await dependencies.queries.tripDiary(context.get("requestContext"),context.req.query())));
+  app.get("/api/life/merchant-menu",async context=>context.json(await dependencies.queries.merchantMenu(context.get("requestContext"),context.req.query())));
+  app.get("/api/money/return-cases",async context=>context.json(await dependencies.queries.returnCases(context.get("requestContext"),context.req.query())));
+  app.get("/api/money/consumption-sources",async context=>context.json(await dependencies.queries.consumptionSources(context.get("requestContext"),context.req.query())));
+  app.get("/api/travel/rail-ticket",async context=>context.json(await dependencies.queries.railTicket(context.get("requestContext"),context.req.query())));
+  app.get("/api/life/containers",async context=>context.json(await dependencies.queries.containers(context.get("requestContext"),context.req.query())));
+  app.get("/api/health/lab-results",async context=>context.json(await dependencies.queries.labResults(context.get("requestContext"),context.req.query())));
+  app.get("/api/health/episodes",async context=>context.json(await dependencies.queries.episodes(context.get("requestContext"),context.req.query())));
+  app.get("/api/life/clips",async context=>context.json(await dependencies.queries.clips(context.get("requestContext"),context.req.query())));
+  app.get("/api/life/offline-day",async context=>context.json(await dependencies.queries.offlineDay(context.get("requestContext"),context.req.query())));
+  app.get("/api/money/reconcile-expenses",async context=>context.json(await dependencies.queries.reconcileExpenses(context.get("requestContext"),context.req.query())));
   app.get("/api/travel/connections", async context =>
     context.json(await dependencies.queries.tripConnections(context.get("requestContext"),context.req.query())));
   app.get("/api/health/morning-window", async context =>
@@ -212,7 +227,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
       const state=async(next:RunState,detail?:{reason?:string;fields?:string[];prompt?:string})=>{currentState=next;await emit({id:hostId(),run_id:runId,type:"run.state",state:next,...detail});};
       const dispatchTool=async(capabilityName:string,input:unknown,callId:string):Promise<unknown>=>{
         const capability=capabilityRegistry[capabilityName as keyof typeof capabilityRegistry];
-        if(!capability||!capability.possibleEffects.some(effect=>requestContext.effects.has(effect)))throw new KernelError(403,{protocol:"shadow.error",code:"permission_denied",message:"Runtime requested a capability that is not visible."});
+        if(!capability||!capabilityVisible(capability,requestContext.effects))throw new KernelError(403,{protocol:"shadow.error",code:"permission_denied",message:"Runtime requested a capability that is not visible."});
         if(capability.idempotency==="required"){const callKey=createHash("sha256").update(`${runId}:${callId}`).digest("hex");return dependencies.executor.execute({...requestContext,agentRun:{runId,ownerId:repository.ownerId,toolCallId:callId}},{protocol:"shadow.command",capability:capabilityName,command_id:`cmd_agent_${callKey}`,input});}
         const parsed=capability.inputSchema.parse(input);
         if(capabilityName==="agent.discover")return dependencies.queries.agentDiscover(requestContext,parsed);
@@ -242,6 +257,20 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         if(capabilityName==="life.interval_events")return dependencies.queries.intervalEvents(requestContext,parsed);
         if(capabilityName==="life.dish_preferences")return dependencies.queries.dishPreferences(requestContext,parsed);
         if(capabilityName==="travel.destinations")return dependencies.queries.destinations(requestContext,parsed);
+        if(capabilityName==="health.route_comparison")return dependencies.queries.routeComparison(requestContext,parsed);
+        if(capabilityName==="health.evening_sleep")return dependencies.queries.eveningSleep(requestContext,parsed);
+        if(capabilityName==="library.saved_filters")return dependencies.queries.librarySavedFilters(requestContext,parsed);
+        if(capabilityName==="travel.diary")return dependencies.queries.tripDiary(requestContext,parsed);
+        if(capabilityName==="life.merchant_menu")return dependencies.queries.merchantMenu(requestContext,parsed);
+        if(capabilityName==="money.return_cases")return dependencies.queries.returnCases(requestContext,parsed);
+        if(capabilityName==="money.consumption_sources")return dependencies.queries.consumptionSources(requestContext,parsed);
+        if(capabilityName==="travel.rail_ticket")return dependencies.queries.railTicket(requestContext,parsed);
+        if(capabilityName==="life.containers")return dependencies.queries.containers(requestContext,parsed);
+        if(capabilityName==="health.lab_results")return dependencies.queries.labResults(requestContext,parsed);
+        if(capabilityName==="health.episodes")return dependencies.queries.episodes(requestContext,parsed);
+        if(capabilityName==="life.clips")return dependencies.queries.clips(requestContext,parsed);
+        if(capabilityName==="life.offline_day")return dependencies.queries.offlineDay(requestContext,parsed);
+        if(capabilityName==="money.reconcile_expenses")return dependencies.queries.reconcileExpenses(requestContext,parsed);
         if(capabilityName==="travel.connections")return dependencies.queries.tripConnections(requestContext,parsed);
         if(capabilityName==="health.morning_window")return dependencies.queries.morningWindow(requestContext,parsed);
         if(capabilityName==="health.exercise_history")return dependencies.queries.exerciseHistory(requestContext,parsed);
@@ -305,7 +334,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         if(++toolCallCount>20)throw new Error("Runtime tool-call limit exceeded.");
         if(currentState==="started")await state("streaming");
         const selectedCapability=capabilityRegistry[event.capability as keyof typeof capabilityRegistry];
-        if(selectedCapability&&selectedCapability.possibleEffects.some(effect=>requestContext.effects.has(effect)))await emit({id:hostId(),run_id:runId,type:"tool.started",authority:"host",tool_call_id:event.id,capability:event.capability,mode:selectedCapability.idempotency==="required"?"write":"read"});
+        if(selectedCapability&&capabilityVisible(selectedCapability,requestContext.effects))await emit({id:hostId(),run_id:runId,type:"tool.started",authority:"host",tool_call_id:event.id,capability:event.capability,mode:selectedCapability.idempotency==="required"?"write":"read"});
         let result:unknown;try{result=await dispatchTool(event.capability,event.input,event.id);}catch(error){result=toolFailure(error,event.input,capabilityRegistry[event.capability as keyof typeof capabilityRegistry]?.idempotency==="not-applicable");}
         const execution=executionResultSchema.safeParse(result);
         if(execution.success&&capabilityRegistry[event.capability as keyof typeof capabilityRegistry]?.idempotency==="required"){
@@ -335,7 +364,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
     const payload=event.payload as Record<string,unknown>|null;
     if(typeof payload?.capability==="string"){
       const capability=capabilityRegistry[payload.capability as keyof typeof capabilityRegistry];
-      if(!capability||!capability.possibleEffects.some(effect=>requestContext.effects.has(effect)))return {...event,payload:{id:payload.id,run_id:payload.run_id,type:"event.redacted"}};
+      if(!capability||!capabilityVisible(capability,requestContext.effects))return {...event,payload:{id:payload.id,run_id:payload.run_id,type:"event.redacted"}};
     }
     if(payload?.type!=="tool.result"||payload.outcome!=="returned")return event;
     if(typeof payload.capability==="string"&&payload.capability in foundationQueries){

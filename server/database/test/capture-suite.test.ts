@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { pgOnly,reviewFixture } from "./review-fixture.js";
+import {captureSearchResultSchema} from "@shadow/contracts";
 import { AssetService } from "../src/asset-service.js";
 import { processPendingRecordings } from "../src/recording-worker.js";
 const date={date:"2026-10-30",time_zone:"UTC"};
@@ -128,7 +129,13 @@ test("historical capture reprocessing preserves source identity and original acc
  assert.equal(backfill.resources.find(r=>r.type==="consumption_record")!.id,imported.actual_values.record_id);
  assert.equal((await f.pool.query("select count(*)::int n from money_entries")).rows[0].n,1);
  assert.equal((await f.queries.captureWorkspace(f.context,date)).orders[0]!.source_account,"original");
- assert.equal((await f.queries.activitySource(f.context,{id:old.resources[0]!.id})).consumption_record_id,imported.actual_values.record_id);
+ const evidence=await f.queries.activitySource(f.context,{id:old.resources[0]!.id});
+ assert.equal(evidence.consumption_record_id,imported.actual_values.record_id);
+ assert.equal(evidence.linked_ledger?.state,"confirmed");
+ const search=await f.queries.captureCompletion(f.context,"life.capture_search",{from_on:"2026-10-30",to_on_exclusive:"2026-10-31",time_zone:"UTC",kind:"screen_text"});
+ assert.equal(captureSearchResultSchema.parse(search).items.find(r=>r.id===old.resources[0]!.id)?.linked_ledger?.record_id,imported.actual_values.record_id);
+ assert.equal(evidence.linked_ledger?.occurred_on,(await f.pool.query("select occurred_on::text d from consumption_records where id=$1",[imported.actual_values.record_id])).rows[0].d);
+ assert.equal((await f.queries.activitySource({...f.context,effects:new Set(["library.item.read"])},{id:old.resources[0]!.id})).linked_ledger,undefined);
  assert.equal((await f.queries.activitySource({...f.context,effects:new Set(["library.item.read"])},{id:old.resources[0]!.id})).consumption_record_id,null);
 });
 test("explicit capture rejects missing grants/restores and does not book pending, refund, incomplete or conflicting evidence",pgOnly,async t=>{

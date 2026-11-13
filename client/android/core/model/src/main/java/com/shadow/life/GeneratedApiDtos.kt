@@ -2692,6 +2692,22 @@ data class CapturePolicyResultDto(
 )
 
 @Serializable
+enum class CaptureSearchResultDtoItemsEntryLinkedLedgerState(val wireValue: String) {
+  @SerialName("confirmed") Confirmed("confirmed"),
+  @SerialName("draft") Draft("draft"),
+  @SerialName("voided") Voided("voided")
+}
+
+@Serializable
+data class CaptureSearchResultDtoItemsEntryLinkedLedger(
+  @SerialName("record_id") val recordId: String,
+  @SerialName("occurred_on") val occurredOn: String,
+  @SerialName("occurred_at") val occurredAt: String?,
+  @SerialName("state") val state: CaptureSearchResultDtoItemsEntryLinkedLedgerState,
+  @SerialName("payment_method") val paymentMethod: String?
+)
+
+@Serializable
 enum class CaptureSearchResultDtoItemsEntryPaymentContextPlatform(val wireValue: String) {
   @SerialName("wechat") Wechat("wechat"),
   @SerialName("alipay") Alipay("alipay")
@@ -2733,6 +2749,7 @@ enum class CaptureSearchResultDtoItemsEntryLifeDomain(val wireValue: String) {
 
 @Serializable
 data class CaptureSearchResultDtoItemsEntry(
+  @SerialName("linked_ledger") val linkedLedger: CaptureSearchResultDtoItemsEntryLinkedLedger? = null,
   @SerialName("payment_context") val paymentContext: CaptureSearchResultDtoItemsEntryPaymentContext? = null,
   @SerialName("id") val id: String,
   @SerialName("title") val title: String,
@@ -2761,6 +2778,22 @@ data class CaptureSearchResultDto(
   @SerialName("items") val items: List<CaptureSearchResultDtoItemsEntry>,
   @SerialName("next_before_id") val nextBeforeId: String?,
   @SerialName("coverage") val coverage: String
+)
+
+@Serializable
+enum class CaptureExportResultDtoItemsEntryLinkedLedgerState(val wireValue: String) {
+  @SerialName("confirmed") Confirmed("confirmed"),
+  @SerialName("draft") Draft("draft"),
+  @SerialName("voided") Voided("voided")
+}
+
+@Serializable
+data class CaptureExportResultDtoItemsEntryLinkedLedger(
+  @SerialName("record_id") val recordId: String,
+  @SerialName("occurred_on") val occurredOn: String,
+  @SerialName("occurred_at") val occurredAt: String?,
+  @SerialName("state") val state: CaptureExportResultDtoItemsEntryLinkedLedgerState,
+  @SerialName("payment_method") val paymentMethod: String?
 )
 
 @Serializable
@@ -2813,6 +2846,7 @@ data class CaptureExportResultDtoItemsEntryOriginalsEntry(
 
 @Serializable
 data class CaptureExportResultDtoItemsEntry(
+  @SerialName("linked_ledger") val linkedLedger: CaptureExportResultDtoItemsEntryLinkedLedger? = null,
   @SerialName("payment_context") val paymentContext: CaptureExportResultDtoItemsEntryPaymentContext? = null,
   @SerialName("id") val id: String,
   @SerialName("title") val title: String,
@@ -2856,6 +2890,22 @@ enum class ActivitySourceResultDtoKind(val wireValue: String) {
 }
 
 @Serializable
+enum class ActivitySourceResultDtoLinkedLedgerState(val wireValue: String) {
+  @SerialName("confirmed") Confirmed("confirmed"),
+  @SerialName("draft") Draft("draft"),
+  @SerialName("voided") Voided("voided")
+}
+
+@Serializable
+data class ActivitySourceResultDtoLinkedLedger(
+  @SerialName("record_id") val recordId: String,
+  @SerialName("occurred_on") val occurredOn: String,
+  @SerialName("occurred_at") val occurredAt: String?,
+  @SerialName("state") val state: ActivitySourceResultDtoLinkedLedgerState,
+  @SerialName("payment_method") val paymentMethod: String?
+)
+
+@Serializable
 data class ActivitySourceResultDto(
   @SerialName("id") val id: String,
   @SerialName("device_id") val deviceId: String,
@@ -2871,6 +2921,7 @@ data class ActivitySourceResultDto(
   @SerialName("latitude") val latitude: Double?,
   @SerialName("longitude") val longitude: Double?,
   @SerialName("accuracy_m") val accuracyM: Double?,
+  @SerialName("linked_ledger") val linkedLedger: ActivitySourceResultDtoLinkedLedger? = null,
   @SerialName("capture_order_id") val captureOrderId: String? = null,
   @SerialName("consumption_record_id") val consumptionRecordId: String? = null,
   @SerialName("related_consumption_record_id") val relatedConsumptionRecordId: String? = null,

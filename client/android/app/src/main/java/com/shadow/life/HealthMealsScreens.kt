@@ -83,6 +83,9 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
         TextButton(onClick=onMeals){Text("饮食与营养")}
       }}
       item{StateContent(overviewState,onRetry){} }
+      if(tab=="overview")item{PersonalRecordsCard(accountId,"体检项目对照")}
+      if(tab=="overview")item{PersonalRecordsCard(accountId,"不适发作")}
+      if(tab=="training"||tab=="sleep")item{PersonalRecordsCard(accountId,"路线与训练复盘")}
       if(tab=="sleep")item{MorningCheckinCard(accountId)}
       if(tab=="training")item{trainingContent()}
       if(tab=="release")item{ReleaseHistoryWorkspace(releaseState,onReleaseLoad,onDetail)}
@@ -207,7 +210,8 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
   val dayRecords=(dayState as? LoadState.Ready)?.value?.items.orEmpty()
   val mealScroll=rememberModuleListState(mealTab)
   Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={LifeModuleTopBar(LifeModule.Meals,onBack,onCreate={onMealCapture(selectedDate,"other")})},bottomBar={LifeModuleBottomBar(if(mealTab=="recipes")"planning" else mealTab,mealModuleTabs){mealTab=it}}){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),state=mealScroll,contentPadding=PaddingValues(horizontal=20.dp,vertical=10.dp),verticalArrangement=Arrangement.spacedBy(18.dp)){
-    if(mealTab=="records")item{TextButton(onClick=onStats){Text("订单与消费统计")}}
+    if(mealTab=="records")item{PersonalRecordsCard(accountId,"门店食品库")}
+    item{TextButton(onClick=onStats){Text("订单与消费统计")}}
     if(mealTab=="records"){
     item{LifeDateField(selectedDate,{selectedDate=it},"查看日期")}
     item{DateNavigator(selectedDate,{selectedDate=it},dates.distinct().sorted())}

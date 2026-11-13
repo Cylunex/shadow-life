@@ -48,6 +48,7 @@ android { namespace="com.shadow.life"; compileSdk=36
   }
   compileOptions { sourceCompatibility=JavaVersion.VERSION_17; targetCompatibility=JavaVersion.VERSION_17 }
   buildFeatures { compose=true; buildConfig=true }
+  sourceSets.getByName("main").assets.srcDir("../../features")
   if(samsungHealthAar!=null)sourceSets.getByName("main").java.srcDir("src/samsung/kotlin")
 }
 kotlin { jvmToolchain(17) }
