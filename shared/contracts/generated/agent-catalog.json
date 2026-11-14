@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "b1db42dacd16c7807b4a963a1ddbbde111249840bf13f45c066890768224b7ee",
+  "catalog_revision": "f64d40906ea41a71b9e8fc3f6a14404a3cdd40e2141b76dca6e7fb64c0595d08",
   "terms": [
     {
       "id": "activity_capture",
@@ -21281,6 +21281,81 @@
                 "items": {
                   "type": "string"
                 }
+              },
+              "order_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "order_time": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "price_check": {
+                "type": "object",
+                "properties": {
+                  "total_amount": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "discount_amount": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "discount_components": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "label": {
+                          "type": "string"
+                        },
+                        "amount": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "label",
+                        "amount"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "calculated_paid_amount": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "totals_match": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "discounts_match": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "total_amount",
+                  "discount_amount",
+                  "discount_components",
+                  "calculated_paid_amount",
+                  "totals_match",
+                  "discounts_match"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [

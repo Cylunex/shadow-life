@@ -664,7 +664,10 @@ export const libraryProcessingQueueResultSchema=z.object({items:z.array(z.object
 export const libraryItemResultSchema=z.object({
   payment_observation:z.object({consumption_record_id:stableId.nullable().optional(),source_id:stableId,asset_version_id:stableId,item_revision:z.number().int(),processing_job_id:stableId.nullable(),
     captured_at:instant.nullable(),time_zone:z.string().nullable(),merchant:z.string().nullable(),product:z.string().nullable(),
-    paid_amount:z.string().nullable(),payment_time:z.string().nullable(),transaction_id:z.string().nullable(),issues:z.array(z.string())}).strict().optional(),
+    paid_amount:z.string().nullable(),payment_time:z.string().nullable(),transaction_id:z.string().nullable(),issues:z.array(z.string()),
+    order_id:z.string().nullable().optional(),order_time:z.string().nullable().optional(),
+    price_check:z.object({total_amount:z.string().nullable(),discount_amount:z.string().nullable(),discount_components:z.array(z.object({label:z.string(),amount:z.string()}).strict()),
+      calculated_paid_amount:z.string().nullable(),totals_match:z.boolean().nullable(),discounts_match:z.boolean().nullable()}).strict().optional()}).strict().optional(),
   item:z.object({id:stableId,title:z.string(),item_type:z.string(),current_revision:z.number().int().positive(),source_id:stableId.nullable(),state:z.enum(["active","deleted"]),created_at:instant}).strict(),
   revisions:z.array(z.object({item_id:stableId,revision:z.number().int().positive(),text:z.string().nullable(),url:z.string().nullable(),tags:z.array(z.string()),document_date:localDate.nullable(),category:z.string().nullable(),source_processing_job_id:stableId.nullable(),reason:z.string().nullable(),created_at:instant}).strict()),
   sources:z.array(z.object({source:z.object({id:stableId,kind:z.string(),external_id:z.string().nullable(),captured_on:localDate.nullable(),captured_at:instant.nullable(),time_zone:z.string().nullable(),original_text:z.string().nullable(),asset_version_id:stableId.nullable(),revision:z.number().int().positive()}).strict(),asset:z.object({id:stableId,asset_id:stableId,media_type:z.string(),sha256:z.string().regex(/^[0-9a-f]{64}$/u),byte_size:z.string().regex(/^\d+$/u),created_at:instant}).strict().nullable()}).strict()),

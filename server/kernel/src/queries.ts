@@ -4,6 +4,7 @@ import { moneyImportFileResultSchema } from "@shadow/contracts";
 import { moneyImportHistoryInputSchema, moneyImportHistoryResultSchema, instant, stableId } from "@shadow/contracts";
 import { captureDateSchema, captureWorkspaceResultSchema } from "@shadow/contracts";
 import { capturedPaymentPlatform, inspectActivityOrder } from "./activity-order.js";
+import { inspectLibraryOrder } from "./library-order.js";
 import { activityActionInputSchema, activityOrderResultSchema, activitiesInputSchema, activitiesResultSchema } from "@shadow/contracts";
 import { wellnessReviewInputSchema } from "@shadow/contracts";
 import { buildWellnessReview, wellnessWindow } from "./wellness-review.js";
@@ -419,13 +420,14 @@ export class QueryService {
       if(!capture)return detail;
       const job=detail.processing_jobs.find(j=>j.id===revision.source_processing_job_id && j.source_asset_version_id===source.asset_version_id);
       const text=job?.suggestion?.content??revision.text??(revision.revision===1?capture.text:null)??"";
-      const fields=inspectActivityOrder(text.replace(/^\s*[-*]\s+/gmu,"").replace(/\*\*/gu,""),capturedPaymentPlatform(capture.app_package??""));
+      const fields=inspectLibraryOrder(text,capturedPaymentPlatform(capture.app_package??""));
       const recordId=context.effects.has("money.entry.read") && fields.transaction_id
         ? await store.screenshotRecord?.(context.subjectId,id,fields.transaction_id) : undefined;
       detail.payment_observation={source_id:source.id,asset_version_id:source.asset_version_id,item_revision:revision.revision,
         processing_job_id:revision.source_processing_job_id,captured_at:source.captured_at,time_zone:source.time_zone,
         merchant:fields.merchant,product:fields.product,paid_amount:fields.paid_amount,payment_time:fields.payment_time,
-        transaction_id:fields.transaction_id,issues:fields.issues,...(recordId?{consumption_record_id:recordId}:{})};
+        transaction_id:fields.transaction_id,issues:fields.issues,order_id:fields.order_id,order_time:fields.order_time,
+        ...(fields.price_check?{price_check:fields.price_check}:{}),...(recordId?{consumption_record_id:recordId}:{})};
       return detail;
     });
   }

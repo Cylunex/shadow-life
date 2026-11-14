@@ -96920,6 +96920,81 @@
                 "items": {
                   "type": "string"
                 }
+              },
+              "order_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "order_time": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "price_check": {
+                "type": "object",
+                "properties": {
+                  "total_amount": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "discount_amount": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "discount_components": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "label": {
+                          "type": "string"
+                        },
+                        "amount": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "label",
+                        "amount"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "calculated_paid_amount": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "totals_match": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "discounts_match": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "total_amount",
+                  "discount_amount",
+                  "discount_components",
+                  "calculated_paid_amount",
+                  "totals_match",
+                  "discounts_match"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [

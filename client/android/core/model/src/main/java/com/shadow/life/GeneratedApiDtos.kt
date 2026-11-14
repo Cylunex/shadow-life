@@ -2070,6 +2070,22 @@ data class ProjectDirectoryResultDto(
 )
 
 @Serializable
+data class LibraryItemResultDtoPaymentObservationPriceCheckDiscountComponentsEntry(
+  @SerialName("label") val label: String,
+  @SerialName("amount") val amount: String
+)
+
+@Serializable
+data class LibraryItemResultDtoPaymentObservationPriceCheck(
+  @SerialName("total_amount") val totalAmount: String?,
+  @SerialName("discount_amount") val discountAmount: String?,
+  @SerialName("discount_components") val discountComponents: List<LibraryItemResultDtoPaymentObservationPriceCheckDiscountComponentsEntry>,
+  @SerialName("calculated_paid_amount") val calculatedPaidAmount: String?,
+  @SerialName("totals_match") val totalsMatch: Boolean?,
+  @SerialName("discounts_match") val discountsMatch: Boolean?
+)
+
+@Serializable
 data class LibraryItemResultDtoPaymentObservation(
   @SerialName("consumption_record_id") val consumptionRecordId: String? = null,
   @SerialName("source_id") val sourceId: String,
@@ -2083,7 +2099,10 @@ data class LibraryItemResultDtoPaymentObservation(
   @SerialName("paid_amount") val paidAmount: String?,
   @SerialName("payment_time") val paymentTime: String?,
   @SerialName("transaction_id") val transactionId: String?,
-  @SerialName("issues") val issues: List<String>
+  @SerialName("issues") val issues: List<String>,
+  @SerialName("order_id") val orderId: String? = null,
+  @SerialName("order_time") val orderTime: String? = null,
+  @SerialName("price_check") val priceCheck: LibraryItemResultDtoPaymentObservationPriceCheck? = null
 )
 
 @Serializable
