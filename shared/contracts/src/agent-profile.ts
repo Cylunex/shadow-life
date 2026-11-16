@@ -12,7 +12,7 @@ export const personalOperatorTools: ReadonlySet<CapabilityName> = new Set<Capabi
   "life.correct_meal", "life.add_intake", "life.remove_intake", "life.correct_intake",
   "life.add_meal_payment", "life.attach_meal_source", "life.link_meal_consumption",
   "life.save_interval_event","life.record_occurrence","life.interval_events","life.save_amount_evidence","life.amount_evidence","life.set_price_spec","life.purchase_prices","life.save_dish_preference","life.remember_merchant_dish","life.merchant_menu","life.save_container","life.place_item","life.containers","life.save_clip","life.save_offline_interval","life.clips","life.offline_day","life.dish_preferences",
-  "life.correct_purchase", "life.update_purchase_items", "life.set_personal_alias",
+  "life.enrich_purchase", "life.correct_purchase", "life.update_purchase_items", "life.set_personal_alias",
   "life.save_meal_template", "life.record_meal_from_template",
   "life.save_owned_item", "life.record_owned_item_event",
   "money.save_service_card", "money.record_service_card_use", "money.save_return_case","money.return_cases","money.consumption_sources","money.reconcile_expenses","money.service_cards",
@@ -54,7 +54,7 @@ export function capabilityVisible(capability:{name:string;idempotency:string;pos
   if(capability.idempotency==="required"){
     if(capability.name==="life.record_dining")return effects.has("life.meal.write")&&effects.has("life.purchase.write");
     const requiredTogether=["life.generate_activity_review","life.record_captured_expenses","life.add_meal_payment","life.attach_meal_source",
-      "life.set_price_spec","life.save_amount_evidence","life.void_purchase","life.link_meal_consumption","money.import_file",
+      "life.enrich_purchase","life.set_price_spec","life.save_amount_evidence","life.void_purchase","life.link_meal_consumption","money.import_file",
       "money.save_return_case","health.save_lab_result","life.save_clip","life.set_capture_goal"];
     if(!requiredTogether.includes(capability.name))return !!all[0]&&effects.has(all[0]);
   }

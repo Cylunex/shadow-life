@@ -1,3 +1,4 @@
+import {enrichPurchase} from "./enrich-purchase.js";
 import { stockRecipes,subtractStock } from "./stock-recipes.js";
 import { readPrices,savePriceSpec } from "./purchase-prices.js";
 import { readAmountEvidence,writeAmountEvidence } from "./amount-evidence.js";
@@ -448,6 +449,7 @@ function storeFor(database: Database | Transaction): TransactionStore {
             warnings: mealEstimateWarnings([item ?? original])
           };
         }
+        case "life.enrich_purchase": return enrichPurchase(database,{subjectId,command,nextId});
         case "life.record_purchase": {
           const input = recordPurchaseInputSchema.parse(command.input), id = nextId("purchase");
           const originals = [];

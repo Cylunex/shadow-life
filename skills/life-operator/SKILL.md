@@ -32,6 +32,12 @@ The examples contain fictional records and illustrative IDs; replace them with r
   `evidence`. Read the consumption record first to resolve its ID, then read it back and
   verify `meals` contains the meal. Notes and `agent.objects` references do not attach facts.
   Use `life.attach_meal_source` to attach an uploaded original to an existing meal.
+- When a confirmed expense already exists but has no purchase details, read it and every saved
+  Library original, then use `life.enrich_purchase` with the current record revision, structured items
+  and exact `library_items` revisions. It reuses the existing payment and originals; never create
+  a second payment or use notes/meal attachments as a purchase relationship. Read back the same
+  record and verify items, sources, unchanged payment and existing meal links. If a purchase already
+  exists, use `life.update_purchase_items` for explicitly requested item changes.
 - For health/nutrition reviews, discover “饮食复盘” or “健康周报” and use `life.wellness_review`.
   Report per-field coverage and estimates before comparing periods; follow the health/nutrition workflow
   for evidence, goals, stock and requested plans. Unknown is not zero; paired days do not prove causation.

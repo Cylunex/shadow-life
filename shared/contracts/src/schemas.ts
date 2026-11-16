@@ -138,6 +138,13 @@ export const recordPurchaseInputSchema=datedFactSchema.extend({scene:purchaseSce
     keys.forEach(key => seen.add(key));
   }
 }).meta({not:{required:["source","sources"]}});
+export const enrichPurchaseInputSchema=z.object({
+  record_id:stableId,expected_revision:z.number().int().positive(),scene:purchaseSceneSchema,
+  merchant_name_raw:z.string().trim().min(1).max(200).optional(),channel_name_raw:z.string().trim().min(1).max(100).optional(),
+  items:z.array(purchaseItemInputSchema).min(1).max(100),
+  library_items:z.array(z.object({id:stableId,revision:z.number().int().positive()}).strict()).min(1).max(20),
+  note:z.string().trim().min(1).max(2000).optional(),reason:z.string().trim().min(1).max(500)
+}).strict().refine(v=>new Set(v.library_items.map(i=>i.id)).size===v.library_items.length,{path:["library_items"],message:"Use each Library original once"});
 export const correctIntakeInputSchema = z.object({
   item_id: stableId,
   expected_revision: z.number().int().positive(),
@@ -768,6 +775,7 @@ export const writeCommandSchemas = {
   "life.attach_meal_source":attachMealSourceInputSchema,
   "life.set_personal_alias":setPersonalAliasInputSchema,
   "life.record_purchase": recordPurchaseInputSchema,
+  "life.enrich_purchase": enrichPurchaseInputSchema,
   "life.correct_intake": correctIntakeInputSchema,
   "life.set_price_spec":purchasePriceSpecSchema,
   "life.save_amount_evidence":saveAmountEvidenceSchema,
