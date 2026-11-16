@@ -34,7 +34,7 @@ The examples contain fictional records and illustrative IDs; replace them with r
   Use `life.attach_meal_source` to attach an uploaded original to an existing meal.
 - When a confirmed expense already exists but has no purchase details, read it and every saved
   Library original, then use `life.enrich_purchase` with the current record revision, structured items
-  and exact `library_items` revisions. It reuses the existing payment and originals; never create
+  and exact `library_items` revisions (or `source` with the explicit user text when no screenshot exists). It reuses the existing payment and originals; never create
   a second payment or use notes/meal attachments as a purchase relationship. Read back the same
   record and verify items, sources, unchanged payment and existing meal links. If a purchase already
   exists, use `life.update_purchase_items` for explicitly requested item changes.

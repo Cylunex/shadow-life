@@ -9,6 +9,7 @@
 | Groceries or goods bought for later | `life.record_purchase` | Purchase/payment only; does not invent intake or owned inventory |
 | Same breakfast or usual drink | `life.food_catalog`, `life.record_meal_from_template` | Reuse an explicit saved template or verified recent composition |
 | Correct consumed quantity/time | `life.get_record`, `life.correct_intake` / `life.correct_meal` | Current exact item/meal revision, retaining history |
+| Add purchase details to an existing paid expense | `life.enrich_purchase` | Same payment; exact Library originals or explicit text source; no unrelated unpaid order |
 | Fill missing order line items | `life.update_purchase_items` | Repair the original purchase without a second charge/order |
 | Refund | `money.record_refund` | Link to the original money entry; the meal remains consumed |
 | Statement import / historical bill reconciliation | `money.import_file`, `money.import_file_status`, `money.import_history` / `money.import_review` | Follow [bill reconciliation](bill-reconciliation.md) for exceptions, evidence, resumable corrections and task closeout |

@@ -7,7 +7,7 @@ type Database=Pick<NodePgDatabase,"execute">;
 type Write=Parameters<TransactionStore["executeDomainWrite"]>[0];
 
 /** Add missing purchase facts to an existing payment; never create a second payment. */
-export async function enrichPurchase(database:Database,{subjectId,command,nextId}:Write):ReturnType<TransactionStore["executeDomainWrite"]>{
+export async function enrichPurchase(database:Database,{subjectId,command,nextId}:Write,sourceFor:(source:ReturnType<typeof enrichPurchaseInputSchema.parse>["source"])=>Promise<string|undefined>):ReturnType<TransactionStore["executeDomainWrite"]>{
   const v=enrichPurchaseInputSchema.parse(command.input);
   const current=await database.execute<{record:Record<string,unknown>;currency:string;entry_type:string}>(sql`
     select to_jsonb(r) record,m.currency,m.entry_type from consumption_records r
@@ -27,6 +27,8 @@ export async function enrichPurchase(database:Database,{subjectId,command,nextId
     if(!source.rowCount)throw conflict("Library original is unavailable");
     sourceIds.add(item.rows[0]!.source_id!);
   }
+  const explicitSource=await sourceFor(v.source);
+  if(explicitSource)sourceIds.add(explicitSource);
   const record=current.rows[0]!.record,purchaseId=nextId("purchase");
   await database.execute(sql`insert into consumption_record_revisions(record_id,revision,snapshot,reason)
     values(${v.record_id},${v.expected_revision},${JSON.stringify({record})}::jsonb,${v.reason})`);
@@ -34,7 +36,7 @@ export async function enrichPurchase(database:Database,{subjectId,command,nextId
   await database.execute(sql`insert into purchases(id,subject_id,record_id,merchant,currency,occurred_on,occurred_at,time_zone,note,scene,channel_name_raw,source_id)
     values(${purchaseId},${subjectId},${v.record_id},${v.merchant_name_raw??null},${current.rows[0]!.currency},
       ${record.occurred_on}::date,${record.occurred_at??null}::timestamptz,${record.time_zone},${v.note??null},${v.scene},${v.channel_name_raw??null},${originalIds[0]})`);
-  for(const id of originalIds)await database.execute(sql`insert into purchase_source_links(purchase_id,source_id,role) values(${purchaseId},${id},'order_screenshot')`);
+  for(const id of originalIds)await database.execute(sql`insert into purchase_source_links(purchase_id,source_id,role) values(${purchaseId},${id},${id===explicitSource?'evidence':'order_screenshot'})`);
   const itemIds:string[]=[];
   for(const [position,item] of v.items.entries()){
     const id=nextId("purchase_item");itemIds.push(id);

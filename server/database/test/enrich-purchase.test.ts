@@ -51,3 +51,13 @@ test("concurrent enrichment intents serialize on the existing expense revision",
   assert.equal(enrichPurchaseInputSchema.safeParse({...input,payment:{amount:"26.00"}}).success,false);
   assert.equal(enrichPurchaseInputSchema.safeParse({...input,library_items:[input.library_items[0],input.library_items[0]]}).success,false);
 });
+
+test("explicit text evidence enriches the paid record without an unrelated unpaid purchase",pgOnly,async t=>{
+  const f=await reviewFixture(t),payment=await f.run("money.record_entry",money),rid=String(payment.actual_values.record_id);
+  const saved=await f.run("life.enrich_purchase",{record_id:rid,expected_revision:1,scene:"offline_purchase",items:[{raw_name:"合成水果",quantity:"2",unit:"个"}],source:{kind:"text",captured_on:"2026-10-25",original_text:"这笔是买了两个合成水果"},reason:"用户补充了已付订单的商品"});
+  assert.equal(saved.actual_values.source_count,1);
+  const record=await f.queries.lifeRecord(f.context,rid);if(record.kind!=="record")throw Error("record expected");
+  assert.equal(record.money_entry?.amount,"26.000000");
+  assert.equal(record.sources?.find(s=>s.kind==="text")?.original_text,"这笔是买了两个合成水果");
+  assert.equal((await f.pool.query("select count(*) count from consumption_records")).rows[0].count,"1");
+});

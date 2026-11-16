@@ -21404,7 +21404,7 @@
     },
     "life.enrich_purchase": {
       "name": "life.enrich_purchase",
-      "description": "为已有正式支出补建购买商品与关联Library原件，不新增付款、不改变金额或原支付时间。先读现有record与资料的当前修订；已有purchase时用update_purchase_items。备注不能代替商品和原件关联。",
+      "description": "为已有正式支出补建购买商品与关联Library原件或用户原文source，不新增付款、不改变金额或原支付时间。先读现有record与资料的当前修订；无截图时source保留用户原话，不要另建未付款购买；已有purchase时用update_purchase_items。备注不能代替商品和原件关联。",
       "possible_effects": [
         "life.purchase.write",
         "money.entry.read",
@@ -21492,7 +21492,7 @@
             }
           },
           "library_items": {
-            "minItems": 1,
+            "default": [],
             "maxItems": 20,
             "type": "array",
             "items": {
@@ -21514,6 +21514,53 @@
               ],
               "additionalProperties": false
             }
+          },
+          "source": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "text",
+                  "image",
+                  "receipt",
+                  "import"
+                ]
+              },
+              "external_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "captured_on": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "captured_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+              },
+              "time_zone": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "original_text": {
+                "type": "string",
+                "maxLength": 20000
+              },
+              "asset_version_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{7,127}$"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "additionalProperties": false,
+            "description": "Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image."
           },
           "note": {
             "type": "string",
@@ -21631,7 +21678,7 @@
                 }
               },
               "library_items": {
-                "minItems": 1,
+                "default": [],
                 "maxItems": 20,
                 "type": "array",
                 "items": {
@@ -21653,6 +21700,53 @@
                   ],
                   "additionalProperties": false
                 }
+              },
+              "source": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "text",
+                      "image",
+                      "receipt",
+                      "import"
+                    ]
+                  },
+                  "external_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "captured_on": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "captured_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                  },
+                  "time_zone": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "original_text": {
+                    "type": "string",
+                    "maxLength": 20000
+                  },
+                  "asset_version_id": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false,
+                "description": "Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image."
               },
               "note": {
                 "type": "string",

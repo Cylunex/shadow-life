@@ -449,7 +449,7 @@ function storeFor(database: Database | Transaction): TransactionStore {
             warnings: mealEstimateWarnings([item ?? original])
           };
         }
-        case "life.enrich_purchase": return enrichPurchase(database,{subjectId,command,nextId});
+        case "life.enrich_purchase": return enrichPurchase(database,{subjectId,command,nextId},sourceFor);
         case "life.record_purchase": {
           const input = recordPurchaseInputSchema.parse(command.input), id = nextId("purchase");
           const originals = [];

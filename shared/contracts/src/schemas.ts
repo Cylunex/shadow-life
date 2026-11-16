@@ -142,9 +142,10 @@ export const enrichPurchaseInputSchema=z.object({
   record_id:stableId,expected_revision:z.number().int().positive(),scene:purchaseSceneSchema,
   merchant_name_raw:z.string().trim().min(1).max(200).optional(),channel_name_raw:z.string().trim().min(1).max(100).optional(),
   items:z.array(purchaseItemInputSchema).min(1).max(100),
-  library_items:z.array(z.object({id:stableId,revision:z.number().int().positive()}).strict()).min(1).max(20),
+  library_items:z.array(z.object({id:stableId,revision:z.number().int().positive()}).strict()).max(20).default([]),
+  source:sourceInputSchema.optional(),
   note:z.string().trim().min(1).max(2000).optional(),reason:z.string().trim().min(1).max(500)
-}).strict().refine(v=>new Set(v.library_items.map(i=>i.id)).size===v.library_items.length,{path:["library_items"],message:"Use each Library original once"});
+}).strict().refine(v=>v.library_items.length>0||v.source!==undefined,{message:"Use saved Library originals or explicit source evidence"}).refine(v=>new Set(v.library_items.map(i=>i.id)).size===v.library_items.length,{path:["library_items"],message:"Use each Library original once"});
 export const correctIntakeInputSchema = z.object({
   item_id: stableId,
   expected_revision: z.number().int().positive(),
