@@ -27,7 +27,7 @@ internal class OrderCaptureOverlay(service:AccessibilityService,val control:Orde
  private val density=service.resources.displayMetrics.density
  private fun dp(value:Int)=(value*density).toInt()
  private val label=TextView(service).apply{setTextColor(Color.WHITE);textSize=14f;setPadding(dp(8),dp(6),dp(8),dp(2))}
- private val next=Button(service).apply{text=if(images)"我来滑" else "下一屏";setOnClickListener{control.request(if(images) OrderCaptureAction.ToggleMode else OrderCaptureAction.Next)}}
+ private val next=Button(service).apply{text=if(images)"自动滚动" else "下一屏";setOnClickListener{control.request(if(images) OrderCaptureAction.ToggleMode else OrderCaptureAction.Next)}}
  private val view=LinearLayout(service).apply{
   orientation=LinearLayout.VERTICAL;setPadding(dp(8),dp(4),dp(8),dp(4))
   background=GradientDrawable().apply{setColor(Color.rgb(35,38,42));cornerRadius=dp(14).toFloat()}

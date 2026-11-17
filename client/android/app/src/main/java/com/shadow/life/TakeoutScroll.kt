@@ -16,6 +16,8 @@ import java.time.LocalDate
 import java.util.UUID
 import org.json.JSONObject
 
+private enum class OrderImageCaptureMode { SingleScreen, Automatic, Manual }
+
 private suspend fun AccessibilityService.orderScreenshot(window:Int):Bitmap=suspendCancellableCoroutine{continuation->
  if(Build.VERSION.SDK_INT<30){continuation.resumeWithException(IllegalStateException("自动长页采集需要 Android 11，请分享系统长截图"));return@suspendCancellableCoroutine}
  val callback=object:AccessibilityService.TakeScreenshotCallback{
@@ -75,7 +77,7 @@ internal suspend fun LifeScreenCaptureService.collectTakeoutOrder(account:String
  val frames=mutableListOf<ByteArray>()
  lateinit var imageProgress:OrderImageProgress
  var imageWidth=width;var imageHeight=screenHeight
- var manual=false
+ var imageMode=OrderImageCaptureMode.SingleScreen
  var previousImage:OrderImageSample?=null
  var pendingSample:OrderImageSample?=null
  var stalled=0
@@ -122,22 +124,28 @@ internal suspend fun LifeScreenCaptureService.collectTakeoutOrder(account:String
    val ended=native&&takeoutEnded(combined)
    nextAllowed=nextAllowed && (if(native) pages<12 else imageProgress.canReadNext && frames.sumOf{it.size.toLong()}<32_000_000)
    val note=if(!nextAllowed && (!native || pages>=12))"已到采集上限，请完成保存或取消" else stopNote
-   val mode=if(native)"美团无障碍文字" else if(manual)"手动慢滑，停稳收录" else "自动滚动"
-   overlay.manual(manual)
+   val mode=if(native)"美团无障碍文字" else when(imageMode){
+    OrderImageCaptureMode.SingleScreen->"已截当前一屏，点自动滚动可继续"
+    OrderImageCaptureMode.Automatic->"自动滚动"
+    OrderImageCaptureMode.Manual->"手动慢滑，停稳收录"
+   }
+   overlay.manual(imageMode!=OrderImageCaptureMode.Automatic)
    overlay.status("$mode · $pages 屏"+(note?.let{"\n$it"}?:if(ended)" · 已读到合计，可完成" else ""),nextAllowed=nextAllowed)
    check(android.os.SystemClock.elapsedRealtime()<deadline){"采集等待超时，未保存"}
    val action=withTimeoutOrNull(800){control.awaitAction()}
    if(control.terminal==OrderCaptureAction.Cancel)throw CancellationException("用户取消采集")
    if(control.terminal==OrderCaptureAction.Finish){
-    if(!native && manual && nextAllowed)captureViewport()
+    if(!native && imageMode==OrderImageCaptureMode.Manual && nextAllowed)captureViewport()
     break
    }
    if(!nextAllowed)continue
    if(action==OrderCaptureAction.ToggleMode){
-    manual=!manual;pendingSample=null;stalled=0;stopNote=null;continue
+    imageMode=if(imageMode==OrderImageCaptureMode.Automatic)OrderImageCaptureMode.Manual else OrderImageCaptureMode.Automatic
+    pendingSample=null;stalled=0;stopNote=null;continue
    }
    if(native && action!=OrderCaptureAction.Next)continue
-   if(!native && manual){
+   if(!native && imageMode==OrderImageCaptureMode.SingleScreen)continue
+   if(!native && imageMode==OrderImageCaptureMode.Manual){
     captureViewport(waitForStill=true)
     continue
    }
@@ -146,7 +154,7 @@ internal suspend fun LifeScreenCaptureService.collectTakeoutOrder(account:String
    checkPage()
    if(!orderSwipeForward(width,screenHeight)){
     if(native){stopNote="滚动被中断，可重试";continue}
-    manual=true;stopNote="滑动被中断，可手动慢滑或完成";continue
+    imageMode=OrderImageCaptureMode.Manual;stopNote="滑动被中断，可手动慢滑或完成";continue
    }
    delay(700)
    if(control.terminal==OrderCaptureAction.Cancel)throw CancellationException("用户取消采集")
@@ -162,7 +170,7 @@ internal suspend fun LifeScreenCaptureService.collectTakeoutOrder(account:String
     pages++
    }else{
     if(captureViewport())stalled=0 else stalled++
-    if(stalled>=2){manual=true;stopNote="画面已停止，可完成或手动慢滑"}
+    if(stalled>=2){imageMode=OrderImageCaptureMode.Manual;stopNote="画面已停止，可完成或手动慢滑"}
    }
    // Finish during a swipe includes the resulting viewport; no subsequent swipe is submitted.
    if(control.terminal==OrderCaptureAction.Finish)break
