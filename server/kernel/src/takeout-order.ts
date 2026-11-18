@@ -10,6 +10,7 @@ function price(s:string){return money(cents(/(?:[¥￥]|实付:?)(\d{1,8}(?:\.\d
 export function inspectTakeoutOrder(text:string){
  const capture=readTakeoutCapture(text);if(!capture)return null;
  if(capture.platform==="meituan")return inspectMeituanOrder(capture);
+ const jd=capture.platform==="jd";
  const boxes=capture.blocks.map(([x,y,w,h,text])=>({x,y,w,h,text:compact(text)})).sort((a,b)=>a.y-b.y||a.x-b.x);
  const rows:Array<{y:number;h:number;parts:typeof boxes}>=[];
  for(const b of boxes){let row=rows.find(r=>Math.abs(r.y+r.h/2-b.y-b.h/2)<Math.min(r.h,b.h)*0.6);if(!row){row={y:b.y,h:b.h,parts:[]};rows.push(row);}row.parts.push(b);}
@@ -19,14 +20,16 @@ export function inspectTakeoutOrder(text:string){
  const usable=rows.slice(0,stop<0?rows.length:stop);
  const find=(pattern:RegExp)=>usable.findIndex((_,i)=>pattern.test(line(i)));
  const value=(pattern:RegExp)=>{const i=find(pattern);return i<0?null:line(i).replace(pattern,"").trim()||line(i+1);};
- const summary=find(/价格明细/u),footer=find(/订单号|订单编号/u),fees=find(/打包费|包装费|配送费/u);
+ const summary=find(jd?/价格明细|费用明细|支付明细|商品总额/u:/价格明细/u),footer=find(/订单号|订单编号/u),fees=find(/打包费|包装费|餐盒费|配送费/u);
  const issues:string[]=[];
- const paidRow=summary<0?null:usable.slice(summary,Math.min(footer<0?usable.length:footer,summary+4)).map((_,j)=>line(summary+j)).find(s=>/实付/u.test(s));
- let paid_amount=paidRow?price(paidRow.slice(paidRow.lastIndexOf("实付"))):null;
- const total=value(/总价[:：]?/u),order_amount=total?price(total):null;
+ const paidIndex=summary<0?-1:usable.findIndex((_,i)=>i>=summary&&i<(footer<0?usable.length:footer)&&i<summary+(jd?8:4)&&/实付/u.test(line(i)));
+ const paidRow=paidIndex<0?null:line(paidIndex);
+ const explicitPaid=paidRow?.slice(paidRow.lastIndexOf("实付")).replace(/^实付(?:金额)?\s*:/u,"实付");
+ let paid_amount=explicitPaid?price(explicitPaid)??(jd?feePrice(explicitPaid):null):null;
+ const total=value(jd?/(?:订单总价|订单金额|总价)[:：]?/u:/总价[:：]?/u),order_amount=total?price(total):null;
  const discount=summary<0?null:usable.slice(summary,summary+3).map((_,j)=>line(summary+j)).find(s=>/总优惠/u.test(s));
  const discount_amount=discount?price(discount.slice(discount.indexOf("总优惠")+3)):null;
- const packing= value(/(?:打包费|包装费)[?？]?[:：]?/u),delivery=value(/配送费(?!优惠)[?？]?[:：]?/u);
+ const packing= value(/(?:打包费|包装费|餐盒费)[?？]?[:：]?/u),delivery=value(/配送费(?!优惠)[?？]?[:：]?/u);
  const packing_fee=packing?feePrice(packing):null,delivery_fee=delivery?feePrice(delivery):null;
  const itemEnd=fees>=0?usable[fees]!.y:summary>=0?usable[summary]!.y:0;
  const quantities=boxes.filter(b=>b.y<itemEnd&&/^[×xX*][1-9]\d{0,2}$/u.test(b.text));
@@ -45,11 +48,20 @@ export function inspectTakeoutOrder(text:string){
  const merchantBox=boxes.find(b=>b.y<(quantities[0]?.y??itemEnd)&&b.text.includes("闪购")&&b.text.length>2);
  let merchant=merchantBox?.text.replace(/^.*?闪购/u,"").replace(/[>›〉]$/u,"")||null;
  if(!merchant){const marker=boxes.find(b=>b.text==="闪购");merchant=marker?boxes.find(b=>b.x>marker.x+marker.w*.5&&b.x<capture.width*.7&&!/蜂鸟|准时达/u.test(b.text)&&Math.abs(b.y-marker.y)<marker.h)?.text??null:null;}
+ if(!merchant&&jd){
+  const label=/^(?:门店名称|商家名称|店铺名称):?/u;
+  const names=[...new Set(boxes.filter(box=>label.test(box.text)).map(box=>{
+   const inline=box.text.replace(label,"");
+   return inline||boxes.find(value=>value.x>=box.x+box.w*.5&&Math.abs(value.y-box.y)<box.h*.5)?.text;
+  }).filter((name):name is string=>Boolean(name&&!/^(?:订单|状态|点击)/u.test(name))))];
+  if(names.length===1)merchant=names[0]!;
+  if(names.length>1)issues.push("门店名称存在多个不同值，请核对原始材料");
+ }
  const rawId=value(/(?:订单号|订单编号)[:：]?/u);
  const identities=rawId?[...new Set([...rawId.replace(/复制/gu,"").matchAll(/\d{8,40}/gu)].map(m=>m[0]))]:[];
  const order_id=identities.length===1?identities[0]!:null;
  if(identities.length>1)issues.push("订单号存在多个不同值，请核对原始材料");
- const rawTime=value(/下单时间[:：]?/u);const order_time=rawTime?/\d{4}-\d{2}-\d{2}\s*\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?/u.exec(rawTime)?.[0]?.replace(/^(\d{4}-\d{2}-\d{2})(\d)/u,"$1 $2")??null:null;
+ const rawTime=value(/(?:下单时间|订单时间)[:：]?/u);const order_time=rawTime?/\d{4}-\d{2}-\d{2}\s*\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?/u.exec(rawTime)?.[0]?.replace(/^(\d{4}-\d{2}-\d{2})(\d)/u,"$1 $2")??null:null;
  const payment_method=value(/支付方式[:：]?/u)?.match(/支付宝|微信支付|微信|银行卡|余额/u)?.[0]??null;
  const delivery_status=boxes.find(b=>/订单已送到指定位置|订单已完成|已送达|订单已取消|退款成功/u.test(b.text))?.text??null;
  if(delivery_status&&/取消|退款/u.test(delivery_status))issues.push("订单已取消或退款，保留原始材料");

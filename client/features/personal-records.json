@@ -8,6 +8,7 @@
         "fields": [],
         "path": "/api/health",
         "rows": "items",
+        "edit": {"cap": "health.set_workout_route", "title": "设置路线"},
         "pick": {
           "workout_id": "id"
         }
@@ -39,6 +40,7 @@
         ],
         "path": "/api/health/route-comparison",
         "rows": "items",
+        "edit": {"cap": "health.set_workout_route", "title": "调整路线"},
         "pick": {
           "workout_id": "id",
           "expected_revision": "revision",
@@ -58,6 +60,7 @@
         ],
         "path": "/api/health/route-comparison",
         "rows": "items",
+        "edit": {"cap": "health.set_workout_route", "title": "调整路线"},
         "pick": {
           "workout_id": "id",
           "expected_revision": "revision",
@@ -122,6 +125,7 @@
         ],
         "path": "/api/health/evening-sleep",
         "rows": "days",
+        "edit": {"cap": "health.set_rest_day", "title": "标记休息日"},
         "pick": {
           "occurred_on": "date",
           "expected_revision": "rest_revision",
@@ -168,6 +172,7 @@
         "fields": [],
         "path": "/api/library/saved-filters",
         "rows": "items",
+        "edit": {"cap": "library.save_filter", "title": "编辑筛选"},
         "pick": {
           "id": "id",
           "expected_revision": "revision",
@@ -242,6 +247,7 @@
         ],
         "path": "/api/travel/diary",
         "rows": "items",
+        "edit": {"cap": "travel.save_diary_entry", "title": "编辑小记"},
         "pick": {
           "id": "id",
           "expected_revision": "revision",
@@ -475,6 +481,7 @@
         ],
         "path": "/api/life/containers",
         "rows": "containers",
+        "edit": {"cap": "life.save_container", "title": "编辑容器"},
         "pick": {
           "id": "id",
           "expected_revision": "revision",
@@ -500,6 +507,7 @@
         ],
         "path": "/api/life/containers",
         "rows": "items",
+        "edit": {"cap": "life.place_item", "title": "移动物品"},
         "pick": {
           "item_id": "id",
           "expected_revision": "revision",
@@ -587,6 +595,7 @@
         ],
         "path": "/api/health/lab-results",
         "rows": "items",
+        "edit": {"cap": "health.save_lab_result", "title": "编辑检验结果"},
         "pick": {
           "id": "id",
           "expected_revision": "revision",
@@ -701,6 +710,7 @@
         ],
         "path": "/api/health/episodes",
         "rows": "items",
+        "edit": {"cap": "health.save_episode", "title": "补充发作记录"},
         "pick": {
           "id": "id",
           "title": "title",
@@ -826,6 +836,7 @@
         ],
         "path": "/api/life/clips",
         "rows": "items",
+        "edit": {"cap": "life.save_clip", "title": "编辑选段"},
         "pick": {
           "id": "id",
           "expected_revision": "revision",
@@ -903,6 +914,7 @@
         ],
         "path": "/api/life/offline-day",
         "rows": "items",
+        "edit": {"cap": "life.save_offline_interval", "title": "更正手工区间"},
         "pick": {
           "id": "id",
           "expected_revision": "revision",
@@ -970,6 +982,7 @@
         ],
         "path": "/api/life/merchant-menu",
         "rows": "items",
+        "edit": {"cap": "life.record_meal", "title": "记下这道菜"},
         "pick": {
           "food_ref_id": "id",
           "dish": "dish"

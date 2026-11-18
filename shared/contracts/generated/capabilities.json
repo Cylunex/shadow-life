@@ -6024,11 +6024,13 @@
     },
     "life.record_meal": {
       "name": "life.record_meal",
-      "description": "记录实际吃下的一餐，可关联独立付款。购买或赠品不证明摄入；未知营养与时刻省略，估算需 estimate=true 和 evidence_note。订单、商家和多张图片一起录入优先用 life.record_dining。",
+      "description": "记录实际吃下的一餐。已有付款用 existing_consumption 指定消费编号和当前修订，在同一事务关联。新付款使用 payment。购买或赠品不证明摄入。未知营养与时刻省略，估算需 estimate=true 和 evidence_note。订单、商家和多张图片一起录入优先用 life.record_dining。",
       "possible_effects": [
         "life.meal.write",
         "money.entry.write",
-        "library.source.link"
+        "library.source.link",
+        "money.entry.read",
+        "life.purchase.write"
       ],
       "idempotency": "required",
       "status_query": "operations.get",
@@ -6224,6 +6226,25 @@
               "currency",
               "occurred_on",
               "time_zone"
+            ],
+            "additionalProperties": false
+          },
+          "existing_consumption": {
+            "type": "object",
+            "properties": {
+              "record_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{7,127}$"
+              },
+              "expected_record_revision": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "record_id",
+              "expected_record_revision"
             ],
             "additionalProperties": false
           },
@@ -6491,6 +6512,25 @@
                   "currency",
                   "occurred_on",
                   "time_zone"
+                ],
+                "additionalProperties": false
+              },
+              "existing_consumption": {
+                "type": "object",
+                "properties": {
+                  "record_id": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                  },
+                  "expected_record_revision": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "record_id",
+                  "expected_record_revision"
                 ],
                 "additionalProperties": false
               },
@@ -20160,7 +20200,8 @@
                 "type": "string",
                 "enum": [
                   "eleme",
-                  "meituan"
+                  "meituan",
+                  "jd"
                 ]
               },
               "complete": {
@@ -32352,7 +32393,8 @@
       "description": "使用明确证据关联用餐与消费，不分摊或重复金额。",
       "possible_effects": [
         "life.meal.write",
-        "life.purchase.write"
+        "life.purchase.write",
+        "money.entry.read"
       ],
       "idempotency": "required",
       "status_query": "operations.get",
@@ -32375,6 +32417,11 @@
               "shared_source",
               "user_confirmed"
             ]
+          },
+          "expected_record_revision": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -32419,6 +32466,11 @@
                   "shared_source",
                   "user_confirmed"
                 ]
+              },
+              "expected_record_revision": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
               }
             },
             "required": [
@@ -103579,14 +103631,14 @@
         "life.meal.write",
         "money.entry.write",
         "library.source.link",
-        "library.item.write",
+        "money.entry.read",
         "life.purchase.write",
+        "library.item.write",
         "life.project.write",
         "agent.run",
         "library.item.read",
         "library.processor.write",
         "money.plan.write",
-        "money.entry.read",
         "travel.visit.write",
         "life.meal.read",
         "life.meal_plan.read",
@@ -103924,14 +103976,14 @@
         "life.meal.write",
         "money.entry.write",
         "library.source.link",
-        "library.item.write",
+        "money.entry.read",
         "life.purchase.write",
+        "library.item.write",
         "life.project.write",
         "agent.run",
         "library.item.read",
         "library.processor.write",
         "money.plan.write",
-        "money.entry.read",
         "travel.visit.write",
         "life.meal.read",
         "life.meal_plan.read",
@@ -104122,14 +104174,14 @@
         "life.meal.write",
         "money.entry.write",
         "library.source.link",
-        "library.item.write",
+        "money.entry.read",
         "life.purchase.write",
+        "library.item.write",
         "life.project.write",
         "agent.run",
         "library.item.read",
         "library.processor.write",
         "money.plan.write",
-        "money.entry.read",
         "travel.visit.write",
         "life.meal.read",
         "life.meal_plan.read",
@@ -104274,14 +104326,14 @@
         "life.meal.write",
         "money.entry.write",
         "library.source.link",
-        "library.item.write",
+        "money.entry.read",
         "life.purchase.write",
+        "library.item.write",
         "life.project.write",
         "agent.run",
         "library.item.read",
         "library.processor.write",
         "money.plan.write",
-        "money.entry.read",
         "travel.visit.write",
         "life.meal.read",
         "life.meal_plan.read",

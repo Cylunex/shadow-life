@@ -3130,7 +3130,8 @@ enum class ActivityOrderResultDtoStatus(val wireValue: String) {
 @Serializable
 enum class ActivityOrderResultDtoTakeoutPlatform(val wireValue: String) {
   @SerialName("eleme") Eleme("eleme"),
-  @SerialName("meituan") Meituan("meituan")
+  @SerialName("meituan") Meituan("meituan"),
+  @SerialName("jd") Jd("jd")
 }
 
 @Serializable

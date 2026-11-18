@@ -11,6 +11,19 @@ internal val dedicatedTakeoutPackages=setOf("me.ele","me.ele.mall","com.sankuai.
 internal data class OrderTextBox(val x:Int,val y:Int,val width:Int,val height:Int,val text:String){val bottom get()=y+height}
 internal fun takeoutText(boxes:List<OrderTextBox>)=boxes.sortedWith(compareBy<OrderTextBox>{it.y}.thenBy{it.x}).joinToString("\n"){it.text}
 internal fun isTakeoutPage(boxes:List<OrderTextBox>,knownTakeoutApp:Boolean=false)=isTakeoutDetailText(takeoutText(boxes),knownTakeoutApp)
+internal fun isNativeOrderPage(pkg:String,boxes:List<OrderTextBox>):Boolean {
+ val text=takeoutText(boxes)
+ val platform=takeoutPackages[pkg] ?: return false
+ val compact=text.replace(Regex("\\s+"),"")
+ val markers=when(platform){
+  "eleme"->listOf("闪购","饿了么","蜂鸟")
+  "jd"->listOf("京东外卖","京东秒送","达达配送","骑手正在配送")
+  else->return isTakeoutPage(boxes,pkg in dedicatedTakeoutPackages)
+ }
+ // A full shopping app can show ordinary parcel orders in the same activity.
+ if(pkg !in dedicatedTakeoutPackages && markers.none(compact::contains))return false
+ return isTakeoutDetailText(text,true)
+}
 /** Classify visible native order text without recognizing pixels. */
 internal fun isTakeoutDetailText(raw:String,knownTakeoutApp:Boolean=false):Boolean {
  val lines=raw.lineSequence().map{it.replace(Regex("\\s+"),"")}.filter{it.isNotEmpty()}.toList()
@@ -22,14 +35,16 @@ internal fun isTakeoutDetailText(raw:String,knownTakeoutApp:Boolean=false):Boole
  val footer=listOf("下单时间","支付方式","订单信息","收货信息").count(text::contains)
  if(orderNumber&&footer>=2)return true
  val quantities=Regex("[×xX*]\\d{1,3}(?!\\d)").findAll(text).count()
- val money=Regex("(?:[¥￥]|实付[:：]?)\\d").containsMatchIn(text)
- val fees=listOf("打包费","包装费","配送费","配迭费").any(text::contains)
+ val money=Regex("(?:[¥￥]|实付(?:金额)?[:：]?)\\d").containsMatchIn(text)
+ val fees=listOf("打包费","包装费","餐盒费","配送费","配迭费").any(text::contains)
  if(text.contains("价格明细")&&fees&&money)return true
  val detailHeading=listOf("订单详情","订单已完成","订单已送到","订单已送达","已送达","已完成配送","订单配送中","骑手正在配送","商家正在备餐","订单已取消").any(text::contains)
  return detailHeading&&money&&(quantities>0||fees||orderNumber)
 }
-internal fun takeoutEnded(boxes:List<OrderTextBox>):Boolean {
+internal fun takeoutEnded(boxes:List<OrderTextBox>,platform:String="meituan"):Boolean {
  val text=takeoutText(boxes).replace(" ","").replace("支付万式","支付方式")
+ if(platform!="meituan")return Regex("订单(?:号|号码|编号)[:：]?\\d{8,40}").containsMatchIn(text)&&
+  (text.contains("下单时间")||text.contains("订单时间"))&&text.contains("实付")
  if(text.contains("商品费用"))return (text.contains("订单号码")||text.contains("订单号"))&&text.contains("下单时间")&&text.contains("支付方式")&&boxes.any{it.text=="合计"||it.text=="实付"}
  return (text.contains("订单号")||text.contains("订单编号"))&&text.contains("下单时间")&&text.contains("支付方式")&&
   (text.contains("安心权益")||text.contains("常见问题")||text.contains("订单信息"))

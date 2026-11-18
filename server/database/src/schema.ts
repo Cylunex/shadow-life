@@ -162,3 +162,43 @@ export const threads = pgTable("threads", { id: text("id").primaryKey(), subject
 export const messages = pgTable("messages", { id: text("id").primaryKey(), threadId: text("thread_id").references(() => threads.id, { onDelete: "cascade" }).notNull(), role: text("role").notNull(), content: text("content").notNull(), createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull() });
 export const runs = pgTable("runs", { id: text("id").primaryKey(), threadId: text("thread_id").references(() => threads.id, { onDelete: "cascade" }).notNull(), status: text("status").notNull(), error: text("error"), startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(), finishedAt: timestamp("finished_at", { withTimezone: true }) });
 export const runEvents = pgTable("run_events", { runId: text("run_id").references(() => runs.id, { onDelete: "cascade" }).notNull(), sequence: integer("sequence").notNull(), eventType: text("event_type").notNull(), payload: jsonb("payload").notNull(), createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull() }, (table) => [primaryKey({ columns: [table.runId, table.sequence] })]);
+
+export const agentSubscriptions = pgTable("agent_subscriptions", {
+  id: text("id").primaryKey(),
+  subjectId: text("subject_id").references(() => principals.id).notNull(),
+  scope: text("scope").notNull(),
+  businessKey: text("business_key").notNull(),
+  data: jsonb("data").notNull(),
+  revision: integer("revision").default(1).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
+}, table => [uniqueIndex("agent_subscriptions_subject_id_business_key_key").on(table.subjectId, table.businessKey)]);
+
+export const agentChangeCursors = pgTable("agent_change_cursors", {
+  subjectId: text("subject_id").references(() => principals.id).notNull(),
+  consumer: text("consumer").notNull(),
+  cursor: bigint("cursor", { mode: "bigint" }).default(0n).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
+}, table => [primaryKey({ columns: [table.subjectId, table.consumer] }), check("agent_change_cursors_cursor_check", sql`${table.cursor} >= 0`)]);
+
+export const healthDailySummaries = pgTable("health_daily_summaries", {
+  id: text("id").generatedAlwaysAs(sql`'healthday_' || md5(length(subject_id)::text || ':' || subject_id || ':' || (occurred_on - date '2000-01-01')::text || ':' || algorithm_version)`),
+  subjectId: text("subject_id").references(() => principals.id).notNull(),
+  occurredOn: date("occurred_on").notNull(),
+  algorithmVersion: text("algorithm_version").notNull(),
+  result: jsonb("result").notNull(),
+  sourceSetHash: text("source_set_hash").notNull(),
+  revision: integer("revision").default(1).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
+}, table => [primaryKey({ columns: [table.subjectId, table.occurredOn, table.algorithmVersion] }), index("health_daily_summary_agent_idx").on(table.subjectId, table.id)]);
+
+export const merchantStallPrices = pgTable("merchant_stall_prices", {
+  subjectId: text("subject_id").references(() => principals.id).notNull(),
+  merchant: text("merchant").notNull(),
+  stall: text("stall").notNull(),
+  priceName: text("price_name").notNull(),
+  validFrom: date("valid_from").notNull(),
+  validToExclusive: date("valid_to_exclusive"),
+  terms: jsonb("terms").notNull(),
+  evidenceNote: text("evidence_note").notNull()
+}, table => [primaryKey({ columns: [table.subjectId, table.merchant, table.stall, table.priceName, table.validFrom] }),
+  check("merchant_stall_prices_check", sql`${table.validToExclusive} is null or ${table.validToExclusive} > ${table.validFrom}`)]);

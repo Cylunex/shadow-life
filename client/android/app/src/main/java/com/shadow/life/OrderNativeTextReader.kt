@@ -23,4 +23,4 @@ internal class OrderNativeTextReader(private val timeoutMs:Long=800):AutoCloseab
 }
 
 internal fun attemptsNativeOrderText(pkg:String,activity:String):Boolean =
- pkg in setOf("com.sankuai.meituan","com.sankuai.meituan.takeoutnew")&&!activity.contains(".retail.")
+ pkg in takeoutPackages && !(takeoutPackages[pkg]=="meituan" && activity.contains(".retail."))

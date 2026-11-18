@@ -69,9 +69,11 @@ internal suspend fun LifeScreenCaptureService.collectTakeoutOrder(account:String
   checkPage();return result
  }
  val activity=orderActivity(pkg,window)
+ val platform=takeoutPackages.getValue(pkg)
+ val platformName=when(platform){"meituan"->"美团";"jd"->"京东外卖";else->"淘宝闪购／饿了么"}
  val candidate=attemptsNativeOrderText(pkg,activity)
  val firstNative=if(candidate)nativeFrame().orEmpty() else emptyList()
- val native=takeoutPackages[pkg]=="meituan"&&isTakeoutPage(firstNative,pkg in dedicatedTakeoutPackages)
+ val native=isNativeOrderPage(pkg,firstNative)
  android.util.Log.i("LifeShake","Order route=${if(native)"accessibility" else "long_screenshot"}; activity=$activity; native_boxes=${firstNative.size}")
  val control=OrderCaptureControl();val overlay=OrderCaptureOverlay(this@collectTakeoutOrder,control,!native)
  val frames=mutableListOf<ByteArray>()
@@ -121,10 +123,10 @@ internal suspend fun LifeScreenCaptureService.collectTakeoutOrder(account:String
   val deadline=android.os.SystemClock.elapsedRealtime()+300_000
   while(true){
    checkPage()
-   val ended=native&&takeoutEnded(combined)
+   val ended=native&&takeoutEnded(combined,platform)
    nextAllowed=nextAllowed && (if(native) pages<12 else imageProgress.canReadNext && frames.sumOf{it.size.toLong()}<32_000_000)
    val note=if(!nextAllowed && (!native || pages>=12))"已到采集上限，请完成保存或取消" else stopNote
-   val mode=if(native)"美团无障碍文字" else when(imageMode){
+   val mode=if(native)"${platformName}无障碍文字" else when(imageMode){
     OrderImageCaptureMode.SingleScreen->"已截当前一屏，点自动滚动可继续"
     OrderImageCaptureMode.Automatic->"自动滚动"
     OrderImageCaptureMode.Manual->"手动慢滑，停稳收录"
@@ -180,11 +182,11 @@ internal suspend fun LifeScreenCaptureService.collectTakeoutOrder(account:String
   android.util.Log.i("LifeShake","Order finish selected; pages=$pages; route=${if(native)"accessibility" else "long_screenshot"}")
   val now=Instant.now();val id="order_${UUID.randomUUID().toString().replace("-","")}"
   if(native){
-   val complete=takeoutEnded(combined)
-   val text=takeoutEnvelope("meituan",width,offset+screenHeight,combined,complete)
-   val item=JSONObject().put("source_id",id).put("kind","screen_text").put("title",if(complete)"美团订单 · 无障碍" else "美团订单 · 部分无障碍文字").put("text",text).put("app_package",pkg).put("started_at",now.toString()).put("ended_at",now.toString()).put("time_zone",ZoneId.systemDefault().id)
+   val complete=takeoutEnded(combined,platform)
+   val text=takeoutEnvelope(platform,width,offset+screenHeight,combined,complete)
+   val item=JSONObject().put("source_id",id).put("kind","screen_text").put("title",if(complete)"${platformName}订单 · 无障碍" else "${platformName}订单 · 部分无障碍文字").put("text",text).put("app_package",pkg).put("started_at",now.toString()).put("ended_at",now.toString()).put("time_zone",ZoneId.systemDefault().id)
    NativeLifeRepository(this@collectTakeoutOrder,app).saveActivities(org.json.JSONArray().put(item),account)
-   BillShakeStatus.message=(if(complete)"美团订单文字已保存，未使用截图或 OCR" else "已保存所选范围的订单文字；商品或订单信息可能不完整")+(stopNote?.let{"；$it"}?:"")
+   BillShakeStatus.message=(if(complete)"${platformName}订单文字已保存，未使用截图或 OCR" else "已保存所选范围的订单文字；商品或订单信息可能不完整")+(stopNote?.let{"；$it"}?:"")
   }else{
    val encoded=withContext(Dispatchers.Default){encodeOrderSegments(frames,imageProgress.segments,imageWidth,imageHeight)}
    checkPage();control.requireFinish()

@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 import { Pool } from "pg";
 import { CommandExecutor, QueryService, sha256Fingerprinter, systemClock, uuidIds } from "@shadow/kernel";
-import { AgentRepository, AssetService, PostgresUnitOfWork, materializeNotifications, materializeRecurringOccurrences, migrate, normalizeHealthRaw, processPendingHealth, processPendingLibrary } from "../src/index.js";
+import { AgentRepository, AssetService, PostgresUnitOfWork, maintainAgentChanges, materializeNotifications, materializeRecurringOccurrences, migrate, normalizeHealthRaw, processPendingHealth, processPendingLibrary } from "../src/index.js";
 import { trackPoolShutdown } from "./pool-teardown.js";
 
 const connectionString = process.env.TEST_DATABASE_URL;
@@ -247,6 +247,60 @@ test("complete Life journey uses PostgreSQL transactions and survives replay", {
   assert.deepEqual(skipped.items,[]);
   assert.equal(skipped.has_more,false);
   assert.equal(skipped.cursor,rawEvents.rows[0]?.cursor);
+
+  await t.test("prunes only aged changes acknowledged by every active consumer and preserves cursors", async () => {
+    const subject = "subject_retention";
+    await pool.query("insert into principals(id) values ($1)", [subject]);
+    await pool.query(`insert into agent_subscriptions(id,subject_id,scope,business_key,data) values
+      ('retention-fast',$1,'global','fast','{"state":"active"}'),
+      ('retention-slow',$1,'global','slow','{"state":"active"}')`, [subject]);
+    const { rows: events } = await pool.query<{sequence:string}>(`insert into agent_changes(subject_id,event_id,event_type,refs,created_at)
+      select $1,'retention-event-'||n,'synthetic.changed','[]',now() - case when n<4 then interval '31 days' else interval '1 day' end
+      from generate_series(1,4) n returning sequence::text`, [subject]);
+    const [first, second, third, last] = events.map(row => row.sequence);
+    await pool.query("insert into agent_change_cursors(subject_id,consumer,cursor) values($1,'fast',$2)",[subject,last]);
+    assert.equal(await maintainAgentChanges(pool,1),0);
+    await pool.query("insert into agent_change_cursors(subject_id,consumer,cursor) values($1,'slow',$2)",[subject,second]);
+    assert.equal(await maintainAgentChanges(pool,1),1);
+    assert.equal(await maintainAgentChanges(pool,10),1);
+    const remaining = async () => (await pool.query<{sequence:string}>(`select sequence::text from agent_changes
+      where subject_id=$1 and event_id like 'retention-event-%' order by agent_changes.sequence`,[subject])).rows.map(row => row.sequence);
+    assert.deepEqual(await remaining(),[third,last]);
+    await pool.query("update agent_change_cursors set cursor=$2 where subject_id=$1 and consumer='slow'",[subject,last]);
+    assert.equal(await maintainAgentChanges(pool,10),1);
+    assert.deepEqual(await remaining(),[last]);
+    assert.ok(BigInt(first!) < BigInt(last!));
+  });
+
+  await t.test("recording a meal reuses an existing expense atomically and deduplicates concurrent attempts", async () => {
+    const subjectId = "subject_canteen_reuse";
+    await pool.query("insert into principals(id) values ($1)", [subjectId]);
+    const writer = { ...context, subjectId, actorId: subjectId,
+      effects: new Set(["money.entry.write", "money.entry.read", "life.meal.write", "life.meal.read", "life.purchase.write"]) };
+    const date = { occurred_on:"2026-11-18",time_zone:"Asia/Shanghai" };
+    const original = await executor.execute(writer,{protocol:"shadow.command",capability:"money.record_entry",command_id:"cmd_canteen_existing_expense",
+      input:{...date, entry_type:"expense", amount:"8.20", currency:"CNY", counterparty:"示例食堂"}});
+    const recordId = String(original.actual_values.record_id);
+    const base = {...date, meal_type:"lunch", items:[{name:"青菜",amount_g:"200",estimate:true,weight_basis:"payment_derived",evidence_note:"合成食堂秤重"}],
+      existing_consumption:{record_id:recordId,expected_record_revision:1}};
+    const meal = (command_id:string, input:unknown=base, request=writer) => executor.execute(request,{protocol:"shadow.command",capability:"life.record_meal",command_id,input});
+    await assert.rejects(meal("cmd_canteen_stale_payment",{...base,existing_consumption:{record_id:recordId,expected_record_revision:2}}),/原消费已变更/u);
+    await assert.rejects(meal("cmd_canteen_missing_effect",base,{...writer,effects:new Set(["life.meal.write","life.purchase.write"])}),/Missing permission/u);
+    const counts = async () => (await pool.query(`select
+      (select count(*)::int from meals where subject_id=$1) meals,
+      (select count(*)::int from money_entries where subject_id=$1) payments,
+      (select count(*)::int from meal_consumption_links where subject_id=$1) links`,[subjectId])).rows[0];
+    assert.deepEqual(await counts(),{meals:0,payments:1,links:0});
+    const results = await Promise.allSettled([meal("cmd_canteen_record_meal_a"),meal("cmd_canteen_record_meal_b")]);
+    const successful = results.flatMap(result=>result.status==="fulfilled"?[result.value]:[]);
+    assert.equal(successful.length,1);
+    const [saved] = successful;
+    assert.equal(saved?.actual_values.consumption_record_id,recordId);
+    assert.equal((await meal(saved!.command_id)).execution_id,saved!.execution_id);
+    assert.deepEqual(await counts(),{meals:1,payments:1,links:1});
+    const detail=await queries.lifeRecord(writer,recordId,["money","meal"]) as {meals:Array<{id:string;revision:number}>};
+    assert.ok(detail.meals.some(row=>row.id===saved!.actual_values.meal_id&&row.revision===1));
+  });
 
   const mealOnlyToday=await queries.lifeToday({...context,effects:new Set([...context.effects,"life.meal.read"])},{date:"2026-09-09",time_zone:"Asia/Shanghai"}) as {domains:Record<string,unknown>};assert.deepEqual(Object.keys(mealOnlyToday.domains),["meals"]);
   const globalTravelSearch=await queries.lifeSearch(overviewContext,{q:"杭州",types:["travel"],from_on:"2026-01-01",to_on_exclusive:"2027-01-01",limit:20});assert.equal(globalTravelSearch.items.some(item=>item.domain==="travel"&&item.id===trip.actual_values.trip_id),true);assert.deepEqual(globalTravelSearch.applied_filters.types,["travel"]);

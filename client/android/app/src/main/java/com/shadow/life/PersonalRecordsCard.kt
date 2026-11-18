@@ -20,6 +20,9 @@ import java.io.File
 import android.media.MediaPlayer
 
 private fun JSONObject.clean(key:String):String=if(isNull(key)) "" else optString(key)
+internal fun JSONObject.personalQueryParams():Map<String,String> = keys().asSequence().mapNotNull { key ->
+  opt(key)?.takeUnless { it === JSONObject.NULL }?.let { key to it.toString() }
+}.toMap()
 private fun personalInitial(f:JSONObject):String=when(val default=f.clean("initial")){
   "today"->LocalDate.now().toString()
   "week"->LocalDate.now().minusDays(6).toString()
@@ -59,6 +62,26 @@ private fun fillPersonal(key:String,r:JSONObject,source:String):String{
   }
 }
 
+internal fun offlineRecordGaps(day:LocalDate, zone:ZoneId, rows:List<JSONObject>, complete:Boolean):List<Pair<Instant,Instant>> {
+  val from=day.atStartOfDay(zone).toInstant()
+  val to=day.plusDays(1).atStartOfDay(zone).toInstant()
+  val intervals=rows.mapNotNull { row ->
+    runCatching {
+      val start=maxOf(from,OffsetDateTime.parse(row.clean("started_at")).toInstant())
+      val end=minOf(to,OffsetDateTime.parse(row.clean("ended_at")).toInstant())
+      (start to end).takeIf { start<end }
+    }.getOrNull()
+  }.sortedBy { it.first }
+  return buildList {
+    var cursor=from
+    for((start,end) in intervals){
+      if(Duration.between(cursor,start).seconds>=60)add(cursor to start)
+      cursor=maxOf(cursor,end)
+    }
+    if(complete&&Duration.between(cursor,to).seconds>=60)add(cursor to to)
+  }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable internal fun PersonalRecordsCard(accountId:String,section:String?=null){
   val context=LocalContext.current
@@ -76,6 +99,8 @@ private fun fillPersonal(key:String,r:JSONObject,source:String):String{
   var allowed by remember(accountId){mutableStateOf<Set<String>?>(null)}
   var formState by rememberSaveable(accountId){mutableStateOf("{}")}
   val form=remember(formState){JSONObject(formState)}
+  var pickedState by remember(accountId){mutableStateOf("{}")}
+  val picked=remember(pickedState){JSONObject(pickedState)}
   var rows by remember(accountId){mutableStateOf(emptyList<JSONObject>())}
   var result by remember{mutableStateOf(JSONObject())}
   var next by remember{mutableStateOf(emptyMap<String,String>())}
@@ -96,6 +121,17 @@ private fun fillPersonal(key:String,r:JSONObject,source:String):String{
   val actions=groups[group].getJSONArray("actions").trainingObjects().filter{allowed?.contains(it.getString("cap"))!=false}
   val current=actions.getOrNull(action)?:actions.firstOrNull()
   val cap=current?.getString("cap").orEmpty()
+  fun openAction(target:String,values:Map<String,String>,record:JSONObject=JSONObject()){
+    val index=actions.indexOfFirst { it.clean("cap")==target }
+    if(index<0)return
+    val patch=JSONObject(formState)
+    for((key,value) in values)patch.put(key,value)
+    clearResults();formState=patch.toString();pickedState=record.toString();action=index
+  }
+  val recordingSeconds=if(cap=="life.save_clip"&&picked.has("id")&&picked.clean("id")==form.clean("segment_id"))
+    runCatching { Duration.between(Instant.parse(picked.clean("started_at")),Instant.parse(picked.clean("ended_at"))).seconds.toFloat() }.getOrDefault(0f) else 0f
+  val refundChoices=if(cap=="money.save_return_case"&&picked.has("refunds")&&picked.clean("id")==form.clean("case_id"))
+    picked.getJSONArray("refunds").trainingObjects() else emptyList()
   fun task(block:suspend ()->Unit){busy=true;scope.launch{try{check(app.sessions.active()?.accountId==accountId){"账号已切换"};block()}catch(e:CancellationException){throw e}catch(e:Exception){status=e.message?:"操作失败"}finally{busy=false}}}
   LaunchedEffect(accountId,open){if(open&&allowed==null)try{allowed=repo.personalRecordsPage("/api/capabilities",emptyMap()).getJSONArray("capabilities").trainingObjects().map{it.getString("name")}.toSet()}catch(e:CancellationException){throw e}catch(e:Exception){status="能力目录暂不可用"}}
   LaunchedEffect(accountId,pending){
@@ -124,15 +160,15 @@ private fun fillPersonal(key:String,r:JSONObject,source:String):String{
       }
       submit(cap,payload)
     }else{
-      val page=repo.personalRecordsPage(a.getString("path"),payload.keys().asSequence().associateWith{payload.getString(it)}+(if(more)next else emptyMap()))
+      val page=repo.personalRecordsPage(a.getString("path"),payload.personalQueryParams()+(if(more)next else emptyMap()))
       val rowKey=a.clean("rows");val items=if(rowKey=="ticket")listOf(page) else page.optJSONArray(rowKey)?.trainingObjects().orEmpty()
       check(app.sessions.active()?.accountId==accountId){"账号已切换"}
-      rows=(if(more)rows else emptyList())+items;result=page;selection=emptySet()
+      rows=(if(more)rows else emptyList())+items;result=page.put("queryDay",payload.clean("date")).put("queryZone",payload.clean("time_zone"));selection=emptySet()
       next=when{
         !page.isNull("next_cursor")->mapOf("cursor" to page.getString("next_cursor"))
         !page.isNull("next_offset")->mapOf("offset" to page.getInt("next_offset").toString())
         page.opt("next") is String->mapOf("after" to page.getString("next"))
-        page.opt("next") is JSONObject->page.getJSONObject("next").let{n->n.keys().asSequence().associateWith{n.getString(it)}}
+        page.opt("next") is JSONObject->page.getJSONObject("next").personalQueryParams()
         page.optBoolean("more_"+rowKey)->mapOf("offset" to rows.size.toString())
         else->emptyMap()
       }
@@ -142,22 +178,54 @@ private fun fillPersonal(key:String,r:JSONObject,source:String):String{
   LifeCard{
     TextButton(onClick={open=!open}){Text(section?:"生活记录与复盘")}
     if(open){
-      FlowRow{groups.forEachIndexed{i,g->if(allowed==null||g.getJSONArray("actions").trainingObjects().any{allowed!!.contains(it.getString("cap"))})TextButton(enabled=!busy,onClick={group=i;action=0;formState="{}";clearResults()}){Text(g.getString("title"))}}}
+      FlowRow{groups.forEachIndexed{i,g->if(allowed==null||g.getJSONArray("actions").trainingObjects().any{allowed!!.contains(it.getString("cap"))})TextButton(enabled=!busy,onClick={group=i;action=0;formState="{}";pickedState="{}";clearResults()}){Text(g.getString("title"))}}}
       FlowRow{actions.forEachIndexed{i,a->TextButton(enabled=!busy,onClick={action=i;clearResults()}){Text(a.getString("title"))}}}
       current?.let{a->
         Text(a.getString("title"),style=MaterialTheme.typography.titleMedium)
         for(f in a.getJSONArray("fields").trainingObjects()){
           val k=f.getString("key");val v=if(form.has(k))form.clean(k) else personalInitial(f)
           val choices=f.optJSONObject("choices")?:if(f.getString("type")=="bool")JSONObject().put("true","是").put("false","否") else null
+          if(k=="allocations"&&refundChoices.isNotEmpty()){
+            val amounts=v.lineSequence().filter{it.contains(' ')}.associate{it.substringBefore(' ') to it.substringAfter(' ')}.toMutableMap()
+            for(refund in refundChoices){
+              val id=refund.getString("refund_entry_id")
+              OutlinedTextField(amounts[id].orEmpty(),{value->
+                val currentAmounts=JSONObject(formState).clean(k).lineSequence().filter{it.contains(' ')}
+                  .associate{it.substringBefore(' ') to it.substringAfter(' ')}.toMutableMap()
+                if(value.isBlank())currentAmounts.remove(id) else currentAmounts[id]=value
+                set(k,currentAmounts.entries.joinToString("\n"){(id,amount)->"$id $amount"})
+              },label={Text("已到账 ${refund.clean("amount")} · 本项可分配 ${refund.clean("available")} ${form.clean("currency")}")})
+            }
+            continue
+          }
+          if(recordingSeconds>0&&k in listOf("start_ms","end_ms")){
+            Text("${f.getString("label")} · $v 秒")
+            Slider(value=(v.toFloatOrNull()?:0f).coerceIn(0f,recordingSeconds),onValueChange={set(k,(kotlin.math.round(it*10)/10).toString())},valueRange=0f..recordingSeconds)
+            continue
+          }
+          if((k=="purchase_item_id"&&picked.has(k)&&picked.clean(k)==v)||(k=="segment_id"&&recordingSeconds>0)){
+            Text("${f.getString("label")} · ${picked.clean("name").ifBlank{picked.clean("title").ifBlank{picked.clean("raw_name")}}}")
+            continue
+          }
           if(choices!=null){Text(f.getString("label"));FlowRow{choices.keys().forEach{code->FilterChip(selected=v==code,onClick={set(k,code)},label={Text(choices.getString(code))})}}}
           else OutlinedTextField(v,{set(k,it)},label={Text(f.getString("label"))},placeholder={Text(when(f.getString("type")){
             "refs"->"每行：visit / photo / audio 加编号";"points"->"每行：时刻 程度 备注";"allocations"->"每行：退款编号 分配金额";"evidence"->"出处说明，或 menu_photo 照片编号";"instant"->"2026-11-13T09:00";else->""})})
         }
-        FlowRow{TextButton(enabled=!busy&&pending==null,onClick={run()}){Text(if(a.has("path"))"查询" else a.getString("title"))};TextButton(enabled=!busy,onClick={formState="{}";clearResults()}){Text("清空选择")}}
+        val validSegment=recordingSeconds<=0||(form.clean("end_ms").toDoubleOrNull()?:0.0)>(form.clean("start_ms").toDoubleOrNull()?:0.0)
+        FlowRow{TextButton(enabled=!busy&&pending==null&&validSegment,onClick={run()}){Text(if(a.has("path"))"查询" else a.getString("title"))};TextButton(enabled=!busy,onClick={formState="{}";pickedState="{}";clearResults()}){Text("清空选择")}}
       }
       if(status.isNotBlank())Text(status)
       if(result.has("confirmed_expenses"))Text("正式支出 ${result.optInt("confirmed_expenses")} 笔，合计 ${result.clean("gross_amount")} ${result.clean("currency")}。同日同额的 ${result.optInt("candidate_groups")} 组仍计入合计。")
       if(result.has("active_minutes"))Text("已记录 ${result.optDouble("active_minutes")} 分钟，其他时间覆盖未知")
+      if(cap=="life.offline_day"&&result.has("queryDay")&&actions.any{it.clean("cap")=="life.save_offline_interval"}){
+        val zone=runCatching { ZoneId.of(result.clean("queryZone")) }.getOrNull()
+        val date=runCatching { LocalDate.parse(result.clean("queryDay")) }.getOrNull()
+        if(date!=null&&zone!=null)for((start,end) in offlineRecordGaps(date,zone,rows,next.isEmpty())){
+          val format=java.time.format.DateTimeFormatter.ofPattern("MM-dd HH:mm").withZone(zone)
+          TextButton(onClick={openAction("life.save_offline_interval",mapOf("id" to "","expected_revision" to "","title" to "",
+            "started_at" to start.toString(),"ended_at" to end.toString(),"time_zone" to zone.id))}){Text("补记 ${format.format(start)} – ${format.format(end)}")}
+        }
+      }
       if(result.has("evening"))for((key,title) in listOf("evening" to "晚间训练","rest" to "休息日"))result.optJSONObject(key)?.let{Text("$title · ${it.optInt("samples")} 个样本 · 缺测 ${it.optInt("missing")} · 平均 ${it.clean("average_minutes").ifBlank{"未知"}} 分钟")}
       rows.forEach{r->
         HorizontalDivider()
@@ -165,6 +233,25 @@ private fun fillPersonal(key:String,r:JSONObject,source:String):String{
         current?.optJSONObject("pick")?.let{mapping->if(r.optBoolean("editable",true))TextButton(onClick={
           val patch=JSONObject(formState);mapping.keys().forEach{k->patch.put(k,fillPersonal(k,r,mapping.getString(k)))};formState=patch.toString();status="已选择，可切换到对应操作"
         }){Text("选择这条记录")}}
+        current?.optJSONObject("edit")?.let{edit->
+          if(r.optBoolean("editable",true)&&actions.any{it.clean("cap")==edit.clean("cap")})TextButton(onClick={
+            val mapping=current.optJSONObject("pick")?:JSONObject()
+            val fields=mapOf("id" to "","expected_revision" to "")+mapping.keys().asSequence().associateWith{fillPersonal(it,r,mapping.getString(it))}
+            openAction(edit.clean("cap"),if(cap=="life.offline_day")fields+("time_zone" to result.clean("queryZone")) else fields)
+          }){Text(edit.clean("title"))}
+        }
+        if(cap=="life.purchase_prices"&&actions.any{it.clean("cap")=="money.save_return_case"})TextButton(onClick={
+          openAction("money.save_return_case",mapOf("purchase_item_id" to r.clean("id"),"currency" to r.clean("currency"),"expected_amount" to "",
+            "returned_on" to "","allocations" to "","note" to "","case_id" to "","expected_revision" to ""),JSONObject(r.toString()).put("purchase_item_id",r.clean("id")))
+        }){Text("为 ${r.clean("raw_name").ifBlank{"该购买行"}} 建售后")}
+        if(cap=="money.return_cases"&&actions.any{it.clean("cap")=="money.save_return_case"})TextButton(onClick={
+          val mapping=current?.getJSONObject("pick")?:JSONObject()
+          openAction("money.save_return_case",mapping.keys().asSequence().associateWith{fillPersonal(it,r,mapping.getString(it))},r)
+        }){Text("查看并分配到账退款")}
+        if(cap=="life.capture_workspace"&&r.optBoolean("audio_available")&&actions.any{it.clean("cap")=="life.save_clip"})TextButton(onClick={
+          val seconds=Duration.between(Instant.parse(r.clean("started_at")),Instant.parse(r.clean("ended_at"))).seconds
+          openAction("life.save_clip",mapOf("segment_id" to r.clean("id"),"title" to r.clean("title"),"start_ms" to "0","end_ms" to minOf(12,seconds).toString(),"id" to "","expected_revision" to ""),r)
+        }){Text("选取录音片段")}
         if(cap=="health.lab_results")TextButton(enabled=!busy,onClick={task{
           val doc=repo.personalRecordsPage("/api/library/items/"+r.getString("report_id"),emptyMap())
           val version=doc.optJSONArray("sources")?.trainingObjects()?.firstNotNullOfOrNull{it.optJSONObject("asset")?.clean("id")?.takeIf{v->v.isNotBlank()}}

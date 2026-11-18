@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "6526d3613c2b6da3699db8c69f56e76886579a325cef7eaad4d574f2d4421abc",
+  "catalog_revision": "b50a1737f4f14f37993fffeca3b5328f614e35e04f0398d73426e3af7584647b",
   "terms": [
     {
       "id": "activity_capture",
@@ -1415,14 +1415,14 @@
         "life.meal.write",
         "money.entry.write",
         "library.source.link",
-        "library.item.write",
+        "money.entry.read",
         "life.purchase.write",
+        "library.item.write",
         "life.project.write",
         "agent.run",
         "library.item.read",
         "library.processor.write",
         "money.plan.write",
-        "money.entry.read",
         "travel.visit.write",
         "life.meal.read",
         "life.meal_plan.read",
@@ -3053,14 +3053,14 @@
         "life.meal.write",
         "money.entry.write",
         "library.source.link",
-        "library.item.write",
+        "money.entry.read",
         "life.purchase.write",
+        "library.item.write",
         "life.project.write",
         "agent.run",
         "library.item.read",
         "library.processor.write",
         "money.plan.write",
-        "money.entry.read",
         "travel.visit.write",
         "life.meal.read",
         "life.meal_plan.read",
@@ -3683,14 +3683,14 @@
         "life.meal.write",
         "money.entry.write",
         "library.source.link",
-        "library.item.write",
+        "money.entry.read",
         "life.purchase.write",
+        "library.item.write",
         "life.project.write",
         "agent.run",
         "library.item.read",
         "library.processor.write",
         "money.plan.write",
-        "money.entry.read",
         "travel.visit.write",
         "life.meal.read",
         "life.meal_plan.read",
@@ -6714,14 +6714,14 @@
         "life.meal.write",
         "money.entry.write",
         "library.source.link",
-        "library.item.write",
+        "money.entry.read",
         "life.purchase.write",
+        "library.item.write",
         "life.project.write",
         "agent.run",
         "library.item.read",
         "library.processor.write",
         "money.plan.write",
-        "money.entry.read",
         "travel.visit.write",
         "life.meal.read",
         "life.meal_plan.read",
@@ -25898,7 +25898,8 @@
                 "type": "string",
                 "enum": [
                   "eleme",
-                  "meituan"
+                  "meituan",
+                  "jd"
                 ]
               },
               "complete": {
@@ -40265,7 +40266,8 @@
       "mode": "write",
       "possible_effects": [
         "life.meal.write",
-        "life.purchase.write"
+        "life.purchase.write",
+        "money.entry.read"
       ],
       "scenarios": [],
       "input_schema": {
@@ -40287,6 +40289,11 @@
               "shared_source",
               "user_confirmed"
             ]
+          },
+          "expected_record_revision": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -45921,13 +45928,15 @@
     },
     {
       "name": "life.record_meal",
-      "description": "记录实际吃下的一餐，可关联独立付款。购买或赠品不证明摄入；未知营养与时刻省略，估算需 estimate=true 和 evidence_note。订单、商家和多张图片一起录入优先用 life.record_dining。",
+      "description": "记录实际吃下的一餐。已有付款用 existing_consumption 指定消费编号和当前修订，在同一事务关联。新付款使用 payment。购买或赠品不证明摄入。未知营养与时刻省略，估算需 estimate=true 和 evidence_note。订单、商家和多张图片一起录入优先用 life.record_dining。",
       "domain": "life",
       "mode": "write",
       "possible_effects": [
         "life.meal.write",
         "money.entry.write",
-        "library.source.link"
+        "library.source.link",
+        "money.entry.read",
+        "life.purchase.write"
       ],
       "scenarios": [
         "daily"
@@ -46144,6 +46153,25 @@
               "currency",
               "occurred_on",
               "time_zone"
+            ],
+            "additionalProperties": false
+          },
+          "existing_consumption": {
+            "type": "object",
+            "properties": {
+              "record_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{7,127}$"
+              },
+              "expected_record_revision": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "record_id",
+              "expected_record_revision"
             ],
             "additionalProperties": false
           },

@@ -97,6 +97,12 @@ export class CommandExecutor {
         });
       }
       if (sourceId !== undefined) await store.linkMealSource(mealId, sourceId);
+      const existingConsumption = command.input.existing_consumption;
+      if (existingConsumption) await store.executeDomainWrite({ subjectId: context.subjectId, context,
+        command: { protocol: "shadow.command", capability: "life.link_meal_consumption", command_id: command.command_id,
+          input: { meal_id: mealId, consumption_record_id: existingConsumption.record_id,
+            expected_record_revision: existingConsumption.expected_record_revision, evidence: "user_confirmed" } },
+        nextId: type => this.dependencies.ids.next(type as Parameters<IdGenerator["next"]>[0]) });
 
       const warnings = mealEstimateWarnings(command.input.items);
       const result = executionResultSchema.parse({
@@ -111,12 +117,14 @@ export class CommandExecutor {
           ...itemIds.map((id) => ({ type: "intake_item" as const, id, revision: 1 })),
           ...(moneyEntryId === undefined ? [] : [{ type: "consumption_record" as const, id:`record_${moneyEntryId}`, revision:1 }]),
           ...(moneyEntryId === undefined ? [] : [{ type: "money_entry" as const, id: moneyEntryId, revision: 1 }]),
+          ...(existingConsumption ? [{ type: "consumption_record" as const, id: existingConsumption.record_id, revision: existingConsumption.expected_record_revision }] : []),
           ...(sourceId === undefined ? [] : [{ type: "source" as const, id: sourceId, revision: 1 }])
         ],
         actual_values: {
           meal_id: mealId,
           ...(moneyEntryId === undefined ? {} : { record_id:`record_${moneyEntryId}` }),
           ...(moneyEntryId === undefined ? {} : { money_entry_id: moneyEntryId }),
+          ...(existingConsumption ? { consumption_record_id: existingConsumption.record_id } : {}),
           ...(command.input.payment === undefined ? {} : { amount: command.input.payment.amount, currency: command.input.payment.currency })
         },
         warnings,

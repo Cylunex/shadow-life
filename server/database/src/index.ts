@@ -15,3 +15,4 @@ export * from "./recording-worker.js";
 export { materializeCaptureReviews } from "./capture-review-worker.js";
 
 export { maintainCaptureRetention } from "./capture-maintenance-worker.js";
+export { maintainAgentChanges } from "./agent-change-retention.js";

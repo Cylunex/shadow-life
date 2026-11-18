@@ -20,6 +20,21 @@ test("OCR punctuation and fee label variants stay reconciled; cancelled orders r
  assert.ok(inspectTakeoutOrder(takeoutPrefix+JSON.stringify(data))!.issues.some(v=>v.includes('取消')));
 });
 
+test("JD native layout keeps an explicit paid amount separate from order and payment time",()=>{
+ const data=readTakeoutCapture(takeoutFixture())!;
+ data.platform="jd";
+ for(const b of data.blocks)b[4]=b[4].replace(/^闪购$/u,"京东外卖").replace(/^合成外卖店$/u,"门店名称：合成外卖店")
+   .replace(/^价格明细$/u,"费用明细").replace(/^打包费$/u,"餐盒费").replace(/^实付￥19\.98$/u,"实付金额：19.98")
+   .replace(/^下单时间$/u,"订单时间");
+ const result=inspectTakeoutOrder(takeoutPrefix+JSON.stringify(data))!;
+ assert.equal(result.takeout.platform,"jd");
+ assert.equal(result.paid_amount,"19.98");
+ assert.equal(result.order_time,"2026-10-30 19:17:50.614");
+ assert.equal(result.merchant,"合成外卖店");
+ assert.equal(result.payment_time,null);
+ assert.equal(result.accounting_created,false);
+});
+
 test("repeat takeout selects a coherent complete snapshot and ignores OCR wording differences",()=>{
  const full=inspectTakeoutOrder(takeoutFixture())!;
  const partial=structuredClone(full);partial.takeout.complete=false;partial.takeout.items=partial.takeout.items.slice(0,1);partial.takeout.amounts_reconciled=false;partial.issues=["不完整"];

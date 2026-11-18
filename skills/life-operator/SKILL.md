@@ -32,6 +32,10 @@ The examples contain fictional records and illustrative IDs; replace them with r
   `evidence`. Read the consumption record first to resolve its ID, then read it back and
   verify `meals` contains the meal. Notes and `agent.objects` references do not attach facts.
   Use `life.attach_meal_source` to attach an uploaded original to an existing meal.
+- When saving a new meal with an already confirmed expense, use `life.record_meal.existing_consumption`
+  with the current consumption `record_id` and `expected_record_revision`. Include the uploaded original in `source`.
+  After the receipt, read `life.get_record` for both the new meal and the original expense. A conflict requires rereading the
+  original expense and any same-day meal it already links to.
 - When a confirmed expense already exists but has no purchase details, read it and every saved
   Library original, then use `life.enrich_purchase` with the current record revision, structured items
   and exact `library_items` revisions (or `source` with the explicit user text when no screenshot exists). It reuses the existing payment and originals; never create

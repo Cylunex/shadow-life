@@ -35,6 +35,15 @@ await withOfflinePostgres(async url=>{
     await panel.getByLabel('日期',{exact:true}).fill('2026-11-13');
     await panel.getByRole('button',{name:'查询',exact:true}).click();
     await panel.getByText(/已记录 30 分钟/).waitFor();
+    await panel.getByRole('button',{name:/补记 2026-11-13 09:30/u}).click();
+    assert.equal(await panel.getByLabel('开始时刻',{exact:true}).inputValue(),'2026-11-13T09:30');
+    await panel.getByLabel('标题',{exact:true}).fill('合成阅读');
+    await panel.getByLabel('结束时刻',{exact:true}).fill('2026-11-13T10:00');
+    await panel.getByRole('button',{name:'补记或更正区间',exact:true}).click();
+    await panel.getByText(/已保存 ·/).waitFor();
+    await panel.getByLabel('操作',{exact:true}).selectOption({label:'查看当天区间'});
+    await panel.getByRole('button',{name:'查询',exact:true}).click();
+    await panel.getByText(/已记录 60 分钟/).waitFor();
     await panel.getByLabel('方向',{exact:true}).selectOption({label:'收纳位置'});
     await panel.getByLabel('操作',{exact:true}).selectOption({label:'新增或移动容器'});
     await panel.getByLabel('容器名称',{exact:true}).fill('合成蓝箱');
@@ -42,6 +51,6 @@ await withOfflinePostgres(async url=>{
     await panel.getByLabel('操作',{exact:true}).selectOption({label:'浏览容器'});
     await panel.getByRole('button',{name:'查询',exact:true}).click();
     await panel.getByRole('button',{name:'显示容器二维码'}).click();await panel.getByAltText('容器二维码').waitFor();
-    assert.deepEqual(errors,[]);console.log('个人记录 Web 验证通过：线下半小时与容器二维码');
+    assert.deepEqual(errors,[]);console.log('个人记录 Web 验证通过 · 线下空段补记、区间合并与容器二维码');
   }finally{if(browser)await browser.close();if(web)await web.close();if(server)await new Promise(resolve=>server.close(resolve));await unitOfWork.close();}
 });

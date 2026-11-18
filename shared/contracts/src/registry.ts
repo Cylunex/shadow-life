@@ -278,11 +278,11 @@ interface DomainCapability {name:string;description:string;inputSchema:z.ZodType
 const domainCapabilityRegistry:Record<DomainCapabilityName,DomainCapability> = {
   "life.record_meal": {
     name: "life.record_meal",
-    description: "记录实际吃下的一餐，可关联独立付款。购买或赠品不证明摄入；未知营养与时刻省略，估算需 estimate=true 和 evidence_note。订单、商家和多张图片一起录入优先用 life.record_dining。",
+    description: "记录实际吃下的一餐。已有付款用 existing_consumption 指定消费编号和当前修订，在同一事务关联。新付款使用 payment。购买或赠品不证明摄入。未知营养与时刻省略，估算需 estimate=true 和 evidence_note。订单、商家和多张图片一起录入优先用 life.record_dining。",
     inputSchema: recordMealInputSchema,
     commandSchema: recordMealCommandEnvelopeSchema,
     resultSchema: executionResultSchema,
-    possibleEffects: ["life.meal.write", "money.entry.write", "library.source.link"] as const,
+    possibleEffects: ["life.meal.write", "money.entry.write", "library.source.link", "money.entry.read", "life.purchase.write"] as const,
     idempotency: "required" as const,
     statusQuery: "operations.get",
     resolveEffects(input: unknown): readonly string[] {
@@ -290,7 +290,8 @@ const domainCapabilityRegistry:Record<DomainCapabilityName,DomainCapability> = {
       return [
         "life.meal.write",
         ...(parsed.payment === undefined ? [] : ["money.entry.write"]),
-        ...(parsed.source === undefined ? [] : ["library.source.link"])
+        ...(parsed.source === undefined ? [] : ["library.source.link"]),
+        ...(parsed.existing_consumption === undefined ? [] : ["money.entry.read", "life.purchase.write"])
       ];
     }
   },
@@ -337,7 +338,7 @@ const domainCapabilityRegistry:Record<DomainCapabilityName,DomainCapability> = {
   "life.correct_purchase":write("life.correct_purchase","按预期版本修正消费描述并保留聚合快照。",correctPurchaseInputSchema,["life.purchase.write"]),
   "life.update_purchase_items":write("life.update_purchase_items","按消费记录版本安全追加或修正商品明细；保留折叠来源行、完整修订快照且不新建订单或金额。",updatePurchaseItemsInputSchema,["life.purchase.write"]),
   "life.void_purchase":write("life.void_purchase","撤销一条消费；有关联退款时拒绝破坏金额关系。",voidRecordInputSchema,["life.purchase.write","money.entry.write"]),
-  "life.link_meal_consumption":write("life.link_meal_consumption","使用明确证据关联用餐与消费，不分摊或重复金额。",linkMealConsumptionInputSchema,["life.meal.write","life.purchase.write"]),
+  "life.link_meal_consumption":{...write("life.link_meal_consumption","使用明确证据关联用餐与消费，不分摊或重复金额。",linkMealConsumptionInputSchema,["life.meal.write","life.purchase.write","money.entry.read"]),resolveEffects(input:unknown){return ["life.meal.write","life.purchase.write",...(linkMealConsumptionInputSchema.parse(input).expected_record_revision===undefined?[]:["money.entry.read"])];}},
   "life.save_meal_template":write("life.save_meal_template","新建或按版本更新用餐模板；历史实际摄入不随模板变化。",saveMealTemplateInputSchema,["life.meal.write"]),
   "life.record_meal_from_template":{...write("life.record_meal_from_template","按个人模板快照创建一餐，可补付款和来源。",recordMealFromTemplateInputSchema,["life.meal.write","money.entry.write","library.source.link"]),resolveEffects(input:unknown){const value=recordMealFromTemplateInputSchema.parse(input);return["life.meal.write",...(value.payment?["money.entry.write"]:[]),...(value.source?["library.source.link"]:[])];}},
   "life.save_food":write("life.save_food","新建或按版本维护个人常用食物与有来源的营养事实。",saveFoodInputSchema,["life.meal.write"]),

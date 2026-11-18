@@ -5,6 +5,8 @@ import { conflict, notFound, foundationEffects, foundationKinds, operationEviden
 type Database = {execute: (statement: any) => Promise<any>};
 type Options = import('@shadow/kernel').FoundationOptions;
 type Node = {ref: FoundationRef; title: string; semantic: string; data: Record<string, any>; detail: {capability: string; input: Record<string, any>}};
+type JournalChange = {sequence: string; event_type: string; refs: FoundationRef[]; occurred_at: string};
+type JournalPageRow = JournalChange | {sequence: null; upper: string};
 const timestamp = (value: string) => sql.raw(`to_char(${value} at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`);
 const json = (value: unknown) => sql`${JSON.stringify(value)}::jsonb`;
 const array = (values: readonly string[]) => sql`array[${sql.join(values.map(value => sql`${value}`), sql`, `)}]::text[]`;
@@ -106,6 +108,7 @@ export function createFoundationStore(database: Database): FoundationStore {
     const data=sql`data`,visible=visibleEvidence(subject,data,options),current=visibleEvidence(subject,data,options,true);
     const predicate=sql`subject_id=${subject} and ${visible} ${options.scenario?sql`and scope in ('global',${options.scenario})`:sql``}
       and (${input.id??null}::text is null or id=${input.id??''})
+      ${table==='agent_subscriptions' && input.consumer ? sql`and business_key=${input.consumer}` : sql``}
       ${table==='agent_intentions' && input.keys ? sql`and business_key=any(${array(input.keys)})` : sql``}
       and (${table!=='agent_tasks'||input.include_terminal?sql`true`:sql`data->>'state' not in ('completed','cancelled')`})
       and (${table==='agent_tasks'||input.include_inactive?sql`true`:sql`data->>'state'='active' and (${input.on??null}::text is null or (data->>'valid_from' is null or data->>'valid_from'<${input.until??(input.on?addDay(input.on):'')}) and (data->>'valid_to_exclusive' is null or data->>'valid_to_exclusive'>${input.on??''}))`})
@@ -160,7 +163,7 @@ export function createFoundationStore(database: Database): FoundationStore {
     if(name==='agent.learning')return list(subject,'agent_learning',input,options);
     if(name==='agent.objects')return graph(subject,input,options);
     if(name==='agent.changes'){
-      const subscriptions=await list(subject,'agent_subscriptions',{limit:10000},options),subscription=subscriptions.items.find((item:any)=>item.consumer===input.consumer);
+      const subscriptions=await list(subject,'agent_subscriptions',{consumer:input.consumer,limit:1},options),subscription=subscriptions.items[0];
       if(!subscription)throw notFound('Consumer is unavailable');
       const cursors=(await database.execute(sql`select cursor::text from agent_change_cursors where subject_id=${subject} and consumer=${input.consumer}`)).rows;
       const acknowledged=cursors[0]?.cursor??'0',after=input.after??acknowledged;
@@ -169,7 +172,7 @@ export function createFoundationStore(database: Database): FoundationStore {
       const kindMatches=kinds?.map(kind=>sql`refs @> ${json([{kind}])}`)??[];
       // Read the filtered rows and the watermark from one database snapshot.
       // The commit-order fence ensures that a later commit cannot land behind it.
-      const page=kinds
+      const page: Array<JournalPageRow & {upper?: string}>=kinds
         ? (await database.execute(sql`
             select upper.seq::text upper,change.sequence::text,change.event_type,change.refs,${timestamp('change.created_at')} occurred_at
             from (select coalesce(max(sequence),0) seq from agent_changes where subject_id=${subject}) upper
@@ -178,20 +181,39 @@ export function createFoundationStore(database: Database): FoundationStore {
               (${kindMatches.length?sql.join(kindMatches,sql` or `):sql`false`}) order by sequence limit 501) change on true
             order by change.sequence`)).rows
         : (await database.execute(sql`select sequence::text,event_type,refs,${timestamp('created_at')} occurred_at from agent_changes where subject_id=${subject} and sequence>${after}::bigint order by sequence limit 501`)).rows;
-      const changes=page.filter((row:any)=>row.sequence!==null);
+      const changes=page.filter((row): row is JournalChange => row.sequence!==null);
+      const scoped = changes.slice(0,500).map(change => ({
+        change, permitted: change.refs.filter(ref => options.kinds.includes(ref.kind) &&
+          (!subscription.kinds?.length || subscription.kinds.includes(ref.kind)) &&
+          (subscription.scope==='global' || ref.kind.startsWith('agent_') || foundationKinds[subscription.scope]?.includes(ref.kind))),
+      }));
+      const key = (ref:FoundationRef) => JSON.stringify([ref.kind,ref.id,ref.revision]);
+      const identity = (ref:Pick<FoundationRef,'kind'|'id'>) => JSON.stringify([ref.kind,ref.id]);
+      const candidates = [...new Map(scoped.flatMap(({permitted})=>permitted).map(ref=>[key(ref),ref])).values()];
+      const visibleKeys = new Set<string>();
+      const scenario = options.scenario??(subscription.scope==='global'?undefined:subscription.scope);
+      for(let offset=0;offset<candidates.length;offset+=500){
+        const nodes=await nodeRows(subject,options.kinds,candidates.slice(offset,offset+500),true,scenario);
+        for(const node of nodes)visibleKeys.add(key(node.ref));
+      }
+      const identityTables:Record<string,string>={meal:'meals',purchase:'purchases',money_entry:'money_entries',health_measurement:'health_measurements',health_workout:'health_workout_sessions',trip:'trips',library_item:'library_items',...Object.fromEntries(Object.entries(extraTables).map(([kind,value])=>[kind,value.table]))};
+      const missing = new Map<string, Set<string>>();
+      for(const ref of candidates)if(ref.kind!=='source'&&identityTables[ref.kind]&&!visibleKeys.has(key(ref))){
+        if(!missing.has(ref.kind))missing.set(ref.kind,new Set());
+        missing.get(ref.kind)!.add(ref.id);
+      }
+      const invalidKeys = new Set<string>();
+      if(missing.size){
+        const checks=[...missing].map(([kind,ids])=>sql`select ${kind}::text kind,id from ${sql.identifier(identityTables[kind]!)} where subject_id=${subject} and id=any(${array([...ids])})`);
+        const rows: Array<Pick<FoundationRef,'kind'|'id'>>=(await database.execute(sql.join(checks,sql` union all `))).rows;
+        for(const ref of rows)invalidKeys.add(identity(ref));
+      }
       let cursor=after;const items: any[]=[];
-      for(const change of changes.slice(0,500)){
+      for(const {change,permitted} of scoped){
         if(items.length>=input.limit)break;cursor=change.sequence;
-        const permitted=change.refs.filter((ref:FoundationRef)=>options.kinds.includes(ref.kind)&&(!subscription.kinds?.length||subscription.kinds.includes(ref.kind))&&(subscription.scope==='global'||ref.kind.startsWith('agent_')||foundationKinds[subscription.scope]?.includes(ref.kind)));
-        if(!permitted.length)continue;
-        const visible=await nodeRows(subject,options.kinds,permitted,true,options.scenario??(subscription.scope==='global'?undefined:subscription.scope));const refs=permitted.filter((ref:FoundationRef)=>visible.some(node=>node.ref.kind===ref.kind&&node.ref.id===ref.id&&node.ref.revision===ref.revision));
-        const invalidated:FoundationRef[]=[];
-        const identityTables:Record<string,string>={meal:'meals',purchase:'purchases',money_entry:'money_entries',health_measurement:'health_measurements',health_workout:'health_workout_sessions',trip:'trips',library_item:'library_items',...Object.fromEntries(Object.entries(extraTables).map(([kind,value])=>[kind,value.table]))};
-        for(const ref of permitted)if(!refs.some((current:FoundationRef)=>current.kind===ref.kind&&current.id===ref.id)){
-          const table=identityTables[ref.kind];if(!table)continue;
-          const access=(await database.execute(sql`select 1 from ${sql.identifier(table)} where id=${ref.id} and subject_id=${subject}`)).rowCount;
-          if(access&&ref.kind!=='source')invalidated.push(ref);
-        }
+        const refs=permitted.filter(ref=>visibleKeys.has(key(ref)));
+        const validIdentities=new Set(refs.map(identity));
+        const invalidated=permitted.filter(ref=>!validIdentities.has(identity(ref))&&invalidKeys.has(identity(ref)));
         const interested=subscription.object_refs??[];
         if((refs.length||invalidated.length)&&(!interested.length||[...refs,...invalidated].some((ref:FoundationRef)=>interested.some((watch:FoundationRef)=>watch.kind===ref.kind&&watch.id===ref.id))))items.push({sequence:change.sequence,type:change.event_type,refs,invalidated_refs:invalidated,occurred_at:change.occurred_at});
       }
