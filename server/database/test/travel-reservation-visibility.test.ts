@@ -25,10 +25,14 @@ test("trip detail and portable export omit voided reservations while preserving 
     const base = { trip_id: tripId, reservation_type: "hotel", state: "confirmed", visibility: "shared", confirmation_code: "SYNTHETIC-CODE", seat: "05A" };
     const wrong = await run("travel.add_reservation", { ...base, title: "误录预订" });
     await run("travel.void_reservation", { reservation_id: wrong.actual_values.reservation_id, expected_revision: 1, reason: "测试误录作废" });
-    await run("travel.add_reservation", { ...base, title: "取消记录", state: "cancelled" });
+    const cancelledReservation=await run("travel.add_reservation", { ...base, title: "取消记录", state: "cancelled" });
     await run("travel.add_reservation", { ...base, title: "私人预订", visibility: "private" });
     for (const subject of ["subject_owner", "subject_viewer"]) {
       const ctx = { ...context, subjectId: subject, actorId: subject };
+      for(const rows of [(await queries.listDomain(ctx,"travel",{})).items,(await queries.lifeTimeline(ctx,{domains:["travel"]})).items]){
+        assert.ok(rows.some(row=>row.id===cancelledReservation.actual_values.reservation_id));
+        assert.ok(!rows.some(row=>row.id===wrong.actual_values.reservation_id));
+      }
       const detail = await queries.travelTrip(ctx, tripId);
       const bundle = JSON.parse((await queries.travelExport(ctx, { trip_id: tripId, format: "bundle" })).content).exported_trip;
       for (const reservations of [detail.reservations, bundle.reservations]) {

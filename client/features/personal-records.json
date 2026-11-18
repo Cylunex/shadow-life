@@ -169,6 +169,7 @@
       {
         "title": "已存筛选",
         "cap": "library.saved_filters",
+        "nextParam": "after",
         "fields": [],
         "path": "/api/library/saved-filters",
         "rows": "items",
@@ -968,6 +969,7 @@
       {
         "title": "查门店菜单",
         "cap": "life.merchant_menu",
+        "nextParam": "after",
         "fields": [
           {
             "key": "merchant",

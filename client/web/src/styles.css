@@ -1224,3 +1224,6 @@ html,body {background:#000;}
 .section-record-money>.record-browser{display:grid}.workspace>.money-workspace{padding:clamp(20px,3.2vw,32px)}
 
 .money-workspace .panel-actions>button[aria-pressed="true"]{background:#c8f66a;color:#172016;border-color:#c8f66a}.record-detail fieldset{border:0;padding:0;min-width:0}
+
+.personal-records-form > article { grid-column:1/-1; flex-wrap:wrap; justify-content:flex-start; gap:.75rem; min-width:0; }
+.personal-records-form > article > dl { flex:1 1 100%; min-width:0; overflow-wrap:anywhere; }

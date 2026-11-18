@@ -1,13 +1,13 @@
 import {useEffect,useRef,useState} from "react";
 import QRCode from "qrcode";
-import type {WriteCapabilityName} from "@shadow/contracts";
+import {positiveDecimal, type WriteCapabilityName} from "@shadow/contracts";
 import definitions from "../../features/personal-records.json";
 import type {Execute} from "./command-controller.js";
-import {formatInTimeZone, parseInTimeZone} from "./travel-time.js";
+import {editableTime, parseEditableTime} from "./travel-time.js";
 import {offlineGaps} from "./offline-gaps.js";
 
 type Field={key:string;label:string;type:string;initial?:string;choices?:Record<string,string>};
-type Action={title:string;cap:string;fields:Field[];path?:string;rows?:string;pick?:Record<string,string>;edit?:{cap:string;title:string}};
+type Action={title:string;cap:string;fields:Field[];path?:string;nextParam?:string;rows?:string;pick?:Record<string,string>;edit?:{cap:string;title:string}};
 type Group={title:string;actions:Action[]};
 type Row=Record<string,any>;
 const groups=definitions as unknown as Group[];
@@ -25,18 +25,21 @@ function encodeField(f:Field,s:string):unknown{
   if(["refs","allocations","points"].includes(f.type))return s.split("\n").filter(Boolean).map(line=>{
     const [a,b,...rest]=line.trim().split(/\s+/u);
     if(f.type==="refs")return {kind:a,id:b};
-    if(f.type==="allocations")return {refund_entry_id:a,amount:b};
+    if(f.type==="allocations"){
+      if(rest.length||!positiveDecimal.safeParse(b).success)throw Error("每笔分配金额须填写大于零的有效小数。");
+      return {refund_entry_id:a,amount:b};
+    }
     return {at:new Date(a!).toISOString(),severity:Number(b),...(rest.length?{note:rest.join(" ")}:{})};
   });
   return s;
 }
-function fill(key:string,val:any){
+function fill(key:string,val:any,zone?:string){
   if(val==null)return "";
   if(key.endsWith("_ms"))return String(val/1000);
   if(key==="refs")return val.map((v:Row)=>v.kind+" "+v.id).join("\n");
   if(key==="points")return val.map((v:Row)=>[v.at,v.severity??"",v.note??""].join(" ").trim()).join("\n");
   if(key==="allocations")return val.filter((v:Row)=>Number(v.allocated)>0).map((v:Row)=>v.refund_entry_id+" "+v.allocated).join("\n");
-  if(key==="started_at"||key==="ended_at"){const t=new Date(val);return new Date(t.getTime()-t.getTimezoneOffset()*60000).toISOString().slice(0,19);}
+  if(key==="started_at"||key==="ended_at")return editableTime(val,zone??Intl.DateTimeFormat().resolvedOptions().timeZone);
   return String(val);
 }
 const show=(v:any):string=>Array.isArray(v)?v.map(show).join(" · "):typeof v==="object"&&v?Object.entries(v).filter(([,x])=>x!=null).map(([k,x])=>(labels[k]??k)+" "+show(x)).join("，"):values[String(v)]??String(v);
@@ -63,22 +66,25 @@ export function PersonalRecords({headers,execute,capabilities,sections}:{section
     if(index<0)return;
     reset();setTab(index);setForm(current=>({...current,...patch}));setPicked(record);
   }
-  function editRow(action:Action,row:Row){
-    if(!action.edit)return;
-    const patch={id:"",expected_revision:"",...Object.fromEntries(Object.entries(action.pick??{}).map(([key,source])=>[key,fill(key,row[source])]))};
-    if(action.cap==="life.offline_day"&&data?.queryZone){
-      Object.assign(patch,{time_zone:data.queryZone,started_at:formatInTimeZone(row.started_at,data.queryZone),ended_at:formatInTimeZone(row.ended_at,data.queryZone)});
-    }
-    openAction(action.edit.cap,patch);
+  function rowFields(action:Action,row:Row):Record<string,string>{
+    const zone=action.cap==="life.offline_day"?data?.queryZone:undefined;
+    const patch=Object.fromEntries(Object.entries(action.pick??{}).map(([key,source])=>[key,fill(key,row[source],zone)]));
+    if(zone)patch.time_zone=zone;
+    return patch;
   }
-  function pick(a:Action,r:Row){const patch:Record<string,string>={};for(const [key,source] of Object.entries(a.pick??{}))patch[key]=fill(key,r[source]);setForm(p=>({...p,...patch}));setMessage("已选中 "+(r.title??r.name??r.label??r.raw_name??r.dish??r.date??r.id));}
-  function build(a:Action){const payload:Row={};for(const f of a.fields){const s=(form[f.key]??initial(f)).trim();if(s)payload[f.key]=encodeField(f,s);}
-    if(a.cap==="life.save_offline_interval"&&payload.time_zone)for(const key of ["started_at","ended_at"]){
-      if(form[key]){
-        const instant=Date.parse(parseInTimeZone(form[key].slice(0,16),payload.time_zone));
-        const seconds=Number(form[key].slice(17));
-        payload[key]=new Date(instant+seconds*1000).toISOString();
-      }
+  function editRow(action:Action,row:Row){
+    if(action.edit)openAction(action.edit.cap,{id:"",expected_revision:"",...rowFields(action,row)},action.cap==="life.offline_day"?row:undefined);
+  }
+  function pick(a:Action,r:Row){const patch=rowFields(a,r);setForm(p=>({...p,...patch}));if(a.cap==="life.offline_day")setPicked(r);setMessage("已选中 "+(r.title??r.name??r.label??r.raw_name??r.date??r.id));}
+  function build(a:Action){
+    const payload:Row={};
+    for(const f of a.fields){
+      const value=(form[f.key]??initial(f)).trim();
+      if(!value)continue;
+      if(a.cap==="life.save_offline_interval"&&f.type==="instant"){
+        const zone=form.time_zone||Intl.DateTimeFormat().resolvedOptions().timeZone;
+        payload[f.key]=parseEditableTime(value,zone,picked?.[f.key]);
+      }else payload[f.key]=encodeField(f,value);
     }
     if(a.cap==="life.place_item"&&!payload.container_id)payload.container_id=null;
     if(a.cap==="life.record_meal"){const {dish,food_ref_id,amount_g,...meal}=payload;return {...meal,items:[{name:dish,food_ref_id,...(amount_g?{amount_g,estimate:true,evidence_note:"本次用餐估重"}:{})}]};}
@@ -89,7 +95,7 @@ export function PersonalRecords({headers,execute,capabilities,sections}:{section
     if(a.path){const params=new URLSearchParams({...payload,...more}),r=await fetch(a.path+"?"+params,{headers});if(!r.ok)throw Error((await r.json()).message??"读取失败");
       const d=await r.json();if(serial.current!==id)return;const list:Row[]=a.rows==="ticket"?[d]:d[a.rows??"items"]??[];
       setData({...d,queryDay:payload.date,queryZone:payload.time_zone});setRows(prev=>more?[...prev,...list]:list);setSelected([]);
-      setNext(d.next_cursor?{cursor:d.next_cursor}:d.next_offset!=null?{offset:d.next_offset}:typeof d.next==="string"?{[a.cap==="library.saved_filters"||a.cap==="life.merchant_menu"?"after":"after_id"]:d.next}:d.next&&typeof d.next==="object"?d.next:(a.rows==="containers"?d.more_containers:d.more_items)?{offset:Number(more?.offset??0)+list.length}:undefined);
+      setNext(d.next_cursor?{cursor:d.next_cursor}:d.next_offset!=null?{offset:d.next_offset}:typeof d.next==="string"?{[a.nextParam??"after_id"]:d.next}:d.next&&typeof d.next==="object"?d.next:(a.rows==="containers"?d.more_containers:d.more_items)?{offset:Number(more?.offset??0)+list.length}:undefined);
       if(!list.length)setMessage("没有匹配的记录");
     }else{const receipt=await execute(a.cap as WriteCapabilityName,payload,"personal:"+a.cap);if(serial.current!==id)return;setMessage("已保存 · "+receipt.resources.map(r=>r.id).join("、"));setForm(p=>({...p,id:"",case_id:"",expected_revision:""}));}
   }catch(e){if(serial.current===id)setMessage(e instanceof Error?e.message:String(e));}finally{if(serial.current===id)setBusy(false);}}
@@ -105,13 +111,13 @@ export function PersonalRecords({headers,execute,capabilities,sections}:{section
   const refunds:Row[]=active.cap==="money.save_return_case"&&picked?.id===form.case_id ? picked?.refunds??[] : [];
   const amounts=new Map((form.allocations??"").split("\n").filter(Boolean).map(line=>line.split(/\s+/u) as [string,string]));
   const gaps=active.cap==="life.offline_day"&&data?.queryDay&&data.queryZone ? offlineGaps(data.queryDay,data.queryZone,rows,!next) : [];
-  return <details open={open} onToggle={e=>setOpen(e.currentTarget.open)}><summary>{sections?.join("、")??"生活记录与复盘"}</summary>{open&&<section className="compact-form">
+  return <details open={open} onToggle={e=>setOpen(e.currentTarget.open)}><summary>{sections?.join("、")??"生活记录与复盘"}</summary>{open&&<section className="compact-form personal-records-form">
     <label>方向<select aria-label="方向" value={group||available[0]?.title} onChange={e=>{reset();setGroup(e.target.value);setTab(0);setForm({});setPicked(undefined);}}>{available.map(g=><option key={g.title}>{g.title}</option>)}</select></label>
     <label>操作<select aria-label="操作" value={tab} onChange={e=>{reset();setTab(Number(e.target.value));}}>{actions.map((a,i)=><option key={a.title} value={i}>{a.title}</option>)}</select></label>
     {active.fields.map(f=>{
       if(f.key==="allocations"&&refunds.length)return <fieldset key={f.key}><legend>{f.label}</legend>{refunds.map(refund=><label key={refund.refund_entry_id}>已到账 {refund.amount} · 本项可分配 {refund.available} {form.currency}
-        <input type="number" min="0" max={refund.available} step="0.01" value={amounts.get(refund.refund_entry_id)??""} onChange={e=>{
-          if(e.target.value&&Number(e.target.value)>0)amounts.set(refund.refund_entry_id,e.target.value);else amounts.delete(refund.refund_entry_id);
+        <input type="text" inputMode="decimal" value={amounts.get(refund.refund_entry_id)??""} onChange={e=>{
+          if(e.target.value)amounts.set(refund.refund_entry_id,e.target.value);else amounts.delete(refund.refund_entry_id);
           field(f.key,[...amounts].map(([id,amount])=>`${id} ${amount}`).join("\n"));
         }}/></label>)}</fieldset>;
       if(recordingSeconds>0&&["start_ms","end_ms"].includes(f.key))return <label key={f.key}>{f.label} <output>{form[f.key]??"0"} 秒</output><input type="range" min={0} max={recordingSeconds} step="0.1" value={form[f.key]??0} onChange={e=>field(f.key,e.target.value)}/></label>;
@@ -122,10 +128,10 @@ export function PersonalRecords({headers,execute,capabilities,sections}:{section
     {message&&<p role="status">{message}</p>}
     {data?.coverage==="unknown_outside_observations"&&<p>已记录 {data.active_minutes} 分钟 · 其余时段覆盖未知</p>}
     {data&&capabilities.has("life.save_offline_interval")&&gaps.map(({start,end})=>{
-      const time=(value:number)=>formatInTimeZone(new Date(value),data.queryZone);
+      const time=(value:number)=>editableTime(new Date(value).toISOString(),data.queryZone);
       return <button key={start} type="button" className="secondary" onClick={()=>openAction("life.save_offline_interval",{
         id:"",expected_revision:"",title:"",started_at:time(start),ended_at:time(end),time_zone:data.queryZone,
-      })}>补记 {time(start).replace("T"," ")} – {time(end).replace("T"," ")}</button>;
+      },{started_at:new Date(start).toISOString(),ended_at:new Date(end).toISOString()})}>补记 {time(start).replace("T"," ")} – {time(end).replace("T"," ")}</button>;
     })}
     {data?.confirmed_expenses!==undefined&&<p>正式支出 {data.confirmed_expenses} 笔，合计 {data.gross_amount} {data.currency}。同日同额的 {data.candidate_groups} 组仍计入合计。</p>}
     {data?.evening&&<p>晚间训练 {show(data.evening)}；休息日 {show(data.rest)}</p>}

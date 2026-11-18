@@ -9,25 +9,29 @@ import { moneyNumeric, rowsBy, trimNumeric } from "./postgres-values.js";
 type Database = Pick<NodePgDatabase<typeof schema>, "execute" | "select">;
 
 export async function linkMealConsumption(database: Pick<Database, "execute">, subjectId: string, input: ReturnType<typeof linkMealConsumptionInputSchema.parse>): ReturnType<TransactionStore["executeDomainWrite"]> {
-  if (input.expected_record_revision !== undefined) {
-    const paid = await database.execute(sql`
-      select record.id from consumption_records record
-      where record.subject_id=${subjectId} and record.id=${input.consumption_record_id}
-        and record.state='confirmed' and record.revision=${input.expected_record_revision}
-        and exists(select 1 from money_entries entry where entry.subject_id=record.subject_id
-          and entry.record_id=record.id and entry.entry_type='expense')
-      for update of record`);
-    if (!paid.rowCount) throw conflict("原消费已变更，或没有可复用的实付支出");
-    const duplicate = await database.execute(sql`
-      select original.id from meal_consumption_links link
-      join meals original on original.id=link.meal_id and original.subject_id=link.subject_id
-      join meals pending on pending.id=${input.meal_id} and pending.subject_id=link.subject_id
-      where link.subject_id=${subjectId} and link.consumption_record_id=${input.consumption_record_id}
-        and original.state='active' and original.id<>pending.id
-        and original.occurred_on=pending.occurred_on and original.meal_type=pending.meal_type
-      limit 1`);
-    if (duplicate.rowCount) throw conflict("原消费已关联同日同餐次，请先回读已有用餐");
-  }
+  const revision = input.expected_record_revision;
+  const record = await database.execute(sql`
+    select record.id from consumption_records record
+    where record.subject_id=${subjectId} and record.id=${input.consumption_record_id} and record.state='confirmed'
+      ${revision === undefined ? sql`` : sql`and record.revision=${revision}`}
+      and (exists(select 1 from money_entries entry where entry.record_id=record.id and entry.entry_type='expense')
+        ${revision === undefined ? sql`or (exists(select 1 from purchases p where p.record_id=record.id)
+          and not exists(select 1 from money_entries entry where entry.record_id=record.id))` : sql``})
+    for update of record`);
+  if (!record.rowCount) throw conflict(revision === undefined
+    ? "A confirmed consumption with an expense or an unpaid purchase is required"
+    : "原消费已变更，或没有可复用的实付支出");
+  const duplicate = await database.execute(sql`
+    select original.id from meals pending
+    join meals original on original.subject_id=pending.subject_id and original.id<>pending.id
+      and original.occurred_on=pending.occurred_on and original.meal_type=pending.meal_type
+    where pending.subject_id=${subjectId} and pending.id=${input.meal_id} and original.state='active'
+      and original.id in (
+        select meal_id from meal_consumption_links where subject_id=${subjectId} and consumption_record_id=${input.consumption_record_id}
+        union all select link.meal_id from meal_money_links link join money_entries entry on entry.id=link.money_entry_id
+          where entry.subject_id=${subjectId} and entry.record_id=${input.consumption_record_id})
+    limit 1`);
+  if (duplicate.rowCount) throw conflict("原消费已关联同日同餐次，请先回读已有用餐");
   const linked = await database.execute<{meal_revision:number;record_revision:number}>(sql`
     insert into meal_consumption_links(subject_id,meal_id,consumption_record_id,evidence)
     select ${subjectId},meal.id,record.id,${input.evidence}

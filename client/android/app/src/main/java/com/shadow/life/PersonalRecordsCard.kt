@@ -29,8 +29,17 @@ private fun personalInitial(f:JSONObject):String=when(val default=f.clean("initi
   "zone"->ZoneId.systemDefault().id
   else->default
 }
-private fun personalInstant(value:String,zone:String):String=runCatching{OffsetDateTime.parse(value).toInstant().toString()}
-  .getOrElse{LocalDateTime.parse(value.replace(' ','T')).atZone(ZoneId.of(zone)).toInstant().toString()}
+internal fun personalInstant(value:String,zone:String):String=runCatching{OffsetDateTime.parse(value).toInstant().toString()}
+  .getOrElse{
+    val local=LocalDateTime.parse(value.replace(' ','T'))
+    val offset=ZoneId.of(zone).rules.getValidOffsets(local).firstOrNull()?:error("该时区没有这个当地时刻")
+    local.toInstant(offset).toString()
+  }
+internal fun editablePersonalTime(instant:Instant, zone:ZoneId):String {
+  val zoned=instant.atZone(zone)
+  val local=zoned.toLocalDateTime()
+  return if(zone.rules.getValidOffsets(local).size>1)zoned.toOffsetDateTime().toString() else local.toString()
+}
 private fun personalValue(field:JSONObject,value:String,zone:String):Any=when(field.getString("type")){
   "int"->value.toInt()
   "seconds"->value.toBigDecimal().movePointRight(3).intValueExact()
@@ -51,9 +60,10 @@ private fun personalValue(field:JSONObject,value:String,zone:String):Any=when(fi
   }}
   else->value
 }
-private fun fillPersonal(key:String,r:JSONObject,source:String):String{
+private fun fillPersonal(key:String,r:JSONObject,source:String,zone:ZoneId?=null):String{
   val list=r.optJSONArray(source)?.trainingObjects().orEmpty()
   return when(key){
+    "started_at","ended_at"->if(zone!=null)editablePersonalTime(Instant.parse(r.getString(source)),zone) else r.clean(source)
     "refs"->list.joinToString("\n"){it.clean("kind")+" "+it.clean("id")}
     "points"->list.joinToString("\n"){it.clean("at")+" "+it.clean("severity")+" "+it.clean("note")}
     "allocations"->list.filter{it.optDouble("allocated",0.0)>0}.joinToString("\n"){it.clean("refund_entry_id")+" "+it.clean("allocated")}
@@ -167,7 +177,7 @@ internal fun offlineRecordGaps(day:LocalDate, zone:ZoneId, rows:List<JSONObject>
       next=when{
         !page.isNull("next_cursor")->mapOf("cursor" to page.getString("next_cursor"))
         !page.isNull("next_offset")->mapOf("offset" to page.getInt("next_offset").toString())
-        page.opt("next") is String->mapOf("after" to page.getString("next"))
+        page.opt("next") is String->mapOf(a.optString("nextParam","after_id") to page.getString("next"))
         page.opt("next") is JSONObject->page.getJSONObject("next").personalQueryParams()
         page.optBoolean("more_"+rowKey)->mapOf("offset" to rows.size.toString())
         else->emptyMap()
@@ -223,21 +233,27 @@ internal fun offlineRecordGaps(day:LocalDate, zone:ZoneId, rows:List<JSONObject>
         if(date!=null&&zone!=null)for((start,end) in offlineRecordGaps(date,zone,rows,next.isEmpty())){
           val format=java.time.format.DateTimeFormatter.ofPattern("MM-dd HH:mm").withZone(zone)
           TextButton(onClick={openAction("life.save_offline_interval",mapOf("id" to "","expected_revision" to "","title" to "",
-            "started_at" to start.toString(),"ended_at" to end.toString(),"time_zone" to zone.id))}){Text("补记 ${format.format(start)} – ${format.format(end)}")}
+            "started_at" to editablePersonalTime(start,zone),"ended_at" to editablePersonalTime(end,zone),"time_zone" to zone.id))}){Text("补记 ${format.format(start)} – ${format.format(end)}")}
         }
       }
       if(result.has("evening"))for((key,title) in listOf("evening" to "晚间训练","rest" to "休息日"))result.optJSONObject(key)?.let{Text("$title · ${it.optInt("samples")} 个样本 · 缺测 ${it.optInt("missing")} · 平均 ${it.clean("average_minutes").ifBlank{"未知"}} 分钟")}
       rows.forEach{r->
         HorizontalDivider()
         for(k in r.keys())if(labels.containsKey(k)&&!r.isNull(k)&&r.clean(k)!="[]"&&r.clean(k)!="{}")Text("${labels[k]}  ${r.clean(k)}")
+        val zone=if(cap=="life.offline_day")ZoneId.of(result.getString("queryZone")) else null
+        fun selectedFields(mapping:JSONObject):Map<String,String> {
+          val fields=mapping.keys().asSequence().associateWith{fillPersonal(it,r,mapping.getString(it),zone)}
+          return if(zone==null)fields else fields+("time_zone" to zone.id)
+        }
         current?.optJSONObject("pick")?.let{mapping->if(r.optBoolean("editable",true))TextButton(onClick={
-          val patch=JSONObject(formState);mapping.keys().forEach{k->patch.put(k,fillPersonal(k,r,mapping.getString(k)))};formState=patch.toString();status="已选择，可切换到对应操作"
+          val patch=JSONObject(formState)
+          selectedFields(mapping).forEach{(key,value)->patch.put(key,value)}
+          formState=patch.toString();status="已选择，可切换到对应操作"
         }){Text("选择这条记录")}}
         current?.optJSONObject("edit")?.let{edit->
           if(r.optBoolean("editable",true)&&actions.any{it.clean("cap")==edit.clean("cap")})TextButton(onClick={
             val mapping=current.optJSONObject("pick")?:JSONObject()
-            val fields=mapOf("id" to "","expected_revision" to "")+mapping.keys().asSequence().associateWith{fillPersonal(it,r,mapping.getString(it))}
-            openAction(edit.clean("cap"),if(cap=="life.offline_day")fields+("time_zone" to result.clean("queryZone")) else fields)
+            openAction(edit.clean("cap"),mapOf("id" to "","expected_revision" to "")+selectedFields(mapping))
           }){Text(edit.clean("title"))}
         }
         if(cap=="life.purchase_prices"&&actions.any{it.clean("cap")=="money.save_return_case"})TextButton(onClick={

@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {capabilityRegistry} from '../shared/contracts/src/index.ts';
 import {createRequire} from 'node:module';
 import {mkdir,mkdtemp,writeFile} from 'node:fs/promises';
 import {join,resolve} from 'node:path';
@@ -16,16 +18,25 @@ await withOfflinePostgres(async url=>{
   try{
     await migrate(pool);await pool.query("update write_epochs set stage='life',epoch=epoch+1");await unitOfWork.ensurePrincipal('subject_example');
     const executor=new CommandExecutor({unitOfWork,ids:uuidIds,clock:systemClock,fingerprinter:sha256Fingerprinter}),queries=new QueryService(unitOfWork);
+    const context={actorId:'subject_example',subjectId:'subject_example',clientId:'client_fixture',traceId:'trace_fixture',
+      effects:new Set(Object.values(capabilityRegistry).flatMap(c=>c.possibleEffects))};
+    const run=(capability,input)=>executor.execute(context,{protocol:'shadow.command',capability,command_id:'cmd_'+randomUUID(),input});
+    const date={occurred_on:'2026-11-13',time_zone:'Asia/Shanghai'};
+    const purchase=await run('life.record_purchase',{...date,scene:'delivery',items:[{raw_name:'合成退款商品',line_amount:'2.00'}],payment:{...date,amount:'2.00',currency:'CNY'}});
+    const item=(await pool.query('select id from purchase_items')).rows[0];
+    await run('money.record_refund',{...date,original_entry_id:purchase.actual_values.money_entry_id,amount:'1.00',currency:'CNY'});
+    await run('money.save_return_case',{purchase_item_id:item.id,expected_amount:'1.00',currency:'CNY'});
     const app=createApp({unitOfWork,executor,queries,developmentAuth:true});
     server=serve({fetch:app.fetch,hostname:'127.0.0.1',port:0});await new Promise(resolve=>server.listening?resolve():server.once('listening',resolve));
     web=await createServer({root:`${root}/client/web`,configFile:false,envFile:false,plugins:[react()],define:{__SHADOW_AMAP_CONFIG__:'null',__SHADOW_GOOGLE_MAPS_KEY__:'""'},server:{host:'127.0.0.1',port:0,proxy:{'/api':{target:`http://127.0.0.1:${server.address().port}`}}}});await web.listen();
     browser=await chromium.launch({headless:true,...(process.env.SHADOW_TEST_BROWSER_EXECUTABLE?{executablePath:process.env.SHADOW_TEST_BROWSER_EXECUTABLE}:{channel:'chrome'})});
-    const page=await browser.newPage({viewport:{width:1440,height:1000},timezoneId:'Asia/Shanghai'}),errors=[];page.on('pageerror',error=>errors.push(error.message));
+    const page=await browser.newPage({viewport:{width:1440,height:1000},timezoneId:'America/Los_Angeles'}),errors=[];page.on('pageerror',error=>errors.push(error.message));
     const origin=web.resolvedUrls.local[0];await page.goto(origin+'?tab=record&section=timeline');
     const panel=page.locator('details').filter({has:page.locator('summary',{hasText:'生活记录与复盘'})}).first();
     await panel.locator('summary').first().click();
     await panel.getByLabel('方向',{exact:true}).selectOption({label:'线下时间线'});
     await panel.getByLabel('操作',{exact:true}).selectOption({label:'补记或更正区间'});
+    await panel.getByLabel('时区',{exact:true}).fill('Asia/Shanghai');
     await panel.getByLabel('标题',{exact:true}).fill('合成散步');
     await panel.getByLabel('开始时刻',{exact:true}).fill('2026-11-13T09:00');
     await panel.getByLabel('结束时刻',{exact:true}).fill('2026-11-13T09:30');
@@ -44,6 +55,20 @@ await withOfflinePostgres(async url=>{
     await panel.getByLabel('操作',{exact:true}).selectOption({label:'查看当天区间'});
     await panel.getByRole('button',{name:'查询',exact:true}).click();
     await panel.getByText(/已记录 60 分钟/).waitFor();
+    await panel.getByRole('button',{name:'选择这条记录',exact:true}).first().click();
+    await panel.getByLabel('操作',{exact:true}).selectOption({label:'补记或更正区间'});
+    assert.equal(await panel.getByLabel('开始时刻',{exact:true}).inputValue(),'2026-11-13T09:00');
+    await panel.getByLabel('方向',{exact:true}).selectOption({label:'售后与消费来源'});
+    await panel.getByLabel('操作',{exact:true}).selectOption({label:'售后进度'});
+    await panel.getByRole('button',{name:'查询',exact:true}).click();
+    await panel.getByRole('button',{name:'查看并分配到账退款'}).click();
+    const allocation=panel.getByLabel(/已到账.*本项可分配/u);
+    await allocation.pressSequentially('0.');
+    assert.equal(await allocation.inputValue(),'0.');
+    await allocation.pressSequentially('50');
+    await panel.getByRole('button',{name:'记录寄回或退款分配',exact:true}).click();
+    await panel.getByText(/已保存 ·/).waitFor();
+    assert.equal(Number((await queries.returnCases(context,{})).items[0].received),0.50);
     await panel.getByLabel('方向',{exact:true}).selectOption({label:'收纳位置'});
     await panel.getByLabel('操作',{exact:true}).selectOption({label:'新增或移动容器'});
     await panel.getByLabel('容器名称',{exact:true}).fill('合成蓝箱');
@@ -51,6 +76,6 @@ await withOfflinePostgres(async url=>{
     await panel.getByLabel('操作',{exact:true}).selectOption({label:'浏览容器'});
     await panel.getByRole('button',{name:'查询',exact:true}).click();
     await panel.getByRole('button',{name:'显示容器二维码'}).click();await panel.getByAltText('容器二维码').waitFor();
-    assert.deepEqual(errors,[]);console.log('个人记录 Web 验证通过 · 线下空段补记、区间合并与容器二维码');
+    assert.deepEqual(errors,[]);console.log('个人记录 Web 验证通过 · 跨时区补记、区间合并、逐字输入退款分配和容器二维码');
   }finally{if(browser)await browser.close();if(web)await web.close();if(server)await new Promise(resolve=>server.close(resolve));await unitOfWork.close();}
 });

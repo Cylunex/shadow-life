@@ -39,16 +39,39 @@ test("a meal linked to payment-only consumption is navigable both ways without d
 
 test("direct meal payment exposes its original and voided facts cannot create new links",pgOnly,async t=>{
   const f=await reviewFixture(t);
-  const meal=await f.run("life.record_meal",{...mealInput,source:{kind:"text",captured_on:date.occurred_on,original_text:"合成手动午餐"},payment:{...date,amount:"12.00",currency:"CNY"}});
+  const meal=await f.run("life.record_meal",{...mealInput,source:{kind:"text",captured_on:date.occurred_on,original_text:"合成手动午餐"},payment:{...date,amount:"12.00",currency:"CNY",note:"合成付款"}});
   const recordId=meal.actual_values.record_id as string,mealId=meal.actual_values.meal_id as string;
+  const search=async()=> (await f.queries.lifeSearch(f.context,{q:"合成",types:["meals","money"]})).items;
+  assert.ok((await search()).some(row=>row.id===mealId));
   const detail=await f.queries.lifeRecord(f.context,recordId);
   assert.ok(detail.kind==="record");assert.equal(detail.sources?.[0]?.original_text,"合成手动午餐");
   await f.pool.query("update meals set state='deleted' where id=$1",[mealId]);
+  assert.ok(!(await search()).some(row=>row.id===mealId));
+  assert.ok((await search()).some(row=>row.record_id===recordId));
   const removed=await f.queries.lifeRecord(f.context,recordId);
   assert.ok(removed.kind==="record");assert.deepEqual(removed.meals,[]);assert.deepEqual(removed.sources,[]);
   await assert.rejects(()=>f.run("life.link_meal_consumption",{meal_id:mealId,consumption_record_id:recordId,evidence:"user_confirmed"}),/active meal/);
   await f.pool.query("update meals set state='active' where id=$1",[mealId]);
   await f.pool.query("update consumption_records set state='voided',voided_at=now() where id=$1",[recordId]);
   await assert.rejects(()=>f.run("life.link_meal_consumption",{meal_id:mealId,consumption_record_id:recordId,evidence:"user_confirmed"}),/confirmed consumption/);
+  assert.ok(!(await search()).some(row=>row.record_id===recordId));
   const reverse=await f.queries.lifeRecord(f.context,mealId);assert.ok(reverse.kind==="meal");assert.deepEqual(reverse.payments,[]);
+});
+
+test("direct meal links serialize competing claims and distinguish purchases from unrelated money",pgOnly,async t=>{
+  const f=await reviewFixture(t);
+  const meal=async()=>String((await f.run("life.record_meal",mealInput)).actual_values.meal_id);
+  const [first,second]=await Promise.all([meal(),meal()]);
+  const entry=async(entry_type:string)=>String((await f.run("money.record_entry",{...date,entry_type,amount:"8.00",currency:"CNY"})).actual_values.record_id);
+  const link=(meal_id:string,consumption_record_id:string)=>f.run("life.link_meal_consumption",{meal_id,consumption_record_id,evidence:"user_confirmed"});
+  await assert.rejects(link(first,await entry("income")),/confirmed consumption/);
+  const expense=await entry("expense");
+  const race=await Promise.allSettled([link(first,expense),link(second,expense)]);
+  assert.equal(race.filter(result=>result.status==="fulfilled").length,1);
+  const winner=race[0]!.status==="fulfilled"?first:second;
+  await link(winner,expense);
+  const direct=await f.run("life.record_meal",{...mealInput,payment:{...date,amount:"8.00",currency:"CNY"}});
+  await assert.rejects(link(first,String(direct.actual_values.record_id)),/同日同餐次/);
+  const unpaid=await f.run("life.record_purchase",{...date,scene:"delivery",items:[{raw_name:"盒饭"}]});
+  await link(first,String(unpaid.actual_values.record_id));
 });
