@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "62dfd88547fe8d83dc10d305bced6fcb3cc11d868228113d839c4668eaec738b",
+  "catalog_revision": "6526d3613c2b6da3699db8c69f56e76886579a325cef7eaad4d574f2d4421abc",
   "terms": [
     {
       "id": "activity_capture",
@@ -1779,6 +1779,7 @@
                           "health_observation",
                           "health_sleep",
                           "health_activity",
+                          "health_daily_summary",
                           "health_habit",
                           "health_source",
                           "trip",
@@ -1836,6 +1837,7 @@
                           "health_observation",
                           "health_sleep",
                           "health_activity",
+                          "health_daily_summary",
                           "health_habit",
                           "health_source",
                           "trip",
@@ -4484,6 +4486,7 @@
                     "health_observation",
                     "health_sleep",
                     "health_activity",
+                    "health_daily_summary",
                     "health_habit",
                     "health_source",
                     "trip",
@@ -4569,6 +4572,7 @@
                         "health_observation",
                         "health_sleep",
                         "health_activity",
+                        "health_daily_summary",
                         "health_habit",
                         "health_source",
                         "trip",
@@ -4705,6 +4709,7 @@
                         "health_observation",
                         "health_sleep",
                         "health_activity",
+                        "health_daily_summary",
                         "health_habit",
                         "health_source",
                         "trip",
@@ -4759,6 +4764,7 @@
                         "health_observation",
                         "health_sleep",
                         "health_activity",
+                        "health_daily_summary",
                         "health_habit",
                         "health_source",
                         "trip",
@@ -5750,6 +5756,7 @@
                     "health_observation",
                     "health_sleep",
                     "health_activity",
+                    "health_daily_summary",
                     "health_habit",
                     "health_source",
                     "trip",
@@ -6290,6 +6297,7 @@
                     "health_observation",
                     "health_sleep",
                     "health_activity",
+                    "health_daily_summary",
                     "health_habit",
                     "health_source",
                     "trip",
@@ -6957,6 +6965,7 @@
                   "health_observation",
                   "health_sleep",
                   "health_activity",
+                  "health_daily_summary",
                   "health_habit",
                   "health_source",
                   "trip",
@@ -7888,6 +7897,7 @@
                     "health_observation",
                     "health_sleep",
                     "health_activity",
+                    "health_daily_summary",
                     "health_habit",
                     "health_source",
                     "trip",
@@ -7926,6 +7936,44 @@
                 "revision"
               ],
               "additionalProperties": false
+            }
+          },
+          "kinds": {
+            "minItems": 1,
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "activity_capture",
+                "meal",
+                "purchase",
+                "money_entry",
+                "health_measurement",
+                "health_workout",
+                "health_observation",
+                "health_sleep",
+                "health_activity",
+                "health_daily_summary",
+                "health_habit",
+                "health_source",
+                "trip",
+                "library_item",
+                "life_project",
+                "action_item",
+                "meal_plan",
+                "food_stock_lot",
+                "owned_item",
+                "recipe",
+                "food",
+                "place",
+                "reservation",
+                "source",
+                "agent_intention",
+                "agent_task",
+                "agent_learning",
+                "agent_subscription"
+              ]
             }
           },
           "state": {
@@ -40591,6 +40639,11 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "occurred_on": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
           "limit": {
             "default": 20,
             "type": "integer",

@@ -50,7 +50,7 @@ class MemoryUnitOfWork implements UnitOfWork {
       reconcileExpenses:async()=>({}),
       tripConnections:async()=>({items:[],as_of:new Date().toISOString()}),
       exerciseHistory:async()=>({sessions:[]}),
-      workoutProgressionPlans:async()=>[],healthTrend:async()=>({metric_key:"weight",points:[],coverage:{from:null,to:null,points:0,truncated:false},as_of:new Date().toISOString()}),
+      workoutProgressionPlans:async()=>[],healthTrendBatch:async()=>({items:[]}),healthTrend:async()=>({metric_key:"weight",points:[],coverage:{from:null,to:null,points:0,truncated:false},as_of:new Date().toISOString()}),
       healthSleepNights:async()=>[],
       healthSources:async()=>({items:[],as_of:new Date().toISOString()}),
       lifeToday:async(_subjectId,date)=>({date,domains:{},as_of:new Date().toISOString()}),

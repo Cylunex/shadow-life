@@ -11,11 +11,47 @@ import { mergeOrderObservations } from "@shadow/kernel";
 type DB=Pick<NodePgDatabase<any>,"execute">;
 type WriteResult={resources:ExecutionResult["resources"];actualValues:ExecutionResult["actual_values"]};
 const iso=(v:unknown)=>v instanceof Date?v.toISOString():new Date(String(v)).toISOString();
+const captureStamp=sql`md5(jsonb_build_array(text,title,latitude,longitude,accuracy_m,
+  (select jsonb_build_array(c.behavior,c.life_domain,c.project_id,c.revision) from capture_classifications c where c.capture_id=activity_captures.id))::text)`;
 function checkSpans(spans:Array<{start_ms:number;end_ms:number}>,start:unknown,end:unknown){const duration=Date.parse(iso(end))-Date.parse(iso(start));let last=0;for(const span of spans){if(span.start_ms<last||span.end_ms>duration)throw conflict("Transcript spans must be ordered and inside the audio segment");last=span.end_ms;}}
 export async function captureSnapshot(db:DB,subject:string,from:string,to:string,zone:string):Promise<CaptureReviewFact[]>{
- const rows=await db.execute(sql`select id,kind,title,greatest(started_at,${from}::date::timestamp at time zone ${zone}) started_at,least(ended_at,${to}::date::timestamp at time zone ${zone}) ended_at,left(text,300) text,md5(jsonb_build_array(text,title,latitude,longitude,accuracy_m,(select jsonb_build_array(c.behavior,c.life_domain,c.project_id,c.revision) from capture_classifications c where c.capture_id=activity_captures.id))::text) stamp from activity_captures where subject_id=${subject} and deleted_at is null and started_at<${to}::date::timestamp at time zone ${zone} and (ended_at>${from}::date::timestamp at time zone ${zone} or (started_at=ended_at and started_at>=${from}::date::timestamp at time zone ${zone})) order by started_at,id limit 50001`);
+ const rows=await db.execute(sql`select id,kind,title,greatest(started_at,${from}::date::timestamp at time zone ${zone}) started_at,least(ended_at,${to}::date::timestamp at time zone ${zone}) ended_at,left(text,300) text,${captureStamp} stamp from activity_captures where subject_id=${subject} and deleted_at is null and started_at<${to}::date::timestamp at time zone ${zone} and (ended_at>${from}::date::timestamp at time zone ${zone} or (started_at=ended_at and started_at>=${from}::date::timestamp at time zone ${zone})) order by started_at,id limit 50001`);
  if(rows.rows.length>50000)throw conflict("所选期间超过 50000 项来源，请缩小回顾范围");
  return rows.rows.map(r=>({id:String(r.id),kind:String(r.kind),title:String(r.title),started_at:iso(r.started_at),ended_at:iso(r.ended_at),text:r.text===null?null:String(r.text),stamp:String(r.stamp)}));
+}
+
+async function reviewSnapshotGroups(db:DB,subject:string,reviewIds:string[]) {
+ if(!reviewIds.length)return new Map<string,CaptureReviewFact[]>();
+ const result=await db.execute(sql`
+   with windows as materialized (
+     select id,from_on::timestamp at time zone time_zone range_start,
+       to_on_exclusive::timestamp at time zone time_zone range_end
+     from capture_reviews where subject_id=${subject}
+       and id in (select jsonb_array_elements_text(${JSON.stringify(reviewIds)}::jsonb))
+   ), bounds as (select min(range_start) range_start,max(range_end) range_end from windows),
+   facts as materialized (
+     select id,kind,title,started_at,ended_at,left(text,300) text,${captureStamp} stamp
+     from activity_captures cross join bounds where subject_id=${subject} and deleted_at is null
+       and started_at<bounds.range_end and (ended_at>bounds.range_start
+         or (started_at=ended_at and started_at>=bounds.range_start))
+     order by started_at,id limit 50001
+   )
+   select facts.*, coalesce((select jsonb_agg(jsonb_build_array(id,range_start,range_end))
+     from windows where facts.started_at<range_end and (facts.ended_at>range_start
+       or (facts.started_at=facts.ended_at and facts.started_at>=range_start))), '[]'::jsonb) memberships from facts
+ `);
+ // If the combined range is unusually large, retain the existing per-window size check.
+ if(result.rows.length>50000)return undefined;
+ const groups=new Map(reviewIds.map(id=>[id,[] as CaptureReviewFact[]]));
+ for(const row of result.rows){
+  const started=iso(row.started_at),ended=iso(row.ended_at);
+  for(const [id,rangeStart,rangeEnd] of row.memberships as Array<[string,string,string]>){
+   const from=iso(rangeStart),to=iso(rangeEnd);
+   groups.get(id)!.push({id:String(row.id),kind:String(row.kind),title:String(row.title),
+     started_at:started<from?from:started,ended_at:ended>to?to:ended,text:row.text===null?null:String(row.text),stamp:String(row.stamp)});
+  }
+ }
+ return groups;
 }
 export async function writeCaptureSuite(db:DB,subject:string,command:UniversalCommandEnvelope,context:RequestContext|undefined,nextId:(kind:string)=>string,nested:(command:UniversalCommandEnvelope)=>Promise<WriteResult>):Promise<WriteResult|undefined>{
  const capability=command.capability;
@@ -114,8 +150,9 @@ export async function readCaptureWorkspace(db:DB,subject:string,input:{date:stri
  for(const row of orderRows.rows){if(!row.record_id&&!row.conflict&&Number(row.zone_count)===1)related.set(String(row.id),await relatedTakeoutPayment(db,subject,mergeOrderObservations(row.observations as any).fields,String(row.order_zone)));}
  const rules=(await db.execute(sql`select app_package,platform,source_account,enabled,auto_accounting from capture_order_rules where subject_id=${subject} order by app_package limit 100`)).rows;
  const reviewRows=(await db.execute(sql`select *,from_on::text from_on,to_on_exclusive::text to_on_exclusive from capture_reviews where subject_id=${subject} and from_on<=${input.date}::date and to_on_exclusive>${input.date}::date and time_zone=${input.time_zone} order by generated_at desc limit 12`)).rows;
+ const groups=await reviewSnapshotGroups(db,subject,reviewRows.map(row=>String(row.id)));
  const reviews=[];
- for(const row of reviewRows){const from=String(row.from_on),to=String(row.to_on_exclusive);let stale=true;try{stale=captureReviewSignature(await captureSnapshot(db,subject,from,to,String(row.time_zone)))!==row.signature;}catch{}
+ for(const row of reviewRows){const from=String(row.from_on),to=String(row.to_on_exclusive);let stale=true;try{const facts=groups?.get(String(row.id))??await captureSnapshot(db,subject,from,to,String(row.time_zone));stale=captureReviewSignature(facts)!==row.signature;}catch{}
   reviews.push({id:String(row.id),period:String(row.period),from_on:from,to_on_exclusive:to,time_zone:String(row.time_zone),revision:Number(row.revision),stale,body:stale?"来源已变化，请按当前记录重新生成回顾。":String(row.body),source_refs:stale?[]:row.source_refs,source_count:Number(row.source_count),generated_at:iso(row.generated_at)});}
  const originals=await db.execute(sql`select l.id item_id,s.id source_id,l.title,s.captured_at,s.captured_on::text from library_items l
    join sources s on s.id=l.source_id and s.subject_id=l.subject_id where l.subject_id=${subject} and l.state='active' and l.item_type='image'

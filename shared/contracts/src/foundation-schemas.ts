@@ -9,21 +9,21 @@ const cursor=z.string().regex(/^\d{1,19}$/u).refine(value=>/^\d{1,19}$/u.test(va
 const instant = z.iso.datetime({ offset: true });
 export const foundationScenario = z.enum(['daily', 'spending', 'health', 'travel', 'library', 'planning']);
 export const foundationRefSchema = z.object({
-  kind: z.enum(['activity_capture', 'meal', 'purchase', 'money_entry', 'health_measurement', 'health_workout', 'health_observation', 'health_sleep', 'health_activity', 'health_habit', 'health_source', 'trip', 'library_item', 'life_project', 'action_item', 'meal_plan', 'food_stock_lot', 'owned_item', 'recipe', 'food', 'place', 'reservation', 'source', 'agent_intention', 'agent_task', 'agent_learning', 'agent_subscription']),
+  kind: z.enum(['activity_capture', 'meal', 'purchase', 'money_entry', 'health_measurement', 'health_workout', 'health_observation', 'health_sleep', 'health_activity', 'health_daily_summary', 'health_habit', 'health_source', 'trip', 'library_item', 'life_project', 'action_item', 'meal_plan', 'food_stock_lot', 'owned_item', 'recipe', 'food', 'place', 'reservation', 'source', 'agent_intention', 'agent_task', 'agent_learning', 'agent_subscription']),
   id, revision: z.number().int().positive().max(2147483647)
 }).strict();
 export type FoundationRef = z.infer<typeof foundationRefSchema>;
 export const foundationEffects: Record<FoundationRef['kind'], string> = {
   meal: 'life.meal.read', purchase: 'life.meal.read', money_entry: 'money.entry.read',
-  health_measurement: 'health.measurement.read', health_workout: 'health.measurement.read', health_observation:'health.measurement.read',health_sleep:'health.measurement.read',health_activity:'health.measurement.read',health_habit:'health.measurement.read',health_source:'health.measurement.read', trip: 'travel.trip.read', reservation: 'travel.trip.read',
+  health_measurement: 'health.measurement.read', health_workout: 'health.measurement.read', health_observation:'health.measurement.read',health_sleep:'health.measurement.read',health_activity:'health.measurement.read',health_daily_summary:'health.measurement.read',health_habit:'health.measurement.read',health_source:'health.measurement.read', trip: 'travel.trip.read', reservation: 'travel.trip.read',
   activity_capture:'library.item.read',library_item: 'library.item.read', source: 'library.asset.read', life_project: 'life.project.read', action_item: 'life.project.read', owned_item: 'life.item.read',
   meal_plan: 'life.meal.read', food_stock_lot: 'life.meal.read', recipe: 'life.meal.read', food: 'life.meal.read', place: 'travel.trip.read',
   agent_intention: 'agent.run', agent_task: 'agent.run', agent_learning: 'agent.run', agent_subscription: 'agent.run'
 };
 export const foundationKinds: Record<string, FoundationRef['kind'][]> = {
-  daily: ['activity_capture','source', 'meal', 'purchase', 'health_measurement', 'health_observation', 'health_sleep', 'health_activity', 'health_habit', 'health_source', 'action_item'], spending: ['source', 'purchase', 'money_entry', 'owned_item'],
-  health: ['health_measurement', 'health_workout', 'health_observation', 'health_sleep', 'health_activity', 'health_habit', 'health_source'], travel: ['source', 'trip', 'reservation', 'place'], library: ['activity_capture','library_item', 'source'],
-  planning: ['activity_capture','source', 'meal', 'purchase', 'money_entry', 'health_measurement', 'health_workout', 'health_observation', 'health_sleep', 'health_activity', 'health_habit', 'health_source', 'library_item', 'life_project', 'action_item', 'meal_plan', 'food_stock_lot', 'recipe', 'food', 'owned_item', 'trip', 'reservation', 'place']
+  daily: ['activity_capture','source', 'meal', 'purchase', 'health_measurement', 'health_observation', 'health_sleep', 'health_activity', 'health_daily_summary', 'health_habit', 'health_source', 'action_item'], spending: ['source', 'purchase', 'money_entry', 'owned_item'],
+  health: ['health_measurement', 'health_workout', 'health_observation', 'health_sleep', 'health_activity', 'health_daily_summary', 'health_habit', 'health_source'], travel: ['source', 'trip', 'reservation', 'place'], library: ['activity_capture','library_item', 'source'],
+  planning: ['activity_capture','source', 'meal', 'purchase', 'money_entry', 'health_measurement', 'health_workout', 'health_observation', 'health_sleep', 'health_activity', 'health_daily_summary', 'health_habit', 'health_source', 'library_item', 'life_project', 'action_item', 'meal_plan', 'food_stock_lot', 'recipe', 'food', 'owned_item', 'trip', 'reservation', 'place']
 };
 
 const refs = z.array(foundationRefSchema).max(20).default([]).refine(items => items.every(item => !item.kind.startsWith('agent_')) && new Set(items.map(item => `${item.kind}:${item.id}`)).size === items.length, 'Evidence must be distinct business objects; recursive memory references are not evidence');
@@ -76,7 +76,7 @@ export const saveLearningSchema = z.object({
   if (value.kind === 'workflow_experience' && value.outcome === 'succeeded' && !value.operation_ids.length) context.addIssue({code: 'custom', message: 'Successful experience requires operation receipts'});
 });
 export const setSubscriptionSchema = z.object({
-  ...revisionFields, consumer: id, scope, object_refs: refs, state: z.enum(['active', 'archived']).default('active')
+  ...revisionFields, consumer: id, scope, object_refs: refs, kinds:z.array(foundationRefSchema.shape.kind).min(1).max(30).optional(), state: z.enum(['active', 'archived']).default('active')
 }).strict().superRefine(revisionGuard);
 export const ackChangesSchema = z.object({ consumer: id, expected_cursor: cursor, cursor: cursor }).strict().refine(value => /^\d{1,19}$/u.test(value.cursor)&&/^\d{1,19}$/u.test(value.expected_cursor)&&BigInt(value.cursor) >= BigInt(value.expected_cursor), 'Cursor cannot move backwards');
 export const restoreFoundationSchema=z.object({section:z.enum(['intentions','tasks','learning']),copy_key:id.max(90),entries:z.array(z.record(z.string(),z.json())).min(1).max(50)}).strict();

@@ -213,6 +213,41 @@ test("complete Life journey uses PostgreSQL transactions and survives replay", {
   assert.equal(recordCheck.meals.count,2);
   assert.equal(recordCheck.meals.by_type.find(item=>item.meal_type==="snack")?.count,0);
   assert.equal(recordCheck.meals.expectation_status,"missing");
+  const dayMeals=await queries.listMeals(overviewContext,{occurred_on:"2026-09-09",limit:1});
+  assert.equal(dayMeals.items[0]?.occurred_on,"2026-09-09");
+  assert.ok(dayMeals.next_cursor);
+  await assert.rejects(()=>queries.listMeals(overviewContext,{occurred_on:"2026-09-08",cursor:dayMeals.next_cursor}),/meal cursor is invalid/u);
+  const moreMeals=await queries.listMeals(overviewContext,{occurred_on:"2026-09-09",cursor:dayMeals.next_cursor});
+  assert.equal(moreMeals.items.length,1);
+  assert.notEqual(moreMeals.items[0]?.id,"meal_deleted_check");
+  const trendRequest={from:"2026-09-01",to:"2026-09-30",limit:4};
+  const trendBatch=await countPoolStatements(pool,()=>queries.healthTrendBatch(overviewContext,{...trendRequest,metric_keys:["weight","missing_metric","weight"]}));
+  assert.equal(trendBatch.statements,1);
+  assert.deepEqual(trendBatch.value.items.map(item=>item.metric_key),["weight","missing_metric"]);
+  const singleWeight=await queries.healthTrend(overviewContext,{...trendRequest,metric_key:"weight"});
+  assert.deepEqual(trendBatch.value.items[0]?.points,singleWeight.points);
+  assert.equal(trendBatch.value.items[1]?.coverage.points,0);
+  const changeContext={...overviewContext,effects:new Set([...overviewContext.effects,"agent.run"])};
+  await executor.execute(changeContext,{protocol:"shadow.command",capability:"agent.set_subscription",command_id:"cmd_daily_ready_subscription",
+    input:{consumer:"daily-ready",scope:"health",kinds:["health_daily_summary"],state:"active"}});
+  let healthChanges=await queries.foundation(changeContext,"agent.changes",{consumer:"daily-ready",after:"0",limit:100}) as {items:Array<{type:string;refs:Array<{kind:string;id:string;revision:number}>}>;cursor:string;has_more:boolean};
+  const ready=healthChanges.items.flatMap(event=>event.refs);
+  while(healthChanges.has_more){
+    healthChanges=await queries.foundation(changeContext,"agent.changes",{consumer:"daily-ready",after:healthChanges.cursor,limit:100}) as typeof healthChanges;
+    ready.push(...healthChanges.items.flatMap(event=>event.refs));
+  }
+  assert.ok(ready.length);
+  assert.ok(ready.every(ref=>ref.kind==="health_daily_summary"&&ref.id.startsWith("healthday_")));
+  const rawEvents=await pool.query<{cursor:string}>(`with inserted as (
+    insert into agent_changes(subject_id,event_id,event_type,refs)
+    select $1,'synthetic-raw-'||i,'health_activity.changed','[{"kind":"health_activity","id":"activity_synthetic","revision":1}]'::jsonb
+    from generate_series(1,510) i returning sequence)
+    select max(sequence)::text cursor from inserted`,[context.subjectId]);
+  const skipped=await queries.foundation(changeContext,"agent.changes",{consumer:"daily-ready",after:healthChanges.cursor,limit:100}) as typeof healthChanges;
+  assert.deepEqual(skipped.items,[]);
+  assert.equal(skipped.has_more,false);
+  assert.equal(skipped.cursor,rawEvents.rows[0]?.cursor);
+
   const mealOnlyToday=await queries.lifeToday({...context,effects:new Set([...context.effects,"life.meal.read"])},{date:"2026-09-09",time_zone:"Asia/Shanghai"}) as {domains:Record<string,unknown>};assert.deepEqual(Object.keys(mealOnlyToday.domains),["meals"]);
   const globalTravelSearch=await queries.lifeSearch(overviewContext,{q:"杭州",types:["travel"],from_on:"2026-01-01",to_on_exclusive:"2027-01-01",limit:20});assert.equal(globalTravelSearch.items.some(item=>item.domain==="travel"&&item.id===trip.actual_values.trip_id),true);assert.deepEqual(globalTravelSearch.applied_filters.types,["travel"]);
   const moneyTimeline=await queries.lifeTimeline({...context,effects:new Set([...context.effects,"money.entry.read"])},{limit:100});assert.equal(moneyTimeline.items.every(item=>item.domain==="money"),true);assert.equal(moneyTimeline.items.every(item=>typeof item.amount==="string"&&typeof item.record_id==="string"),true);

@@ -139,6 +139,27 @@ async function recordRelations(database:Database|Transaction,subjectId:string,re
   return result.rows;
 }
 
+type TrendPoint={metric_key:string;id:string;occurred_on:string;occurred_at:string|null;value:string;unit:string;source_kind:string;original_field:string|null;revision:number};
+async function readHealthTrends(database:Pick<NodePgDatabase<typeof schema>,"execute">,subjectId:string,input:{metric_keys:string[];from?:string|undefined;to?:string|undefined;limit:number}){
+ const keys=[...new Set(input.metric_keys)];
+ const result=await database.execute<TrendPoint>(sql`
+   select keys.metric_key, trend.id, trend.occurred_on, trend.occurred_at, trend.value, trend.unit,
+     trend.source_kind, trend.original_field, trend.revision
+   from jsonb_array_elements_text(${JSON.stringify(keys)}::jsonb) with ordinality keys(metric_key, ordinal)
+   cross join lateral (
+      select id,occurred_on::text occurred_on,case when occurred_at is null then null else to_char(occurred_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') end occurred_at,value::text value,unit,source_kind,original_field,revision, row_number() over (order by coalesce(occurred_at,occurred_on::timestamp at time zone time_zone) desc,created_at desc,id desc) position
+      from (select measurement.id,measurement.occurred_on,measurement.occurred_at,measurement.time_zone,measurement.created_at,measurement.value,measurement.unit,coalesce(source.kind,'manual') source_kind,null::text original_field,measurement.revision from health_measurements measurement left join sources source on source.id=measurement.source_id where measurement.subject_id=${subjectId} and measurement.metric=keys.metric_key and measurement.effective union all select observation.id,observation.occurred_on,observation.occurred_at,observation.time_zone,observation.created_at,observation.value,observation.unit,coalesce(instance.source_type,'normalized') source_kind,observation.original_field,observation.revision from health_observations observation join health_raw_records raw on raw.id=observation.raw_id left join health_source_instances instance on instance.id=raw.source_instance_id where observation.subject_id=${subjectId} and observation.metric_key=keys.metric_key and observation.effective) points where (${input.from??null}::date is null or occurred_on>=${input.from??null}::date) and (${input.to??null}::date is null or occurred_on<=${input.to??null}::date)
+      order by coalesce(occurred_at,occurred_on::timestamp at time zone time_zone) desc,created_at desc,id desc limit ${input.limit+1}
+   ) trend order by keys.ordinal,trend.position`);
+ const grouped=rowsBy(result.rows,row=>row.metric_key);
+ const asOf=new Date().toISOString();
+ return {items:keys.map(metric_key=>{
+  const rows=grouped.get(metric_key)??[];
+  const points=rows.slice(0,input.limit).reverse().map(({metric_key:_metric,...row})=>({...row,value:trimNumeric(row.value)!}));
+  return {metric_key,points,coverage:{from:points[0]?.occurred_on??null,to:points.at(-1)?.occurred_on??null,points:points.length,truncated:rows.length>input.limit},as_of:asOf};
+ })};
+}
+
 function rowsBy<Key,Row>(rows:readonly Row[],keyFor:(row:Row)=>Key):ReadonlyMap<Key,readonly Row[]>{
   const grouped=new Map<Key,Row[]>();
   for(const row of rows){const key=keyFor(row),values=grouped.get(key)??[];values.push(row);grouped.set(key,values);}
@@ -230,7 +251,7 @@ function storeFor(database: Database | Transaction): TransactionStore {
     },
     async listMeals(subjectId,options) {
       const asOf=options.asOf??String((await database.execute(sql`select to_char(clock_timestamp() at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as_of`)).rows[0]!.as_of),before=options.before;
-      const mealResult=await database.execute<{id:string;occurredOn:string;occurredAt:string|null;timeZone:string;mealType:string;note:string|null;revision:number;createdAt:Date;pageAt:string}>(sql`select id,occurred_on::text "occurredOn",case when occurred_at is null then null else to_char(occurred_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') end "occurredAt",time_zone "timeZone",meal_type "mealType",note,revision,created_at "createdAt",to_char(created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') "pageAt" from meals where subject_id=${subjectId} and created_at<=${asOf}::timestamptz and (${before?.at??null}::timestamptz is null or (occurred_on,created_at,id)<(${before?.on??null}::date,${before?.at??null}::timestamptz,${before?.id??null})) order by occurred_on desc,created_at desc,id desc limit ${options.limit+1}`),hasMore=mealResult.rows.length>options.limit,mealRows=mealResult.rows.slice(0,options.limit);
+      const mealResult=await database.execute<{id:string;occurredOn:string;occurredAt:string|null;timeZone:string;mealType:string;note:string|null;revision:number;createdAt:Date;pageAt:string}>(sql`select id,occurred_on::text "occurredOn",case when occurred_at is null then null else to_char(occurred_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') end "occurredAt",time_zone "timeZone",meal_type "mealType",note,revision,created_at "createdAt",to_char(created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') "pageAt" from meals where subject_id=${subjectId} and state='active' ${options.occurredOn?sql`and occurred_on=${options.occurredOn}::date`:sql``} and created_at<=${asOf}::timestamptz and (${before?.at??null}::timestamptz is null or (occurred_on,created_at,id)<(${before?.on??null}::date,${before?.at??null}::timestamptz,${before?.id??null})) order by occurred_on desc,created_at desc,id desc limit ${options.limit+1}`),hasMore=mealResult.rows.length>options.limit,mealRows=mealResult.rows.slice(0,options.limit);
       if(mealRows.length===0)return {items:[],hasMore:false,asOf};
       const mealIds=mealRows.map(meal=>meal.id);
       const [itemRows,paymentRows,sourceRows]=await Promise.all([
@@ -926,9 +947,11 @@ function storeFor(database: Database | Transaction): TransactionStore {
       return {sessions:result.rows};
     },
     async workoutProgressionPlans(subjectId,planId){const plans=await database.execute<{id:string;title:string;revision:number}>(sql`select id,title,revision from workout_plans where subject_id=${subjectId} and (${planId??null}::text is null and state='active' or id=${planId??null}) order by created_at desc,id desc limit 20`);const ids=plans.rows.map(plan=>plan.id);if(!ids.length)return[];const rows=await database.execute<Record<string,unknown>&import("@shadow/kernel").WorkoutProgressionSession&{plan_id:string}>(sql`select id,plan_id,occurred_on::text,session_type,duration_minutes,rpe,revision from (select session.*,row_number() over(partition by plan_id order by occurred_on desc,created_at desc,id desc) rank from health_workout_sessions session where subject_id=${subjectId} and effective and plan_id in (${sql.join(ids.map(id=>sql`${id}`),sql`,`)}) ) sessions where rank<=2 order by occurred_on desc,id desc`);return plans.rows.map(plan=>({id:plan.id,title:plan.title,revision:plan.revision,sessions:rows.rows.filter(row=>row.plan_id===plan.id)}));},
-    async healthTrend(subjectId,input){
-      const rows=await database.execute<{id:string;occurred_on:string;occurred_at:string|null;value:string;unit:string;source_kind:string;revision:number}>(sql`select id,occurred_on::text,case when occurred_at is null then null else to_char(occurred_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') end occurred_at,value::text,unit,source_kind,original_field,revision from (select measurement.id,measurement.occurred_on,measurement.occurred_at,measurement.time_zone,measurement.created_at,measurement.value,measurement.unit,coalesce(source.kind,'manual') source_kind,null::text original_field,measurement.revision from health_measurements measurement left join sources source on source.id=measurement.source_id where measurement.subject_id=${subjectId} and measurement.metric=${input.metric_key} and measurement.effective union all select observation.id,observation.occurred_on,observation.occurred_at,observation.time_zone,observation.created_at,observation.value,observation.unit,coalesce(instance.source_type,'normalized') source_kind,observation.original_field,observation.revision from health_observations observation join health_raw_records raw on raw.id=observation.raw_id left join health_source_instances instance on instance.id=raw.source_instance_id where observation.subject_id=${subjectId} and observation.metric_key=${input.metric_key} and observation.effective) points where (${input.from??null}::date is null or occurred_on>=${input.from??null}::date) and (${input.to??null}::date is null or occurred_on<=${input.to??null}::date) order by coalesce(occurred_at,occurred_on::timestamp at time zone time_zone) desc,created_at desc,id desc limit ${input.limit+1}`);
-      const truncated=rows.rows.length>input.limit,points=rows.rows.slice(0,input.limit).reverse().map(row=>({...row,value:trimNumeric(row.value)!}));return{metric_key:input.metric_key,points,coverage:{from:points[0]?.occurred_on??null,to:points.at(-1)?.occurred_on??null,points:points.length,truncated},as_of:new Date().toISOString()};
+    healthTrend(subjectId,input){
+      return readHealthTrends(database,subjectId,{...input,metric_keys:[input.metric_key]}).then(result=>result.items[0]);
+    },
+    healthTrendBatch(subjectId,input){
+      return readHealthTrends(database,subjectId,input);
     },
     async healthSources(subjectId){
       const sourceRows=await database.select().from(schema.healthSourceInstances).where(eq(schema.healthSourceInstances.subjectId,subjectId)).orderBy(schema.healthSourceInstances.id);

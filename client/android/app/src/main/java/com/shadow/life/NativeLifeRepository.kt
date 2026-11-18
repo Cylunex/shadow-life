@@ -6,6 +6,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -143,27 +144,25 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   }
 
   suspend fun mealsOn(date:String):RecordPage {
-    val end=java.time.LocalDate.parse(date).plusDays(1)
+    val on=java.time.LocalDate.parse(date).toString()
     val meals=linkedMapOf<String,RecordSummary>()
     var cursor:String?=null
     val seen=mutableSetOf<String>()
     var asOf=""
     do {
       val suffix=cursor?.let{"&cursor=${encode(it)}"}.orEmpty()
-      val page=wireJson.decodeFromString<LifeSearchResultDto>(getText("/api/search?view=facts&types=meals&from_on=$date&to_on_exclusive=$end&limit=100$suffix"))
+      val page=wireJson.decodeFromString<ListMealsResultDto>(getText("/api/meals?occurred_on=$on&limit=100$suffix"))
       asOf=page.asOf
-      for(entry in page.items){
-        if(entry.kind!="meal")continue
-        val meal=wireJson.decodeFromString<LifeRecordResultDto>(getText("/api/life/records/${entry.id}")) as? LifeRecordResultDtoMeal ?:continue
-        if(meal.occurredOn!=date)continue
-        val foods=meal.items.orEmpty().map { food ->
+      for(meal in page.items){
+        if(meal.occurredOn!=on)continue
+        val foods=meal.items.map { food ->
           MealFoodSummary(food.name,food.quantity,food.unit,food.energyKcal,food.proteinG,food.fatG,food.carbG,food.estimate)
             .withConsumedNutrition(food.consumedFraction)
         }
-        meals[meal.mealId]=RecordSummary(LifeDomain.Meals,"meal",meal.mealId,foods.joinToString("、"){it.name},date,null,meal.revision?.toInt(),
-          meal=MealCardSummary(meal.mealType?.wireValue?:"other",date,meal.occurredAt,meal.timeZone?:"UTC",meal.note,foods,meal.sources.orEmpty().firstOrNull{it.assetVersionId!=null}?.assetVersionId))
+        meals[meal.id]=RecordSummary(LifeDomain.Meals,"meal",meal.id,foods.joinToString("、"){it.name},on,null,meal.revision.toInt(),
+          meal=MealCardSummary(meal.mealType.wireValue,on,meal.occurredAt,meal.timeZone,meal.note,foods,meal.sources.orEmpty().firstOrNull{it.assetVersionId!=null}?.assetVersionId))
       }
-      cursor=page.nextCursor
+      cursor=page.nextCursor.takeIf{page.items.none{it.occurredOn<on}}
       check(cursor==null||seen.add(cursor)){"餐次分页未能继续，请重试"}
     }while(cursor!=null)
     return RecordPage(meals.values.toList(),null,asOf)
@@ -724,19 +723,34 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       "waist" to "腰围","chest" to "胸围","hip" to "臀围","heart_rate" to "心率","blood_pressure_systolic" to "收缩压",
       "blood_pressure_diastolic" to "舒张压","temperature" to "体温","spo2" to "血氧","blood_glucose" to "血糖","lab_value" to "检验结果","fitness_value" to "体能测试"
     )
-    val trendRequests=metricKeys.map{(key,label)->async{
-      partialRequest{
-        val value=JSONObject(getText("/api/health/trend?metric_key=${encode(key)}&from=$from&to=$today&limit=1000"))
+    fun parseTrend(key:String,label:String,value:JSONObject):HealthMetricTrend{
         val points=value.optJSONArray("points").objects().mapNotNull{point->
           val text=point.optString("value").takeIf(String::isNotBlank)?:return@mapNotNull null
           val number=text.toDoubleOrNull()?:return@mapNotNull null
           val unit=point.optString("unit");HealthTrendPoint(point.optString("id"),point.optString("occurred_on"),number,healthValueText(text,unit),unit,point.optString("source_kind"),point.optInt("revision",1),point.optString("occurred_at").takeIf{it.isNotBlank()&&it!="null"},point.optString("original_field").takeIf{it.isNotBlank()&&it!="null"})
         }
         val coverage=value.optJSONObject("coverage")
-        HealthMetricTrend(key,label,points,coverage?.optInt("points",points.size)?:points.size,coverage?.optBoolean("truncated",false)?:false)
-      }.getOrElse{HealthMetricTrend(key,label,emptyList(),0,false,unavailable=true)}
-    }}
-    val sources=sourcesRequest.await();val history=dailyRequests.mapNotNull{(_,request)->request.await().getOrNull()?.toHealthDailyOverview()}.sortedBy{it.occurredOn};val daily=history.firstOrNull{it.occurredOn==today.toString()};val metrics=fillDerivedBodyMetrics(trendRequests.map{it.await()}.flatMap{metric->if(metric.points.isEmpty())listOf(metric) else metric.points.groupBy{healthSeriesKey(metric.key,it.originalField)}.map{(key,points)->metric.copy(key=key,label=healthSeriesLabel(key),points=points)}})
+        return HealthMetricTrend(key,label,points,coverage?.optInt("points",points.size)?:points.size,coverage?.optBoolean("truncated",false)?:false)
+    }
+    val trendRequest=async{
+      val keys=metricKeys.joinToString("&"){(key,_)->"metric_key=${encode(key)}"}
+      val batch=partialRequest{
+        val raw=JSONObject(getText("/api/health/trends?$keys&from=$from&to=$today&limit=1000"))
+        raw.getJSONArray("items").objects().associateBy{it.getString("metric_key")}
+      }
+      val series=batch.getOrNull()
+      when{
+        series!=null->metricKeys.map{(key,label)->
+          series[key]?.let{parseTrend(key,label,it)}?:HealthMetricTrend(key,label,emptyList(),0,false,unavailable=true)
+        }
+        batch.exceptionOrNull()?.message?.contains("HTTP 404")==true->metricKeys.map{(key,label)->async{
+          partialRequest{parseTrend(key,label,JSONObject(getText("/api/health/trend?metric_key=${encode(key)}&from=$from&to=$today&limit=1000")))}
+            .getOrElse{HealthMetricTrend(key,label,emptyList(),0,false,unavailable=true)}
+        }}.awaitAll()
+        else->metricKeys.map{(key,label)->HealthMetricTrend(key,label,emptyList(),0,false,unavailable=true)}
+      }
+    }
+    val sources=sourcesRequest.await();val history=dailyRequests.mapNotNull{(_,request)->request.await().getOrNull()?.toHealthDailyOverview()}.sortedBy{it.occurredOn};val daily=history.firstOrNull{it.occurredOn==today.toString()};val metrics=fillDerivedBodyMetrics(trendRequest.await().flatMap{metric->if(metric.points.isEmpty())listOf(metric) else metric.points.groupBy{healthSeriesKey(metric.key,it.originalField)}.map{(key,points)->metric.copy(key=key,label=healthSeriesLabel(key),points=points)}})
     val weight=metrics.firstOrNull{it.key=="weight"}?.points?.lastOrNull()
     val summary=TodayHealthSummary(
       state=when{daily!=null||weight!=null->HealthSummaryState.Ready;metrics.all{it.unavailable}->HealthSummaryState.Failed;else->HealthSummaryState.Empty},

@@ -32,13 +32,17 @@ class QuickScreenshotActivity:Activity(){
 @RequiresApi(30)
 internal fun LifeScreenCaptureService.captureRequestedScreenshot(){
  val app=application as ShadowApp;val session=app.sessions.active()?:return
- val observedAt=Instant.now();val root=rootInActiveWindow;val sourcePackage=root?.packageName?.toString();val visibleText=root?.let{readCapturePage(it)}
- if(sourcePackage=="com.android.systemui"){Toast.makeText(this,"快捷面板尚未收起，请稍后重试",Toast.LENGTH_LONG).show();return}
- takeScreenshot(Display.DEFAULT_DISPLAY,mainExecutor,object:android.accessibilityservice.AccessibilityService.TakeScreenshotCallback{
+ val observedAt=Instant.now();val root=rootInActiveWindow;val sourcePackage=root?.packageName?.toString();val windowId=root?.windowId;val visibleText=root?.let{try{readCapturePage(it)}finally{it.recycle()}}
+ if(windowId==null||sourcePackage=="com.android.systemui"||sourcePackage==packageName){Toast.makeText(this,"快捷面板尚未收起，请稍后重试",Toast.LENGTH_LONG).show();return}
+ val callback=object:android.accessibilityservice.AccessibilityService.TakeScreenshotCallback{
   override fun onSuccess(result:android.accessibilityservice.AccessibilityService.ScreenshotResult){
    val currentRoot=rootInActiveWindow
-   val matchedText=visibleText?.takeIf{currentRoot?.packageName?.toString()==sourcePackage&&currentRoot?.let{node->readCapturePage(node)}==it}
+   val (sameWindow,matchedText)=try{
+    val matches=currentRoot?.windowId==windowId&&currentRoot?.packageName?.toString()==sourcePackage
+    matches to visibleText?.takeIf{matches&&currentRoot?.let{node->readCapturePage(node)}==it}
+   }finally{currentRoot?.recycle()}
    val hardware=result.hardwareBuffer
+   if(!sameWindow){hardware.close();Toast.makeText(this@captureRequestedScreenshot,"截图页面已切换，请重试",Toast.LENGTH_LONG).show();return}
    val bitmap=try{Bitmap.wrapHardwareBuffer(hardware,result.colorSpace)?.let{source->try{source.copy(Bitmap.Config.ARGB_8888,false)}finally{source.recycle()}}}finally{hardware.close()}
    if(bitmap==null){Toast.makeText(this@captureRequestedScreenshot,"截图不可读取",Toast.LENGTH_LONG).show();return}
    CoroutineScope(SupervisorJob()+Dispatchers.IO).launch{
@@ -46,7 +50,7 @@ internal fun LifeScreenCaptureService.captureRequestedScreenshot(){
      if(app.sessions.active()?.accountId!=session.accountId)return@launch
      val bytes=ByteArrayOutputStream();check(bitmap.compress(Bitmap.CompressFormat.PNG,100,bytes));check(bytes.size()<=10_000_000){"截图超过大小限制"}
      val id="screenshot_${UUID.randomUUID().toString().replace("-","")}";val now=observedAt;val metadata=JSONObject().put("capability","life.capture_screenshot").put("input",JSONObject().put("title","截图 ${LocalDateTime.now()}").put("captured_at",now.toString()).put("time_zone",ZoneId.systemDefault().id))
-     if(sourcePackage!=null&&currentRoot?.packageName?.toString()==sourcePackage)metadata.getJSONObject("input").put("app_package",sourcePackage)
+     if(sourcePackage!=null)metadata.getJSONObject("input").put("app_package",sourcePackage)
      if(matchedText!=null)metadata.getJSONObject("input").put("text",matchedText)
      OrderCaptureSettings.apply(this@captureRequestedScreenshot,session.accountId,metadata.getJSONObject("input"))
      app.queue.enqueueAttachment(session,id,"cmd_$id","image/png",LocalDate.now().toString(),"截图收录",bytes.toByteArray().inputStream(),File(filesDir,"attachments/$id.enc"),metadata.toString());SyncScheduler.schedule(this@captureRequestedScreenshot,session.accountId)
@@ -55,5 +59,7 @@ internal fun LifeScreenCaptureService.captureRequestedScreenshot(){
    }
   }
   override fun onFailure(errorCode:Int){Toast.makeText(this@captureRequestedScreenshot,"系统未允许截图，请在页面稳定后重试；受保护页面无法截取",Toast.LENGTH_LONG).show()}
- })
+ }
+ if(Build.VERSION.SDK_INT>=34)takeScreenshotOfWindow(windowId,mainExecutor,callback)
+ else takeScreenshot(Display.DEFAULT_DISPLAY,mainExecutor,callback)
 }

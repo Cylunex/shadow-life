@@ -20,6 +20,7 @@ const extraTables: Record<string, {table: string; title: string; columns: string
   health_observation:{table:'health_observations',title:'metric_key',columns:'metric_key,value::text,unit,occurred_on,occurred_at,raw_id,raw_version,original_field',semantic:'fact',detail:'health.get_record',active:'effective'},
   health_sleep:{table:'health_sleep_sessions',title:'id',columns:'wake_date,total_minutes,deep_minutes,light_minutes,rem_minutes,raw_id,raw_version,started_at,ended_at',semantic:'fact',detail:'health.get_record',active:'effective'},
   health_activity:{table:'health_daily_activity',title:'id',columns:'occurred_on,steps,active_minutes,raw_id,raw_version',semantic:'fact',detail:'health.get_record',active:'effective'},
+  health_daily_summary:{table:'health_daily_summaries',title:'id',columns:'occurred_on,algorithm_version,source_set_hash,updated_at',semantic:'fact',detail:'health.daily',active:'true'},
   health_habit:{table:'health_habit_logs',title:'habit_key',columns:'occurred_on,habit_key,done_count,explicit_denial,raw_id,raw_version',semantic:'fact',detail:'health.get_record',active:'effective'},
   food: {table:'food_references',title:'name',columns:'name,serving_amount::text,serving_unit,nutrients,provenance',semantic:'plan',detail:'life.food_catalog',active:"state='active'"},
   place: {table:'places',title:'name',columns:'name,address,latitude::text,longitude::text,tags',semantic:'plan',detail:'travel.workspace',active:'true'},
@@ -35,7 +36,7 @@ function extraProjection(kind: string, definition: typeof extraTables[string], s
   });
   return sql`select ${kind} kind,n.id,${kind==='health_source'?sql`n.agent_revision`:sql`n.revision`} revision,${kind==='health_sleep'?sql`'睡眠'`:kind==='health_activity'?sql`'日常活动'`:sql`n.${sql.identifier(definition.title)}`} title,
     ${definition.semantic} semantic,jsonb_build_object(${sql.join(fields,sql`,`)}${kind==='source'?sql`, 'original_text_truncated',length(n.original_text)>16000`:sql``}${kind==='recipe'?sql`, 'ingredients',coalesce((select jsonb_agg(item.snapshot order by item.position) from recipe_items item where item.recipe_id=n.id),'[]'::jsonb)`:sql``}) data
-    from ${sql.identifier(definition.table)} n where n.subject_id=${subject} and ${sql.raw(definition.active==='true'?'true':'n.'+definition.active)}`;
+    from ${sql.identifier(definition.table)} n where n.subject_id=${subject} and ${kind==='health_daily_summary' ? sql`exists(select 1 from health_projection_invalidations p where p.subject_id=n.subject_id and p.occurred_on=n.occurred_on and p.algorithm_version=n.algorithm_version and p.projection_key='daily_health' and p.valid)` : sql.raw(definition.active==='true'?'true':'n.'+definition.active)}`;
 }
 export function createFoundationStore(database: Database): FoundationStore {
   const now = async () => String((await database.execute(sql`select ${timestamp('transaction_timestamp()')} as_of`)).rows[0].as_of);
@@ -68,7 +69,7 @@ export function createFoundationStore(database: Database): FoundationStore {
     const projected:Node[] = rows.map((row: any) => {
       const definition = extraTables[row.kind], capability = definition?.detail ?? (row.kind==='library_item'?'library.get_item':row.kind==='trip'?'travel.get_trip':row.kind.startsWith('health_')?'health.get_record':'life.get_record');
       const detailId = row.kind==='action_item'?row.data.project_id:row.kind==='reservation'?row.data.trip_id:row.data.record_id??row.id;
-      const input = capability==='agent.objects'?{object_refs:[{kind:row.kind,id:row.id,revision:row.revision}],depth:0}:capability==='life.meal_planning'?{limit:100}:capability==='life.food_catalog'?{query:row.title,limit:100}:capability==='travel.workspace'||capability==='health.sources'?{}:{id:detailId};
+      const input = capability==='health.daily'?{date:row.data.occurred_on}:capability==='agent.objects'?{object_refs:[{kind:row.kind,id:row.id,revision:row.revision}],depth:0}:capability==='life.meal_planning'?{limit:100}:capability==='life.food_catalog'?{query:row.title,limit:100}:capability==='travel.workspace'||capability==='health.sources'?{}:{id:detailId};
       return {ref:{kind:row.kind,id:row.id,revision:row.revision},title:row.title,semantic:row.semantic,data:row.data,detail:{capability,input}};
     });
     const safe:Node[]=[];
@@ -163,11 +164,25 @@ export function createFoundationStore(database: Database): FoundationStore {
       if(!subscription)throw notFound('Consumer is unavailable');
       const cursors=(await database.execute(sql`select cursor::text from agent_change_cursors where subject_id=${subject} and consumer=${input.consumer}`)).rows;
       const acknowledged=cursors[0]?.cursor??'0',after=input.after??acknowledged;
-      const changes=(await database.execute(sql`select sequence::text,event_type,refs,${timestamp('created_at')} occurred_at from agent_changes where subject_id=${subject} and sequence>${after}::bigint order by sequence limit 501`)).rows;
+      const kinds:FoundationRef['kind'][]|undefined=subscription.kinds?.length
+        ? subscription.kinds.filter((kind:FoundationRef['kind'])=>options.kinds.includes(kind)) : undefined;
+      const kindMatches=kinds?.map(kind=>sql`refs @> ${json([{kind}])}`)??[];
+      // Read the filtered rows and the watermark from one database snapshot.
+      // The commit-order fence ensures that a later commit cannot land behind it.
+      const page=kinds
+        ? (await database.execute(sql`
+            select upper.seq::text upper,change.sequence::text,change.event_type,change.refs,${timestamp('change.created_at')} occurred_at
+            from (select coalesce(max(sequence),0) seq from agent_changes where subject_id=${subject}) upper
+            left join lateral (select sequence,event_type,refs,created_at from agent_changes
+              where subject_id=${subject} and sequence>${after}::bigint and
+              (${kindMatches.length?sql.join(kindMatches,sql` or `):sql`false`}) order by sequence limit 501) change on true
+            order by change.sequence`)).rows
+        : (await database.execute(sql`select sequence::text,event_type,refs,${timestamp('created_at')} occurred_at from agent_changes where subject_id=${subject} and sequence>${after}::bigint order by sequence limit 501`)).rows;
+      const changes=page.filter((row:any)=>row.sequence!==null);
       let cursor=after;const items: any[]=[];
       for(const change of changes.slice(0,500)){
         if(items.length>=input.limit)break;cursor=change.sequence;
-        const permitted=change.refs.filter((ref:FoundationRef)=>options.kinds.includes(ref.kind)&&(subscription.scope==='global'||ref.kind.startsWith('agent_')||foundationKinds[subscription.scope]?.includes(ref.kind)));
+        const permitted=change.refs.filter((ref:FoundationRef)=>options.kinds.includes(ref.kind)&&(!subscription.kinds?.length||subscription.kinds.includes(ref.kind))&&(subscription.scope==='global'||ref.kind.startsWith('agent_')||foundationKinds[subscription.scope]?.includes(ref.kind)));
         if(!permitted.length)continue;
         const visible=await nodeRows(subject,options.kinds,permitted,true,options.scenario??(subscription.scope==='global'?undefined:subscription.scope));const refs=permitted.filter((ref:FoundationRef)=>visible.some(node=>node.ref.kind===ref.kind&&node.ref.id===ref.id&&node.ref.revision===ref.revision));
         const invalidated:FoundationRef[]=[];
@@ -180,7 +195,9 @@ export function createFoundationStore(database: Database): FoundationStore {
         const interested=subscription.object_refs??[];
         if((refs.length||invalidated.length)&&(!interested.length||[...refs,...invalidated].some((ref:FoundationRef)=>interested.some((watch:FoundationRef)=>watch.kind===ref.kind&&watch.id===ref.id))))items.push({sequence:change.sequence,type:change.event_type,refs,invalidated_refs:invalidated,occurred_at:change.occurred_at});
       }
-      return {items,cursor,acknowledged_cursor:acknowledged,has_more:changes.some((row:any)=>BigInt(row.sequence)>BigInt(cursor)),as_of:await now()};
+      const hasMore=changes.some((row:any)=>BigInt(row.sequence)>BigInt(cursor));
+      if(kinds&&!hasMore&&page[0]?.upper&&BigInt(page[0].upper)>BigInt(cursor))cursor=page[0].upper;
+      return {items,cursor,acknowledged_cursor:acknowledged,has_more:hasMore,as_of:await now()};
     }
     if(name==='agent.export'){
       const tables={intentions:'agent_intentions',tasks:'agent_tasks',learning:'agent_learning',subscriptions:'agent_subscriptions'};

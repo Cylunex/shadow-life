@@ -46,7 +46,7 @@ export interface TransactionStore {
   insertOperation(value: StoredOperation): Promise<void>;
   insertOutbox(value: { id: string; subjectId: string; eventType: string; aggregateId: string; payload: unknown }): Promise<void>;
   getOperationByExecutionId(subjectId: string, executionId: string): Promise<StoredOperation | undefined>;
-  listMeals(subjectId:string,options:{limit:number;includeMoney:boolean;asOf?:string;before?:{on:string;at:string;id:string}}):Promise<{items:readonly (MealView&{_page_at:string})[];hasMore:boolean;asOf:string}>;
+  listMeals(subjectId:string,options:{limit:number;includeMoney:boolean;occurredOn?:string;asOf?:string;before?:{on:string;at:string;id:string}}):Promise<{items:readonly (MealView&{_page_at:string})[];hasMore:boolean;asOf:string}>;
   foodCatalog(subjectId:string,query:string|undefined,limit:number):Promise<unknown>;
   summarizeMoney(subjectId: string): Promise<MoneySummary>;
   executeDomainWrite(value: { subjectId: string; command: UniversalCommandEnvelope; context?: RequestContext; nextId(type: string): string }): Promise<{ resources: ExecutionResult["resources"]; actualValues: ExecutionResult["actual_values"]; warnings?: string[] }>;
@@ -81,6 +81,7 @@ export interface TransactionStore {
   tripConnections(subjectId:string, tripId:string):Promise<unknown>;
   exerciseHistory(subjectId:string, input:import("@shadow/contracts").ExerciseHistoryInput):Promise<unknown>;
   workoutProgressionPlans(subjectId:string,planId?:string):Promise<import("./workout-progression.js").WorkoutProgressionPlan[]>;
+  healthTrendBatch(subjectId:string,input:{metric_keys:string[];from?:string|undefined;to?:string|undefined;limit:number}):Promise<unknown>;
   healthTrend(subjectId:string,input:{metric_key:string;from?:string|undefined;to?:string|undefined;limit:number}):Promise<unknown>;
   healthSources(subjectId:string):Promise<unknown>;
   lifeToday(subjectId:string,date:string,timeZone:string,domains:readonly LifeOverviewDomain[]):Promise<unknown>;

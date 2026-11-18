@@ -115,7 +115,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   });
   app.get("/api/operations/by-command/:commandId",async context=>context.json(await dependencies.executor.findOperationByCommand(context.get("requestContext"),findOperationInputSchema.parse({command_id:context.req.param("commandId")}).command_id)));
   app.get("/api/operations/:executionId", async (context) => context.json(await dependencies.executor.getOperation(context.get("requestContext"), context.req.param("executionId"))));
-  app.get("/api/meals",async context=>context.json(await dependencies.queries.listMeals(context.get("requestContext"),{limit:Number(context.req.query("limit")??"20"),...(context.req.query("cursor")?{cursor:context.req.query("cursor")}:{})})));
+  app.get("/api/meals",async context=>context.json(await dependencies.queries.listMeals(context.get("requestContext"),{...(context.req.query("occurred_on")?{occurred_on:context.req.query("occurred_on")} : {}),limit:Number(context.req.query("limit")??"20"),...(context.req.query("cursor")?{cursor:context.req.query("cursor")}:{})})));
   app.get("/api/life/foods",async context=>context.json(await dependencies.queries.foodCatalog(context.get("requestContext"),{...(context.req.query("q")?{query:context.req.query("q")} :{}),limit:Number(context.req.query("limit")??"50")})));
   app.get("/api/today",async context=>{const domains=context.req.query("domains")?.split(",").filter(Boolean);return context.json(await dependencies.queries.lifeToday(context.get("requestContext"),lifeTodayInputSchema.parse({date:context.req.query("date")??new Date().toISOString().slice(0,10),time_zone:context.req.query("time_zone")??"UTC",...(domains?.length?{domains}:{})})));});
   app.post("/api/life/daily-record-check",async context=>context.json(await dependencies.queries.dailyRecordCheck(context.get("requestContext"),dailyRecordCheckInputSchema.parse(await context.req.json()))));
@@ -151,6 +151,9 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.get("/api/health/exercise-history", async context =>
     context.json(await dependencies.queries.exerciseHistory(context.get("requestContext"), context.req.query())));
   app.get("/api/health/workout-progression",async context=>context.json(await dependencies.queries.workoutProgression(context.get("requestContext"),workoutProgressionInputSchema.parse({...(context.req.query("plan_id")?{plan_id:context.req.query("plan_id")}: {})}))));
+  app.get("/api/health/trends",async context=>context.json(await dependencies.queries.healthTrendBatch(context.get("requestContext"),{
+    metric_keys:context.req.queries("metric_key")??[],from:context.req.query("from"),to:context.req.query("to"),limit:Number(context.req.query("limit")??"100"),
+  })));
   app.get("/api/health/trend",async context=>context.json(await dependencies.queries.healthTrend(context.get("requestContext"),healthTrendInputSchema.parse({...(context.req.query("original_field")?{original_field:context.req.query("original_field")}:{}),metric_key:context.req.query("metric_key"),...(context.req.query("from")?{from:context.req.query("from")} :{}),...(context.req.query("to")?{to:context.req.query("to")} :{}),limit:Number(context.req.query("limit")??"100")}))));
   app.get("/api/health/sources",async context=>context.json(await dependencies.queries.healthSources(context.get("requestContext"))));
   app.get("/api/life/records/:id",async context=>{const sections=context.req.query("sections")?.split(",").filter(Boolean);const input=lifeRecordInputSchema.parse({id:context.req.param("id"),...(sections?.length?{sections}:{})});return context.json(await dependencies.queries.lifeRecord(context.get("requestContext"),input.id,input.sections));});

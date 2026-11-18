@@ -151,7 +151,12 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
       val end=LocalDate.now()
       val start=end.minusDays((days-1).toLong())
       val healthConnectPermissions=if(HealthConnectSync.available(applicationContext))HealthConnectClient.getOrCreate(applicationContext).permissionController.getGrantedPermissions() else emptySet()
-      val read=readCommands(store,session,start,end,now,granted,healthConnectPermissions){command->app.queue.enqueueCommand(session,command.commandId,command.capability,command.body)}
+      // Aggregates represent the latest read of a day. Persist the fence before
+      // enqueue so a partial read or clock correction cannot reuse a version.
+      val versionKey="aggregate_version_$accountId"
+      val readVersion=maxOf(now,prefs.getLong(versionKey,last)+1)
+      check(prefs.edit().putLong(versionKey,readVersion).commit()){"无法保存同步版本"}
+      val read=readCommands(store,session,start,end,readVersion,granted,healthConnectPermissions){command->app.queue.enqueueCommand(session,command.commandId,command.capability,command.body)}
       if(read.commandCount>0)SyncScheduler.schedule(applicationContext,accountId)
       val missing=SamsungSync.PERMISSIONS.size-granted.size
       if(read.failedTypes.isEmpty())prefs.edit().putLong("last_sync_$accountId",now).putString("permission_fingerprint_$accountId",permissionFingerprint).apply()
@@ -187,7 +192,6 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
       if(enqueue(command)>=0)commandCount++
     }
     fun pointVersion(point:HealthDataPoint)=(point.updateTime?:point.endTime?:point.startTime)?.toEpochMilli()?:version
-    fun dailyVersion(day:LocalDate)=if(day==end)version else day.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
     fun permitted(type:DataType)=Permission.of(type,AccessType.READ) in samsungPermissions
     suspend fun attempt(type:DataType,block:suspend()->Unit){
       if(!permitted(type))return
@@ -213,7 +217,7 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
     }
     suspend fun archiveAggregates(type:DataType,operation:String,points:List<AggregatedData<*>>){points.forEach{point->
       val day=point.getStartLocalDateTime().toLocalDate()
-      add("archive","samsung-aggregate-${typeKey(type)}-$operation-$day",samsungAggregatePayload(type,operation,point.startTime?.toString(),point.endTime?.toString(),point.value),dailyVersion(day))
+      add("archive","samsung-aggregate-${typeKey(type)}-$operation-$day",samsungAggregatePayload(type,operation,point.startTime?.toString(),point.endTime?.toString(),point.value))
     }}
 
     val activity=mutableMapOf<LocalDate,JSONObject>()
@@ -236,14 +240,14 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
       activeTime.forEach{point->point.value?.toMinutes()?.takeIf{it>0}?.let{minutes->val payload=activityPayload(point.getStartLocalDateTime().toLocalDate());payload.put("active_minutes",minutes);payload.getJSONObject("field_sources").put("active_minutes","samsung_data_sdk")}}
       activeCalories.forEach{point->point.value?.takeIf{it>0}?.let{calories->val payload=activityPayload(point.getStartLocalDateTime().toLocalDate());payload.put("device_calories_kcal",decimal(calories.toDouble()));payload.getJSONObject("field_sources").put("device_calories_kcal","samsung_data_sdk")}}
     }
-    for((day,payload) in activity.toSortedMap())add("daily_activity","samsung-activity-$day",payload,dailyVersion(day))
+    for((day,payload) in activity.toSortedMap())add("daily_activity","samsung-activity-$day",payload)
 
     attempt(DataTypes.HEART_RATE){
       forEachDual(store,DataTypes.HEART_RATE,timeFilter){archive(DataTypes.HEART_RATE,it)}
       val daily=LocalDateGroup.of(LocalDateGroupUnit.DAILY,1)
       val mins=store.aggregateData(DataType.HeartRateType.MIN.requestBuilder.setLocalDateFilterWithGroup(dateFilter,daily).build()).dataList.associate{it.getStartLocalDateTime().toLocalDate() to it.value}
       val maxes=store.aggregateData(DataType.HeartRateType.MAX.requestBuilder.setLocalDateFilterWithGroup(dateFilter,daily).build()).dataList.associate{it.getStartLocalDateTime().toLocalDate() to it.value}
-      (mins.keys+maxes.keys).forEach{day->val observations=JSONArray();mins[day]?.let{observations.put(observation("heart_rate",decimal(it.toDouble()),"bpm","samsung:daily_min"))};maxes[day]?.let{observations.put(observation("heart_rate",decimal(it.toDouble()),"bpm","samsung:daily_max"))};if(observations.length()>0)add("body","samsung-heart-$day",bodyPayload(day,null,zone,observations),dailyVersion(day))}
+      (mins.keys+maxes.keys).forEach{day->val observations=JSONArray();mins[day]?.let{observations.put(observation("heart_rate",decimal(it.toDouble()),"bpm","samsung:daily_min"))};maxes[day]?.let{observations.put(observation("heart_rate",decimal(it.toDouble()),"bpm","samsung:daily_max"))};if(observations.length()>0)add("body","samsung-heart-$day",bodyPayload(day,null,zone,observations))}
     }
 
     attempt(DataTypes.SLEEP){forEachDual(store,DataTypes.SLEEP,timeFilter){point->

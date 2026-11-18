@@ -38,7 +38,7 @@ import { tripConnectionsInputSchema, tripConnectionsResultSchema } from "@shadow
 import { morningWindowInputSchema, morningWindowResultSchema } from "@shadow/contracts";
 import { exerciseHistoryInputSchema, exerciseHistoryResultSchema } from "@shadow/contracts";
 import { workoutProgressionInputSchema, workoutProgressionResultSchema } from "@shadow/contracts";
-import { healthReleaseHistoryInputSchema, healthReleaseHistoryResultSchema, consumptionStatsInputSchema, dailyRecordCheckInputSchema, domainRecordsResultSchema, foodCatalogInputSchema, foodCatalogResultSchema, healthDailyResultSchema, healthRecordResultSchema, healthSourcesResultSchema, healthTrendResultSchema, lifeRecordResultSchema, lifeSearchInputSchema, lifeSearchResultSchema, lifeTimelineInputSchema, lifeTimelineResultSchema, lifeTodayInputSchema, lifeTodayResultSchema, listMealsInputSchema, listMealsResultSchema, moneyImportReviewResultSchema, moneySummarySchema, travelExportInputSchema, travelExportResultSchema, travelTripResultSchema, travelWorkspaceInputSchema, travelWorkspaceResultSchema, type DomainRecordSummary, type LifeOverviewDomain, type MoneySummary } from "@shadow/contracts";
+import { healthReleaseHistoryInputSchema, healthReleaseHistoryResultSchema, consumptionStatsInputSchema, dailyRecordCheckInputSchema, domainRecordsResultSchema, foodCatalogInputSchema, foodCatalogResultSchema, healthDailyResultSchema, healthRecordResultSchema, healthSourcesResultSchema, healthTrendResultSchema,healthTrendBatchInputSchema,healthTrendBatchResultSchema, lifeRecordResultSchema, lifeSearchInputSchema, lifeSearchResultSchema, lifeTimelineInputSchema, lifeTimelineResultSchema, lifeTodayInputSchema, lifeTodayResultSchema, listMealsInputSchema, listMealsResultSchema, moneyImportReviewResultSchema, moneySummarySchema, travelExportInputSchema, travelExportResultSchema, travelTripResultSchema, travelWorkspaceInputSchema, travelWorkspaceResultSchema, type DomainRecordSummary, type LifeOverviewDomain, type MoneySummary } from "@shadow/contracts";
 import { previewTravelPortableInputSchema, previewTravelPortableResultSchema, travelBundleSchema } from "@shadow/contracts";
 import { healthSleepInsightsInputSchema, healthSleepInsightsResultSchema } from "@shadow/contracts";
 import { buildSleepInsights } from "./sleep-insights.js";
@@ -62,7 +62,7 @@ type LifeRecordSection="meal"|"purchase"|"money"|"sources";
 type TimelineCursor={domains:string;at:string;domain:string;kind:string;id:string;as_of:string};
 type SearchCursor={signature:string;on:string;domain:LifeOverviewDomain;kind:string;id:string;as_of:string};
 type NotificationCursor={at:string;id:string;as_of:string};
-type MealCursor={on:string;at:string;id:string;as_of:string};
+type MealCursor={on:string;at:string;id:string;as_of:string;occurred_on?:string};
 const overviewEffects:Record<LifeOverviewDomain,string>={meals:"life.meal.read",money:"money.entry.read",health:"health.measurement.read",travel:"travel.trip.read",library:"library.item.read"};
 function objectEffect(kind:string):string{return kind==="meal"||kind==="purchase"?"life.meal.read":kind==="money_entry"?"money.entry.read":kind==="health_measurement"||kind==="health_workout"?"health.measurement.read":kind==="trip"?"travel.trip.read":"library.item.read";}
 function lifeRecordWire(raw:unknown):unknown{
@@ -161,8 +161,8 @@ export class QueryService {
   validateAgentTool(context: RequestContext, input: unknown) { return validateAgentTool(context, input); }
   async listMeals(context:RequestContext,input:unknown={}){
     if(!context.effects.has("life.meal.read"))throw permissionDenied("life.meal.read");const parsed=listMealsInputSchema.safeParse(input);if(!parsed.success)throw invalidInput("meal list query is invalid",parsed.error.issues.map(issue=>issue.path.join(".")));let before:MealCursor|undefined;
-    if(parsed.data.cursor){try{before=JSON.parse(Buffer.from(parsed.data.cursor,"base64url").toString("utf8")) as MealCursor;}catch{throw invalidInput("meal cursor is invalid",["cursor"]);}if(!before.on||!before.at||!before.id||!before.as_of)throw invalidInput("meal cursor is invalid",["cursor"]);}
-    const page=await this.unitOfWork.read(store=>store.listMeals(context.subjectId,{limit:parsed.data.limit,includeMoney:context.effects.has("money.entry.read"),...(before?{asOf:before.as_of,before:{on:before.on,at:before.at,id:before.id}}:{})})),last=page.items.at(-1),next=page.hasMore&&last?Buffer.from(JSON.stringify({on:last.occurred_on,at:last._page_at,id:last.id,as_of:page.asOf} satisfies MealCursor)).toString("base64url"):null,items=page.items.map(({_page_at,...item})=>item);
+    if(parsed.data.cursor){try{before=JSON.parse(Buffer.from(parsed.data.cursor,"base64url").toString("utf8")) as MealCursor;}catch{throw invalidInput("meal cursor is invalid",["cursor"]);}if(!before.on||!before.at||!before.id||!before.as_of||before.occurred_on!==parsed.data.occurred_on)throw invalidInput("meal cursor is invalid",["cursor"]);}
+    const page=await this.unitOfWork.read(store=>store.listMeals(context.subjectId,{limit:parsed.data.limit,includeMoney:context.effects.has("money.entry.read"),...(parsed.data.occurred_on?{occurredOn:parsed.data.occurred_on}:{}),...(before?{asOf:before.as_of,before:{on:before.on,at:before.at,id:before.id}}:{})})),last=page.items.at(-1),next=page.hasMore&&last?Buffer.from(JSON.stringify({on:last.occurred_on,at:last._page_at,id:last.id,as_of:page.asOf,...(parsed.data.occurred_on?{occurred_on:parsed.data.occurred_on}:{})} satisfies MealCursor)).toString("base64url"):null,items=page.items.map(({_page_at,...item})=>item);
     return listMealsResultSchema.parse({items,next_cursor:next,as_of:page.asOf});
   }
   async foodCatalog(context:RequestContext,input:unknown){if(!context.effects.has("life.meal.read"))throw permissionDenied("life.meal.read");const parsed=foodCatalogInputSchema.safeParse(input);if(!parsed.success)throw invalidInput("food catalog query is invalid",parsed.error.issues.map(issue=>issue.path.join(".")));return foodCatalogResultSchema.parse(await this.unitOfWork.read(store=>store.foodCatalog(context.subjectId,parsed.data.query,parsed.data.limit)));}
@@ -291,6 +291,12 @@ export class QueryService {
     return exerciseHistoryResultSchema.parse(result);
   }
   async workoutProgression(context:RequestContext,input:unknown){if(!context.effects.has("health.measurement.read"))throw permissionDenied("health.measurement.read");const parsed=workoutProgressionInputSchema.parse(input);return workoutProgressionResultSchema.parse(buildWorkoutProgression(await this.unitOfWork.read(store=>store.workoutProgressionPlans(context.subjectId,parsed.plan_id))));}
+  async healthTrendBatch(context:RequestContext,input:unknown){
+    if(!context.effects.has("health.measurement.read"))throw permissionDenied("health.measurement.read");
+    const parsed=healthTrendBatchInputSchema.safeParse(input);
+    if(!parsed.success)throw invalidInput("health trend batch is invalid",parsed.error.issues.map(issue=>issue.path.join(".")));
+    return healthTrendBatchResultSchema.parse(await this.unitOfWork.read(store=>store.healthTrendBatch(context.subjectId,parsed.data)));
+  }
   async healthTrend(context:RequestContext,input:{metric_key:string;from?:string|undefined;to?:string|undefined;limit:number}){if(!context.effects.has("health.measurement.read"))throw permissionDenied("health.measurement.read");return healthTrendResultSchema.parse(await this.unitOfWork.read(store=>store.healthTrend(context.subjectId,input)));}
   async healthSources(context:RequestContext){if(!context.effects.has("health.measurement.read"))throw permissionDenied("health.measurement.read");return healthSourcesResultSchema.parse(await this.unitOfWork.read(store=>store.healthSources(context.subjectId)));}
   async lifeToday(context:RequestContext,input:unknown){const parsed=lifeTodayInputSchema.safeParse(input);if(!parsed.success)throw invalidInput("today query is invalid",parsed.error.issues.map(issue=>issue.path.join(".")));const domains=this.overviewDomains(context,parsed.data.domains);return lifeTodayResultSchema.parse(await this.unitOfWork.read(store=>store.lifeToday(context.subjectId,parsed.data.date,parsed.data.time_zone,domains)));}
