@@ -5,6 +5,8 @@
 当前期及紧邻的等长前期由 Kernel 使用日历日期计算，最多读取 180 天，返回当前期最多 90 行。
 没有新建事实表、异步投影、模型调用或外部连接器。
 
+2026-11-19 的[食堂午餐与早晚称重设计](canteen-and-weight-review.md)在这个只读查询之上规划午餐建议与同条件称重对照。以下继续描述已实现的 v1 口径。
+
 ## 共同路径
 
 合同在 `shared/contracts/src/wellness-schemas.ts`；QueryService 校验权限和输入，调用一个
