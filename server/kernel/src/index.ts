@@ -42,4 +42,4 @@ export * from "./takeout-order.js";
 export * from "./trip-connections.js";
 export * from "./amount-evidence.js";
 
-export type { DietEvidence } from "./diet-review.js";
+export type { DietEvidence, MealDietEvidence } from "./diet-review.js";

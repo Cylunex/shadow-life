@@ -51,6 +51,8 @@ export const intakeItemInputSchema = z.object({
   carb_g: canonicalDecimal.optional(),
   fiber_g: canonicalDecimal.optional(),
   sodium_mg: canonicalDecimal.optional(),
+  calcium_mg: canonicalDecimal.optional(),
+  iron_mg: canonicalDecimal.optional(),
   consumed_fraction: consumedFraction.optional().describe("Fraction actually consumed of the supplied quantity and nutrient values; defaults to 1 for aggregation. Do not scale nutrients twice."),
   provenance: z.enum(["manual","estimated","reference_snapshot","legacy"]).optional(),
   grouping_origin: z.enum(["actual_meal","legacy_meal_bucket"]).optional(),
@@ -436,14 +438,30 @@ const stallPriceSchema=z.object({
     z.object({mode:z.literal("per_portion"),price_cny:cnyAmount,staple_fee_cny:cnyAmount.or(z.literal("0.00"))}).strict()
   ]),evidence_note:z.string().trim().min(1).max(500)
 }).strict().refine(v=>!v.valid_to_exclusive||v.valid_from<v.valid_to_exclusive,{message:"Invalid price validity interval"});
-export const rememberMerchantDishSchema=z.object({merchant:menuLabel.optional(),dish:menuLabel,stall_price:stallPriceSchema.optional(),evidence:z.discriminatedUnion("kind",[
+export const dietFoodGroups = ["vegetables","fruit","dairy","soy","whole_grains"] as const;
+export const merchantDishProfileSchema=z.object({
+  aliases:z.array(menuLabel).max(16).default([]), cooking:menuLabel.optional(),
+  groups:z.array(z.enum(dietFoodGroups)).max(dietFoodGroups.length).optional(), staple:z.boolean().optional(),
+  portion:z.object({
+    quantity:positiveDecimal,unit:z.string().trim().min(1).max(32),grams:positiveDecimal.optional(),
+    estimated:z.boolean().default(false),basis:z.string().trim().min(1).max(500),
+    nutrients:z.object({energy_kcal:canonicalDecimal.optional(),protein_g:canonicalDecimal.optional(),fat_g:canonicalDecimal.optional(),
+      carb_g:canonicalDecimal.optional(),fiber_g:canonicalDecimal.optional(),sodium_mg:canonicalDecimal.optional(),
+      calcium_mg:canonicalDecimal.optional(),iron_mg:canonicalDecimal.optional()}).strict().optional()
+  }).strict().optional()
+}).strict().superRefine((profile,context)=>{
+  if(new Set(profile.aliases.map(label=>label.toLowerCase())).size!==profile.aliases.length)context.addIssue({code:"custom",path:["aliases"],message:"Aliases must be distinct"});
+  if(profile.groups && new Set(profile.groups).size!==profile.groups.length)context.addIssue({code:"custom",path:["groups"],message:"Groups must be distinct"});
+});
+export const merchantDishProfileSnapshotSchema=merchantDishProfileSchema.safeExtend({stall:menuLabel.nullable()});
+export const rememberMerchantDishSchema=z.object({merchant:menuLabel.optional(),dish:menuLabel,stall:menuLabel.optional(),food_id:stableId.optional(),expected_revision:z.number().int().positive().optional(),profile:merchantDishProfileSchema.optional(),stall_price:stallPriceSchema.optional(),evidence:z.discriminatedUnion("kind",[
   z.object({kind:z.literal("meal_intake"),meal_id:stableId,intake_id:stableId,note:z.string().trim().min(1).max(500).optional()}).strict(),
   z.object({kind:z.literal("menu_photo"),library_item_id:stableId,note:z.string().trim().min(1).max(500).optional()}).strict(),
   z.object({kind:z.literal("note"),note:z.string().trim().min(1).max(500)}).strict()
-])}).strict();
-export const merchantMenuInputSchema=z.object({on:localDate.optional(),merchant:menuLabel.optional(),query:z.string().trim().min(1).max(160).optional(),after:stableId.optional(),limit:z.coerce.number().int().min(1).max(100).default(40)}).strict();
+])}).strict().refine(value=>!!value.food_id===!!value.expected_revision,"A food revision is required for a targeted update");
+export const merchantMenuInputSchema=z.object({on:localDate.optional(),merchant:menuLabel.optional(),query:z.string().trim().min(1).max(160).optional(),with_profiles:z.enum(["1"]).optional(),after:stableId.optional(),limit:z.coerce.number().int().min(1).max(100).default(40)}).strict();
 export const merchantMenuResultSchema=z.object({stall_prices:z.array(stallPriceSchema).optional(),merchant:z.string(),items:z.array(z.object({id:stableId,dish:z.string(),name:z.string(),revision:z.number().int(),
-  serving_amount:z.string().nullable(),serving_unit:z.string().nullable(),nutrients:z.record(z.string(),z.unknown()),provenance:z.string().nullable(),
+  serving_amount:z.string().nullable(),serving_unit:z.string().nullable(),nutrients:z.record(z.string(),z.unknown()),provenance:z.string().nullable(),profile:merchantDishProfileSnapshotSchema.nullable().optional(),
   evidence:z.array(z.object({kind:z.enum(["note","meal_intake","menu_photo"]),meal_id:stableId.nullable(),intake_id:stableId.nullable(),library_item_id:stableId.nullable(),note:z.string().nullable()}))})),next:stableId.nullable()});
 
 export const saveReturnCaseSchema=z.object({

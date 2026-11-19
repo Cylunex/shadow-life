@@ -1491,6 +1491,835 @@ data class MoneyPlanningResultDto(
 )
 
 @Serializable
+@JsonClassDiscriminator("mode")
+sealed interface MerchantMenuResultDtoStallPricesEntryTerms
+
+@Serializable
+@SerialName("by_weight")
+data class MerchantMenuResultDtoStallPricesEntryTermsByWeight(
+  @SerialName("price_cny") val priceCny: String,
+  @SerialName("per_grams") val perGrams: String,
+  @SerialName("staple_fee_cny") val stapleFeeCny: JsonElement
+): MerchantMenuResultDtoStallPricesEntryTerms
+
+@Serializable
+@SerialName("per_portion")
+data class MerchantMenuResultDtoStallPricesEntryTermsPerPortion(
+  @SerialName("price_cny") val priceCny: String,
+  @SerialName("staple_fee_cny") val stapleFeeCny: JsonElement
+): MerchantMenuResultDtoStallPricesEntryTerms
+
+@Serializable
+data class MerchantMenuResultDtoStallPricesEntry(
+  @SerialName("stall") val stall: String,
+  @SerialName("price_name") val priceName: String,
+  @SerialName("valid_from") val validFrom: String,
+  @SerialName("valid_to_exclusive") val validToExclusive: String? = null,
+  @SerialName("terms") val terms: MerchantMenuResultDtoStallPricesEntryTerms,
+  @SerialName("evidence_note") val evidenceNote: String
+)
+
+@Serializable
+enum class MerchantMenuResultDtoItemsEntryProfileGroupsEntry(val wireValue: String) {
+  @SerialName("vegetables") Vegetables("vegetables"),
+  @SerialName("fruit") Fruit("fruit"),
+  @SerialName("dairy") Dairy("dairy"),
+  @SerialName("soy") Soy("soy"),
+  @SerialName("whole_grains") WholeGrains("whole_grains")
+}
+
+@Serializable
+data class MerchantMenuResultDtoItemsEntryProfilePortionNutrients(
+  @SerialName("energy_kcal") val energyKcal: String? = null,
+  @SerialName("protein_g") val proteinG: String? = null,
+  @SerialName("fat_g") val fatG: String? = null,
+  @SerialName("carb_g") val carbG: String? = null,
+  @SerialName("fiber_g") val fiberG: String? = null,
+  @SerialName("sodium_mg") val sodiumMg: String? = null,
+  @SerialName("calcium_mg") val calciumMg: String? = null,
+  @SerialName("iron_mg") val ironMg: String? = null
+)
+
+@Serializable
+data class MerchantMenuResultDtoItemsEntryProfilePortion(
+  @SerialName("quantity") val quantity: String,
+  @SerialName("unit") val unit: String,
+  @SerialName("grams") val grams: String? = null,
+  @SerialName("estimated") val estimated: Boolean,
+  @SerialName("basis") val basis: String,
+  @SerialName("nutrients") val nutrients: MerchantMenuResultDtoItemsEntryProfilePortionNutrients? = null
+)
+
+@Serializable
+data class MerchantMenuResultDtoItemsEntryProfile(
+  @SerialName("aliases") val aliases: List<String>,
+  @SerialName("cooking") val cooking: String? = null,
+  @SerialName("groups") val groups: List<MerchantMenuResultDtoItemsEntryProfileGroupsEntry>? = null,
+  @SerialName("staple") val staple: Boolean? = null,
+  @SerialName("portion") val portion: MerchantMenuResultDtoItemsEntryProfilePortion? = null,
+  @SerialName("stall") val stall: String?
+)
+
+@Serializable
+enum class MerchantMenuResultDtoItemsEntryEvidenceEntryKind(val wireValue: String) {
+  @SerialName("note") Note("note"),
+  @SerialName("meal_intake") MealIntake("meal_intake"),
+  @SerialName("menu_photo") MenuPhoto("menu_photo")
+}
+
+@Serializable
+data class MerchantMenuResultDtoItemsEntryEvidenceEntry(
+  @SerialName("kind") val kind: MerchantMenuResultDtoItemsEntryEvidenceEntryKind,
+  @SerialName("meal_id") val mealId: String?,
+  @SerialName("intake_id") val intakeId: String?,
+  @SerialName("library_item_id") val libraryItemId: String?,
+  @SerialName("note") val note: String?
+)
+
+@Serializable
+data class MerchantMenuResultDtoItemsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("dish") val dish: String,
+  @SerialName("name") val name: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("serving_amount") val servingAmount: String?,
+  @SerialName("serving_unit") val servingUnit: String?,
+  @SerialName("nutrients") val nutrients: JsonObject,
+  @SerialName("provenance") val provenance: String?,
+  @SerialName("profile") val profile: MerchantMenuResultDtoItemsEntryProfile? = null,
+  @SerialName("evidence") val evidence: List<MerchantMenuResultDtoItemsEntryEvidenceEntry>
+)
+
+@Serializable
+data class MerchantMenuResultDto(
+  @SerialName("stall_prices") val stallPrices: List<MerchantMenuResultDtoStallPricesEntry>? = null,
+  @SerialName("merchant") val merchant: String,
+  @SerialName("items") val items: List<MerchantMenuResultDtoItemsEntry>,
+  @SerialName("next") val next: String?
+)
+
+@Serializable
+data class DietReviewResultDtoWellnessCurrentNutrientsEnergyKcal(
+  @SerialName("known_total") val knownTotal: String?,
+  @SerialName("known_items") val knownItems: Long,
+  @SerialName("estimated_items") val estimatedItems: Long,
+  @SerialName("complete_days") val completeDays: Long,
+  @SerialName("average_on_complete_days") val averageOnCompleteDays: String?
+)
+
+@Serializable
+data class DietReviewResultDtoWellnessCurrentNutrientsProteinG(
+  @SerialName("known_total") val knownTotal: String?,
+  @SerialName("known_items") val knownItems: Long,
+  @SerialName("estimated_items") val estimatedItems: Long,
+  @SerialName("complete_days") val completeDays: Long,
+  @SerialName("average_on_complete_days") val averageOnCompleteDays: String?
+)
+
+@Serializable
+data class DietReviewResultDtoWellnessCurrentNutrientsFatG(
+  @SerialName("known_total") val knownTotal: String?,
+  @SerialName("known_items") val knownItems: Long,
+  @SerialName("estimated_items") val estimatedItems: Long,
+  @SerialName("complete_days") val completeDays: Long,
+  @SerialName("average_on_complete_days") val averageOnCompleteDays: String?
+)
+
+@Serializable
+data class DietReviewResultDtoWellnessCurrentNutrientsCarbG(
+  @SerialName("known_total") val knownTotal: String?,
+  @SerialName("known_items") val knownItems: Long,
+  @SerialName("estimated_items") val estimatedItems: Long,
+  @SerialName("complete_days") val completeDays: Long,
+  @SerialName("average_on_complete_days") val averageOnCompleteDays: String?
+)
+
+@Serializable
+data class DietReviewResultDtoWellnessCurrentNutrientsFiberG(
+  @SerialName("known_total") val knownTotal: String?,
+  @SerialName("known_items") val knownItems: Long,
+  @SerialName("estimated_items") val estimatedItems: Long,
+  @SerialName("complete_days") val completeDays: Long,
+  @SerialName("average_on_complete_days") val averageOnCompleteDays: String?
+)
+
+@Serializable
+data class DietReviewResultDtoWellnessCurrentNutrientsSodiumMg(
+  @SerialName("known_total") val knownTotal: String?,
+  @SerialName("known_items") val knownItems: Long,
+  @SerialName("estimated_items") val estimatedItems: Long,
+  @SerialName("complete_days") val completeDays: Long,
+  @SerialName("average_on_complete_days") val averageOnCompleteDays: String?
+)
+
+@Serializable
+data class DietReviewResultDtoWellnessCurrentNutrients(
+  @SerialName("energy_kcal") val energyKcal: DietReviewResultDtoWellnessCurrentNutrientsEnergyKcal,
+  @SerialName("protein_g") val proteinG: DietReviewResultDtoWellnessCurrentNutrientsProteinG,
+  @SerialName("fat_g") val fatG: DietReviewResultDtoWellnessCurrentNutrientsFatG,
+  @SerialName("carb_g") val carbG: DietReviewResultDtoWellnessCurrentNutrientsCarbG,
+  @SerialName("fiber_g") val fiberG: DietReviewResultDtoWellnessCurrentNutrientsFiberG,
+  @SerialName("sodium_mg") val sodiumMg: DietReviewResultDtoWellnessCurrentNutrientsSodiumMg
+)
+
+@Serializable
+data class DietReviewResultDtoWellnessCurrent(
+  @SerialName("from") val from: String,
+  @SerialName("to") val to: String,
+  @SerialName("days") val days: Long,
+  @SerialName("meal_days") val mealDays: Long,
+  @SerialName("meals") val meals: Long,
+  @SerialName("items") val items: Long,
+  @SerialName("nutrients") val nutrients: DietReviewResultDtoWellnessCurrentNutrients,
+  @SerialName("sleep_days") val sleepDays: Long,
+  @SerialName("average_sleep_minutes") val averageSleepMinutes: Long?,
+  @SerialName("weight_days") val weightDays: Long,
+  @SerialName("average_weight_kg") val averageWeightKg: String?,
+  @SerialName("workout_days") val workoutDays: Long,
+  @SerialName("workout_sessions") val workoutSessions: Long,
+  @SerialName("known_workout_duration_sessions") val knownWorkoutDurationSessions: Long,
+  @SerialName("workout_minutes") val workoutMinutes: Long?,
+  @SerialName("paired_energy_weight_days") val pairedEnergyWeightDays: Long,
+  @SerialName("paired_energy_sleep_days") val pairedEnergySleepDays: Long
+)
+
+@Serializable
+data class DietReviewResultDtoWellnessPreviousNutrientsEnergyKcal(
+  @SerialName("known_total") val knownTotal: String?,
+  @SerialName("known_items") val knownItems: Long,
+  @SerialName("estimated_items") val estimatedItems: Long,
+  @SerialName("complete_days") val completeDays: Long,
+  @SerialName("average_on_complete_days") val averageOnCompleteDays: String?
+)
+
+@Serializable
+data class DietReviewResultDtoWellnessPreviousNutrientsProteinG(
+  @SerialName("known_total") val knownTotal: String?,
+  @SerialName("known_items") val knownItems: Long,
+  @SerialName("estimated_items") val estimatedItems: Long,
+  @SerialName("complete_days") val completeDays: Long,
+  @SerialName("average_on_complete_days") val averageOnCompleteDays: String?
+)
+
+@Serializable
+data class DietReviewResultDtoWellnessPreviousNutrientsFatG(
+  @SerialName("known_total") val knownTotal: String?,
+  @SerialName("known_items") val knownItems: Long,
+  @SerialName("estimated_items") val estimatedItems: Long,
+  @SerialName("complete_days") val completeDays: Long,
+  @SerialName("average_on_complete_days") val averageOnCompleteDays: String?
+)
+
+@Serializable
+data class DietReviewResultDtoWellnessPreviousNutrientsCarbG(
+  @SerialName("known_total") val knownTotal: String?,
+  @SerialName("known_items") val knownItems: Long,
+  @SerialName("estimated_items") val estimatedItems: Long,
+  @SerialName("complete_days") val completeDays: Long,
+  @SerialName("average_on_complete_days") val averageOnCompleteDays: String?
+)
+
+@Serializable
+data class DietReviewResultDtoWellnessPreviousNutrientsFiberG(
+  @SerialName("known_total") val knownTotal: String?,
+  @SerialName("known_items") val knownItems: Long,
+  @SerialName("estimated_items") val estimatedItems: Long,
+  @SerialName("complete_days") val completeDays: Long,
+  @SerialName("average_on_complete_days") val averageOnCompleteDays: String?
+)
+
+@Serializable
+data class DietReviewResultDtoWellnessPreviousNutrientsSodiumMg(
+  @SerialName("known_total") val knownTotal: String?,
+  @SerialName("known_items") val knownItems: Long,
+  @SerialName("estimated_items") val estimatedItems: Long,
+  @SerialName("complete_days") val completeDays: Long,
+  @SerialName("average_on_complete_days") val averageOnCompleteDays: String?
+)
+
+@Serializable
+data class DietReviewResultDtoWellnessPreviousNutrients(
+  @SerialName("energy_kcal") val energyKcal: DietReviewResultDtoWellnessPreviousNutrientsEnergyKcal,
+  @SerialName("protein_g") val proteinG: DietReviewResultDtoWellnessPreviousNutrientsProteinG,
+  @SerialName("fat_g") val fatG: DietReviewResultDtoWellnessPreviousNutrientsFatG,
+  @SerialName("carb_g") val carbG: DietReviewResultDtoWellnessPreviousNutrientsCarbG,
+  @SerialName("fiber_g") val fiberG: DietReviewResultDtoWellnessPreviousNutrientsFiberG,
+  @SerialName("sodium_mg") val sodiumMg: DietReviewResultDtoWellnessPreviousNutrientsSodiumMg
+)
+
+@Serializable
+data class DietReviewResultDtoWellnessPrevious(
+  @SerialName("from") val from: String,
+  @SerialName("to") val to: String,
+  @SerialName("days") val days: Long,
+  @SerialName("meal_days") val mealDays: Long,
+  @SerialName("meals") val meals: Long,
+  @SerialName("items") val items: Long,
+  @SerialName("nutrients") val nutrients: DietReviewResultDtoWellnessPreviousNutrients,
+  @SerialName("sleep_days") val sleepDays: Long,
+  @SerialName("average_sleep_minutes") val averageSleepMinutes: Long?,
+  @SerialName("weight_days") val weightDays: Long,
+  @SerialName("average_weight_kg") val averageWeightKg: String?,
+  @SerialName("workout_days") val workoutDays: Long,
+  @SerialName("workout_sessions") val workoutSessions: Long,
+  @SerialName("known_workout_duration_sessions") val knownWorkoutDurationSessions: Long,
+  @SerialName("workout_minutes") val workoutMinutes: Long?,
+  @SerialName("paired_energy_weight_days") val pairedEnergyWeightDays: Long,
+  @SerialName("paired_energy_sleep_days") val pairedEnergySleepDays: Long
+)
+
+@Serializable
+data class DietReviewResultDtoWellnessDaysEntryNutrientsEnergyKcal(
+  @SerialName("known_total") val knownTotal: String?,
+  @SerialName("known_items") val knownItems: Long,
+  @SerialName("estimated_items") val estimatedItems: Long
+)
+
+@Serializable
+data class DietReviewResultDtoWellnessDaysEntryNutrientsProteinG(
+  @SerialName("known_total") val knownTotal: String?,
+  @SerialName("known_items") val knownItems: Long,
+  @SerialName("estimated_items") val estimatedItems: Long
+)
+
+@Serializable
+data class DietReviewResultDtoWellnessDaysEntryNutrientsFatG(
+  @SerialName("known_total") val knownTotal: String?,
+  @SerialName("known_items") val knownItems: Long,
+  @SerialName("estimated_items") val estimatedItems: Long
+)
+
+@Serializable
+data class DietReviewResultDtoWellnessDaysEntryNutrientsCarbG(
+  @SerialName("known_total") val knownTotal: String?,
+  @SerialName("known_items") val knownItems: Long,
+  @SerialName("estimated_items") val estimatedItems: Long
+)
+
+@Serializable
+data class DietReviewResultDtoWellnessDaysEntryNutrientsFiberG(
+  @SerialName("known_total") val knownTotal: String?,
+  @SerialName("known_items") val knownItems: Long,
+  @SerialName("estimated_items") val estimatedItems: Long
+)
+
+@Serializable
+data class DietReviewResultDtoWellnessDaysEntryNutrientsSodiumMg(
+  @SerialName("known_total") val knownTotal: String?,
+  @SerialName("known_items") val knownItems: Long,
+  @SerialName("estimated_items") val estimatedItems: Long
+)
+
+@Serializable
+data class DietReviewResultDtoWellnessDaysEntryNutrients(
+  @SerialName("energy_kcal") val energyKcal: DietReviewResultDtoWellnessDaysEntryNutrientsEnergyKcal,
+  @SerialName("protein_g") val proteinG: DietReviewResultDtoWellnessDaysEntryNutrientsProteinG,
+  @SerialName("fat_g") val fatG: DietReviewResultDtoWellnessDaysEntryNutrientsFatG,
+  @SerialName("carb_g") val carbG: DietReviewResultDtoWellnessDaysEntryNutrientsCarbG,
+  @SerialName("fiber_g") val fiberG: DietReviewResultDtoWellnessDaysEntryNutrientsFiberG,
+  @SerialName("sodium_mg") val sodiumMg: DietReviewResultDtoWellnessDaysEntryNutrientsSodiumMg
+)
+
+@Serializable
+data class DietReviewResultDtoWellnessDaysEntrySleep(
+  @SerialName("id") val id: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("minutes") val minutes: Long
+)
+
+@Serializable
+enum class DietReviewResultDtoWellnessDaysEntryWeightKind(val wireValue: String) {
+  @SerialName("measurement") Measurement("measurement"),
+  @SerialName("observation") Observation("observation")
+}
+
+@Serializable
+data class DietReviewResultDtoWellnessDaysEntryWeight(
+  @SerialName("id") val id: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("value") val value: String,
+  @SerialName("unit") val unit: String,
+  @SerialName("kind") val kind: DietReviewResultDtoWellnessDaysEntryWeightKind
+)
+
+@Serializable
+data class DietReviewResultDtoWellnessDaysEntryWorkouts(
+  @SerialName("sessions") val sessions: Long,
+  @SerialName("known_duration_sessions") val knownDurationSessions: Long,
+  @SerialName("minutes") val minutes: Long?
+)
+
+@Serializable
+data class DietReviewResultDtoWellnessDaysEntry(
+  @SerialName("date") val date: String,
+  @SerialName("meals") val meals: Long,
+  @SerialName("items") val items: Long,
+  @SerialName("empty_meals") val emptyMeals: Long,
+  @SerialName("nutrients") val nutrients: DietReviewResultDtoWellnessDaysEntryNutrients,
+  @SerialName("sleep") val sleep: DietReviewResultDtoWellnessDaysEntrySleep?,
+  @SerialName("weight") val weight: DietReviewResultDtoWellnessDaysEntryWeight?,
+  @SerialName("workouts") val workouts: DietReviewResultDtoWellnessDaysEntryWorkouts
+)
+
+@Serializable
+data class DietReviewResultDtoWellness(
+  @SerialName("algorithm_version") val algorithmVersion: String,
+  @SerialName("date_policy") val datePolicy: String,
+  @SerialName("current") val current: DietReviewResultDtoWellnessCurrent,
+  @SerialName("previous") val previous: DietReviewResultDtoWellnessPrevious,
+  @SerialName("days") val days: List<DietReviewResultDtoWellnessDaysEntry>,
+  @SerialName("limitations") val limitations: List<String>,
+  @SerialName("as_of") val asOf: String
+)
+
+@Serializable
+enum class DietReviewResultDtoDiaryEntryState(val wireValue: String) {
+  @SerialName("complete") Complete("complete"),
+  @SerialName("partial") Partial("partial"),
+  @SerialName("recheck") Recheck("recheck"),
+  @SerialName("unknown") Unknown("unknown")
+}
+
+@Serializable
+data class DietReviewResultDtoDiaryEntryDeclaration(
+  @SerialName("id") val id: String,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+data class DietReviewResultDtoDiaryEntry(
+  @SerialName("date") val date: String,
+  @SerialName("state") val state: DietReviewResultDtoDiaryEntryState,
+  @SerialName("declaration") val declaration: DietReviewResultDtoDiaryEntryDeclaration?
+)
+
+@Serializable
+enum class DietReviewResultDtoFoodGroupsEntryGroup(val wireValue: String) {
+  @SerialName("vegetables") Vegetables("vegetables"),
+  @SerialName("fruit") Fruit("fruit"),
+  @SerialName("dairy") Dairy("dairy"),
+  @SerialName("soy") Soy("soy"),
+  @SerialName("whole_grains") WholeGrains("whole_grains")
+}
+
+@Serializable
+data class DietReviewResultDtoFoodGroupsEntry(
+  @SerialName("group") val group: DietReviewResultDtoFoodGroupsEntryGroup,
+  @SerialName("days") val days: Long,
+  @SerialName("lunches") val lunches: Long
+)
+
+@Serializable
+enum class DietReviewResultDtoMicronutrientsEntryNutrient(val wireValue: String) {
+  @SerialName("calcium_mg") CalciumMg("calcium_mg"),
+  @SerialName("iron_mg") IronMg("iron_mg")
+}
+
+@Serializable
+data class DietReviewResultDtoMicronutrientsEntry(
+  @SerialName("nutrient") val nutrient: DietReviewResultDtoMicronutrientsEntryNutrient,
+  @SerialName("known_total") val knownTotal: Double?,
+  @SerialName("known_items") val knownItems: Long,
+  @SerialName("estimated_items") val estimatedItems: Long
+)
+
+@Serializable
+enum class DietReviewResultDtoLunchesEntryGroupsEntry(val wireValue: String) {
+  @SerialName("vegetables") Vegetables("vegetables"),
+  @SerialName("fruit") Fruit("fruit"),
+  @SerialName("dairy") Dairy("dairy"),
+  @SerialName("soy") Soy("soy"),
+  @SerialName("whole_grains") WholeGrains("whole_grains")
+}
+
+@Serializable
+data class DietReviewResultDtoLunchesEntry(
+  @SerialName("id") val id: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("date") val date: String,
+  @SerialName("items") val items: Long,
+  @SerialName("classified_items") val classifiedItems: Long,
+  @SerialName("groups") val groups: List<DietReviewResultDtoLunchesEntryGroupsEntry>,
+  @SerialName("staples") val staples: List<String>,
+  @SerialName("known_staple_grams") val knownStapleGrams: Double?,
+  @SerialName("weighed_staples") val weighedStaples: Long,
+  @SerialName("estimated_staples") val estimatedStaples: Long,
+  @SerialName("estimated_items") val estimatedItems: Long,
+  @SerialName("energy_kcal") val energyKcal: Double?
+)
+
+@Serializable
+data class DietReviewResultDtoMenu(
+  @SerialName("merchant") val merchant: String,
+  @SerialName("dishes") val dishes: List<String>
+)
+
+@Serializable
+data class DietReviewResultDtoNextMealMeal(
+  @SerialName("id") val id: String,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+data class DietReviewResultDtoNextMeal(
+  @SerialName("text") val text: String,
+  @SerialName("meal") val meal: DietReviewResultDtoNextMealMeal?
+)
+
+@Serializable
+data class DietReviewResultDtoWeightFollowupMealsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+data class DietReviewResultDtoWeightFollowup(
+  @SerialName("text") val text: String,
+  @SerialName("meals") val meals: List<DietReviewResultDtoWeightFollowupMealsEntry>
+)
+
+@Serializable
+enum class DietReviewResultDtoEnergyStatus(val wireValue: String) {
+  @SerialName("above") Above("above"),
+  @SerialName("below") Below("below"),
+  @SerialName("within") Within("within"),
+  @SerialName("unknown") Unknown("unknown")
+}
+
+@Serializable
+data class DietReviewResultDtoEnergyTarget(
+  @SerialName("id") val id: String,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+data class DietReviewResultDtoEnergy(
+  @SerialName("status") val status: DietReviewResultDtoEnergyStatus,
+  @SerialName("lower") val lower: Double?,
+  @SerialName("upper") val upper: Double?,
+  @SerialName("reliable_kcal") val reliableKcal: Double?,
+  @SerialName("target") val target: DietReviewResultDtoEnergyTarget?
+)
+
+@Serializable
+data class DietReviewResultDtoWeightSettingsSchedule(
+  @SerialName("morning_from") val morningFrom: String,
+  @SerialName("morning_to") val morningTo: String,
+  @SerialName("evening_from") val eveningFrom: String,
+  @SerialName("evening_to") val eveningTo: String,
+  @SerialName("scale_id") val scaleId: String?
+)
+
+@Serializable
+data class DietReviewResultDtoWeightSettingsDeclaration(
+  @SerialName("id") val id: String,
+  @SerialName("revision") val revision: Long
+)
+
+@Serializable
+data class DietReviewResultDtoWeightSettingsScalesEntry(
+  @SerialName("id") val id: String,
+  @SerialName("label") val label: String,
+  @SerialName("days") val days: Long
+)
+
+@Serializable
+data class DietReviewResultDtoWeightSettings(
+  @SerialName("schedule") val schedule: DietReviewResultDtoWeightSettingsSchedule,
+  @SerialName("declaration") val declaration: DietReviewResultDtoWeightSettingsDeclaration?,
+  @SerialName("selected_scale") val selectedScale: String?,
+  @SerialName("scales") val scales: List<DietReviewResultDtoWeightSettingsScalesEntry>
+)
+
+@Serializable
+enum class DietReviewResultDtoWeightCompositionEntryBand(val wireValue: String) {
+  @SerialName("morning") Morning("morning"),
+  @SerialName("evening") Evening("evening")
+}
+
+@Serializable
+enum class DietReviewResultDtoWeightCompositionEntryMetric(val wireValue: String) {
+  @SerialName("body_fat") BodyFat("body_fat"),
+  @SerialName("muscle_mass") MuscleMass("muscle_mass"),
+  @SerialName("body_water_rate") BodyWaterRate("body_water_rate"),
+  @SerialName("visceral_fat") VisceralFat("visceral_fat")
+}
+
+@Serializable
+data class DietReviewResultDtoWeightCompositionEntryCurrent(
+  @SerialName("days") val days: Long,
+  @SerialName("mean") val mean: Double?
+)
+
+@Serializable
+data class DietReviewResultDtoWeightCompositionEntryPrevious(
+  @SerialName("days") val days: Long,
+  @SerialName("mean") val mean: Double?
+)
+
+@Serializable
+data class DietReviewResultDtoWeightCompositionEntry(
+  @SerialName("band") val band: DietReviewResultDtoWeightCompositionEntryBand,
+  @SerialName("metric") val metric: DietReviewResultDtoWeightCompositionEntryMetric,
+  @SerialName("method") val method: String?,
+  @SerialName("unit") val unit: String,
+  @SerialName("current") val current: DietReviewResultDtoWeightCompositionEntryCurrent,
+  @SerialName("previous") val previous: DietReviewResultDtoWeightCompositionEntryPrevious
+)
+
+@Serializable
+enum class DietReviewResultDtoWeightWaistGoalDirection(val wireValue: String) {
+  @SerialName("maintain") Maintain("maintain"),
+  @SerialName("gain") Gain("gain"),
+  @SerialName("lose") Lose("lose")
+}
+
+@Serializable
+data class DietReviewResultDtoWeightWaistGoal(
+  @SerialName("id") val id: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("direction") val direction: DietReviewResultDtoWeightWaistGoalDirection
+)
+
+@Serializable
+enum class DietReviewResultDtoWeightMorningEntryCompositionEntryMetric(val wireValue: String) {
+  @SerialName("body_fat") BodyFat("body_fat"),
+  @SerialName("muscle_mass") MuscleMass("muscle_mass"),
+  @SerialName("body_water_rate") BodyWaterRate("body_water_rate"),
+  @SerialName("visceral_fat") VisceralFat("visceral_fat")
+}
+
+@Serializable
+data class DietReviewResultDtoWeightMorningEntryCompositionEntry(
+  @SerialName("id") val id: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("metric") val metric: DietReviewResultDtoWeightMorningEntryCompositionEntryMetric,
+  @SerialName("value") val value: Double,
+  @SerialName("unit") val unit: String,
+  @SerialName("method") val method: String?
+)
+
+@Serializable
+data class DietReviewResultDtoWeightMorningEntry(
+  @SerialName("id") val id: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("date") val date: String,
+  @SerialName("occurred_at") val occurredAt: String,
+  @SerialName("kg") val kg: Double,
+  @SerialName("smoothed_kg") val smoothedKg: Double,
+  @SerialName("composition") val composition: List<DietReviewResultDtoWeightMorningEntryCompositionEntry>
+)
+
+@Serializable
+enum class DietReviewResultDtoWeightEveningEntryCompositionEntryMetric(val wireValue: String) {
+  @SerialName("body_fat") BodyFat("body_fat"),
+  @SerialName("muscle_mass") MuscleMass("muscle_mass"),
+  @SerialName("body_water_rate") BodyWaterRate("body_water_rate"),
+  @SerialName("visceral_fat") VisceralFat("visceral_fat")
+}
+
+@Serializable
+data class DietReviewResultDtoWeightEveningEntryCompositionEntry(
+  @SerialName("id") val id: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("metric") val metric: DietReviewResultDtoWeightEveningEntryCompositionEntryMetric,
+  @SerialName("value") val value: Double,
+  @SerialName("unit") val unit: String,
+  @SerialName("method") val method: String?
+)
+
+@Serializable
+data class DietReviewResultDtoWeightEveningEntry(
+  @SerialName("id") val id: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("date") val date: String,
+  @SerialName("occurred_at") val occurredAt: String,
+  @SerialName("kg") val kg: Double,
+  @SerialName("smoothed_kg") val smoothedKg: Double,
+  @SerialName("composition") val composition: List<DietReviewResultDtoWeightEveningEntryCompositionEntry>
+)
+
+@Serializable
+data class DietReviewResultDtoWeightWeeksEntry(
+  @SerialName("from") val from: String,
+  @SerialName("to") val to: String,
+  @SerialName("days") val days: Long,
+  @SerialName("mean_kg") val meanKg: Double?,
+  @SerialName("min_kg") val minKg: Double?,
+  @SerialName("max_kg") val maxKg: Double?
+)
+
+@Serializable
+enum class DietReviewResultDtoWeightTrend(val wireValue: String) {
+  @SerialName("up") Up("up"),
+  @SerialName("down") Down("down"),
+  @SerialName("steady") Steady("steady"),
+  @SerialName("uncertain") Uncertain("uncertain")
+}
+
+@Serializable
+enum class DietReviewResultDtoWeightGoalDirection(val wireValue: String) {
+  @SerialName("maintain") Maintain("maintain"),
+  @SerialName("gain") Gain("gain"),
+  @SerialName("lose") Lose("lose")
+}
+
+@Serializable
+data class DietReviewResultDtoWeightGoal(
+  @SerialName("id") val id: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("direction") val direction: DietReviewResultDtoWeightGoalDirection
+)
+
+@Serializable
+enum class DietReviewResultDtoWeightAlignment(val wireValue: String) {
+  @SerialName("aligned") Aligned("aligned"),
+  @SerialName("off_track") OffTrack("off_track"),
+  @SerialName("uncertain") Uncertain("uncertain")
+}
+
+@Serializable
+data class DietReviewResultDtoWeightWaistEntry(
+  @SerialName("id") val id: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("date") val date: String,
+  @SerialName("cm") val cm: Double
+)
+
+@Serializable
+data class DietReviewResultDtoWeight(
+  @SerialName("source_count") val sourceCount: Long,
+  @SerialName("settings") val settings: DietReviewResultDtoWeightSettings? = null,
+  @SerialName("composition") val composition: List<DietReviewResultDtoWeightCompositionEntry>? = null,
+  @SerialName("waist_goal") val waistGoal: DietReviewResultDtoWeightWaistGoal? = null,
+  @SerialName("morning") val morning: List<DietReviewResultDtoWeightMorningEntry>,
+  @SerialName("evening") val evening: List<DietReviewResultDtoWeightEveningEntry>,
+  @SerialName("weeks") val weeks: List<DietReviewResultDtoWeightWeeksEntry>,
+  @SerialName("weekly_change_kg") val weeklyChangeKg: Double?,
+  @SerialName("trend") val trend: DietReviewResultDtoWeightTrend,
+  @SerialName("goal") val goal: DietReviewResultDtoWeightGoal?,
+  @SerialName("alignment") val alignment: DietReviewResultDtoWeightAlignment,
+  @SerialName("waist") val waist: List<DietReviewResultDtoWeightWaistEntry>
+)
+
+@Serializable
+enum class DietReviewResultDtoBackgroundLatestState(val wireValue: String) {
+  @SerialName("reported") Reported("reported"),
+  @SerialName("pending") Pending("pending"),
+  @SerialName("missing") Missing("missing")
+}
+
+@Serializable
+data class DietReviewResultDtoBackgroundLatest(
+  @SerialName("state") val state: DietReviewResultDtoBackgroundLatestState,
+  @SerialName("steps") val steps: Double?,
+  @SerialName("active_minutes") val activeMinutes: Double?
+)
+
+@Serializable
+data class DietReviewResultDtoBackground(
+  @SerialName("step_days") val stepDays: Long,
+  @SerialName("median_steps") val medianSteps: Double?,
+  @SerialName("sleep_days") val sleepDays: Long,
+  @SerialName("mean_sleep_minutes") val meanSleepMinutes: Double?,
+  @SerialName("active_days") val activeDays: Long? = null,
+  @SerialName("median_active_minutes") val medianActiveMinutes: Double? = null,
+  @SerialName("latest") val latest: DietReviewResultDtoBackgroundLatest? = null
+)
+
+@Serializable
+data class DietReviewResultDto(
+  @SerialName("wellness") val wellness: DietReviewResultDtoWellness,
+  @SerialName("time_zone") val timeZone: String,
+  @SerialName("diary") val diary: List<DietReviewResultDtoDiaryEntry>,
+  @SerialName("recorded_complete_days") val recordedCompleteDays: Long,
+  @SerialName("complete_energy_days") val completeEnergyDays: Long,
+  @SerialName("food_groups") val foodGroups: List<DietReviewResultDtoFoodGroupsEntry>,
+  @SerialName("micronutrients") val micronutrients: List<DietReviewResultDtoMicronutrientsEntry>? = null,
+  @SerialName("group_days") val groupDays: Long,
+  @SerialName("unclassified_days") val unclassifiedDays: Long,
+  @SerialName("lunch_count") val lunchCount: Long,
+  @SerialName("lunches") val lunches: List<DietReviewResultDtoLunchesEntry>,
+  @SerialName("menu") val menu: DietReviewResultDtoMenu?,
+  @SerialName("next_meal") val nextMeal: DietReviewResultDtoNextMeal?,
+  @SerialName("weight_followup") val weightFollowup: DietReviewResultDtoWeightFollowup? = null,
+  @SerialName("energy") val energy: DietReviewResultDtoEnergy,
+  @SerialName("weight") val weight: DietReviewResultDtoWeight?,
+  @SerialName("background") val background: DietReviewResultDtoBackground?
+)
+
+@Serializable
+enum class MealDietReviewResultDtoItemsEntryGroupsEntry(val wireValue: String) {
+  @SerialName("vegetables") Vegetables("vegetables"),
+  @SerialName("fruit") Fruit("fruit"),
+  @SerialName("dairy") Dairy("dairy"),
+  @SerialName("soy") Soy("soy"),
+  @SerialName("whole_grains") WholeGrains("whole_grains")
+}
+
+@Serializable
+enum class MealDietReviewResultDtoItemsEntryWeightBasis(val wireValue: String) {
+  @SerialName("measured_net") MeasuredNet("measured_net"),
+  @SerialName("payment_derived") PaymentDerived("payment_derived")
+}
+
+@Serializable
+data class MealDietReviewResultDtoItemsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("name") val name: String,
+  @SerialName("food_id") val foodId: String?,
+  @SerialName("food_revision") val foodRevision: Long?,
+  @SerialName("merchant") val merchant: String?,
+  @SerialName("stall") val stall: String?,
+  @SerialName("groups") val groups: List<MealDietReviewResultDtoItemsEntryGroupsEntry>,
+  @SerialName("staple") val staple: Boolean,
+  @SerialName("consumed_fraction") val consumedFraction: Double?,
+  @SerialName("quantity") val quantity: Double?,
+  @SerialName("unit") val unit: String?,
+  @SerialName("grams") val grams: Double?,
+  @SerialName("estimated") val estimated: Boolean,
+  @SerialName("weight_basis") val weightBasis: MealDietReviewResultDtoItemsEntryWeightBasis?,
+  @SerialName("basis") val basis: String?,
+  @SerialName("nutrients") val nutrients: JsonObject
+)
+
+@Serializable
+enum class MealDietReviewResultDtoTotalsEntryNutrient(val wireValue: String) {
+  @SerialName("energy_kcal") EnergyKcal("energy_kcal"),
+  @SerialName("protein_g") ProteinG("protein_g"),
+  @SerialName("fat_g") FatG("fat_g"),
+  @SerialName("carb_g") CarbG("carb_g"),
+  @SerialName("fiber_g") FiberG("fiber_g"),
+  @SerialName("sodium_mg") SodiumMg("sodium_mg"),
+  @SerialName("calcium_mg") CalciumMg("calcium_mg"),
+  @SerialName("iron_mg") IronMg("iron_mg")
+}
+
+@Serializable
+data class MealDietReviewResultDtoTotalsEntry(
+  @SerialName("nutrient") val nutrient: MealDietReviewResultDtoTotalsEntryNutrient,
+  @SerialName("known_total") val knownTotal: Double?,
+  @SerialName("known_items") val knownItems: Long,
+  @SerialName("estimated_items") val estimatedItems: Long
+)
+
+@Serializable
+data class MealDietReviewResultDto(
+  @SerialName("id") val id: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("date") val date: String,
+  @SerialName("type") val type: String,
+  @SerialName("as_of") val asOf: String,
+  @SerialName("items") val items: List<MealDietReviewResultDtoItemsEntry>,
+  @SerialName("totals") val totals: List<MealDietReviewResultDtoTotalsEntry>,
+  @SerialName("consumed_items") val consumedItems: Long,
+  @SerialName("known_staple_grams") val knownStapleGrams: Double?,
+  @SerialName("staples_with_grams") val staplesWithGrams: Long,
+  @SerialName("staples") val staples: Long
+)
+
+@Serializable
 enum class MealPlanningResultDtoStockAttentionItemsEntryState(val wireValue: String) {
   @SerialName("unknown") Unknown("unknown"),
   @SerialName("past") Past("past"),
@@ -1576,6 +2405,8 @@ data class MealPlanningResultDtoMealPlansEntryEntriesEntryRecipeSnapshotItemsEnt
   @SerialName("carb_g") val carbG: String? = null,
   @SerialName("fiber_g") val fiberG: String? = null,
   @SerialName("sodium_mg") val sodiumMg: String? = null,
+  @SerialName("calcium_mg") val calciumMg: String? = null,
+  @SerialName("iron_mg") val ironMg: String? = null,
   @SerialName("consumed_fraction") val consumedFraction: String? = null,
   @SerialName("provenance") val provenance: MealPlanningResultDtoMealPlansEntryEntriesEntryRecipeSnapshotItemsEntryProvenance? = null,
   @SerialName("grouping_origin") val groupingOrigin: MealPlanningResultDtoMealPlansEntryEntriesEntryRecipeSnapshotItemsEntryGroupingOrigin? = null,

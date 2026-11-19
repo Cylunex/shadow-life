@@ -48,7 +48,7 @@ export const intakeItems = pgTable("intake_items", {
   unit: text("unit"),
   amountG:numeric("amount_g",{precision:24,scale:6}),
   energyKcal: numeric("energy_kcal", { precision: 24, scale: 6 }),
-  fiberG:numeric("fiber_g",{precision:24,scale:6}),sodiumMg:numeric("sodium_mg",{precision:24,scale:6}),consumedFraction:numeric("consumed_fraction",{precision:24,scale:6}),effective:boolean("effective").default(true).notNull(),
+  fiberG:numeric("fiber_g",{precision:24,scale:6}),sodiumMg:numeric("sodium_mg",{precision:24,scale:6}),calciumMg:numeric("calcium_mg",{precision:24,scale:6}),ironMg:numeric("iron_mg",{precision:24,scale:6}),consumedFraction:numeric("consumed_fraction",{precision:24,scale:6}),effective:boolean("effective").default(true).notNull(),
   proteinG:numeric("protein_g",{precision:24,scale:6}),
   fatG:numeric("fat_g",{precision:24,scale:6}),
   carbG:numeric("carb_g",{precision:24,scale:6}),
@@ -56,6 +56,7 @@ export const intakeItems = pgTable("intake_items", {
   groupingOrigin:text("grouping_origin"),
   estimate: boolean("estimate").default(false).notNull(),
   weightBasis: text("weight_basis"),
+  dishProfileSnapshot: jsonb("dish_profile_snapshot"),
   evidenceNote: text("evidence_note"),
   revision: integer("revision").default(1).notNull()
 }, (table) => [uniqueIndex("intake_items_meal_position_unique").on(table.mealId, table.position)]);

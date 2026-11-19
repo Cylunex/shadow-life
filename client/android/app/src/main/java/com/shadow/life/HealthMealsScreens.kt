@@ -83,6 +83,7 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
         TextButton(onClick=onMeals){Text("饮食与营养")}
       }}
       item{StateContent(overviewState,onRetry){} }
+      if(tab=="overview")item{NativeDietReview(accountId,LocalDate.now().toString(),false,overviewState,onDetail)}
       if(tab=="overview")item{PersonalRecordsCard(accountId,"体检项目对照")}
       if(tab=="overview")item{PersonalRecordsCard(accountId,"不适发作")}
       if(tab=="training"||tab=="sleep")item{PersonalRecordsCard(accountId,"路线与训练复盘")}
@@ -210,6 +211,7 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
   val dayRecords=(dayState as? LoadState.Ready)?.value?.items.orEmpty()
   val mealScroll=rememberModuleListState(mealTab)
   Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={LifeModuleTopBar(LifeModule.Meals,onBack,onCreate={onMealCapture(selectedDate,"other")})},bottomBar={LifeModuleBottomBar(if(mealTab=="recipes")"planning" else mealTab,mealModuleTabs){mealTab=it}}){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),state=mealScroll,contentPadding=PaddingValues(horizontal=20.dp,vertical=10.dp),verticalArrangement=Arrangement.spacedBy(18.dp)){
+    if(mealTab=="records")item{NativeCanteenProfiles(accountId)}
     if(mealTab=="records")item{PersonalRecordsCard(accountId,"门店食品库")}
     item{TextButton(onClick=onStats){Text("订单与消费统计")}}
     if(mealTab=="records"){
@@ -219,6 +221,7 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
     if(dayState is LoadState.Ready){
       item{MealDayGroups(dayRecords,assetPreviews,onLoadAsset,onDetail,{type->onMealCapture(selectedDate,type)},onAddPhoto)}
       item{MealNutritionHero(selectedDate,dayRecords,mealNutrition(dayRecords)){onMealCapture(selectedDate,"other")}}
+      item{NativeDietReview(accountId,selectedDate,true,dayState,onDetail)}
     }
     if(photoState is SubmitState.Sending)item{LinearProgressIndicator(Modifier.fillMaxWidth())}
     if(photoState is SubmitState.Rejected)item{Text(photoState.message,color=MaterialTheme.colorScheme.error)}

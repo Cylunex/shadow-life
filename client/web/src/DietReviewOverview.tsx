@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { dietDiaryKey, dietDiaryStatements, dietFoodGroupLabels, type DietReviewResult } from "@shadow/contracts";
+import { dietDiaryKey, dietDiaryStatements, dietFoodGroupLabels, weighingScheduleSchema, type DietReviewResult } from "@shadow/contracts";
 import type { Execute } from "./command-controller.js";
 
 type Weight = NonNullable<DietReviewResult["weight"]>;
 type Point = Weight["morning"][number];
 const format = (value:number) => new Intl.NumberFormat("zh-CN",{maximumFractionDigits:2}).format(value);
+const waistStatements = {maintain:"维持腰围",gain:"增加腰围",lose:"减小腰围"} as const;
 const goalStatements = {maintain:"维持体重",gain:"增加体重",lose:"降低体重"} as const;
 const compositionLabels = {body_fat:"体脂率",muscle_mass:"肌肉量",body_water_rate:"体水分率",visceral_fat:"内脏脂肪"} as const;
 const diaryLabels = {unknown:"完整性待确认",complete:"已基本记全",partial:"还有漏记",recheck:"餐次曾移动或撤销，请重新核对"} as const;
@@ -72,6 +73,8 @@ export function DietReviewOverview({data,date,canWrite,execute,reload}:{data:Die
   const lunch=data.lunches.at(-1);
   const currentGoal=weight?.goal??null;
   const energy=data.energy;
+  const [waistDirection,setWaistDirection]=useState<keyof typeof waistStatements>(weight?.waist_goal?.direction??"lose");
+  const [schedule,setSchedule]=useState(weight?.settings?.schedule);
   const [direction,setDirection]=useState<keyof typeof goalStatements>(currentGoal?.direction??"maintain");
   const [lower,setLower]=useState(energy.lower?.toString()??""),[upper,setUpper]=useState(energy.upper?.toString()??"");
   const windowDays=data.wellness.current.days;
@@ -111,6 +114,10 @@ export function DietReviewOverview({data,date,canWrite,execute,reload}:{data:Die
           <span>{dietFoodGroupLabels[row.group]}</span><meter min={0} max={windowDays} value={row.days} aria-label={dietFoodGroupLabels[row.group]}/>
           <strong>{row.days} 天</strong>
         </div>)}
+        {!!data.micronutrients?.length&&<details><summary>钙与铁的记录覆盖</summary><ul>{data.micronutrients.map(nutrient=><li key={nutrient.nutrient}>
+          {nutrient.nutrient==="calcium_mg"?"钙":"铁"} · {nutrient.known_total===null?"摄入未知":`已知 ${format(nutrient.known_total)} mg`} · {nutrient.known_items}/{data.wellness.current.items} 项有值
+          {nutrient.estimated_items>0&&`，其中 ${nutrient.estimated_items} 项估算`}
+        </li>)}</ul></details>}
         <details><summary>{data.menu ? data.menu.merchant+" · " : ""}已记录午餐（{data.lunch_count}）</summary>
           {lunch&&<p>最近一餐 {lunch.date.slice(5)} · {lunch.estimated_items} 项估算，{lunch.classified_items}/{lunch.items} 项可辨认</p>}
           <ul>{data.lunches.slice().reverse().map(meal=><li key={meal.id}>
@@ -124,16 +131,39 @@ export function DietReviewOverview({data,date,canWrite,execute,reload}:{data:Die
         <div className="diet-card-title"><h3>晨重与晚重</h3><span>{trendLabels[weight.trend]}</span></div>
         <div className="diet-weight-stats"><strong>{week?.mean_kg==null?"暂无晨重":`${format(week.mean_kg)} kg`}</strong>
           <small>最近 7 天 · {week?.days??0} 次晨测{previous?.mean_kg!=null?` · 前一周 ${format(previous.mean_kg)} kg（${previous.days} 次）`:""}</small></div>
+        {data.weight_followup&&<p>{data.weight_followup.text}</p>}
         {weight.weekly_change_kg!==null&&<p>晨重周均变化 {weight.weekly_change_kg>0?"+":""}{format(weight.weekly_change_kg)} kg</p>}
         {currentGoal&&<p>目标 {goalStatements[currentGoal.direction]} · {weight.alignment==="aligned"?"走势符合目标":weight.alignment==="off_track"?"走势偏离目标":"样本还不足以判断"}</p>}
         {weight.waist.length>0&&<p>最近腰围 {format(weight.waist.at(-1)!.cm)} cm · {weight.waist.length} 次记录</p>}
-        {weight.source_count>1&&<p>图表选用晨重样本最多的一台秤。</p>}
+        {weight.settings?.schedule.scale_id?<p>图表使用你选定的秤和称重时段。</p>:weight.source_count>1&&<p>图表选用晨重样本最多的一台秤。</p>}
         {(weight.morning.length>0||weight.evening.length>0)&&<WeightChart weight={weight}/>}
+        {!!weight.composition?.length&&<details><summary>体成分按来源和时段对照</summary>
+          <div className="wellness-table"><table aria-label="体成分前后周对照"><thead><tr><th>指标</th><th>时段与依据</th><th>前一周</th><th>最近一周</th></tr></thead>
+          <tbody>{weight.composition.map(row=><tr key={[row.band,row.metric,row.method,row.unit].join("/")}>
+            <th>{compositionLabels[row.metric]}</th><td>{row.band==="morning"?"早":"晚"} · {row.method??"方法未知"}</td>
+            {[row.previous,row.current].map((period,i)=><td key={i}>{period.mean===null?"无记录":`${format(period.mean)} ${row.unit==="level"?"级":row.unit}（${period.days} 天）`}</td>)}
+          </tr>)}</tbody></table></div></details>}
+        {canWrite&&schedule&&weight.settings&&<details><summary>调整称重时段与秤</summary><form className="canteen-form" onSubmit={event=>{
+          event.preventDefault();
+          const config=weighingScheduleSchema.safeParse(schedule);
+          if(!config.success){setError("请按先早后晚的顺序填写互不重叠的时段，晚间结束可以跨到次日。");return;}
+          void save("wellness.weighing","preference",JSON.stringify(config.data),weight.settings?.declaration??null,{valid_from:data.wellness.current.to});
+        }}>
+          {([["morning_from","晨测开始"],["morning_to","晨测结束"],["evening_from","晚测开始"],["evening_to","晚测结束"]] as const).map(([key,label])=>
+            <label key={key}>{label}<input type="time" required value={schedule[key]} onChange={event=>setSchedule({...schedule,[key]:event.target.value})}/></label>)}
+          <label>称重设备<select value={schedule.scale_id??""} onChange={event=>setSchedule({...schedule,scale_id:event.target.value||null})}>
+            <option value="">按晨测覆盖自动选择</option>
+            {schedule.scale_id&&!weight.settings.scales.some(scale=>scale.id===schedule.scale_id)&&<option value={schedule.scale_id}>已选秤 · 本期暂无记录</option>}
+            {weight.settings.scales.map((scale,index)=><option key={scale.id} value={scale.id}>{scale.label} · 设备 {index+1} · {scale.days} 天</option>)}
+          </select></label><button disabled={busy}>保存称重设置</button>
+        </form></details>}
         {latest?.composition.length?<p>最近晨测体成分（{latest.date.slice(5)} 估算） · {latest.composition.map(row=>`${compositionLabels[row.metric]} ${format(row.value)}${row.unit==="level"?" 级":row.unit}`).join(" · ")}</p>:null}
-        {data.background&&(data.background.step_days>0||data.background.sleep_days>0)&&<p>
+        {data.background&&(data.background.step_days>0||data.background.sleep_days>0||data.background.active_days)&&<p>
           {data.background.step_days>0&&<>步数中位 {format(data.background.median_steps!)} 步（{data.background.step_days} 天）</>}
+          {(data.background.active_days??0)>0&&<> · 活动分钟中位 {format(data.background.median_active_minutes!)}（{data.background.active_days} 天）</>}
           {data.background.sleep_days>0&&<> · 主睡眠 {data.background.mean_sleep_minutes} 分钟（{data.background.sleep_days} 晚）</>}
         </p>}
+        {data.background?.latest?.state==="pending"&&<p>截至日的三星活动记录尚未到达。</p>}
       </section>}
     </div>
     <section className="diet-card diet-day-state" aria-label="饮食记录完整性">
@@ -149,6 +179,10 @@ export function DietReviewOverview({data,date,canWrite,execute,reload}:{data:Die
         {weight&&<form onSubmit={event=>{event.preventDefault();void save("wellness.weight","goal",goalStatements[direction],currentGoal,{valid_from:data.wellness.current.to});}}>
           <label>体重方向<select value={direction} onChange={event=>setDirection(event.target.value as typeof direction)}>{Object.entries(goalStatements).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
           <button disabled={busy}>保存体重方向</button>
+        </form>}
+        {weight&&<form onSubmit={event=>{event.preventDefault();void save("wellness.waist","goal",waistStatements[waistDirection],weight.waist_goal??null,{valid_from:data.wellness.current.to});}}>
+          <label>腰围方向<select value={waistDirection} onChange={event=>setWaistDirection(event.target.value as typeof waistDirection)}>{Object.entries(waistStatements).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
+          <button disabled={busy}>保存腰围方向</button>
         </form>}
         <form onSubmit={saveEnergy}><label>每日热量下沿（kcal）<input inputMode="numeric" value={lower} onChange={event=>setLower(event.target.value)} required/></label>
           <label>每日热量上沿（kcal）<input inputMode="numeric" value={upper} onChange={event=>setUpper(event.target.value)} required/></label>

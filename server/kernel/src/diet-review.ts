@@ -1,6 +1,6 @@
 import {
-  dietDiaryKey, dietDiaryStatements, dietFoodGroups, dietReviewResultSchema,
-  type DietReviewInput, type DietReviewResult, type WellnessDay,
+  defaultWeighingSchedule, dietDiaryKey, dietDiaryStatements, dietFoodGroups, dietReviewResultSchema, mealDietNutrients, mealDietReviewResultSchema, weighingScheduleSchema,
+  type DietReviewInput, type DietReviewResult, type MealDietReviewResult, type WellnessDay,
 } from "@shadow/contracts";
 import { buildWellnessReview, shiftWellnessDate } from "./wellness-review.js";
 
@@ -11,14 +11,14 @@ export type DietEvidence = {
   as_of:string;
   days:WellnessDay[];
   meals:(Ref & {date:string; type:string; merchant:string|null; items:{
-    name:string; estimated:boolean; energy_kcal:number|null; grams:number|null;
+    name:string; estimated:boolean; energy_kcal:number|null; calcium_mg?:number|null;iron_mg?:number|null; grams:number|null; groups?:FoodGroup[]|null; staple?:boolean|null;
   }[]})[];
   intentions:(Ref & {key:string; statement:string; recheck:boolean})[];
   measurements:(Ref & {
     date:string; occurred_at:string; source:string; session:string; metric:string;
     value:number; unit:string; method:string|null;
   })[];
-  activity:{date:string; steps:number|null}[];
+  activity:{date:string; steps:number|null;active_minutes?:number|null}[];
   menu:{merchant:string; dishes:string[]}|null;
 };
 
@@ -43,6 +43,8 @@ export function classifyDietFood(name:string): FoodGroup[] {
   });
 }
 
+const itemGroups = (item:{name:string;groups?:FoodGroup[]|null})=>item.groups??classifyDietFood(item.name);
+const isStaple = (item:{name:string;staple?:boolean|null})=>item.staple??staple.test(item.name);
 const mean = (values:number[])=>values.length?values.reduce((total,value)=>total+value,0)/values.length:null;
 const round = (value:number)=>Math.round(value*100)/100;
 const sumKnown = (values:(number|null)[])=>values.some(value=>value!==null)?values.reduce<number>((sum,value)=>sum+(value??0),0):null;
@@ -56,6 +58,9 @@ export function dietWindow(input:DietReviewInput) {
 function measurements(evidence:DietEvidence,input:DietReviewInput,allowed:boolean):DietReviewResult["weight"] {
   if(!allowed)return null;
   const {weightFrom}=dietWindow(input);
+  const preference=evidence.intentions.find(row=>row.key==="wellness.weighing");
+  const schedule=readSchedule(preference?.statement);
+  const overnight=schedule.evening_to<schedule.evening_from;
   const allowedMetrics:Record<string,string>={weight:"kg",...bodyUnits};
   const estimates=new Map<string,DietEvidence["measurements"]>();
   for(const row of evidence.measurements) {
@@ -64,22 +69,26 @@ function measurements(evidence:DietEvidence,input:DietReviewInput,allowed:boolea
     related.push(row);
     estimates.set(row.session,related);
   }
-  const sources=new Map<string,{morning:Map<string,DietEvidence["measurements"][number]>;evening:Map<string,DietEvidence["measurements"][number]>}>();
-  const clock=new Intl.DateTimeFormat("en-GB",{timeZone:input.time_zone,hour:"2-digit",hourCycle:"h23"});
+  const sources=new Map<string,{label:string;morning:Map<string,DietEvidence["measurements"][number]>;evening:Map<string,DietEvidence["measurements"][number]>}>();
+  const clock=new Intl.DateTimeFormat("en-GB",{timeZone:input.time_zone,hour:"2-digit",minute:"2-digit",hourCycle:"h23"});
   for(const row of evidence.measurements) {
     if(row.metric!=="weight"||row.unit!=="kg"||row.value<=0)continue;
-    const hour=Number(clock.format(new Date(row.occurred_at)));
-    const period=hour>=5&&hour<11?"morning":hour>=18||hour<3?"evening":null;
-    if(!period)continue;
-    const date=hour<3?shiftWellnessDate(row.date,-1):row.date;
-    if(date<weightFrom||date>input.to)continue;
-    const bands=sources.get(row.source)??{morning:new Map(),evening:new Map()};
+    const time=clock.format(new Date(row.occurred_at));
+    const morning=time>=schedule.morning_from&&time<schedule.morning_to;
+    const evening=overnight?time>=schedule.evening_from||time<schedule.evening_to:time>=schedule.evening_from&&time<schedule.evening_to;
+    const period=morning?"morning":evening?"evening":null;
+    const bands=sources.get(row.source)??{label:row.method?.replace(/:weight$/u,"")??"体脂秤",morning:new Map(),evening:new Map()};
     sources.set(row.source,bands);
+    if(!period)continue;
+    const date=period==="evening"&&overnight&&time<schedule.evening_to?shiftWellnessDate(row.date,-1):row.date;
+    if(date<weightFrom||date>input.to)continue;
     const previous=bands[period].get(date);
     if(!previous || (period==="morning"?row.occurred_at<previous.occurred_at:row.occurred_at>previous.occurred_at))bands[period].set(date,row);
   }
   // Select one scale for the entire report, favoring usable morning coverage.
-  const bands=[...sources.values()].sort((a,b)=>b.morning.size-a.morning.size||b.evening.size-a.evening.size)[0];
+  const orderedSources=[...sources.entries()].sort(([,a],[,b])=>b.morning.size-a.morning.size||b.evening.size-a.evening.size);
+  const selected=schedule.scale_id??orderedSources[0]?.[0]??null;
+  const bands=selected?sources.get(selected):undefined;
   function points(rows:Map<string,DietEvidence["measurements"][number]>|undefined) {
     let lastDate:string|undefined, smoothed=0;
     return [...(rows??[])].sort(([a],[b])=>a.localeCompare(b)).map(([date,row])=>{
@@ -113,9 +122,43 @@ function measurements(evidence:DietEvidence,input:DietReviewInput,allowed:boolea
     (goal.direction==="maintain"?trend==="steady":goal.direction==="gain"?trend==="up":trend==="down")?"aligned":"off_track";
   const waist=evidence.measurements.filter(row=>row.metric==="waist"&&row.unit==="cm"&&row.date>=weightFrom&&row.date<=input.to&&row.value>0)
     .map(row=>({id:row.id,revision:row.revision,date:row.date,cm:row.value}));
+  const waistRow=evidence.intentions.find(row=>row.key==="wellness.waist");
+  const waistDirection=waistRow?.statement==="维持腰围"?"maintain":waistRow?.statement==="增加腰围"?"gain":waistRow?.statement==="减小腰围"?"lose":null;
+  const waist_goal:NonNullable<DietReviewResult["weight"]>["waist_goal"]=waistRow&&waistDirection?{id:waistRow.id,revision:waistRow.revision,direction:waistDirection}:null;
   return {source_count:sources.size,morning,evening,weeks:weeks.map(w=>({...w,mean_kg:w.mean_kg===null?null:round(w.mean_kg)})),
-    weekly_change_kg:change===null?null:round(change),trend,goal,alignment,waist};
+    settings:{schedule,declaration:preference?{id:preference.id,revision:preference.revision}:null,selected_scale:selected,
+      scales:orderedSources.map(([id,values])=>({id,label:values.label,days:new Set([...values.morning.keys(),...values.evening.keys()]).size}))},
+    composition:[...compareComposition(morning,"morning",weeks[2]!.from,weeks[3]!.from),...compareComposition(evening,"evening",weeks[2]!.from,weeks[3]!.from)],
+    weekly_change_kg:change===null?null:round(change),trend,goal,alignment,waist,waist_goal};
 }
+
+function readSchedule(statement:string|undefined) {
+  if(!statement)return defaultWeighingSchedule;
+  try {
+    const value=weighingScheduleSchema.safeParse(JSON.parse(statement));
+    return value.success?value.data:defaultWeighingSchedule;
+  }catch{return defaultWeighingSchedule;}
+}
+
+function compareComposition(points:NonNullable<DietReviewResult["weight"]>["morning"],band:"morning"|"evening",from:string,currentFrom:string) {
+  const groups=new Map<string,{metric:BodyMetric;unit:string;method:string|null;current:number[];previous:number[]}>();
+  for(const point of points){
+    if(point.date<from)continue;
+    for(const item of point.composition){
+      const key=JSON.stringify([item.metric,item.unit,item.method]);
+      const value=groups.get(key)??{metric:item.metric,unit:item.unit,method:item.method,current:[],previous:[]};
+      value[point.date>=currentFrom?"current":"previous"].push(item.value);
+      groups.set(key,value);
+    }
+  }
+  const summary=(values:number[])=>({days:values.length,mean:values.length?round(mean(values)!):null});
+  return [...groups.values()].map(value=>({...value,band,current:summary(value.current),previous:summary(value.previous)}));
+}
+
+const median=(values:number[])=>{
+  const sorted=values.slice().sort((a,b)=>a-b);
+  return sorted.length?mean([sorted[Math.floor((sorted.length-1)/2)]!,sorted[Math.floor(sorted.length/2)]!]):null;
+};
 
 export function buildDietReview(evidence:DietEvidence,input:DietReviewInput,healthAllowed:boolean) {
   const {from}=dietWindow(input),recentFrom=shiftWellnessDate(input.to,-6);
@@ -130,17 +173,17 @@ export function buildDietReview(evidence:DietEvidence,input:DietReviewInput,heal
     const groups=new Set<FoodGroup>();
     let classified=0;
     for(const item of meal.items) {
-      const itemGroups=classifyDietFood(item.name);
-      for(const group of itemGroups){
+      const groupsForItem=itemGroups(item);
+      for(const group of groupsForItem){
         groups.add(group);
         grouped.get(group)!.add(meal.date);
       }
-      if(itemGroups.length || otherRecognizable.test(item.name)||staple.test(item.name))classified++;
+      if(item.groups!==null&&item.groups!==undefined||groupsForItem.length || otherRecognizable.test(item.name)||isStaple(item))classified++;
     }
     if(classified>0)groupDays.add(meal.date);
     if(classified<meal.items.length || !meal.items.length)unclassifiedDays.add(meal.date);
     if(lunchMatches(meal)){
-      const staples=meal.items.filter(item=>staple.test(item.name));
+      const staples=meal.items.filter(isStaple);
       lunches.push({id:meal.id,revision:meal.revision,date:meal.date,items:meal.items.length,classified_items:classified,
         groups:[...groups],staples:staples.map(item=>item.name),known_staple_grams:sumKnown(staples.map(item=>item.grams)),
         weighed_staples:staples.filter(item=>item.grams!==null).length,estimated_staples:staples.filter(item=>item.grams!==null&&item.estimated).length,
@@ -164,20 +207,69 @@ export function buildDietReview(evidence:DietEvidence,input:DietReviewInput,heal
   const todayComplete=completeEnergy.some(row=>row.date===input.to);
   const status=target&&reliable!==null?(reliable>target.upper?"above":todayComplete?reliable<target.lower?"below":"within":"unknown"):"unknown";
   const wellness=buildWellnessReview(evidence.days,input,evidence.as_of);
-  const steps=evidence.activity.filter(day=>day.date>=from&&day.steps!==null).map(day=>day.steps!).sort((a,b)=>a-b);
-  const median=steps.length?mean([steps[Math.floor((steps.length-1)/2)]!,steps[Math.floor(steps.length/2)]!]):null;
+  const steps=evidence.activity.filter(day=>day.date>=from&&day.steps!==null).map(day=>day.steps!);
+  const active=evidence.activity.filter(day=>day.date>=from&&day.active_minutes!=null).map(day=>day.active_minutes!);
+  const latestActivity=evidence.activity.find(day=>day.date===input.to);
+  const currentDate=Intl.DateTimeFormat("sv-SE",{timeZone:input.time_zone}).format(new Date(evidence.as_of));
+  const stepState=latestActivity?.steps!=null||latestActivity?.active_minutes!=null?"reported":input.to===currentDate?"pending":"missing";
   const recentLunches=recentMeals.filter(lunchMatches);
   const latest=recentLunches.at(-1);
-  const mixed=latest?.items.filter(item=>staple.test(item.name))??[];
+  const mixed=latest?.items.filter(isStaple)??[];
   const vegetableDish=evidence.menu?.dishes.find(name=>!mixedDish.test(name)&&classifyDietFood(name).includes("vegetables"));
-  const latestGroups=new Set(latest?.items.flatMap(item=>classifyDietFood(item.name)));
+  const latestGroups=new Set(latest?.items.flatMap(itemGroups));
   const meal=latest?{id:latest.id,revision:latest.revision}:null;
   const next_meal=vegetableDish&&latest?.items.length&&!latestGroups.has("vegetables")
     ? {text:`下次到${evidence.menu!.merchant}，如果有${vegetableDish}，可以搭一份。`,meal}
     : mixed.length>=2?{text:`下次自选拿${mixed.slice(0,3).map(item=>item.name).join("、")}时，可以按合起来的份量打主食。`,meal}:null;
-  return dietReviewResultSchema.parse({wellness,time_zone:input.time_zone,diary,recorded_complete_days:diary.filter(row=>row.state==="complete").length,
+  const consumedItems=currentMeals.flatMap(meal=>meal.items);
+  const weight=measurements(evidence,input,healthAllowed);
+  const weight_followup=nextWeightAction(input,weight,completeEnergy.length,currentMeals,latest,energyTarget&&target?status:null);
+  const micronutrients=(["calcium_mg","iron_mg"] as const).map(nutrient=>{
+    const known=consumedItems.filter(item=>item[nutrient]!=null);
+    return {nutrient,known_total:sumKnown(known.map(item=>item[nutrient]!)),known_items:known.length,estimated_items:known.filter(item=>item.estimated).length};
+  });
+  return dietReviewResultSchema.parse({wellness,micronutrients,time_zone:input.time_zone,diary,recorded_complete_days:diary.filter(row=>row.state==="complete").length,
     complete_energy_days:completeEnergy.length,food_groups:dietFoodGroups.map(group=>({group,days:grouped.get(group)!.size,lunches:lunches.filter(lunch=>lunch.groups.includes(group)).length})),
     group_days:groupDays.size,unclassified_days:unclassifiedDays.size,lunch_count:lunches.length,lunches,menu:evidence.menu,next_meal,
     energy:{status,lower:target?.lower??null,upper:target?.upper??null,reliable_kcal:reliable,target:energyTarget&&target?{id:energyTarget.id,revision:energyTarget.revision}:null},
-    weight:measurements(evidence,input,healthAllowed),background:healthAllowed?{step_days:steps.length,median_steps:median,sleep_days:wellness.current.sleep_days,mean_sleep_minutes:wellness.current.average_sleep_minutes}:null});
+    weight,weight_followup,background:healthAllowed?{step_days:steps.length,median_steps:median(steps),active_days:active.length,median_active_minutes:median(active),
+      latest:{state:stepState,steps:latestActivity?.steps??null,active_minutes:latestActivity?.active_minutes??null},sleep_days:wellness.current.sleep_days,mean_sleep_minutes:wellness.current.average_sleep_minutes}:null});
+}
+
+
+function nextWeightAction(input:DietReviewInput,weight:DietReviewResult["weight"],completeDays:number,
+  meals:DietEvidence["meals"],latest:DietEvidence["meals"][number]|undefined,energyStatus:string|null) {
+  if(input.days!==30||weight?.alignment!=="off_track"||completeDays<21)return null;
+  if(weight.trend==="up"&&energyStatus==="below")return null;
+  const repeated=meals.filter(meal=>meal.items.some(item=>/经典可乐|原味可乐|全糖|多糖奶茶|加糖饮料|含糖饮料|全糖果茶/u.test(item.name)&&!/零糖|无糖/u.test(item.name)));
+  if(weight.trend==="up"&&new Set(repeated.map(meal=>meal.date)).size>=3){
+    return {text:"最近多天记录了含糖饮料。可以选一次换成自己喜欢的无糖饮品，过两到三周再一起回看。",meals:repeated.slice(-3).map(({id,revision})=>({id,revision}))};
+  }
+  if(!latest||!latest.items.some(isStaple))return null;
+  const change=weight.trend==="up"?"少夹一点平时拿得最多的那样主食":"把常吃的那样主食稍微加一点";
+  return {text:`下次吃相似的午餐，可以只调整一项：${change}。两到三周后再对照同秤晨重。`,meals:[{id:latest.id,revision:latest.revision}]};
+}
+
+type MealItemEvidence=Omit<MealDietReviewResult["items"][number],"groups"|"staple">&{
+  groups:FoodGroup[]|null;staple:boolean|null;
+};
+export type MealDietEvidence=Pick<MealDietReviewResult,"id"|"revision"|"date"|"type"|"as_of">&{items:MealItemEvidence[]};
+
+export function buildMealDietReview(evidence:MealDietEvidence):MealDietReviewResult {
+  const items=evidence.items.map(item=>{
+    const fraction=item.consumed_fraction??1;
+    const nutrients=Object.fromEntries(Object.entries(item.nutrients).map(([key,value])=>[key,round(value*fraction)]));
+    return {...item,groups:itemGroups(item),staple:isStaple(item),
+      quantity:item.quantity===null?null:round(item.quantity*fraction),
+      grams:item.grams===null?null:round(item.grams*fraction),nutrients};
+  });
+  const consumed=items.filter(item=>item.consumed_fraction!==0);
+  const staples=consumed.filter(item=>item.staple);
+  const totals=mealDietNutrients.map(nutrient=>{
+    const known=consumed.filter(item=>item.nutrients[nutrient]!==undefined);
+    const total=sumKnown(known.map(item=>item.nutrients[nutrient]!));
+    return {nutrient,known_total:total===null?null:round(total),known_items:known.length,estimated_items:known.filter(item=>item.estimated).length};
+  });
+  return mealDietReviewResultSchema.parse({...evidence,items,totals,consumed_items:consumed.length,
+    known_staple_grams:sumKnown(staples.map(item=>item.grams)),staples_with_grams:staples.filter(item=>item.grams!==null).length,staples:staples.length});
 }

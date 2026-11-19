@@ -143,6 +143,22 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     AssistantReply(answer.toString(),threadId,runId,state,prompt,receipts)
   }
 
+  internal suspend fun canteenProfiles(merchant:String,query:String,after:String?):MerchantMenuResultDto {
+    val path=buildString {
+      append("/api/life/merchant-menu?with_profiles=1&limit=25")
+      if(merchant.isNotBlank())append("&merchant=${encode(merchant.trim())}")
+      if(query.isNotBlank())append("&query=${encode(query.trim())}")
+      if(after!=null)append("&after=${encode(after)}")
+    }
+    return wireJson.decodeFromString(getText(path))
+  }
+
+  internal suspend fun dietReview(date:String,days:Int):DietReviewResultDto =
+    wireJson.decodeFromString(getText("/api/life/diet-review?to=${encode(date)}&days=$days&time_zone=${encode(ZoneId.systemDefault().id)}"))
+
+  internal suspend fun mealDietReview(id:String):MealDietReviewResultDto =
+    wireJson.decodeFromString(getText("/api/life/meals/${encode(id)}/diet-review"))
+
   suspend fun mealsOn(date:String):RecordPage {
     val on=java.time.LocalDate.parse(date).toString()
     val meals=linkedMapOf<String,RecordSummary>()

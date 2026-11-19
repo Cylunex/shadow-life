@@ -50,3 +50,15 @@
 
 .wellness-metrics:has(>article:nth-child(3):last-child){grid-template-columns:repeat(3,minmax(0,1fr))}
 @media(max-width:700px){.wellness-metrics:has(>article:nth-child(3):last-child){grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.meal-diet-detail summary{cursor:pointer;font-weight:650}
+.meal-diet-items{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:10px;margin:12px 0}
+.meal-diet-items article{display:grid;gap:5px;padding:12px;border:1px solid var(--line);border-radius:10px;overflow-wrap:anywhere}
+.meal-diet-items small{color:var(--muted)}
+.canteen-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,165px),1fr));gap:12px;align-items:end}
+.canteen-form label,.canteen-editor>label{display:grid;gap:5px;min-width:0}
+.canteen-form input,.canteen-form select{min-width:0}
+.canteen-editor{display:grid;gap:14px;margin-top:18px}
+.canteen-editor fieldset{min-width:0;border:1px solid var(--line);border-radius:10px}
+.canteen-editor fieldset>label{display:inline-flex;align-items:center;margin:6px 14px 6px 0;gap:6px}
+.canteen-editor input[type=checkbox]{width:auto}

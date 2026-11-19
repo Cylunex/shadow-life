@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "42f03287f46434a66b376bc833f58cf9a09b35d44d0173c567afd146c6ff6e79",
+  "catalog_revision": "c4b2c585f382aca88ce977c626d6e89e3631822038926314a135c84ce3acffe0",
   "terms": [
     {
       "id": "activity_capture",
@@ -533,6 +533,7 @@
       "capabilities": [
         "life.wellness_review",
         "life.diet_review",
+        "life.meal_diet_review",
         "life.search",
         "health.get_record"
       ],
@@ -773,6 +774,7 @@
         "life.food_catalog",
         "life.daily_record_check",
         "life.diet_review",
+        "life.meal_diet_review",
         "life.wellness_review",
         "life.today",
         "life.day",
@@ -875,6 +877,7 @@
         "health.morning_window",
         "health.sleep_insights",
         "life.diet_review",
+        "life.meal_diet_review",
         "life.wellness_review",
         "health.exercise_history",
         "health.workout_progression",
@@ -26370,6 +26373,14 @@
                 "type": "string",
                 "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
               },
+              "calcium_mg": {
+                "type": "string",
+                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+              },
+              "iron_mg": {
+                "type": "string",
+                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+              },
               "consumed_fraction": {
                 "description": "Fraction actually consumed of the supplied quantity and nutrient values; defaults to 1 for aggregation. Do not scale nutrients twice.",
                 "type": "string",
@@ -33385,6 +33396,14 @@
                 "type": "string",
                 "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
               },
+              "calcium_mg": {
+                "type": "string",
+                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+              },
+              "iron_mg": {
+                "type": "string",
+                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+              },
               "consumed_fraction": {
                 "description": "Fraction actually consumed of the supplied quantity and nutrient values; defaults to 1 for aggregation. Do not scale nutrients twice.",
                 "type": "string",
@@ -37488,6 +37507,44 @@
               "additionalProperties": false
             }
           },
+          "micronutrients": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "nutrient": {
+                  "type": "string",
+                  "enum": [
+                    "calcium_mg",
+                    "iron_mg"
+                  ]
+                },
+                "known_total": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "known_items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "estimated_items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "nutrient",
+                "known_total",
+                "known_items",
+                "estimated_items"
+              ],
+              "additionalProperties": false
+            }
+          },
           "group_days": {
             "type": "integer",
             "minimum": 0,
@@ -37678,6 +37735,48 @@
               }
             ]
           },
+          "weight_followup": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "text": {
+                    "type": "string"
+                  },
+                  "meals": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "revision"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "text",
+                  "meals"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "energy": {
             "type": "object",
             "properties": {
@@ -37753,6 +37852,240 @@
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 9007199254740991
+                  },
+                  "settings": {
+                    "type": "object",
+                    "properties": {
+                      "schedule": {
+                        "type": "object",
+                        "properties": {
+                          "morning_from": {
+                            "type": "string",
+                            "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$"
+                          },
+                          "morning_to": {
+                            "type": "string",
+                            "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$"
+                          },
+                          "evening_from": {
+                            "type": "string",
+                            "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$"
+                          },
+                          "evening_to": {
+                            "type": "string",
+                            "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$"
+                          },
+                          "scale_id": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "morning_from",
+                          "morning_to",
+                          "evening_from",
+                          "evening_to",
+                          "scale_id"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "declaration": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                              },
+                              "revision": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "revision"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "selected_scale": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "scales": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                            },
+                            "label": {
+                              "type": "string"
+                            },
+                            "days": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "label",
+                            "days"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "schedule",
+                      "declaration",
+                      "selected_scale",
+                      "scales"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "composition": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "band": {
+                          "type": "string",
+                          "enum": [
+                            "morning",
+                            "evening"
+                          ]
+                        },
+                        "metric": {
+                          "type": "string",
+                          "enum": [
+                            "body_fat",
+                            "muscle_mass",
+                            "body_water_rate",
+                            "visceral_fat"
+                          ]
+                        },
+                        "method": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "unit": {
+                          "type": "string"
+                        },
+                        "current": {
+                          "type": "object",
+                          "properties": {
+                            "days": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "mean": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "days",
+                            "mean"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "previous": {
+                          "type": "object",
+                          "properties": {
+                            "days": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "mean": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "days",
+                            "mean"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "band",
+                        "metric",
+                        "method",
+                        "unit",
+                        "current",
+                        "previous"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "waist_goal": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                          },
+                          "revision": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "direction": {
+                            "type": "string",
+                            "enum": [
+                              "maintain",
+                              "gain",
+                              "lose"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "revision",
+                          "direction"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "morning": {
                     "type": "array",
@@ -38124,6 +38457,48 @@
                       "number",
                       "null"
                     ]
+                  },
+                  "active_days": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "median_active_minutes": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "latest": {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "reported",
+                          "pending",
+                          "missing"
+                        ]
+                      },
+                      "steps": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "active_minutes": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "steps",
+                      "active_minutes"
+                    ],
+                    "additionalProperties": false
                   }
                 },
                 "required": [
@@ -39415,6 +39790,14 @@
                             "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                           },
                           "sodium_mg": {
+                            "type": "string",
+                            "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                          },
+                          "calcium_mg": {
+                            "type": "string",
+                            "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                          },
+                          "iron_mg": {
                             "type": "string",
                             "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                           },
@@ -43158,6 +43541,305 @@
       "matched_terms": []
     },
     {
+      "name": "life.meal_diet_review",
+      "description": "按餐次查看实吃食物组、份量、热量和各字段覆盖，区分估算与实称。",
+      "domain": "life",
+      "mode": "read",
+      "possible_effects": [
+        "life.meal.read"
+      ],
+      "scenarios": [
+        "daily",
+        "health"
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "meal_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          }
+        },
+        "required": [
+          "meal_id"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "revision": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "type": {
+            "type": "string"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "revision": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "name": {
+                  "type": "string"
+                },
+                "food_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "food_revision": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "merchant": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "stall": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "groups": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "vegetables",
+                      "fruit",
+                      "dairy",
+                      "soy",
+                      "whole_grains"
+                    ]
+                  }
+                },
+                "staple": {
+                  "type": "boolean"
+                },
+                "consumed_fraction": {
+                  "anyOf": [
+                    {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "quantity": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "unit": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "grams": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "estimated": {
+                  "type": "boolean"
+                },
+                "weight_basis": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "measured_net",
+                        "payment_derived"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "basis": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "nutrients": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string",
+                    "enum": [
+                      "energy_kcal",
+                      "protein_g",
+                      "fat_g",
+                      "carb_g",
+                      "fiber_g",
+                      "sodium_mg",
+                      "calcium_mg",
+                      "iron_mg"
+                    ]
+                  },
+                  "additionalProperties": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "revision",
+                "name",
+                "food_id",
+                "food_revision",
+                "merchant",
+                "stall",
+                "groups",
+                "staple",
+                "consumed_fraction",
+                "quantity",
+                "unit",
+                "grams",
+                "estimated",
+                "weight_basis",
+                "basis",
+                "nutrients"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "totals": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "nutrient": {
+                  "type": "string",
+                  "enum": [
+                    "energy_kcal",
+                    "protein_g",
+                    "fat_g",
+                    "carb_g",
+                    "fiber_g",
+                    "sodium_mg",
+                    "calcium_mg",
+                    "iron_mg"
+                  ]
+                },
+                "known_total": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "known_items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "estimated_items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "nutrient",
+                "known_total",
+                "known_items",
+                "estimated_items"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "consumed_items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "known_staple_grams": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "staples_with_grams": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "staples": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "date",
+          "type",
+          "as_of",
+          "items",
+          "totals",
+          "consumed_items",
+          "known_staple_grams",
+          "staples_with_grams",
+          "staples"
+        ],
+        "additionalProperties": false
+      },
+      "matched_terms": []
+    },
+    {
       "name": "life.meal_planning",
       "description": "读取餐单快照、购物清单与显式食品库存；按 on/time_zone 给出未来 7 天到期、已过期、未知日期和用完状态。stock_truncated 标明库存覆盖；计划、买到和实际摄入保持独立。",
       "domain": "life",
@@ -43467,6 +44149,14 @@
                                       "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                                     },
                                     "sodium_mg": {
+                                      "type": "string",
+                                      "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                                    },
+                                    "calcium_mg": {
+                                      "type": "string",
+                                      "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                                    },
+                                    "iron_mg": {
                                       "type": "string",
                                       "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                                     },
@@ -43955,6 +44645,12 @@
             "minLength": 1,
             "maxLength": 160
           },
+          "with_profiles": {
+            "type": "string",
+            "enum": [
+              "1"
+            ]
+          },
           "after": {
             "type": "string",
             "pattern": "^[a-z][a-z0-9_]{7,127}$"
@@ -44135,6 +44831,142 @@
                   "type": [
                     "string",
                     "null"
+                  ]
+                },
+                "profile": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "aliases": {
+                          "default": [],
+                          "maxItems": 16,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 160,
+                            "pattern": "^[^｜|\\p{Cc}]+$"
+                          }
+                        },
+                        "cooking": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 160,
+                          "pattern": "^[^｜|\\p{Cc}]+$"
+                        },
+                        "groups": {
+                          "maxItems": 5,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "vegetables",
+                              "fruit",
+                              "dairy",
+                              "soy",
+                              "whole_grains"
+                            ]
+                          }
+                        },
+                        "staple": {
+                          "type": "boolean"
+                        },
+                        "portion": {
+                          "type": "object",
+                          "properties": {
+                            "quantity": {
+                              "type": "string",
+                              "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                            },
+                            "unit": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 32
+                            },
+                            "grams": {
+                              "type": "string",
+                              "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                            },
+                            "estimated": {
+                              "default": false,
+                              "type": "boolean"
+                            },
+                            "basis": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            },
+                            "nutrients": {
+                              "type": "object",
+                              "properties": {
+                                "energy_kcal": {
+                                  "type": "string",
+                                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                                },
+                                "protein_g": {
+                                  "type": "string",
+                                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                                },
+                                "fat_g": {
+                                  "type": "string",
+                                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                                },
+                                "carb_g": {
+                                  "type": "string",
+                                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                                },
+                                "fiber_g": {
+                                  "type": "string",
+                                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                                },
+                                "sodium_mg": {
+                                  "type": "string",
+                                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                                },
+                                "calcium_mg": {
+                                  "type": "string",
+                                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                                },
+                                "iron_mg": {
+                                  "type": "string",
+                                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                                }
+                              },
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "quantity",
+                            "unit",
+                            "estimated",
+                            "basis"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "stall": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160,
+                              "pattern": "^[^｜|\\p{Cc}]+$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "aliases",
+                        "stall"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 },
                 "evidence": {
@@ -47336,6 +48168,14 @@
                   "type": "string",
                   "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                 },
+                "calcium_mg": {
+                  "type": "string",
+                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                },
+                "iron_mg": {
+                  "type": "string",
+                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                },
                 "consumed_fraction": {
                   "description": "Fraction actually consumed of the supplied quantity and nutrient values; defaults to 1 for aggregation. Do not scale nutrients twice.",
                   "type": "string",
@@ -47438,6 +48278,14 @@
                   "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                 },
                 "sodium_mg": {
+                  "type": "string",
+                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                },
+                "calcium_mg": {
+                  "type": "string",
+                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                },
+                "iron_mg": {
                   "type": "string",
                   "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                 },
@@ -48163,6 +49011,14 @@
                   "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                 },
                 "sodium_mg": {
+                  "type": "string",
+                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                },
+                "calcium_mg": {
+                  "type": "string",
+                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                },
+                "iron_mg": {
                   "type": "string",
                   "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                 },
@@ -51479,6 +52335,136 @@
             "minLength": 1,
             "maxLength": 160,
             "pattern": "^[^｜|\\p{Cc}]+$"
+          },
+          "stall": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160,
+            "pattern": "^[^｜|\\p{Cc}]+$"
+          },
+          "food_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "profile": {
+            "type": "object",
+            "properties": {
+              "aliases": {
+                "default": [],
+                "maxItems": 16,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160,
+                  "pattern": "^[^｜|\\p{Cc}]+$"
+                }
+              },
+              "cooking": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160,
+                "pattern": "^[^｜|\\p{Cc}]+$"
+              },
+              "groups": {
+                "maxItems": 5,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "vegetables",
+                    "fruit",
+                    "dairy",
+                    "soy",
+                    "whole_grains"
+                  ]
+                }
+              },
+              "staple": {
+                "type": "boolean"
+              },
+              "portion": {
+                "type": "object",
+                "properties": {
+                  "quantity": {
+                    "type": "string",
+                    "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                  },
+                  "unit": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 32
+                  },
+                  "grams": {
+                    "type": "string",
+                    "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                  },
+                  "estimated": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "basis": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "nutrients": {
+                    "type": "object",
+                    "properties": {
+                      "energy_kcal": {
+                        "type": "string",
+                        "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                      },
+                      "protein_g": {
+                        "type": "string",
+                        "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                      },
+                      "fat_g": {
+                        "type": "string",
+                        "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                      },
+                      "carb_g": {
+                        "type": "string",
+                        "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                      },
+                      "fiber_g": {
+                        "type": "string",
+                        "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                      },
+                      "sodium_mg": {
+                        "type": "string",
+                        "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                      },
+                      "calcium_mg": {
+                        "type": "string",
+                        "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                      },
+                      "iron_mg": {
+                        "type": "string",
+                        "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "quantity",
+                  "unit",
+                  "estimated",
+                  "basis"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "aliases"
+            ],
+            "additionalProperties": false
           },
           "stall_price": {
             "type": "object",
@@ -58095,6 +59081,14 @@
                   "type": "string",
                   "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                 },
+                "calcium_mg": {
+                  "type": "string",
+                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                },
+                "iron_mg": {
+                  "type": "string",
+                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                },
                 "consumed_fraction": {
                   "description": "Fraction actually consumed of the supplied quantity and nutrient values; defaults to 1 for aggregation. Do not scale nutrients twice.",
                   "type": "string",
@@ -59953,6 +60947,14 @@
                   "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                 },
                 "sodium_mg": {
+                  "type": "string",
+                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                },
+                "calcium_mg": {
+                  "type": "string",
+                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                },
+                "iron_mg": {
                   "type": "string",
                   "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                 },

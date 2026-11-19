@@ -2,6 +2,7 @@ import {PersonalRecords} from "./PersonalRecords.js";
 import { MorningCheckinPanel } from "./MorningCheckinPanel.js";
 import { FeatureDirectory } from "./FeatureDirectory.js";
 import { useModalFocus } from "./use-modal-focus.js";
+import { CanteenMenuPanel } from "./CanteenMenuPanel.js";
 import { WellnessReviewPanel } from "./WellnessReviewPanel.js";
 import { Assistant } from "./Assistant.js";
 import { lazy, Suspense, StrictMode, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
@@ -129,6 +130,7 @@ function App(){
     {tab==="record"&&section==="health"&&visible.has("health.morning_window")&&<MorningCheckinPanel key={`morning:${identityKey}`} headers={auth} execute={command} date={today()} canWrite={visible.has("health.save_morning_checkin")}/>}
     {((tab==="record"&&["health","training","items","food","meals","travel","money","reviews"].includes(section))||(tab==="library"&&section==="browse"))&&<PersonalRecords key={identityKey+section} headers={auth} execute={command} capabilities={visible} sections={section==="health"?["体检项目对照","不适发作","路线与训练复盘"]:section==="training"?["路线与训练复盘"]:section==="items"?["收纳位置","售后与消费来源"]:section==="food"||section==="meals"?["门店食品库"]:section==="travel"?["旅行小记与票据"]:section==="money"?["售后与消费来源"]:section==="browse"?["资料筛选","精选录音"]:["精选录音","线下时间线"]}/>}
     {tab==="record"&&(section==="health"||section==="food")&&(visible.has("life.diet_review")||visible.has("life.wellness_review"))&&<WellnessReviewPanel key={identityKey} headers={auth} date={today()} capabilities={visible} execute={command}/>}
+    {tab==="record"&&(section==="food"||section==="meals")&&visible.has("life.merchant_menu")&&<CanteenMenuPanel key={identityKey} headers={auth} execute={command} canEdit={visible.has("life.remember_merchant_dish")}/>}
     {tab==="record"&&section==="stats"&&visible.has("life.consumption_stats")&&<ConsumptionStatsPanel headers={auth}/>}
     {tab==="plan"&&section==="cards"&&visible.has("money.service_cards")&&<ServiceCardsPanel headers={auth} capabilities={visible} execute={command}/>}
     {tab==="plan"&&section==="supplies"&&visible.has("money.planning")&&<UseCyclePanel headers={auth} capabilities={visible} execute={command}/>}

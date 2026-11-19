@@ -89,6 +89,14 @@ test("diet review follows diary evidence, meal portions and one scale across mid
   assert.equal(partial.weight?.evening[0]?.kg,79.2);
   assert.equal(partial.weight?.morning[0]?.composition[0]?.value,29);
   assert.equal(partial.weight?.goal?.direction,"maintain");
+  assert.equal(partial.weight?.composition?.find(row=>row.band==="morning")?.current.mean,29);
+  const selected=partial.weight?.settings?.selected_scale;
+  assert.ok(selected);
+  await save("wellness.weighing","preference",JSON.stringify({morning_from:"10:00",morning_to:"11:00",evening_from:"20:00",evening_to:"02:00",scale_id:selected}));
+  const changed=await query(7);
+  assert.equal(changed.weight?.morning.length,0,"configured hours exclude the 09:05 measurement");
+  assert.equal(changed.weight?.evening[0]?.kg,79.2,"custom overnight still uses the prior evening");
+  assert.equal(changed.weight?.settings?.schedule.scale_id,selected);
   assert.match(partial.next_meal?.text??"",/白米饭、蒸红薯/);
   await save("wellness.diary.2026-10-23.Asia/Shanghai","preference","当天进食已结束，饮食已基本记全");
   assert.equal((await query(1)).energy.status,"within");
@@ -100,4 +108,47 @@ test("diet review follows diary evidence, meal portions and one scale across mid
   assert.equal(restricted.weight,null);
   assert.equal(restricted.wellness.current.weight_days,0);
   assert.equal(restricted.diary[0]?.state,"unknown");
+});
+
+test("canteen profiles keep same-name stalls, preserve meal snapshots and expose only consumed nutrients",pgOnly,async t=>{
+  const {run,queries,context}=await reviewFixture(t);
+  const merchant="合成食堂",dish="招牌小碗",date="2026-11-19";
+  const create={merchant,dish,stall:"自选档",evidence:{kind:"note",note:"本人实称一平勺熟菜"},
+    profile:{aliases:["熟豆小碗"],cooking:"清蒸",groups:["soy"],staple:false,portion:{
+      quantity:"1",unit:"平勺",grams:"80",basis:"本人称重与包装标签",nutrients:{calcium_mg:"40",iron_mg:"2",energy_kcal:"60"}
+    }}};
+  const one=await run("life.remember_merchant_dish",create);
+  const duplicate=await run("life.remember_merchant_dish",{merchant,dish,stall:"自选档",evidence:create.evidence});
+  const another=await run("life.remember_merchant_dish",{merchant,dish,stall:"面档",evidence:create.evidence});
+  assert.equal(duplicate.actual_values.food_id,one.actual_values.food_id);
+  assert.notEqual(another.actual_values.food_id,one.actual_values.food_id);
+  const legacy=await queries.merchantMenu(context,{merchant});
+  assert.ok(legacy.items.every(row=>row.profile===undefined));
+  const page=await queries.merchantMenu(context,{merchant,with_profiles:"1",query:"熟豆小碗"});
+  assert.equal(page.items.length,1);
+  assert.equal(page.items[0]?.profile?.portion?.grams,"80");
+  const meal=await run("life.record_meal",{meal_type:"lunch",occurred_on:date,time_zone:"Asia/Shanghai",items:[
+    {name:dish,food_ref_id:one.actual_values.food_id,quantity:"1",unit:"平勺",amount_g:"80",calcium_mg:"40",iron_mg:"2",energy_kcal:"60",consumed_fraction:"0.5",
+      estimate:true,evidence_note:"一勺按菜单估算后吃了一半"},
+    {name:"米饭",amount_g:"80",energy_kcal:"90",consumed_fraction:"0"},
+    {name:"白米饭",quantity:"1",unit:"碗",amount_g:"90",energy_kcal:"100",weight_basis:"measured_net",evidence_note:"米饭实称"},
+  ]});
+  await run("life.remember_merchant_dish",{...create,food_id:one.actual_values.food_id,expected_revision:1,
+    profile:{aliases:[],groups:["vegetables"],staple:true}});
+  const result=await queries.mealDietReview(context,{meal_id:meal.actual_values.meal_id});
+  assert.deepEqual(result.items[0]?.groups,["soy"]);
+  assert.equal(result.items[0]?.grams,40);
+  assert.equal(result.items[0]?.food_revision,1);
+  assert.equal(result.items[0]?.basis,"一勺按菜单估算后吃了一半");
+  assert.equal(result.items[1]?.consumed_fraction,0);
+  assert.equal(result.known_staple_grams,90);
+  const calcium=result.totals.find(nutrient=>nutrient.nutrient==="calcium_mg");
+  assert.deepEqual(calcium,{nutrient:"calcium_mg",known_total:20,known_items:1,estimated_items:1});
+  await run("life.correct_intake",{item_id:result.items[0]!.id,expected_revision:result.items[0]!.revision,reason:"旧界面修正摄入比例与依据",
+    item:{name:dish,food_ref_id:one.actual_values.food_id,quantity:"1",unit:"平勺",amount_g:"80",energy_kcal:"60",consumed_fraction:"0.5",estimate:true,evidence_note:"沿用原份量"}});
+  const period=await queries.dietReview(context,{to:date,days:7});
+  assert.equal(period.food_groups.find(group=>group.group==="soy")?.days,1);
+  assert.equal(period.micronutrients?.find(row=>row.nutrient==="iron_mg")?.known_total,1);
+  await assert.rejects(()=>queries.mealDietReview({...context,subjectId:"subject_other"},{meal_id:meal.actual_values.meal_id}),/not found/i);
+  await assert.rejects(()=>queries.mealDietReview({...context,effects:new Set()},{meal_id:meal.actual_values.meal_id}),/permission/i);
 });

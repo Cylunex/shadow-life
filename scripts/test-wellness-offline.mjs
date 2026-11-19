@@ -25,7 +25,7 @@ await withOfflinePostgres(async url=>{
     const ctx={actorId:'subject_example',subjectId:'subject_example',clientId:'client_wellness_fixture',traceId:'trace_wellness_fixture',effects:new Set(Object.values(capabilityRegistry).flatMap(value=>value.possibleEffects))};
     const run=(capability,input)=>executor.execute(ctx,{protocol:'shadow.command',capability,command_id:`cmd_${randomUUID()}`,input});
     const date='2026-10-23';
-    await run('life.record_meal',{occurred_on:date,time_zone:'Asia/Shanghai',meal_type:'lunch',items:[{name:'白米饭',energy_kcal:'600',protein_g:'25',consumed_fraction:'0.5'},{name:'蒸红薯'}]});
+    const lunch=await run('life.record_meal',{occurred_on:date,time_zone:'Asia/Shanghai',meal_type:'lunch',items:[{name:'白米饭',energy_kcal:'600',protein_g:'25',consumed_fraction:'0.5'},{name:'蒸红薯'}]});
     await run('health.record_measurement',{metric:'weight',value:'70.5',unit:'kg',occurred_on:date,time_zone:'Asia/Shanghai'});
     for(const [id,kg,hour] of [['morning','70','01'],['evening','72','14']]){
       const raw=await run('health.ingest_raw',{source_type:'scale',source_instance_key:'browser-fixture-scale',source_fingerprint:'synthetic-scale',record_type:'body',client_record_id:id,record_version:1,sync_epoch:1,change_kind:'upsert',parse_version:'health-normalizer',payload:{occurred_on:date,occurred_at:date+'T'+hour+':00:00Z',time_zone:'Asia/Shanghai',group_kind:'measurement',observations:[{metric_key:'weight',value:kg,unit:'kg',original_field:'fixture:weight'}]}});
@@ -104,8 +104,32 @@ await withOfflinePostgres(async url=>{
     await page.waitForURL(url=>url.searchParams.get('record_id')===purchase.actual_values.record_id);
     await page.getByText('关联原件 · '+date,{exact:true}).click();
     await page.getByRole('img',{name:'消费记录原件'}).waitFor();
+    await page.goto(`${origin}?tab=record&section=timeline&domain=meals&kind=meal&id=${lunch.actual_values.meal_id}`);
+    await page.getByText('实吃份量与估算依据',{exact:true}).click();
+    await page.getByRole('table',{name:'本餐营养覆盖'}).waitFor();
+    await page.getByRole('row').filter({hasText:'300 kcal'}).waitFor();
+    await page.goto(`${origin}?tab=record&section=food`);
+    const canteen=page.getByRole('region',{name:'门店菜品档案'});
+    await canteen.getByLabel('门店',{exact:true}).fill('合成食堂');
+    await canteen.getByRole('button',{name:'查询菜单'}).click();
+    await canteen.getByRole('button',{name:'收录菜品'}).click();
+    await canteen.getByLabel('菜名',{exact:true}).fill('家常豆腐');
+    await canteen.getByLabel('档口',{exact:true}).fill('自选档');
+    await canteen.getByLabel('别名',{exact:true}).fill('蒸豆腐');
+    await canteen.getByLabel('数量',{exact:true}).fill('1');
+    await canteen.getByLabel('单位',{exact:true}).fill('平勺');
+    await canteen.getByLabel('对应克重',{exact:true}).fill('60');
+    await canteen.getByLabel('份量与营养依据',{exact:true}).fill('本人称重');
+    await canteen.getByLabel('这次补充的出处',{exact:true}).fill('合成食堂样例');
+    await canteen.getByRole('button',{name:'保存菜品'}).click();
+    await canteen.getByText('1 平勺 · 60 g',{exact:true}).waitFor();
+    await canteen.getByLabel('搜索菜名或别名').fill('蒸豆腐');
+    await canteen.getByRole('button',{name:'查询菜单'}).click();
+    await canteen.getByText('家常豆腐',{exact:true}).waitFor();
+    await canteen.screenshot({path:`${output}/menu-narrow.png`});
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'meal and menu details fit the narrow layout');
     assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
-    await writeFile(`${output}/result.json`,JSON.stringify({passed:true,cases:['next-meal advice from the recorded food and partial nutrition','scale chart and source links','diary completeness writes and reread','7/30/90 periods','failure clears stale result and retry','390px layout','read-only browsing','weekly goal and reported result across weeks','purchase after-sales dates and return to order'],errors,external},null,2));
+    await writeFile(`${output}/result.json`,JSON.stringify({passed:true,cases:['next-meal advice from the recorded food and partial nutrition','scale chart and source links','diary completeness writes and reread','meal evidence and calorie coverage','menu profile creation and alias lookup','7/30/90 periods','failure clears stale result and retry','390px layout','read-only browsing','weekly goal and reported result across weeks','purchase after-sales dates and return to order'],errors,external},null,2));
     console.log(`PASS wellness browser; artifacts: ${output}`);
   }catch(error){if(page)await page.screenshot({path:`${output}/failure.png`,fullPage:true}).catch(()=>{});console.log(`Failure artifacts: ${output}`);throw error;}
   finally{if(browser)await browser.close();if(web)await web.close();if(server)await new Promise(resolve=>server.close(resolve));await unitOfWork.close();}

@@ -14,8 +14,9 @@ import { capabilityRegistry } from "../src/registry.js";
 import { createHash } from "node:crypto";
 import { buildAgentCatalogDocument } from "../src/agent-catalog.js";
 import { mcpCommandInputSchema, mcpQueryInputSchema } from "../src/mcp-schemas.js";
-import { agentThreadMessagesResultSchema, agentThreadsResultSchema, consumptionStatsResultSchema, domainRecordsResultSchema, foreignEntriesResultSchema, healthReleaseHistoryResultSchema, healthDailyResultSchema, healthRecordResultSchema, healthSourcesResultSchema, libraryItemResultSchema, lifeProjectsResultSchema, lifeRecordResultSchema, lifeReviewsResultSchema, lifeSearchResultSchema, lifeTimelineResultSchema, lifeTodayResultSchema, listMealsResultSchema, mealPlanningResultSchema, moneyPlanningResultSchema, notificationsResultSchema, ownedItemsResultSchema, planningAgendaResultSchema, projectDirectoryResultSchema, travelTripResultSchema, travelWorkspaceResultSchema } from "../src/schemas.js";
+import { merchantMenuResultSchema, agentThreadMessagesResultSchema, agentThreadsResultSchema, consumptionStatsResultSchema, domainRecordsResultSchema, foreignEntriesResultSchema, healthReleaseHistoryResultSchema, healthDailyResultSchema, healthRecordResultSchema, healthSourcesResultSchema, libraryItemResultSchema, lifeProjectsResultSchema, lifeRecordResultSchema, lifeReviewsResultSchema, lifeSearchResultSchema, lifeTimelineResultSchema, lifeTodayResultSchema, listMealsResultSchema, mealPlanningResultSchema, moneyPlanningResultSchema, notificationsResultSchema, ownedItemsResultSchema, planningAgendaResultSchema, projectDirectoryResultSchema, travelTripResultSchema, travelWorkspaceResultSchema } from "../src/schemas.js";
 
+import { dietReviewResultSchema, mealDietReviewResultSchema } from "../src/diet-review-schemas.js";
 import { foundationListSchema } from "../src/foundation-schemas.js";
 const {values:options}=parseArgs({options:{scope:{type:"string",default:"all"},check:{type:"boolean",default:false}},strict:true});
 if(options.scope!=="all"&&options.scope!=="shared")throw new Error("Contract generation scope must be all or shared.");
@@ -134,6 +135,9 @@ defineObject(z.toJSONSchema(agentThreadsResultSchema) as JsonSchema, "AgentThrea
 defineObject(z.toJSONSchema(agentThreadMessagesResultSchema) as JsonSchema, "AgentThreadMessagesResultDto");
 defineObject(z.toJSONSchema(serviceCardsResultSchema) as JsonSchema, "ServiceCardsResultDto");
 defineObject(z.toJSONSchema(moneyPlanningResultSchema) as JsonSchema, "MoneyPlanningResultDto");
+defineObject(z.toJSONSchema(merchantMenuResultSchema) as JsonSchema, "MerchantMenuResultDto");
+defineObject(z.toJSONSchema(dietReviewResultSchema) as JsonSchema, "DietReviewResultDto");
+defineObject(z.toJSONSchema(mealDietReviewResultSchema) as JsonSchema, "MealDietReviewResultDto");
 defineObject(z.toJSONSchema(mealPlanningResultSchema) as JsonSchema, "MealPlanningResultDto");
 defineObject(z.toJSONSchema(foreignEntriesResultSchema) as JsonSchema, "ForeignEntriesResultDto");
 defineObject(z.toJSONSchema(travelWorkspaceResultSchema) as JsonSchema, "TravelWorkspaceResultDto");

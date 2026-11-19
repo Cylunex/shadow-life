@@ -1,5 +1,6 @@
 import { ConsumptionLinkSummary } from "./ConsumptionLinks.js";
 import { AssetPreview } from "./LibraryPanel.js";
+import { MealDietReviewPanel } from "./MealDietReviewPanel.js";
 import { TypedRecordBody } from "./TypedRecordBody.js";
 import { useState, type ReactNode } from "react";
 import { TravelItinerary } from "./TravelItinerary.js";
@@ -32,6 +33,7 @@ export function RecordDetailContent({value,selection,headers={}}:{value:Record<s
     <header className={`record-hero ${selection.domain} ${String(value.kind??"")}`}><small>{({meals:"饮食记录",money:"消费记录",health:"健康记录",travel:"旅行",library:"资料"})[selection.domain]}</small><h2>{recordTitle(value,selection)}</h2>{entry.amount!==undefined&&<strong>{formatMoneyAmount(entry.amount,entry.currency,entry.source_scale)} {String(entry.currency??"")}</strong>}{fact.value!==undefined&&<strong>{formatMoneyAmount(fact.value)} {String(fact.unit??"")}</strong>}<p>{String(value.occurred_on??fact.occurred_on??fact.wake_date??trip.starts_on??item.item_type??"")}{trip.ends_on?` — ${String(trip.ends_on)}`:""}</p></header>
     {selection.sourceRevision&&selection.domain==="library"&&<section className="detail-section"><h3>本次查询的来源 · 修订 {selection.sourceRevision}</h3>{sourceRevision?<><p style={{whiteSpace:"pre-wrap"}}>{String(sourceRevision.text??sourceRevision.url??"此修订没有正文")}</p><small>此处为查询时指定的历史正文；下方详情保留当前记录。</small></>:<p>该修订已不可读取，请重新查询。</p>}</section>}
     {(value.kind==="record"||value.kind==="meal")&&<ConsumptionLinkSummary detail={value}/>}
+    {value.kind==="meal"&&typeof value.meal_id==="string"&&<MealDietReviewPanel key={value.meal_id} mealId={value.meal_id} revision={value.revision} headers={headers}/>}
     {relations.length>0&&<section className="detail-relations"><h3>关联记录</h3><div>{(allRelations?relations:relations.slice(0,6)).map(link=><a key={link.href} href={link.href}><b>{link.title}</b>{link.supporting&&<span>{link.supporting}</span>}<small>查看详情 →</small></a>)}</div>{relations.length>6&&<button type="button" className="text-button" onClick={()=>setAllRelations(!allRelations)}>{allRelations?"收起":`查看全部 ${relations.length} 条关联`}</button>}</section>}
     {Boolean(trip.starts_on)&&<><TravelItinerary trip={travelTrip} plans={plans} date={selectedDate} onDate={setDate}/><a className="detail-workspace-link" href={`?tab=plan&section=travel&trip=${encodeURIComponent(String(trip.id))}`}>打开旅行工作台，调整日程 →</a></>}
     {selection.domain==="library"&&Array.isArray(value.sources)&&value.sources.map((raw,index)=>{const source=obj(raw),asset=obj(source.asset),id=obj(source.source).asset_version_id;if(typeof id!=="string")return null;return <AssetPreview key={String(id)} asset={{id,media_type:String(asset.media_type??"")}} title={String(item.title??"原件")} headers={headers}/>;})}

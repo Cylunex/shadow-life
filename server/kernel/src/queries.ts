@@ -6,8 +6,8 @@ import { captureDateSchema, captureWorkspaceResultSchema } from "@shadow/contrac
 import { capturedPaymentPlatform, inspectActivityOrder } from "./activity-order.js";
 import { inspectLibraryOrder } from "./library-order.js";
 import { activityActionInputSchema, activityOrderResultSchema, activitiesInputSchema, activitiesResultSchema } from "@shadow/contracts";
-import { dietReviewInputSchema, wellnessReviewInputSchema } from "@shadow/contracts";
-import {buildDietReview, dietWindow} from "./diet-review.js";
+import { dietReviewInputSchema, mealDietReviewInputSchema, wellnessReviewInputSchema } from "@shadow/contracts";
+import {buildDietReview, buildMealDietReview, dietWindow} from "./diet-review.js";
 import { buildWellnessReview, wellnessWindow } from "./wellness-review.js";
 import { buildItemAttention, buildStockAttention } from "./planning-attention.js";
 import { queryFoundation } from "./foundation.js";
@@ -405,6 +405,13 @@ export class QueryService {
     if(!context.effects.has("library.item.read"))throw permissionDenied("library.item.read");
     const parsed=activitiesInputSchema.parse(input);
     return this.unitOfWork.read(async store=>{if(!store.activities)throw invalidInput("Activity storage is unavailable",[]);return activitiesResultSchema.parse(await store.activities(context.subjectId,parsed));});
+  }
+  async mealDietReview(context:RequestContext,input:unknown){
+    if(!context.effects.has("life.meal.read"))throw permissionDenied("life.meal.read");
+    const {meal_id}=mealDietReviewInputSchema.parse(input);
+    const raw=await this.unitOfWork.read(store=>store.mealDietEvidence(context.subjectId,meal_id));
+    if(!raw)throw notFound("meal was not found");
+    return buildMealDietReview(raw);
   }
   async dietReview(context:RequestContext,input:unknown){
     if(!context.effects.has("life.meal.read"))throw permissionDenied("life.meal.read");

@@ -1,5 +1,5 @@
 import type { DomainRecordSummary, ExecutionResult, LifeOverviewDomain, LifeTimelineItem, MealView, MoneySummary, PlanningAgendaItem, RecordMealInput, UniversalCommandEnvelope } from "@shadow/contracts";
-import type { DietEvidence } from "./diet-review.js";
+import type { DietEvidence, MealDietEvidence } from "./diet-review.js";
 import type { DailyRecordCheckRawData } from "./daily-record-check.js";
 
 export type DomainRecordPageItem=DomainRecordSummary&{readonly _page_at:string};
@@ -98,6 +98,7 @@ export interface TransactionStore {
   moneyImportFile(subjectId:string,fileId:string):Promise<unknown|undefined>;
   moneyImportReview(subjectId:string,batchId:string):Promise<unknown|undefined>;
   moneyImportMonth(subjectId:string,period:string):Promise<unknown>;
+  mealDietEvidence(subjectId:string,mealId:string):Promise<MealDietEvidence|undefined>;
   dietReviewEvidence(subjectId:string,input:import("@shadow/contracts").DietReviewInput,window:{from:string;previousFrom:string;weightFrom:string},effects:ReadonlySet<string>):Promise<DietEvidence>;
   wellnessReviewDays(subjectId:string,from:string,to:string):Promise<{days:import("@shadow/contracts").WellnessDay[];as_of:string}>;
   healthDaily(subjectId:string,date:string):Promise<unknown|undefined>;
