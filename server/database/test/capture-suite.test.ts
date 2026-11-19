@@ -240,7 +240,7 @@ test("takeout screenshot text creates a source-linked order without another paym
  const fields=JSON.parse(page.orders[0]!.fields);assert.equal(fields.takeout.items.length,8);assert.equal(fields.takeout.amounts_reconciled,true);
  const dining=await f.queries.merchantMenu(f.context,{browse:"1",on:date.date,time_zone:date.time_zone});
  const captured=dining.directory?.takeout[0];
- assert.ok(captured);assert.ok(captured.merchant.startsWith("合成外卖店"));assert.equal(captured.items.length,8);
+ assert.ok(captured);assert.ok(captured.merchant.startsWith("合成外卖店"));assert.equal(captured.items.length,7);assert.ok(!captured.items.includes("特辣"));
  assert.equal(captured.record_id,null);assert.ok(sources.includes(captured.source_id!));
  assert.equal(captured.linked_meal,false);
  const limited=await f.queries.merchantMenu({...f.context,effects:new Set(["life.meal.read"])},{browse:"1",on:date.date});

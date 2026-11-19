@@ -40,7 +40,13 @@ export function inspectTakeoutOrder(text:string){
   const actual=prices.find(b=>b.text.includes("实付"))??prices[0];
   const top=actual?actual.y-actual.h:Math.max(previous,q.y-3*q.h);
   const names=boxes.filter(b=>b.y>=top&&b.y<q.y&&b.x<capture.width*.7&&(b.x>capture.width*.12||/^[「|【\[]?折/u.test(b.text))&&!/^(?:闪购|蜂鸟准时达|实付|[¥￥]|[×xX*])/u.test(b.text));
-  const name=names.map(b=>b.text.replace(/^[「|【\[]?折/u,"").replace(/实付.*$/u,"")).join(" ").trim();
+  // Keep title-sized blocks on the product line. Smaller thumbnail text and
+  // separate remarks below the title can sit above the same quantity marker.
+  const titleHeight=Math.max(0,...names.map(box=>box.h));
+  const title=names.find(box=>box.h>=titleHeight*.65);
+  const titleParts=title===undefined?[]:names.filter(box=>box.h>=titleHeight*.65&&
+    Math.abs(box.y+box.h/2-title.y-title.h/2)<Math.min(box.h,title.h)*.6);
+  const name=titleParts.map(b=>b.text.replace(/^[「|【\[]?折/u,"").replace(/实付.*$/u,"")).join(" ").trim();
   if(name&&name.length<=300)items.push({name,quantity:Number(q.text.slice(1)),paid_amount:actual?price(actual.text):null,option:/^(?:特辣|微辣|中辣|不辣|不要保温袋|无需餐具|不需要餐具)$/u.test(name)});
   else issues.push("部分商品名称未识别完整");
   previous=q.y+q.h;

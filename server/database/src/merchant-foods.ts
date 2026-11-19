@@ -1,7 +1,7 @@
 import {sql} from "drizzle-orm";
 import type {NodePgDatabase} from "drizzle-orm/node-postgres";
 import {localDate,rememberMerchantDishSchema,takeoutDetailsSchema,type merchantMenuInputSchema} from "@shadow/contracts";
-import {conflict,mergeOrderObservations,permissionDenied,sha256Fingerprinter,type TransactionStore} from "@shadow/kernel";
+import {conflict,inspectTakeoutOrder,isDiningOrderServiceLine,mergeOrderObservations,permissionDenied,sha256Fingerprinter,type TransactionStore} from "@shadow/kernel";
 
 type Database=Pick<NodePgDatabase,"execute">;
 type Write=Parameters<TransactionStore["executeDomainWrite"]>[0];
@@ -90,11 +90,11 @@ export async function rememberMerchantDish(db:Database,{subjectId,command,nextId
 
 async function capturedDiningOrders(db:Database,subject:string,from:string,to:string,zone:string,merchant?:string){
   const result=await db.execute<{
-    id:string;record_id:string|null;source_id:string;captured_on:string;
+    id:string;record_id:string|null;source_ids:string[];captured_on:string;
     observations:Parameters<typeof mergeOrderObservations>[0];
   }>(sql`
     select o.id,r.id record_id,
-      (array_agg(a.id order by a.started_at desc,a.id) filter(where jsonb_typeof(s.fields->'takeout')='object'))[1] source_id,
+      array_agg(a.id order by a.started_at,a.id) source_ids,
       (max(a.started_at) at time zone ${zone})::date::text captured_on,
       jsonb_agg(s.fields order by a.started_at,a.id) observations
     from capture_orders o join capture_order_sources s on s.order_id=o.id
@@ -106,7 +106,7 @@ async function capturedDiningOrders(db:Database,subject:string,from:string,to:st
       and a.started_at<(${to}::date+1)::timestamp at time zone ${zone}
     group by o.id,r.id having bool_or(jsonb_typeof(s.fields->'takeout')='object')
     order by max(a.started_at) desc,o.id limit 150`);
-  return result.rows.flatMap(row=>{
+  const candidates=result.rows.flatMap(row=>{
     const merged=mergeOrderObservations(row.observations);
     const {merchant:name,takeout,order_time}=merged.fields;
     if(merged.conflict||typeof name!=="string"||!name.trim())return [];
@@ -115,9 +115,27 @@ async function capturedDiningOrders(db:Database,subject:string,from:string,to:st
     if(!details.success||/取消|退款/u.test(details.data.delivery_status??""))return [];
     const orderDate=localDate.safeParse(typeof order_time==="string"?order_time.slice(0,10):undefined);
     const date=orderDate.success?orderDate.data:row.captured_on;
-    const items=[...new Set(details.data.items.map(item=>item.name.trim()).filter(Boolean))];
-    if(date<from||date>to||!items.length)return [];
-    return [{id:row.id,record_id:row.record_id,source_id:row.source_id,merchant:name.trim(),date,items,linked_meal:false}];
+    // The chosen takeout payload is one complete observation, so keep its
+    // own source rather than linking whichever screenshot arrived last.
+    const sourceIndex=row.observations.findIndex(value=>"takeout" in value&&value.takeout===takeout);
+    const source_id=row.source_ids[sourceIndex];
+    if(!source_id||date<from||date>to)return [];
+    return [{id:row.id,record_id:row.record_id,source_id,merchant:name.trim(),date,
+      extracted:details.data,order_id:merged.fields.order_id}];
+  });
+  if(!candidates.length)return [];
+  const ids=sql.join(candidates.map(order=>sql`${order.source_id}`),sql`,`);
+  const sources=await db.execute<{id:string;text:string|null}>(sql`
+    select id,text from activity_captures where subject_id=${subject} and deleted_at is null and id in (${ids})`);
+  const originals=new Map(sources.rows.map(row=>[row.id,row.text]));
+  return candidates.flatMap(({extracted,order_id,...order})=>{
+    if(!originals.has(order.source_id))return [];
+    const original=originals.get(order.source_id);
+    const rechecked=original?inspectTakeoutOrder(original):null;
+    const detail=rechecked?.order_id===order_id?rechecked?.takeout??extracted:extracted;
+    const items=[...new Set(detail.items.filter(item=>!item.option&&!isDiningOrderServiceLine(item.name))
+      .map(item=>item.name.trim()).filter(Boolean))];
+    return items.length?[{...order,items,linked_meal:false}]:[];
   });
 }
 
