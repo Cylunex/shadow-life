@@ -23,23 +23,28 @@ export async function readDietEvidence(
       from meals m
       left join intake_items i on i.meal_id=m.id and i.subject_id=m.subject_id and i.effective and coalesce(i.consumed_fraction,1)>0
       left join lateral (
-        select case when count(distinct lower(candidate))=1 then min(candidate) end merchant from (
-          select coalesce(item.dish_profile_snapshot->>'merchant',menu.merchant,case when f.name like '%｜%' then split_part(f.name,'｜',1) end) candidate
+        with candidates as (
+          select 1 priority,coalesce(item.dish_profile_snapshot->>'merchant',menu.merchant,
+            case when f.name like '%｜%' then split_part(f.name,'｜',1) end) candidate
           from intake_items item join food_references f on f.id=item.food_ref_id and f.subject_id=m.subject_id
           left join merchant_foods menu on menu.food_id=f.id and menu.subject_id=m.subject_id
           where item.meal_id=m.id and item.subject_id=m.subject_id and item.effective and coalesce(item.consumed_fraction,1)>0
           union all
-          select p.merchant from meal_consumption_links link
+          select 2,p.merchant from meal_consumption_links link
           join consumption_records r on r.id=link.consumption_record_id and r.subject_id=link.subject_id and r.state='confirmed'
           join purchases p on p.record_id=r.id and p.subject_id=r.subject_id
           where link.meal_id=m.id and link.subject_id=m.subject_id
           ${effects.has("money.entry.read")?sql`union all
-            select e.counterparty from meal_consumption_links link
+            select 3,e.counterparty from meal_consumption_links link
             join consumption_records r on r.id=link.consumption_record_id and r.subject_id=link.subject_id and r.state='confirmed'
             join money_entries e on e.record_id=r.id and e.subject_id=r.subject_id and e.entry_type='expense'
-            where link.meal_id=m.id and link.subject_id=m.subject_id
-            and not exists(select 1 from purchases p where p.record_id=r.id and p.subject_id=r.subject_id and p.merchant is not null)`:sql``}
-        ) names where nullif(trim(candidate),'') is not null
+            where link.meal_id=m.id and link.subject_id=m.subject_id`:sql``}
+        ), ranked as (
+          select candidate, dense_rank() over(order by priority) strength
+          from candidates where nullif(trim(candidate),'') is not null
+        )
+        select case when count(distinct lower(candidate))=1 then min(candidate) end merchant
+        from ranked where strength=1
       ) identity on true
       where m.subject_id=${subject} and m.state='active' and m.occurred_on between least(${window.from}::date,${input.to}::date-6) and ${input.to}::date
       group by m.id,identity.merchant order by m.occurred_on,m.occurred_at nulls last,m.created_at,m.id`);

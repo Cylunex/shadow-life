@@ -149,6 +149,14 @@ test("canteen profiles keep same-name stalls, preserve meal snapshots and expose
   const period=await queries.dietReview(context,{to:date,days:7});
   assert.equal(period.food_groups.find(group=>group.group==="soy")?.days,1);
   assert.equal(period.micronutrients?.find(row=>row.nutrient==="iron_mg")?.known_total,1);
+  await run("agent.set_intention",{scope:"daily",key:"dining.usual_canteen",kind:"preference",category:"dietary",assertion:"explicit",
+    statement:`常去食堂：${merchant}`});
+  const payment=await run("money.record_entry",{entry_type:"expense",amount:"10.00",currency:"CNY",counterparty:"付款渠道别名",
+    occurred_on:date,time_zone:"Asia/Shanghai"});
+  await run("life.link_meal_consumption",{meal_id:meal.actual_values.meal_id,consumption_record_id:payment.actual_values.record_id,evidence:"user_confirmed"});
+  const withPayment=await queries.dietReview(context,{to:date,days:7});
+  assert.equal(withPayment.lunch_count,1,"explicit menu identity takes precedence over a payment alias");
+
   await assert.rejects(()=>queries.mealDietReview({...context,subjectId:"subject_other"},{meal_id:meal.actual_values.meal_id}),/not found/i);
   await assert.rejects(()=>queries.mealDietReview({...context,effects:new Set()},{meal_id:meal.actual_values.meal_id}),/permission/i);
 });
