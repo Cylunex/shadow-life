@@ -56721,10 +56721,18 @@
             "pattern": "^[^｜|\\p{Cc}]+$"
           },
           "stall": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 160,
-            "pattern": "^[^｜|\\p{Cc}]+$"
+            "description": "Set null to clear the stall; omit to keep the current stall.",
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160,
+                "pattern": "^[^｜|\\p{Cc}]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "food_id": {
             "type": "string",
@@ -57075,10 +57083,18 @@
                 "pattern": "^[^｜|\\p{Cc}]+$"
               },
               "stall": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 160,
-                "pattern": "^[^｜|\\p{Cc}]+$"
+                "description": "Set null to clear the stall; omit to keep the current stall.",
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160,
+                    "pattern": "^[^｜|\\p{Cc}]+$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "food_id": {
                 "type": "string",
@@ -85032,6 +85048,28 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "calcium_mg": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "iron_mg": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
                     },
                     "required": [
@@ -90801,6 +90839,28 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "calcium_mg": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "iron_mg": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -91220,6 +91280,28 @@
                             "measured_net",
                             "payment_derived"
                           ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "calcium_mg": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "iron_mg": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                         },
                         {
                           "type": "null"

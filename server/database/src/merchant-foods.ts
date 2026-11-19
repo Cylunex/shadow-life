@@ -25,8 +25,9 @@ async function resolveMerchant(db:Database,subject:string,merchant:string|undefi
 
 export async function rememberMerchantDish(db:Database,{subjectId,command,nextId,context}:Write):ReturnType<TransactionStore["executeDomainWrite"]>{
   const v=rememberMerchantDishSchema.parse(command.input),effects=context?.effects??new Set<string>();
-  const merchant=await resolveMerchant(db,subjectId,v.merchant,effects),fullName=merchant+"｜"+v.dish+(v.stall?`（${v.stall}）`:""),normalized=fullName.toLocaleLowerCase();
-  if(fullName.length>200)throw conflict("门店与菜名合计超过食品名称长度");
+  const merchant=await resolveMerchant(db,subjectId,v.merchant,effects);
+  const dishName=(name:string,dish:string,stall:string|null|undefined)=>name+"｜"+dish+(stall?`（${stall}）`:"");
+  const normalized=dishName(merchant,v.dish,v.stall).toLowerCase();
   const evidence=v.evidence;
   if(evidence.kind==="meal_intake"){
     if(!effects.has("life.meal.read"))throw permissionDenied("life.meal.read");
@@ -42,30 +43,36 @@ export async function rememberMerchantDish(db:Database,{subjectId,command,nextId
     if(!r.rowCount)throw conflict("菜单照片不可用");
   }
   await db.execute(sql`select pg_advisory_xact_lock(hashtextextended(${subjectId+":food:"+normalized},7))`);
-  const existing=(await db.execute<{id:string;revision:number;state:string;stall:string|null}>(sql`
-    select f.id,f.revision,f.state,m.stall from food_references f left join merchant_foods m on m.food_id=f.id
+  const existing=(await db.execute<{id:string;name:string;revision:number;state:string;stall:string|null;merchant:string|null;dish:string|null}>(sql`
+    select f.id,f.name,f.revision,f.state,m.stall,m.merchant,m.dish from food_references f left join merchant_foods m on m.food_id=f.id
     where f.subject_id=${subjectId} and ((lower(m.merchant)=lower(${merchant}) and lower(m.dish)=lower(${v.dish})
       and (${v.food_id??null}::text is not null or lower(m.stall) is not distinct from lower(${v.stall??null}::text)))
-    or (m.food_id is null and lower(trim(f.name))=${normalized}))
+    or (m.food_id is null and (lower(trim(f.name))=${normalized}
+      or (${v.food_id??null}::text is not null and lower(trim(f.name))=${dishName(merchant,v.dish,null).toLowerCase()}))))
     and (${v.food_id??null}::text is null or f.id=${v.food_id??null})
     order by m.food_id nulls last,f.id limit 1 for update of f`)).rows[0];
   if(v.food_id&&(!existing||existing.revision!==v.expected_revision))throw conflict("菜品已变化或不可用，请重新读取");
   if(existing?.state==="archived")throw conflict("该菜品已归档");
   if(existing && v.profile && !v.food_id)throw conflict("补充已有菜品档案需要食品编号与版本");
-  const stall=v.stall??existing?.stall??null,id=existing?.id??nextId("food");
-  if(existing&&v.stall&&existing.stall!==v.stall) {
+  const stall=v.stall===undefined?existing?.stall??null:v.stall,id=existing?.id??nextId("food");
+  const fullName=dishName(existing?.merchant??merchant,existing?.dish??v.dish,stall);
+  if(fullName.length>200)throw conflict("门店与菜名合计超过食品名称长度");
+  const rename=existing&&v.stall!==undefined&&fullName!==existing.name;
+  if(existing&&(stall!==existing.stall||rename)) {
     const occupied=await db.execute(sql`select 1 from merchant_foods where subject_id=${subjectId} and lower(merchant)=lower(${merchant})
-      and lower(dish)=lower(${v.dish}) and lower(stall)=lower(${stall}) and food_id<>${id}`);
+      and lower(dish)=lower(${v.dish}) and lower(stall) is not distinct from lower(${stall}::text) and food_id<>${id}
+      union all
+      select 1 from food_references where subject_id=${subjectId} and lower(trim(name))=lower(${fullName}) and id<>${id}`);
     if(occupied.rowCount)throw conflict("这个档口已有同名菜，请使用已有编号");
   }
   if(!existing)await db.execute(sql`insert into food_references(id,subject_id,name,provenance) values(${id},${subjectId},${fullName},${evidence.note??null})`);
   let revision=existing?.revision??1;
   const profile=v.profile?JSON.stringify(v.profile):null;
-  if(existing&&(v.profile||stall!==existing.stall)){
+  if(existing&&(v.profile||stall!==existing.stall||rename)){
     await db.execute(sql`insert into food_revisions(food_id,revision,snapshot,reason)
       select f.id,f.revision,to_jsonb(f)||jsonb_build_object('merchant_profile',m.profile,'stall',m.stall),${evidence.note??"本人补充菜品档案"}
       from food_references f left join merchant_foods m on m.food_id=f.id where f.id=${id}`);
-    await db.execute(sql`update food_references set revision=revision+1,updated_at=now() where id=${id}`);
+    await db.execute(sql`update food_references set name=${rename?fullName:existing.name},revision=revision+1,updated_at=now() where id=${id}`);
     revision++;
   }
   await db.execute(sql`insert into merchant_foods(food_id,subject_id,merchant,dish,stall,profile)

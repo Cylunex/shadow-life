@@ -73,7 +73,7 @@ function lifeRecordWire(raw:unknown):unknown{
   const rows=(item:unknown):Record<string,unknown>[]=>Array.isArray(item)?item.map(object):[];
   const pick=(item:Record<string,unknown>,keys:readonly string[])=>Object.fromEntries(keys.filter(key=>key in item).map(key=>[key,item[key]]));
   const times=(item:Record<string,unknown>,keys:readonly string[])=>{const result={...item};for(const key of keys)if(result[key]!==null&&result[key]!==undefined)result[key]=new Date(String(result[key])).toISOString();return result;};
-  const intakeKeys=["id","meal_id","position","name","food_ref_id","free_text","quantity","unit","amount_g","weight_basis","energy_kcal","protein_g","fat_g","carb_g","fiber_g","sodium_mg","consumed_fraction","provenance","grouping_origin","estimate","evidence_note","revision"] as const;
+  const intakeKeys=["id","meal_id","position","name","food_ref_id","free_text","quantity","unit","amount_g","weight_basis","energy_kcal","protein_g","fat_g","carb_g","fiber_g","sodium_mg","calcium_mg","iron_mg","consumed_fraction","provenance","grouping_origin","estimate","evidence_note","revision"] as const;
   const moneyKeys=["id","record_id","entry_type","amount","currency","occurred_on","occurred_at","time_zone","note","category","counterparty","source_id","payment_method","source_scale","revision"] as const;
   const sourceKeys=["id","kind","external_id","captured_on","captured_at","time_zone","original_text","asset_version_id","revision"] as const;
   const money=(item:Record<string,unknown>)=>times(pick(item,moneyKeys),["occurred_at"]);

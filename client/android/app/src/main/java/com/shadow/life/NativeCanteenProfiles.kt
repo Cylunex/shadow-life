@@ -249,6 +249,7 @@ private data class DishEdit(
                                         .put("evidence",evidence)
                                     if(profile.length()>0||request.row!=null)body.put("profile",profile)
                                     if(stall.isNotBlank())body.put("stall",stall)
+                                    else if(request.row!=null)body.put("stall",JSONObject.NULL)
                                     request.row?.let{body.put("food_id",it.id).put("expected_revision",it.revision)}
                                     val receipt=repository.captureWrite("life.remember_merchant_dish",body,accountId)
                                     if(receipt.queued)pending=ArrayList(pending+receipt.commandId)
@@ -265,13 +266,22 @@ private data class DishEdit(
         }
     }
     recording?.let { row->
-        CatalogRecordMeal(row,saving,saveError,{if(!saving)recording=null}){date,type,grams->
+        CatalogRecordMeal(row,saving,saveError,{if(!saving)recording=null}){date,type,grams,usePortion->
             if(saving)return@CatalogRecordMeal
             saving=true;saveError=null
             scope.launch {
                 try {
                     val intake=JSONObject().put("name",row.dish).put("food_ref_id",row.id)
                     if(grams.isNotBlank())intake.put("amount_g",grams).put("estimate",true).put("evidence_note","本人填写本次估重")
+                    else if(usePortion)row.profile?.portion?.let { portion->
+                        intake.put("quantity",portion.quantity).put("unit",portion.unit).put("amount_g",portion.grams)
+                            .put("provenance","reference_snapshot").put("estimate",portion.estimated)
+                            .put("evidence_note","按菜品档案第${row.revision}版的常用份量。依据：${portion.basis}".take(500))
+                        portion.nutrients?.let { values->
+                            val saved=JSONObject(menuJson.encodeToString(MerchantMenuResultDtoItemsEntryProfilePortionNutrients.serializer(),values))
+                            for(key in saved.keys())intake.put(key,saved.getString(key))
+                        }
+                    }
                     val body=JSONObject().put("occurred_on",date).put("time_zone",ZoneId.systemDefault().id)
                         .put("meal_type",type).put("items",JSONArray().put(intake))
                     val receipt=repository.captureWrite("life.record_meal",body,accountId)
@@ -462,11 +472,12 @@ private fun MerchantMenuResultDtoDirectoryTakeoutEntry.catalogLink():DetailLink?
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable private fun CatalogRecordMeal(
-    dish:MerchantMenuResultDtoItemsEntry,busy:Boolean,error:String?,onBack:()->Unit,onSave:(String,String,String)->Unit
+    dish:MerchantMenuResultDtoItemsEntry,busy:Boolean,error:String?,onBack:()->Unit,onSave:(String,String,String,Boolean)->Unit
 ){
     var date by rememberSaveable{mutableStateOf(LocalDate.now().toString())}
     var type by rememberSaveable{mutableStateOf("lunch")}
     var grams by rememberSaveable{mutableStateOf("")}
+    var usePortion by rememberSaveable(dish.id){mutableStateOf(true)}
     LifeFullScreen("记入餐次",onBack) {
         Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
             Text(dish.dish,style=MaterialTheme.typography.titleLarge)
@@ -478,9 +489,13 @@ private fun MerchantMenuResultDtoDirectoryTakeoutEntry.catalogLink():DetailLink?
             }
             OutlinedTextField(grams,{grams=it},Modifier.fillMaxWidth(),singleLine=true,enabled=!busy,
                 label={Text("本次估重（克，可选）")},keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal))
+            if(grams.isBlank()&&dish.profile?.portion!=null){
+                FilterChip(usePortion,{usePortion=!usePortion},enabled=!busy,
+                    label={Text("按档案记 ${catalogPortion(dish)}，带入已知营养")})
+            }
             error?.let{Text(it,color=MaterialTheme.colorScheme.error)}
             val valid=grams.isBlank()||(decimal.matches(grams)&&grams.toBigDecimal().signum()>0)
-            Button(onClick={onSave(date,type,grams.trim())},enabled=!busy&&valid,modifier=Modifier.fillMaxWidth()){Text("保存餐次")}
+            Button(onClick={onSave(date,type,grams.trim(),usePortion)},enabled=!busy&&valid,modifier=Modifier.fillMaxWidth()){Text("保存餐次")}
         }
     }
 }

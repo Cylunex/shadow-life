@@ -44,12 +44,14 @@ class UiExperienceTest {
   }
   private fun sourceFood()=LifeRecordResultDtoMealItemsEntry("food_1","meal_1",0,"牛奶","catalog_1","原始名称","250","ml","258","130","8","5","12","0.1","90","0.5","reference_snapshot","actual_meal",false,"营养标签",3)
   @Test fun foodCorrectionPreservesUneditedEvidenceAndFraction(){
-    val original=sourceFood()
-    val input=intakeCorrectionInput(original,MealDraftItem(original.name,"250","ml","130","8","5","12"))
+    val original=sourceFood().copy(calciumMg="120",ironMg="0.2")
+    val input=intakeCorrectionInput(original,MealDraftItem(original.name,"260","ml","130","8","5","12"))
     val item=input.getValue("item").jsonObject
     assertEquals("0.5",item.getValue("consumed_fraction").jsonPrimitive.content)
     assertEquals("258",item.getValue("amount_g").jsonPrimitive.content)
     assertEquals("营养标签",item.getValue("evidence_note").jsonPrimitive.content)
+    assertEquals("120",item.getValue("calcium_mg").jsonPrimitive.content)
+    assertEquals("0.2",item.getValue("iron_mg").jsonPrimitive.content)
     assertEquals("3",input.getValue("expected_revision").jsonPrimitive.content)
     assertFalse(item.containsKey("revision"))
     assertFalse(item.containsKey("meal_id"))

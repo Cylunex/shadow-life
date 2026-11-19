@@ -815,7 +815,9 @@ data class ListMealsResultDtoItemsEntryItemsEntry(
   @SerialName("grouping_origin") val groupingOrigin: String?,
   @SerialName("estimate") val estimate: Boolean,
   @SerialName("revision") val revision: Long,
-  @SerialName("weight_basis") val weightBasis: ListMealsResultDtoItemsEntryItemsEntryWeightBasis? = null
+  @SerialName("weight_basis") val weightBasis: ListMealsResultDtoItemsEntryItemsEntryWeightBasis? = null,
+  @SerialName("calcium_mg") val calciumMg: String? = null,
+  @SerialName("iron_mg") val ironMg: String? = null
 )
 
 @Serializable
@@ -4207,7 +4209,9 @@ data class LifeRecordResultDtoRecordMealsEntryItemsEntry(
   @SerialName("estimate") val estimate: Boolean,
   @SerialName("evidence_note") val evidenceNote: String?,
   @SerialName("revision") val revision: Long,
-  @SerialName("weight_basis") val weightBasis: LifeRecordResultDtoRecordMealsEntryItemsEntryWeightBasis? = null
+  @SerialName("weight_basis") val weightBasis: LifeRecordResultDtoRecordMealsEntryItemsEntryWeightBasis? = null,
+  @SerialName("calcium_mg") val calciumMg: String? = null,
+  @SerialName("iron_mg") val ironMg: String? = null
 )
 
 @Serializable
@@ -4311,7 +4315,9 @@ data class LifeRecordResultDtoMealItemsEntry(
   @SerialName("estimate") val estimate: Boolean,
   @SerialName("evidence_note") val evidenceNote: String?,
   @SerialName("revision") val revision: Long,
-  @SerialName("weight_basis") val weightBasis: LifeRecordResultDtoMealItemsEntryWeightBasis? = null
+  @SerialName("weight_basis") val weightBasis: LifeRecordResultDtoMealItemsEntryWeightBasis? = null,
+  @SerialName("calcium_mg") val calciumMg: String? = null,
+  @SerialName("iron_mg") val ironMg: String? = null
 )
 
 @Serializable

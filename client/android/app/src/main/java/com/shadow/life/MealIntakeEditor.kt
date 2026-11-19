@@ -36,7 +36,7 @@ import kotlinx.coroutines.launch
   fun update(index:Int,row:MealDraftItem){drafts[index]=row;val item=items[index];store.write("intake/${item.id}/${item.revision}","row",encodeMealDraftRows(listOf(row)))}
   LifeFullScreen("编辑本餐食物",{if(!busy)open=false}){
     Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(12.dp)){
-      Text("可在这里修改本餐各行食物。未知营养可留空；更换食物名称后请核对已有营养值。输入会保存在本机草稿中。",style=MaterialTheme.typography.bodySmall)
+      Text("修改原份量或食物名称时，请核对原份营养。未知营养可留空，输入会保存在本机草稿中。",style=MaterialTheme.typography.bodySmall)
       LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(12.dp)){
         items(items.size,key={items[it].id}){index->val original=items[index];val row=drafts[index]
           LifeCard{

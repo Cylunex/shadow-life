@@ -22,11 +22,14 @@ internal fun intakeCorrectionInput(original:LifeRecordResultDtoMealItemsEntry,dr
     }
   }
   val source=Json.encodeToJsonElement(LifeRecordResultDtoMealItemsEntry.serializer(),original).jsonObject
-  val writable=setOf("name","food_ref_id","free_text","quantity","unit","amount_g","energy_kcal","protein_g","fat_g","carb_g","fiber_g","sodium_mg","consumed_fraction","provenance","grouping_origin","estimate","evidence_note")
+  val writable=setOf("name","food_ref_id","free_text","quantity","unit","amount_g","weight_basis","energy_kcal","protein_g","fat_g","carb_g","fiber_g","sodium_mg","calcium_mg","iron_mg","consumed_fraction","provenance","grouping_origin","estimate","evidence_note")
   val item=source.filter{it.key in writable&&it.value!=JsonNull}.toMutableMap()
   require(draft.name.trim().isNotEmpty()){"请填写食物名称"}
   item["name"]=JsonPrimitive(draft.name.trim())
-  if(draft.name.trim()!=original.name){item.remove("food_ref_id");item["free_text"]=JsonPrimitive(draft.name.trim());item["provenance"]=JsonPrimitive("manual")}
+  if(draft.name.trim()!=original.name){
+    item.remove("food_ref_id");item.remove("calcium_mg");item.remove("iron_mg")
+    item["free_text"]=JsonPrimitive(draft.name.trim());item["provenance"]=JsonPrimitive("manual")
+  }
   require(draft.quantity.isBlank()==draft.unit.isBlank()){"份量和单位需要一起填写"}
   listOf("quantity" to draft.quantity,"energy_kcal" to draft.energyKcal,"protein_g" to draft.proteinG,"fat_g" to draft.fatG,"carb_g" to draft.carbG).forEach{(field,text)->
     if(text.isBlank())item.remove(field)else{

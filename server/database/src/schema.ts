@@ -33,6 +33,7 @@ export const meals = pgTable("meals", {
   note: text("note"),
   state: text("state").default("active").notNull(),
   revision: integer("revision").default(1).notNull(),
+  membershipUpdatedAt: timestamp("membership_updated_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
 }, (table) => [index("meals_subject_date_idx").on(table.subjectId, table.occurredOn)]);
 

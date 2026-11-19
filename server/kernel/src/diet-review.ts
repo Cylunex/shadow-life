@@ -19,7 +19,7 @@ export type DietEvidence = {
     value:number; unit:string; method:string|null;
   })[];
   activity:{date:string; steps:number|null;active_minutes?:number|null}[];
-  menu:{merchant:string; dishes:string[]}|null;
+  menu:{merchant:string; dishes:{name:string;groups:FoodGroup[]|null}[]}|null;
 };
 
 const foodPatterns:Record<FoodGroup,RegExp> = {
@@ -196,9 +196,9 @@ export function buildDietReview(evidence:DietEvidence,input:DietReviewInput,heal
       state:declaration?.statement===dietDiaryStatements.partial?"partial":
         declaration?.statement===dietDiaryStatements.complete?declaration.recheck?"recheck":"complete":"unknown"} as const;
   });
-  const completeEnergy=diary.filter(row=>{
-    const day=evidence.days.find(day=>day.date===row.date)!;
-    return row.state==="complete"&&day.items>0&&day.empty_meals===0&&day.nutrients.energy_kcal.known_items===day.items&&day.nutrients.energy_kcal.estimated_items===0;
+  const completeEnergy=evidence.days.filter(day=>{
+    const declaration=diary.find(row=>row.date===day.date);
+    return declaration?.state==="complete"&&day.items>0&&day.empty_meals===0&&day.nutrients.energy_kcal.known_items===day.items&&day.nutrients.energy_kcal.estimated_items===0;
   });
   const energyTarget=evidence.intentions.find(row=>row.key==="wellness.energy");
   const bounds=/^每日热量 (\d{1,5})–(\d{1,5}) kcal$/u.exec(energyTarget?.statement??"");
@@ -215,7 +215,7 @@ export function buildDietReview(evidence:DietEvidence,input:DietReviewInput,heal
   const recentLunches=recentMeals.filter(lunchMatches);
   const latest=recentLunches.at(-1);
   const mixed=latest?.items.filter(isStaple)??[];
-  const vegetableDish=evidence.menu?.dishes.find(name=>!mixedDish.test(name)&&classifyDietFood(name).includes("vegetables"));
+  const vegetableDish=evidence.menu?.dishes.find(dish=>!mixedDish.test(dish.name)&&itemGroups(dish).includes("vegetables"))?.name;
   const latestGroups=new Set(latest?.items.flatMap(itemGroups));
   const meal=latest?{id:latest.id,revision:latest.revision}:null;
   const next_meal=vegetableDish&&latest?.items.length&&!latestGroups.has("vegetables")
@@ -223,14 +223,17 @@ export function buildDietReview(evidence:DietEvidence,input:DietReviewInput,heal
     : mixed.length>=2?{text:`下次自选拿${mixed.slice(0,3).map(item=>item.name).join("、")}时，可以按合起来的份量打主食。`,meal}:null;
   const consumedItems=currentMeals.flatMap(meal=>meal.items);
   const weight=measurements(evidence,input,healthAllowed);
-  const weight_followup=nextWeightAction(input,weight,completeEnergy.length,currentMeals,latest,energyTarget&&target?status:null);
+  const periodEnergy=target&&median(completeEnergy.flatMap(day=>day.nutrients.energy_kcal.known_total===null?[]:[Number(day.nutrients.energy_kcal.known_total)]));
+  const weight_followup=nextWeightAction(input,weight,completeEnergy.length,currentMeals,latest,
+    periodEnergy!==null&&target!==null&&periodEnergy<target.lower);
   const micronutrients=(["calcium_mg","iron_mg"] as const).map(nutrient=>{
     const known=consumedItems.filter(item=>item[nutrient]!=null);
     return {nutrient,known_total:sumKnown(known.map(item=>item[nutrient]!)),known_items:known.length,estimated_items:known.filter(item=>item.estimated).length};
   });
   return dietReviewResultSchema.parse({wellness,micronutrients,time_zone:input.time_zone,diary,recorded_complete_days:diary.filter(row=>row.state==="complete").length,
     complete_energy_days:completeEnergy.length,food_groups:dietFoodGroups.map(group=>({group,days:grouped.get(group)!.size,lunches:lunches.filter(lunch=>lunch.groups.includes(group)).length})),
-    group_days:groupDays.size,unclassified_days:unclassifiedDays.size,lunch_count:lunches.length,lunches,menu:evidence.menu,next_meal,
+    group_days:groupDays.size,unclassified_days:unclassifiedDays.size,lunch_count:lunches.length,lunches,
+    menu:evidence.menu?{merchant:evidence.menu.merchant,dishes:evidence.menu.dishes.map(dish=>dish.name)}:null,next_meal,
     energy:{status,lower:target?.lower??null,upper:target?.upper??null,reliable_kcal:reliable,target:energyTarget&&target?{id:energyTarget.id,revision:energyTarget.revision}:null},
     weight,weight_followup,background:healthAllowed?{step_days:steps.length,median_steps:median(steps),active_days:active.length,median_active_minutes:median(active),
       latest:{state:stepState,steps:latestActivity?.steps??null,active_minutes:latestActivity?.active_minutes??null},sleep_days:wellness.current.sleep_days,mean_sleep_minutes:wellness.current.average_sleep_minutes}:null});
@@ -238,9 +241,12 @@ export function buildDietReview(evidence:DietEvidence,input:DietReviewInput,heal
 
 
 function nextWeightAction(input:DietReviewInput,weight:DietReviewResult["weight"],completeDays:number,
-  meals:DietEvidence["meals"],latest:DietEvidence["meals"][number]|undefined,energyStatus:string|null) {
+  meals:DietEvidence["meals"],latest:DietEvidence["meals"][number]|undefined,periodEnergyBelow:boolean) {
   if(input.days!==30||weight?.alignment!=="off_track"||completeDays<21)return null;
-  if(weight.trend==="up"&&energyStatus==="below")return null;
+  if(weight.trend==="up"&&periodEnergyBelow)return {
+    text:"近 30 天完整记录日的热量中位数低于自定范围，但晨重持续上行。先核对常吃餐的份量、用油和饮料，再考虑调整饭量。",
+    meals:latest?[{id:latest.id,revision:latest.revision}]:[],
+  };
   const repeated=meals.filter(meal=>meal.items.some(item=>/经典可乐|原味可乐|全糖|多糖奶茶|加糖饮料|含糖饮料|全糖果茶/u.test(item.name)&&!/零糖|无糖/u.test(item.name)));
   if(weight.trend==="up"&&new Set(repeated.map(meal=>meal.date)).size>=3){
     return {text:"最近多天记录了含糖饮料。可以选一次换成自己喜欢的无糖饮品，过两到三周再一起回看。",meals:repeated.slice(-3).map(({id,revision})=>({id,revision}))};

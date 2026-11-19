@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState} from "react";
 import QRCode from "qrcode";
-import {positiveDecimal, type WriteCapabilityName} from "@shadow/contracts";
+import {positiveDecimal, type merchantDishProfileSchema, type WriteCapabilityName} from "@shadow/contracts";
 import definitions from "../../features/personal-records.json";
 import type {Execute} from "./command-controller.js";
 import {editableTime, parseEditableTime} from "./travel-time.js";
@@ -73,9 +73,19 @@ export function PersonalRecords({headers,execute,capabilities,sections}:{section
     return patch;
   }
   function editRow(action:Action,row:Row){
-    if(action.edit)openAction(action.edit.cap,{id:"",expected_revision:"",...rowFields(action,row)},action.cap==="life.offline_day"?row:undefined);
+    if(action.edit?.cap==="life.record_meal"){
+      openAction(action.edit.cap,{...rowFields(action,row),amount_g:"",use_portion:"true"},row);
+    }else if(action.edit)openAction(action.edit.cap,{id:"",expected_revision:"",...rowFields(action,row)},action.cap==="life.offline_day"?row:undefined);
   }
-  function pick(a:Action,r:Row){const patch=rowFields(a,r);setForm(p=>({...p,...patch}));if(a.cap==="life.offline_day")setPicked(r);setMessage("已选中 "+(r.title??r.name??r.label??r.raw_name??r.date??r.id));}
+  function pick(a:Action,r:Row){
+    const patch=rowFields(a,r);
+    if(a.cap==="life.merchant_menu"){patch.amount_g="";patch.use_portion="true";}
+    setForm(p=>({...p,...patch}));
+    if(a.cap==="life.offline_day"||a.cap==="life.merchant_menu")setPicked(r);
+    setMessage("已选中 "+(r.title??r.name??r.label??r.raw_name??r.date??r.id));
+  }
+  const portion: ReturnType<typeof merchantDishProfileSchema.parse>["portion"] =
+    picked?.id===form.food_ref_id?.trim()&&picked?.dish===form.dish?.trim()?picked?.profile?.portion:undefined;
   function build(a:Action){
     const payload:Row={};
     for(const f of a.fields){
@@ -87,12 +97,21 @@ export function PersonalRecords({headers,execute,capabilities,sections}:{section
       }else payload[f.key]=encodeField(f,value);
     }
     if(a.cap==="life.place_item"&&!payload.container_id)payload.container_id=null;
-    if(a.cap==="life.record_meal"){const {dish,food_ref_id,amount_g,...meal}=payload;return {...meal,items:[{name:dish,food_ref_id,...(amount_g?{amount_g,estimate:true,evidence_note:"本次用餐估重"}:{})}]};}
+    if(a.cap==="life.record_meal"){
+      const {dish,food_ref_id,amount_g,...meal}=payload;
+      const serving=amount_g?{amount_g,estimate:true,evidence_note:"本次用餐估重"}:
+        portion&&form.use_portion==="true"?{
+          ...portion.nutrients,quantity:portion.quantity,unit:portion.unit,amount_g:portion.grams,
+          provenance:"reference_snapshot",estimate:portion.estimated,
+          evidence_note:`按菜品档案第${picked?.revision}版的常用份量。依据：${portion.basis}`.slice(0,500),
+        }:{};
+      return {...meal,items:[{name:dish,food_ref_id,...serving}]};
+    }
     return payload;
   }
   async function run(a:Action,more?:Row){const id=++serial.current;setBusy(true);setMessage("");try{
     const payload=build(a);
-    if(a.path){const params=new URLSearchParams({...payload,...more}),r=await fetch(a.path+"?"+params,{headers});if(!r.ok)throw Error((await r.json()).message??"读取失败");
+    if(a.path){const params=new URLSearchParams({...payload,...more,...(a.cap==="life.merchant_menu"?{with_profiles:"1"}:{})}),r=await fetch(a.path+"?"+params,{headers});if(!r.ok)throw Error((await r.json()).message??"读取失败");
       const d=await r.json();if(serial.current!==id)return;const list:Row[]=a.rows==="ticket"?[d]:d[a.rows??"items"]??[];
       setData({...d,queryDay:payload.date,queryZone:payload.time_zone});setRows(prev=>more?[...prev,...list]:list);setSelected([]);
       setNext(d.next_cursor?{cursor:d.next_cursor}:d.next_offset!=null?{offset:d.next_offset}:typeof d.next==="string"?{[a.nextParam??"after_id"]:d.next}:d.next&&typeof d.next==="object"?d.next:(a.rows==="containers"?d.more_containers:d.more_items)?{offset:Number(more?.offset??0)+list.length}:undefined);
@@ -124,6 +143,10 @@ export function PersonalRecords({headers,execute,capabilities,sections}:{section
       if(f.key==="purchase_item_id"&&picked&&picked.purchase_item_id===form[f.key]||f.key==="segment_id"&&recordingSeconds>0)return <p key={f.key}>{f.label} · {picked?.name??picked?.title??picked?.raw_name}</p>;
       return <label key={f.key}>{f.label}{f.type==="choice"||f.type==="bool"?<select aria-label={f.label} value={form[f.key]??initial(f)} onChange={e=>field(f.key,e.target.value)}><option value="">请选择</option>{Object.entries(f.choices??{true:"是",false:"否"}).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select>:hints[f.type]||f.type==="long"?<textarea value={form[f.key]??initial(f)} placeholder={hints[f.type]} onChange={e=>field(f.key,e.target.value)}/>:<input type={f.type==="date"?"date":f.type==="instant"?"datetime-local":["int","seconds","decimal"].includes(f.type)?"number":"text"} step="any" value={form[f.key]??initial(f)} onChange={e=>field(f.key,e.target.value)}/>}</label>;
     })}
+    {active.cap==="life.record_meal"&&portion&&!form.amount_g?.trim()&&<label>
+      <input type="checkbox" checked={form.use_portion==="true"} onChange={e=>field("use_portion",String(e.target.checked))}/>
+      按档案记 {portion.quantity} {portion.unit}{portion.grams?`（${portion.estimated?"约 ":""}${portion.grams} 克）`:""}，带入已知营养
+    </label>}
     <div><button type="button" disabled={busy||recordingSeconds>0&&Number(form.end_ms)<=Number(form.start_ms)} onClick={()=>void run(active)}>{busy?"处理中…":active.path?"查询":active.title}</button> <button type="button" className="secondary" disabled={busy} onClick={()=>{setForm({});setPicked(undefined);reset();}}>清空选择</button></div>
     {message&&<p role="status">{message}</p>}
     {data?.coverage==="unknown_outside_observations"&&<p>已记录 {data.active_minutes} 分钟 · 其余时段覆盖未知</p>}

@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "7137f5f1670b98d935fe14fdcc15e118c3597d06d7a99735af7368a3940f43aa",
+  "catalog_revision": "8c1470d45a8f405c9dc17c2a129f677da469a38283ca40f077a06421c4f86653",
   "terms": [
     {
       "id": "activity_capture",
@@ -41327,6 +41327,28 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "calcium_mg": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "iron_mg": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -41746,6 +41768,28 @@
                             "measured_net",
                             "payment_derived"
                           ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "calcium_mg": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "iron_mg": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                         },
                         {
                           "type": "null"
@@ -43374,6 +43418,28 @@
                               "measured_net",
                               "payment_derived"
                             ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "calcium_mg": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "iron_mg": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
                           },
                           {
                             "type": "null"
@@ -52511,10 +52577,18 @@
             "pattern": "^[^｜|\\p{Cc}]+$"
           },
           "stall": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 160,
-            "pattern": "^[^｜|\\p{Cc}]+$"
+            "description": "Set null to clear the stall; omit to keep the current stall.",
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160,
+                "pattern": "^[^｜|\\p{Cc}]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "food_id": {
             "type": "string",

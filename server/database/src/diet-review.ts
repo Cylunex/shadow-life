@@ -51,9 +51,14 @@ export async function readDietEvidence(
 
     const saved=effects.has("agent.run")?(await db.execute<DietEvidence["intentions"][number]>(sql`
       select i.id,i.revision,i.business_key key,i.data->>'statement' statement,
-        exists(select 1 from meal_revisions r join meals m on m.id=r.meal_id
-          where m.subject_id=i.subject_id and r.created_at>i.updated_at and r.snapshot->>'occurred_on'=i.data->>'valid_from'
-          and (m.state<>'active' or m.occurred_on::text<>r.snapshot->>'occurred_on')) recheck
+        (i.business_key='wellness.diary.'||(i.data->>'valid_from')||'.'||${input.time_zone} and (
+          exists(select 1 from meals m where m.subject_id=i.subject_id and m.occurred_on=(i.data->>'valid_from')::date
+            and coalesce(m.membership_updated_at,m.created_at)>i.updated_at)
+          or exists(select 1 from meal_revisions r join meals m on m.id=r.meal_id
+            where m.subject_id=i.subject_id and r.created_at>i.updated_at
+            and (r.snapshot->>'occurred_on'=i.data->>'valid_from' or m.occurred_on=(i.data->>'valid_from')::date)
+            and (m.state<>'active' or m.occurred_on::text<>r.snapshot->>'occurred_on'))
+        )) recheck
       from agent_intentions i where i.subject_id=${subject} and i.data->>'state'='active' and i.data->>'assertion'='explicit' and (
         (i.scope='health' and i.data->>'kind'='goal' and i.data->>'category'='dietary' and i.business_key in ('wellness.weight','wellness.energy','wellness.waist')
           and (i.data->>'valid_from' is null or (i.data->>'valid_from')::date<=${input.to}::date)
@@ -70,7 +75,7 @@ export async function readDietEvidence(
       )`)).rows:[];
     // Reuse the menu's evidence filtering and compatibility with legacy food references.
     const canteen=/^常去食堂[：:]\s*([^｜|\n]{1,160})$/u.exec(saved.find(row=>row.key==="dining.usual_canteen")?.statement??"")?.[1]?.trim();
-    const menu=canteen?merchantMenuResultSchema.parse(await merchantMenu(db,subject,{merchant:canteen,on:input.to,limit:100},effects)):null;
+    const menu=canteen?merchantMenuResultSchema.parse(await merchantMenu(db,subject,{merchant:canteen,on:input.to,limit:100,with_profiles:"1"},effects)):null;
 
     const measurements=canHealth?(await db.execute<DietEvidence["measurements"][number]>(sql`
       select o.id,o.revision,(o.occurred_at at time zone ${input.time_zone})::date::text date,
@@ -91,7 +96,8 @@ export async function readDietEvidence(
       from health_daily_summaries where subject_id=${subject} and occurred_on between ${window.from}::date and ${input.to}::date
       order by occurred_on,updated_at desc,algorithm_version desc`)).rows:[];
     return {...wellness,meals:mealRows.rows,intentions:saved,measurements,activity,menu:menu?{
-      merchant:menu.merchant,dishes:menu.items.filter(row=>row.provenance||row.evidence.length).map(row=>row.dish)
+      merchant:menu.merchant,dishes:menu.items.filter(row=>row.provenance||row.evidence.length)
+        .map(row=>({name:row.dish,groups:row.profile?.groups??null}))
     }:null};
   },{isolationLevel:"repeatable read",accessMode:"read only"});
 }

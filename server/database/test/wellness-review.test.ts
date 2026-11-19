@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { reviewFixture, pgOnly } from "./review-fixture.js";
 import { normalizeHealthRaw } from "../src/index.js";
+import { dietDiaryKey, dietDiaryStatements } from "@shadow/contracts";
 
 test("wellness review aggregates actual portions, unknown fields and comparable evidence without writes",pgOnly,async t=>{
   const {run,queries,context,pool}=await reviewFixture(t);
@@ -134,7 +135,13 @@ test("canteen profiles keep same-name stalls, preserve meal snapshots and expose
     {name:"白米饭",quantity:"1",unit:"碗",amount_g:"90",energy_kcal:"100",weight_basis:"measured_net",evidence_note:"米饭实称"},
   ]});
   await run("life.remember_merchant_dish",{...create,food_id:one.actual_values.food_id,expected_revision:1,
-    profile:{aliases:[],groups:["vegetables"],staple:true}});
+    stall:null,profile:{aliases:[],groups:["vegetables"],staple:true}});
+  const cleared=(await queries.merchantMenu(context,{merchant,with_profiles:"1"})).items.find(row=>row.id===one.actual_values.food_id);
+  assert.equal(cleared?.profile?.stall,null);
+  assert.equal(cleared?.name,`${merchant}｜${dish}`);
+  await run("life.remember_merchant_dish",{merchant,dish,food_id:one.actual_values.food_id,expected_revision:2,stall:"新档口",evidence:create.evidence});
+  const renamed=(await queries.merchantMenu(context,{merchant,with_profiles:"1"})).items.find(row=>row.id===one.actual_values.food_id);
+  assert.equal(renamed?.name,`${merchant}｜${dish}（新档口）`);
   const result=await queries.mealDietReview(context,{meal_id:meal.actual_values.meal_id});
   assert.deepEqual(result.items[0]?.groups,["soy"]);
   assert.equal(result.items[0]?.grams,40);
@@ -156,7 +163,44 @@ test("canteen profiles keep same-name stalls, preserve meal snapshots and expose
   await run("life.link_meal_consumption",{meal_id:meal.actual_values.meal_id,consumption_record_id:payment.actual_values.record_id,evidence:"user_confirmed"});
   const withPayment=await queries.dietReview(context,{to:date,days:7});
   assert.equal(withPayment.lunch_count,1,"explicit menu identity takes precedence over a payment alias");
+  assert.match(withPayment.next_meal?.text??"",/招牌小碗/,"manual vegetable group beats a name with no recognizable vegetable");
+
+  const mealId=String(meal.actual_values.meal_id), recordId=String(payment.actual_values.record_id);
+  const detail=await queries.lifeRecord(context,mealId);
+  assert.equal(detail.kind,"meal");
+  const saved=detail.items![0]!;
+  assert.equal(Number(saved.calcium_mg),40);
+  const linked=await queries.lifeRecord(context,recordId);
+  assert.equal(linked.kind,"record");
+  assert.equal(Number(linked.meals?.[0]?.items[0]?.iron_mg),2);
+  const listed=await queries.listMeals(context,{occurred_on:date});
+  assert.equal(listed.items[0]?.items[0]?.iron_mg,"2");
+  await run("life.correct_intake",{item_id:saved.id,expected_revision:saved.revision,reason:"更正原份量并核对营养标签",
+    item:{name:saved.name,food_ref_id:saved.food_ref_id,quantity:"2",unit:"平勺",amount_g:"160",calcium_mg:"80",iron_mg:"4"}});
+  const edited=await queries.lifeRecord(context,mealId);
+  assert.equal(edited.kind,"meal");
+  assert.equal(Number(edited.items?.[0]?.calcium_mg),80);
+  assert.equal(Number(edited.items?.[0]?.iron_mg),4);
 
   await assert.rejects(()=>queries.mealDietReview({...context,subjectId:"subject_other"},{meal_id:meal.actual_values.meal_id}),/not found/i);
   await assert.rejects(()=>queries.mealDietReview({...context,effects:new Set()},{meal_id:meal.actual_values.meal_id}),/permission/i);
+});
+
+test("a complete diary day is flagged after adding, deleting or moving a meal into it",pgOnly,async t=>{
+  const {run,queries,context,pool}=await reviewFixture(t);
+  const time_zone="Asia/Shanghai";
+  const meal=(occurred_on:string)=>run("life.record_meal",{occurred_on,time_zone,meal_type:"lunch",items:[{name:"合成午餐"}]});
+  for(const [date,change] of [["2026-11-15","add"],["2026-11-16","delete"],["2026-11-17","move"]] as const){
+    const prior=change==="add"?null:await meal(change==="move"?"2026-11-18":date);
+    await run("agent.set_intention",{scope:"health",key:dietDiaryKey(date,time_zone),kind:"preference",category:"dietary",
+      assertion:"explicit",valid_from:date,statement:dietDiaryStatements.complete});
+    const state=async()=>(await queries.dietReview(context,{to:date,days:1,time_zone})).diary[0]?.state;
+    assert.equal(await state(),"complete");
+    if(change==="delete"){
+      await pool.query("update meals set state='deleted' where id=$1",[prior!.actual_values.meal_id]);
+    }else if(change==="move"){
+      await run("life.correct_meal",{meal_id:prior!.actual_values.meal_id,expected_revision:1,occurred_on:date,time_zone,meal_type:"lunch",reason:"更正到用餐当天"});
+    }else await meal(date);
+    assert.equal(await state(),"recheck",change);
+  }
 });

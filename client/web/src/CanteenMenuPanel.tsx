@@ -58,7 +58,7 @@ export function CanteenMenuPanel({headers,execute,canEdit}:{headers:HeadersInit;
         }:{})
       });
       const input=rememberMerchantDishSchema.parse({
-        merchant:rows.merchant,dish:draft.dish,...(draft.stall.trim()?{stall:draft.stall.trim()}:{}),
+        merchant:rows.merchant,dish:draft.dish,...(picked||draft.stall.trim()?{stall:draft.stall.trim()||null}:{}),
         ...(picked?{food_id:picked.id,expected_revision:picked.revision}:{}),profile,evidence:{kind:"note",note:draft.evidence.trim()}
       });
       await execute("life.remember_merchant_dish",input,`canteen:${picked?.id??rows.merchant}`);
