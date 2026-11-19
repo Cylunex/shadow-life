@@ -243,6 +243,17 @@ test("takeout screenshot text creates a source-linked order without another paym
  assert.ok(captured);assert.ok(captured.merchant.startsWith("合成外卖店"));assert.equal(captured.items.length,7);assert.ok(!captured.items.includes("特辣"));
  assert.equal(captured.record_id,null);assert.ok(sources.includes(captured.source_id!));
  assert.equal(captured.linked_meal,false);
+ const raw=takeoutFixture();
+ const clipped=JSON.parse(raw.split("\n",2)[1]!);
+ clipped.blocks=clipped.blocks.filter((block:Array<string|number>)=>!String(block[4]).match(/^\d{8,40}$/u));
+ const firstProduct=fields.takeout.items.find((item:{option:boolean})=>!item.option).name;
+ const changed=clipped.blocks.find((block:Array<string|number>)=>String(block[4])===firstProduct) as Array<string|number>;
+ assert.ok(changed);
+ changed[4]="核对后的菜名";
+ await f.pool.query("update activity_captures set text=$2 where id=$1",
+  [captured.source_id,raw.split("\n",1)[0]+"\n"+JSON.stringify(clipped)]);
+ const reread=await f.queries.merchantMenu(f.context,{browse:"1",on:date.date,time_zone:date.time_zone});
+ assert.ok(reread.directory?.takeout[0]?.items.includes("核对后的菜名"));
  const limited=await f.queries.merchantMenu({...f.context,effects:new Set(["life.meal.read"])},{browse:"1",on:date.date});
  assert.equal(limited.directory?.takeout.length,0);
  for(const id of sources)assert.equal((await f.queries.activitySource(f.context,{id})).capture_order_id,page.orders[0]!.id);

@@ -121,18 +121,20 @@ async function capturedDiningOrders(db:Database,subject:string,from:string,to:st
     const source_id=row.source_ids[sourceIndex];
     if(!source_id||date<from||date>to)return [];
     return [{id:row.id,record_id:row.record_id,source_id,merchant:name.trim(),date,
-      extracted:details.data,order_id:merged.fields.order_id}];
+      extracted:details.data}];
   });
   if(!candidates.length)return [];
   const ids=sql.join(candidates.map(order=>sql`${order.source_id}`),sql`,`);
   const sources=await db.execute<{id:string;text:string|null}>(sql`
     select id,text from activity_captures where subject_id=${subject} and deleted_at is null and id in (${ids})`);
   const originals=new Map(sources.rows.map(row=>[row.id,row.text]));
-  return candidates.flatMap(({extracted,order_id,...order})=>{
+  return candidates.flatMap(({extracted,...order})=>{
     if(!originals.has(order.source_id))return [];
     const original=originals.get(order.source_id);
     const rechecked=original?inspectTakeoutOrder(original):null;
-    const detail=rechecked?.order_id===order_id?rechecked?.takeout??extracted:extracted;
+    // This exact source is already bound to the stored order. A crop may
+    // omit the number, while its visible product titles remain usable.
+    const detail=rechecked?.takeout.platform===extracted.platform?rechecked.takeout:extracted;
     const items=[...new Set(detail.items.filter(item=>!item.option&&!isDiningOrderServiceLine(item.name))
       .map(item=>item.name.trim()).filter(Boolean))];
     return items.length?[{...order,items,linked_meal:false}]:[];
