@@ -27,7 +27,7 @@ export const personalOperatorTools: ReadonlySet<CapabilityName> = new Set<Capabi
   "life.food_catalog", "life.get_record", "life.owned_items", "life.reviews",
   "money.summarize", "money.records", "money.planning",
   "money.import_file", "money.import_file_status", "money.stage_import", "money.resolve_import_candidate", "money.import_review", "money.import_history", "money.import_month",
-  "health.records", "health.get_record", "health.trend", "health.sources", "health.daily", "health.save_morning_checkin", "health.set_workout_route","health.set_rest_day","health.route_comparison","health.evening_sleep","health.save_lab_result","health.save_episode","health.lab_results","health.episodes","health.morning_window", "health.sleep_insights", "life.wellness_review", "health.exercise_history", "health.workout_progression",
+  "health.records", "health.get_record", "health.trend", "health.sources", "health.daily", "health.save_morning_checkin", "health.set_workout_route","health.set_rest_day","health.route_comparison","health.evening_sleep","health.save_lab_result","health.save_episode","health.lab_results","health.episodes","health.morning_window", "health.sleep_insights", "life.wellness_review", "life.diet_review", "health.exercise_history", "health.workout_progression",
   "travel.records", "travel.get_trip", "travel.save_destination","travel.destinations","travel.save_diary_entry","travel.diary","travel.rail_ticket","travel.save_connection","travel.connections","travel.workspace",
   "library.save_filter","library.saved_filters","library.records", "library.get_item", "library.queue_processing", "agent.memories", "notifications.list", "operations.get",
   "operations.find", "life.projects", "life.planning_agenda", "life.meal_planning", "money.foreign_entries",
@@ -50,7 +50,7 @@ export function capabilityVisible(capability:{name:string;idempotency:string;pos
   const all=capability.possibleEffects;
   if(["life.today","life.timeline","life.day","life.memories","life.search","life.get_record","life.planning_agenda"].includes(capability.name))
     return all.some(e=>effects.has(e));
-  if(capability.name==="life.merchant_menu"||capability.name==="life.consumption_stats")return effects.has("life.meal.read");
+  if(["life.merchant_menu","life.consumption_stats","life.diet_review"].includes(capability.name))return effects.has("life.meal.read");
   if(capability.idempotency==="required"){
     if(capability.name==="life.record_dining")return effects.has("life.meal.write")&&effects.has("life.purchase.write");
     const requiredTogether=["life.generate_activity_review","life.record_captured_expenses","life.add_meal_payment","life.attach_meal_source",

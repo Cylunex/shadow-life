@@ -41,3 +41,5 @@ export * from "./capture-insights.js";
 export * from "./takeout-order.js";
 export * from "./trip-connections.js";
 export * from "./amount-evidence.js";
+
+export type { DietEvidence } from "./diet-review.js";

@@ -42,9 +42,10 @@ The examples contain fictional records and illustrative IDs; replace them with r
   a second payment or use notes/meal attachments as a purchase relationship. Read back the same
   record and verify items, sources, unchanged payment and existing meal links. If a purchase already
   exists, use `life.update_purchase_items` for explicitly requested item changes.
-- For health/nutrition reviews, discover “饮食复盘” or “健康周报” and use `life.wellness_review`.
-  Report per-field coverage and estimates before comparing periods; follow the health/nutrition workflow
-  for evidence, goals, stock and requested plans. Unknown is not zero; paired days do not prove causation.
+- For the next meal, food group coverage or morning/evening weight, discover and use
+  `life.diet_review` with the local end date and 1, 7 or 30 days. For broader or historical
+  comparisons, use `life.wellness_review`. Report coverage and estimates before comparing periods.
+  Follow the health/nutrition workflow for diary declarations, goals and requested plans.
 - For training, discover “哑铃”, “徒手”, “组数” or “训练进度”. Use `health.set_plan` for menus/plans,
   `health.record_workout` only for actual completed sets, and `health.workout_progression` for existing
   execution evidence. Its duration rule cannot prescribe strength load or repetition increases.

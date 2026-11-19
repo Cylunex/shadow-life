@@ -18,6 +18,7 @@ export * from "./workout-menu.js";
 export * from "./home-workout.js";
 
 export * from "./wellness-schemas.js";
+export * from "./diet-review-schemas.js";
 
 export * from "./capture-completion-schemas.js";
 

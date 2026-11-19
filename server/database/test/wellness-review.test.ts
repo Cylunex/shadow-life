@@ -48,3 +48,56 @@ test("wellness review aggregates actual portions, unknown fields and comparable 
   await run("life.correct_intake",{item_id:item,expected_revision:1,item:{name:"更正半份",energy_kcal:"400",consumed_fraction:"0.5"},reason:"核对标签"});
   assert.equal((await queries.wellnessReview(context,input)).current.nutrients.energy_kcal.known_total,"700");
 });
+
+test("diet review follows diary evidence, meal portions and one scale across midnight",pgOnly,async t=>{
+  const {run,queries,context,pool}=await reviewFixture(t);
+  const date="2026-10-23",time_zone="Asia/Shanghai";
+  const meal=await run("life.record_meal",{occurred_on:date,time_zone,meal_type:"lunch",items:[
+    {name:"白米饭",energy_kcal:"400",amount_g:"200",consumed_fraction:"0.5"},
+    {name:"蒸红薯",energy_kcal:"120"},{name:"西兰花",energy_kcal:"80",consumed_fraction:"0"},
+    {name:"家常豆腐",energy_kcal:"160"},
+  ]});
+  await run("life.record_meal",{occurred_on:date,time_zone,meal_type:"dinner",items:[{name:"香干",energy_kcal:"40"},{name:"牛奶",energy_kcal:"90"}]});
+  const save=(key:string,kind:"goal"|"preference",statement:string)=>run("agent.set_intention",{scope:"health",key,kind,statement,
+    category:"dietary",assertion:"explicit",valid_from:date,state:"active"});
+  await save("wellness.weight","goal","维持体重");
+  await save("wellness.energy","goal","每日热量 600–1800 kcal");
+  const scale=async (id:string,source_type:string,instance:string,occurred_on:string,occurred_at:string,kg:string)=>{
+    const raw=await run("health.ingest_raw",{source_type,source_instance_key:instance,source_fingerprint:"fixture-scale",record_type:"body",
+      client_record_id:id,record_version:1,sync_epoch:1,change_kind:"upsert",parse_version:"health-normalizer",payload:{
+        occurred_on,occurred_at,time_zone,group_kind:"measurement",observations:[
+          {metric_key:"weight",value:kg,unit:"kg",original_field:"S400:weight"},
+          {metric_key:"body_fat",value:"29",unit:"%",original_field:"xiaomi-bia-v1",autofilled:true},
+        ],
+      }});
+    assert.equal((await normalizeHealthRaw(pool,String(raw.actual_values.raw_id),1)).state,"completed");
+  };
+  await scale("morning","scale","test-scale",date,"2026-10-23T01:05:00Z","78");
+  await scale("copy","samsung","test-phone",date,"2026-10-23T01:05:00Z","78");
+  await scale("evening","scale","test-scale",date,"2026-10-23T15:55:00Z","79");
+  await scale("overnight","scale","test-scale","2026-10-24","2026-10-23T16:10:00Z","79.2");
+  const query=(days:number)=>queries.dietReview(context,{to:date,days,time_zone});
+  const partial=await query(7);
+  assert.equal(partial.energy.status,"unknown");
+  assert.equal(partial.energy.reliable_kcal,610);
+  assert.equal(partial.food_groups.find(group=>group.group==="soy")?.days,1);
+  assert.equal(partial.food_groups.find(group=>group.group==="vegetables")?.days,0);
+  assert.equal(partial.food_groups.find(group=>group.group==="dairy")?.lunches,0);
+  assert.equal(partial.lunches[0]?.known_staple_grams,100);
+  assert.equal(partial.lunches[0]?.weighed_staples,1);
+  assert.equal(partial.weight?.morning.length,1);
+  assert.equal(partial.weight?.evening[0]?.kg,79.2);
+  assert.equal(partial.weight?.morning[0]?.composition[0]?.value,29);
+  assert.equal(partial.weight?.goal?.direction,"maintain");
+  assert.match(partial.next_meal?.text??"",/白米饭、蒸红薯/);
+  await save("wellness.diary.2026-10-23.Asia/Shanghai","preference","当天进食已结束，饮食已基本记全");
+  assert.equal((await query(1)).energy.status,"within");
+  await run("life.correct_meal",{meal_id:meal.actual_values.meal_id,expected_revision:1,occurred_on:"2026-10-24",time_zone,meal_type:"lunch",reason:"修正实际日期"});
+  const moved=await query(1);
+  assert.equal(moved.diary.at(-1)?.state,"recheck");
+  assert.equal(moved.energy.status,"unknown");
+  const restricted=await queries.dietReview({...context,effects:new Set(["life.meal.read"])},{to:date,days:1,time_zone});
+  assert.equal(restricted.weight,null);
+  assert.equal(restricted.wellness.current.weight_days,0);
+  assert.equal(restricted.diary[0]?.state,"unknown");
+});

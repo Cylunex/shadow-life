@@ -22,6 +22,7 @@ import { associateCapturedOrder } from "./capture-orders.js";
 import { activityActionInputSchema, recordCapturedExpensesInputSchema, ingestActivityInputSchema, activitiesResultSchema } from "@shadow/contracts";
 import { readMoneyImportFile, writeMoneyImportFile } from "./money-file-import.js";
 import { readMoneyImportHistory } from "./money-import-history.js";
+import { readDietEvidence } from "./diet-review.js";
 import { readWellnessDays } from "./wellness-review.js";
 import { createFoundationStore, writeFoundation } from "./foundation.js";
 import { agentRefsAvailable } from "./agent-refs.js";
@@ -1059,6 +1060,7 @@ function storeFor(database: Database | Transaction): TransactionStore {
           jsonb_build_object('unconfirmed',coalesce(sum(unconfirmed),0),'duplicates',coalesce(sum(duplicates),0),'uncategorized',coalesce(sum(uncategorized),0),'refunds_unlinked',coalesce(sum(refunds_unlinked),0)) totals from matching`);
       const value=result.rows[0]!;return{period,...value,truncated:value.total_batches>100,as_of:new Date().toISOString()};
     },
+    dietReviewEvidence(subjectId,input,window,effects){return readDietEvidence(database,subjectId,input,window,effects);},
     async wellnessReviewDays(subjectId,from,to){return readWellnessDays(database,subjectId,from,to);},
     async healthDaily(subjectId,date){const result=await database.execute(sql`select subject_id,occurred_on,algorithm_version,result,source_set_hash,revision,updated_at from health_daily_summaries where subject_id=${subjectId} and occurred_on=${date} order by updated_at desc limit 1`);return result.rows[0];},
     async healthSleepNights(subjectId,from,to){const result=await database.execute<import("@shadow/kernel").SleepInsightNight>(sql`select distinct on (session.wake_date) session.wake_date::text wake_date,session.time_zone,session.started_at::text started_at,session.ended_at::text ended_at,session.total_minutes,session.deep_minutes,session.rem_minutes,coalesce(instance.source_type,'manual') source_type from health_sleep_sessions session left join health_raw_records raw on raw.id=session.raw_id left join health_source_instances instance on instance.id=raw.source_instance_id where session.subject_id=${subjectId} and session.wake_date between ${from}::date and ${to}::date and session.effective order by session.wake_date,session.total_minutes desc,session.revision desc,session.id`);return result.rows;},

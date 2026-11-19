@@ -1,9 +1,9 @@
-import { wellnessNutrients, wellnessReviewResultSchema, type WellnessDay, type WellnessReviewInput } from "@shadow/contracts";
+import { wellnessNutrients, wellnessReviewResultSchema, type WellnessDay } from "@shadow/contracts";
 
 export function shiftWellnessDate(date:string, days:number):string {
   return new Date(Date.parse(`${date}T00:00:00Z`) + days * 86400000).toISOString().slice(0,10);
 }
-export function wellnessWindow(input:WellnessReviewInput) {
+export function wellnessWindow(input:{to:string;days:number}) {
   const from = shiftWellnessDate(input.to, 1-input.days);
   return {from, previousFrom:shiftWellnessDate(from,-input.days), previousTo:shiftWellnessDate(from,-1)};
 }
@@ -32,7 +32,7 @@ function summarize(days:WellnessDay[]) {
     paired_energy_sleep_days:days.filter(day=>complete(day,"energy_kcal")&&day.sleep!==null).length
   };
 }
-export function buildWellnessReview(rows:WellnessDay[],input:WellnessReviewInput,asOf:string) {
+export function buildWellnessReview(rows:WellnessDay[],input:{to:string;days:number},asOf:string) {
   const {from}=wellnessWindow(input), current=rows.filter(day=>day.date>=from),previous=rows.filter(day=>day.date<from);
   return wellnessReviewResultSchema.parse({algorithm_version:"wellness-review-v1",date_policy:"recorded_local_date_sleep_wake_date",
     current:summarize(current),previous:summarize(previous),days:current,as_of:asOf,limitations:[

@@ -6,7 +6,8 @@ import { captureDateSchema, captureWorkspaceResultSchema } from "@shadow/contrac
 import { capturedPaymentPlatform, inspectActivityOrder } from "./activity-order.js";
 import { inspectLibraryOrder } from "./library-order.js";
 import { activityActionInputSchema, activityOrderResultSchema, activitiesInputSchema, activitiesResultSchema } from "@shadow/contracts";
-import { wellnessReviewInputSchema } from "@shadow/contracts";
+import { dietReviewInputSchema, wellnessReviewInputSchema } from "@shadow/contracts";
+import {buildDietReview, dietWindow} from "./diet-review.js";
 import { buildWellnessReview, wellnessWindow } from "./wellness-review.js";
 import { buildItemAttention, buildStockAttention } from "./planning-attention.js";
 import { queryFoundation } from "./foundation.js";
@@ -404,6 +405,12 @@ export class QueryService {
     if(!context.effects.has("library.item.read"))throw permissionDenied("library.item.read");
     const parsed=activitiesInputSchema.parse(input);
     return this.unitOfWork.read(async store=>{if(!store.activities)throw invalidInput("Activity storage is unavailable",[]);return activitiesResultSchema.parse(await store.activities(context.subjectId,parsed));});
+  }
+  async dietReview(context:RequestContext,input:unknown){
+    if(!context.effects.has("life.meal.read"))throw permissionDenied("life.meal.read");
+    const parsed=dietReviewInputSchema.parse(input);
+    const raw=await this.unitOfWork.read(store=>store.dietReviewEvidence(context.subjectId,parsed,dietWindow(parsed),context.effects));
+    return buildDietReview(raw,parsed,context.effects.has("health.measurement.read"));
   }
   async wellnessReview(context:RequestContext,input:unknown){for(const effect of ["life.meal.read","health.measurement.read"])if(!context.effects.has(effect))throw permissionDenied(effect);const parsed=wellnessReviewInputSchema.parse(input),window=wellnessWindow(parsed);const raw=await this.unitOfWork.read(store=>store.wellnessReviewDays(context.subjectId,window.previousFrom,parsed.to));return buildWellnessReview(raw.days,parsed,raw.as_of);}
   async healthDaily(context:RequestContext,date:string){if(!context.effects.has("health.measurement.read"))throw permissionDenied("health.measurement.read");const value=await this.unitOfWork.read(store=>store.healthDaily(context.subjectId,date));if(value===undefined)throw notFound("health day was not found");const wire=JSON.parse(JSON.stringify(value)) as Record<string,unknown>;return healthDailyResultSchema.parse({occurred_on:wire.occurred_on,algorithm_version:wire.algorithm_version,result:wire.result,source_set_hash:wire.source_set_hash,revision:wire.revision,updated_at:new Date(String(wire.updated_at)).toISOString()});}

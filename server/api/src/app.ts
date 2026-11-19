@@ -164,6 +164,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.get("/api/money/imports/:batchId",async context=>context.json(await dependencies.queries.moneyImportReview(context.get("requestContext"),context.req.param("batchId"))));
   app.get("/api/money/import-month",async context=>context.json(await dependencies.queries.moneyImportMonth(context.get("requestContext"),{period:context.req.query("period")})));
   app.get("/api/health/daily/:date",async context=>context.json(await dependencies.queries.healthDaily(context.get("requestContext"),context.req.param("date"))));
+  app.get("/api/life/diet-review",async context=>context.json(await dependencies.queries.dietReview(context.get("requestContext"),context.req.query())));
   app.get("/api/life/wellness-review",async context=>context.json(await dependencies.queries.wellnessReview(context.get("requestContext"),wellnessReviewInputSchema.parse({to:context.req.query("to"),days:Number(context.req.query("days")??"7")}))));
   app.get("/api/health/sleep-insights",async context=>context.json(await dependencies.queries.healthSleepInsights(context.get("requestContext"),healthSleepInsightsInputSchema.parse({to:context.req.query("to"),days:Number(context.req.query("days")??"30")}))));
   app.get("/api/health/records/:id",async context=>context.json(await dependencies.queries.healthRecord(context.get("requestContext"),context.req.param("id"))));
@@ -287,6 +288,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         if(capabilityName==="money.import_review")return dependencies.queries.moneyImportReview(requestContext,(parsed as {batch_id:string}).batch_id);
         if(capabilityName==="money.import_month")return dependencies.queries.moneyImportMonth(requestContext,parsed);
         if(capabilityName==="health.daily")return dependencies.queries.healthDaily(requestContext,(parsed as {date:string}).date);
+        if(capabilityName==="life.diet_review")return dependencies.queries.dietReview(requestContext,parsed);
         if(capabilityName==="life.wellness_review")return dependencies.queries.wellnessReview(requestContext,parsed);
         if(capabilityName==="health.sleep_insights")return dependencies.queries.healthSleepInsights(requestContext,parsed);
         if(capabilityName==="health.get_record")return dependencies.queries.healthRecord(requestContext,(parsed as {id:string}).id);

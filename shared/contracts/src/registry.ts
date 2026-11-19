@@ -4,6 +4,7 @@ import { importMoneyFileInputSchema, moneyImportFileInputSchema, moneyImportFile
 import { moneyImportHistoryInputSchema, moneyImportHistoryResultSchema } from "./schemas.js";
 import { captureScreenshotSchema, recordingSegmentSchema, recordingJobSchema, completeRecordingSchema, failRecordingSchema, recordingActionSchema, reviseTranscriptSchema, orderCaptureRuleSchema, activityReviewInputSchema, captureDateSchema, captureWorkspaceResultSchema } from "./capture-suite-schemas.js";
 import { activityOrderResultSchema, activityActionInputSchema, recordCapturedExpensesInputSchema, ingestActivityInputSchema, activitiesInputSchema, activitiesResultSchema } from "./activity-schemas.js";
+import { dietReviewInputSchema, dietReviewResultSchema } from "./diet-review-schemas.js";
 import { wellnessReviewInputSchema, wellnessReviewResultSchema } from "./wellness-schemas.js";
 import { agentContextInputSchema, agentContextResultSchema } from "./agent-context-schemas.js";
 import { stockRecipeQuerySchema,stockRecipesResultSchema } from "./schemas.js";
@@ -188,6 +189,7 @@ type DomainCapabilityName=keyof typeof captureCompletionWrites|keyof typeof capt
   "life.update_purchase_items"|
   "life.update_shopping_item"|
   "life.void_purchase"|
+  "life.diet_review"|
   "life.wellness_review"|
   "money.correct_entry"|
   "money.foreign_entries"|
@@ -480,6 +482,7 @@ const domainCapabilityRegistry:Record<DomainCapabilityName,DomainCapability> = {
   "money.import_file_status":{name:"money.import_file_status",description:"检查账单原件的处理结果、当前入账/跳过/待核对数量及批次，不返回解压密码。",inputSchema:moneyImportFileInputSchema,commandSchema:moneyImportFileInputSchema,resultSchema:moneyImportFileResultSchema,possibleEffects:["money.entry.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["money.entry.read"] as const},
   "money.import_review":{name:"money.import_review",description:"读取一个账单导入批次及其原始行、问题、重复提示和复核状态。",inputSchema:moneyImportReviewInputSchema,commandSchema:moneyImportReviewInputSchema,resultSchema:moneyImportReviewResultSchema,possibleEffects:["money.entry.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["money.entry.read"] as const},
   "money.import_month":{name:"money.import_month",description:"按账单候选发生月读取批次和未确认、重复、未分类、退款待关联数量。",inputSchema:moneyImportMonthInputSchema,commandSchema:moneyImportMonthInputSchema,resultSchema:moneyImportMonthResultSchema,possibleEffects:["money.entry.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["money.entry.read"] as const},
+  "life.diet_review":{name:"life.diet_review",description:"复盘实吃饮食、食物组与食堂午餐，按权限返回记录完整性、目标判断、同秤早晚体重与活动睡眠背景。",inputSchema:dietReviewInputSchema,commandSchema:dietReviewInputSchema,resultSchema:dietReviewResultSchema,possibleEffects:["life.meal.read","health.measurement.read","agent.run"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["life.meal.read"] as const},
   "life.wellness_review":{name:"life.wellness_review",description:"联合复盘 7/30/90 天饮食营养、体重、睡眠和实际训练，对照前期并提供逐项覆盖、估算数量与来源；不推断因果或热量缺口。",inputSchema:wellnessReviewInputSchema,commandSchema:wellnessReviewInputSchema,resultSchema:wellnessReviewResultSchema,possibleEffects:["life.meal.read","health.measurement.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["life.meal.read","health.measurement.read"] as const},
   "health.daily":{name:"health.daily",description:"读取指定日期可追溯的健康日汇总。",inputSchema:healthDailyInputSchema,commandSchema:healthDailyInputSchema,resultSchema:healthDailyResultSchema,possibleEffects:["health.measurement.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["health.measurement.read"] as const},
   "health.sleep_insights":{name:"health.sleep_insights",description:"按主睡眠会话统计近 7、30 或 90 天睡眠；不足三晚不推断入睡规律。",inputSchema:healthSleepInsightsInputSchema,commandSchema:healthSleepInsightsInputSchema,resultSchema:healthSleepInsightsResultSchema,possibleEffects:["health.measurement.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["health.measurement.read"] as const},

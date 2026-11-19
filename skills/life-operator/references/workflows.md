@@ -191,6 +191,24 @@ do not imply a visit. Actual visits and private reservation details retain their
 
 ## Health and nutrition review → grounded planning
 
+For a next-meal suggestion or a goal check, call `life.diet_review` with `to`, `days` (1, 7 or 30)
+and the local `time_zone`. Explain the returned food group counts, explicitly complete days and
+same-scale morning weight. A day can have known intake with unknown completeness. Use
+`wellness.weight` and `wellness.energy` only for preferences the user has explicitly set.
+
+For “今天的饭都记完了” or a correction that food is still missing, resolve the local date first.
+Read `agent.intentions` with `scenario:"health"`, `include_inactive:true` and the exact key
+`wellness.diary.YYYY-MM-DD.<time_zone>`. Save through `agent.set_intention` with
+`scope:"health"`, `kind:"preference"`, `category:"dietary"` and `assertion:"explicit"`.
+Set validity from the stated date to the following day, and use the statement
+「当天进食已结束，饮食已基本记全」 or 「当天饮食还有漏记」. Include the existing ID, revision and
+reason when updating. Read the same key and the one-day diet review to confirm the change.
+
+For an explicit goal, use the same lookup and revision workflow with `kind:"goal"` and
+`category:"dietary"`. For `wellness.weight`, use 「维持体重」「增加体重」 or 「降低体重」.
+For `wellness.energy`, use `每日热量 <lower>–<upper> kcal` with the two integer bounds
+provided by the user. The existing source-specific tools continue to supply evidence.
+
 1. Discover “饮食复盘” / “健康周报” with schemas, then call `life.wellness_review`
    with an explicit end date and 7, 30 or 90 days. The preceding equal-length period is included.
    Call `life.wellness_review` with `{ "to": "2026-10-23", "days": 7 }`.

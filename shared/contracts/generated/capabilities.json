@@ -92676,6 +92676,2143 @@
         "additionalProperties": false
       }
     },
+    "life.diet_review": {
+      "name": "life.diet_review",
+      "description": "复盘实吃饮食、食物组与食堂午餐，按权限返回记录完整性、目标判断、同秤早晚体重与活动睡眠背景。",
+      "possible_effects": [
+        "life.meal.read",
+        "health.measurement.read",
+        "agent.run"
+      ],
+      "idempotency": "not-applicable",
+      "status_query": "operations.get",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "days": {
+            "default": 7,
+            "anyOf": [
+              {
+                "type": "number",
+                "const": 1
+              },
+              {
+                "type": "number",
+                "const": 7
+              },
+              {
+                "type": "number",
+                "const": 30
+              }
+            ]
+          },
+          "time_zone": {
+            "default": "Asia/Shanghai",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "to",
+          "days",
+          "time_zone"
+        ],
+        "additionalProperties": false
+      },
+      "command_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "days": {
+            "default": 7,
+            "anyOf": [
+              {
+                "type": "number",
+                "const": 1
+              },
+              {
+                "type": "number",
+                "const": 7
+              },
+              {
+                "type": "number",
+                "const": 30
+              }
+            ]
+          },
+          "time_zone": {
+            "default": "Asia/Shanghai",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "to",
+          "days",
+          "time_zone"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "wellness": {
+            "type": "object",
+            "properties": {
+              "algorithm_version": {
+                "type": "string",
+                "const": "wellness-review-v1"
+              },
+              "date_policy": {
+                "type": "string",
+                "const": "recorded_local_date_sleep_wake_date"
+              },
+              "current": {
+                "type": "object",
+                "properties": {
+                  "from": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "to": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "days": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "meal_days": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "meals": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "nutrients": {
+                    "type": "object",
+                    "properties": {
+                      "energy_kcal": {
+                        "type": "object",
+                        "properties": {
+                          "known_total": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "known_items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "estimated_items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "complete_days": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "average_on_complete_days": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "known_total",
+                          "known_items",
+                          "estimated_items",
+                          "complete_days",
+                          "average_on_complete_days"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "protein_g": {
+                        "type": "object",
+                        "properties": {
+                          "known_total": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "known_items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "estimated_items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "complete_days": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "average_on_complete_days": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "known_total",
+                          "known_items",
+                          "estimated_items",
+                          "complete_days",
+                          "average_on_complete_days"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "fat_g": {
+                        "type": "object",
+                        "properties": {
+                          "known_total": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "known_items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "estimated_items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "complete_days": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "average_on_complete_days": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "known_total",
+                          "known_items",
+                          "estimated_items",
+                          "complete_days",
+                          "average_on_complete_days"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "carb_g": {
+                        "type": "object",
+                        "properties": {
+                          "known_total": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "known_items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "estimated_items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "complete_days": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "average_on_complete_days": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "known_total",
+                          "known_items",
+                          "estimated_items",
+                          "complete_days",
+                          "average_on_complete_days"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "fiber_g": {
+                        "type": "object",
+                        "properties": {
+                          "known_total": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "known_items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "estimated_items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "complete_days": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "average_on_complete_days": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "known_total",
+                          "known_items",
+                          "estimated_items",
+                          "complete_days",
+                          "average_on_complete_days"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "sodium_mg": {
+                        "type": "object",
+                        "properties": {
+                          "known_total": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "known_items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "estimated_items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "complete_days": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "average_on_complete_days": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "known_total",
+                          "known_items",
+                          "estimated_items",
+                          "complete_days",
+                          "average_on_complete_days"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "energy_kcal",
+                      "protein_g",
+                      "fat_g",
+                      "carb_g",
+                      "fiber_g",
+                      "sodium_mg"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "sleep_days": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "average_sleep_minutes": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "weight_days": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "average_weight_kg": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "workout_days": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "workout_sessions": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "known_workout_duration_sessions": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "workout_minutes": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "paired_energy_weight_days": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "paired_energy_sleep_days": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "from",
+                  "to",
+                  "days",
+                  "meal_days",
+                  "meals",
+                  "items",
+                  "nutrients",
+                  "sleep_days",
+                  "average_sleep_minutes",
+                  "weight_days",
+                  "average_weight_kg",
+                  "workout_days",
+                  "workout_sessions",
+                  "known_workout_duration_sessions",
+                  "workout_minutes",
+                  "paired_energy_weight_days",
+                  "paired_energy_sleep_days"
+                ],
+                "additionalProperties": false
+              },
+              "previous": {
+                "type": "object",
+                "properties": {
+                  "from": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "to": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "days": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "meal_days": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "meals": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "nutrients": {
+                    "type": "object",
+                    "properties": {
+                      "energy_kcal": {
+                        "type": "object",
+                        "properties": {
+                          "known_total": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "known_items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "estimated_items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "complete_days": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "average_on_complete_days": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "known_total",
+                          "known_items",
+                          "estimated_items",
+                          "complete_days",
+                          "average_on_complete_days"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "protein_g": {
+                        "type": "object",
+                        "properties": {
+                          "known_total": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "known_items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "estimated_items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "complete_days": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "average_on_complete_days": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "known_total",
+                          "known_items",
+                          "estimated_items",
+                          "complete_days",
+                          "average_on_complete_days"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "fat_g": {
+                        "type": "object",
+                        "properties": {
+                          "known_total": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "known_items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "estimated_items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "complete_days": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "average_on_complete_days": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "known_total",
+                          "known_items",
+                          "estimated_items",
+                          "complete_days",
+                          "average_on_complete_days"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "carb_g": {
+                        "type": "object",
+                        "properties": {
+                          "known_total": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "known_items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "estimated_items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "complete_days": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "average_on_complete_days": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "known_total",
+                          "known_items",
+                          "estimated_items",
+                          "complete_days",
+                          "average_on_complete_days"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "fiber_g": {
+                        "type": "object",
+                        "properties": {
+                          "known_total": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "known_items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "estimated_items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "complete_days": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "average_on_complete_days": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "known_total",
+                          "known_items",
+                          "estimated_items",
+                          "complete_days",
+                          "average_on_complete_days"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "sodium_mg": {
+                        "type": "object",
+                        "properties": {
+                          "known_total": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "known_items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "estimated_items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "complete_days": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "average_on_complete_days": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "known_total",
+                          "known_items",
+                          "estimated_items",
+                          "complete_days",
+                          "average_on_complete_days"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "energy_kcal",
+                      "protein_g",
+                      "fat_g",
+                      "carb_g",
+                      "fiber_g",
+                      "sodium_mg"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "sleep_days": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "average_sleep_minutes": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "weight_days": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "average_weight_kg": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "workout_days": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "workout_sessions": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "known_workout_duration_sessions": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "workout_minutes": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "paired_energy_weight_days": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "paired_energy_sleep_days": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "from",
+                  "to",
+                  "days",
+                  "meal_days",
+                  "meals",
+                  "items",
+                  "nutrients",
+                  "sleep_days",
+                  "average_sleep_minutes",
+                  "weight_days",
+                  "average_weight_kg",
+                  "workout_days",
+                  "workout_sessions",
+                  "known_workout_duration_sessions",
+                  "workout_minutes",
+                  "paired_energy_weight_days",
+                  "paired_energy_sleep_days"
+                ],
+                "additionalProperties": false
+              },
+              "days": {
+                "maxItems": 90,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "date": {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    "meals": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "empty_meals": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "nutrients": {
+                      "type": "object",
+                      "properties": {
+                        "energy_kcal": {
+                          "type": "object",
+                          "properties": {
+                            "known_total": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "known_items": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "estimated_items": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "known_total",
+                            "known_items",
+                            "estimated_items"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "protein_g": {
+                          "type": "object",
+                          "properties": {
+                            "known_total": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "known_items": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "estimated_items": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "known_total",
+                            "known_items",
+                            "estimated_items"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "fat_g": {
+                          "type": "object",
+                          "properties": {
+                            "known_total": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "known_items": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "estimated_items": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "known_total",
+                            "known_items",
+                            "estimated_items"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "carb_g": {
+                          "type": "object",
+                          "properties": {
+                            "known_total": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "known_items": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "estimated_items": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "known_total",
+                            "known_items",
+                            "estimated_items"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "fiber_g": {
+                          "type": "object",
+                          "properties": {
+                            "known_total": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "known_items": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "estimated_items": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "known_total",
+                            "known_items",
+                            "estimated_items"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "sodium_mg": {
+                          "type": "object",
+                          "properties": {
+                            "known_total": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "known_items": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "estimated_items": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "known_total",
+                            "known_items",
+                            "estimated_items"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "energy_kcal",
+                        "protein_g",
+                        "fat_g",
+                        "carb_g",
+                        "fiber_g",
+                        "sodium_mg"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "sleep": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                            },
+                            "revision": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "minutes": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "revision",
+                            "minutes"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "weight": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                            },
+                            "revision": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "value": {
+                              "type": "string",
+                              "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$"
+                            },
+                            "unit": {
+                              "type": "string",
+                              "const": "kg"
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "measurement",
+                                "observation"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "revision",
+                            "value",
+                            "unit",
+                            "kind"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "workouts": {
+                      "type": "object",
+                      "properties": {
+                        "sessions": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "known_duration_sessions": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "minutes": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "sessions",
+                        "known_duration_sessions",
+                        "minutes"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "date",
+                    "meals",
+                    "items",
+                    "empty_meals",
+                    "nutrients",
+                    "sleep",
+                    "weight",
+                    "workouts"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "limitations": {
+                "maxItems": 12,
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "as_of": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+              }
+            },
+            "required": [
+              "algorithm_version",
+              "date_policy",
+              "current",
+              "previous",
+              "days",
+              "limitations",
+              "as_of"
+            ],
+            "additionalProperties": false
+          },
+          "time_zone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "diary": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "complete",
+                    "partial",
+                    "recheck",
+                    "unknown"
+                  ]
+                },
+                "declaration": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "revision"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "date",
+                "state",
+                "declaration"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "recorded_complete_days": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "complete_energy_days": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "food_groups": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "group": {
+                  "type": "string",
+                  "enum": [
+                    "vegetables",
+                    "fruit",
+                    "dairy",
+                    "soy",
+                    "whole_grains"
+                  ]
+                },
+                "days": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "lunches": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "group",
+                "days",
+                "lunches"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "group_days": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "unclassified_days": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "lunch_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "lunches": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "revision": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "date": {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                },
+                "items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "classified_items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "groups": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "vegetables",
+                      "fruit",
+                      "dairy",
+                      "soy",
+                      "whole_grains"
+                    ]
+                  }
+                },
+                "staples": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "known_staple_grams": {
+                  "anyOf": [
+                    {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "weighed_staples": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "estimated_staples": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "estimated_items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "energy_kcal": {
+                  "anyOf": [
+                    {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "revision",
+                "date",
+                "items",
+                "classified_items",
+                "groups",
+                "staples",
+                "known_staple_grams",
+                "weighed_staples",
+                "estimated_staples",
+                "estimated_items",
+                "energy_kcal"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "menu": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "merchant": {
+                    "type": "string"
+                  },
+                  "dishes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "merchant",
+                  "dishes"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "next_meal": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "text": {
+                    "type": "string"
+                  },
+                  "meal": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                          },
+                          "revision": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "revision"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "text",
+                  "meal"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "energy": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "above",
+                  "below",
+                  "within",
+                  "unknown"
+                ]
+              },
+              "lower": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "upper": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "reliable_kcal": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "target": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                      },
+                      "revision": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "revision"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "status",
+              "lower",
+              "upper",
+              "reliable_kcal",
+              "target"
+            ],
+            "additionalProperties": false
+          },
+          "weight": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "source_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "morning": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "date": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "occurred_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                        },
+                        "kg": {
+                          "type": "number",
+                          "exclusiveMinimum": 0
+                        },
+                        "smoothed_kg": {
+                          "type": "number",
+                          "exclusiveMinimum": 0
+                        },
+                        "composition": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                              },
+                              "revision": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "metric": {
+                                "type": "string",
+                                "enum": [
+                                  "body_fat",
+                                  "muscle_mass",
+                                  "body_water_rate",
+                                  "visceral_fat"
+                                ]
+                              },
+                              "value": {
+                                "type": "number"
+                              },
+                              "unit": {
+                                "type": "string"
+                              },
+                              "method": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "revision",
+                              "metric",
+                              "value",
+                              "unit",
+                              "method"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "revision",
+                        "date",
+                        "occurred_at",
+                        "kg",
+                        "smoothed_kg",
+                        "composition"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "evening": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "date": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "occurred_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                        },
+                        "kg": {
+                          "type": "number",
+                          "exclusiveMinimum": 0
+                        },
+                        "smoothed_kg": {
+                          "type": "number",
+                          "exclusiveMinimum": 0
+                        },
+                        "composition": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                              },
+                              "revision": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "metric": {
+                                "type": "string",
+                                "enum": [
+                                  "body_fat",
+                                  "muscle_mass",
+                                  "body_water_rate",
+                                  "visceral_fat"
+                                ]
+                              },
+                              "value": {
+                                "type": "number"
+                              },
+                              "unit": {
+                                "type": "string"
+                              },
+                              "method": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "revision",
+                              "metric",
+                              "value",
+                              "unit",
+                              "method"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "revision",
+                        "date",
+                        "occurred_at",
+                        "kg",
+                        "smoothed_kg",
+                        "composition"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "weeks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "to": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "days": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "mean_kg": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "min_kg": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "max_kg": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "from",
+                        "to",
+                        "days",
+                        "mean_kg",
+                        "min_kg",
+                        "max_kg"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "weekly_change_kg": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "trend": {
+                    "type": "string",
+                    "enum": [
+                      "up",
+                      "down",
+                      "steady",
+                      "uncertain"
+                    ]
+                  },
+                  "goal": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                          },
+                          "revision": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "direction": {
+                            "type": "string",
+                            "enum": [
+                              "maintain",
+                              "gain",
+                              "lose"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "revision",
+                          "direction"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "alignment": {
+                    "type": "string",
+                    "enum": [
+                      "aligned",
+                      "off_track",
+                      "uncertain"
+                    ]
+                  },
+                  "waist": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "date": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "cm": {
+                          "type": "number",
+                          "exclusiveMinimum": 0
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "revision",
+                        "date",
+                        "cm"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "source_count",
+                  "morning",
+                  "evening",
+                  "weeks",
+                  "weekly_change_kg",
+                  "trend",
+                  "goal",
+                  "alignment",
+                  "waist"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "background": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "step_days": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "median_steps": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "sleep_days": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "mean_sleep_minutes": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "step_days",
+                  "median_steps",
+                  "sleep_days",
+                  "mean_sleep_minutes"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "wellness",
+          "time_zone",
+          "diary",
+          "recorded_complete_days",
+          "complete_energy_days",
+          "food_groups",
+          "group_days",
+          "unclassified_days",
+          "lunch_count",
+          "lunches",
+          "menu",
+          "next_meal",
+          "energy",
+          "weight",
+          "background"
+        ],
+        "additionalProperties": false
+      }
+    },
     "life.wellness_review": {
       "name": "life.wellness_review",
       "description": "联合复盘 7/30/90 天饮食营养、体重、睡眠和实际训练，对照前期并提供逐项覆盖、估算数量与来源；不推断因果或热量缺口。",

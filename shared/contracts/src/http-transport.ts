@@ -68,6 +68,7 @@ export const queryTransportRegistry:Readonly<Record<string,ReadRoute>>={
   "money.import_file_status":input=>get(`/api/money/import-files/${encodeURIComponent(input.file_id)}`),
   "money.import_review":input=>get(`/api/money/imports/${encodeURIComponent(input.batch_id)}`),
   "money.import_month":input=>get(`/api/money/import-month${search({period:input.period})}`),
+  "life.diet_review":input=>get(`/api/life/diet-review${search(input)}`),
   "life.wellness_review":input=>get(`/api/life/wellness-review${search(input)}`),
   "health.daily":input=>get(`/api/health/daily/${encodeURIComponent(input.date)}`),
   "health.sleep_insights":input=>get(`/api/health/sleep-insights${search({to:input.to,days:input.days})}`),

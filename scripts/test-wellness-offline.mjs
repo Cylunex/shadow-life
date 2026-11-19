@@ -6,7 +6,7 @@ import {tmpdir} from 'node:os';
 import {randomUUID} from 'node:crypto';
 import {withOfflinePostgres} from './offline-postgres.mjs';
 const root=resolve(import.meta.dirname,'..');
-const {PostgresUnitOfWork,migrate}=await import(`${root}/server/database/src/index.ts`);
+const {PostgresUnitOfWork,migrate,normalizeHealthRaw}=await import(`${root}/server/database/src/index.ts`);
 const {CommandExecutor,QueryService,sha256Fingerprinter,systemClock,uuidIds}=await import(`${root}/server/kernel/src/index.ts`);
 const {capabilityRegistry}=await import(`${root}/shared/contracts/src/index.ts`);
 const {AssetService}=await import(`${root}/server/database/src/asset-service.ts`);
@@ -25,8 +25,12 @@ await withOfflinePostgres(async url=>{
     const ctx={actorId:'subject_example',subjectId:'subject_example',clientId:'client_wellness_fixture',traceId:'trace_wellness_fixture',effects:new Set(Object.values(capabilityRegistry).flatMap(value=>value.possibleEffects))};
     const run=(capability,input)=>executor.execute(ctx,{protocol:'shadow.command',capability,command_id:`cmd_${randomUUID()}`,input});
     const date='2026-10-23';
-    await run('life.record_meal',{occurred_on:date,time_zone:'Asia/Shanghai',meal_type:'lunch',items:[{name:'合成午餐',energy_kcal:'600',protein_g:'25',consumed_fraction:'0.5'},{name:'未知配菜'}]});
+    await run('life.record_meal',{occurred_on:date,time_zone:'Asia/Shanghai',meal_type:'lunch',items:[{name:'白米饭',energy_kcal:'600',protein_g:'25',consumed_fraction:'0.5'},{name:'蒸红薯'}]});
     await run('health.record_measurement',{metric:'weight',value:'70.5',unit:'kg',occurred_on:date,time_zone:'Asia/Shanghai'});
+    for(const [id,kg,hour] of [['morning','70','01'],['evening','72','14']]){
+      const raw=await run('health.ingest_raw',{source_type:'scale',source_instance_key:'browser-fixture-scale',source_fingerprint:'synthetic-scale',record_type:'body',client_record_id:id,record_version:1,sync_epoch:1,change_kind:'upsert',parse_version:'health-normalizer',payload:{occurred_on:date,occurred_at:date+'T'+hour+':00:00Z',time_zone:'Asia/Shanghai',group_kind:'measurement',observations:[{metric_key:'weight',value:kg,unit:'kg',original_field:'fixture:weight'}]}});
+      assert.equal((await normalizeHealthRaw(pool,raw.actual_values.raw_id,1)).state,'completed');
+    }
     const before=(await pool.query('select count(*)::int n from operations')).rows[0].n;
     const app=createApp({unitOfWork,executor,queries,developmentAuth:true});
     server=serve({fetch:app.fetch,hostname:'127.0.0.1',port:0});await new Promise(resolve=>server.listening?resolve():server.once('listening',resolve));
@@ -38,7 +42,7 @@ await withOfflinePostgres(async url=>{
     await page.goto(`${origin}?tab=record&section=health`);
     const panel=page.getByRole('region',{name:'健康与饮食复盘'});
     await panel.getByLabel('截至日期').fill(date);await panel.getByText('300',{exact:true}).waitFor();
-    assert.match(await panel.textContent(),/1 \/ 2 项/);assert.match(await panel.textContent(),/未知 · 0 天/);
+    assert.match(await panel.textContent(),/1 \/ 2 项/);await panel.getByText(/按合起来的份量打主食/).waitFor();assert.match(await panel.textContent(),/未知 · 0 天/);
     await panel.getByText('逐日记录与来源（7 天）',{exact:true}).click();
     await panel.screenshot({path:`${output}/desktop.png`});
     await panel.getByRole('button',{name:'30 天',exact:true}).click();await panel.getByText('逐日记录与来源（30 天）',{exact:true}).waitFor();
@@ -51,7 +55,9 @@ await withOfflinePostgres(async url=>{
     await panel.getByText('逐日记录与来源（7 天）',{exact:true}).click();
     await panel.screenshot({path:`${output}/narrow.png`});
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'narrow layout must not overflow');
-    await panel.getByRole('link',{name:'70.5 kg',exact:true}).click();await page.waitForURL(/domain=health.*kind=measurement/);
+    await panel.getByRole('img',{name:/近四周晨重和晚重/}).waitFor();
+    await panel.getByText('查看称重数据').click();
+    await panel.getByRole('link',{name:'70 kg',exact:true}).click();await page.waitForURL(/domain=health.*kind=observation/);
     assert.equal((await pool.query('select count(*)::int n from operations')).rows[0].n,before);
     await page.goto(`${origin}?tab=record&section=health`);await panel.getByLabel('截至日期').fill(date);
     const morning=page.getByRole('region',{name:'睡眠与晨起感受'});
@@ -70,6 +76,11 @@ await withOfflinePostgres(async url=>{
     await morning.getByRole('button',{name:'保存晨评'}).click();
     await morning.getByRole('alert').waitFor({state:'detached'});
 
+    const diary=panel.getByRole('region',{name:'饮食记录完整性'});
+    await diary.getByRole('button',{name:'已吃完并记全'}).click();
+    await diary.getByText(/已基本记全 · 热量/).waitFor();
+    await diary.getByRole('button',{name:'还有漏记'}).click();
+    await diary.getByText(/还有漏记 · 热量/).waitFor();
     const weekly=panel.getByRole('region',{name:'每周一个行动'});
     await weekly.getByLabel('下一周想做的一件事').fill('周三晚饭后散步一次');
     await weekly.getByRole('button',{name:'保存下周行动'}).click();
@@ -94,7 +105,7 @@ await withOfflinePostgres(async url=>{
     await page.getByText('关联原件 · '+date,{exact:true}).click();
     await page.getByRole('img',{name:'消费记录原件'}).waitFor();
     assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
-    await writeFile(`${output}/result.json`,JSON.stringify({passed:true,cases:['partial nutrition and source links','7/30/90 periods','failure clears stale result and retry','390px layout','read-only browsing','weekly goal and reported result across weeks','purchase after-sales dates and return to order'],errors,external},null,2));
+    await writeFile(`${output}/result.json`,JSON.stringify({passed:true,cases:['next-meal advice from the recorded food and partial nutrition','scale chart and source links','diary completeness writes and reread','7/30/90 periods','failure clears stale result and retry','390px layout','read-only browsing','weekly goal and reported result across weeks','purchase after-sales dates and return to order'],errors,external},null,2));
     console.log(`PASS wellness browser; artifacts: ${output}`);
   }catch(error){if(page)await page.screenshot({path:`${output}/failure.png`,fullPage:true}).catch(()=>{});console.log(`Failure artifacts: ${output}`);throw error;}
   finally{if(browser)await browser.close();if(web)await web.close();if(server)await new Promise(resolve=>server.close(resolve));await unitOfWork.close();}
