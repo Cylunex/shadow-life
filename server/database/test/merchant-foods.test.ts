@@ -57,3 +57,36 @@ test("stall price periods and net weight evidence remain independent of receipt 
   const limited=await f.queries.captureWorkspace({...f.context,effects:new Set(["library.item.read"])},day);
   assert.equal(limited.recorded_meals,undefined);
 });
+
+test("dining directory reads order dishes separately from distinct eaten meals",pgOnly,async t=>{
+  const {run,queries,context}=await reviewFixture(t);
+  const on={occurred_on:"2026-11-18",time_zone:"Asia/Shanghai"};
+  const merchant="合成面馆",dish="鸡腿盖饭";
+  const food=await run("life.remember_merchant_dish",{merchant,dish,evidence:{kind:"note",note:"核对菜单"}});
+  const item={name:dish,food_ref_id:food.actual_values.food_id};
+  const first=await run("life.record_meal",{...on,meal_type:"lunch",items:[item,item,{name:"没有吃的面",consumed_fraction:"0"}]});
+  await run("life.record_meal",{...on,occurred_on:"2026-11-19",meal_type:"lunch",items:[item]});
+  await run("life.record_meal",{...on,occurred_on:"2026-10-01",meal_type:"lunch",items:[item]});
+  const order=await run("life.record_purchase",{...on,scene:"delivery",merchant_name_raw:merchant,
+    items:[{raw_name:dish},{raw_name:"包装费"},{raw_name:"不要餐具"}]});
+  await run("life.link_meal_consumption",{meal_id:first.actual_values.meal_id,consumption_record_id:order.actual_values.record_id,evidence:"user_confirmed"});
+  const orderOnly=await run("life.record_purchase",{...on,scene:"delivery",merchant_name_raw:"只点过的店",items:[{raw_name:"牛肉米线"}]});
+  await run("life.record_purchase",{...on,scene:"delivery",merchant_name_raw:"生鲜超市",items:[{raw_name:"苹果"}]});
+
+  const readOnly={...context,effects:new Set(["life.meal.read"])};
+  const result=await queries.merchantMenu(readOnly,{browse:"1",on:"2026-11-19",time_zone:"Asia/Shanghai"});
+  assert.equal(result.merchant,"");
+  const directory=result.directory!;
+  assert.deepEqual(directory.merchants,[{name:merchant,menu_items:1,meals:2}]);
+  assert.equal(directory.dishes.length,1);
+  assert.equal(directory.dishes[0]?.meals,2);
+  assert.equal(directory.dishes[0]?.food_id,food.actual_values.food_id);
+  assert.deepEqual(directory.takeout.find(row=>row.record_id===order.actual_values.record_id)?.items,[dish]);
+  assert.equal(directory.takeout.find(row=>row.record_id===order.actual_values.record_id)?.linked_meal,true);
+  assert.equal(directory.takeout.find(row=>row.record_id===orderOnly.actual_values.record_id)?.linked_meal,false);
+  assert.equal(directory.takeout.some(row=>row.merchant==="生鲜超市"),false);
+  const store=await queries.merchantMenu(readOnly,{browse:"1",merchant,on:"2026-11-19"});
+  assert.equal(store.items[0]?.id,food.actual_values.food_id);
+  assert.equal(store.directory?.takeout.length,1);
+  await assert.rejects(()=>queries.merchantMenu({...readOnly,effects:new Set()},{browse:"1"}),/permission/i);
+});

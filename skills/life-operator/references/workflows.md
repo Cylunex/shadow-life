@@ -279,7 +279,7 @@ provided by the user. The existing source-specific tools continue to supply evid
 
 - 旅程目的地用 `travel.destinations` 按当地日读取。未指定个人卡时取当天仍有效且有权查看的住宿；也可用 `travel.save_destination` 选择地点、填写当地名和入口。司机视图只带地点名、地址和入口说明。
 
-- 门店食品库使用 `life.merchant_menu`，传门店、可选菜名检索词与返回的 `after` 分页；省略门店时读取已明确保存的常去食堂。使用 `life.remember_merchant_dish` 收录，同店菜名返回原食品编号，出处可选餐次及摄入行、菜单照片或明确文字。记餐让 `items[].food_ref_id` 指向返回的 `food_id`，当餐估重留在摄入行；包装营养或标准份量应有单独依据。单纯菜单照片只收录食品。
+- 门店食品库使用 `life.merchant_menu`，传门店、可选菜名检索词与返回的 `after` 分页；省略门店时读取已明确保存的常去食堂。使用 `life.remember_merchant_dish` 收录，同店菜名返回原食品编号，出处可选餐次及摄入行、菜单照片或明确文字。记餐让 `items[].food_ref_id` 指向返回的 `food_id`，当餐估重留在摄入行；包装营养或标准份量应有单独依据。单纯菜单照片只收录食品。加 `browse=1` 可读近 30 天的门店及常吃菜品，按实际餐次去重。外卖订单单独返回门店、商品和可打开的原订单或采集来源，购买未关联到实吃时不计入常吃频次。可用 `on` 与 `time_zone` 指定日期和时区。
 - 查询菜品档案加 `with_profiles:"1"`。同店同名菜可按 `stall` 匹配。已有菜补充档口、别名、做法、类别、常用份量或营养基准时，按当前食品 `food_id` 和 `expected_revision` 提交完整的 `profile` 以及本次依据。常用量具的数量和单位必须同时有值，克重未知可省略。拿到当前份量依据后按本餐量具换算，按实际吃完比例另填 `consumed_fraction`，保留档案版本及估算来源。
 - 回看实吃份量、菜品分类和估算用 `life.meal_diet_review`，传由检索或回读确认的 `meal_id`。返回的营养、克重和数量已乘实吃比例；零份仍可核对，但其营养和份量不进入合计。只有带来源的钙铁数据进入覆盖统计。
 

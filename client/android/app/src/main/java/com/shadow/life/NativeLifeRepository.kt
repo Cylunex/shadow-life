@@ -153,6 +153,16 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     return wireJson.decodeFromString(getText(path))
   }
 
+  internal suspend fun diningDirectory(merchant:String=""):MerchantMenuResultDtoDirectory {
+    val zone=ZoneId.systemDefault()
+    val path=buildString {
+      append("/api/life/merchant-menu?browse=1&on=${java.time.LocalDate.now(zone)}&time_zone=${encode(zone.id)}&limit=1")
+      if(merchant.isNotBlank())append("&merchant=${encode(merchant)}")
+    }
+    val result=wireJson.decodeFromString<MerchantMenuResultDto>(getText(path))
+    return result.directory ?: error("门店总览暂不可用")
+  }
+
   internal suspend fun dietReview(date:String,days:Int):DietReviewResultDto =
     wireJson.decodeFromString(getText("/api/life/diet-review?to=${encode(date)}&days=$days&time_zone=${encode(ZoneId.systemDefault().id)}"))
 
@@ -915,33 +925,19 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   private fun lifeRecordDetail(domain:LifeDomain,value:LifeRecordResultDto):RecordDetail=when(value){
     is LifeRecordResultDtoMeal->{
       val items=value.items.orEmpty();val payments=value.payments.orEmpty();val sources=value.sources.orEmpty()
-      val title=items.map{it.name}.filter(String::isNotBlank).joinToString("、").ifBlank{mealTypeLabel(value.mealType?.wireValue?:"other")}
-      val sections=mutableListOf(
-        DetailSection("概要",listOfNotNull(value.mealType?.let{DetailFact("餐次",mealTypeLabel(it.wireValue))},value.occurredOn?.let{DetailFact("日期",it)},value.timeZone?.let{DetailFact("时区",it)},value.note?.let{DetailFact("备注",it)}))
-      )
-      sections.add(0,DetailSection("消费关联",listOf(DetailFact("关联情况",if(payments.isNotEmpty()||!value.relatedRecords.isNullOrEmpty())"已有关联，点开下方记录核对商家、日期与金额" else "未显示关联消费；可以先记饮食，再补充关联"))))
-      if(items.isNotEmpty())sections+=DetailSection("食物与营养",itemCount=items.size,groups=items.map { item ->
-        fun eaten(value: String?) = consumedAmount(value,item.consumedFraction)
-        val facts = listOfNotNull(
-          DetailFact("份量",listOfNotNull(eaten(item.quantity),item.unit).joinToString(" ").ifBlank { "未记录" }),
-          item.consumedFraction?.let { DetailFact("食用比例","${consumedAmount("100",it)}%") },
-          DetailFact("热量",eaten(item.energyKcal)?.let { "$it kcal${if(item.estimate) " · 估算" else ""}" } ?: "未记录"),
-          eaten(item.proteinG)?.let { DetailFact("蛋白质","$it g") },
-          eaten(item.fatG)?.let { DetailFact("脂肪","$it g") },
-          eaten(item.carbG)?.let { DetailFact("碳水","$it g") },
-          eaten(item.fiberG)?.let { DetailFact("膳食纤维","$it g") },
-          eaten(item.sodiumMg)?.let { DetailFact("钠","$it mg") },
-          item.evidenceNote?.let { DetailFact("依据",it) }
-        )
-        DetailGroup(item.id,item.name,facts)
-      })
+      val type=value.mealType?.wireValue?.let(::mealTypeLabel)?:"一餐"
+      val sections=mutableListOf<DetailSection>()
+      value.timeZone?.let{sections+=DetailSection("来源与完整性",listOf(DetailFact("时区",it)))}
       if(payments.isNotEmpty())sections+=DetailSection("关联付款",itemCount=payments.size,links=payments.map{payment->DetailLink("money_entry",payment.recordId,payment.counterparty?:payment.category?:"交易","${payment.currency} ${payment.amount}")})
       if(sources.isNotEmpty())sections+=DetailSection("来源",sources.take(20).map{source->DetailFact(source.kind,source.capturedAt?:source.capturedOn?:source.externalId?:"已收存")},sources.size)
       sources.filter{!it.originalText.isNullOrBlank()}.forEach{source->sections+=DetailSection("来源原文 · ${source.kind}",listOf(DetailFact("正文",source.originalText!!)))}
       if(!value.relatedRecords.isNullOrEmpty())sections+=DetailSection("关联消费",links=value.relatedRecords.orEmpty().map{DetailLink(it.kind.wireValue,it.id,it.title,it.supporting)})
       val revision=value.revision;val occurredOn=value.occurredOn;val timeZone=value.timeZone;val mealType=value.mealType
       val seed=if(revision!=null&&occurredOn!=null&&timeZone!=null&&mealType!=null)EditSeed.Meal(value.mealId,revision.toInt(),occurredOn,timeZone,mealType.wireValue,value.note) else null
-      RecordDetail(title,null,value.revision?.toInt(),sections,seed,assets=sources.mapNotNull{source->source.assetVersionId?.let{DetailAsset(it,if(source.kind=="image")"image/*" else "application/octet-stream","饮食凭证")}},mealIntakes=items,presentation=DetailPresentation.Meal,heroSupporting=listOfNotNull(value.mealType?.wireValue?.let(::mealTypeLabel),value.occurredOn).joinToString(" · "))
+      RecordDetail(type,null,revision?.toInt(),sections,seed,
+        assets=sources.mapNotNull{source->source.assetVersionId?.let{DetailAsset(it,if(source.kind=="image")"image/*" else "application/octet-stream","饮食凭证")}},
+        mealIntakes=items,presentation=DetailPresentation.Meal,
+        meal=MealDetailInfo(value.mealId,type,occurredOn,localDateTime(value.occurredAt,timeZone,includeDate=false),value.note))
     }
     is LifeRecordResultDtoRecord->{
       val entry=value.moneyEntry;val purchase=value.purchase;val meals=value.meals.orEmpty();val items=value.purchaseItems.orEmpty();val sources=value.sources.orEmpty()

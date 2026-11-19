@@ -167,39 +167,3 @@ private data class ScalePoint(val day:Long,val kg:Double,val smooth:Double)
     }
     Text("最近晨重 ${number(morning.lastOrNull()?.kg)} kg · 晚重 ${number(evening.lastOrNull()?.kg)} kg",style=MaterialTheme.typography.bodySmall)
 }
-
-@Composable internal fun NativeMealDietDetail(accountId:String,id:String,revision:Int?) {
-    val context=LocalContext.current
-    val repository=remember(accountId){NativeLifeRepository(context,context.applicationContext as ShadowApp)}
-    var open by rememberSaveable(id){mutableStateOf(false)}
-    var state by remember(accountId,id,revision){mutableStateOf<LoadState<MealDietReviewResultDto>>(LoadState.Loading)}
-    var retry by remember{mutableIntStateOf(0)}
-    LaunchedEffect(accountId,id,revision,open,retry){
-        if(open)try{state=LoadState.Ready(repository.mealDietReview(id))}
-        catch(cancel:CancellationException){throw cancel}
-        catch(error:Exception){state=LoadState.Failed(error.message?:"暂时无法读取这顿的复盘")}
-    }
-    ReviewCard("本餐实吃份量与依据"){
-        if(!open)TextButton(onClick={open=true}){Text("展开本餐复盘")}
-        else when(val loaded=state){
-            LoadState.Loading->LinearProgressIndicator(Modifier.fillMaxWidth())
-            is LoadState.Empty->Text(loaded.reason)
-            is LoadState.Failed->{Text(loaded.message);TextButton(onClick={retry++}){Text("重新读取")}}
-            is LoadState.Ready->{
-                val meal=loaded.value
-                Text("${meal.consumedItems} 项计入实吃 · 主食已知 ${number(meal.knownStapleGrams)} g（${meal.staplesWithGrams}/${meal.staples} 项）")
-                meal.items.forEach{item->
-                    val portions=listOfNotNull(item.quantity?.let{number(it)+" "+item.unit.orEmpty()},item.grams?.let{number(it)+" g"})
-                    Text(item.name,style=MaterialTheme.typography.titleSmall)
-                    Text(if(item.consumedFraction==0.0)"未食用" else (portions.takeIf{it.isNotEmpty()}?.joinToString(" · ") ?: "实吃份量未知")+(if(item.estimated)" · 估算" else ""))
-                    item.basis?.let{Text(it,style=MaterialTheme.typography.bodySmall)}
-                }
-                meal.totals.forEach{item->
-                    val key=item.nutrient.wireValue
-                    val unit=if(item.knownTotal==null)"" else if(key=="energy_kcal")" kcal" else if(key.endsWith("_mg"))" mg" else " g"
-                    Text("${nutrientLabels[key]} ${number(item.knownTotal)}$unit · ${item.knownItems}/${meal.consumedItems} 项有记录，${item.estimatedItems} 项估算")
-                }
-            }
-        }
-    }
-}

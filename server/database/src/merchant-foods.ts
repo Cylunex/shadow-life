@@ -1,21 +1,26 @@
 import {sql} from "drizzle-orm";
 import type {NodePgDatabase} from "drizzle-orm/node-postgres";
-import {rememberMerchantDishSchema,type merchantMenuInputSchema} from "@shadow/contracts";
-import {conflict,permissionDenied,sha256Fingerprinter,type TransactionStore} from "@shadow/kernel";
+import {localDate,rememberMerchantDishSchema,takeoutDetailsSchema,type merchantMenuInputSchema} from "@shadow/contracts";
+import {conflict,mergeOrderObservations,permissionDenied,sha256Fingerprinter,type TransactionStore} from "@shadow/kernel";
 
 type Database=Pick<NodePgDatabase,"execute">;
 type Write=Parameters<TransactionStore["executeDomainWrite"]>[0];
 
-async function resolveMerchant(db:Database,subject:string,merchant:string|undefined,effects:ReadonlySet<string>){
-  if(merchant)return merchant;
-  if(!effects.has("agent.run"))throw permissionDenied("agent.run");
+async function defaultMerchant(db:Database,subject:string,on?:string){
   const r=await db.execute<{statement:string}>(sql`select data->>'statement' statement from agent_intentions where subject_id=${subject}
     and scope='daily' and business_key='dining.usual_canteen' and data->>'state'='active' and data->>'assertion'='explicit'
     and data->>'kind'='preference' and data->>'category'='dietary'
-    and (data->>'valid_from' is null or (data->>'valid_from')::date<=current_date)
-    and (data->>'valid_to_exclusive' is null or current_date<(data->>'valid_to_exclusive')::date)`);
-  const name=/^常去食堂[：:]\s*([^｜|\n]+)$/u.exec(r.rows[0]?.statement??"")?.[1]?.trim();
-  if(!name)throw conflict("请指定门店，或先设置常去食堂");return name;
+    and (data->>'valid_from' is null or (data->>'valid_from')::date<=coalesce(${on??null}::date,current_date))
+    and (data->>'valid_to_exclusive' is null or coalesce(${on??null}::date,current_date)<(data->>'valid_to_exclusive')::date)`);
+  return /^常去食堂[：:]\s*([^｜|\n]{1,160})$/u.exec(r.rows[0]?.statement??"")?.[1]?.trim()||null;
+}
+
+async function resolveMerchant(db:Database,subject:string,merchant:string|undefined,effects:ReadonlySet<string>){
+  if(merchant)return merchant;
+  if(!effects.has("agent.run"))throw permissionDenied("agent.run");
+  const name=await defaultMerchant(db,subject);
+  if(!name)throw conflict("请指定门店，或先设置常去食堂");
+  return name;
 }
 
 export async function rememberMerchantDish(db:Database,{subjectId,command,nextId,context}:Write):ReturnType<TransactionStore["executeDomainWrite"]>{
@@ -83,8 +88,105 @@ export async function rememberMerchantDish(db:Database,{subjectId,command,nextId
   return {resources:[{type:"food",id,revision}],actualValues:{food_id:id,merchant,dish:v.dish,revision,reused:!!existing}};
 }
 
+async function capturedDiningOrders(db:Database,subject:string,from:string,to:string,zone:string,merchant?:string){
+  const result=await db.execute<{
+    id:string;record_id:string|null;source_id:string;captured_on:string;
+    observations:Parameters<typeof mergeOrderObservations>[0];
+  }>(sql`
+    select o.id,r.id record_id,
+      (array_agg(a.id order by a.started_at desc,a.id) filter(where jsonb_typeof(s.fields->'takeout')='object'))[1] source_id,
+      (max(a.started_at) at time zone ${zone})::date::text captured_on,
+      jsonb_agg(s.fields order by a.started_at,a.id) observations
+    from capture_orders o join capture_order_sources s on s.order_id=o.id
+    join activity_captures a on a.id=s.capture_id and a.subject_id=o.subject_id and a.deleted_at is null
+    left join consumption_records r on r.id=o.record_id and r.subject_id=o.subject_id and r.state='confirmed'
+    where o.subject_id=${subject} and not o.conflict and jsonb_typeof(o.fields->'takeout')='object'
+      ${merchant?sql`and lower(trim(o.fields->>'merchant'))=lower(${merchant})`:sql``}
+      and a.started_at>=${from}::date::timestamp at time zone ${zone}
+      and a.started_at<(${to}::date+1)::timestamp at time zone ${zone}
+    group by o.id,r.id having bool_or(jsonb_typeof(s.fields->'takeout')='object')
+    order by max(a.started_at) desc,o.id limit 150`);
+  return result.rows.flatMap(row=>{
+    const merged=mergeOrderObservations(row.observations);
+    const {merchant:name,takeout,order_time}=merged.fields;
+    if(merged.conflict||typeof name!=="string"||!name.trim())return [];
+    if(merchant&&name.trim().toLowerCase()!==merchant.toLowerCase())return [];
+    const details=takeoutDetailsSchema.safeParse(takeout);
+    if(!details.success||/取消|退款/u.test(details.data.delivery_status??""))return [];
+    const orderDate=localDate.safeParse(typeof order_time==="string"?order_time.slice(0,10):undefined);
+    const date=orderDate.success?orderDate.data:row.captured_on;
+    const items=[...new Set(details.data.items.map(item=>item.name.trim()).filter(Boolean))];
+    if(date<from||date>to||!items.length)return [];
+    return [{id:row.id,record_id:row.record_id,source_id:row.source_id,merchant:name.trim(),date,items,linked_meal:false}];
+  });
+}
+
+async function diningDirectory(db:Database,subject:string,on:string|undefined,zone:string,effects:ReadonlySet<string>,merchant?:string){
+  const window=(await db.execute<{from:string;to:string}>(sql`
+    select (local_day-29)::text "from",local_day::text "to" from
+    (select coalesce(${on??null}::date,(now() at time zone ${zone})::date) as local_day) days`)).rows[0]!;
+  const result=await db.execute<{
+    merchants:Array<{name:string;menu_items:number;meals:number}>;
+    dishes:Array<{name:string;merchant:string|null;food_id:string|null;meals:number;meal_id:string}>;
+  }>(sql`
+    with catalog as (
+      select f.id,m.merchant,m.dish from merchant_foods m
+      join food_references f on f.id=m.food_id and f.subject_id=m.subject_id
+      where m.subject_id=${subject} and f.state='active'
+      union all
+      select f.id,split_part(f.name,'｜',1),split_part(f.name,'｜',2) from food_references f
+      where f.subject_id=${subject} and f.state='active' and f.name ~ '^[^｜|]+｜[^｜|]+$'
+        and nullif(trim(f.provenance),'') is not null and not exists(select 1 from merchant_foods m where m.food_id=f.id)
+    ), eaten as (
+      select m.id meal_id,m.occurred_on,m.occurred_at,i.name,c.id food_id,c.dish,
+        coalesce(nullif(i.dish_profile_snapshot->>'merchant',''),c.merchant) item_merchant
+      from meals m join intake_items i on i.meal_id=m.id and i.subject_id=m.subject_id
+      left join catalog c on c.id=i.food_ref_id
+      where m.subject_id=${subject} and m.state='active' and m.occurred_on between ${window.from}::date and ${window.to}::date
+        and i.effective and coalesce(i.consumed_fraction,1)>0 and nullif(trim(i.name),'') is not null
+    ), meal_ids as (select distinct meal_id from eaten),
+    candidates as (
+      select meal_id,item_merchant merchant,1 priority from eaten where item_merchant is not null
+      union all
+      select l.meal_id,trim(p.merchant),2 from meal_ids m join meal_consumption_links l on l.meal_id=m.meal_id and l.subject_id=${subject}
+      join consumption_records r on r.id=l.consumption_record_id and r.subject_id=l.subject_id and r.state='confirmed'
+      join purchases p on p.record_id=r.id and p.subject_id=r.subject_id where nullif(trim(p.merchant),'') is not null
+    ), ranked as (
+      select *,dense_rank() over(partition by meal_id order by priority) strength from candidates
+    ), meal_merchants as (
+      select meal_id,min(merchant) merchant from ranked where strength=1
+      group by meal_id having count(distinct lower(merchant))=1
+    ), visits as (
+      select meal_id,item_merchant merchant from eaten where item_merchant is not null
+      union select meal_id,merchant from meal_merchants
+    ), stores as (
+      select merchant,count(*)::int menu_items,0 meals from catalog group by merchant
+      union all
+      select min(merchant),0,count(distinct meal_id)::int from visits group by lower(merchant)
+    ), store_summary as (
+      select min(merchant) name,sum(menu_items)::int menu_items,sum(meals)::int meals from stores
+      where length(merchant)<=160 and merchant !~ '[｜|[:cntrl:]]'
+      group by lower(merchant) order by meals desc,menu_items desc,name limit 100
+    ), dish_summary as (
+      select min(coalesce(e.dish,trim(e.name))) name,min(coalesce(e.item_merchant,m.merchant)) merchant,e.food_id,
+        count(distinct e.meal_id)::int meals,
+        (array_agg(e.meal_id order by e.occurred_on desc,e.occurred_at desc nulls last,e.meal_id))[1] meal_id
+      from eaten e left join meal_merchants m on m.meal_id=e.meal_id
+      group by lower(coalesce(e.item_merchant,m.merchant)),e.food_id,case when e.food_id is null then lower(trim(e.name)) end
+      having count(distinct e.meal_id)>1 order by meals desc,max(e.occurred_on) desc,name limit 12
+    )
+    select coalesce((select jsonb_agg(s order by s.meals desc,s.menu_items desc,s.name) from store_summary s),'[]') merchants,
+      coalesce((select jsonb_agg(d order by d.meals desc) from dish_summary d),'[]') dishes`);
+  const default_merchant=effects.has("agent.run")?await defaultMerchant(db,subject,window.to):null;
+  const takeout=effects.has("library.item.read")
+    ?await capturedDiningOrders(db,subject,window.from,window.to,zone,merchant):[];
+  return {...window,...result.rows[0]!,default_merchant,takeout};
+}
+
 export async function merchantMenu(db:Database,subject:string,v:ReturnType<typeof merchantMenuInputSchema.parse>,effects:ReadonlySet<string>){
-  const merchant=await resolveMerchant(db,subject,v.merchant,effects);
+  const directory=v.browse?await diningDirectory(db,subject,v.on,v.time_zone??"UTC",effects,v.merchant):undefined;
+  const merchant=v.merchant??(directory?directory.default_merchant:await resolveMerchant(db,subject,undefined,effects));
+  if(!merchant)return {merchant:"",items:[],next:null,directory};
   const rows=await db.execute<{id:string}>(sql`with menu as (
     select food_id,dish,stall,profile from merchant_foods where subject_id=${subject} and lower(merchant)=lower(${merchant})
     union all
@@ -110,5 +212,5 @@ export async function merchantMenu(db:Database,subject:string,v:ReturnType<typeo
     select stall,price_name,valid_from::text,until::text valid_to_exclusive,terms,evidence_note from periods
     where valid_from<=coalesce(${v.on??null}::date,current_date) and (until is null or until>coalesce(${v.on??null}::date,current_date))
     order by stall,price_name`);
-  return {merchant,items,stall_prices:prices.rows.map(p=>({...p,valid_to_exclusive:p.valid_to_exclusive??undefined})),next:rows.rows.length>v.limit?items.at(-1)!.id:null};
+  return {merchant,items,...(directory?{directory}:{}),stall_prices:prices.rows.map(p=>({...p,valid_to_exclusive:p.valid_to_exclusive??undefined})),next:rows.rows.length>v.limit?items.at(-1)!.id:null};
 }

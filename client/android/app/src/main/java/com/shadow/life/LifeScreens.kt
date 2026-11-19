@@ -248,7 +248,7 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun DetailScreen(title:String,state:LoadState<RecordDetail>,submitState:SubmitState,onRetry:()->Unit,onBack:()->Unit,onLink:(DetailLink)->Unit,onAction:(DetailAction)->Unit,onCorrect:(EditSeed,CorrectionDraft)->Unit,onReset:()->Unit,onQueueLibraryVision:(String)->Unit,onRetryLibraryVision:(String)->Unit,onSaveTravelDay:(TravelDayDraft)->Unit,travelPlaces:List<TravelPlaceSummary> = emptyList(),accountId:String=""){
+@Composable fun DetailScreen(title:String,state:LoadState<RecordDetail>,submitState:SubmitState,onRetry:()->Unit,onBack:()->Unit,onLink:(DetailLink)->Unit,onAction:(DetailAction)->Unit,onCorrect:(EditSeed,CorrectionDraft)->Unit,onReset:()->Unit,onQueueLibraryVision:(String)->Unit,onRetryLibraryVision:(String)->Unit,onSaveTravelDay:(TravelDayDraft)->Unit,travelPlaces:List<TravelPlaceSummary> = emptyList(),accountId:String="",onDishCatalog:(String,String)->Unit={_,_->}){
   var editing by rememberSaveable(title){mutableStateOf(false)}
   var editingDay by rememberSaveable(title){mutableStateOf(false)}
   var travelDate by rememberSaveable(title){mutableStateOf<String?>(null)}
@@ -256,17 +256,21 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
   var detailTab by rememberSaveable(title){mutableStateOf("日程")}
   val activeDraftScope=LocalUiDraftScope.current
   var savedNotice by rememberSaveable(title){mutableStateOf<String?>(null)}
+  val loadedDetail=(state as? LoadState.Ready)?.value
+  val mealRead=loadedDetail?.meal?.let{rememberMealDetailRead(accountId,it,loadedDetail.revision,onRetry)}
   LaunchedEffect(submitState){if(editing&&submitState is SubmitState.Saved&&submitState.receipt.warnings.isEmpty()){activeDraftScope?.store?.clear(activeDraftScope.name);savedNotice=if(submitState.receipt.queued)"更正已保存到本机，待同步" else "更正已保存";editing=false;onReset()}}
 
   Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(colors=TopAppBarDefaults.topAppBarColors(containerColor=MaterialTheme.colorScheme.background),title={Text((state as? LoadState.Ready)?.value?.title?:title.ifBlank{"详情"},maxLines=1,overflow=TextOverflow.Ellipsis)},navigationIcon={LifeBackButton(onBack)},actions={if((state as? LoadState.Ready)?.value?.editSeed!=null)TextButton(onClick={onReset();editing=true}){Text("编辑")}})}){padding->
-    LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(2.dp)){
+    LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(if(mealRead!=null)12.dp else 2.dp)){
       item{StateContent(state,onRetry){}}
       savedNotice?.let{notice->item{Text(notice,color=MaterialTheme.colorScheme.primary)}}
       if(state is LoadState.Ready){
         val detail=state.value
-        item{DetailHero(detail)}
-        item{DomainDetailContent(detail,onLink)}
-        (detail.editSeed as? EditSeed.Meal)?.let { meal -> item { NativeMealDietDetail(accountId,meal.detailId,detail.revision) } }
+        if(mealRead!=null)mealDetailItems(detail,accountId,mealRead,onDishCatalog)
+        else {
+          item{DetailHero(detail)}
+          item{DomainDetailContent(detail,onLink)}
+        }
         if(detail.state=="confirmed")detail.consumptionRecordId?.let{id->item{AmountEvidenceCard(accountId,id)}}
         if(detail.state=="confirmed")detail.dishPurchase?.let{purchase->item{DishPreferenceCard(accountId,purchase)};if(purchase.items.isNotEmpty())item{PriceHistoryCard(accountId,purchase)}}
         if(detail.state=="confirmed")detail.consumptionRecordId?.let{id->item{NativeMealConsumptionLink(accountId,id,detail.linkedMealIds)}}
@@ -279,8 +283,8 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
             context.startActivity(android.content.Intent.createChooser(share,"分享这条资料引用"))
           }){Text("分享这条资料引用")}
         } }
-        if(detail.assets.isNotEmpty())item{LibraryOriginals(accountId,detail.assets)}
-        if(detail.mealIntakes.isNotEmpty())item{MealIntakeEditor(accountId,detail.mealIntakes)}
+        if(detail.assets.isNotEmpty())item{LibraryOriginals(accountId,detail.assets,if(detail.meal!=null)"餐照与原件" else "原件")}
+        if(detail.meal==null&&detail.mealIntakes.isNotEmpty())item{MealIntakeEditor(accountId,detail.mealIntakes)}
         item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){detail.state?.let{StatusLabel(it)}}}
         val schedule=detail.travelSchedule
         if(schedule!=null){

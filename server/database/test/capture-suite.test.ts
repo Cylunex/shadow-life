@@ -238,6 +238,13 @@ test("takeout screenshot text creates a source-linked order without another paym
  for(let i=0;i<2;i++){const receipt=await f.run("life.capture_screenshot",{asset_version_id:asset.asset_version_id,title:"合成长订单",captured_at:"2026-10-30T01:00:00Z",time_zone:"UTC",app_package:"com.shadow.life.shared_order",text:takeoutFixture().replace("合成外卖店",i?"合成外卖店（分店）":"合成外卖店")});sources.push(receipt.resources.find(r=>r.type==="activity_capture")!.id);}
  const page=await f.queries.captureWorkspace(f.context,date);assert.equal(page.orders.length,1);assert.equal(page.orders[0]!.source_count,2);assert.equal(page.orders[0]!.conflict,false);assert.equal(page.orders[0]!.record_id,null);
  const fields=JSON.parse(page.orders[0]!.fields);assert.equal(fields.takeout.items.length,8);assert.equal(fields.takeout.amounts_reconciled,true);
+ const dining=await f.queries.merchantMenu(f.context,{browse:"1",on:date.date,time_zone:date.time_zone});
+ const captured=dining.directory?.takeout[0];
+ assert.ok(captured);assert.ok(captured.merchant.startsWith("合成外卖店"));assert.equal(captured.items.length,8);
+ assert.equal(captured.record_id,null);assert.ok(sources.includes(captured.source_id!));
+ assert.equal(captured.linked_meal,false);
+ const limited=await f.queries.merchantMenu({...f.context,effects:new Set(["life.meal.read"])},{browse:"1",on:date.date});
+ assert.equal(limited.directory?.takeout.length,0);
  for(const id of sources)assert.equal((await f.queries.activitySource(f.context,{id})).capture_order_id,page.orders[0]!.id);
  await f.pool.query("update capture_orders set conflict=true where id=$1",[page.orders[0]!.id]);
  const refreshed=await f.run("life.record_captured_expenses",{capture_ids:sources});assert.ok(!refreshed.resources.some(r=>r.type==="money_entry"||r.type==="consumption_record"));

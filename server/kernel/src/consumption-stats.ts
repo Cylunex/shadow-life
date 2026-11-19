@@ -21,7 +21,7 @@ export interface ConsumptionStatsRawData {
 const serviceRules:[string,RegExp][]=[
   ["service.delivery",/^(?:配送|运送|外送|跑腿|运)费$/u],
   ["service.package",/^(?:打包|包装|餐盒|保温袋)费$/u],
-  ["service.tableware",/^(?:无需|不需要|需要|环保)?餐具(?:选项|数量)?$/u],
+  ["service.tableware",/^(?:无需|不需要|不要|需要|环保)?餐具(?:选项|数量)?$/u],
   ["service.preference",/^(?:备注|口味|辣度|加辣|少辣|微辣|中辣|重辣|不辣|免辣|去冰|少冰|常温|少糖|无糖)$/u],
   ["service.specification",/^(?:规格|规格选择|商品规格|份量选择)(?:[:：]\s*.{1,30})?$/u],
   ["service.preference_detail",/^(?:口味|辣度|甜度|温度)[:：]\s*.{1,30}$/u],
@@ -71,6 +71,21 @@ function classifyScope(purchase:ConsumptionStatsRawPurchase,categories:readonly 
   return{scope:"unknown",source:"unknown"};
 }
 function localParts(on:string,at:string|null,timeZone:string):{on:string;hour:number|null}{if(!at)return{on,hour:null};const parts=new Intl.DateTimeFormat("en-US",{timeZone,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",hourCycle:"h23"}).formatToParts(new Date(at)),part=(type:string)=>parts.find(item=>item.type===type)?.value??"";return{on:`${part("year")}-${part("month")}-${part("day")}`,hour:Number(part("hour"))};}
+export function diningTakeout(raw:ConsumptionStatsRawData,timeZone:string,merchant?:string){
+  return raw.purchases.flatMap(purchase=>{
+    const name=purchase.merchant?.trim();
+    if(!name || merchant && name.toLowerCase()!==merchant.toLowerCase())return [];
+    const dishes=purchase.items.filter(item=>item.detail_role!=="folded_summary"&&!lineIsService(item.raw_name));
+    const categories=dishes.map(item=>classifyItem(item.raw_name,item.category_key).category);
+    if(classifyScope(purchase,categories).scope!=="restaurant_delivery")return [];
+    return [{
+      id:purchase.record_id,record_id:purchase.record_id,source_id:null,merchant:name,date:localParts(purchase.occurred_on,purchase.occurred_at,timeZone).on,
+      items:[...new Set(dishes.map(item=>item.raw_name.trim()).filter(Boolean))],
+      linked_meal:purchase.meal_ids.length>0,time:purchase.occurred_at??""
+    }];
+  }).sort((left,right)=>right.date.localeCompare(left.date)||right.time.localeCompare(left.time)||left.record_id.localeCompare(right.record_id))
+    .slice(0,30).map(({time,...order})=>order);
+}
 function bucket(hour:number|null):"morning"|"lunch"|"afternoon"|"dinner"|"late_night"|"unknown"{if(hour===null)return"unknown";if(hour<10)return"morning";if(hour<14)return"lunch";if(hour<17)return"afternoon";if(hour<22)return"dinner";return"late_night";}
 function decimal(value:string|null|undefined):bigint{if(!value)return 0n;const [whole="0",fraction=""]=value.split(".");return BigInt(whole)*1_000_000n+BigInt(fraction.padEnd(6,"0").slice(0,6));}
 function multiplyDecimal(left:bigint,right:bigint):bigint{return left*right/1_000_000n;}

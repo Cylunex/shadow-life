@@ -1491,6 +1491,43 @@ data class MoneyPlanningResultDto(
 )
 
 @Serializable
+data class MerchantMenuResultDtoDirectoryMerchantsEntry(
+  @SerialName("name") val name: String,
+  @SerialName("menu_items") val menuItems: Long,
+  @SerialName("meals") val meals: Long
+)
+
+@Serializable
+data class MerchantMenuResultDtoDirectoryDishesEntry(
+  @SerialName("name") val name: String,
+  @SerialName("merchant") val merchant: String?,
+  @SerialName("food_id") val foodId: String?,
+  @SerialName("meals") val meals: Long,
+  @SerialName("meal_id") val mealId: String
+)
+
+@Serializable
+data class MerchantMenuResultDtoDirectoryTakeoutEntry(
+  @SerialName("id") val id: String,
+  @SerialName("record_id") val recordId: String?,
+  @SerialName("source_id") val sourceId: String?,
+  @SerialName("merchant") val merchant: String,
+  @SerialName("date") val date: String,
+  @SerialName("items") val items: List<String>,
+  @SerialName("linked_meal") val linkedMeal: Boolean
+)
+
+@Serializable
+data class MerchantMenuResultDtoDirectory(
+  @SerialName("from") val from: String,
+  @SerialName("to") val to: String,
+  @SerialName("default_merchant") val defaultMerchant: String?,
+  @SerialName("merchants") val merchants: List<MerchantMenuResultDtoDirectoryMerchantsEntry>,
+  @SerialName("dishes") val dishes: List<MerchantMenuResultDtoDirectoryDishesEntry>,
+  @SerialName("takeout") val takeout: List<MerchantMenuResultDtoDirectoryTakeoutEntry>
+)
+
+@Serializable
 @JsonClassDiscriminator("mode")
 sealed interface MerchantMenuResultDtoStallPricesEntryTerms
 
@@ -1592,6 +1629,7 @@ data class MerchantMenuResultDtoItemsEntry(
 
 @Serializable
 data class MerchantMenuResultDto(
+  @SerialName("directory") val directory: MerchantMenuResultDtoDirectory? = null,
   @SerialName("stall_prices") val stallPrices: List<MerchantMenuResultDtoStallPricesEntry>? = null,
   @SerialName("merchant") val merchant: String,
   @SerialName("items") val items: List<MerchantMenuResultDtoItemsEntry>,

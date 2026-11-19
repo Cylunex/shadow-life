@@ -38,6 +38,8 @@ import androidx.navigation.toRoute
 
 private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
 
+@kotlinx.serialization.Serializable internal data class DishCatalogRoute(val merchant:String="",val query:String="")
+
 @Composable fun LifeApp(session:ProductSession?,viewModel:NativeLifeViewModel,appearance:Appearance,statusMessage:String?,pendingShare:SharePayload?,notificationAuthorization:String?,openInboxNonce:Long,scaleSettings:ScaleProfileSettings,onAcceptShare:(SharePayload)->Unit,onDiscardShare:()->Unit,onDismissStatus:()->Unit,onAppearance:(Appearance)->Unit,onLogin:()->Unit,onLogout:()->Unit,onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onSaveScale:(ScaleProfileSettings)->Unit,onNotificationPermission:()->Unit,onCancelScale:()->Unit){
   var captureNotice by remember{mutableStateOf<String?>(null)}
   val feedback=remember{SnackbarHostState()}
@@ -82,7 +84,7 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
           )}
           LifeDomain.Meals->HealthReferenceProvider(session.accountId,scaleSettings){MealsWorkspaceScreen(
             visibleOverview,visibleWorkspace,viewModel.assetPreviews,viewModel::loadAssetPreview,
-            {viewModel.reloadWorkspace()},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,{date,type->openComposer(defaultCaptureSeed(CaptureKind.Meal).copy(date=date,option=type))},{record->pendingMealPhoto=record;mealPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))},viewModel.mealPhotoSubmit,{viewModel.loadConsumptionStats();nav.navigate(ConsumptionStatsRoute)},viewModel.mealPlanningSubmit,viewModel::saveMealPlan,viewModel::buildShoppingList,viewModel::updateShoppingItem,viewModel::setFoodStock,viewModel::saveImportedRecipe,viewModel::resetMealPlanningSubmit,initialTab=route.tab,accountId=session.accountId,onCopyMeal={record,date->val meal=record.meal;if(meal!=null)openComposer(defaultCaptureSeed(CaptureKind.Meal).copy(date=date,option=meal.mealType,contextId="copy/${record.id}/$date",mealItems=meal.foods.map{MealDraftItem(it.name,it.quantity.orEmpty(),it.unit.orEmpty())}))}
+            {viewModel.reloadWorkspace()},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,{date,type->openComposer(defaultCaptureSeed(CaptureKind.Meal).copy(date=date,option=type))},{record->pendingMealPhoto=record;mealPhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))},viewModel.mealPhotoSubmit,{viewModel.loadConsumptionStats();nav.navigate(ConsumptionStatsRoute)},viewModel.mealPlanningSubmit,viewModel::saveMealPlan,viewModel::buildShoppingList,viewModel::updateShoppingItem,viewModel::setFoodStock,viewModel::saveImportedRecipe,viewModel::resetMealPlanningSubmit,initialTab=route.tab,accountId=session.accountId,onCopyMeal={record,date->val meal=record.meal;if(meal!=null)openComposer(defaultCaptureSeed(CaptureKind.Meal).copy(date=date,option=meal.mealType,contextId="copy/${record.id}/$date",mealItems=meal.foods.map{MealDraftItem(it.name,it.quantity.orEmpty(),it.unit.orEmpty())}))},onDishCatalog={nav.navigate(DishCatalogRoute()){launchSingleTop=true}}
           )}
           LifeDomain.Money->MoneyWorkspaceScreen(
             visibleOverview,visibleWorkspace,{viewModel.loadWorkspace(domain,it)},{viewModel.reloadWorkspace()},viewModel::loadMoreWorkspace,
@@ -122,7 +124,12 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
       composable<MealsModuleRoute>{backStack->LifeModuleEntry(backStack,LifeDomain.Meals,workspaceContent)}
       composable<MoneyModuleRoute>{backStack->LifeModuleEntry(backStack,LifeDomain.Money,workspaceContent)}
       composable<TravelModuleRoute>{backStack->LifeModuleEntry(backStack,LifeDomain.Travel,workspaceContent)}
-      composable<DetailRoute>{backStack->val route=backStack.toRoute<DetailRoute>();val domain=LifeDomain.valueOf(route.domain);LaunchedEffect(route.id){viewModel.loadDetail(domain,route.id)};key(route.domain,route.id){val context=LocalContext.current;val store=remember(session.accountId){UiDraftStore(context,session.accountId)};CompositionLocalProvider(LocalUiDraftScope provides UiDraftScope(store,"detail/${route.domain}/${route.id}/${(viewModel.detail as? LoadState.Ready)?.value?.revision?:0}")){DetailScreen(route.title,viewModel.detail,viewModel.submit,{viewModel.loadDetail(domain,route.id)},{nav.popBackStack()},{link->openPlanningRelated(nav,viewModel,link.kind,link.id)},{action->openComposer(action.seed)},viewModel::correct,viewModel::editAgain,{assetId->viewModel.queueLibraryVision(route.id,assetId)},viewModel::retryLibraryVision,viewModel::saveTravelDay,(viewModel.workspaceOverview as? LoadState.Ready)?.value.let{(it as? WorkspaceOverview.Travel)?.placeItems.orEmpty()},accountId=session.accountId)}}}
+      composable<DishCatalogRoute>{entry->
+        val route=entry.toRoute<DishCatalogRoute>()
+        DishCatalogScreen(session.accountId,route.merchant,route.query,{nav.popBackStack()},
+          {link->openPlanningRelated(nav,viewModel,link.kind,link.id)})
+      }
+      composable<DetailRoute>{backStack->val route=backStack.toRoute<DetailRoute>();val domain=LifeDomain.valueOf(route.domain);LaunchedEffect(route.id){viewModel.loadDetail(domain,route.id)};key(route.domain,route.id){val context=LocalContext.current;val store=remember(session.accountId){UiDraftStore(context,session.accountId)};CompositionLocalProvider(LocalUiDraftScope provides UiDraftScope(store,"detail/${route.domain}/${route.id}/${(viewModel.detail as? LoadState.Ready)?.value?.revision?:0}")){DetailScreen(route.title,viewModel.detail,viewModel.submit,{viewModel.loadDetail(domain,route.id)},{nav.popBackStack()},{link->openPlanningRelated(nav,viewModel,link.kind,link.id)},{action->openComposer(action.seed)},viewModel::correct,viewModel::editAgain,{assetId->viewModel.queueLibraryVision(route.id,assetId)},viewModel::retryLibraryVision,viewModel::saveTravelDay,(viewModel.workspaceOverview as? LoadState.Ready)?.value.let{(it as? WorkspaceOverview.Travel)?.placeItems.orEmpty()},accountId=session.accountId,onDishCatalog={merchant,query->nav.navigate(DishCatalogRoute(merchant,query)){launchSingleTop=true}})}}}
       composable<PlanDetailRoute>{backStack->val route=backStack.toRoute<PlanDetailRoute>();LaunchedEffect(route.id){viewModel.loadPlanDetail(route.id)};PlanDetailScreen(viewModel.planDetail,{viewModel.loadPlanDetail(route.id)},{kind,id->openPlanningRelated(nav,viewModel,kind,id)},{nav.popBackStack()},viewModel::saveProjectAction,viewModel.projectActionSubmit)}
       composable<OwnedItemDetailRoute>{backStack->val route=backStack.toRoute<OwnedItemDetailRoute>();LaunchedEffect(route.id){viewModel.loadOwnedItemDetail(route.id)};OwnedItemDetailScreen(viewModel.ownedItemDetail,{viewModel.loadOwnedItemDetail(route.id)},{kind,id->openPlanningRelated(nav,viewModel,kind,id)},{nav.popBackStack()})}
       composable<ReviewDetailRoute>{backStack->val route=backStack.toRoute<ReviewDetailRoute>();LaunchedEffect(route.id){viewModel.loadReviewDetail(route.id)};ReviewDetailScreen(viewModel.reviewDetail,{viewModel.loadReviewDetail(route.id)},{evidence->openReviewEvidence(nav,viewModel,evidence)},{nav.popBackStack()})}
@@ -153,6 +160,7 @@ private fun defaultCaptureSeed(kind:CaptureKind)=CaptureSeed(kind=kind,date=java
 
 private fun openPlanningRelated(nav:androidx.navigation.NavHostController,viewModel:NativeLifeViewModel,kind:String,id:String){
   when(kind){
+    "activity_capture"->nav.navigate(CaptureSourceRoute(id)){launchSingleTop=true}
     "travel_workspace"->{viewModel.selectTravelTrip(id);nav.navigate(WorkspaceRoute(LifeDomain.Travel.name,"itinerary"))}
     "trip"->{viewModel.loadDetail(LifeDomain.Travel,id);nav.openRecord(LifeDomain.Travel,id)}
     "library_item"->{viewModel.loadDetail(LifeDomain.Library,id);nav.openRecord(LifeDomain.Library,id)}

@@ -57736,7 +57736,7 @@
     },
     "life.merchant_menu": {
       "name": "life.merchant_menu",
-      "description": "在本人门店食品库分页找菜，返回可直接用于摄入条目的 food ID。",
+      "description": "分页查门店菜品与摄入可用的 food ID；browse=1 时返回近 30 天常吃菜品、门店及外卖记录。",
       "possible_effects": [
         "life.meal.read",
         "agent.run"
@@ -57768,6 +57768,17 @@
             "enum": [
               "1"
             ]
+          },
+          "browse": {
+            "type": "string",
+            "enum": [
+              "1"
+            ]
+          },
+          "time_zone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
           },
           "after": {
             "type": "string",
@@ -57811,6 +57822,17 @@
               "1"
             ]
           },
+          "browse": {
+            "type": "string",
+            "enum": [
+              "1"
+            ]
+          },
+          "time_zone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
           "after": {
             "type": "string",
             "pattern": "^[a-z][a-z0-9_]{7,127}$"
@@ -57831,6 +57853,169 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "directory": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "to": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "default_merchant": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "merchants": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "menu_items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "meals": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "menu_items",
+                    "meals"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "dishes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "merchant": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "food_id": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "meals": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "meal_id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "merchant",
+                    "food_id",
+                    "meals",
+                    "meal_id"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "takeout": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                    },
+                    "record_id": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "source_id": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "merchant": {
+                      "type": "string"
+                    },
+                    "date": {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "linked_meal": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "record_id",
+                    "source_id",
+                    "merchant",
+                    "date",
+                    "items",
+                    "linked_meal"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "from",
+              "to",
+              "default_merchant",
+              "merchants",
+              "dishes",
+              "takeout"
+            ],
+            "additionalProperties": false
+          },
           "stall_prices": {
             "type": "array",
             "items": {

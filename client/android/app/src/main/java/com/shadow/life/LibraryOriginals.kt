@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
-@Composable internal fun LibraryOriginals(accountId:String,assets:List<DetailAsset>){
+@Composable internal fun LibraryOriginals(accountId:String,assets:List<DetailAsset>,title:String="原件"){
   val context=LocalContext.current
   val app=context.applicationContext as ShadowApp
   val repository=remember(accountId){NativeLifeRepository(context,app)}
@@ -41,7 +41,7 @@ import kotlinx.coroutines.launch
   val inlineBitmap=remember(inlineImage){inlineImage?.let{BitmapFactory.decodeByteArray(it,0,it.size)?.asImageBitmap()}}
   inlineBitmap?.let{bitmap->Image(bitmap,firstImage?.title,Modifier.fillMaxWidth().heightIn(max=360.dp),contentScale=ContentScale.Fit)}
   LifeCard{
-    Text("原件",style=MaterialTheme.typography.titleMedium)
+    Text(title,style=MaterialTheme.typography.titleMedium)
     assets.forEach{asset->
       Text(asset.mediaType,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
       Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){

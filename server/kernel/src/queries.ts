@@ -7,6 +7,7 @@ import { capturedPaymentPlatform, inspectActivityOrder } from "./activity-order.
 import { inspectLibraryOrder } from "./library-order.js";
 import { activityActionInputSchema, activityOrderResultSchema, activitiesInputSchema, activitiesResultSchema } from "@shadow/contracts";
 import { dietReviewInputSchema, mealDietReviewInputSchema, wellnessReviewInputSchema } from "@shadow/contracts";
+import { diningTakeout } from "./consumption-stats.js";
 import {buildDietReview, buildMealDietReview, dietWindow} from "./diet-review.js";
 import { buildWellnessReview, wellnessWindow } from "./wellness-review.js";
 import { buildItemAttention, buildStockAttention } from "./planning-attention.js";
@@ -228,7 +229,26 @@ export class QueryService {
   async merchantMenu(context:RequestContext,input:unknown){
     for(const effect of ["life.meal.read"])if(!context.effects.has(effect))throw permissionDenied(effect);
     const filters=merchantMenuInputSchema.parse(input);
-    return merchantMenuResultSchema.parse(await this.unitOfWork.read(store=>store.merchantMenu(context.subjectId,filters,context.effects)));
+    return this.unitOfWork.read(async store=>{
+      const result=merchantMenuResultSchema.parse(await store.merchantMenu(context.subjectId,filters,context.effects));
+      if(!result.directory)return result;
+      const timeZone=filters.time_zone??"UTC";
+      const end=new Date(result.directory.to+"T00:00:00Z");
+      end.setUTCDate(end.getUTCDate()+1);
+      const raw=await store.consumptionStatsData(context.subjectId,{
+        fromOn:result.directory.from,toOnExclusive:end.toISOString().slice(0,10),timeZone,includeMoney:false
+      });
+      const orders=diningTakeout(raw,timeZone,filters.merchant);
+      const byRecord=new Map(result.directory.takeout.flatMap(order=>order.record_id?[[order.record_id,order] as const]:[]));
+      const takeout=[
+        ...orders.map(order=>{
+          const capture=byRecord.get(order.record_id);
+          return capture?{...order,source_id:capture.source_id,items:order.items.length?order.items:capture.items}:order;
+        }),
+        ...result.directory.takeout.filter(order=>!orders.some(known=>known.record_id===order.record_id))
+      ].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,30);
+      return merchantMenuResultSchema.parse({...result,directory:{...result.directory,takeout}});
+    });
   }
   async returnCases(context:RequestContext,input:unknown){
     for(const effect of ["money.entry.read"])if(!context.effects.has(effect))throw permissionDenied(effect);

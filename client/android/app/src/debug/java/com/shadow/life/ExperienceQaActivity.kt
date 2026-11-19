@@ -2,6 +2,7 @@ package com.shadow.life
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -14,7 +15,7 @@ import java.time.LocalDate
 
 /** Debug-only synthetic fixture. It never activates an account or submits business commands. */
 class ExperienceQaActivity:ComponentActivity(){
-  override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState)
+  override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);enableEdgeToEdge()
     val initial=intent.getStringExtra("screen")?:"home"
     setContent{
       var screen by remember{mutableStateOf(initial)}
@@ -28,7 +29,9 @@ class ExperienceQaActivity:ComponentActivity(){
       val samples=(0..6).map{index->HealthTrendPoint("weight-$index",LocalDate.now().minusDays((6-index).toLong()).toString(),65.0+index*.1,(65.0+index*.1).toString(),"kg","manual",1)}
       val health=WorkspaceOverview.Health(1,0,1,snapshot.health,metrics=listOf(HealthMetricTrend("weight","体重",samples,7,false)),asOf=today)
       LifeTheme(if(dark)Appearance.Dark else Appearance.Light){
-        CompositionLocalProvider(LocalUiDraftScope provides UiDraftScope(store,"capture")){
+        if(screen in setOf("qa-meal","qa-lunch","qa-dining")){
+          Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background){EventDetailsQa(screen)}
+        } else CompositionLocalProvider(LocalUiDraftScope provides UiDraftScope(store,"capture")){
           Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()){
             LifeTabs(screen,{screen=it;composer=it=="composer"},listOf("home" to "生活","records" to "记录","plans" to "计划","library" to "资料","health" to "健康","detail" to "详情","composer" to "录入","training" to "训练"))
             TextButton(onClick={dark=!dark}){Text("切换深浅色")}

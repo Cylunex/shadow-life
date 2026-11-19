@@ -25,7 +25,7 @@ internal fun detailAccent(kind:DetailPresentation)=when(kind){
 internal fun domainSectionHandled(detail:RecordDetail,section:DetailSection)=when(detail.presentation){
   DetailPresentation.HealthMetric->detail.metrics.isNotEmpty()&&section.title=="本次测量全部指标"
   DetailPresentation.Sleep,DetailPresentation.Workout,DetailPresentation.Activity,DetailPresentation.Habit->section.title=="概要"
-  DetailPresentation.Meal->section.title=="食物与营养"
+  DetailPresentation.Meal->detail.meal!=null&&section.title=="食物与营养"
   DetailPresentation.Money->section.title=="购买明细"
   else->false
 }
@@ -62,14 +62,12 @@ internal fun domainSectionHandled(detail:RecordDetail,section:DetailSection)=whe
         Text(if(detail.presentation==DetailPresentation.Workout)"实际运动" else if(detail.presentation==DetailPresentation.Activity)"当天活动" else "这次记录",style=MaterialTheme.typography.titleLarge)
         DetailMetricGrid(detail.sections.firstOrNull{it.title=="概要"}?.facts.orEmpty(),accent)
       }
-      DetailPresentation.Meal,DetailPresentation.Money->{
-        val meal=detail.presentation==DetailPresentation.Meal
-        val groups=detail.sections.firstOrNull{it.title==if(meal)"食物与营养" else "购买明细"}?.groups.orEmpty()
+      DetailPresentation.Money->{
+        val groups=detail.sections.firstOrNull{it.title=="购买明细"}?.groups.orEmpty()
         if(groups.isNotEmpty()){
-          Text(if(meal)"这一餐吃了什么" else "买了什么",style=MaterialTheme.typography.titleLarge)
-          groups.forEach{group->Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(group.title,Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);Text(group.facts.firstOrNull{it.label in setOf("份量","数量") }?.value.orEmpty(),color=accent)};group.facts.filter{it.label !in setOf("份量","数量")}.forEach{Text("${it.label}  ${it.value}",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)};HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant.copy(alpha=.35f))}}
+          Text("买了什么",style=MaterialTheme.typography.titleLarge)
+          groups.forEach{group->Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(group.title,Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);Text(group.facts.firstOrNull{it.label in setOf("份量","数量")}?.value.orEmpty(),color=accent)};group.facts.filter{it.label !in setOf("份量","数量")}.forEach{Text("${it.label}  ${it.value}",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)};HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant.copy(alpha=.35f))}}
         }
-        if(meal){val items=detail.mealIntakes;val known=items.mapNotNull{item->item.energyKcal?.toBigDecimalOrNull()?.multiply(item.consumedFraction?.toBigDecimalOrNull()?:java.math.BigDecimal.ONE)};if(items.isNotEmpty()){Text("热量已知 ${known.size}/${items.size} 项",color=accent);if(known.isNotEmpty())Text("${if(known.size==items.size)"本餐" else "已知部分"} ${known.fold(java.math.BigDecimal.ZERO){a,b->a+b}.stripTrailingZeros().toPlainString()} kcal",style=MaterialTheme.typography.headlineSmall);Text("份量与营养以当前记录为准，缺项保留未知",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
       }
       else->Unit
     }

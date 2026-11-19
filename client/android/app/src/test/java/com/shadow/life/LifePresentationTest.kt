@@ -8,6 +8,25 @@ import org.junit.Test
 class LifePresentationTest {
   private fun money(id:String,type:String,currency:String,amount:String)=RecordSummary(LifeDomain.Money,"money_entry",id,"交易","2026-09-22","$currency $amount",1,subtype=type)
 
+  @Test fun `meal detail fallback scales food once and preserves unknown totals`() {
+    fun food(id:String,fraction:String?,kcal:String?,grams:String?)=LifeRecordResultDtoMealItemsEntry(
+      id=id,mealId="meal",position=0,name=id,foodRefId=null,freeText=id,quantity=grams,unit="g",amountG=grams,
+      energyKcal=kcal,proteinG=null,fatG=null,carbG=null,fiberG=null,sodiumMg=null,
+      consumedFraction=fraction,provenance="estimated",groupingOrigin=null,estimate=false,evidenceNote=null,revision=1
+    )
+    val half=rawMealFood(food("半份","0.5","100","80"))
+    val absent=rawMealFood(food("未知",null,null,null))
+    val uneaten=rawMealFood(food("没吃","0","200","100"))
+    assertEquals("40 g",half.quantity)
+    assertEquals("50",half.consumed)
+    assertTrue(uneaten.uneaten)
+    val totals=rawMealTotals(listOf(half,absent,uneaten))
+    val energy=totals.single{it.key=="energy_kcal"}
+    assertEquals("50",energy.amount.toString())
+    assertEquals("已知部分 · 1/2 项 · 1 项估算",mealCoverage(energy,2))
+    assertNull(totals.single{it.key=="protein_g"}.amount)
+  }
+
   @Test fun `money summaries keep currencies precision and negative net spending`() {
     val records=listOf(
       money("a","expense","CNY","100000000000000000.123456"),
