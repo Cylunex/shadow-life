@@ -6,6 +6,7 @@ import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.widget.Button
 import android.view.ViewGroup
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -23,6 +24,40 @@ class OrderCaptureOverlayTest {
  class CaptureService:AccessibilityService(){
   override fun onAccessibilityEvent(event:AccessibilityEvent?){}
   override fun onInterrupt(){}
+ }
+ private fun buttons(service:CaptureService):List<Button>{
+  val windows=Shadow.extract<ShadowWindowManagerImpl>(service.getSystemService(WindowManager::class.java))
+  val row=(windows.views.single() as ViewGroup).getChildAt(1) as ViewGroup
+  return (0 until row.childCount).map{row.getChildAt(it) as Button}
+ }
+ @Test fun manualScrollingCanBeSelectedFromTheFirstScreenshot()=runBlocking{
+  val service=Robolectric.buildService(CaptureService::class.java).create().get()
+  val control=OrderCaptureControl()
+  OrderCaptureOverlay(service,control,images=true).use{overlay->
+   val actions=buttons(service).associateBy{it.text.toString()}
+   val manual=actions.getValue("手动滑")
+   val auto=actions.getValue("自动滚动")
+   assertTrue(manual.isEnabled && auto.isEnabled)
+   manual.performClick()
+   assertEquals(OrderCaptureAction.Manual,control.awaitAction())
+   overlay.status("手动慢滑",mode=OrderImageCaptureMode.Manual)
+   assertFalse(manual.isEnabled)
+   auto.performClick()
+   assertEquals(OrderCaptureAction.Automatic,control.awaitAction())
+   overlay.status("自动滚动",mode=OrderImageCaptureMode.Automatic)
+   assertFalse(auto.isEnabled)
+   assertTrue(manual.isEnabled)
+   overlay.status("已到采集上限",nextAllowed=false)
+   assertFalse(manual.isEnabled || auto.isEnabled)
+   actions.getValue("完成保存").performClick()
+   control.requireFinish()
+  }
+ }
+ @Test fun nativeTextOffersNextPage(){
+  val service=Robolectric.buildService(CaptureService::class.java).create().get()
+  OrderCaptureOverlay(service,OrderCaptureControl()).use{
+   assertEquals(listOf("下一屏","完成保存","取消"),buttons(service).map{button->button.text.toString()})
+  }
  }
  @Test fun closeRemovesWindowBeforeFirstFrameAndIsIdempotent(){
   val service=Robolectric.buildService(CaptureService::class.java).create().get()
@@ -46,8 +81,7 @@ class OrderCaptureOverlayTest {
   val windows=Shadow.extract<ShadowWindowManagerImpl>(service.getSystemService(WindowManager::class.java))
   val control=OrderCaptureControl()
   val overlay=OrderCaptureOverlay(service,control,images=true)
-  val buttons=(windows.views.single() as ViewGroup).getChildAt(1) as ViewGroup
-  (buttons.getChildAt(2) as Button).performClick()
+  buttons(service).single{it.text=="取消"}.performClick()
   assertEquals(OrderCaptureAction.Cancel,control.terminal)
   assertTrue(windows.views.isEmpty())
   overlay.close()

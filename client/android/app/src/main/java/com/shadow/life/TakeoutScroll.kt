@@ -16,8 +16,6 @@ import java.time.LocalDate
 import java.util.UUID
 import org.json.JSONObject
 
-private enum class OrderImageCaptureMode { SingleScreen, Automatic, Manual }
-
 private suspend fun AccessibilityService.orderScreenshot(window:Int):Bitmap=suspendCancellableCoroutine{continuation->
  if(Build.VERSION.SDK_INT<30){continuation.resumeWithException(IllegalStateException("自动长页采集需要 Android 11，请分享系统长截图"));return@suspendCancellableCoroutine}
  val callback=object:AccessibilityService.TakeScreenshotCallback{
@@ -127,12 +125,11 @@ internal suspend fun LifeScreenCaptureService.collectTakeoutOrder(account:String
    nextAllowed=nextAllowed && (if(native) pages<12 else imageProgress.canReadNext && frames.sumOf{it.size.toLong()}<32_000_000)
    val note=if(!nextAllowed && (!native || pages>=12))"已到采集上限，请完成保存或取消" else stopNote
    val mode=if(native)"${platformName}无障碍文字" else when(imageMode){
-    OrderImageCaptureMode.SingleScreen->"已截当前一屏，点自动滚动可继续"
+    OrderImageCaptureMode.SingleScreen->"已截当前一屏"
     OrderImageCaptureMode.Automatic->"自动滚动"
     OrderImageCaptureMode.Manual->"手动慢滑，停稳收录"
    }
-   overlay.manual(imageMode!=OrderImageCaptureMode.Automatic)
-   overlay.status("$mode · $pages 屏"+(note?.let{"\n$it"}?:if(ended)" · 已读到合计，可完成" else ""),nextAllowed=nextAllowed)
+   overlay.status("$mode · $pages 屏"+(note?.let{"\n$it"}?:if(ended)" · 已读到合计，可完成" else ""),nextAllowed=nextAllowed,mode=imageMode)
    check(android.os.SystemClock.elapsedRealtime()<deadline){"采集等待超时，未保存"}
    val action=withTimeoutOrNull(800){control.awaitAction()}
    if(control.terminal==OrderCaptureAction.Cancel)throw CancellationException("用户取消采集")
@@ -141,8 +138,8 @@ internal suspend fun LifeScreenCaptureService.collectTakeoutOrder(account:String
     break
    }
    if(!nextAllowed)continue
-   if(action==OrderCaptureAction.ToggleMode){
-    imageMode=if(imageMode==OrderImageCaptureMode.Automatic)OrderImageCaptureMode.Manual else OrderImageCaptureMode.Automatic
+   if(action==OrderCaptureAction.Manual || action==OrderCaptureAction.Automatic){
+    imageMode=if(action==OrderCaptureAction.Manual)OrderImageCaptureMode.Manual else OrderImageCaptureMode.Automatic
     pendingSample=null;stalled=0;stopNote=null;continue
    }
    if(native && action!=OrderCaptureAction.Next)continue

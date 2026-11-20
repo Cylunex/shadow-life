@@ -15,7 +15,9 @@ class OrderCaptureControlTest {
  }
  @Test fun manualControlCanResumeAndCannotCommit():Unit=runBlocking {
   val control=OrderCaptureControl()
-  repeat(2){control.request(OrderCaptureAction.ToggleMode);assertEquals(OrderCaptureAction.ToggleMode,control.awaitAction());assertNull(control.terminal)}
+  for(action in listOf(OrderCaptureAction.Manual,OrderCaptureAction.Automatic,OrderCaptureAction.Manual)){
+   control.request(action);assertEquals(action,control.awaitAction());assertNull(control.terminal)
+  }
   assertThrows(IllegalStateException::class.java){control.requireFinish()}
  }
  @Test fun stillDetectionIgnoresSystemBarsButNotMovingRows(){
