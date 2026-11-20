@@ -227,20 +227,11 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     enqueueCommand("health.save_morning_checkin",input,expectedAccountId=accountId)
   }
 
-  suspend fun previousExercise(id:String,unit:String,equipment:String,beforeSession:String?=null):String? {
-    val path = "/api/health/exercise-history?id=${encode(id)}&unit=${encode(unit)}&equipment=${encode(equipment)}${beforeSession?.let{"&before_session_id="+encode(it)}.orEmpty()}"
-    val sessions = JSONObject(getText(path)).getJSONArray("sessions")
-    return (0 until sessions.length()).joinToString("；") { index ->
-      val session = sessions.getJSONObject(index)
-      val sets = session.getJSONArray("sets")
-      val summary = (0 until sets.length()).joinToString("，") { position ->
-        val set = sets.getJSONObject(position)
-        val load = if (set.has("load_kg")) "${set.getString("load_kg")} kg / 只 × " else ""
-        val suffix = if (unit == "seconds") "秒" else "次"
-        "${load}${set.getInt(unit)} $suffix"
-      }
-      "${session.getString("occurred_on")} · $summary"
-    }.takeIf { it.isNotEmpty() }
+  internal suspend fun previousExercise(id:String,unit:String,equipment:String,beforeSession:String?=null,throughDate:String?=null):NativeExerciseHistory? {
+    val path="/api/health/exercise-history?id=${encode(id)}&unit=${encode(unit)}&equipment=${encode(equipment)}"
+    return trainingHistory(unit,equipment,throughDate,beforeSession){before ->
+      JSONObject(getText(path + before?.let{"&before_session_id="+encode(it)}.orEmpty())).getJSONArray("sessions")
+    }
   }
 
   suspend fun recipeCatalog(query:String):JSONObject=JSONObject(getText("/api/life/foods?limit=100&q=${encode(query)}"))

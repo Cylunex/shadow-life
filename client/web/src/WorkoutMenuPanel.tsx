@@ -1,9 +1,9 @@
-import { previousExercise } from "./workout-history.js";
+import { previousExercise, type ExerciseHistory } from "./workout-history.js";
 import { useEffect, useRef, useState } from "react";
-import { homeWorkoutMenu, workoutThemeForDate, workoutDifficultyLabels, workoutFocusLabels, type WorkoutFocus, type WorkoutMenu } from "@shadow/contracts";
+import { homeWorkoutMenu, workoutThemeForDate, workoutDifficultyLabels, workoutFocusLabels, type WorkoutFocus, type WorkoutMenu, type WorkoutExercise } from "@shadow/contracts";
 import type { Execute } from "./command-controller.js";
 import { buildMenuPlan, loadMenuPlans, menuForPlan, type MenuPlan } from "./workout-menu.js";
-import { blankSet, replaceSessionExercise, buildSessionWorkout, completedSetCount, emptyWorkout, planWeekdays, readWorkoutDraft, restSeconds, suggestedPlan, validWorkoutSet, workoutDraftKey, type SessionExercise, type WorkoutDraft } from "./workout-session.js";
+import { blankSet, nextWorkoutSet, replaceSessionExercise, buildSessionWorkout, completedSetCount, emptyWorkout, planWeekdays, readWorkoutDraft, restSeconds, suggestedPlan, validWorkoutSet, workoutDraftKey, type SessionExercise, type WorkoutDraft } from "./workout-session.js";
 import "./workout-menu.css";
 
 export function WorkoutMenuPanel({headers,capabilities,execute,date,timeZone,onChanged,identityKey}:{headers:HeadersInit;capabilities:ReadonlySet<string>;execute:Execute;date:string;timeZone:string;onChanged:()=>Promise<void>;identityKey:string}){
@@ -13,17 +13,26 @@ export function WorkoutMenuPanel({headers,capabilities,execute,date,timeZone,onC
   const [tab,setTab]=useState("today"),[focus,setFocus]=useState<WorkoutFocus>(draft.focus),[difficulty,setDifficulty]=useState("all"),[equipment,setEquipment]=useState("all"),[query,setQuery]=useState("");
   const [name,setName]=useState("居家力量 · 自选动作"),[error,setError]=useState(""),[message,setMessage]=useState(""),[pending,setPending]=useState(false),[loaded,setLoaded]=useState(false),[loadError,setLoadError]=useState("");
   const [now,setNow]=useState(Date.now()),[restLength,setRestLength]=useState(60),[draftWarning,setDraftWarning]=useState("");
-  const [activeExercise,setActiveExercise]=useState(0),[previous,setPrevious]=useState<string>();
+  const [activeExercise,setActiveExercise]=useState(0),[history,setHistory]=useState<{exercise:WorkoutExercise; date:string; result:ExerciseHistory}>();
   const [preferred,setPreferred]=useState<string[]>([]);
   function plannedDraft(base:WorkoutDraft,m:typeof menu):WorkoutDraft{
     return {...base,exercises:(m.preferred_exercises??[]).flatMap(id=>{const exercise=m.exercises.find(e=>e.id===id);return exercise?[{exercise,sets:[blankSet()]}]:[];})};
   }
   const currentExercise=draft.exercises[activeExercise]?.exercise;
+  const previous=history && history.exercise===currentExercise && history.date===draft.date ? history.result : undefined;
   useEffect(()=>{
-    const controller=new AbortController();setPrevious(undefined);
-    if(draft.started&&currentExercise)void previousExercise(headers,currentExercise,controller.signal).then(value=>{if(!controller.signal.aborted)setPrevious(value);}).catch(()=>{if(!controller.signal.aborted)setPrevious("暂时无法读取上次表现");});
+    const controller=new AbortController();
+    setHistory(undefined);
+    if(draft.started && currentExercise){
+      const apply=(result:ExerciseHistory)=>{
+        if(!controller.signal.aborted)setHistory({exercise:currentExercise,date:draft.date,result});
+      };
+      void previousExercise(headers,currentExercise,draft.date,controller.signal)
+        .then(result=>{if(result)apply(result);})
+        .catch(()=>apply({summary:"暂时无法读取上次表现",sets:[]}));
+    }
     return()=>controller.abort();
-  },[headers,identityKey,draft.started,currentExercise?.id]);
+  },[headers,identityKey,draft.started,draft.date,currentExercise]);
   const initialized=useRef(false),canWrite=capabilities.has("health.record_workout"),selected=plans.find(plan=>plan.id===draft.planId);
   useEffect(()=>{const controller=new AbortController();setLoadError("");void loadMenuPlans(fetch,headers,controller.signal).then(items=>{setPlans(items);setLoaded(true);}).catch(caught=>{if(!controller.signal.aborted)setLoadError(String(caught));});return()=>controller.abort();},[headers]);
   useEffect(()=>{if(!loaded||initialized.current)return;initialized.current=true;const plan=plans.find(item=>item.id===draft.planId)??(draft.exercises.length?undefined:suggestedPlan(plans,date));const nextMenu=menuForPlan(plan);setMenu(nextMenu);setName(plan?.title??"居家力量 · 自选动作");if(!draft.exercises.length){const theme=workoutThemeForDate(nextMenu,date);setDraft(plannedDraft(emptyWorkout(date,timeZone,theme,plan?.id),nextMenu));setFocus(theme);}},[loaded,plans,date,timeZone,draft.planId,draft.exercises.length]);
@@ -56,11 +65,14 @@ export function WorkoutMenuPanel({headers,capabilities,execute,date,timeZone,onC
     {tab==="today"&&<section aria-label="今天的组合" className="training-today">
       <div className="panel-heading"><div><h3>{draft.started?"逐组记录":"今日组合"} · {draft.exercises.length} 个动作</h3><p>{draft.date} · {draft.timeZone}</p></div><button type="button" className="secondary" disabled={pending} onClick={()=>setTab("library")}>＋ 添加动作</button></div>
       {!draft.exercises.length?<div className="training-empty"><span aria-hidden="true">＋</span><h3>先挑几个今天想练的动作</h3><p>动作库是备选菜单，不是待完成清单。选好后再开始，按组记录。</p><button type="button" onClick={()=>setTab("library")}>去选动作</button><button type="button" className="secondary" onClick={()=>setTab("plans")}>选择训练计划</button></div>:<>
-        {!draft.started&&<button type="button" disabled={pending} onClick={()=>setDraft(current=>({...current,started:true}))}>开始训练 · {draft.exercises.length} 个动作</button>}
+        {!draft.started&&<button type="button" disabled={pending} onClick={()=>{setActiveExercise(0);setDraft(current=>({...current,started:true}));}}>开始训练 · {draft.exercises.length} 个动作</button>}
         {draft.started&&<nav className="training-exercise-nav" aria-label="当前训练动作">{draft.exercises.map((row,index)=><button type="button" key={row.exercise.id} aria-pressed={activeExercise===index} onClick={()=>setActiveExercise(index)}>{index+1}. {row.exercise.name}</button>)}</nav>}
         {draft.exercises.map((row,index)=>draft.started&&index!==activeExercise?null:<article className="training-exercise" key={row.exercise.id} aria-label={`${row.exercise.name}训练`}><div className="panel-heading"><div><small>动作 {String(index+1).padStart(2,"0")} · {row.exercise.equipment==="dumbbell"?"哑铃":"徒手"}</small><h3>{row.exercise.name}</h3></div><span className="training-badge">{row.sets.filter(set=>set.completed).length} 组完成</span></div>
           <details><summary>动作说明 / 教学</summary><p>{row.exercise.guidance}</p><p className="menu-caution">{row.exercise.caution}</p><a href={row.exercise.source_url} target="_blank" rel="noreferrer">打开教学参考</a></details>
-          {draft.started&&<>{previous&&<p>最近同动作 · {previous}</p>}<div className="training-set-labels"><span>组</span><span>{row.exercise.unit==="reps"?"次数":"秒数"}</span>{row.exercise.equipment==="dumbbell"&&<span>kg / 只</span>}<span>完成</span></div>{row.sets.map((set,setIndex)=><div className={`training-set ${set.completed?"is-complete":""}`} key={setIndex}><b>{setIndex+1}</b><label className="sr-only" htmlFor={`${row.exercise.id}-set-${setIndex}`}>{row.exercise.name}第{setIndex+1}组{row.exercise.unit==="reps"?"次数":"秒数"}</label><input id={`${row.exercise.id}-set-${setIndex}`} disabled={pending||set.completed} inputMode="numeric" placeholder={row.exercise.unit==="reps"?"次数":"秒数"} value={set.value} onChange={event=>updateExercise(row.exercise.id,item=>({...item,sets:item.sets.map((value,i)=>i===setIndex?{...value,value:event.target.value,completed:false}:value)}))}/>{row.exercise.equipment==="dumbbell"&&<input aria-label={`${row.exercise.name}第${setIndex+1}组每只哑铃公斤`} disabled={pending||set.completed} inputMode="decimal" placeholder="选填" value={set.load} onChange={event=>updateExercise(row.exercise.id,item=>({...item,sets:item.sets.map((value,i)=>i===setIndex?{...value,load:event.target.value,completed:false}:value)}))}/>}<button type="button" aria-label={`${row.exercise.name}第${setIndex+1}组${set.completed?"撤销完成":"完成"}`} aria-pressed={set.completed} disabled={pending} onClick={()=>completeSet(row,setIndex)}>{set.completed?"✓":"完成"}</button></div>)}<button type="button" className="secondary training-add-set" disabled={pending||row.sets.length>=30} onClick={()=>updateExercise(row.exercise.id,item=>({...item,sets:[...item.sets,blankSet(item.sets.at(-1)?.load)]}))}>＋ 加一组</button></>}
+          {draft.started&&<>{previous&&<div><p>最近同动作 · {previous.summary}</p>
+            {previous.sets.length>0 && row.sets.length===1 && !row.sets[0]?.completed && row.sets[0]?.value==="" && row.sets[0]?.load==="" &&
+              <button type="button" className="secondary" disabled={pending} onClick={()=>updateExercise(row.exercise.id,item=>({...item,sets:previous.sets}))}>沿用上次 {previous.sets.length} 组</button>}
+          </div>}<div className="training-set-labels"><span>组</span><span>{row.exercise.unit==="reps"?"次数":"秒数"}</span>{row.exercise.equipment==="dumbbell"&&<span>kg / 只</span>}<span>完成</span></div>{row.sets.map((set,setIndex)=><div className={`training-set ${set.completed?"is-complete":""}`} key={setIndex}><b>{setIndex+1}</b><label className="sr-only" htmlFor={`${row.exercise.id}-set-${setIndex}`}>{row.exercise.name}第{setIndex+1}组{row.exercise.unit==="reps"?"次数":"秒数"}</label><input id={`${row.exercise.id}-set-${setIndex}`} disabled={pending||set.completed} inputMode="numeric" placeholder={row.exercise.unit==="reps"?"次数":"秒数"} value={set.value} onChange={event=>updateExercise(row.exercise.id,item=>({...item,sets:item.sets.map((value,i)=>i===setIndex?{...value,value:event.target.value,completed:false}:value)}))}/>{row.exercise.equipment==="dumbbell"&&<input aria-label={`${row.exercise.name}第${setIndex+1}组每只哑铃公斤`} disabled={pending||set.completed} inputMode="decimal" placeholder="选填" value={set.load} onChange={event=>updateExercise(row.exercise.id,item=>({...item,sets:item.sets.map((value,i)=>i===setIndex?{...value,load:event.target.value,completed:false}:value)}))}/>}<button type="button" aria-label={`${row.exercise.name}第${setIndex+1}组${set.completed?"撤销完成":"完成"}`} aria-pressed={set.completed} disabled={pending} onClick={()=>completeSet(row,setIndex)}>{set.completed?"✓":"完成"}</button></div>)}<button type="button" className="secondary training-add-set" disabled={pending||row.sets.length>=30} onClick={()=>updateExercise(row.exercise.id,item=>({...item,sets:[...item.sets,nextWorkoutSet(item)]}))}>＋ 加一组</button></>}
           {draft.started && <label>换动作<select value="" disabled={pending} onChange={event=>{
             const replacement = menu.exercises.find(item => item.id === event.target.value);
             if (!replacement) return;

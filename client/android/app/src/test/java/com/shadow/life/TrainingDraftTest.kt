@@ -12,6 +12,14 @@ class TrainingDraftTest {
     assertEquals(draft,Json.decodeFromString<TrainingDraft>(Json.encodeToString(draft)))
     assertEquals("2026-10-18",draft.date)
   }
+  @Test fun addedSetRepeatsOnlyFinishedValuesAndNeedsItsOwnCompletion(){
+    val press=TrainingExerciseDraft("press","{}",listOf(TrainingSetDraft("10","4.5",true)))
+    assertEquals(TrainingSetDraft("10","4.5"),press.nextSet("reps",true))
+    val timed=TrainingExerciseDraft("plank","{}",listOf(TrainingSetDraft("25",completed=true)))
+    assertEquals(TrainingSetDraft("25"),timed.nextSet("seconds",false))
+    val unfinished=press.copy(sets=listOf(TrainingSetDraft("8","5")))
+    assertEquals(TrainingSetDraft(load="5"),unfinished.nextSet("reps",true))
+  }
   @Test fun replaceRetainsFinishedSetsAndClearsIncompatibleUnfinishedInputs(){
     val press = TrainingExerciseDraft("press","{}",listOf(TrainingSetDraft("10","4",true),TrainingSetDraft("8","4")))
     val plank = TrainingExerciseDraft("plank","{}")

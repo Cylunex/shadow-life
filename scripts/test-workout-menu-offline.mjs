@@ -50,7 +50,10 @@ await withOfflinePostgres(async url=>{
     assert.equal(await menu.getByRole('button',{name:'结束并保存'}).isDisabled(),true);
     await press.getByRole('button',{name:'哑铃地板卧推第1组完成',exact:true}).click();
     await menu.getByRole('complementary',{name:'组间休息'}).waitFor();
-    await press.getByRole('button',{name:'加一组'}).click();await press.getByLabel('哑铃地板卧推第2组次数',{exact:true}).fill('8');
+    await press.getByRole('button',{name:'加一组'}).click();
+    assert.equal(await press.getByLabel('哑铃地板卧推第2组次数',{exact:true}).inputValue(),'10');
+    assert.equal(await press.getByLabel('哑铃地板卧推第2组每只哑铃公斤',{exact:true}).inputValue(),'4.5');
+    await press.getByLabel('哑铃地板卧推第2组次数',{exact:true}).fill('8');
     await press.getByRole('button',{name:'哑铃地板卧推第2组完成',exact:true}).click();
     await press.getByRole('button',{name:'哑铃地板卧推第2组撤销完成',exact:true}).click();
     assert.equal(await press.getByLabel('哑铃地板卧推第2组次数',{exact:true}).isEnabled(),true);
@@ -69,6 +72,7 @@ await withOfflinePostgres(async url=>{
     const bird=menu.getByRole('article',{name:'鸟狗式训练'});
     await bird.getByLabel('鸟狗式第1组次数',{exact:true}).fill('6');
     await bird.getByRole('button',{name:'鸟狗式第1组完成',exact:true}).click();
+    const submitted=page.waitForRequest(request=>request.method()==='POST' && request.url().endsWith('/api/commands/health.record_workout'));
     await menu.getByRole('button',{name:'结束并保存 · 3 组',exact:true}).click();await menu.getByRole('status').filter({hasText:'训练已保存'}).waitFor();
     const rows=(await pool.query('select plan_id,detail,duration_minutes,calories_kcal,occurred_on from health_workout_sessions')).rows;
     assert.equal(rows.length,1);assert.ok(rows[0].plan_id);assert.equal(rows[0].detail.strength_session.exercises.length,2);
@@ -86,8 +90,47 @@ await withOfflinePostgres(async url=>{
     await nav.getByRole('button',{name:'动作库',exact:true}).click();await menu.getByLabel('搜索动作',{exact:true}).fill('飞鸟');
     await menu.getByRole('heading',{name:'站姿俯身反向飞鸟',exact:true}).waitFor();
     await page.screenshot({path:join(output,'workout-library-mobile.png'),fullPage:true});
+    await page.clock.fastForward(86_400_000);await page.reload();
+    await nav.getByRole('button',{name:'动作库',exact:true}).click();
+    await menu.getByLabel('搜索动作',{exact:true}).fill('哑铃地板卧推');
+    await pressCard.getByRole('button',{name:'加入训练'}).click();
+    await nav.getByRole('button',{name:'今日训练',exact:true}).click();
+    await menu.getByRole('button',{name:'开始训练'}).click();
+    // Another device logs newer workouts while this browser keeps an earlier draft.
+    const loggedRequest=await submitted, original=loggedRequest.postDataJSON();
+    const epochs=await loggedRequest.headerValue('x-shadow-write-epochs');
+    for(const day of [21,22,23]){
+      const future=structuredClone(original);
+      future.command_id=`cmd_workout_future_${day}`;
+      future.input.occurred_on=`2026-10-${day}`;
+      future.input.detail.strength_session.exercises[0].sets=[{reps:day,load_kg:'7'}];
+      const receipt=await app.request('/api/commands/health.record_workout',{method:'POST',headers:{
+        authorization:'Bearer dev:subject_example','content-type':'application/json','x-shadow-write-epochs':epochs,
+      },body:JSON.stringify(future)});
+      assert.equal((await receipt.json()).status,'committed');
+    }
+    await page.reload();
+    const reuse=press.getByRole('button',{name:'沿用上次 2 组'});
+    await reuse.waitFor();
+    const firstReps=press.getByLabel('哑铃地板卧推第1组次数',{exact:true});
+    await firstReps.fill('7');assert.equal(await reuse.count(),0,'manual inputs stay untouched');
+    await firstReps.fill('');await reuse.click();
+    assert.equal(await firstReps.inputValue(),'10');
+    assert.equal(await press.getByLabel('哑铃地板卧推第2组次数',{exact:true}).inputValue(),'8');
+    assert.equal(await press.getByLabel('哑铃地板卧推第2组每只哑铃公斤',{exact:true}).inputValue(),'4.5');
+    assert.equal(await menu.getByRole('button',{name:'结束并保存'}).isDisabled(),true);
+    await page.reload();await firstReps.waitFor();
+    assert.equal(await firstReps.inputValue(),'10');
+    await firstReps.fill('9');
+    await press.getByRole('button',{name:'哑铃地板卧推第1组完成',exact:true}).click();
+    await menu.getByRole('button',{name:'结束并保存 · 1 组',exact:true}).click();
+    await menu.getByRole('status').filter({hasText:'训练已保存'}).waitFor();
+    const logged=(await pool.query('select occurred_on::text,detail from health_workout_sessions order by occurred_on')).rows;
+    assert.deepEqual(logged.map(row=>row.occurred_on),['2026-10-19','2026-10-20','2026-10-21','2026-10-22','2026-10-23']);
+    assert.deepEqual(logged[1].detail.strength_session.exercises[0].sets,[{reps:9,load_kg:'4.5'}]);
+
     await page.getByRole('navigation',{name:'主要导航'}).getByRole('button',{name:'生活',exact:true}).click();await page.getByRole('region',{name:'训练计划',exact:true}).waitFor();await page.screenshot({path:join(output,'workout-home-mobile.png')});
     assert.deepEqual(errors,[]);
-    await writeFile(join(output,'result.json'),JSON.stringify({passed:true,cases:['home direct entry','filters and search','choice is not execution','menu save has no facts','per-set completion and undo','partial actual sets only','per-set load snapshot','refresh and navigation draft recovery','rest deadline after background','saved draft cleared','mobile no overflow'],pageErrors:errors},null,2));console.log(`PASS workout menu browser checks. Artifacts: ${output}`);
+    await writeFile(join(output,'result.json'),JSON.stringify({passed:true,cases:['home direct entry','filters and search','choice is not execution','menu save has no facts','per-set completion and undo','partial actual sets only','per-set load snapshot','refresh and navigation draft recovery','rest deadline after background','saved draft cleared','mobile no overflow','add repeats completed set as draft','restored draft pages past three newer sessions and reuses exercise history','only performed sets submitted on new date'],pageErrors:errors},null,2));console.log(`PASS workout menu browser checks. Artifacts: ${output}`);
   }finally{if(browser)await browser.close();if(web)await web.close();if(server)await new Promise(resolve=>server.close(resolve));await unitOfWork.close();}
 });

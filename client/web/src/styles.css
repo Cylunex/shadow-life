@@ -138,6 +138,7 @@ select { width:100%; border:1px solid #bac5b6; border-radius:12px; background:#f
 .field-pair,.nutrient-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 12px; }
 .catalog-list { list-style:none; padding:0; margin:0; }
 .catalog-list li { display:grid; gap:3px; padding:10px 0; border-top:1px solid #e1e5dd; }
+.catalog-add { justify-self:start; }
 .catalog-list span { color:#667168; }
 .attention>p { color:#667168; }
 .attention-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:18px; }

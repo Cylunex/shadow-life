@@ -425,7 +425,7 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
         val context=androidx.compose.ui.platform.LocalContext.current
         val repository=remember(accountId){NativeLifeRepository(context,context.applicationContext as ShadowApp)}
         val history=rememberLifeRead(accountId,exercise,session){repository.previousExercise(exercise.id,exercise.unit,exercise.equipment,session)}
-        StateContent(history.state,history.retry){value->Text(value?.replace('；','\n')?:"此前没有该动作的可比记录")}
+        StateContent(history.state,history.retry){value->Text(value?.summary?.replace('；','\n')?:"此前没有该动作的可比记录")}
       }
     }
   }

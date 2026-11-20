@@ -6,6 +6,7 @@ import androidx.security.crypto.MasterKey
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import org.json.JSONArray
 
 @Serializable internal data class TrainingSetDraft(val value:String="",val load:String="",val completed:Boolean=false)
 @Serializable internal data class TrainingExerciseDraft(val id:String,val snapshot:String,val sets:List<TrainingSetDraft> = listOf(TrainingSetDraft()))
@@ -34,6 +35,49 @@ internal fun TrainingDraft.replaceExercise(sourceId:String, replacement:Training
       else -> listOf(row)
     }
   })
+}
+
+internal fun TrainingExerciseDraft.nextSet(unit:String,dumbbell:Boolean):TrainingSetDraft {
+  val last=sets.lastOrNull() ?: return TrainingSetDraft()
+  return if(last.completed && validTrainingSet(last,unit,dumbbell)) last.copy(completed=false)
+  else TrainingSetDraft(load=last.load)
+}
+
+internal data class NativeExerciseHistory(val summary:String,val sets:List<TrainingSetDraft>)
+
+internal suspend fun trainingHistory(unit:String,equipment:String,throughDate:String?,beforeSession:String?,readPage:suspend(String?)->JSONArray):NativeExerciseHistory? {
+  val comparable=mutableListOf<org.json.JSONObject>()
+  val seen=mutableSetOf<String>()
+  var before=beforeSession
+  while(comparable.size<3){
+    val page=readPage(before)
+    for(index in 0 until page.length()){
+      val session=page.getJSONObject(index)
+      check(seen.add(session.getString("record_id"))){"动作历史分页未向前推进"}
+      if(throughDate==null || session.getString("occurred_on")<=throughDate)comparable.add(session)
+      if(comparable.size==3)break
+    }
+    if(page.length()<3 || comparable.size==3)break
+    before=page.getJSONObject(page.length()-1).getString("record_id")
+  }
+  if(comparable.isEmpty())return null
+  val suffix=if(unit=="seconds") "秒" else "次"
+  val history=comparable.map { session ->
+    val actual=session.getJSONArray("sets")
+    require(actual.length() in 1..30)
+    val sets=(0 until actual.length()).map { position ->
+      val set=actual.getJSONObject(position)
+      TrainingSetDraft(set.getInt(unit).toString(),set.optString("load_kg","")).also {
+        require(validTrainingSet(it,unit,equipment=="dumbbell") && (equipment=="dumbbell" || it.load.isEmpty()))
+      }
+    }
+    val summary=sets.joinToString("，") { set ->
+      val load=if(set.load.isEmpty()) "" else "${set.load} kg / 只 × "
+      "${load}${set.value} $suffix"
+    }
+    "${session.getString("occurred_on")} · $summary" to sets
+  }
+  return NativeExerciseHistory(history.joinToString("；"){it.first},history.first().second)
 }
 
 internal fun validTrainingSet(set:TrainingSetDraft,unit:String,dumbbell:Boolean):Boolean =

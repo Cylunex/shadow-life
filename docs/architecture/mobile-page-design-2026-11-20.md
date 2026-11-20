@@ -67,6 +67,8 @@
 
 Web 饮食日记的「记下这道菜」和「按食谱记餐」默认采用当前浏览日期。补记时可以直接保存到昨天，也可以在草稿里另选日期。保存成功后日记重新读取该日记录。Fork Log 支持把食物或整餐放到指定日期和餐别，Life 将这个可见的日期选择用在已有的门店菜品和食谱入口。[Fork Log](https://github.com/amiv1/ForkLog#-fork-highlights)
 
+Web 的个人食物目录可以跨搜索选食物，按实际吃下的份量一起记到日记选中日。例如半份燕麦加番茄，只要燕麦有每份用量和热量，合计就注明「1／2 项有依据」。展开食物可看档案提供的营养和来源。这个流程借鉴薄荷的食物营养查询，以及 OpenNutriTracker 把多项食物一次记入日记的操作。[薄荷健康](https://www.boohee.com/) · [OpenNutriTracker 更新记录](https://apps.apple.com/us/app/opennutritracker/id6451490901)
+
 ## 消费
 
 | 栏目 | 页面结构与操作 |

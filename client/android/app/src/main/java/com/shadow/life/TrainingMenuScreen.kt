@@ -95,15 +95,15 @@ internal fun trainingMenuOrDefault(candidate:JSONObject?,fallback:JSONObject):JS
   }}
   LaunchedEffect(draft.restUntil){while(draft.restUntil>System.currentTimeMillis()){now=System.currentTimeMillis();kotlinx.coroutines.delay(250)};now=System.currentTimeMillis()}
   LaunchedEffect(submit){if(submit is SubmitState.Saved&&draft.commandId.isNotBlank()&&submit.receipt.commandId==draft.commandId){update(emptyDraft(draft.planId,draft.focus))}}
-  var previous by remember(accountId){mutableStateOf<String?>(null)}
   val activeRow=draft.exercises.getOrNull(activeExercise)
-  LaunchedEffect(accountId,activeRow?.id,draft.started){
+  var previous by remember(accountId,activeRow?.snapshot,draft.date,draft.started){mutableStateOf<NativeExerciseHistory?>(null)}
+  LaunchedEffect(accountId,activeRow?.snapshot,draft.date,draft.started){
     previous=null
     if(!draft.started||activeRow==null)return@LaunchedEffect
     val exercise=JSONObject(activeRow.snapshot)
-    try{previous=NativeLifeRepository(context,context.applicationContext as ShadowApp).previousExercise(activeRow.id,exercise.getString("unit"),exercise.getString("equipment"))}
+    try{previous=NativeLifeRepository(context,context.applicationContext as ShadowApp).previousExercise(activeRow.id,exercise.getString("unit"),exercise.getString("equipment"),throughDate=draft.date)}
     catch(error:kotlinx.coroutines.CancellationException){throw error}
-    catch(_:Exception){previous="上次表现暂时无法读取"}
+    catch(_:Exception){previous=NativeExerciseHistory("上次表现暂时无法读取",emptyList())}
   }
   var executionOpen by androidx.compose.runtime.saveable.rememberSaveable(accountId){mutableStateOf(draft.started)}
   LaunchedEffect(draft.started){if(draft.started)executionOpen=true}
@@ -144,7 +144,7 @@ internal fun trainingMenuOrDefault(candidate:JSONObject?,fallback:JSONObject):JS
         }else{
           Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(if(draft.started)"逐组记录" else "今日组合",style=MaterialTheme.typography.titleLarge);TextButton(enabled=!pending,onClick={tab="library"}){Text("＋ 添加动作")}}
           Text("${draft.date} · ${draft.timeZone}",style=MaterialTheme.typography.bodySmall)
-          if(!draft.started)Button(enabled=!pending,onClick={update(draft.copy(started=true))}){Text("开始训练 · ${draft.exercises.size} 个动作")}
+          if(!draft.started)Button(enabled=!pending,onClick={activeExercise=0;update(draft.copy(started=true))}){Text("开始训练 · ${draft.exercises.size} 个动作")}
           if(draft.started)LifeTabs(activeExercise.coerceIn(0,draft.exercises.lastIndex).toString(),{activeExercise=it.toInt()},draft.exercises.mapIndexed{index,row->index.toString() to "${index+1}. ${JSONObject(row.snapshot).getString("name")}"})
           draft.exercises.forEachIndexed{index,row->
             if(draft.started&&index!=activeExercise.coerceIn(0,draft.exercises.lastIndex))return@forEachIndexed
@@ -173,7 +173,14 @@ internal fun trainingMenuOrDefault(candidate:JSONObject?,fallback:JSONObject):JS
                     }
                   }
                 }
-                previous?.let{Text("最近同动作 · $it",style=MaterialTheme.typography.bodySmall)}
+                previous?.let{history->
+                  Text("最近同动作 · ${history.summary}",style=MaterialTheme.typography.bodySmall)
+                  if(history.sets.isNotEmpty() && row.sets==listOf(TrainingSetDraft())){
+                    OutlinedButton(enabled=!pending,onClick={updateExercise(row.id){it.copy(sets=history.sets)}}){
+                      Text("沿用上次 ${history.sets.size} 组")
+                    }
+                  }
+                }
                 if(draft.restUntil==0L)LifeChoiceField("组间休息",restLength.toString(),listOf(30,60,90).map{it.toString() to "$it 秒"}){
                   restLength=it.toInt()
                 }
@@ -185,7 +192,7 @@ internal fun trainingMenuOrDefault(candidate:JSONObject?,fallback:JSONObject):JS
                     TextButton(enabled=!pending,onClick={toggleSet(row,setIndex)}){Text(if(set.completed)"✓ 撤销" else "完成")}
                   }
                 }
-                TextButton(enabled=!pending&&row.sets.size<30,onClick={updateExercise(row.id){it.copy(sets=it.sets+TrainingSetDraft(load=it.sets.lastOrNull()?.load.orEmpty()))}}){Text("＋ 加一组")}
+                TextButton(enabled=!pending&&row.sets.size<30,onClick={updateExercise(row.id){it.copy(sets=it.sets+it.nextSet(exercise.getString("unit"),dumbbell))}}){Text("＋ 加一组")}
               }
               if(!draft.started)Row{
                 TextButton(enabled=!pending&&index>0,onClick={val list=draft.exercises.toMutableList();list.add(index-1,list.removeAt(index));update(draft.copy(exercises=list))}){Text("上移")}

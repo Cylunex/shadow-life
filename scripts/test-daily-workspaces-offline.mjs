@@ -29,6 +29,8 @@ await withOfflinePostgres(async url=>{
     const dish=await run('life.remember_merchant_dish',{merchant:'合成食堂',dish:'清蒸豆腐',evidence:{kind:'note',note:'合成来源'},
       profile:{portion:{quantity:'1',unit:'勺',grams:'80',basis:'合成称重',estimated:true,nutrients:{energy_kcal:'60',calcium_mg:'40',iron_mg:'2'}}}});
     await run('life.save_recipe',{title:'牛奶粥',servings:'1',items:[{name:'临期牛奶',quantity:'1',unit:'份',estimate:false},{name:'用完的米',quantity:'1',unit:'份',estimate:false}],state:'active'});
+    await run('life.save_food',{name:'原味燕麦',serving_amount:'40',serving_unit:'g',nutrients:{energy_kcal:'150',protein_g:'5',sodium_mg:'0'},provenance:'合成包装标签'});
+    await run('life.save_food',{name:'小番茄',nutrients:{energy_kcal:'25'}});
     for(const [name,quantity,expires_on] of [['临期牛奶','1',offset(2)],['用完的米','0',offset(-2)],['未标日干货','1',null]])await run('life.set_food_stock',{name,quantity,unit:'份',expires_on,note:'保留批次备注'});
     await run('life.save_owned_item',{name:'合成耳机',ownership_state:'owned',return_by:offset(2),warranty_ends_on:offset(20),location_path:['书房','抽屉'],documents:[]});
     await run('life.save_owned_item',{name:'已退的耳机',ownership_state:'returned',return_by:offset(2),documents:[]});
@@ -92,10 +94,11 @@ await withOfflinePostgres(async url=>{
     assert.deepEqual(override,{quantity:null,calcium_mg:null,iron_mg:null,occurred_on:offset(-3)});
     assert.equal(await canteen.getByLabel('发生日期').inputValue(),offset(-2));
     console.log('PASS canteen quick entry snapshots the chosen serving and leaves nutrition unknown for a manual weight');
-    // This identity can record meals from recipes without editing the underlying catalog.
+    // The catalog stays readable when meal recording is no longer available.
+    let allowMeal=true;
     await page.route('**/api/capabilities',async route=>{
       const response=await route.fetch(),body=await response.json();
-      body.capabilities=body.capabilities.filter(item=>!['life.save_food','life.save_recipe'].includes(item.name));
+      body.capabilities=body.capabilities.filter(item=>!['life.save_food','life.save_recipe'].includes(item.name)&&(allowMeal||item.name!=='life.record_meal'));
       await route.fulfill({response,json:body});
     });
     await page.reload();
@@ -114,6 +117,44 @@ await withOfflinePostgres(async url=>{
     assert.equal(await recipeMeal.getByLabel('实际食用比例').inputValue(),'0.5');
     await recipeMeal.getByRole('button',{name:'记录实际用餐'}).click();
     await diary.getByRole('link',{name:/临期牛奶/u}).waitFor();
+    const foodSearch=catalog.getByRole('textbox',{name:'搜索食物或食谱'});
+    await foodSearch.fill('燕麦');await foodSearch.press('Enter');
+    await catalog.getByRole('button',{name:'原味燕麦加入本餐'}).click();
+    const selected=catalog.getByRole('form',{name:'本餐已选食物'});
+    await selected.getByLabel('原味燕麦食用份量').selectOption('0.5');
+    await foodSearch.fill('小番茄');await foodSearch.press('Enter');
+    await catalog.getByRole('button',{name:'小番茄加入本餐'}).click();
+    await selected.getByText('已知热量 75 kcal · 1／2 项有依据').waitFor();
+    await foodSearch.fill('不存在的测试食物');await foodSearch.press('Enter');
+    await catalog.getByText('没有匹配的食物或食谱。').waitFor();
+    await selected.getByLabel('餐次').selectOption('breakfast');
+    await selected.getByRole('button',{name:'保存为一餐'}).click();
+    await diary.getByRole('link',{name:/早餐.*原味燕麦、小番茄/u}).waitFor();
+    const combo=await pool.query(`select m.id,i.name,i.quantity::float,i.energy_kcal::float,i.protein_g::float,i.sodium_mg::float,
+      i.consumed_fraction::float,i.provenance,i.evidence_note from meals m join intake_items i on m.id=i.meal_id
+      where m.occurred_on=$1 and m.meal_type='breakfast' order by i.position`,[offset(-5)]);
+    assert.equal(combo.rowCount,2);assert.equal(combo.rows[0].id,combo.rows[1].id);
+    const [oats,tomato]=combo.rows;
+    assert.deepEqual([oats.quantity,oats.energy_kcal,oats.protein_g,oats.sodium_mg,oats.consumed_fraction,oats.provenance],[40,150,5,0,0.5,'reference_snapshot']);
+    assert.match(oats.evidence_note,/合成包装标签/u);
+    assert.deepEqual([tomato.quantity,tomato.energy_kcal],[null,null]);
+    console.log('PASS multi-food catalog meal across searches with serving evidence and a single dated receipt');
+    await foodSearch.fill('燕麦');await foodSearch.press('Enter');
+    await catalog.getByRole('button',{name:'原味燕麦加入本餐'}).click();
+    await selected.getByLabel('原味燕麦食用份量').selectOption('1.5');
+    await selected.getByText('已知热量 225 kcal · 1／1 项有依据').waitFor();
+    await selected.getByLabel('餐次').selectOption('lunch');
+    await selected.getByRole('button',{name:'保存为一餐'}).click();
+    await diary.getByRole('link',{name:/午餐.*原味燕麦/u}).waitFor();
+    const extra=await pool.query(`select (i.amount_g*i.consumed_fraction)::float grams,
+      (i.energy_kcal*i.consumed_fraction)::float kcal from meals m join intake_items i on m.id=i.meal_id
+      where m.occurred_on=$1 and m.meal_type='lunch'`,[offset(-5)]);
+    assert.deepEqual(extra.rows,[{grams:60,kcal:225}]);
+    allowMeal=false;await page.reload();
+    await foodSearch.fill('燕麦');await foodSearch.press('Enter');
+    await catalog.locator('summary').filter({hasText:'原味燕麦 · 每份 40 g'}).click();
+    await catalog.getByText('钠 0 mg',{exact:true}).waitFor();
+    assert.equal(await catalog.getByRole('button',{name:'原味燕麦加入本餐'}).count(),0);
     await page.unroute('**/api/capabilities');
     console.log('PASS diary backfill from the canteen and recipe, manual date overrides and receipt refresh');
     await navigate('record','items');await page.getByLabel('售后期限').selectOption('return');await page.getByRole('button',{name:'合成耳机',exact:true}).waitFor();assert.equal(await page.locator('.owned-item-list li').count(),1);
@@ -144,6 +185,6 @@ await withOfflinePostgres(async url=>{
     for(const [tab,section,name] of [['plan','meals','food'],['record','items','items'],['plan','budget','money']]){await navigate(tab,section);if(name==='money')await page.getByLabel('查看月份').fill('2026-10');await page.locator(name==='food'?'.attention-toolbar':name==='items'?'.owned-item-list':'.money-planning .plan-grid').waitFor();await screenshot(`${name}-narrow`);}
     const itinerary=renderOfflineItinerary({trip:{title:'合成离线旅行',starts_on:'2026-10-22',ends_on:'2026-10-23',time_zone:'Asia/Shanghai'},day_plans:[],segments:[{origin:'出发点',destination:'目的地',mode:'rail',starts_at:'2026-10-21T08:00:00Z',ends_at:'2026-10-21T10:00:00Z'}],reservations:[{title:'两晚住宿',reservation_type:'hotel',state:'confirmed',starts_at:'2026-10-21T06:00:00Z',ends_at:'2026-10-23T04:00:00Z',origin:null,destination:null,confirmation_code:'EXAMPLE'}],visits:[]},{id:'list_export',trip_id:'trip_export',revision:1,items:[{id:'check_export',title:'证件',state:'packed',note:null}]});
     await writeFile(`${output}/travel-offline.html`,itinerary);await page.setContent(itinerary);await context.setOffline(true);await page.getByText('☑ 证件（已备好）',{exact:true}).waitFor();await screenshot('travel-narrow');await page.setViewportSize({width:1440,height:1000});await screenshot('travel-desktop');console.log('PASS standalone itinerary stays readable without network');
-    assert.deepEqual(errors,[]);assert.deepEqual(external,[]);await writeFile(`${output}/result.json`,JSON.stringify({passed:true,cases:['expiry and stock correction','canteen quick-entry serving and manual weight','backdated canteen and recipe meals in the selected diary','item deadline and location filters','gross budget and revision','occurrence evidence preservation','unknown recurring amount','65-row pagination and retry','query binding and search race','reader response race and automatic reading position','desktop and 390px layouts','standalone offline itinerary'],pageErrors:errors,externalRequests:external},null,2));console.log(`Browser artifacts: ${output}`);
+    assert.deepEqual(errors,[]);assert.deepEqual(external,[]);await writeFile(`${output}/result.json`,JSON.stringify({passed:true,cases:['expiry and stock correction','canteen quick-entry serving and manual weight','backdated canteen and recipe meals in the selected diary','multi-food catalog meal and partial serving','item deadline and location filters','gross budget and revision','occurrence evidence preservation','unknown recurring amount','65-row pagination and retry','query binding and search race','reader response race and automatic reading position','desktop and 390px layouts','standalone offline itinerary'],pageErrors:errors,externalRequests:external},null,2));console.log(`Browser artifacts: ${output}`);
   }catch(error){if(debugPage){await debugPage.screenshot({path:`${output}/failure.png`,fullPage:true}).catch(()=>{});await writeFile(`${output}/failure.html`,await debugPage.content()).catch(()=>{});console.log(`Failure artifacts: ${output}`);}throw error;}finally{if(browser)await browser.close();if(web)await web.close();if(server)await new Promise(resolve=>server.close(resolve));await unitOfWork.close();}
 });

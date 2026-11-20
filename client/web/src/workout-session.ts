@@ -5,6 +5,12 @@ export type WorkoutSetDraft={value:string;load:string;completed:boolean};
 export type SessionExercise={exercise:WorkoutExercise;sets:WorkoutSetDraft[]};
 export type WorkoutDraft={version:1;date:string;timeZone:string;focus:WorkoutFocus;planId:string;started:boolean;exercises:SessionExercise[];restUntil:number};
 export const blankSet=(load=""):WorkoutSetDraft=>({value:"",load,completed:false});
+export function nextWorkoutSet(row:SessionExercise):WorkoutSetDraft {
+  const last=row.sets.at(-1);
+  return last?.completed && validWorkoutSet(last,row.exercise)
+    ? {...last,completed:false}
+    : blankSet(last?.load);
+}
 export const emptyWorkout=(date:string,timeZone:string,focus:WorkoutFocus="chest",planId=""):WorkoutDraft=>({version:1,date,timeZone,focus,planId,started:false,exercises:[],restUntil:0});
 export function validWorkoutSet(set:WorkoutSetDraft,exercise:WorkoutExercise):boolean {
   return /^\d+$/u.test(set.value)&&Number(set.value)>0&&Number(set.value)<=(exercise.unit==="reps"?1000:7200)&&
