@@ -39,7 +39,8 @@ internal fun rawMealFood(item:LifeRecordResultDtoMealItemsEntry):MealDetailFood 
         item.estimate||item.provenance=="estimated"||item.weightBasis?.wireValue=="payment_derived",
         item.evidenceNote,item.weightBasis?.wireValue,emptyList(),false,
         listOf("energy_kcal" to item.energyKcal,"protein_g" to item.proteinG,"carb_g" to item.carbG,
-            "fat_g" to item.fatG,"fiber_g" to item.fiberG,"sodium_mg" to item.sodiumMg)
+            "fat_g" to item.fatG,"fiber_g" to item.fiberG,"sodium_mg" to item.sodiumMg,
+            "calcium_mg" to item.calciumMg,"iron_mg" to item.ironMg)
             .mapNotNull{(key,value)->eaten(value)?.toBigDecimalOrNull()?.let{key to it}}.toMap()
     )
 }

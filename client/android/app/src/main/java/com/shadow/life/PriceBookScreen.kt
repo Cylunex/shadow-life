@@ -22,12 +22,22 @@ import org.json.JSONObject
   var search by rememberSaveable{mutableStateOf("")}
   var product by rememberSaveable(initialProduct){mutableStateOf(initialProduct)}
   var cursor by rememberSaveable{mutableStateOf<String?>(null)}
+  var previousSearch by rememberSaveable(initialProduct){mutableStateOf<String?>(null)}
+  var previousCursor by rememberSaveable(initialProduct){mutableStateOf<String?>(null)}
   var recent by remember(accountId){mutableStateOf(emptyList<String>())}
   var retry by remember{mutableIntStateOf(0)}
   var edit by remember{mutableStateOf<JSONObject?>(null)}
   var refunds by remember{mutableStateOf<JSONObject?>(null)}
   var state by remember(accountId,product,search,cursor,retry){mutableStateOf<LoadState<JSONObject>>(LoadState.Loading)}
   fun selectProduct(value:String){
+    if(product.isEmpty()&&value.isNotBlank()){
+      previousSearch=search
+      previousCursor=cursor
+    }
+    if(value.isEmpty()){
+      previousSearch=null
+      previousCursor=null
+    }
     query=value
     search=""
     product=value
@@ -44,7 +54,20 @@ import org.json.JSONObject
     }catch(error:CancellationException){throw error}
     catch(error:Exception){state=LoadState.Failed(error.message?:"无法读取价格记录")}
   }
-  LifeFullScreen(if(onSelect==null)"常购价格" else "选择购买明细",onBack){
+  fun goBack(){
+    val listSearch=previousSearch
+    if(product.isBlank()||listSearch==null){
+      onBack()
+      return
+    }
+    product=""
+    search=listSearch
+    query=listSearch
+    cursor=previousCursor
+    previousSearch=null
+    previousCursor=null
+  }
+  LifeFullScreen(if(onSelect==null)"常购价格" else "选择购买明细",::goBack){
     Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(8.dp)){
       OutlinedTextField(query,{query=it.take(200)},Modifier.fillMaxWidth(),label={Text("搜索商品")},
         singleLine=true,trailingIcon={TextButton(onClick={product="";search=query.trim();cursor=null;retry++}){Text("搜索")}})

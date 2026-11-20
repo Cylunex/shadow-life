@@ -29,8 +29,7 @@ import kotlin.math.floor
 ){
   val context=LocalContext.current
   val repo=remember(accountId){NativeLifeRepository(context,context.applicationContext as ShadowApp)}
-  val today=LocalDate.now()
-  val nights=history.filter{it.occurredOn in today.minusDays(6).toString()..today.toString()&&it.sleepId!=null}
+  val nights=history.filter{it.sleepId!=null}
   val legacyNights=nights.filter{it.sleepWindow==null}
   val legacyKeys=legacyNights.map{checkNotNull(it.sleepId) to it.updatedAt}.toSet()
   var retry by remember{mutableIntStateOf(0)}

@@ -193,6 +193,9 @@ test("canteen profiles keep same-name stalls, preserve meal snapshots and expose
   assert.equal(Number(linked.meals?.[0]?.items[0]?.iron_mg),2);
   const listed=await queries.listMeals(context,{occurred_on:date});
   assert.equal(listed.items[0]?.items[0]?.iron_mg,"2");
+  assert.equal(listed.items[0]?.items[0]?.evidence_note,undefined);
+  const withEvidence=await queries.listMeals(context,{occurred_on:date,with_evidence:"1"});
+  assert.equal(withEvidence.items.find(row=>row.id===mealId)?.items[0]?.evidence_note,"沿用原份量");
   await run("life.correct_intake",{item_id:saved.id,expected_revision:saved.revision,reason:"更正原份量并核对营养标签",
     item:{name:saved.name,food_ref_id:saved.food_ref_id,quantity:"2",unit:"平勺",amount_g:"160",calcium_mg:"80",iron_mg:"4"}});
   const edited=await queries.lifeRecord(context,mealId);

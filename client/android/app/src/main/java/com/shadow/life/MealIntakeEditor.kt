@@ -24,10 +24,11 @@ import org.json.JSONObject
   val scope=rememberCoroutineScope()
   var selected by rememberSaveable(meal.detailId){mutableStateOf<String?>(null)}
   var pending by rememberSaveable(meal.detailId){mutableStateOf<String?>(null)}
+  var pendingDraftKey by rememberSaveable(meal.detailId){mutableStateOf<String?>(null)}
   var message by rememberSaveable(meal.detailId){mutableStateOf<String?>(null)}
   var busy by remember{mutableStateOf(false)}
   val enabled=!busy&&pending==null
-  fun write(operation:suspend()->OperationReceipt){
+  fun write(draftKey:String?=null,operation:suspend()->OperationReceipt){
     if(!enabled)return
     busy=true
     message=null
@@ -35,6 +36,7 @@ import org.json.JSONObject
       try{
         check(app.sessions.active()?.accountId==accountId){"账号已切换"}
         pending=operation().commandId
+        pendingDraftKey=draftKey
         message="食物更正已存本机，待同步"
       }catch(error:CancellationException){throw error}
       catch(error:Exception){message=error.message?:"无法保存食物更正"}
@@ -47,11 +49,12 @@ import org.json.JSONObject
     val status=app.database.commands().observeCommandState(accountId,session.subjectId,command)
       .first{it in setOf("committed","failed","blocked")}
     if(status=="committed"){
-      selected?.let{store.clear("intake/${meal.detailId}/$it")}
+      pendingDraftKey?.let(store::clear)
       selected=null
       message="食物已同步"
     } else message="食物未同步，草稿已保留。请查看同步状态。"
     pending=null
+    pendingDraftKey=null
     onReload()
   }
   LifeSection("本餐食物"){
@@ -62,7 +65,7 @@ import org.json.JSONObject
           Text(listOfNotNull(consumedAmount(item.quantity,item.consumedFraction),item.unit).joinToString(" "))
         }
         if(selected==item.id){
-          val draftKey="intake/${meal.detailId}/${item.id}"
+          val draftKey="intake/${meal.detailId}/${item.id}/${item.revision}"
           var draft by remember{mutableStateOf(decodeMealDraftRows(store.read(draftKey,"row"))?.firstOrNull()?:item.editableFood())}
           val initialPercent=item.consumedFraction?.let{consumedAmount("100",it)}.orEmpty()
           var percent by remember{mutableStateOf(store.read(draftKey,"percent")?:initialPercent)}
@@ -77,7 +80,7 @@ import org.json.JSONObject
             }
           }
           FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)){
-            Button(onClick={write{repository.correctIntake(item,draft,accountId,percent.takeIf{it!=initialPercent})}},
+            Button(onClick={write(draftKey){repository.correctIntake(item,draft,accountId,percent.takeIf{it!=initialPercent})}},
               enabled=enabled&&(draft!=item.editableFood()||percent!=initialPercent)&&draft.name.isNotBlank()){Text("保存此项")}
             TextButton(onClick={write{
               repository.captureWrite("life.remove_intake",JSONObject()
@@ -102,7 +105,7 @@ import org.json.JSONObject
         pickerOpen=false
       }
       FoodEditFields(draft,enabled,::changeFood)
-      Button(onClick={write{
+      Button(onClick={write(draftKey){
         repository.captureWrite("life.add_intake",JSONObject().put("meal_id",meal.detailId)
           .put("expected_meal_revision",meal.revision).put("item",repository.mealItems(listOf(draft),"").getJSONObject(0))
           .put("reason","用户在餐次详情补记食物"),accountId)
@@ -113,7 +116,7 @@ import org.json.JSONObject
 }
 
 @Composable private fun FoodEditFields(draft:MealDraftItem,enabled:Boolean,onChange:(MealDraftItem)->Unit){
-  OutlinedTextField(draft.name,{onChange(draft.copy(name=it))},Modifier.fillMaxWidth(),label={Text("食物名")},enabled=enabled)
+  OutlinedTextField(draft.name,{onChange(draft.rename(it))},Modifier.fillMaxWidth(),label={Text("食物名")},enabled=enabled)
   Row(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically){
     OutlinedTextField(draft.quantity,{onChange(draft.copy(quantity=it))},Modifier.weight(1f),label={Text("原份量")},enabled=enabled,
       keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal))

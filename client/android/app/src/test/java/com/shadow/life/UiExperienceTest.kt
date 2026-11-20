@@ -43,15 +43,17 @@ class UiExperienceTest {
     assertEquals(pinned,moveTodayCard(pinned,-1,0))
   }
   private fun sourceFood()=LifeRecordResultDtoMealItemsEntry("food_1","meal_1",0,"牛奶","catalog_1","原始名称","250","ml","258","130","8","5","12","0.1","90","0.5","reference_snapshot","actual_meal",false,"营养标签",3)
-  @Test fun foodCorrectionPreservesUneditedEvidenceAndFraction(){
+  @Test fun foodCorrectionScalesUneditedNutrientsAndPreservesFraction(){
     val original=sourceFood().copy(calciumMg="120",ironMg="0.2")
-    val input=intakeCorrectionInput(original,MealDraftItem(original.name,"260","ml","130","8","5","12"))
+    val input=intakeCorrectionInput(original,original.editableFood().copy(quantity="260",energyKcal="150"))
     val item=input.getValue("item").jsonObject
     assertEquals("0.5",item.getValue("consumed_fraction").jsonPrimitive.content)
-    assertEquals("258",item.getValue("amount_g").jsonPrimitive.content)
-    assertEquals("营养标签",item.getValue("evidence_note").jsonPrimitive.content)
-    assertEquals("120",item.getValue("calcium_mg").jsonPrimitive.content)
-    assertEquals("0.2",item.getValue("iron_mg").jsonPrimitive.content)
+    assertEquals("268.32",item.getValue("amount_g").jsonPrimitive.content)
+    assertEquals("150",item.getValue("energy_kcal").jsonPrimitive.content)
+    assertEquals("8.32",item.getValue("protein_g").jsonPrimitive.content)
+    assertTrue(item.getValue("evidence_note").jsonPrimitive.content.contains("营养标签"))
+    assertEquals("124.8",item.getValue("calcium_mg").jsonPrimitive.content)
+    assertEquals("0.208",item.getValue("iron_mg").jsonPrimitive.content)
     assertEquals("3",input.getValue("expected_revision").jsonPrimitive.content)
     assertFalse(item.containsKey("revision"))
     assertFalse(item.containsKey("meal_id"))
@@ -80,6 +82,32 @@ class UiExperienceTest {
     assertFalse(item.containsKey("energy_kcal"))
     assertEquals("豆奶",item.getValue("free_text").jsonPrimitive.content)
     assertEquals("manual",item.getValue("provenance").jsonPrimitive.content)
+  }
+  @Test fun changingUnitDoesNotCarryUnconvertedNutritionIntoTheNewPortion(){
+    val original=sourceFood().copy(calciumMg="120")
+    val changed=original.editableFood().copy(quantity="1",unit="杯",proteinG="9")
+    val item=intakeCorrectionInput(original,changed).getValue("item").jsonObject
+    assertEquals("9",item.getValue("protein_g").jsonPrimitive.content)
+    assertFalse(item.containsKey("energy_kcal"))
+    assertFalse(item.containsKey("amount_g"))
+    assertFalse(item.containsKey("calcium_mg"))
+  }
+  @Test fun reuseMealRetainsEstimateBasisAndRenamingClearsOldFoodData() {
+    val listed=ListMealsResultDtoItemsEntryItemsEntry(
+      id="item_1",name="青菜",foodRefId="food_1",freeText=null,quantity="1",unit="份",amountG="50",
+      energyKcal="20",proteinG=null,fatG=null,carbG=null,fiberG=null,sodiumMg=null,consumedFraction="0.5",
+      provenance="estimated",groupingOrigin=null,estimate=true,revision=1,
+      weightBasis=ListMealsResultDtoItemsEntryItemsEntryWeightBasis.PaymentDerived,
+      evidenceNote="原消费倒算"
+    )
+    val draft=listed.captureFood()
+    val extras=Json.parseToJsonElement(draft.sourceJson).jsonObject
+    assertTrue(extras.getValue("estimate").jsonPrimitive.boolean)
+    assertTrue(extras.getValue("evidence_note").jsonPrimitive.content.contains("原消费倒算"))
+    assertFalse(extras.containsKey("weight_basis"))
+    assertEquals("0.5",extras.getValue("consumed_fraction").jsonPrimitive.content)
+    assertTrue(Json.parseToJsonElement(listed.copy(evidenceNote=null).captureFood().sourceJson).jsonObject.getValue("evidence_note").jsonPrimitive.content.isNotBlank())
+    assertEquals(MealDraftItem(name="豆腐"),draft.rename("豆腐"))
   }
   @Test fun invalidFoodCorrectionIsRejectedBeforeQueueing(){
     assertThrows(IllegalArgumentException::class.java){intakeCorrectionInput(sourceFood(),MealDraftItem("牛奶","1",""))}

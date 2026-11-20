@@ -98,6 +98,11 @@ await withOfflinePostgres(async url=>{
     await page.getByRole('button',{name:'保存份量',exact:true}).click();
     await page.getByText('合成米饭 · 已吃 25%',{exact:true}).waitFor();
     await page.locator('.daily-nutrition').getByText(/105/).waitFor();
+    await page.getByText('合成青菜 · 食用比例未填',{exact:true}).click();
+    const uncertainIntake=page.locator('details.intake-edit-row').filter({hasText:'合成青菜'});
+    await uncertainIntake.getByRole('button',{name:'全份',exact:true}).click();
+    await uncertainIntake.getByRole('button',{name:'保存份量',exact:true}).click();
+    await page.getByText('合成青菜 · 已吃 100%',{exact:true}).waitFor();
     await page.goBack();
     await page.locator('.daily-nutrition').getByText('1／2 项有热量').waitFor();
     await page.getByLabel('查看日期',{exact:true}).fill(previousDay);

@@ -14,7 +14,7 @@ class LifePresentationTest {
       energyKcal=kcal,proteinG=null,fatG=null,carbG=null,fiberG=null,sodiumMg=null,
       consumedFraction=fraction,provenance="estimated",groupingOrigin=null,estimate=false,evidenceNote=null,revision=1
     )
-    val half=rawMealFood(food("半份","0.5","100","80"))
+    val half=rawMealFood(food("半份","0.5","100","80").copy(calciumMg="12",ironMg="2"))
     val absent=rawMealFood(food("未知",null,null,null))
     val uneaten=rawMealFood(food("没吃","0","200","100"))
     assertEquals("40 g",half.quantity)
@@ -25,6 +25,8 @@ class LifePresentationTest {
     assertEquals("50",energy.amount.toString())
     assertEquals("已知部分 · 1/2 项 · 1 项估算",mealCoverage(energy,2))
     assertNull(totals.single{it.key=="protein_g"}.amount)
+    assertEquals("6",totals.single{it.key=="calcium_mg"}.amount.toString())
+    assertEquals("1",totals.single{it.key=="iron_mg"}.amount.toString())
   }
 
   @Test fun `money summaries keep currencies precision and negative net spending`() {

@@ -26,8 +26,8 @@ export function MealIntakeEditor({items,execute,onChanged}:{
 }
 
 function IntakeRow({food,execute,onChanged}:{food:MealIntake;execute:Execute;onChanged:()=>Promise<void>}){
-  const original=food.consumed_fraction??"1";
-  const [percent,setPercent]=useState(()=>String(Number((Number(original)*100).toFixed(4))));
+  const original=food.consumed_fraction==null?null:Number((Number(food.consumed_fraction)*100).toFixed(4));
+  const [percent,setPercent]=useState(()=>original?.toString()??"");
   const [pending,setPending]=useState(false);
   const [error,setError]=useState<string>();
   const valid=/^\d{1,3}(?:[.]\d{1,4})?$/u.test(percent.trim())&&Number(percent)<=100;
@@ -44,7 +44,7 @@ function IntakeRow({food,execute,onChanged}:{food:MealIntake;execute:Execute;onC
     finally{setPending(false);}
   }
   return <details className="intake-edit-row">
-    <summary>{food.name} · 已吃 {Number(original)*100}%</summary>
+    <summary>{food.name} · {original===null?"食用比例未填":`已吃 ${original}%`}</summary>
     <form onSubmit={save}>
       {food.quantity&&food.unit&&<p>原份量 {food.quantity} {food.unit}</p>}
       <label>实际吃了多少（%）<input value={percent} inputMode="decimal" onChange={event=>setPercent(event.target.value)}/></label>
@@ -53,7 +53,7 @@ function IntakeRow({food,execute,onChanged}:{food:MealIntake;execute:Execute;onC
           <button key={value} type="button" className="secondary" aria-pressed={percent===value} onClick={()=>setPercent(value)}>{label}</button>)}
       </div>
       {error&&<p role="alert">{error}</p>}
-      <button disabled={!valid||pending||Number(percent)===Number(original)*100}>{pending?"正在保存…":"保存份量"}</button>
+      <button disabled={!valid||pending||Number(percent)===original}>{pending?"正在保存…":"保存份量"}</button>
     </form>
   </details>;
 }

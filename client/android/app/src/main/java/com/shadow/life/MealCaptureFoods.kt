@@ -12,6 +12,10 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
 import org.json.JSONObject
 
 private val extraIntakeFields=setOf(
@@ -20,9 +24,18 @@ private val extraIntakeFields=setOf(
 )
 
 internal fun ListMealsResultDtoItemsEntryItemsEntry.captureFood():MealDraftItem{
-  val source=JSONObject(Json.encodeToString(ListMealsResultDtoItemsEntryItemsEntry.serializer(),this))
-  return MealDraftItem(name,quantity.orEmpty(),unit.orEmpty(),energyKcal.orEmpty(),proteinG.orEmpty(),fatG.orEmpty(),carbG.orEmpty(),
-    JSONObject().apply{extraIntakeFields.forEach{key->if(!source.isNull(key))put(key,source.get(key))}}.toString())
+  val source=Json.encodeToJsonElement(ListMealsResultDtoItemsEntryItemsEntry.serializer(),this).jsonObject
+  val retained=source.filter{(key,value)->key in extraIntakeFields&&value!=JsonNull}.toMutableMap().apply {
+    // A previous meal's measurement or estimate is a reference for this meal.
+    remove("weight_basis")
+    if(estimate||provenance=="estimated"||weightBasis!=null){
+      put("estimate",JsonPrimitive(true))
+      val note=evidenceNote?.takeIf(String::isNotBlank)
+      val basis=if(note==null)"沿用上一餐记录的份量或营养估算" else "沿用上一餐记录。原依据：$note".take(500)
+      put("evidence_note",JsonPrimitive(basis))
+    }
+  }
+  return MealDraftItem(name,quantity.orEmpty(),unit.orEmpty(),energyKcal.orEmpty(),proteinG.orEmpty(),fatG.orEmpty(),carbG.orEmpty(),JsonObject(retained).toString())
 }
 
 internal fun MerchantMenuResultDtoItemsEntry.portionFood(grams:String="",usePortion:Boolean=true):MealDraftItem{
@@ -42,6 +55,9 @@ internal fun MerchantMenuResultDtoItemsEntry.portionFood(grams:String="",usePort
   return MealDraftItem(dish,portion?.quantity.orEmpty(),portion?.unit.orEmpty(),nutrient("energy_kcal"),
     nutrient("protein_g"),nutrient("fat_g"),nutrient("carb_g"),extras.toString())
 }
+
+internal fun MealDraftItem.rename(value:String):MealDraftItem =
+  if(value.trim()==name.trim()||sourceJson.isBlank())copy(name=value) else MealDraftItem(name=value)
 
 internal fun MealDraftItem.extraIntake():JSONObject=JSONObject(sourceJson.ifBlank{"{}"}).apply{
   keys().asSequence().toList().filterNot{it in extraIntakeFields}.forEach{remove(it)}

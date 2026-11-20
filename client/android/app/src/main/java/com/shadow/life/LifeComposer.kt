@@ -162,7 +162,7 @@ import java.time.LocalDate
     if(advancedMeal)OutlinedTextField(primary,{primary=it},Modifier.fillMaxWidth(),label={Text("每行一种食物")},minLines=4,supportingText={Text("名称，或 名称 | 份量 | 单位")})
     else{
       mealRows.forEachIndexed{index,row->LifeCard{
-        OutlinedTextField(row.name,{value->mealRows[index]=row.copy(name=value,sourceJson=if(value==row.name)row.sourceJson else "")},Modifier.fillMaxWidth(),label={Text("食物 ${index+1}")},singleLine=true)
+        OutlinedTextField(row.name,{value->mealRows[index]=row.rename(value)},Modifier.fillMaxWidth(),label={Text("食物 ${index+1}")},singleLine=true)
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
           OutlinedTextField(row.quantity,{value->mealRows[index]=row.copy(quantity=value)},Modifier.weight(1f),label={Text("份量")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal))
           OutlinedTextField(row.unit,{value->mealRows[index]=row.copy(unit=value)},Modifier.weight(1f),label={Text("单位")},singleLine=true)

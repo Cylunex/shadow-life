@@ -844,7 +844,8 @@ data class ListMealsResultDtoItemsEntryItemsEntry(
   @SerialName("revision") val revision: Long,
   @SerialName("weight_basis") val weightBasis: ListMealsResultDtoItemsEntryItemsEntryWeightBasis? = null,
   @SerialName("calcium_mg") val calciumMg: String? = null,
-  @SerialName("iron_mg") val ironMg: String? = null
+  @SerialName("iron_mg") val ironMg: String? = null,
+  @SerialName("evidence_note") val evidenceNote: String? = null
 )
 
 @Serializable

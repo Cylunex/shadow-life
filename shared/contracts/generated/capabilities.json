@@ -84960,6 +84960,12 @@
           "cursor": {
             "type": "string",
             "maxLength": 1000
+          },
+          "with_evidence": {
+            "type": "string",
+            "enum": [
+              "1"
+            ]
           }
         },
         "required": [
@@ -84985,6 +84991,12 @@
           "cursor": {
             "type": "string",
             "maxLength": 1000
+          },
+          "with_evidence": {
+            "type": "string",
+            "enum": [
+              "1"
+            ]
           }
         },
         "required": [
@@ -85236,6 +85248,12 @@
                           {
                             "type": "null"
                           }
+                        ]
+                      },
+                      "evidence_note": {
+                        "type": [
+                          "string",
+                          "null"
                         ]
                       }
                     },

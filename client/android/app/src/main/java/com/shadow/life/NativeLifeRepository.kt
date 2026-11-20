@@ -204,7 +204,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     var asOf=""
     do {
       val suffix=cursor?.let{"&cursor=${encode(it)}"}.orEmpty()
-      val page=wireJson.decodeFromString<ListMealsResultDto>(getText("/api/meals?occurred_on=$on&limit=100$suffix"))
+      val page=wireJson.decodeFromString<ListMealsResultDto>(getText("/api/meals?occurred_on=$on&limit=100&with_evidence=1$suffix"))
       asOf=page.asOf
       for(meal in page.items){
         if(meal.occurredOn!=on)continue
@@ -255,7 +255,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     val apiDomain=when(domain){LifeDomain.Meals->"life";else->domain.name.lowercase()}
     if(domain==LifeDomain.Meals){
       if(query.isNotBlank())return search(query,cursor,setOf(LifeDomain.Meals))
-      val result=wireJson.decodeFromString<ListMealsResultDto>(getText("/api/meals?limit=50${cursor?.let{"&cursor=${encode(it)}"}.orEmpty()}"))
+      val result=wireJson.decodeFromString<ListMealsResultDto>(getText("/api/meals?limit=50&with_evidence=1${cursor?.let{"&cursor=${encode(it)}"}.orEmpty()}"))
       return RecordPage(result.items.map{item->
         val foods=item.items.map { food ->
           MealFoodSummary(food.name,food.quantity,food.unit,food.energyKcal,food.proteinG,food.fatG,food.carbG,food.estimate)

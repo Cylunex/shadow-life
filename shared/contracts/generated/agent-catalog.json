@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "0f42fc20609c76e0d70c8140442d25768b1368992506cbd09d223891648e904a",
+  "catalog_revision": "5f2094fd8eaacdb1f0cf2b167f9cd1b4851c465c63b6165f50141a719aa0a8c7",
   "terms": [
     {
       "id": "activity_capture",
@@ -43675,6 +43675,12 @@
           "cursor": {
             "type": "string",
             "maxLength": 1000
+          },
+          "with_evidence": {
+            "type": "string",
+            "enum": [
+              "1"
+            ]
           }
         },
         "required": [
@@ -43926,6 +43932,12 @@
                           {
                             "type": "null"
                           }
+                        ]
+                      },
+                      "evidence_note": {
+                        "type": [
+                          "string",
+                          "null"
                         ]
                       }
                     },
