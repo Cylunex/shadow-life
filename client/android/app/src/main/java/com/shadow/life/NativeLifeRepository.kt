@@ -287,6 +287,9 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     },result.nextCursor,result.asOf)
   }
 
+  internal suspend fun foreignMoney():ForeignEntriesResultDto =
+    wireJson.decodeFromString(getText("/api/money/foreign?limit=100"))
+
   internal suspend fun monthlyMoney(period:String):MonthlyMoneyRead {
     val body=JSONObject(getText("/api/money/summary?period=${encode(period)}"))
     val totals=body.getJSONArray("totals").objects().map{row->
@@ -596,12 +599,12 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   }
   suspend fun moneyImportReview(batchId:String):MoneyImportReviewSummary=withContext(Dispatchers.IO){
     val body=JSONObject(getText("/api/money/imports/${encode(batchId)}"));val rules=body.getJSONArray("rules");val ruleLabels=(0 until rules.length()).associate{index->val rule=rules.getJSONObject(index);rule.getString("id") to "${rule.getString("match_value")} → ${rule.getJSONObject("replacements")}"};val candidates=body.getJSONArray("candidates")
-    MoneyImportReviewSummary(batchId,(0 until candidates.length()).map{index->val row=candidates.getJSONObject(index);val proposed=row.getJSONObject("proposed");val applied=row.getJSONArray("applied_rule_ids");MoneyImportCandidateSummary(row.getString("id"),row.getInt("revision"),row.getInt("position"),row.getString("status"),row.getJSONObject("raw").toString(2),proposed.optString("entry_type","expense"),proposed.optString("amount"),proposed.optString("occurred_on"),proposed.optString("time_zone","Asia/Shanghai"),proposed.optString("counterparty"),proposed.optString("category"),if(row.isNull("duplicate_of_record_id"))null else row.getString("duplicate_of_record_id"),(0 until applied.length()).map{applied.getString(it)},row.optNullableString("linked_record_id"),row.optNullableString("duplicate_of_candidate_id"))},ruleLabels)
+    MoneyImportReviewSummary(batchId,(0 until candidates.length()).map{index->val row=candidates.getJSONObject(index);val proposed=row.getJSONObject("proposed");val applied=row.getJSONArray("applied_rule_ids");MoneyImportCandidateSummary(row.getString("id"),row.getInt("revision"),row.getInt("position"),row.getString("status"),row.getJSONObject("raw").toString(2),proposed.optString("entry_type","expense"),proposed.optString("amount"),proposed.optString("occurred_on"),proposed.optString("time_zone","Asia/Shanghai"),proposed.optString("counterparty"),proposed.optString("category"),if(row.isNull("duplicate_of_record_id"))null else row.getString("duplicate_of_record_id"),(0 until applied.length()).map{applied.getString(it)},row.optNullableString("linked_record_id"),row.optNullableString("duplicate_of_candidate_id"),row.optJSONArray("issues")?.let{arr->List(arr.length(),arr::getString)}.orEmpty(),proposed.optString("currency"))},ruleLabels)
   }
   suspend fun linkMealConsumption(mealId:String,recordId:String):OperationReceipt=withContext(Dispatchers.IO){
     enqueueCommand("life.link_meal_consumption",JSONObject().put("meal_id",mealId).put("consumption_record_id",recordId).put("evidence","user_confirmed"))
   }
-  suspend fun resolveMoneyImport(candidate:MoneyImportCandidateSummary,decision:String,entryType:String,amount:String,date:String,category:String,originalEntryId:String):OperationReceipt=withContext(Dispatchers.IO){
+  suspend fun resolveMoneyImport(candidate:MoneyImportCandidateSummary,decision:String,entryType:String,amount:String,date:String,category:String,originalEntryId:String,expectedAccountId:String?=null):OperationReceipt=withContext(Dispatchers.IO){
     require(decision in setOf("confirm","ignore")){"不支持的复核决定"}
     val payload=JSONObject().put("candidate_id",candidate.id).put("expected_revision",candidate.revision).put("decision",decision).put("reason","Android 月度账单核对")
     if(decision=="confirm"){
@@ -615,8 +618,21 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       if(entryType=="refund")payload.put("original_entry_id",originalEntryId.trim())
     }
     val account=app.sessions.active()?.accountId?:error("请先登录 Shadow Life")
+    check(expectedAccountId==null||account==expectedAccountId){"账号已切换"}
+    enqueueMoneyImport("money.resolve_import_candidate",payload,account)
+  }
+
+  internal suspend fun stageMoneyStatement(uri:Uri,account:String):OperationReceipt=withContext(Dispatchers.IO){
+    val payload=moneyStatementPayload(context.contentResolver,uri,ZoneId.systemDefault().id)
+    enqueueMoneyImport("money.stage_import",payload,account)
+  }
+
+  private suspend fun enqueueMoneyImport(capability:String,payload:JSONObject,account:String):OperationReceipt{
     val digest=java.security.MessageDigest.getInstance("SHA-256").digest("$account/$payload".toByteArray()).joinToString(""){"%02x".format(it)}
-    enqueueCommand("money.resolve_import_candidate",payload,"cmd_android_import_$digest",account)
+    val commandId="cmd_android_import_$digest"
+    val body=JSONObject().put("protocol","shadow.command").put("capability",capability).put("command_id",commandId).put("input",payload)
+    require(body.toString().toByteArray().size<=1024*1024){"账单超过单次提交大小，请拆分后导入"}
+    return enqueueCommand(capability,payload,commandId,account)
   }
 
   suspend fun saveMealPlan(draft:NativeMealPlanDraft):OperationReceipt=withContext(Dispatchers.IO){
@@ -796,7 +812,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     enqueueCommand(capability,input,expectedAccountId=expectedAccountId)
   }
 
-  suspend fun assetPreview(versionId:String):ByteArray=withContext(Dispatchers.IO){
+  suspend fun assetPreview(versionId:String,accept:String="image/*",label:String="餐照"):ByteArray=withContext(Dispatchers.IO){
     val session=app.sessions.active()?:error("请先登录 Shadow Life")
     val fresh=when(val value=app.sessions.fresh(session.accountId,context)){
       SessionRefresh.ReauthRequired->error("会话已失效，请重新登录")
@@ -805,14 +821,14 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     }
     val connection=(URL("${fresh.session.apiBase}/api/assets/${encode(versionId)}/preview").openConnection() as HttpURLConnection).apply{
       requestMethod="GET";connectTimeout=10_000;readTimeout=20_000
-      setRequestProperty("Authorization","Bearer ${fresh.accessToken}");setRequestProperty("Accept","image/*")
+      setRequestProperty("Authorization","Bearer ${fresh.accessToken}");setRequestProperty("Accept",accept)
     }
     try{
       val code=connection.responseCode
-      if(code !in 200..299){val message=connection.errorStream?.bufferedReader()?.use{it.readText()}.orEmpty();error(runCatching{JSONObject(message).optString("message")}.getOrNull().orEmpty().ifBlank{"餐照读取失败（HTTP $code）"})}
+      if(code !in 200..299){val message=connection.errorStream?.bufferedReader()?.use{it.readText()}.orEmpty();error(runCatching{JSONObject(message).optString("message")}.getOrNull().orEmpty().ifBlank{"${label}读取失败（HTTP $code）"})}
       val declared=connection.contentLengthLong
-      if(declared>12L*1024*1024)error("餐照尺寸过大")
-      connection.inputStream.use{input->input.readBytes().also{require(it.size<=12*1024*1024){"餐照尺寸过大"}}}
+      if(declared>12L*1024*1024)error("${label}文件过大")
+      connection.inputStream.use{input->input.readBytes().also{require(it.size<=12*1024*1024){"${label}文件过大"}}}
     }finally{connection.disconnect()}
   }
 

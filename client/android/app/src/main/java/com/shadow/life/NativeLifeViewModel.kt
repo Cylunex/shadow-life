@@ -110,8 +110,8 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
   fun refreshPersonalFoundation(kind:String,on:String,offset:Int=0){personalKind=kind;personalOn=on;val token=beginRead("personal");val previous=(personalFoundation as? LoadState.Ready)?.value;if(offset==0)personalFoundation=LoadState.Loading;viewModelScope.launch{try{val value=repository.personalFoundation(kind,on,offset);if(isCurrentRead("personal",token))personalFoundation=LoadState.Ready(if(offset>0&&previous!=null)value.copy(items=previous.items+value.items) else value)}catch(error:CancellationException){throw error}catch(error:Exception){if(isCurrentRead("personal",token))personalFoundation=LoadState.Failed(error.message?:"个人资料读取失败")}}}
   fun savePersonalFoundation(capability:String,input:org.json.JSONObject){if(personalSubmit is SubmitState.Sending)return;val account=activeAccountId?:return;personalSubmit=SubmitState.Sending(capability);viewModelScope.launch{try{val result=repository.savePersonalFoundation(capability,input,account);if(activeAccountId==account)personalSubmit=SubmitState.Saved(result)}catch(error:CancellationException){throw error}catch(error:Exception){if(activeAccountId==account)personalSubmit=SubmitState.Rejected(error.message?:"个人资料保存失败")}}}
 
-  fun activateAccount(accountId:String){if(activeAccountId==accountId)return;recordWork.clear();activeLibraryType=null;timelineDomain=null;timelinePeriod="all";agendaDate=LocalDate.now();agendaDays=7;invalidateReads();trainingPlans=LoadState.Loading;trainingSubmit=SubmitState.Editing;personalFoundation=LoadState.Loading;personalSubmit=SubmitState.Editing;landingJob?.cancel();commitRefreshJob?.cancel();pendingRefreshCapabilities.clear();assetPreviews.clear();activeAccountId=accountId;assistantThreadId=null;assistant=null;assistantHistory=null;assistantThreads=LoadState.Loading;searchResults=null;activeSearchQuery="";activeLibraryQuery="";workspaceQuery="";workspaceDomain=null;moduleReads.clear();moneyPeriod=java.time.YearMonth.now().toString();selectedTravelTripId=null;activeDetail=null;today=LoadState.Loading;homeHealth=LoadState.Loading;timeline=LoadState.Loading;day=LoadState.Loading;memories=LoadState.Loading;plans=LoadState.Loading;library=LoadState.Loading;projectLinks=LoadState.Loading;inbox=LoadState.Loading;workspace=LoadState.Loading;workspaceOverview=LoadState.Loading;detail=LoadState.Loading;planDetail=LoadState.Loading;ownedItemDetail=LoadState.Loading;reviewDetail=LoadState.Loading;consumptionStats=LoadState.Loading;releaseHistory=LoadState.Loading;submit=SubmitState.Editing;mealPlanningSubmit=SubmitState.Editing;projectActionSubmit=SubmitState.Editing;moneyPlanningSubmit=SubmitState.Editing;moneyImportMonth=LoadState.Loading;moneyImportReview=null;offlineItinerary=null;moneyImportSubmit=SubmitState.Editing;moneyImportPendingId=null;serviceCards=LoadState.Loading;selectedServiceCard=null;serviceCardSubmit=SubmitState.Editing;serviceCardQuery="";observeQueue();observeDeviceSync(accountId);refreshToday();landingJob=viewModelScope.launch{delay(450);if(activeAccountId==accountId){refreshHomeHealth();refreshTrainingPlans()}}}
-  fun deactivateAccount(){recordWork.clear();activeLibraryType=null;timelineDomain=null;timelinePeriod="all";agendaDate=LocalDate.now();agendaDays=7;invalidateReads();trainingPlans=LoadState.Loading;trainingSubmit=SubmitState.Editing;personalFoundation=LoadState.Loading;personalSubmit=SubmitState.Editing;assetPreviews.clear();queueJob?.cancel();deviceSyncJob?.cancel();landingJob?.cancel();commitRefreshJob?.cancel();pendingRefreshCapabilities.clear();workspaceJob?.cancel();workspaceOverviewJob?.cancel();queueJob=null;deviceSyncJob=null;landingJob=null;commitRefreshJob=null;workspaceJob=null;workspaceOverviewJob=null;activeAccountId=null;assistantThreadId=null;assistant=null;assistantHistory=null;assistantThreads=LoadState.Loading;searchResults=null;activeSearchQuery="";activeLibraryQuery="";workspaceQuery="";workspaceDomain=null;moduleReads.clear();moneyPeriod=java.time.YearMonth.now().toString();selectedTravelTripId=null;activeDetail=null;today=LoadState.Loading;homeHealth=LoadState.Loading;timeline=LoadState.Loading;day=LoadState.Loading;memories=LoadState.Loading;plans=LoadState.Loading;library=LoadState.Loading;workspace=LoadState.Loading;workspaceOverview=LoadState.Loading;refundCandidates=LoadState.Loading;detail=LoadState.Loading;planDetail=LoadState.Loading;ownedItemDetail=LoadState.Loading;reviewDetail=LoadState.Loading;consumptionStats=LoadState.Loading;releaseHistory=LoadState.Loading;projectLinks=LoadState.Loading;queueStatus=LoadState.Loading;deviceSyncStatus=DeviceSyncStatus();inbox=LoadState.Loading;submit=SubmitState.Editing;mealPlanningSubmit=SubmitState.Editing;projectActionSubmit=SubmitState.Editing;moneyPlanningSubmit=SubmitState.Editing;moneyImportMonth=LoadState.Loading;moneyImportReview=null;offlineItinerary=null;moneyImportSubmit=SubmitState.Editing;moneyImportPendingId=null;serviceCards=LoadState.Loading;selectedServiceCard=null;serviceCardSubmit=SubmitState.Editing;serviceCardQuery=""}
+  fun activateAccount(accountId:String){if(activeAccountId==accountId)return;recordWork.clear();activeLibraryType=null;timelineDomain=null;timelinePeriod="all";agendaDate=LocalDate.now();agendaDays=7;invalidateReads();trainingPlans=LoadState.Loading;trainingSubmit=SubmitState.Editing;personalFoundation=LoadState.Loading;personalSubmit=SubmitState.Editing;landingJob?.cancel();commitRefreshJob?.cancel();pendingRefreshCapabilities.clear();assetPreviews.clear();activeAccountId=accountId;assistantThreadId=null;assistant=null;assistantHistory=null;assistantThreads=LoadState.Loading;searchResults=null;activeSearchQuery="";activeLibraryQuery="";workspaceQuery="";workspaceDomain=null;moduleReads.clear();moneyPeriod=java.time.YearMonth.now().toString();selectedTravelTripId=null;activeDetail=null;today=LoadState.Loading;homeHealth=LoadState.Loading;timeline=LoadState.Loading;day=LoadState.Loading;memories=LoadState.Loading;plans=LoadState.Loading;library=LoadState.Loading;projectLinks=LoadState.Loading;inbox=LoadState.Loading;workspace=LoadState.Loading;workspaceOverview=LoadState.Loading;detail=LoadState.Loading;planDetail=LoadState.Loading;ownedItemDetail=LoadState.Loading;reviewDetail=LoadState.Loading;consumptionStats=LoadState.Loading;releaseHistory=LoadState.Loading;submit=SubmitState.Editing;mealPlanningSubmit=SubmitState.Editing;projectActionSubmit=SubmitState.Editing;moneyPlanningSubmit=SubmitState.Editing;moneyImportMonth=LoadState.Loading;moneyImportReview=null;offlineItinerary=null;moneyImportSubmit=SubmitState.Editing;moneyImportPendingId=null;importFileState=SubmitState.Editing;bulkImportState=null;serviceCards=LoadState.Loading;selectedServiceCard=null;serviceCardSubmit=SubmitState.Editing;serviceCardQuery="";observeQueue();observeDeviceSync(accountId);refreshToday();landingJob=viewModelScope.launch{delay(450);if(activeAccountId==accountId){refreshHomeHealth();refreshTrainingPlans()}}}
+  fun deactivateAccount(){recordWork.clear();activeLibraryType=null;timelineDomain=null;timelinePeriod="all";agendaDate=LocalDate.now();agendaDays=7;invalidateReads();trainingPlans=LoadState.Loading;trainingSubmit=SubmitState.Editing;personalFoundation=LoadState.Loading;personalSubmit=SubmitState.Editing;assetPreviews.clear();queueJob?.cancel();deviceSyncJob?.cancel();landingJob?.cancel();commitRefreshJob?.cancel();pendingRefreshCapabilities.clear();workspaceJob?.cancel();workspaceOverviewJob?.cancel();queueJob=null;deviceSyncJob=null;landingJob=null;commitRefreshJob=null;workspaceJob=null;workspaceOverviewJob=null;activeAccountId=null;assistantThreadId=null;assistant=null;assistantHistory=null;assistantThreads=LoadState.Loading;searchResults=null;activeSearchQuery="";activeLibraryQuery="";workspaceQuery="";workspaceDomain=null;moduleReads.clear();moneyPeriod=java.time.YearMonth.now().toString();selectedTravelTripId=null;activeDetail=null;today=LoadState.Loading;homeHealth=LoadState.Loading;timeline=LoadState.Loading;day=LoadState.Loading;memories=LoadState.Loading;plans=LoadState.Loading;library=LoadState.Loading;workspace=LoadState.Loading;workspaceOverview=LoadState.Loading;refundCandidates=LoadState.Loading;detail=LoadState.Loading;planDetail=LoadState.Loading;ownedItemDetail=LoadState.Loading;reviewDetail=LoadState.Loading;consumptionStats=LoadState.Loading;releaseHistory=LoadState.Loading;projectLinks=LoadState.Loading;queueStatus=LoadState.Loading;deviceSyncStatus=DeviceSyncStatus();inbox=LoadState.Loading;submit=SubmitState.Editing;mealPlanningSubmit=SubmitState.Editing;projectActionSubmit=SubmitState.Editing;moneyPlanningSubmit=SubmitState.Editing;moneyImportMonth=LoadState.Loading;moneyImportReview=null;offlineItinerary=null;moneyImportSubmit=SubmitState.Editing;moneyImportPendingId=null;importFileState=SubmitState.Editing;bulkImportState=null;serviceCards=LoadState.Loading;selectedServiceCard=null;serviceCardSubmit=SubmitState.Editing;serviceCardQuery=""}
   fun loadReleaseHistory(from:String,to:String){val token=beginRead("release-history");releaseHistory=LoadState.Loading;viewModelScope.launch{val result=load("这个期间没有起飞记录"){repository.releaseHistory(from,to)};if(isCurrentRead("release-history",token))releaseHistory=result}}
   fun refreshToday(date:LocalDate=LocalDate.now()){val token=beginRead("today");today=today.beginRefresh();viewModelScope.launch{val result=load("今天还没有记录"){repository.today(date)};if(isCurrentRead("today",token))today=today.finishRefresh(result)}}
   fun refreshHomeHealth(){val token=beginRead("home-health");homeHealth=homeHealth.beginRefresh();viewModelScope.launch{val result=load("还没有健康趋势"){repository.homeHealthOverview()};if(isCurrentRead("home-health",token))homeHealth=homeHealth.finishRefresh(result)}}
@@ -283,14 +283,14 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
   fun openMoneyImportBatch(id:String){val token=beginRead("money-import-review");moneyImportReview=LoadState.Loading;viewModelScope.launch{val result=load("批次已不可用"){repository.moneyImportReview(id)};if(isCurrentRead("money-import-review",token))moneyImportReview=result}}
   var moneyImportPendingId:String? by androidx.compose.runtime.mutableStateOf(null);private set
   fun resolveMoneyImport(candidate:MoneyImportCandidateSummary,decision:String,entryType:String,amount:String,date:String,category:String,originalEntryId:String){
-    if(moneyImportSubmit is SubmitState.Sending||moneyImportPendingId!=null)return
+    if(moneyImportSubmit is SubmitState.Sending||moneyImportPendingId!=null||bulkImportState?.running==true)return
     val account=activeAccountId?:return
     val app=getApplication<ShadowApp>()
     val session=app.sessions.active()?.takeIf{it.accountId==account}?:return
     moneyImportSubmit=SubmitState.Sending("money_import")
     viewModelScope.launch{
       try{
-        val receipt=repository.resolveMoneyImport(candidate,decision,entryType,amount,date,category,originalEntryId)
+        val receipt=repository.resolveMoneyImport(candidate,decision,entryType,amount,date,category,originalEntryId,account)
         if(activeAccountId!=account)return@launch
         moneyImportPendingId=candidate.id
         moneyImportSubmit=SubmitState.Saved(receipt)
@@ -311,6 +311,63 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
       }
     }
   }
+  internal var importFileState:SubmitState by androidx.compose.runtime.mutableStateOf(SubmitState.Editing);private set
+  internal var bulkImportState:MoneyBulkImport? by androidx.compose.runtime.mutableStateOf(null);private set
+
+  internal fun stageMoneyStatement(uri:Uri){
+    if(importFileState is SubmitState.Sending||(importFileState as? SubmitState.Saved)?.receipt?.queued==true)return
+    val account=activeAccountId?:return
+    val app=getApplication<ShadowApp>()
+    val session=app.sessions.active()?.takeIf{it.accountId==account}?:return
+    importFileState=SubmitState.Sending("money.stage_import")
+    viewModelScope.launch{
+      try{
+        val receipt=repository.stageMoneyStatement(uri,account)
+        if(activeAccountId!=account)return@launch
+        importFileState=SubmitState.Saved(receipt)
+        val stored=app.database.commands().observeCommandState(account,session.subjectId,receipt.commandId)
+          .first{it in setOf("committed","failed","blocked")}
+        if(activeAccountId!=account)return@launch
+        if(stored!="committed"){importFileState=SubmitState.Rejected("账单候选未生成，请在同步设置查看原因");return@launch}
+        val verified=app.queue.observeStatus(session).first().committedReceipts.firstOrNull{it.commandId==receipt.commandId}
+        importFileState=SubmitState.Saved(verified?:receipt.copy(queued=false))
+        loadMoneyImportMonth(moneyPeriod)
+      }catch(error:CancellationException){throw error}
+      catch(error:Exception){if(activeAccountId==account)importFileState=SubmitState.Rejected(error.message?:"无法生成账单候选")}
+    }
+  }
+
+  internal fun confirmMoneyCandidates(batchId:String,candidates:List<MoneyImportCandidateSummary>){
+    if(bulkImportState?.running==true||moneyImportSubmit is SubmitState.Sending||moneyImportPendingId!=null)return
+    val account=activeAccountId?:return
+    val app=getApplication<ShadowApp>()
+    val session=app.sessions.active()?.takeIf{it.accountId==account}?:return
+    val batch=(moneyImportReview as? LoadState.Ready)?.value?.takeIf{it.batchId==batchId}?:return
+    val current=batch.candidates.associateBy{it.id}
+    val reviewed=candidates.distinctBy{it.id}
+    if(reviewed.isEmpty()||reviewed.any{candidate->current[candidate.id]!=candidate||!candidate.canConfirmWithoutEdit()})return
+    var report=MoneyBulkImport(batchId,reviewed.size,true,emptyList())
+    bulkImportState=report
+    viewModelScope.launch{
+      for(candidate in reviewed){
+        if(activeAccountId!=account)return@launch
+        val error=try{
+          val receipt=repository.resolveMoneyImport(candidate,"confirm",candidate.entryType,candidate.amount,candidate.occurredOn,candidate.category,"",account)
+          val terminal=app.database.commands().observeCommandState(account,session.subjectId,receipt.commandId)
+            .first{it in setOf("committed","failed","blocked")}
+          if(terminal=="committed")null else "未入账，请查看同步设置"
+        }catch(error:CancellationException){throw error}
+        catch(error:Exception){error.message?:"未取得回执"}
+        if(activeAccountId!=account)return@launch
+        report=report.copy(items=report.items+MoneyBulkLine(candidate.id,candidate.counterparty.ifBlank{candidate.occurredOn},error))
+        bulkImportState=report
+      }
+      // Keep the current batch on screen if the user browsed elsewhere during synchronization.
+      refreshImportReads()
+      bulkImportState=report.copy(running=false)
+    }
+  }
+
   private fun refreshImportReads(){
     val batch=(moneyImportReview as? LoadState.Ready)?.value?.batchId
     if(batch!=null)openMoneyImportBatch(batch)
@@ -445,7 +502,7 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
       if(serviceCards is LoadState.Ready)serviceCards=serviceCards.noticeUpdate() else loadServiceCards(serviceCardQuery)
       selectedServiceCard=selectedServiceCard?.noticeUpdate()
     }
-    if(capabilities.contains("money.resolve_import_candidate")){
+    if(capabilities.any{it=="money.resolve_import_candidate"||it=="money.stage_import"}){
       moneyImportMonth=moneyImportMonth.noticeUpdate();moneyImportReview=moneyImportReview?.noticeUpdate()
     }
     if(capabilities.any{it.startsWith("life.save_project")||it.startsWith("life.save_action")||it.startsWith("life.save_owned")||it.startsWith("life.record_owned")||it.startsWith("life.generate_review")||it.startsWith("life.save_meal")||it.startsWith("life.build_shopping")||it.startsWith("life.update_shopping")||it.startsWith("life.set_food_stock")||it.startsWith("money.set_")||it.startsWith("health.set_plan")})refreshPlans()

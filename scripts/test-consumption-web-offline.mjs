@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { chromium } from 'playwright';
 import { withOfflinePostgres } from './offline-postgres.mjs';
-import { PostgresUnitOfWork,migrate } from '../server/database/src/index.ts';
+import { PostgresUnitOfWork,migrate,processPendingHealth } from '../server/database/src/index.ts';
 import { CommandExecutor,QueryService,sha256Fingerprinter,systemClock,uuidIds } from '../server/kernel/src/index.ts';
 import { createApp } from '../server/api/src/app.ts';
 import { capabilityRegistry } from '../shared/contracts/src/index.ts';
@@ -28,12 +28,29 @@ await withOfflinePostgres(async url=>{
     const yesterday=new Date(date+'T12:00:00Z');yesterday.setUTCDate(yesterday.getUTCDate()-1);
     const previousDay=yesterday.toISOString().slice(0,10);
     await run('health.record_measurement',{...fact,metric:'weight',value:'68.4',unit:'kg'});
+    const time=(day,hour,minute)=>new Date(`${day}T${hour}:${minute}:00+08:00`).toISOString();
+    const start=time(previousDay,"23","45"),midnight=time(date,"00","00"),end=time(date,"00","30");
+    const ingest=(type,id,payload)=>run("health.ingest_raw",{source_type:"samsung",source_instance_key:"synthetic-watch",
+      source_fingerprint:"fixture-permissions",record_type:type,client_record_id:id,payload,record_version:3,sync_epoch:1,
+      change_kind:"upsert",parse_version:"samsung-data-4"});
+    await ingest("sleep","samsung-sleep-browser",{wake_date:date,time_zone:"Asia/Shanghai",started_at:start,ended_at:end,total_minutes:45,light_minutes:15,deep_minutes:30});
+    await ingest("archive","samsung-archive-sleep-browser",{samsung_data_type:"sleep",uid:"browser",
+      fields:{sleep_score:80,sessions:[{start_time:start,end_time:end,stages:[
+        {start_time:start,end_time:midnight,stage:"LIGHT"},{start_time:midnight,end_time:end,stage:"DEEP"}
+      ]}]}});
+    const walkedAt=time(date,"07","30"),finished=time(date,"08","00");
+    await ingest("workout","samsung-exercise-browser",{...fact,session_type:"walking",started_at:walkedAt,duration_minutes:30});
+    await ingest("archive","samsung-archive-exercise-browser",{samsung_data_type:"exercise",uid:"browser",
+      fields:{sessions:[{start_time:walkedAt,end_time:finished,route:[{timestamp:walkedAt,latitude:1,longitude:2},{timestamp:finished,latitude:1.01,longitude:2.01}],
+        log:[{timestamp:walkedAt,heart_rate:86,speed:1},{timestamp:finished,heart_rate:92,speed:0}]}]}});
+    await processPendingHealth(pool);
+
     const staged=await run('money.stage_import',{format:'csv',source_name:'合成支付App账单.csv',time_zone:'Asia/Shanghai',content:`交易时间,交易类型,交易对方,商品,收/支,金额(元),支付方式,当前状态,交易单号\n${date} 12:00:00,商户消费,合成账单商家,午餐,支出,18.00,零钱,支付成功,synthetic-order-one`});
     const app=createApp({unitOfWork,executor,queries,developmentAuth:true});
     server=serve({fetch:app.fetch,hostname:'127.0.0.1',port:0});await new Promise(resolve=>server.listening?resolve():server.once('listening',resolve));
     web=await createServer({root:`${root}/client/web`,configFile:false,envFile:false,plugins:[react()],define:{__SHADOW_AMAP_CONFIG__:'null',__SHADOW_GOOGLE_MAPS_KEY__:'""'},server:{host:'127.0.0.1',port:0,proxy:{'/api':{target:`http://127.0.0.1:${server.address().port}`}}}});await web.listen();const origin=web.resolvedUrls.local[0];
     browser=await chromium.launch({headless:true,...(process.env.SHADOW_TEST_BROWSER_EXECUTABLE?{executablePath:process.env.SHADOW_TEST_BROWSER_EXECUTABLE}:{}),args:['--disable-background-networking']});
-    page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];page.on('pageerror',e=>{errors.push(e.message);console.error('PAGE ERROR',e.message)});
+    page=await browser.newPage({viewport:{width:1440,height:1000},timezoneId:"Asia/Shanghai"});const errors=[];page.on('pageerror',e=>{errors.push(e.message);console.error('PAGE ERROR',e.message)});
     await page.goto(origin+'?tab=record&section=timeline');
     await page.getByText('上次是什么时候',{exact:true}).click();
     await page.getByLabel('新事项').fill('换滤芯');
@@ -47,9 +64,32 @@ await withOfflinePostgres(async url=>{
     await page.getByRole('heading',{name:'健康概览',exact:true}).waitFor();
     await page.getByRole('link',{name:'68.4 kg',exact:true}).first().click();
     await page.locator('.record-hero').getByText(/体重/).first().waitFor();
+    await page.getByRole('link',{name:'返回当天健康'}).click();
+    await page.getByRole('link',{name:/主睡眠 · 45 分钟/}).click();
+    await page.getByLabel('查看睡眠阶段').press('End');
+    await page.locator('.session-chart output').getByText('深睡 · 00:00–00:30').waitFor();
+    await page.screenshot({path:join(output,'health-sleep.png'),fullPage:true});
+    await page.getByRole('link',{name:'返回当天健康'}).click();
+    await page.getByRole('link',{name:/步行 · 07:30 · 30 分钟/}).click();
+    await page.getByRole('button',{name:'心率',exact:true}).click();
+    await page.getByLabel('查看采样点').press('End');
+    await page.getByRole('button',{name:'速度',exact:true}).click();
+    await page.locator('.session-chart output').getByText('08:00 · 0 km/h').waitFor();
+    await page.getByRole('link',{name:'返回当天健康'}).click();
+    await page.getByLabel('查看日期',{exact:true}).fill(previousDay);
+    await page.getByRole('link',{name:'查看同日饮食'}).click();
+    assert.equal(await page.getByLabel('查看日期',{exact:true}).inputValue(),previousDay);
+    await page.getByRole('link',{name:'查看同日健康'}).click();
+    assert.equal(await page.getByLabel('查看日期',{exact:true}).inputValue(),previousDay);
+
     await page.goto(origin+'?tab=record&section=food&day='+date);
     await page.locator('.daily-nutrition').getByText('1／2 项有热量').waitFor();
     assert.match(await page.locator('.daily-nutrition').innerText(),/210 kcal/);
+    await page.getByRole('button',{name:'热量来源',exact:true}).click();
+    const nutrients=page.locator('.diary-contributors');
+    await nutrients.getByText('210 kcal',{exact:true}).waitFor();
+    await nutrients.getByText('未记录',{exact:true}).waitFor();
+    await page.getByRole('button',{name:'热量来源',exact:true}).click();
     await page.getByRole('link').filter({hasText:'合成米饭'}).click();
     await page.getByRole('link',{name:/返回当天餐次/}).waitFor();
     await page.getByText('编辑餐次',{exact:true}).click();
@@ -108,7 +148,35 @@ await withOfflinePostgres(async url=>{
     await page.getByRole('link',{name:/返回消费与账单/}).click();
     await page.getByRole('link',{name:'查看已入账记录 →'}).waitFor();
     await page.getByRole('button',{name:'消费明细',exact:true}).click();
-    await page.getByLabel('搜索全部消费').fill('合成食材店');await page.locator('.money-search').getByRole('button',{name:'搜索',exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('.money-workspace .record-list li').length===1);assert.match(await page.locator('.money-workspace .record-list').innerText(),/合成食材店/);
-    assert.deepEqual(errors,[]);await writeFile(join(output,'result.json'),JSON.stringify({passed:true,cases:['health detail','diary day/coverage/half portion','dated capture','compact import review','home navigation','paid/unpaid unified list','original text','meal association reread without duplicate money','import receipt opens record','search','390px layout'],pageErrors:errors},null,2));console.log(`PASS consumption browser journey; artifacts: ${output}`);
+    await page.getByLabel('搜索本月消费').fill('合成食材店');await page.locator('.money-search').getByRole('button',{name:'搜索',exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('.money-records li').length===1);assert.match(await page.locator('.money-records').innerText(),/合成食材店/);
+
+    await page.goto(origin+`?tab=record&section=money&period=${date.slice(0,7)}`);
+    await page.locator('.money-period-total').getByText('CNY 43.00').waitFor();
+    await page.getByRole('button',{name:new RegExp(`^${date}，2 笔`)}).click();
+    await page.waitForFunction(()=>document.querySelectorAll('.money-records li').length===2);
+    await page.locator('.money-records').getByRole('link',{name:/合成午餐店/}).click();
+    await page.getByRole('link',{name:/返回消费与账单/}).click();
+    assert.equal(new URL(page.url()).searchParams.get('money_on'),date);
+
+    await page.getByRole('button',{name:/账单待处理/}).click();
+    await page.getByText('导入新的账单',{exact:true}).click();
+    const csv=`交易时间,交易类型,交易对方,商品,收/支,金额(元),支付方式,当前状态,交易单号
+${date} 11:00:00,商户消费,合成批量甲,样品,支出,3.50,零钱,支付成功,synthetic-bulk-one
+${date} 13:00:00,商户消费,合成批量乙,样品,支出,4.50,零钱,支付成功,synthetic-bulk-two`;
+    await page.getByLabel('选择账单文件').setInputFiles({name:'合成批量.csv',mimeType:'text/csv',buffer:Buffer.from(csv)});
+    await page.getByRole('button',{name:'生成复核候选'}).click();
+    await page.locator('.candidate-list').getByText('合成批量乙',{exact:true}).waitFor();
+    assert.equal((await pool.query('select count(*)::int n from money_entries')).rows[0].n,2);
+    await page.getByRole('button',{name:'选择多笔入账'}).click();
+    const preview=page.getByRole('region',{name:'批量入账预览'});
+    await preview.getByRole('checkbox',{name:/合成批量甲/}).check();
+    await preview.getByRole('checkbox',{name:/合成批量乙/}).check();
+    await page.setViewportSize({width:320,height:780});
+    await page.screenshot({path:join(output,'bulk-narrow.png'),fullPage:true});
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    await preview.getByRole('button',{name:'确认入账 2 笔'}).click();
+    await page.getByText('合成批量乙 · 已入账',{exact:true}).waitFor();
+    assert.equal((await pool.query('select count(*)::int n from money_entries')).rows[0].n,4);
+    assert.deepEqual(errors,[]);await writeFile(join(output,'result.json'),JSON.stringify({passed:true,cases:['health detail and date return','device sleep stages across midnight','workout time cursor','same-day health and meals','nutrient evidence and half portion','formal month rollup and calendar filters','statement file and explicit bulk confirmation','320px batch preview','diary day/coverage/half portion','dated capture','compact import review','home navigation','paid/unpaid unified list','original text','meal association reread without duplicate money','import receipt opens record','search','390px layout'],pageErrors:errors},null,2));console.log(`PASS consumption browser journey; artifacts: ${output}`);
   }catch(error){if(page){await page.screenshot({path:join(output,"failure.png"),fullPage:true});console.error(await page.locator("body").innerText());console.error(`Failure artifact: ${output}`)}throw error;}finally{if(browser)await browser.close();if(web)await web.close();if(server)await new Promise(resolve=>server.close(resolve));await unitOfWork.close();}
 });

@@ -38,6 +38,7 @@ import androidx.navigation.toRoute
 
 private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
 
+@kotlinx.serialization.Serializable internal data object ForeignMoneyRoute
 @kotlinx.serialization.Serializable internal data class DishCatalogRoute(val merchant:String="",val query:String="")
 
 @kotlinx.serialization.Serializable internal data object HealthArchiveRoute
@@ -109,7 +110,9 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
             viewModel.serviceCards,viewModel.selectedServiceCard,viewModel.serviceCardSubmit,viewModel::loadServiceCards,viewModel::loadMoreServiceCards,viewModel::openServiceCard,viewModel::closeServiceCard,viewModel::loadOlderServiceCardUses,viewModel::saveServiceCard,viewModel::recordServiceCardUse,viewModel::resetServiceCardSubmit,
             viewModel.moneyImportMonth,viewModel.moneyImportReview,viewModel.moneyImportSubmit,viewModel::loadMoneyImportMonth,viewModel::openMoneyImportBatch,viewModel::resolveMoneyImport,viewModel.moneyPeriod,viewModel::selectMoneyPeriod,route.focus,onCapturedOrders={nav.navigate(ActivityCaptureRoute("订单"))},
             onOrderStats={nav.navigate(ConsumptionStatsRoute)},onPriceBook={nav.navigate(PriceBookRoute())},onReturns={nav.navigate(ReturnCasesRoute)},
-            refundCandidates=viewModel.refundCandidates,onSearchRefunds=viewModel::loadRefundCandidates,importPendingId=viewModel.moneyImportPendingId,accountId=session.accountId
+            refundCandidates=viewModel.refundCandidates,onSearchRefunds=viewModel::loadRefundCandidates,importPendingId=viewModel.moneyImportPendingId,accountId=session.accountId,
+            importFileState=viewModel.importFileState,onStageImportFile=viewModel::stageMoneyStatement,
+            bulkImportState=viewModel.bulkImportState,onBulkImport=viewModel::confirmMoneyCandidates,onForeign={nav.navigate(ForeignMoneyRoute)}
           )
           LifeDomain.Travel->TravelWorkspaceScreen(
             visibleOverview,visibleWorkspace,{viewModel.reloadWorkspace()},viewModel::loadMoreWorkspace,{nav.popBackStack()},detail,capture,route.tab,viewModel::selectTravelTrip,{seed->openComposer(seed)},viewModel.submit,viewModel::saveTravelDay,viewModel::editAgain,viewModel::saveTravelChecklist,viewModel.offlineItinerary,viewModel::prepareOfflineItinerary,session.accountId
@@ -166,6 +169,12 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
           {date->nav.navigate(WorkspaceRoute(LifeDomain.Meals.name,"day/$date"))},
           {id->viewModel.loadDetail(LifeDomain.Health,id);nav.openRecord(LifeDomain.Health,id)},entry.toRoute<WellnessRoute>().date,entry.toRoute<WellnessRoute>().days,
           {domain,id->viewModel.loadDetail(domain,id);nav.openRecord(domain,id)})
+      }
+      composable<ForeignMoneyRoute>{
+        LifeFullScreen("外币与分摊",{nav.popBackStack()}){
+          NativeForeignMoney(session.accountId,viewModel.workspaceOverview,
+            {id->nav.openRecord(LifeDomain.Money,id)},{id->nav.openRecord(LifeDomain.Travel,id)})
+        }
       }
       composable<HealthArchiveRoute>{
         HealthArchiveScreen(session.accountId,{nav.popBackStack()}){id,page->nav.navigate(DetailRoute(LifeDomain.Library.name,id,"体检报告",page))}

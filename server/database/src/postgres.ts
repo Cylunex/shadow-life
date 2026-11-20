@@ -874,7 +874,7 @@ function storeFor(database: Database | Transaction): TransactionStore {
         ${options.period?sql`and left(value->>'occurred_on',7)=${options.period} and value->>'state'='confirmed'`:sql``}
         ${options.currency?sql`and value->>'currency'=${options.currency}`:sql``}
         ${options.entryType?sql`and value->>'entry_type'=${options.entryType}`:sql``}
-        ${options.on?sql`and value->>'occurred_on'=${options.on}`:sql``}
+        ${options.on?sql`and kind='money_entry' and value->>'occurred_on'=${options.on}`:sql``}
         ${options.category===undefined?sql``:sql`and coalesce(value->>'category','')=${options.category}`} and (${options.query??null}::text is null or lower(value::text) like ${pattern}) order by page_at desc,kind desc,id desc limit ${options.limit+1}`);return finish(result.rows);}
       if(domain==="health"){const result=await database.execute<{kind:string;id:string;page_at:string;value:Record<string,unknown>}>(sql`select kind,id,to_char(page_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') page_at,value from (
         select 'measurement'::text kind,id,created_at page_at,to_jsonb(value.*) value from health_measurements value where subject_id=${subjectId}

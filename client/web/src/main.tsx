@@ -1,3 +1,5 @@
+import { HealthDayOverview } from "./HealthDayOverview.js";
+import { dailyHref, offsetDate } from "./daily-navigation.js";
 import {PersonalRecords} from "./PersonalRecords.js";
 import { MorningCheckinPanel } from "./MorningCheckinPanel.js";
 import { FeatureDirectory } from "./FeatureDirectory.js";
@@ -7,7 +9,7 @@ import { WellnessReviewPanel } from "./WellnessReviewPanel.js";
 import { Assistant } from "./Assistant.js";
 import { lazy, Suspense, StrictMode, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import type { ExecutionResult } from "@shadow/contracts";
+import {localDate, type ExecutionResult} from "@shadow/contracts";
 import "./styles.css";
 import { loadDashboard, loadHealthTrend, type DashboardDomain, type HealthTrend, type HealthWorkspace, type TimelineItem, type TodayOverview } from "./dashboard.js";
 import { buildFormCommand, healthMetricUnits, initialRecordFields, type HealthMetric, type MealType, type PlanKind, type RecordFormFields, type RecordKind } from "./record-form.js";
@@ -49,13 +51,16 @@ function browserStorage(name:"localStorage"|"sessionStorage"):CommandStorage{try
 const persistentStorage=browserStorage("localStorage"),ephemeralStorage=browserStorage("sessionStorage");
 const commandController=new CommandController(fetch,writeHeaders,persistentStorage,`shadow-life:${location.origin}${location.pathname}`,ephemeralStorage);
 const command=commandController.execute;
+function dayFromLocation(){
+  const value=localDate.safeParse(new URLSearchParams(location.search).get("day"));
+  return value.success&&value.data>= "0002-01-01"&&value.data<=today()?value.data:today();
+}
 function App(){
-  const [mealDay,setMealDay]=useState(()=>{
-    const day=new URLSearchParams(location.search).get("day");
-    return day&&/^\d{4}-\d{2}-\d{2}$/u.test(day)&&!Number.isNaN(Date.parse(day))&&day<=today()?day:today();
-  });
+  const [mealDay,setMealDay]=useState(dayFromLocation);
+  const [healthWindow,setHealthWindow]=useState<7|30|90>(30);
   const [diaryVersion,setDiaryVersion]=useState(0);
   function chooseMealDay(day:string){
+    if(!localDate.safeParse(day).success||day<"0002-01-01"||day>today())return;
     setMealDay(day);
     const params=new URLSearchParams(location.search);
     params.set("day",day);
@@ -88,7 +93,7 @@ function App(){
   const [loadState,setLoadState]=useState<LoadState>("loading");
   const [pending,setPending]=useState(false);
   const [fields,setFields]=useState<RecordFormFields>(()=>initialRecordFields(today(),zone()));
-  async function load(){const trendGeneration=++trendRequest.current;setHealthMetric("weight");setLoadState("loading");try{const loaded=await loadDashboard(fetch,auth,{date:today(),timeZone:zone()});commandController.setIdentity(loaded.identity.issuer,loaded.identity.subjectId,loaded.identity.clientId);setIdentityKey(`${loaded.identity.issuer}:${loaded.identity.subjectId}:${loaded.identity.clientId}`);epochHeader=loaded.epochHeader;setData(loaded.data);setTodayData(loaded.today);setTimeline(loaded.timeline?.items??[]);setTimelineCursor(loaded.timeline?.next_cursor??null);setHealthWorkspace(current=>trendGeneration===trendRequest.current?loaded.health:current);setCapabilities(loaded.capabilities);setFields(current=>!loaded.capabilities.includes("money.set_budget")&&loaded.capabilities.includes("health.set_plan")&&current.planKind==="budget"?{...current,planKind:"goal"}:current);const labels:Record<DashboardDomain|"today"|"timeline",string>={meals:"饮食",money:"账目",health:"健康",travel:"旅行",library:"资料",today:"生活概览",timeline:"时间线"},messages=(Object.entries(loaded.errors) as [DashboardDomain|"today"|"timeline",string][]).map(([domain,message])=>`${labels[domain]}：${message}`);setReadError(messages.length?messages.join("；"):undefined);setLoadState(messages.length||!loaded.today?"partial":"ready");}catch(caught){setReadError(caught instanceof Error?caught.message:"读取失败");setLoadState("error");}}
+  async function load(){const trendGeneration=++trendRequest.current;setLoadState("loading");try{const loaded=await loadDashboard(fetch,auth,{date:today(),timeZone:zone()});commandController.setIdentity(loaded.identity.issuer,loaded.identity.subjectId,loaded.identity.clientId);setIdentityKey(`${loaded.identity.issuer}:${loaded.identity.subjectId}:${loaded.identity.clientId}`);epochHeader=loaded.epochHeader;setData(loaded.data);setTodayData(loaded.today);setTimeline(loaded.timeline?.items??[]);setTimelineCursor(loaded.timeline?.next_cursor??null);setHealthWorkspace(current=>trendGeneration===trendRequest.current?loaded.health:current);setCapabilities(loaded.capabilities);setFields(current=>!loaded.capabilities.includes("money.set_budget")&&loaded.capabilities.includes("health.set_plan")&&current.planKind==="budget"?{...current,planKind:"goal"}:current);const labels:Record<DashboardDomain|"today"|"timeline",string>={meals:"饮食",money:"账目",health:"健康",travel:"旅行",library:"资料",today:"生活概览",timeline:"时间线"},messages=(Object.entries(loaded.errors) as [DashboardDomain|"today"|"timeline",string][]).map(([domain,message])=>`${labels[domain]}：${message}`);setReadError(messages.length?messages.join("；"):undefined);setLoadState(messages.length||!loaded.today?"partial":"ready");}catch(caught){setReadError(caught instanceof Error?caught.message:"读取失败");setLoadState("error");}}
   useEffect(()=>{void load()},[]);
   useEffect(()=>{const query=new URLSearchParams(location.search);if(toolsOpen)query.set("tools","1");else query.delete("tools");history.replaceState(null,"",`${location.pathname}?${query}${location.hash}`);},[toolsOpen]);
   useLayoutEffect(()=>{const previous=history.scrollRestoration;history.scrollRestoration="manual";return()=>{history.scrollRestoration=previous;};},[]);
@@ -97,6 +102,7 @@ function App(){
   useEffect(()=>{const query=new URLSearchParams(window.location.search);query.set("tab",assistantOpen?"assistant":tab);if(tab!=="today")query.set("section",section);else query.delete("section");history.replaceState(null,"",`${location.pathname}?${query.toString()}${location.hash}`);},[tab,section,assistantOpen]);
   useEffect(()=>{
     const restore=()=>{
+      setMealDay(dayFromLocation());
       const query=new URLSearchParams(location.search),next=query.get("tab");
       setAssistantOpen(next==="assistant");
       const restored:Tab=next==="record"||next==="plan"||next==="library"?next:"today";
@@ -112,26 +118,28 @@ function App(){
       const query=new URLSearchParams(location.search);
       query.set("tab",next);
       if(target)query.set("section",target);else query.delete("section");
-      for(const key of ["domain","kind","id","record_id","focus","period","item","batch","money_tab"])query.delete(key);
+      for(const key of ["domain","kind","id","record_id","focus","period","item","batch","money_tab","money_currency","money_on","entry_type","category","q"])query.delete(key);
       history.pushState(null,"",`${location.pathname}?${query}${location.hash}`);
     }
     setAssistantOpen(false);setTab(next);if(target)setSection(target);
   }
   function openCapture(kind?:RecordKind,day=today()){if(kind){setCaptureKind(kind);setFields({...initialRecordFields(day,zone()),kind});setCaptureMessage(undefined);}else if(captureMessage){setCaptureKind(undefined);setCaptureMessage(undefined);}setCaptureError(undefined);setQuickOpen(true);}
   async function save(event:FormEvent){event.preventDefault();setPending(true);setError(undefined);try{if(tab==="today"||tab==="record")return;const built=buildFormCommand(tab,fields);setResult(await command(built.capability,built.input,`entry:${tab}`));setFields(initialRecordFields(today(),zone()));await load();}catch(caught){setError(caught instanceof Error?caught.message:"保存失败");}finally{setPending(false);}}
-  async function saveCapture(event:FormEvent){event.preventDefault();setPending(true);setCaptureError(undefined);setCaptureMessage(undefined);const saved={kind:fields.kind,title:fields.title,amount:fields.amount,mealType:fields.mealType,metric:fields.healthMetric};try{const built=buildFormCommand("record",fields);await command(built.capability,built.input,`capture:${fields.kind}`);setCaptureMessage(captureSuccess(saved));if(saved.kind==="meal")setDiaryVersion(value=>value+1);setFields(initialRecordFields(today(),zone()));await load();}catch(caught){setCaptureError(caught instanceof Error?caught.message:"保存失败");}finally{setPending(false);}}
-  async function selectHealthMetric(metric:HealthMetric){
-    const request=++trendRequest.current;
-    setHealthMetric(metric);
+  async function saveCapture(event:FormEvent){event.preventDefault();setPending(true);setCaptureError(undefined);setCaptureMessage(undefined);const saved={kind:fields.kind,title:fields.title,amount:fields.amount,mealType:fields.mealType,metric:fields.healthMetric};try{const built=buildFormCommand("record",fields);await command(built.capability,built.input,`capture:${fields.kind}`);setCaptureMessage(captureSuccess(saved));if(saved.kind==="meal"||saved.kind==="health")setDiaryVersion(value=>value+1);setFields(initialRecordFields(today(),zone()));await load();}catch(caught){setCaptureError(caught instanceof Error?caught.message:"保存失败");}finally{setPending(false);}}
+  useEffect(()=>{
+    if(tab!=="record"||section!=="health"||!capabilities.includes("health.trend"))return;
+    const controller=new AbortController(),request=++trendRequest.current;
     setHealthWorkspace(current=>{const next={...current};delete next.trend;const errors={...next.errors};delete errors.trend;return {...next,errors};});
-    try{
-      const trend=await loadHealthTrend(fetch,auth,metric);
-      if(request!==trendRequest.current)return;
-      setHealthWorkspace(current=>{const errors={...(current?.errors??{})};delete errors.trend;return{...current,trend,errors};});
-    }catch(caught){
-      if(request===trendRequest.current)setHealthWorkspace(current=>({...current,errors:{...(current?.errors??{}),trend:caught instanceof Error?caught.message:"读取失败"}}));
-    }
-  }
+    void loadHealthTrend(fetch,auth,healthMetric,{from:offsetDate(mealDay,1-healthWindow),to:mealDay,signal:controller.signal})
+      .then(trend=>{
+        if(request!==trendRequest.current||controller.signal.aborted)return;
+        setHealthWorkspace(current=>{const errors={...current?.errors};delete errors.trend;return{...current,trend,errors};});
+      }).catch(caught=>{
+        if(request===trendRequest.current&&!controller.signal.aborted)setHealthWorkspace(current=>({...current,errors:{...current?.errors,trend:caught instanceof Error?caught.message:"读取失败"}}));
+      });
+    return()=>controller.abort();
+  },[tab,section,capabilities,healthMetric,mealDay,healthWindow,diaryVersion]);
+
   const visible=new Set(capabilities),hasHealthWorkspace=visible.has("health.daily")||visible.has("health.trend")||visible.has("health.sources"),selection=selectionFromLocation(window.location.search),header=headerCopy(tab);
   return <main className="app-shell">
     <header className={`app-header header-${tab}`}><div className="brand-lockup"><img src={appIcon} alt=""/><div><span className="eyebrow">SHADOW LIFE</span><h1>{header.title}</h1><p>{header.subtitle}</p></div></div><div className="header-actions"><button type="button" onClick={()=>setFeaturesOpen(true)}>查找功能</button><span className="date-chip">{formatToday()}</span>{visible.has("agent.discover")&&<button type="button" className="agent-tools-entry" onClick={()=>setToolsOpen(true)}>能力目录</button>}<button type="button" className="icon-button assistant-button" aria-label="打开生活助手" onClick={()=>setAssistantOpen(true)}><AppIcon name="assistant"/><span className="activity-dot"/></button></div>{readError?.includes("登录")&&<a href="/auth/login">重新登录</a>}</header>
@@ -143,16 +151,23 @@ function App(){
         if(selection){
           location.search=new URLSearchParams({tab:"record",section:"food",day}).toString();
         }else chooseMealDay(day);
-      }} headers={auth} timeZone={zone()} refreshKey={diaryVersion}
+      }} headers={auth} timeZone={zone()} refreshKey={diaryVersion} canReadHealth={visible.has("health.daily")}
         {...(visible.has("life.record_meal")?{onCapture:(day:string)=>openCapture("meal",day)}:{})}
         detail={selection?.domain==="meals"?<RecordBrowser timeline={[]} nextCursor={null} selection={selection}
           capabilities={visible} headers={auth} execute={command}
           returnTo={{href:`?${new URLSearchParams({tab:"record",section:"food",day:mealDay})}`,label:"返回当天餐次"}}
           onChanged={async()=>{setDiaryVersion(value=>value+1);await load();}}/>:null}/>}
-    {!selection&&tab==="record"&&section==="food"&&visible.has("life.food_catalog")&&<FoodCatalogPanel headers={auth} date={today()} timeZone={zone()} canSaveFood={visible.has("life.save_food")} canSaveRecipe={visible.has("life.save_recipe")} canRecordRecipe={visible.has("life.record_meal_from_recipe")} execute={command} onChanged={load}/>} {tab==="record"&&section==="health"&&hasHealthWorkspace&&<HealthPanel workspace={healthWorkspace} metric={healthMetric} onMetric={selectHealthMetric}/>} {tab==="record"&&section==="health"&&visible.has("health.records")&&<button type="button" onClick={()=>navigate("record","training")}>训练计划 · 选动作与开始训练 →</button>} {tab==="record"&&section==="training"&&visible.has("health.records")&&<WorkoutMenuPanel key={identityKey} identityKey={identityKey} headers={auth} capabilities={visible} execute={command} date={today()} timeZone={zone()} onChanged={load}/>} {tab==="record"&&section==="health"&&visible.has("health.record_workout")&&<WorkoutPanel records={data.health??[]} date={today()} timeZone={zone()} execute={command} onChanged={load} headers={auth} canProgression={visible.has("health.workout_progression")}/>} {tab==="plan"&&section==="import"&&<MoneyImportPanel enabled={visible.has("money.stage_import")&&visible.has("money.import_review")} headers={auth} execute={command} timeZone={zone()}/>} {tab==="plan"&&section==="agent"&&visible.has("agent.intentions")&&<PersonalAgentPanel key={identityKey} identityKey={identityKey} headers={auth} capabilities={visible} execute={command}/>} {tab==="plan"&&section==="projects"&&visible.has("life.projects")&&<LifeProjectPanel headers={auth} capabilities={visible} execute={command} identityKey={identityKey}/>} {tab==="plan"&&section==="budget"&&visible.has("money.planning")&&<MoneyPlanningPanel key={identityKey} headers={auth} capabilities={visible} execute={command}/>} {tab==="plan"&&section==="meals"&&visible.has("life.meal_planning")&&<MealPlanningPanel headers={auth} capabilities={visible} execute={command}/>} {tab==="plan"&&section==="reviews"&&visible.has("life.reviews")&&<LifeReviewPanel headers={auth} capabilities={visible} execute={command}/>} {tab==="plan"&&section==="travel"&&visible.has("travel.workspace")&&<TravelPanel headers={auth} capabilities={visible} execute={command}/>}</section>}
-    {tab==="record"&&section==="health"&&visible.has("health.morning_window")&&<MorningCheckinPanel key={`morning:${identityKey}`} headers={auth} execute={command} date={today()} canWrite={visible.has("health.save_morning_checkin")}/>}
-    {((tab==="record"&&["health","training","items","food","meals","travel","money","reviews"].includes(section))||(tab==="library"&&section==="browse"))&&<PersonalRecords key={identityKey+section} headers={auth} execute={command} capabilities={visible} sections={section==="health"?["体检项目对照","不适发作","路线与训练复盘"]:section==="training"?["路线与训练复盘"]:section==="items"?["收纳位置","售后与消费来源"]:section==="food"||section==="meals"?["门店食品库"]:section==="travel"?["旅行小记与票据"]:section==="money"?["售后与消费来源"]:section==="browse"?["资料筛选","精选录音"]:["精选录音","线下时间线"]}/>}
-    {tab==="record"&&(section==="health"||section==="food")&&(visible.has("life.diet_review")||visible.has("life.wellness_review"))&&<WellnessReviewPanel key={identityKey+section+(section==="food"?mealDay:"")} headers={auth} date={section==="food"?mealDay:today()} capabilities={visible} execute={command}/>}
+    {!selection&&tab==="record"&&section==="food"&&visible.has("life.food_catalog")&&<FoodCatalogPanel headers={auth} date={today()} timeZone={zone()} canSaveFood={visible.has("life.save_food")} canSaveRecipe={visible.has("life.save_recipe")} canRecordRecipe={visible.has("life.record_meal_from_recipe")} execute={command} onChanged={load}/>} {tab==="record"&&section==="health"&&hasHealthWorkspace&&(!selection?<HealthPanel workspace={healthWorkspace} metric={healthMetric} onMetric={setHealthMetric}
+      day={mealDay} span={healthWindow} onSpan={setHealthWindow} canTrend={visible.has("health.trend")}
+      daily={visible.has("health.daily")&&<HealthDayOverview day={mealDay} today={today()} headers={auth} onDay={chooseMealDay}
+        version={diaryVersion} canOpenRecords={visible.has("health.get_record")} canReadMeals={visible.has("life.list_meals")}/>}
+      review={visible.has("life.list_meals")&&(visible.has("life.wellness_review")||visible.has("life.diet_review"))}/>
+      :selection.domain==="health"&&<RecordBrowser timeline={[]} nextCursor={null} selection={selection} capabilities={visible} headers={auth}
+        execute={command} returnTo={{href:dailyHref("health",mealDay),label:"返回当天健康"}}
+        onChanged={async()=>{setDiaryVersion(n=>n+1);await load();}}/>)} {tab==="record"&&section==="health"&&!selection&&visible.has("health.records")&&<button type="button" onClick={()=>navigate("record","training")}>训练计划 · 选动作与开始训练 →</button>} {tab==="record"&&section==="training"&&visible.has("health.records")&&<WorkoutMenuPanel key={identityKey} identityKey={identityKey} headers={auth} capabilities={visible} execute={command} date={today()} timeZone={zone()} onChanged={load}/>} {tab==="record"&&section==="health"&&!selection&&visible.has("health.record_workout")&&<WorkoutPanel records={data.health??[]} date={today()} timeZone={zone()} execute={command} onChanged={load} headers={auth} canProgression={visible.has("health.workout_progression")}/>} {tab==="plan"&&section==="import"&&<MoneyImportPanel enabled={visible.has("money.import_review")} canStage={visible.has("money.stage_import")} canResolve={visible.has("money.resolve_import_candidate")} headers={auth} execute={command} timeZone={zone()}/>} {tab==="plan"&&section==="agent"&&visible.has("agent.intentions")&&<PersonalAgentPanel key={identityKey} identityKey={identityKey} headers={auth} capabilities={visible} execute={command}/>} {tab==="plan"&&section==="projects"&&visible.has("life.projects")&&<LifeProjectPanel headers={auth} capabilities={visible} execute={command} identityKey={identityKey}/>} {tab==="plan"&&section==="budget"&&visible.has("money.planning")&&<MoneyPlanningPanel key={identityKey} headers={auth} capabilities={visible} execute={command}/>} {tab==="plan"&&section==="meals"&&visible.has("life.meal_planning")&&<MealPlanningPanel headers={auth} capabilities={visible} execute={command}/>} {tab==="plan"&&section==="reviews"&&visible.has("life.reviews")&&<LifeReviewPanel headers={auth} capabilities={visible} execute={command}/>} {tab==="plan"&&section==="travel"&&visible.has("travel.workspace")&&<TravelPanel headers={auth} capabilities={visible} execute={command}/>}</section>}
+    {tab==="record"&&section==="health"&&!selection&&visible.has("health.morning_window")&&<MorningCheckinPanel key={`morning:${identityKey}:${mealDay}`} headers={auth} execute={command} date={mealDay} canWrite={visible.has("health.save_morning_checkin")}/>}
+    {!selection&&((tab==="record"&&["health","training","items","food","meals","travel","money","reviews"].includes(section))||(tab==="library"&&section==="browse"))&&<PersonalRecords key={identityKey+section} headers={auth} execute={command} capabilities={visible} sections={section==="health"?["体检项目对照","不适发作","路线与训练复盘"]:section==="training"?["路线与训练复盘"]:section==="items"?["收纳位置","售后与消费来源"]:section==="food"||section==="meals"?["门店食品库"]:section==="travel"?["旅行小记与票据"]:section==="money"?["售后与消费来源"]:section==="browse"?["资料筛选","精选录音"]:["精选录音","线下时间线"]}/>}
+    {!selection&&tab==="record"&&(section==="health"||section==="food")&&(visible.has("life.diet_review")||visible.has("life.wellness_review"))&&<div id="wellness"><WellnessReviewPanel key={identityKey+section+mealDay} headers={auth} date={mealDay} capabilities={visible} execute={command}/></div>}
     {tab==="record"&&(section==="food"||section==="meals")&&visible.has("life.merchant_menu")&&<CanteenMenuPanel key={identityKey} headers={auth} execute={command} canEdit={visible.has("life.remember_merchant_dish")}/>}
     {tab==="record"&&section==="stats"&&visible.has("life.consumption_stats")&&<ConsumptionStatsPanel headers={auth}/>}
     {tab==="plan"&&section==="cards"&&visible.has("money.service_cards")&&<ServiceCardsPanel headers={auth} capabilities={visible} execute={command}/>}
@@ -182,38 +197,34 @@ function HealthMetricSelect({fields,setFields}:{fields:RecordFormFields;setField
 type AppIconName="today"|"record"|"plan"|"library"|"assistant"|"add"|"money"|"meal"|"health"|"income"|"travel"|"items"|"weight"|"sleep"|"workout"|"sync"|"chevron"|"check";
 function AppIcon({name}:{name:AppIconName}){const paths:Record<AppIconName,ReactNode>={today:<><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v10h13V10M9 20v-6h6v6"/></>,record:<><path d="M6 4h12M6 10h12M6 16h8"/><circle cx="4" cy="4" r=".7"/><circle cx="4" cy="10" r=".7"/><circle cx="4" cy="16" r=".7"/></>,plan:<><path d="M7 4h10a2 2 0 0 1 2 2v14H5V6a2 2 0 0 1 2-2Z"/><path d="M9 2v4M15 2v4M8 10l2 2 5-5M8 16h8"/></>,library:<><path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2V4Z"/><path d="M7 4v16M10 8h6M10 12h5"/></>,assistant:<><path d="m12 3 1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3Z"/><path d="m18.5 15 .7 2.3 2.3.7-2.3.7-.7 2.3-.7-2.3-2.3-.7 2.3-.7.7-2.3Z"/></>,add:<path d="M12 5v14M5 12h14"/>,money:<><path d="M12 3v18M16.5 7.5c0-1.7-1.8-3-4.5-3s-4.5 1.2-4.5 3 1.8 2.7 4.5 3 4.5 1.3 4.5 3.2-1.8 3-4.5 3-4.5-1.3-4.5-3"/></>,meal:<><path d="M7 3v8M4.5 3v5a2.5 2.5 0 0 0 5 0V3M7 11v10M16 3v18M16 3c3 2 4 6 0 9"/></>,health:<><path d="M20 9c0 5-8 10-8 10S4 14 4 9a4 4 0 0 1 7-2.7A4 4 0 0 1 20 9Z"/><path d="M8 11h2l1-2 2 5 1-3h2"/></>,income:<><path d="M5 17 17 5M9 5h8v8"/></>,travel:<><circle cx="12" cy="12" r="8"/><path d="M15.5 8.5 13.2 13l-4.7 2.5 2.3-4.6 4.7-2.4Z"/></>,items:<><path d="M5 8.5 12 4l7 4.5v8L12 21l-7-4.5Z"/><path d="m5 8.5 7 4.5 7-4.5M12 13v8"/></>,weight:<><path d="M5 8a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v11H5Z"/><path d="M9 9a3 3 0 0 1 6 0M12 9l2-1"/></>,sleep:<path d="M18.5 16.5A7 7 0 0 1 7.5 7a7 7 0 1 0 11 9.5Z"/>,workout:<><path d="M7 8v8M4 10v4M17 8v8M20 10v4M7 12h10"/></>,sync:<><path d="M20 7h-5V2"/><path d="M4 17h5v5M19 12a7 7 0 0 0-12-5l-2 2M5 12a7 7 0 0 0 12 5l2-2"/></>,chevron:<path d="m9 5 7 7-7 7"/>,check:<path d="m5 12 4 4L19 6"/>};return <svg className="app-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>}
 function NavButton({value,current,set,icon,label}:{value:Tab;current:Tab;set:(value:Tab)=>void;icon:AppIconName;label:string}){return <button type="button" className={current===value?"active":""} aria-current={current===value?"page":undefined} onClick={()=>set(value)}><span className="nav-icon" aria-hidden="true"><AppIcon name={icon}/></span>{label}</button>}
-function HealthPanel({workspace,metric,onMetric}:{workspace:HealthWorkspace|undefined;metric:HealthMetric;onMetric:(metric:HealthMetric)=>Promise<void>}){
-  const daily=asObject(workspace?.daily),summary=asObject(daily.result),activity=asObject(summary.activity),sleep=asObject(summary.sleep),trend=workspace?.trend,healthConnect=workspace?.sources?.find(source=>source.source_type==="health_connect"),samsung=workspace?.sources?.find(source=>source.source_type==="samsung"),scale=workspace?.sources?.find(source=>source.source_type==="scale"),canSync=typeof window.ShadowLifeHost?.syncHealth==="function";
+function HealthPanel({workspace,metric,onMetric,day,span,onSpan,canTrend,daily,review}:{
+  workspace:HealthWorkspace|undefined;metric:HealthMetric;onMetric:(metric:HealthMetric)=>void;
+  day:string;span:7|30|90;onSpan:(span:7|30|90)=>void;canTrend:boolean;daily:ReactNode;review:boolean
+}){
+  const trend=workspace?.trend,healthConnect=workspace?.sources?.find(source=>source.source_type==="health_connect"),samsung=workspace?.sources?.find(source=>source.source_type==="samsung"),scale=workspace?.sources?.find(source=>source.source_type==="scale"),canSync=typeof window.ShadowLifeHost?.syncHealth==="function";
   return <section className="health-panel">
-    <div className="panel-heading"><h2>健康概览</h2><small>{formatToday()}</small></div>
+    <div className="panel-heading"><h2>健康概览</h2><small>{day}</small></div>
     <div className="health-grid">
-      <section className="health-card daily-health-card">
-        <h3>今日活动</h3>
-        {workspace?.errors.daily?<p role="alert">{workspace.errors.daily}</p>:<div className="health-metric-grid">
-          <HealthMetricTile icon="workout" label="步数" value={scalar(activity.steps)}/>
-          <HealthMetricTile icon="sync" label="活动分钟" value={scalar(activity.active_minutes)}/>
-          {typeof sleep.id==="string"&&<a href={selectionHref({domain:"health",kind:"sleep_session",id:sleep.id,happened_at:today(),title:"主睡眠"})}>
-            <HealthMetricTile icon="sleep" label="主睡眠 · 今天醒来" value={`${scalar(sleep.total_minutes)} 分钟`}/>
-          </a>}
-        </div>}
-      </section>
-      <div className="health-trend-layout">
+      {daily}
+      {canTrend&&<div className="health-trend-layout">
         <aside className="health-card">
           <label>趋势指标<select value={metric} onChange={event=>void onMetric(event.target.value as HealthMetric)}>
             {Object.entries(healthMetricLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}
           </select></label>
+          <fieldset><legend>趋势范围</legend><div className="panel-actions">{([7,30,90] as const).map(value=>
+            <button type="button" className="secondary" aria-pressed={span===value} key={value} onClick={()=>onSpan(value)}>{value} 天</button>)}</div></fieldset>
+          {review&&<a href={dailyHref("food",day,{days:String(span)})+"#wellness"}>查看同期饮食复盘</a>}
         </aside>
         <section className="health-card trend-card"><h3>{healthMetricLabels[metric]}趋势</h3>
-          {workspace?.errors.trend?<p role="alert">{workspace.errors.trend}</p>:<TrendTable trend={trend}/>}
+          {workspace?.errors.trend?<p role="alert">{workspace.errors.trend}</p>:trend?<TrendTable trend={trend} day={day}/>:<p role="status">正在读取趋势…</p>}
         </section>
-      </div>
+      </div>}
       <section className="health-card sources-card"><div className="panel-heading compact"><div className="heading-with-icon"><span className="panel-icon sync"><AppIcon name="sync"/></span><div><h3>设备与来源</h3><p>已接收的设备数据</p></div></div>{canSync&&<button type="button" className="icon-label-button" onClick={()=>window.ShadowLifeHost?.syncHealth?.()}><AppIcon name="sync"/>同步数据</button>}</div><div className="device-source-grid"><SourceOverview icon="health" title="Samsung Health" state={samsung?.permission_state??healthConnect?.permission_state} note={samsung?"直连来源已接收":healthConnect?"经 Health Connect 接收":"尚无三星健康来源"}/><SourceOverview icon="weight" title="体重秤" state={scale?.permission_state??healthConnect?.permission_state} note={scale?"体重秤直连来源已接收":healthConnect?"经 Health Connect 接收":"尚无体重秤来源"}/></div>{!canSync&&<p className="source-guidance">设备授权和立即同步请在 Android 客户端完成；网页展示已经安全接收的数据。</p>}{workspace?.errors.sources?<p className="inline-error">{workspace.errors.sources}</p>:!workspace?.sources?.length?<p>还没有已连接的数据来源。</p>:<ul className="source-list">{workspace.sources.map(source=><li key={`${source.source_type}:${source.instance_key}`}><div><b>{sourceLabel(source.source_type)}</b><span className={`status ${source.permission_state}`}>{permissionLabel(source.permission_state)}</span></div><small>{source.instance_key} · 同步代次 {source.sync_epoch}</small>{source.cursors.length?<ul>{source.cursors.map(cursor=><li key={`${cursor.device_id}:${cursor.record_type}`}>{recordTypeLabel(cursor.record_type)} · {cursor.state} · {formatDateTime(cursor.updated_at)}</li>)}</ul>:<small>暂无同步进度</small>}</li>)}</ul>}</section>
     </div>
   </section>;
 }
-function TrendTable({trend}:{trend:HealthTrend|undefined}){if(!trend)return <p>暂无趋势数据。</p>;if(!trend.points.length)return <p>这个指标还没有有效测量。</p>;const latest=trend.points.at(-1)!;return <><div className="trend-hero"><div><small>最近测量</small><strong>{latest.value}<span>{latest.unit}</span></strong></div><Sparkline values={trend.points.map(point=>Number(point.value))}/></div><div className="trend-summary"><b>{trend.coverage.points} 个有效点</b><span>{trend.coverage.from} 至 {trend.coverage.to}{trend.coverage.truncated?" · 仅显示最近 90 个":""}</span></div><ol className="trend-list">{[...trend.points].reverse().slice(0,8).map(point=><li key={point.id}><time>{point.occurred_on}</time><a href={selectionHref({domain:"health",kind:"health_measurement",id:point.id,happened_at:point.occurred_at??point.occurred_on,title:healthMetricLabels[trend.metric_key as HealthMetric]??"测量"})}>{point.value} {point.unit}</a><small>{sourceLabel(point.source_kind)}</small></li>)}</ol></>}
+function TrendTable({trend,day}:{trend:HealthTrend|undefined;day:string}){if(!trend)return <p>暂无趋势数据。</p>;if(!trend.points.length)return <p>这个指标还没有有效测量。</p>;const latest=trend.points.at(-1)!;return <><div className="trend-hero"><div><small>最近测量</small><strong>{latest.value}<span>{latest.unit}</span></strong></div><Sparkline values={trend.points.map(point=>Number(point.value))}/></div><div className="trend-summary"><b>{trend.coverage.points} 个有效点</b><span>{trend.coverage.from} 至 {trend.coverage.to}{trend.coverage.truncated?" · 仅显示最近 90 个":""}</span></div><ol className="trend-list">{[...trend.points].reverse().slice(0,8).map(point=><li key={point.id}><time>{point.occurred_on}</time><a href={dailyHref("health",day,{domain:"health",kind:"health_measurement",id:point.id})}>{point.value} {point.unit}</a><small>{sourceLabel(point.source_kind)}</small></li>)}</ol></>}
 function SourceOverview({icon,title,state,note}:{icon:AppIconName;title:string;state:string|undefined;note:string}){return <article><span className={`panel-icon ${icon}`}><AppIcon name={icon}/></span><div><b>{title}</b><span className={`status ${state??"unknown"}`}>{state?permissionLabel(state):"待连接"}</span><small>{note}</small></div></article>}
-function HealthMetricTile({icon,label,value}:{icon:AppIconName;label:string;value:string|number}){return <article><span className="metric-tile-icon"><AppIcon name={icon}/></span><strong>{value}</strong><small>{label}</small></article>}
 function MetricTerm({label,value}:{label:string;value:string|number}){return <><dt>{label}</dt><dd>{value}</dd></>}
 function asObject(value:unknown):Record<string,unknown>{return value!==null&&typeof value==="object"&&!Array.isArray(value)?value as Record<string,unknown>:{};}
 function asArray(value:unknown):unknown[]{return Array.isArray(value)?value:[];}

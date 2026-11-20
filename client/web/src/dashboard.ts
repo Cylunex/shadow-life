@@ -31,4 +31,9 @@ export async function loadDashboard(fetcher:typeof fetch,headers:HeadersInit,opt
   return{data,...(today?{today}:{}),...(timeline?{timeline}:{}),...(health?{health}:{}),capabilities:[...visible].sort(),identity:{subjectId:capabilityBody.subject_id,clientId:capabilityBody.client_id,issuer:capabilityBody.issuer},errors,epochHeader};
 }
 
-export async function loadHealthTrend(fetcher:typeof fetch,headers:HeadersInit,metric:string):Promise<HealthTrend>{const response=await fetcher(`/api/health/trend?metric_key=${encodeURIComponent(metric)}&limit=90`,{headers});if(!response.ok)throw new Error(`HTTP ${response.status}`);return response.json() as Promise<HealthTrend>;}
+export async function loadHealthTrend(fetcher:typeof fetch,headers:HeadersInit,metric:string,range?:{from:string;to:string;signal:AbortSignal}):Promise<HealthTrend>{
+  const query=`metric_key=${encodeURIComponent(metric)}&limit=90`+(range?`&${new URLSearchParams({from:range.from,to:range.to})}`:"");
+  const response=await fetcher(`/api/health/trend?${query}`,{headers,...(range?{signal:range.signal}:{})});
+  if(!response.ok)throw new Error(`HTTP ${response.status}`);
+  return response.json() as Promise<HealthTrend>;
+}

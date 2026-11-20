@@ -51,7 +51,10 @@ import kotlin.math.abs
   onSaveCard:(NativeServiceCardDraft)->Unit,onCardUse:(NativeServiceCardUseDraft)->Unit,onResetCard:()->Unit,
   importMonth:LoadState<MoneyImportMonthSummary>,importReview:LoadState<MoneyImportReviewSummary>?,importSubmit:SubmitState,onLoadImportMonth:(String)->Unit,onOpenImportBatch:(String)->Unit,onResolveImport:(MoneyImportCandidateSummary,String,String,String,String,String,String)->Unit,
   planningPeriod:String,onPlanningPeriod:(String)->Unit,focusId:String="",onCapturedOrders:()->Unit={},onOrderStats:()->Unit,onPriceBook:()->Unit,onReturns:()->Unit,
-  refundCandidates:LoadState<RecordPage>,onSearchRefunds:(String)->Unit,importPendingId:String?,accountId:String
+  refundCandidates:LoadState<RecordPage>,onSearchRefunds:(String)->Unit,importPendingId:String?,accountId:String,
+  importFileState:SubmitState=SubmitState.Editing,onStageImportFile:((Uri)->Unit)?=null,
+  bulkImportState:MoneyBulkImport?=null,onBulkImport:((String,List<MoneyImportCandidateSummary>)->Unit)?=null,
+  onForeign:()->Unit={}
 ){
   var tab by rememberSaveable(initialTab){mutableStateOf(initialTab.takeIf{it in setOf("overview","details","stats","budgets","recurring","intents","supplies","cards","reconcile")}?:"overview")};var query by rememberSaveable{mutableStateOf("")}
   var returnTab by rememberSaveable{mutableStateOf<String?>(null)}
@@ -105,11 +108,12 @@ import kotlin.math.abs
     if(tab in setOf("details","reconcile"))item{
       returnTab?.let{previous->TextButton(onClick=::returnFromDetails){Text(if(previous=="stats")"返回统计" else "返回概览")}}
       WorkspaceTabs(tab,{tab=it},listOf("details" to "正式明细","reconcile" to "账单待处理"))
-      TextButton(onClick=onCapturedOrders){Text("采集订单")}
+      Row{TextButton(onClick=onCapturedOrders){Text("采集订单")};TextButton(onClick=onForeign){Text("外币与分摊")}}
     }
     if(tab=="cards")item{NativeServiceCardsSection(cardsState,selectedCard,cardSubmit,records,onLoadCards,onSearch,onMoreCards,onOpenCard,onCloseCard,onOlderUses,onSaveCard,onCardUse,onResetCard)}
     if(tab=="reconcile")item(key="money-import-review"){NativeMoneyImportSection(planningPeriod,importMonth,importReview,importSubmit,onLoadImportMonth,onOpenImportBatch,
-      onResolveImport,refundCandidates,onSearchRefunds,importPendingId){id->onDetail(LifeDomain.Money,id,"账单关联记录")}}
+      onResolveImport,refundCandidates,onSearchRefunds,importPendingId,{id->onDetail(LifeDomain.Money,id,"账单关联记录")},
+      importFileState,onStageImportFile,bulkImportState,onBulkImport)}
     if(focusId.isNotBlank()&&overview!=null)item{Text("提醒关联事项",style=MaterialTheme.typography.titleMedium);if((tab=="recurring"&&overview.occurrenceDetails.none{it.id==focusId})||(tab=="supplies"&&overview.useCycleDetails.none{it.id==focusId}))Text("该事项当前未加载或已不可用，请返回查看其他事项。")}
     if(tab=="details"){
       item{

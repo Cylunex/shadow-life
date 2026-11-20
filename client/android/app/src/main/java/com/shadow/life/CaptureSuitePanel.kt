@@ -5,7 +5,6 @@ import android.app.StatusBarManager
 import android.content.*
 import android.content.pm.PackageManager
 import android.graphics.drawable.Icon
-import android.media.*
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -27,7 +26,8 @@ import java.time.LocalDate
 @Composable internal fun CaptureSuitePanel(accountId:String,date:LocalDate,initialSection:String="录音",onMoneyRecord:(String)->Unit={}){
  val context=LocalContext.current;val app=context.applicationContext as ShadowApp;val scope=rememberCoroutineScope();val repository=remember(accountId){NativeLifeRepository(context,app)}
  var data by remember(accountId){mutableStateOf<CaptureWorkspaceResultDto?>(null)};var busy by remember(accountId){mutableStateOf(false)};var message by remember(accountId){mutableStateOf<String?>(null)}
- var section by remember(accountId,initialSection){mutableStateOf(initialSection)};var placeName by remember(accountId){mutableStateOf("")};var player by remember(accountId){mutableStateOf<MediaPlayer?>(null)}
+ var section by remember(accountId,initialSection){mutableStateOf(initialSection)};var placeName by remember(accountId){mutableStateOf("")}
+ val playback=remember(accountId,date,section){RecordingPlayback()}
  var source by remember(accountId){mutableStateOf<ActivitySourceResultDto?>(null)}
  var deleteSegment by remember(accountId){mutableStateOf<String?>(null)};var editing by remember(accountId){mutableStateOf<CaptureWorkspaceResultDtoRecordingsEntry?>(null)};var editIndex by remember(accountId){mutableIntStateOf(0)};var editText by remember(accountId){mutableStateOf("")}
  var showOrderSettings by rememberSaveable(accountId){mutableStateOf(false)}
@@ -43,7 +43,10 @@ import java.time.LocalDate
  fun startLocation(){ContextCompat.startForegroundService(context,Intent(context,LifeLocationService::class.java).putExtra("label",placeName))}
  val locationPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()){if(it[Manifest.permission.ACCESS_FINE_LOCATION]==true||it[Manifest.permission.ACCESS_COARSE_LOCATION]==true)startLocation() else message="未授权位置，地点记录未开始。"}
  LaunchedEffect(date,accountId){data=null;try{refresh()}catch(e:CancellationException){throw e}catch(e:Exception){message=e.message}}
- DisposableEffect(accountId){onDispose{player?.release();player=null}}
+ DisposableEffect(playback){onDispose{playback.close()}}
+ LaunchedEffect(playback,playback.isPlaying){
+  if(playback.isPlaying)while(isActive){playback.update();delay(150)}
+ }
  Text(if(section=="订单")"采集结果" else "采集与回顾",style=MaterialTheme.typography.titleLarge)
 
  when(section){
@@ -57,12 +60,48 @@ import java.time.LocalDate
   data?.recordings?.forEach{record->Card(Modifier.fillMaxWidth()){Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
    Text(record.title,style=MaterialTheme.typography.titleMedium);Text(record.startedAt);Text("转写：${mapOf("queued" to "等待处理","running" to "处理中","completed" to "已完成","failed" to "失败")[record.state.wireValue]}");record.error?.let{Text(it)};if(!record.audioAvailable)Text("音频已按保留策略清理，转写仍保留。")
    Row{Text("长期保留音频");Switch(checked=record.protectedValue,onCheckedChange={keep->run{write("life.protect_capture",JSONObject().put("id",record.id).put("kind","recording").put("protected",keep))}})}
-   fun play(at:Int){run{val bytes=repository.assetPreview(record.assetVersionId);check(app.sessions.active()?.accountId==accountId){"账号已切换"};player?.release();val next=MediaPlayer();player=next;next.setDataSource(object:MediaDataSource(){override fun getSize()=bytes.size.toLong();override fun readAt(position:Long,buffer:ByteArray,offset:Int,size:Int):Int{if(position>=bytes.size)return -1;val count=minOf(size,bytes.size-position.toInt());bytes.copyInto(buffer,offset,position.toInt(),position.toInt()+count);return count};override fun close(){bytes.fill(0)}});next.setOnPreparedListener{it.seekTo(at);it.start()};next.prepareAsync()}}
-   Row{TextButton(enabled=!busy&&record.audioAvailable,onClick={play(0)}){Text("回听")};if(record.state.wireValue=="failed")TextButton(enabled=!busy,onClick={run{write("life.retry_recording",JSONObject().put("segment_id",record.id))}}){Text("重试转写")};TextButton(onClick={deleteSegment=record.id}){Text("删除录音")}}
-   record.spans.forEachIndexed{index,span->Text("${span.startMs/1000}s · ${span.speaker?:"语音"}：${span.text}");Row{TextButton(enabled=!busy&&record.audioAvailable,onClick={play(span.startMs.toInt())}){Text("从这里回听")};TextButton(onClick={editing=record;editIndex=index;editText=span.text}){Text("更正")}}}
+   fun play(at:Int){
+    if(playback.id==record.id){playback.seek(at,true);return}
+    run{
+      val bytes=repository.assetPreview(record.assetVersionId,"audio/*","录音")
+      var transferred=false
+      try{
+        val waveform=withContext(Dispatchers.Default){pcmWavePeaks(bytes)}
+        check(app.sessions.active()?.accountId==accountId){"账号已切换"}
+        playback.start(record.id,bytes,waveform,at){message="音频无法播放"}
+        transferred=true
+      }finally{if(!transferred)bytes.fill(0)}
+    }
+   }
+   Row{
+    if(playback.id!=record.id)TextButton(enabled=!busy&&record.audioAvailable,onClick={play(0)}){Text("回听")}
+    if(record.state.wireValue=="failed")TextButton(enabled=!busy,onClick={run{write("life.retry_recording",JSONObject().put("segment_id",record.id))}}){Text("重试转写")}
+    TextButton(onClick={deleteSegment=record.id}){Text("删除录音")}
+   }
+   if(playback.id==record.id){
+    val limit=runCatching{java.time.Duration.between(java.time.Instant.parse(record.startedAt),java.time.Instant.parse(record.endedAt))
+      .toMillis().coerceIn(0,Int.MAX_VALUE.toLong()).toInt()}.getOrDefault(0)
+    RecordingPlaybackControls(playback,limit,busy){start,end,queued->
+      run{write("life.save_clip",JSONObject().put("segment_id",record.id).put("title",record.title.take(190).ifBlank{"录音选段"})
+        .put("start_ms",start).put("end_ms",end));queued()}
+    }
+   }
+   record.spans.forEachIndexed{index,span->
+    val active=playback.id==record.id&&playback.prepared&&playback.position.toLong() in span.startMs until span.endMs
+    Surface(color=if(active)MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,shape=MaterialTheme.shapes.small){
+      Column(Modifier.fillMaxWidth().padding(horizontal=10.dp,vertical=6.dp)){
+        Text("${recordingTimestamp(span.startMs.toInt())} · ${span.speaker?:"语音"}",style=MaterialTheme.typography.labelMedium)
+        Text(span.text)
+        Row{
+          TextButton(enabled=!busy&&record.audioAvailable,onClick={play(span.startMs.toInt())}){Text("从这里回听")}
+          TextButton(onClick={editing=record;editIndex=index;editText=span.text}){Text("更正")}
+        }
+      }
+    }
+   }
   }}}
   data?.recordingsNextBeforeId?.let{before->TextButton(enabled=!busy,onClick={run{val requested=date;val token=++generation;val next=repository.captureWorkspace(requested,before);if(token==generation&&app.sessions.active()?.accountId==accountId&&selectedDate.value==requested)data=next.copy(recordings=(data?.recordings.orEmpty()+next.recordings).distinctBy{it.id})}}){Text("加载更早的录音片段")}}
-  if(player!=null)TextButton(onClick={player?.release();player=null}){Text("停止播放")}
+
  }
  "地点"->{
   OutlinedTextField(value=placeName,onValueChange={placeName=it.take(200)},label={Text("地点名称（可选，如家、公司）")},modifier=Modifier.fillMaxWidth())
@@ -188,7 +227,7 @@ import java.time.LocalDate
  TextButton(enabled=!busy,onClick={run{refresh();message=null}}){Text("刷新采集工作区")};if(busy)LinearProgressIndicator(Modifier.fillMaxWidth());message?.let{Text(it)};if(data?.truncated==true)Text("本日还有更多记录；录音可继续加载更早片段。")
  source?.let{value->AlertDialog(onDismissRequest={source=null},title={Text(value.title)},text={Column(Modifier.verticalScroll(rememberScrollState())){Text("${value.startedAt} — ${value.endedAt}");Text(value.text?:"此来源仅记录已观察到的活动区间。");value.latitude?.let{Text("坐标：$it, ${value.longitude}；精度 ${value.accuracyM} 米")}}},confirmButton={TextButton(onClick={source=null}){Text("关闭")}})}
  editing?.let{record->AlertDialog(onDismissRequest={editing=null},title={Text("更正转写")},text={OutlinedTextField(value=editText,onValueChange={editText=it.take(4000)},label={Text("这段实际说了什么")})},confirmButton={TextButton(enabled=editText.isNotBlank(),onClick={val spans=JSONArray();record.spans.forEachIndexed{index,span->spans.put(JSONObject().put("start_ms",span.startMs).put("end_ms",span.endMs).put("text",if(index==editIndex)editText.trim() else span.text).put("speaker",span.speaker?:JSONObject.NULL))};editing=null;run{write("life.revise_transcript",JSONObject().put("segment_id",record.id).put("expected_revision",record.revision).put("spans",spans).put("reason","用户更正转写"))}}){Text("保存")}},dismissButton={TextButton(onClick={editing=null}){Text("取消")}})}
- deleteSegment?.let{id->AlertDialog(onDismissRequest={deleteSegment=null},title={Text("删除录音与转写？")},text={Text("删除后不再可回听或检索，相同片段重传不会恢复。")},confirmButton={TextButton(onClick={deleteSegment=null;player?.release();player=null;run{write("life.delete_recording",JSONObject().put("segment_id",id))}}){Text("删除")}},dismissButton={TextButton(onClick={deleteSegment=null}){Text("取消")}})}
+ deleteSegment?.let{id->AlertDialog(onDismissRequest={deleteSegment=null},title={Text("删除录音与转写？")},text={Text("删除后不再可回听或检索，相同片段重传不会恢复。")},confirmButton={TextButton(onClick={deleteSegment=null;if(playback.id==id)playback.stop();run{write("life.delete_recording",JSONObject().put("segment_id",id))}}){Text("删除")}},dismissButton={TextButton(onClick={deleteSegment=null}){Text("取消")}})}
 }
 
 private fun capturePlatformName(value:String)=mapOf("generic" to "通用","taobao" to "淘宝","jd" to "京东","eleme" to "淘宝闪购","meituan" to "美团","alipay" to "支付宝","wechat" to "微信")[value]?:value

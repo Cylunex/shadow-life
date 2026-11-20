@@ -77,6 +77,10 @@ test("formal expense totals include duplicate candidates with missing times and 
   assert.deepEqual(month.days,[{currency:"CNY",on:"2026-11-02",net_spending:"38",entries:2}]);
   assert.deepEqual(month.categories,[{currency:"CNY",category:null,gross_expense:"38"}]);
   assert.equal((await queries.listDomain(context,"money",{period:"2026-11",on:"2026-11-03",category:""})).items.length,0);
+  await run("life.record_purchase",{occurred_on:"2026-11-02",time_zone:"Asia/Shanghai",scene:"offline_purchase",merchant_name_raw:"未付款商户",items:[{raw_name:"未付款商品"}]});
+  assert.ok((await queries.listDomain(context,"money",{period:"2026-11"})).items.some(row=>row.kind==="purchase"));
+  const drill=await queries.listDomain(context,"money",{period:"2026-11",currency:"CNY",on:"2026-11-02"});
+  assert.deepEqual(drill.items.map(row=>row.kind),["money_entry","money_entry"]);
   const page=await queries.listDomain(context,"money",{period:"2026-11",currency:"CNY",entry_type:"expense",limit:1});
   assert.ok(page.next_cursor);
   assert.equal(page.items[0]?.happened_on,"2026-11-02");

@@ -13,10 +13,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 
+data class MoneyBulkLine(val id:String,val title:String,val error:String?)
+data class MoneyBulkImport(val batchId:String,val total:Int,val running:Boolean,val items:List<MoneyBulkLine>)
+
 @Composable internal fun NativeMoneyImportSection(
   period:String,month:LoadState<MoneyImportMonthSummary>,review:LoadState<MoneyImportReviewSummary>?,submit:SubmitState,
   onMonth:(String)->Unit,onBatch:(String)->Unit,onResolve:(MoneyImportCandidateSummary,String,String,String,String,String,String)->Unit,
-  refundCandidates:LoadState<RecordPage>,onSearchRefunds:(String)->Unit,pendingId:String?,onOpenRecord:(String)->Unit
+  refundCandidates:LoadState<RecordPage>,onSearchRefunds:(String)->Unit,pendingId:String?,onOpenRecord:(String)->Unit,
+  fileState:SubmitState=SubmitState.Editing,onStageFile:((android.net.Uri)->Unit)?=null,
+  bulk:MoneyBulkImport?=null,onBulk:((String,List<MoneyImportCandidateSummary>)->Unit)?=null
 ){
   var selectedBatch by rememberSaveable(period){mutableStateOf<String?>(null)}
   var onlyPending by rememberSaveable(period){mutableStateOf(true)}
@@ -24,11 +29,34 @@ import java.time.LocalDate
   var focused by rememberSaveable(period){mutableStateOf<String?>(null)}
   var showBatches by rememberSaveable(period){mutableStateOf(false)}
   var selectedSource by rememberSaveable(period){mutableStateOf("")}
+  val filePicker=androidx.activity.compose.rememberLauncherForActivityResult(
+    androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+  ){uri->if(uri!=null)onStageFile?.invoke(uri)}
+  val busy=submit is SubmitState.Sending||pendingId!=null||bulk?.running==true
   LaunchedEffect(selectedBatch){selectedBatch?.let(onBatch)}
   fun closeBatch(){selectedBatch=null;focused=null}
   androidx.activity.compose.BackHandler(enabled=selectedBatch!=null){closeBatch()}
   val reasons=listOf("all" to "全部","duplicate" to "疑似重复","refund" to "退款待关联","category" to "分类待补","missing" to "字段缺失")
   Column(verticalArrangement=Arrangement.spacedBy(12.dp)){
+    if(selectedBatch==null&&onStageFile!=null){
+      val receipt=(fileState as? SubmitState.Saved)?.receipt
+      Row(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically){
+        OutlinedButton(enabled=!busy&&fileState !is SubmitState.Sending&&receipt?.queued!=true,
+          onClick={filePicker.launch(arrayOf("*/*"))}){Text("选择账单文件")}
+        Text("CSV、JSON、Markdown",style=MaterialTheme.typography.bodySmall)
+      }
+      when(fileState){
+        is SubmitState.Sending->Text("正在读取文件",style=MaterialTheme.typography.bodySmall)
+        is SubmitState.Saved->if(fileState.receipt.queued)Text("已保存到本机，待同步生成候选") else {
+          Text("账单候选已生成")
+          fileState.receipt.resources.firstOrNull{it.type=="money_import_batch"}?.id?.let{id->
+            TextButton(onClick={focused=null;selectedBatch=id}){Text("打开此次导入")}
+          }
+        }
+        is SubmitState.Rejected->Text(fileState.message,color=MaterialTheme.colorScheme.error)
+        else->Unit
+      }
+    }
     StateContent(month,{onMonth(period)}){value->
       if(value.period==period){
         if(selectedBatch==null)LifeCard{
@@ -114,15 +142,56 @@ import java.time.LocalDate
         }
         if(visible.isEmpty())Text(if(onlyPending)"这批账单没有待处理的条目" else "这批账单没有条目")
         if(focused!=null)TextButton(onClick={focused=null}){Text("查看本批其他记录")}
-        val shown=if(focused==null)visible else visible.filter{it.id==focused}
+        var limit by rememberSaveable(batch,reason,onlyPending){mutableIntStateOf(40)}
+        val shown=if(focused==null)visible.take(limit) else visible.filter{it.id==focused}
+        if(focused==null&&onBulk!=null)MoneyImportBulkPreview(batch,shown.filter{it.canConfirmWithoutEdit()},bulk?.takeIf{it.batchId==batch},busy,onBulk)
         shown.forEach{candidate->
           key(candidate.id,candidate.revision){
-            MoneyImportCandidateCard(candidate,value.rules,submit is SubmitState.Sending||pendingId!=null,pendingId==candidate.id,
+            MoneyImportCandidateCard(candidate,value.rules,busy,pendingId==candidate.id,
               refundCandidates,onSearchRefunds,onResolve,onOpenRecord)
           }
         }
+        if(focused==null&&shown.size<visible.size)TextButton(onClick={limit+=40}){Text("继续显示本批候选 · ${shown.size}/${visible.size}")}
       }
     }
+  }
+}
+
+@Composable private fun MoneyImportBulkPreview(
+  batchId:String,eligible:List<MoneyImportCandidateSummary>,report:MoneyBulkImport?,busy:Boolean,
+  onConfirm:(String,List<MoneyImportCandidateSummary>)->Unit
+){
+  var open by rememberSaveable(batchId){mutableStateOf(false)}
+  var selected by rememberSaveable(batchId){mutableStateOf(arrayListOf<String>())}
+  fun key(candidate:MoneyImportCandidateSummary)="${candidate.id}:${candidate.revision}"
+  val committed=report?.items.orEmpty().filter{it.error==null}.mapTo(hashSetOf()){it.id}
+  val shown=eligible.filterNot{it.id in committed}
+  val picked=shown.filter{key(it) in selected}
+  if(shown.isNotEmpty())TextButton(enabled=!busy,onClick={open=!open;selected=arrayListOf()}){
+    Text(if(open)"收起批量核对" else "选择多笔入账")
+  }
+  if(open&&shown.isNotEmpty())LifeCard{
+    Text("选择要入账的候选",style=MaterialTheme.typography.titleMedium)
+    shown.forEach{row->
+      val id=key(row)
+      Row(verticalAlignment=Alignment.CenterVertically){
+        Checkbox(checked=id in selected,enabled=!busy,onCheckedChange={checked->
+          selected=ArrayList(if(checked)selected+id else selected-id)
+        })
+        Column(Modifier.weight(1f)){
+          Text(row.counterparty.ifBlank{"未记录商家"})
+          Text("${row.occurredOn} · ${if(row.entryType=="income")"收入" else "支出"} ${row.amount} CNY",style=MaterialTheme.typography.bodySmall)
+        }
+      }
+    }
+    Button(enabled=!busy&&picked.isNotEmpty(),onClick={onConfirm(batchId,picked)}){
+      Text("确认入账 ${picked.size} 笔")
+    }
+  }
+  if(report!=null)LifeCard{
+    Text(if(report.running)"已核对 ${report.items.size}/${report.total}" else "${report.items.count{it.error==null}} 笔已入账 · ${report.items.count{it.error!=null}} 笔需处理",
+      style=MaterialTheme.typography.titleMedium)
+    report.items.forEach{item->Text("${item.title} · ${item.error?:"已入账"}",style=MaterialTheme.typography.bodySmall)}
   }
 }
 
