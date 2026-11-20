@@ -47,6 +47,8 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -162,7 +164,8 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
 
 @Composable internal fun ModuleCaptureAction(label:String,onClick:()->Unit){
   ExtendedFloatingActionButton(
-    text={Text(label)},icon={Icon(Icons.Default.Add,null)},onClick=onClick
+    text={Text(label)},icon={Icon(Icons.Default.Add,null)},onClick=onClick,
+    modifier=Modifier.semantics{contentDescription=label}
   )
 }
 
