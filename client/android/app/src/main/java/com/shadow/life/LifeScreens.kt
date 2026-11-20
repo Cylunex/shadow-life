@@ -451,7 +451,19 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
   }
 }
 
-@Composable private fun DetailHero(detail:RecordDetail){val tone=detailAccent(detail.presentation);Surface(Modifier.fillMaxWidth().padding(bottom=12.dp),shape=RoundedCornerShape(24.dp),color=tone.copy(alpha=.14f),border=androidx.compose.foundation.BorderStroke(1.dp,tone.copy(alpha=.28f)),contentColor=MaterialTheme.colorScheme.onSurface){Column(Modifier.padding(24.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){Text(detailCategory(detail.presentation),style=MaterialTheme.typography.labelLarge);if(detail.title!=detailCategory(detail.presentation))Text(detail.title,style=MaterialTheme.typography.titleLarge);detail.heroValue?.let{Text(it,style=MaterialTheme.typography.headlineLarge,fontWeight=FontWeight.Bold)};detail.heroSupporting?.takeIf(String::isNotBlank)?.let{Text(it,style=MaterialTheme.typography.bodyMedium)}}}}
+@Composable private fun DetailHero(detail:RecordDetail){
+  val tone=detailAccent(detail.presentation)
+  Surface(Modifier.fillMaxWidth().padding(bottom=12.dp),shape=RoundedCornerShape(24.dp),
+    color=tone.copy(alpha=.14f),border=androidx.compose.foundation.BorderStroke(1.dp,tone.copy(alpha=.28f)),
+    contentColor=MaterialTheme.colorScheme.onSurface){
+    Column(Modifier.padding(22.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
+      Text(if(detail.presentation==DetailPresentation.Sleep)"记录时长" else detailCategory(detail.presentation),
+        style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.onSurfaceVariant)
+      Text(detail.heroValue?:detail.title,style=MaterialTheme.typography.headlineLarge,fontWeight=FontWeight.Bold)
+      detail.heroSupporting?.takeIf(String::isNotBlank)?.let{Text(it,style=MaterialTheme.typography.bodyMedium)}
+    }
+  }
+}
 private fun detailCategory(value:DetailPresentation)=when(value){DetailPresentation.HealthMetric->"身体测量";DetailPresentation.Workout->"运动记录";DetailPresentation.Sleep->"睡眠记录";DetailPresentation.Activity->"活动记录";DetailPresentation.Meal->"饮食记录";DetailPresentation.Money->"消费记录";DetailPresentation.Travel->"旅程";DetailPresentation.Library->"资料";DetailPresentation.Habit->"生活习惯";DetailPresentation.Generic->"记录详情"}
 
 @OptIn(ExperimentalMaterial3Api::class,ExperimentalLayoutApi::class)

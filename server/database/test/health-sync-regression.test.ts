@@ -203,3 +203,44 @@ test("daily summary adds the exact main sleep interval to existing snapshots",pg
   assert.equal(sleep.window.time_zone,main.time_zone);
   assert.equal(sleep.naps.length,1);
 });
+
+test("session charts require a complete Samsung original from the same device and revision",pgOnly,async t=>{
+  const {pool,run,queries,context}=await reviewFixture(t);
+  const base={source_type:"samsung",source_instance_key:"watch-a",source_fingerprint:"watch-a-permissions",sync_epoch:1,change_kind:"upsert",parse_version:"samsung-data-4"};
+  const start="2026-09-10T23:55:00Z",end="2026-09-11T00:05:00Z";
+  const raw=(record_type:string,client_record_id:string,payload:unknown,extra={})=>run("health.ingest_raw",{...base,record_type,client_record_id,payload,record_version:2,...extra});
+  await raw("sleep","samsung-sleep-one",{wake_date:"2026-09-11",time_zone:"UTC",started_at:start,ended_at:end,total_minutes:10});
+  const original={samsung_data_type:"sleep",uid:"one",fields:{sleep_score:87,sessions:[{start_time:start,end_time:end,stages:[{start_time:start,end_time:end,stage:"LIGHT"}]}]}};
+  await raw("archive","samsung-archive-sleep-one",original,{source_instance_key:"watch-b"});
+  await raw("archive","samsung-archive-sleep-one",original,{record_version:1});
+  await raw("workout","samsung-exercise-two",{occurred_on:"2026-09-10",time_zone:"UTC",started_at:start,session_type:"walking",duration_minutes:10});
+  const encoded=Buffer.from(JSON.stringify({samsung_data_type:"exercise",uid:"two",fields:{sessions:[{start_time:start,end_time:end,route:[{timestamp:start,latitude:1,longitude:2},{timestamp:end,latitude:91,longitude:2}],log:[{timestamp:end,heart_rate:78,speed:0}],comment:"private"}]}})).toString("base64");
+  const part=(index:number,content:string)=>({samsung_data_type:"exercise",archive_encoding:"chunked-base64-json-utf8",archive_identity:"two",chunk_count:2,chunk_index:index,content});
+  await raw("archive","samsung-archive-exercise-two-part-2",part(1,encoded.slice(100)));
+  await processPendingHealth(pool);
+  const sleep=(await pool.query("select id from health_sleep_sessions")).rows[0].id;
+  const exercise=(await pool.query("select id from health_workout_sessions")).rows[0].id;
+  async function fact(id:string){return ((await queries.healthRecord(context,id)) as {fact:Record<string,unknown>}).fact;}
+  assert.equal((await fact(sleep)).stage_intervals,undefined);
+  assert.equal((await fact(exercise)).route_points,undefined);
+  await raw("archive","samsung-archive-sleep-one",original);
+  await raw("archive","samsung-archive-exercise-two-part-1",part(0,encoded.slice(0,100)));
+  const night=await fact(sleep),workout=await fact(exercise);
+  assert.equal(night.provider_sleep_score,87);
+  assert.deepEqual(night.stage_intervals,[{stage:"light",start:new Date(start).toISOString(),end:new Date(end).toISOString()}]);
+  assert.deepEqual(workout.route_points,[{at:new Date(start).toISOString(),latitude:1,longitude:2}]);
+  assert.deepEqual(workout.exercise_samples,[{at:new Date(end).toISOString(),heart_rate:78,speed_mps:0}]);
+  assert.equal(JSON.stringify(workout).includes("private"),false);
+
+  const log=Array.from({length:1600},(_,i)=>({
+    timestamp:new Date(Date.parse(start)+i*300).toISOString(),speed:1
+  }));
+  const rareTime=log[37]!.timestamp;
+  await raw("archive","samsung-archive-exercise-two",{samsung_data_type:"exercise",uid:"two",
+    fields:{sessions:[{start_time:start,end_time:end,log:[...log,{timestamp:rareTime,heart_rate:80}]}]}},{record_version:3});
+  await raw("workout","samsung-exercise-two",{occurred_on:"2026-09-10",time_zone:"UTC",started_at:start,session_type:"walking",duration_minutes:10},{record_version:3});
+  await processPendingHealth(pool);
+  const sampled=(await fact(exercise)).exercise_samples as Array<{at:string;speed_mps?:number;heart_rate?:number}>;
+  assert.ok(sampled.length<=1200);
+  assert.deepEqual(sampled.find(p=>p.at===rareTime),{at:rareTime,speed_mps:1,heart_rate:80});
+});

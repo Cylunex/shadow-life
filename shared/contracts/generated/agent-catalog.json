@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "31d3fd399279ad436810d014f68a5ef6f3a378c37d0cae5fb5980991a8868c35",
+  "catalog_revision": "0f42fc20609c76e0d70c8140442d25768b1368992506cbd09d223891648e904a",
   "terms": [
     {
       "id": "activity_capture",
@@ -11644,6 +11644,45 @@
               "fact": {
                 "type": "object",
                 "properties": {
+                  "stage_intervals": {
+                    "maxItems": 4096,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "start": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                        },
+                        "end": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                        },
+                        "stage": {
+                          "type": "string",
+                          "enum": [
+                            "awake",
+                            "rem",
+                            "light",
+                            "deep"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "start",
+                        "end",
+                        "stage"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "provider_sleep_score": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
                   "id": {
                     "type": "string",
                     "pattern": "^[a-z][a-z0-9_]{7,127}$"
@@ -11983,6 +12022,62 @@
               "fact": {
                 "type": "object",
                 "properties": {
+                  "route_points": {
+                    "maxItems": 1200,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                        },
+                        "latitude": {
+                          "type": "number",
+                          "minimum": -90,
+                          "maximum": 90
+                        },
+                        "longitude": {
+                          "type": "number",
+                          "minimum": -180,
+                          "maximum": 180
+                        }
+                      },
+                      "required": [
+                        "at",
+                        "latitude",
+                        "longitude"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "exercise_samples": {
+                    "maxItems": 1200,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                        },
+                        "heart_rate": {
+                          "type": "number",
+                          "exclusiveMinimum": 0
+                        },
+                        "speed_mps": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "at"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
                   "id": {
                     "type": "string",
                     "pattern": "^[a-z][a-z0-9_]{7,127}$"

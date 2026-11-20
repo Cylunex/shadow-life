@@ -107,7 +107,8 @@ data class HealthDailyOverview(
   val lightMinutes:Long?=null,val awakeMinutes:Long?=null,val sleepSource:String?=null,
   val sleepTotalDayMinutes:Long?=null,val napMinutes:List<Long> = emptyList(),val caloriesSource:String?=null,
   val workoutItems:List<HealthWorkoutSummary> = emptyList(),val sleepId:String?=null,
-  val sleepWindow:HealthDailyResultDtoResultSleepWindow?=null
+  val sleepWindow:HealthDailyResultDtoResultSleepWindow?=null,
+  val weights:List<HealthDailyResultDtoResultFactsEntry> = emptyList()
 )
 data class MoneyRecurringSummary(val id:String,val title:String,val amount:String?,val currency:String,val cadence:String,val nextDueOn:String,val state:String)
 data class MoneyOccurrenceSummary(val id:String,val title:String,val dueOn:String,val state:String,val amount:String?,val currency:String?)
@@ -211,6 +212,10 @@ enum class DetailPresentation { Generic, Meal, Money, HealthMetric, Workout, Sle
 data class DetailAsset(val versionId:String,val mediaType:String,val title:String,val role:String?=null)
 data class DetailMetric(val id:String,val key:String,val label:String,val value:String,val unit:String,val derived:Boolean)
 data class SleepStage(val label:String,val minutes:Int)
+data class SleepRecording(val zone:String,val start:String?,val end:String?,val score:Long?,
+  val intervals:List<HealthRecordResultDtoSleepSessionFactStageIntervalsEntry>)
+data class WorkoutRecording(val zone:String,val route:List<HealthRecordResultDtoWorkoutSessionFactRoutePointsEntry>,
+  val samples:List<HealthRecordResultDtoWorkoutSessionFactExerciseSamplesEntry>)
 data class WorkoutExerciseReference(val id:String,val unit:String,val equipment:String)
 data class DishPurchase(val shop:String,val source:String,val items:List<Pair<String,String>>)
 data class MealDetailInfo(val id:String,val type:String,val date:String?,val time:String?,val note:String?)
@@ -218,7 +223,8 @@ data class PurchaseLineRef(val id:String,val recordId:String,val name:String,val
 data class RecordDetail(
   val title:String,val state:String?,val revision:Int?,val sections:List<DetailSection>,val editSeed:EditSeed?=null,val actions:List<DetailAction> = emptyList(),
   val presentation:DetailPresentation=DetailPresentation.Generic,val heroValue:String?=null,val heroSupporting:String?=null,val travelSchedule:TravelDetailSchedule?=null,
-  val libraryVisionSourceAssetId:String?=null,val libraryVisionRetryJobId:String?=null,val assets:List<DetailAsset> = emptyList(),val mealIntakes:List<LifeRecordResultDtoMealItemsEntry> = emptyList(),val metrics:List<DetailMetric> = emptyList(),val sleepStages:List<SleepStage> = emptyList(),val trend:List<HealthTrendPoint> = emptyList(),val libraryItemId:String?=null,val consumptionRecordId:String?=null,val linkedMealIds:List<String> = emptyList(),val dishPurchase:DishPurchase?=null,val meal:MealDetailInfo?=null,val purchaseLines:List<PurchaseLineRef> = emptyList(),val assistantRef:ResourceRef?=null,val workoutExercises:Map<String,WorkoutExerciseReference> = emptyMap()
+  val libraryVisionSourceAssetId:String?=null,val libraryVisionRetryJobId:String?=null,val assets:List<DetailAsset> = emptyList(),val mealIntakes:List<LifeRecordResultDtoMealItemsEntry> = emptyList(),val metrics:List<DetailMetric> = emptyList(),val sleepStages:List<SleepStage> = emptyList(),val trend:List<HealthTrendPoint> = emptyList(),val libraryItemId:String?=null,val consumptionRecordId:String?=null,val linkedMealIds:List<String> = emptyList(),val dishPurchase:DishPurchase?=null,val meal:MealDetailInfo?=null,val purchaseLines:List<PurchaseLineRef> = emptyList(),val assistantRef:ResourceRef?=null,val workoutExercises:Map<String,WorkoutExerciseReference> = emptyMap(),
+  val sleepRecording:SleepRecording?=null,val workoutRecording:WorkoutRecording?=null
 )
 
 @Serializable data object TodayRoute
@@ -233,7 +239,7 @@ data class RecordDetail(
 @Serializable data class PlanDetailRoute(val id:String)
 @Serializable data class OwnedItemDetailRoute(val id:String)
 @Serializable data class ReviewDetailRoute(val id:String)
-@Serializable data class WellnessRoute(val date:String="")
+@Serializable data class WellnessRoute(val date:String="",val days:Int=7)
 @Serializable data object FeaturesRoute
 @Serializable data object SettingsRoute
 @Serializable data object ConnectionsRoute

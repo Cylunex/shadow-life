@@ -15,12 +15,12 @@ import org.json.JSONObject
 import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable internal fun WellnessScreen(accountId:String,onBack:()->Unit,onMeals:(String)->Unit,onHealth:(String)->Unit,initialDate:String="",onRecord:(LifeDomain,String)->Unit={_,_->}) {
+@Composable internal fun WellnessScreen(accountId:String,onBack:()->Unit,onMeals:(String)->Unit,onHealth:(String)->Unit,initialDate:String="",initialDays:Int=7,onRecord:(LifeDomain,String)->Unit={_,_->}) {
   val context=LocalContext.current
   val repository=remember(accountId){NativeLifeRepository(context,context.applicationContext as ShadowApp)}
   val date=initialDate.ifBlank{LocalDate.now().toString()}
   var to by rememberSaveable{mutableStateOf(date)}
-  var days by rememberSaveable{mutableIntStateOf(7)}
+  var days by rememberSaveable(initialDays){mutableIntStateOf(initialDays.takeIf{it in setOf(7,30,90)}?:7)}
   var selected by rememberSaveable{mutableStateOf(date)}
   var retry by remember{mutableIntStateOf(0)}
   var state by remember(accountId){mutableStateOf<LoadState<JSONObject>>(LoadState.Loading)}
@@ -32,7 +32,6 @@ import java.time.LocalDate
   }
   Scaffold(topBar={TopAppBar(title={Text("健康与饮食复盘")},navigationIcon={LifeBackButton(onBack)})}){padding->
     LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
-      item{NativeDietReview(accountId,to,true,state){domain,id,_->onRecord(domain,id)}}
       item{LifeDateField(to,{to=it;selected=it},"截至日期")}
       item{LifeTabs(days.toString(),{days=it.toInt()},listOf("7" to "7 天","30" to "30 天","90" to "90 天"))}
       item{StateContent(state,{retry++}){}}
@@ -73,6 +72,7 @@ import java.time.LocalDate
             Text("实际训练 ${workout.getInt("sessions")} 次 · "+if(workout.isNull("minutes"))"时长未知" else "已知 ${workout.getInt("minutes")} 分钟")
           }}
         }
+        item{NativeDietReview(accountId,to,true,to,days){domain,id,_->onRecord(domain,id)}}
         item{Text("营养覆盖与前期对照",style=MaterialTheme.typography.titleLarge)}
         val previous=data.getJSONObject("previous")
         item{Text("前期 ${previous.getString("from")} — ${previous.getString("to")}")}

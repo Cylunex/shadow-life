@@ -9,19 +9,23 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 
-internal fun detailAccent(kind:DetailPresentation)=when(kind){
-  DetailPresentation.HealthMetric,DetailPresentation.Activity->Color(0xFFB9EF68)
-  DetailPresentation.Sleep->Color(0xFFDCD1FF)
-  DetailPresentation.Meal->Color(0xFFFFD39C)
-  DetailPresentation.Workout->Color(0xFFFFBFAE)
-  DetailPresentation.Money->Color(0xFFFFE586)
-  DetailPresentation.Travel->Color(0xFFAEE7F3)
-  DetailPresentation.Library->Color(0xFFF7C5E3)
-  else->Color(0xFFC9D6FF)
+@Composable internal fun detailAccent(kind:DetailPresentation):Color{
+  val dark=MaterialTheme.colorScheme.background.luminance()<.5f
+  return when(kind){
+    DetailPresentation.HealthMetric,DetailPresentation.Activity->if(dark)Color(0xFFB9EF68) else Color(0xFF286B36)
+    DetailPresentation.Sleep->if(dark)Color(0xFFDCD1FF) else Color(0xFF62509E)
+    DetailPresentation.Meal->if(dark)Color(0xFFFFD39C) else Color(0xFF91521C)
+    DetailPresentation.Workout->if(dark)Color(0xFFFFBFAE) else Color(0xFFA24E3D)
+    DetailPresentation.Money->if(dark)Color(0xFFFFE586) else Color(0xFF7A5C10)
+    DetailPresentation.Travel->if(dark)Color(0xFFAEE7F3) else Color(0xFF266878)
+    DetailPresentation.Library->if(dark)Color(0xFFF7C5E3) else Color(0xFF8A456F)
+    else->if(dark)Color(0xFFC9D6FF) else Color(0xFF475D98)
+  }
 }
 internal fun domainSectionHandled(detail:RecordDetail,section:DetailSection)=when(detail.presentation){
   DetailPresentation.HealthMetric->detail.metrics.isNotEmpty()&&section.title=="本次测量全部指标"
@@ -62,16 +66,18 @@ internal fun domainSectionHandled(detail:RecordDetail,section:DetailSection)=whe
         }
       }
       DetailPresentation.Sleep->{
+        detail.sleepRecording?.let{SleepRecordingChart(it)}
         if(detail.sleepStages.isNotEmpty()){
           Text("睡眠阶段构成",style=MaterialTheme.typography.titleLarge)
           val total=detail.sleepStages.sumOf{it.minutes}
-          if(total>0)Row(Modifier.fillMaxWidth().height(26.dp),horizontalArrangement=Arrangement.spacedBy(3.dp)){detail.sleepStages.filter{it.minutes>0}.forEachIndexed{i,stage->Surface(Modifier.weight(stage.minutes.toFloat()).fillMaxHeight(),color=listOf(Color(0xFF8270CC),Color(0xFFB7A2F5),Color(0xFFEDB3DE),Color(0xFFFFE586))[i%4],shape=RoundedCornerShape(4.dp)) {}}}
+          if(total>0)Row(Modifier.fillMaxWidth().height(26.dp),horizontalArrangement=Arrangement.spacedBy(3.dp)){detail.sleepStages.filter{it.minutes>0}.forEach{stage->Surface(Modifier.weight(stage.minutes.toFloat()).fillMaxHeight(),color=sleepBandColor(stage.label),shape=RoundedCornerShape(4.dp)) {}}}
           detail.sleepStages.forEach{stage->Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(stage.label);Text("${stage.minutes} 分钟")}}
-          Text("按来源提供的阶段总量展示，未记录阶段不推断",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+          if(detail.sleepRecording?.intervals.isNullOrEmpty())Text("来源仅提供阶段总量",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
         DetailMetricGrid(detail.sections.firstOrNull{it.title=="概要"}?.facts.orEmpty().filter{it.label !in setOf("深睡","浅睡","REM","清醒")},accent)
       }
       DetailPresentation.Workout,DetailPresentation.Activity,DetailPresentation.Habit->{
+        detail.workoutRecording?.let{WorkoutRecordingChart(it)}
         Text(if(detail.presentation==DetailPresentation.Workout)"实际运动" else if(detail.presentation==DetailPresentation.Activity)"当天活动" else "这次记录",style=MaterialTheme.typography.titleLarge)
         DetailMetricGrid(detail.sections.firstOrNull{it.title=="概要"}?.facts.orEmpty(),accent)
       }

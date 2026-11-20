@@ -24,11 +24,25 @@ import java.time.LocalDate
   var focused by rememberSaveable(period){mutableStateOf<String?>(null)}
   var showBatches by rememberSaveable(period){mutableStateOf(false)}
   var selectedSource by rememberSaveable(period){mutableStateOf("")}
+  LaunchedEffect(selectedBatch){selectedBatch?.let(onBatch)}
+  fun closeBatch(){selectedBatch=null;focused=null}
+  androidx.activity.compose.BackHandler(enabled=selectedBatch!=null){closeBatch()}
   val reasons=listOf("all" to "全部","duplicate" to "疑似重复","refund" to "退款待关联","category" to "分类待补","missing" to "字段缺失")
   Column(verticalArrangement=Arrangement.spacedBy(12.dp)){
     StateContent(month,{onMonth(period)}){value->
       if(value.period==period){
-        Text("${value.unconfirmed} 笔待处理 · ${value.duplicates} 笔疑似重复",style=MaterialTheme.typography.titleMedium)
+        if(selectedBatch==null)LifeCard{
+          Text("$period 账单",style=MaterialTheme.typography.labelLarge)
+          val headline=when{
+            value.unconfirmed>0->"${value.unconfirmed} 笔待处理"
+            value.batches.isEmpty()->"本月暂无账单"
+            else->"本月账单已核对"
+          }
+          Text(headline,style=MaterialTheme.typography.headlineMedium)
+          if(value.duplicates>0||value.refundsUnlinked>0)Text(listOfNotNull(
+            "${value.duplicates} 笔疑似重复".takeIf{value.duplicates>0},
+            "${value.refundsUnlinked} 笔退款待关联".takeIf{value.refundsUnlinked>0}).joinToString(" · "))
+        }
         if(selectedBatch==null){
           LifeTabs(reason,{reason=it},reasons.map{(key,label)->
             val count=when(key){"duplicate"->value.duplicates;"refund"->value.refundsUnlinked;"category"->value.uncategorized;"missing"->null;else->value.unconfirmed}
@@ -45,9 +59,12 @@ import java.time.LocalDate
             }
           }
           pending.forEach{row->
-            LifeCard(onClick={focused=row.id;selectedBatch=row.batchId;onBatch(row.batchId)}){
-              Text(row.counterparty.ifBlank{"商家待补"},style=MaterialTheme.typography.titleMedium)
-              Text(listOf(row.on.ifBlank{"日期待补"},row.amount.ifBlank{"金额待补"},row.source).joinToString(" · "))
+            LifeCard(onClick={focused=row.id;selectedBatch=row.batchId}){
+              Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                Text(row.counterparty.ifBlank{"商家待补"},Modifier.weight(1f),style=MaterialTheme.typography.titleMedium)
+                Text(row.amount.takeIf{it.isNotBlank()}?.let{"CNY $it"}?:"金额待补",style=MaterialTheme.typography.titleMedium)
+              }
+              Text(listOf(row.on.ifBlank{"日期待补"},row.source).filter{it.isNotBlank()}.joinToString(" · "),style=MaterialTheme.typography.bodySmall)
               Text(listOfNotNull("疑似重复".takeIf{row.duplicate},"退款待关联".takeIf{row.refund},
                 "分类待补".takeIf{row.categoryMissing},"字段缺失".takeIf{row.needsData}).joinToString(" · ").ifBlank{"待核对"},
                 style=MaterialTheme.typography.bodySmall)
@@ -64,7 +81,7 @@ import java.time.LocalDate
           }
           if(visibleBatches.isEmpty()&&value.batches.isNotEmpty())Text("当前没有此类待核对账单")
           visibleBatches.forEach{batch->
-            LifeCard(onClick={focused=null;selectedBatch=batch.id;onBatch(batch.id)}){
+            LifeCard(onClick={focused=null;selectedBatch=batch.id}){
               Text(batch.name,style=MaterialTheme.typography.titleMedium)
               Text("${batch.unconfirmed} 笔待处理 · 共 ${batch.total} 行")
             }
@@ -75,9 +92,12 @@ import java.time.LocalDate
     }
     val batch=selectedBatch
     if(batch!=null){
-      TextButton(onClick={selectedBatch=null;focused=null}){Text("‹ 返回批次")}
+      TextButton(onClick=::closeBatch){Text("返回本月账单")}
+      val batchName=(month as? LoadState.Ready)?.value?.batches?.firstOrNull{it.id==batch}?.name
+      if(!batchName.isNullOrBlank())Text(batchName,style=MaterialTheme.typography.titleLarge)
       if(submit is SubmitState.Rejected)Text(submit.message,color=MaterialTheme.colorScheme.error)
       if(submit is SubmitState.Saved&&!submit.receipt.queued)Text("账单核对已同步")
+      if(review==null)TextButton(onClick={onBatch(batch)}){Text("读取批次")}
       if(review!=null)StateContent(review,{onBatch(batch)}){value->
         if(value.batchId!=batch)return@StateContent
         FilterChip(onlyPending,{onlyPending=!onlyPending},label={Text("只看待处理")})

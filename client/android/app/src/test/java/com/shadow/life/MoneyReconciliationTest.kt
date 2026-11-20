@@ -93,8 +93,10 @@ class MoneyReconciliationTest {
     compose.onNodeWithText("只看待处理").assertExists()
 
     compose.runOnIdle { records = records.copy(refreshing = false, updateAvailable = true) }
-    compose.onNodeWithText("‹ 返回批次").assertExists()
+    compose.onNodeWithText("返回本月账单").assertExists()
     compose.onNodeWithText("这批账单没有待处理的条目").assertExists()
+    compose.runOnIdle { compose.activity.onBackPressedDispatcher.onBackPressed() }
+    compose.onNodeWithText("收起导入批次").assertExists()
   }
 
   @Test fun collapsedSummaryShowsTheValuesThatWillBeConfirmed() {

@@ -1,3 +1,4 @@
+import { readSamsungSession } from "./samsung-session-detail.js";
 import {enrichPurchase} from "./enrich-purchase.js";
 import { stockRecipes,subtractStock } from "./stock-recipes.js";
 import { readPrices,savePriceSpec } from "./purchase-prices.js";
@@ -1203,7 +1204,13 @@ function storeFor(database: Database | Transaction): TransactionStore {
       union all select 'workout_session',to_jsonb(ws)-'subject_id',null,ws.raw_id from health_workout_sessions ws where ws.id=${id} and ws.subject_id=${subjectId} and ws.effective
       union all select 'daily_activity',(to_jsonb(a)-'subject_id')||jsonb_build_object('device_calories_kcal',a.device_calories_kcal::text,'workout_calories_kcal',a.workout_calories_kcal::text,'effective_calories_kcal',a.effective_calories_kcal::text),null,a.raw_id from health_daily_activity a where a.id=${id} and a.subject_id=${subjectId} and a.effective
       union all select 'habit_log',to_jsonb(h)-'subject_id',null,h.raw_id from health_habit_logs h where h.id=${id} and h.subject_id=${subjectId} and h.effective
-    ) select fact.kind,fact.fact,coalesce((select to_jsonb(source)-'subject_id' from sources source where source.id=fact.source_id and source.subject_id=${subjectId}),(select jsonb_build_object('id',instance.id,'kind',instance.source_type,'external_id',null,'captured_on',null,'captured_at',null,'time_zone',null,'original_text',null,'asset_version_id',null,'revision',1) from health_raw_records raw join health_source_instances instance on instance.id=raw.source_instance_id and instance.subject_id=raw.subject_id where raw.id=fact.raw_id and raw.subject_id=${subjectId})) source,(select jsonb_build_object('id',raw.id,'record_type',raw.record_type,'client_record_id',raw.client_record_id,'current_version',raw.current_version,'state',raw.state,'parse_version',raw.parse_version,'source_instance_id',raw.source_instance_id,'source_type',instance.source_type,'source_instance_key',instance.instance_key) from health_raw_records raw left join health_source_instances instance on instance.id=raw.source_instance_id and instance.subject_id=raw.subject_id where raw.id=fact.raw_id and raw.subject_id=${subjectId}) raw from fact limit 1`);return result.rows[0];},
+    ) select fact.kind,fact.fact,coalesce((select to_jsonb(source)-'subject_id' from sources source where source.id=fact.source_id and source.subject_id=${subjectId}),(select jsonb_build_object('id',instance.id,'kind',instance.source_type,'external_id',null,'captured_on',null,'captured_at',null,'time_zone',null,'original_text',null,'asset_version_id',null,'revision',1) from health_raw_records raw join health_source_instances instance on instance.id=raw.source_instance_id and instance.subject_id=raw.subject_id where raw.id=fact.raw_id and raw.subject_id=${subjectId})) source,(select jsonb_build_object('id',raw.id,'record_type',raw.record_type,'client_record_id',raw.client_record_id,'current_version',raw.current_version,'state',raw.state,'parse_version',raw.parse_version,'source_instance_id',raw.source_instance_id,'source_type',instance.source_type,'source_instance_key',instance.instance_key) from health_raw_records raw left join health_source_instances instance on instance.id=raw.source_instance_id and instance.subject_id=raw.subject_id where raw.id=fact.raw_id and raw.subject_id=${subjectId}) raw from fact limit 1`);
+      const row=result.rows[0];
+      if(row&&(row.kind==="sleep_session"||row.kind==="workout_session")){
+        Object.assign(row.fact,await readSamsungSession(database,subjectId,row.kind,row.fact,row.raw));
+      }
+      return row;
+    },
     ...travelStore(database),
     async screenshotSource(subjectId,itemId){
       const r=await database.execute<{app_package:string|null;text:string|null}>(sql`select c.app_package,a.text

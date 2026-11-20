@@ -36,12 +36,12 @@ private fun number(value:Double?):String = value?.let { NumberFormat.getNumberIn
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable internal fun NativeDietReview(
-    accountId:String,date:String,showMeals:Boolean,refreshKey:Any,onDetail:(LifeDomain,String,String)->Unit
+    accountId:String,date:String,showMeals:Boolean,refreshKey:Any,initialDays:Int,onDetail:(LifeDomain,String,String)->Unit
 ) {
     val context=LocalContext.current
     val repository=remember(accountId){NativeLifeRepository(context,context.applicationContext as ShadowApp)}
     var open by rememberSaveable{mutableStateOf(false)}
-    var days by rememberSaveable{mutableIntStateOf(7)}
+    var days by rememberSaveable(initialDays){mutableIntStateOf(initialDays.coerceAtMost(30))}
     var reload by remember{mutableIntStateOf(0)}
     var state by remember(accountId,date,days,open,reload,refreshKey){mutableStateOf<LoadState<DietReviewResultDto>>(LoadState.Loading)}
     val scope=rememberCoroutineScope()
@@ -55,7 +55,7 @@ private fun number(value:Double?):String = value?.let { NumberFormat.getNumberIn
             catch(error:Exception){state=LoadState.Failed(error.message?:"饮食复盘暂时不可用")}
         }
     }
-    ReviewCard("饮食与体重复盘"){
+    ReviewCard("饮食与晨重 · ${days} 天"){
         if(!open){ TextButton(onClick={open=true}){Text("查看下一餐建议与晨重")} }
         else {
             FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)){
@@ -110,7 +110,8 @@ private fun number(value:Double?):String = value?.let { NumberFormat.getNumberIn
                         if(message.isNotBlank())Text(message)
                     }
                     review.weightFollowup?.let { Text(it.text,style=MaterialTheme.typography.bodyMedium) }
-                    review.weight?.let{weight->
+                    val weight = review.weight
+                    if (weight != null) {
                         val current=weight.weeks.lastOrNull()
                         Text(trendLabels[weight.trend.wireValue].orEmpty(),style=MaterialTheme.typography.titleSmall)
                         Text(if(current?.meanKg==null)"最近一周没有同秤晨重" else "最近 7 天晨均 ${number(current.meanKg)} kg · ${current.days} 天")

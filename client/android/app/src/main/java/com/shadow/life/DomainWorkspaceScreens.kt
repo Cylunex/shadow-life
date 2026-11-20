@@ -28,6 +28,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,6 +54,10 @@ import kotlin.math.abs
   refundCandidates:LoadState<RecordPage>,onSearchRefunds:(String)->Unit,importPendingId:String?,accountId:String
 ){
   var tab by rememberSaveable(initialTab){mutableStateOf(initialTab.takeIf{it in setOf("overview","details","stats","budgets","recurring","intents","supplies","cards","reconcile")}?:"overview")};var query by rememberSaveable{mutableStateOf("")}
+  var returnTab by rememberSaveable{mutableStateOf<String?>(null)}
+  fun drillInto(target:String){returnTab=tab;tab=target}
+  fun returnFromDetails(){returnTab?.let{tab=it};returnTab=null}
+  androidx.activity.compose.BackHandler(enabled=returnTab!=null&&tab in setOf("details","reconcile")){returnFromDetails()}
   val workspaceScroll=rememberModuleListState(tab)
   LaunchedEffect(tab){if(tab=="cards")onLoadCards("")}
   var submittedQuery by rememberSaveable{mutableStateOf("")}
@@ -79,7 +85,7 @@ import kotlin.math.abs
   Scaffold(containerColor=MaterialTheme.colorScheme.background,
     topBar={LifeModuleTopBar(LifeModule.Money,onBack,overview?.period)},
     floatingActionButton={if(tab in setOf("overview","details"))ModuleCaptureAction("记消费"){onCapture(CaptureKind.Expense)}},
-    bottomBar={LifeModuleBottomBar(when(tab){"reconcile"->"details";"recurring","intents","supplies","cards"->"budgets";else->tab},moneyModuleTabs){tab=it}}
+    bottomBar={LifeModuleBottomBar(when(tab){"reconcile"->"details";"recurring","intents","supplies","cards"->"budgets";else->tab},moneyModuleTabs){returnTab=null;tab=it}}
   ){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),state=workspaceScroll,contentPadding=PaddingValues(20.dp,10.dp,20.dp,if(tab in setOf("overview","details"))88.dp else 28.dp),verticalArrangement=Arrangement.spacedBy(18.dp)){
     if(tab in setOf("budgets","recurring","intents","supplies","cards"))item{
       WorkspaceTabs(tab,{tab=it},listOf("budgets" to "预算","recurring" to "订阅","cards" to "次卡","intents" to "想买","supplies" to "消耗品"))
@@ -97,6 +103,7 @@ import kotlin.math.abs
     if(overviewState !is LoadState.Ready||overviewState.refreshing||overviewState.refreshError!=null||overviewState.updateAvailable)item{StateContent(overviewState,onRetry){} }
     if(recordsState !is LoadState.Ready||recordsState.refreshing||recordsState.refreshError!=null||recordsState.updateAvailable)item{StateContent(recordsState,onRetry){} }
     if(tab in setOf("details","reconcile"))item{
+      returnTab?.let{previous->TextButton(onClick=::returnFromDetails){Text(if(previous=="stats")"返回统计" else "返回概览")}}
       WorkspaceTabs(tab,{tab=it},listOf("details" to "正式明细","reconcile" to "账单待处理"))
       TextButton(onClick=onCapturedOrders){Text("采集订单")}
     }
@@ -135,10 +142,10 @@ import kotlin.math.abs
         if(currencies.size>1)item{WorkspaceTabs(currency.orEmpty(),{selectedCurrency=it},currencies.map{it to it})}
         item{
           StateContent(summary.state,summary.retry){data->
-            MoneyMonthBreakdown(data,currency,{date->
-              selectedDay=date;category=null;entryType=null;query="";submittedQuery="";tab="details"
+            MoneyMonthBreakdown(data,planningPeriod,currency,{date->
+              selectedDay=date;category=null;entryType=null;query="";submittedQuery="";drillInto("details")
             },{name->
-              category=name.orEmpty();selectedDay=null;entryType="expense";query="";submittedQuery="";tab="details"
+              category=name.orEmpty();selectedDay=null;entryType="expense";query="";submittedQuery="";drillInto("details")
             })
           }
         }
@@ -152,13 +159,13 @@ import kotlin.math.abs
         item{
           StateContent(summary.state,summary.retry){values->
             MoneyHero(planningPeriod,values.totals.firstOrNull{it.currency==currency}){type->
-              entryType=type;selectedDay=null;category=null;query="";submittedQuery="";tab="details"
+              entryType=type;selectedDay=null;category=null;query="";submittedQuery="";drillInto("details")
             }
           }
         }
         val month=(importMonth as? LoadState.Ready)?.value?.takeIf{it.period==planningPeriod}
         if(month==null||month.unconfirmed>0)item{
-          LifeCard(onClick={tab="reconcile"}){
+          LifeCard(onClick={drillInto("reconcile")}){
             Text("账单待处理",style=MaterialTheme.typography.titleMedium)
             Text(month?.let{"${it.unconfirmed} 笔待处理"}?:if(importMonth is LoadState.Failed)"暂不可读 · 点击重试" else "正在读取")
           }
@@ -168,7 +175,7 @@ import kotlin.math.abs
         if(upcoming!=null)item{LifeCard(onClick={tab="recurring"}){Text(upcoming.title);Text("${upcoming.dueOn} 到期")}}
         val replenish=overview.useCycles.firstOrNull{it.balanceStatus in setOf("replenish_now","depleted")}
         if(replenish!=null)item{LifeCard(onClick={tab="supplies"}){Text("${replenish.title} · 待补货")}}
-        if(monthly.state is LoadState.Ready)item{RecentMoney(periodRecords,onDetail){entryType=null;tab="details"}}
+        if(monthly.state is LoadState.Ready)item{RecentMoney(periodRecords,onDetail){entryType=null;selectedDay=null;category=null;submittedQuery="";query="";drillInto("details")}}
         item{Row{
           TextButton(onClick=onPriceBook){Text("常购价格")}
           TextButton(onClick=onReturns){Text("售后与退款")}
@@ -195,11 +202,45 @@ import kotlin.math.abs
   }
 }
 
-@Composable private fun MoneyMonthBreakdown(data:MonthlyMoneyRead,currency:String?,onDay:(String)->Unit,onCategory:(String?)->Unit){
+@Composable internal fun SpendingCalendar(month:java.time.YearMonth,currency:String,days:List<MonthlyMoneyDay>,onDay:(String)->Unit){
+  val byDate=remember(days){days.associateBy{it.on}}
+  val offset=month.atDay(1).dayOfWeek.value-1
+  LifeCard{
+    Text("流水月历",style=MaterialTheme.typography.titleMedium)
+    Text("$month · ${days.size} 天有流水 · $currency",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    Row(Modifier.fillMaxWidth()){
+      "一二三四五六日".forEach{day->Box(Modifier.weight(1f),contentAlignment=Alignment.Center){Text(day.toString(),style=MaterialTheme.typography.labelSmall)}}
+    }
+    repeat((offset+month.lengthOfMonth()+6)/7){week->
+      Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(2.dp)){
+        repeat(7){weekday->
+          val day=week*7+weekday-offset+1
+          if(day !in 1..month.lengthOfMonth())Spacer(Modifier.weight(1f)) else{
+            val date=month.atDay(day).toString()
+            val row=byDate[date]
+            val label=if(row==null)"$date 无流水" else "$date，${row.entries} 笔，净支出 $currency ${displayDecimal(row.net)}"
+            Surface(Modifier.weight(1f).semantics{contentDescription=label}
+              .then(if(row!=null)Modifier.clickable(role=Role.Button){onDay(date)} else Modifier),
+              shape=MaterialTheme.shapes.small,
+              color=if(row!=null)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface){
+              Box(Modifier.heightIn(min=44.dp),contentAlignment=Alignment.Center){
+                Text(day.toString(),style=MaterialTheme.typography.labelLarge,
+                  color=if(row!=null)MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+@Composable private fun MoneyMonthBreakdown(data:MonthlyMoneyRead,period:String,currency:String?,onDay:(String)->Unit,onCategory:(String?)->Unit){
   val days=data.days.filter{it.currency==currency}.sortedByDescending{it.on}
   val categories=data.categories.filter{it.currency==currency}.sortedByDescending{it.expense.toBigDecimalOrNull()}
   if(days.isEmpty())EmptyState("本月没有可统计的正式收支")
   else{
+    SpendingCalendar(java.time.YearMonth.parse(period),currency.orEmpty(),days,onDay)
     LifeSection("主要消费去向"){
       val largest=categories.firstOrNull()?.expense?.toDoubleOrNull()?.takeIf{it>0}
       categories.forEach{category->

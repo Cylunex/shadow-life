@@ -4816,7 +4816,24 @@ data class HealthRecordResultDtoDailyWellbeing(
 ): HealthRecordResultDto
 
 @Serializable
+enum class HealthRecordResultDtoSleepSessionFactStageIntervalsEntryStage(val wireValue: String) {
+  @SerialName("awake") Awake("awake"),
+  @SerialName("rem") Rem("rem"),
+  @SerialName("light") Light("light"),
+  @SerialName("deep") Deep("deep")
+}
+
+@Serializable
+data class HealthRecordResultDtoSleepSessionFactStageIntervalsEntry(
+  @SerialName("start") val start: String,
+  @SerialName("end") val end: String,
+  @SerialName("stage") val stage: HealthRecordResultDtoSleepSessionFactStageIntervalsEntryStage
+)
+
+@Serializable
 data class HealthRecordResultDtoSleepSessionFact(
+  @SerialName("stage_intervals") val stageIntervals: List<HealthRecordResultDtoSleepSessionFactStageIntervalsEntry>? = null,
+  @SerialName("provider_sleep_score") val providerSleepScore: Long? = null,
   @SerialName("id") val id: String,
   @SerialName("raw_id") val rawId: String,
   @SerialName("raw_version") val rawVersion: Long,
@@ -4901,7 +4918,23 @@ data class HealthRecordResultDtoSleepSession(
 ): HealthRecordResultDto
 
 @Serializable
+data class HealthRecordResultDtoWorkoutSessionFactRoutePointsEntry(
+  @SerialName("at") val at: String,
+  @SerialName("latitude") val latitude: Double,
+  @SerialName("longitude") val longitude: Double
+)
+
+@Serializable
+data class HealthRecordResultDtoWorkoutSessionFactExerciseSamplesEntry(
+  @SerialName("at") val at: String,
+  @SerialName("heart_rate") val heartRate: Double? = null,
+  @SerialName("speed_mps") val speedMps: Double? = null
+)
+
+@Serializable
 data class HealthRecordResultDtoWorkoutSessionFact(
+  @SerialName("route_points") val routePoints: List<HealthRecordResultDtoWorkoutSessionFactRoutePointsEntry>? = null,
+  @SerialName("exercise_samples") val exerciseSamples: List<HealthRecordResultDtoWorkoutSessionFactExerciseSamplesEntry>? = null,
   @SerialName("id") val id: String,
   @SerialName("raw_id") val rawId: String?,
   @SerialName("raw_version") val rawVersion: Long?,

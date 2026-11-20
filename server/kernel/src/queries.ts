@@ -108,8 +108,8 @@ function healthRecordWire(raw:unknown):unknown{
     measurement:["id","metric","value","unit","label","occurred_on","occurred_at","time_zone","note","source_id","raw_id","group_id","autofilled","effective","revision","created_at"],
     observation:["id","raw_id","raw_version","metric_key","position","value","unit","occurred_on","occurred_at","time_zone","group_id","group_kind","original_field","autofilled","effective","revision","created_at","related_observations"],
     daily_wellbeing:["id","raw_id","raw_version","occurred_on","time_zone","mood_score","energy_level","sleep_quality","morning_erection","notes","effective","revision","created_at"],
-    sleep_session:["id","raw_id","raw_version","wake_date","time_zone","started_at","ended_at","total_minutes","deep_minutes","light_minutes","rem_minutes","awake_minutes","effective","revision","created_at"],
-    workout_session:["id","raw_id","raw_version","plan_id","occurred_on","time_zone","session_type","started_at","duration_minutes","distance_km","calories_kcal","rpe","heart_rate_avg","detail","effective","revision","created_at"],
+    sleep_session:["stage_intervals","provider_sleep_score","id","raw_id","raw_version","wake_date","time_zone","started_at","ended_at","total_minutes","deep_minutes","light_minutes","rem_minutes","awake_minutes","effective","revision","created_at"],
+    workout_session:["route_points","exercise_samples","id","raw_id","raw_version","plan_id","occurred_on","time_zone","session_type","started_at","duration_minutes","distance_km","calories_kcal","rpe","heart_rate_avg","detail","effective","revision","created_at"],
     daily_activity:["id","raw_id","raw_version","occurred_on","time_zone","steps","active_minutes","device_calories_kcal","workout_calories_kcal","effective_calories_kcal","field_sources","effective","revision","created_at","steps_started_at","steps_ended_at","steps_origin"],
     habit_log:["id","raw_id","raw_version","occurred_on","time_zone","habit_key","done_count","explicit_denial","note","effective","revision","created_at"]
   };
