@@ -30,12 +30,16 @@ export async function readDietEvidence(
           left join merchant_foods menu on menu.food_id=f.id and menu.subject_id=m.subject_id
           where item.meal_id=m.id and item.subject_id=m.subject_id and item.effective and coalesce(item.consumed_fraction,1)>0
           union all
-          select 2,p.merchant from meal_consumption_links link
+          -- Older oral entries explicitly identify the canteen in the meal note.
+          -- The payment counterparty can instead identify its settlement company.
+          select 2,substring(m.note from '^食堂「([^」]{1,160})」')
+          union all
+          select 3,p.merchant from meal_consumption_links link
           join consumption_records r on r.id=link.consumption_record_id and r.subject_id=link.subject_id and r.state='confirmed'
           join purchases p on p.record_id=r.id and p.subject_id=r.subject_id
           where link.meal_id=m.id and link.subject_id=m.subject_id
           ${effects.has("money.entry.read")?sql`union all
-            select 3,e.counterparty from meal_consumption_links link
+            select 4,e.counterparty from meal_consumption_links link
             join consumption_records r on r.id=link.consumption_record_id and r.subject_id=link.subject_id and r.state='confirmed'
             join money_entries e on e.record_id=r.id and e.subject_id=r.subject_id and e.entry_type='expense'
             where link.meal_id=m.id and link.subject_id=m.subject_id`:sql``}

@@ -165,6 +165,24 @@ test("canteen profiles keep same-name stalls, preserve meal snapshots and expose
   assert.equal(withPayment.lunch_count,1,"explicit menu identity takes precedence over a payment alias");
   assert.match(withPayment.next_meal?.text??"",/招牌小碗/,"manual vegetable group beats a name with no recognizable vegetable");
 
+  const later="2026-11-20";
+  const oral=await run("life.record_meal",{occurred_on:later,time_zone:"Asia/Shanghai",meal_type:"lunch",
+    note:`食堂「${merchant}」麻辣烫档；按口述记录。`,items:[{name:"绿叶菜"},{name:"豆腐"}]});
+  const alias=await run("money.record_entry",{entry_type:"expense",amount:"12.00",currency:"CNY",counterparty:"结算公司",
+    occurred_on:later,time_zone:"Asia/Shanghai"});
+  await run("life.link_meal_consumption",{meal_id:oral.actual_values.meal_id,consumption_record_id:alias.actual_values.record_id,evidence:"user_confirmed"});
+  const oralReview=await queries.dietReview(context,{to:later,days:7});
+  assert.equal(oralReview.lunches.at(-1)?.id,oral.actual_values.meal_id);
+  assert.equal(oralReview.next_meal?.meal?.id,oral.actual_values.meal_id);
+  assert.match(oralReview.next_meal?.text??"",/绿叶菜配豆腐/);
+  const otherDay="2026-11-21";
+  const away=await run("life.record_meal",{occurred_on:otherDay,time_zone:"Asia/Shanghai",meal_type:"lunch",
+    note:`今天在家吃，上次食堂「${merchant}」不错。`,items:[{name:"西兰花"},{name:"豆干"}]});
+  const awayReview=await queries.dietReview(context,{to:otherDay,days:7});
+  assert.equal(awayReview.lunch_count,oralReview.lunch_count,"an incidental mention is not a canteen visit");
+  assert.equal(awayReview.next_meal?.meal?.id,away.actual_values.meal_id);
+  assert.match(awayReview.next_meal?.text??"",/西兰花配豆干/);
+
   const mealId=String(meal.actual_values.meal_id), recordId=String(payment.actual_values.record_id);
   const detail=await queries.lifeRecord(context,mealId);
   assert.equal(detail.kind,"meal");

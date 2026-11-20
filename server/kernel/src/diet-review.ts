@@ -213,18 +213,22 @@ export function buildDietReview(evidence:DietEvidence,input:DietReviewInput,heal
   const currentDate=Intl.DateTimeFormat("sv-SE",{timeZone:input.time_zone}).format(new Date(evidence.as_of));
   const stepState=latestActivity?.steps!=null||latestActivity?.active_minutes!=null?"reported":input.to===currentDate?"pending":"missing";
   const recentLunches=recentMeals.filter(lunchMatches);
-  const latest=recentLunches.at(-1);
+  const todayLunch=recentMeals.filter(meal=>meal.date===input.to&&meal.type==="lunch"&&meal.items.length>0).at(-1);
+  const latest=todayLunch??recentLunches.at(-1);
   const mixed=latest?.items.filter(isStaple)??[];
-  const vegetableDish=evidence.menu?.dishes.find(dish=>!mixedDish.test(dish.name)&&itemGroups(dish).includes("vegetables"))?.name;
+  const vegetableDish=latest&&lunchMatches(latest)?evidence.menu?.dishes.find(dish=>!mixedDish.test(dish.name)&&itemGroups(dish).includes("vegetables"))?.name:undefined;
   const latestGroups=new Set(latest?.items.flatMap(itemGroups));
   const meal=latest?{id:latest.id,revision:latest.revision}:null;
+  const vegetable=latest?.items.find(item=>itemGroups(item).includes("vegetables"));
+  const soy=latest?.items.find(item=>item!==vegetable&&itemGroups(item).includes("soy"));
   const next_meal=vegetableDish&&latest?.items.length&&!latestGroups.has("vegetables")
     ? {text:`下次到${evidence.menu!.merchant}，如果有${vegetableDish}，可以搭一份。`,meal}
-    : mixed.length>=2?{text:`下次自选拿${mixed.slice(0,3).map(item=>item.name).join("、")}时，可以按合起来的份量打主食。`,meal}:null;
+    : mixed.length>=2?{text:`下次自选拿${mixed.slice(0,3).map(item=>item.name).join("、")}时，可以按合起来的份量打主食。`,meal}
+    : vegetable&&soy?{text:`下一餐可以沿用这顿的搭配，选一份${vegetable.name}配${soy.name}。`,meal}:null;
   const consumedItems=currentMeals.flatMap(meal=>meal.items);
   const weight=measurements(evidence,input,healthAllowed);
   const periodEnergy=target&&median(completeEnergy.flatMap(day=>day.nutrients.energy_kcal.known_total===null?[]:[Number(day.nutrients.energy_kcal.known_total)]));
-  const weight_followup=nextWeightAction(input,weight,completeEnergy.length,currentMeals,latest,
+  const weight_followup=nextWeightAction(input,weight,completeEnergy.length,currentMeals,recentLunches.at(-1),
     periodEnergy!==null&&target!==null&&periodEnergy<target.lower);
   const micronutrients=(["calcium_mg","iron_mg"] as const).map(nutrient=>{
     const known=consumedItems.filter(item=>item[nutrient]!=null);
