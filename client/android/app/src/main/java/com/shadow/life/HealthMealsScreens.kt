@@ -15,6 +15,7 @@ import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -30,15 +31,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -48,8 +50,6 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -58,6 +58,9 @@ import androidx.compose.ui.unit.sp
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.LocalDate
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.withContext
 import kotlin.math.abs
 
 private val healthTabs=listOf("overview" to "健康","body" to "身体","activity" to "运动","training" to "训练","sleep" to "睡眠","release" to "起飞")
@@ -73,7 +76,7 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
 @Composable fun HealthWorkspaceScreen(
   accountId:String,overviewState:LoadState<WorkspaceOverview>,recordsState:LoadState<RecordPage>,deviceStatus:DeviceSyncStatus,queueState:LoadState<QueueSummary>,samsungAvailable:Boolean,
   onRetry:()->Unit,onLoadMore:()->Unit,onBack:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onCapture:(CaptureKind)->Unit,
-  onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onSettings:()->Unit,onMeals:(String)->Unit,initialTab:String="overview",releaseState:LoadState<HealthReleaseHistoryResultDto>,onReleaseLoad:(String,String)->Unit,onArchive:()->Unit={},onReview:(String,Int)->Unit={_,_->},trainingContent:@Composable ()->Unit={}
+  onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onSettings:()->Unit,onMeals:(String)->Unit,initialTab:String="overview",releaseState:LoadState<HealthReleaseHistoryResultDto>,onReleaseLoad:(String,String)->Unit,onArchive:()->Unit={},onReview:(String,Int)->Unit={_,_->},trainingContent:@Composable ()->Unit={},readRevision:Int=0
 ){
   var tab by rememberSaveable(initialTab){mutableStateOf(initialTab.takeIf{value->healthTabs.any{it.first==value}}?:"overview")}
   val context=LocalContext.current
@@ -88,13 +91,23 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
   val workspaceScroll=rememberModuleListState(tab)
   val legacySleepWindows=remember(accountId){mutableStateMapOf<Pair<String,String>,HealthDailyResultDtoResultSleepWindow>()}
   val overview=(overviewState as? LoadState.Ready)?.value as? WorkspaceOverview.Health
+  val cachedDay=overview?.history?.firstOrNull{it.occurredOn==selectedDate}
+  val selectedDay=rememberLifeRead(accountId,selectedDate,enabled=tab=="overview"&&cachedDay==null,refreshKey=readRevision){
+    repository.healthDay(selectedDate)
+  }
+  val dayState=cachedDay?.let{LoadState.Ready(it)}?:selectedDay.state
+  val showOverviewStatus=when(overviewState){
+    LoadState.Loading->tab!="overview"
+    is LoadState.Ready->overviewState.refreshing||overviewState.refreshError!=null||overviewState.updateAvailable
+    else->true
+  }
   Scaffold(containerColor=MaterialTheme.colorScheme.background,
     topBar={LifeModuleTopBar(LifeModule.Health,onBack)},
     floatingActionButton={if(tab=="overview"&&selectedDate==today)ModuleCaptureAction("记体重"){onCapture(CaptureKind.Health)}},
     bottomBar={LifeModuleBottomBar(when(tab){"training"->"activity";"release"->"overview";else->tab},healthModuleTabs){tab=it}}
   ){padding->
     LazyColumn(Modifier.fillMaxSize().padding(padding),state=workspaceScroll,contentPadding=PaddingValues(start=16.dp,end=16.dp,top=8.dp,bottom=if(tab=="overview")88.dp else 8.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
-      item{StateContent(overviewState,onRetry){} }
+      if(showOverviewStatus)item("health-overview-state"){StateContent(overviewState,onRetry){}}
       if(tab in setOf("activity","training"))item{
         FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)){
           FilterChip(tab=="training",{tab=if(tab=="training")"activity" else "training"},label={Text("训练")})
@@ -112,51 +125,53 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
             item{MorningCheckinCard(accountId)}
           }
           "release","training"->Unit
-          else->{
-            item{
-              val knownDates=overview.history.filter{it.steps!=null||it.activeMinutes!=null||it.caloriesKcal!=null||it.sleepId!=null||it.workouts>0||it.weights.isNotEmpty()}.map{it.occurredOn}.toSet()
-              DateNavigator(selectedDate,{selectedDate=it},knownDates,"有健康记录",ActivityGreen)
-            }
-            item{
-              val cached=overview.history.firstOrNull{it.occurredOn==selectedDate}
-              val read=rememberLifeRead(accountId,selectedDate,overview){cached?:repository.healthDay(selectedDate)}
-              StateContent(read.state,read.retry){day->
-                DailyActivityHero(selectedDate,day)
-                Spacer(Modifier.height(12.dp))
-                LifeCard{
-                  val sleepId=day?.sleepId
-                  if(sleepId!=null)HealthSummaryRow("主睡眠","按醒来日统计",day.sleepMinutes?.let(::minutesLabel)?:"—",SleepPurple){
-                    onDetail(LifeDomain.Health,sleepId,"主睡眠")
-                  } else Text("当天没有主睡眠记录",color=MaterialTheme.colorScheme.onSurfaceVariant)
-                  val weights=day?.weights.orEmpty()
-                  weights.forEach{weight->
-                    HorizontalDivider()
-                    HealthSummaryRow("体重","当天测量",healthValueText(weight.value,weight.unit)+" "+unitLabel(weight.unit),ActivityGreen){
-                      onDetail(LifeDomain.Health,weight.id,"身体测量")
-                    }
-                  }
-                  if(weights.isEmpty()&&selectedDate==today)overview.metrics.firstOrNull{it.key=="weight"}?.points?.lastOrNull()?.let{last->
-                    HorizontalDivider()
-                    HealthSummaryRow("最近称重",last.occurredOn,"${last.valueText} ${unitLabel(last.unit)}",ActivityGreen){
-                      onDetail(LifeDomain.Health,last.id,"身体测量")
-                    }
-                  }
-                  day?.workoutItems.orEmpty().forEach{workout->
-                    HorizontalDivider()
-                    HealthSummaryRow(workoutTypeUi(workout.sessionType),localDateTime(workout.startedAt,workout.timeZone,false)?:"当天运动",
-                      workout.durationMinutes?.let(::minutesLabel)?:"查看记录",ActivityBlue){
-                      onDetail(LifeDomain.Health,workout.id,"运动详情")
-                    }
-                  }
+          else->Unit
+        }
+      }
+      if(tab=="overview"){
+        item("health-date-selector"){
+          val shownDay=(dayState as? LoadState.Ready)?.value
+          val knownDates=(overview?.history.orEmpty()+listOfNotNull(shownDay))
+            .filter{it.steps!=null||it.activeMinutes!=null||it.caloriesKcal!=null||it.sleepId!=null||it.workouts>0||it.weights.isNotEmpty()}
+            .map{it.occurredOn}.toSet()
+          DateNavigator(selectedDate,{selectedDate=it},knownDates,"有健康记录",ActivityGreen)
+        }
+        item("health-daily-summary"){
+          StateContent(dayState,selectedDay.retry){day->
+            DailyActivityHero(selectedDate,day)
+            Spacer(Modifier.height(12.dp))
+            LifeCard{
+              val sleepId=day?.sleepId
+              if(sleepId!=null)HealthSummaryRow("主睡眠","按醒来日统计",day.sleepMinutes?.let(::minutesLabel)?:"—",SleepPurple){
+                onDetail(LifeDomain.Health,sleepId,"主睡眠")
+              } else Text("当天没有主睡眠记录",color=MaterialTheme.colorScheme.onSurfaceVariant)
+              val weights=day?.weights.orEmpty()
+              weights.forEach{weight->
+                HorizontalDivider()
+                HealthSummaryRow("体重","当天测量",healthValueText(weight.value,weight.unit)+" "+unitLabel(weight.unit),ActivityGreen){
+                  onDetail(LifeDomain.Health,weight.id,"身体测量")
+                }
+              }
+              if(weights.isEmpty()&&selectedDate==today)overview?.metrics?.firstOrNull{it.key=="weight"}?.points?.lastOrNull()?.let{last->
+                HorizontalDivider()
+                HealthSummaryRow("最近称重",last.occurredOn,"${last.valueText} ${unitLabel(last.unit)}",ActivityGreen){
+                  onDetail(LifeDomain.Health,last.id,"身体测量")
+                }
+              }
+              day?.workoutItems.orEmpty().forEach{workout->
+                HorizontalDivider()
+                HealthSummaryRow(workoutTypeUi(workout.sessionType),localDateTime(workout.startedAt,workout.timeZone,false)?:"当天运动",
+                  workout.durationMinutes?.let(::minutesLabel)?:"查看记录",ActivityBlue){
+                  onDetail(LifeDomain.Health,workout.id,"运动详情")
                 }
               }
             }
-            item{
-              Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
-                TextButton(onClick={onMeals(selectedDate)}){Text("同日饮食")}
-                TextButton(onClick={onReview(selectedDate,7)}){Text("截至当天的周复盘")}
-              }
-            }
+          }
+        }
+        item("health-day-links"){
+          Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+            TextButton(onClick={onMeals(selectedDate)}){Text("同日饮食")}
+            TextButton(onClick={onReview(selectedDate,7)}){Text("截至当天的周复盘")}
           }
         }
       }
@@ -386,44 +401,51 @@ private fun sleepStages(day:HealthDailyOverview?)=listOf(
 @Composable private fun SyncRow(title:String,subtitle:String,state:String,onClick:()->Unit){Row(Modifier.fillMaxWidth().clickable(role=Role.Button,onClick=onClick).padding(vertical=7.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(10.dp).clip(CircleShape).background(if(state in setOf("complete","committed","queued","detected"))ActivityGreen else if(state in setOf("needs_config","key_mismatch"))MaterialTheme.colorScheme.tertiary else if(state in setOf("error","timeout","needs_permission"))MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline));Spacer(Modifier.width(11.dp));Column(Modifier.weight(1f)){Text(title,style=MaterialTheme.typography.titleMedium);Text(subtitle,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2,overflow=TextOverflow.Ellipsis)};Icon(Icons.Default.Refresh,"立即操作",tint=MaterialTheme.colorScheme.primary)}}
 
 @OptIn(ExperimentalMaterial3Api::class,ExperimentalLayoutApi::class)
-@Composable fun MealsWorkspaceScreen(overviewState:LoadState<WorkspaceOverview>,recordsState:LoadState<RecordPage>,assetPreviews:Map<String,LoadState<ByteArray>>,onLoadAsset:(String)->Unit,onRetry:()->Unit,onLoadMore:()->Unit,onBack:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onMealCapture:(String,String)->Unit,onAddPhoto:(RecordSummary)->Unit,photoState:SubmitState,onStats:()->Unit,mealPlanningState:SubmitState,onSaveMealPlan:(NativeMealPlanDraft)->Unit,onBuildShopping:(MealPlanningResultDtoMealPlansEntry,String)->Unit,onUpdateShopping:(MealPlanningResultDtoShoppingListsEntryItemsEntry,String)->Unit,onSetFoodStock:(MealPlanningResultDtoStockLotsEntry?,String,String,String,String?)->Unit,onSaveRecipe:(String,String,String,String,String)->Unit,onResetMealPlanning:()->Unit,initialTab:String="records",accountId:String,onCopyMeal:(RecordSummary,String)->Unit,onDishCatalog:()->Unit,onReview:(String)->Unit,onPriceBook:()->Unit,focusStockId:String="",onStockPurchase:(String)->Unit={},onHealthDay:(String)->Unit){
+@Composable fun MealsWorkspaceScreen(overviewState:LoadState<WorkspaceOverview>,recordsState:LoadState<RecordPage>,assetPreviews:Map<String,LoadState<ByteArray>>,onLoadAsset:(String)->Unit,onRetry:()->Unit,onLoadMore:()->Unit,onBack:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onMealCapture:(String,String)->Unit,onAddPhoto:(RecordSummary)->Unit,photoState:SubmitState,onStats:()->Unit,mealPlanningState:SubmitState,onSaveMealPlan:(NativeMealPlanDraft)->Unit,onBuildShopping:(MealPlanningResultDtoMealPlansEntry,String)->Unit,onUpdateShopping:(MealPlanningResultDtoShoppingListsEntryItemsEntry,String)->Unit,onSetFoodStock:(MealPlanningResultDtoStockLotsEntry?,String,String,String,String?)->Unit,onSaveRecipe:(String,String,String,String,String)->Unit,onResetMealPlanning:()->Unit,initialTab:String="records",accountId:String,onCopyMeal:(RecordSummary,String)->Unit,onDishCatalog:()->Unit,onReview:(String)->Unit,onPriceBook:()->Unit,focusStockId:String="",onStockPurchase:(String)->Unit={},onHealthDay:(String)->Unit,readRevision:Int=0){
   var mealTab by rememberSaveable(initialTab){mutableStateOf(initialTab.takeIf{it in setOf("planning","shopping","stock","recipes","history")}?:"records")}
   val context=LocalContext.current
   val repository=remember(accountId){NativeLifeRepository(context,context.applicationContext as ShadowApp)}
-  var dayRetry by remember{mutableIntStateOf(0)}
-  var localMeals by remember(accountId){mutableStateOf<List<PendingCommand>>(emptyList())}
   val app=context.applicationContext as ShadowApp
-  LaunchedEffect(accountId){
-    val session=app.sessions.active()?.takeIf{it.accountId==accountId}?:return@LaunchedEffect
-    app.queue.observeMeals(session).collect{localMeals=it;dayRetry++}
-  }
-  var selectedDate by rememberSaveable(initialTab){
+  var selectedDate by rememberSaveable(accountId,initialTab){
     mutableStateOf(initialTab.removePrefix("day/").takeIf{initialTab.startsWith("day/")&&runCatching{LocalDate.parse(it)}.isSuccess}?:LocalDate.now().toString())
   }
-  var dayState by remember(accountId,selectedDate){mutableStateOf<LoadState<RecordPage>>(LoadState.Loading)}
+  val showsDay=mealTab=="records"
+  var pendingMeals by remember(accountId,selectedDate){mutableStateOf<List<PendingMealPreview>>(emptyList())}
+  LaunchedEffect(accountId,selectedDate,showsDay){
+    if(!showsDay)return@LaunchedEffect
+    val date=selectedDate
+    val session=withContext(Dispatchers.IO){app.sessions.active()}
+      ?.takeIf{it.accountId==accountId}?:return@LaunchedEffect
+    app.queue.observeMeals(session).collectLatest{commands->
+      pendingMeals=withContext(Dispatchers.IO){
+        commands.filter{it.state!="committed"}.mapNotNull{command->
+          val input=runCatching{org.json.JSONObject(app.queue.commandBody(command)).getJSONObject("input")}.getOrNull()
+            ?:return@mapNotNull null
+          if(input.optString("occurred_on")!=date)return@mapNotNull null
+          val foods=input.optJSONArray("items")
+          val names=foods?.let{items->(0 until items.length()).mapNotNull{items.optJSONObject(it)?.optString("name")}}
+          PendingMealPreview(command.commandId,command.state in setOf("failed","blocked"),names.orEmpty().joinToString("、"))
+        }
+      }
+    }
+  }
   var query by rememberSaveable{mutableStateOf("")}
   val allRecords=(recordsState as? LoadState.Ready)?.value?.items.orEmpty().filter{it.meal!=null}
   var submittedHistory by rememberSaveable{mutableStateOf("")}
-  LaunchedEffect(accountId,selectedDate,dayRetry,photoState,recordsState){
-    dayState=LoadState.Loading
-    try{dayState=LoadState.Ready(repository.mealsOn(selectedDate))}
-    catch(error:kotlinx.coroutines.CancellationException){throw error}
-    catch(error:Exception){dayState=LoadState.Failed(error.message?:"当天餐次暂时无法读取")}
-  }
-  val dayPage=(dayState as? LoadState.Ready)?.value
+  val day=rememberLifeRead(accountId,selectedDate,enabled=showsDay,refreshKey=readRevision){repository.mealsOn(selectedDate)}
+  val dayPage=(day.state as? LoadState.Ready)?.value
   val dayRecords=dayPage?.items.orEmpty()
-  var completeness by remember(accountId,selectedDate,dayPage){mutableStateOf<String?>(null)}
-  LaunchedEffect(accountId,selectedDate,dayPage){
-    if(dayPage!=null){
-      try{completeness=repository.dietReview(selectedDate,1).diary.firstOrNull{it.date==selectedDate}?.state?.wireValue}
-      catch(error:kotlinx.coroutines.CancellationException){throw error}
-      catch(_:Exception){completeness=null}
-    }
+  val nutrition=remember(dayRecords){mealNutrition(dayRecords)}
+  val groupedMeals=remember(dayRecords){dayRecords.groupBy{it.meal?.mealType}}
+  val monday=remember(selectedDate){LocalDate.parse(selectedDate).let{it.minusDays(it.dayOfWeek.value-1L)}}
+  val week=rememberLifeRead(accountId,monday,enabled=showsDay,refreshKey=readRevision){
+    repository.dietReview(monday.plusDays(6).coerceAtMost(LocalDate.now()).toString(),7)
   }
-  val monday=LocalDate.parse(selectedDate).let{it.minusDays(it.dayOfWeek.value-1L)}
-  val week=rememberLifeRead(accountId,monday,dayRetry){
-    repository.dietReview(monday.plusDays(6).coerceAtMost(LocalDate.now()).toString(),7).wellness.days
-      .filter{it.date>=monday.toString()}
+  val weekReview=(week.state as? LoadState.Ready)?.value
+  val weekDays=remember(weekReview,monday){weekReview?.wellness?.days.orEmpty().filter{it.date>=monday.toString()}}
+  val completeness=weekReview?.diary?.firstOrNull{it.date==selectedDate}?.state?.wireValue
+  val history=rememberRecordPages(accountId,submittedHistory,enabled=mealTab=="history",refreshKey=readRevision){
+    cursor->repository.records(LifeDomain.Meals,submittedHistory,cursor)
   }
   val mealScroll=rememberModuleListState(mealTab)
   Scaffold(containerColor=MaterialTheme.colorScheme.background,
@@ -438,22 +460,21 @@ private fun sleepStages(day:HealthDailyOverview?)=listOf(
   ){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),state=mealScroll,contentPadding=PaddingValues(start=16.dp,end=16.dp,top=8.dp,bottom=if(mealTab=="records")88.dp else 8.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
     if(mealTab=="records"){
       item{
-        val recordedDates=(week.state as? LoadState.Ready)?.value.orEmpty().filter{it.meals>0}.map{it.date}.toSet()+
+        val recordedDates=weekDays.filter{it.meals>0}.map{it.date}.toSet()+
           if(dayRecords.isNotEmpty())setOf(selectedDate) else emptySet()
         DateNavigator(selectedDate,{selectedDate=it},recordedDates)
         if(week.state is LoadState.Failed)TextButton(onClick=week.retry){Text("重试读取本周餐次标记")}
       }
-      item{StateContent(dayState,{dayRetry++}){}}
+      item{StateContent(day.state,day.retry){}}
       if(dayPage!=null){
-        item{MealNutritionHero(selectedDate,dayRecords,mealNutrition(dayRecords),dayPage.nextCursor!=null,completeness){record->onDetail(LifeDomain.Meals,record.id,record.title)}}
-        val weekDays=(week.state as? LoadState.Ready)?.value.orEmpty()
+        item{MealNutritionHero(selectedDate,dayRecords,nutrition,dayPage.nextCursor!=null,completeness){record->onDetail(LifeDomain.Meals,record.id,record.title)}}
         if(weekDays.any{it.meals>0})item{
           var expanded by rememberSaveable{mutableStateOf(false)}
           TextButton(onClick={expanded=!expanded}){Text(if(expanded)"收起本周摄入" else "查看本周摄入")}
           if(expanded)MealWeekIntake(weekDays,selectedDate){selectedDate=it}
         }
-        item{MealDayGroups(dayRecords,assetPreviews,onLoadAsset,onDetail,{type->onMealCapture(selectedDate,type)},onAddPhoto,
-          {record->onCopyMeal(record,selectedDate)})}
+        mealDayGroups(groupedMeals,assetPreviews,onLoadAsset,onDetail,{type->onMealCapture(selectedDate,type)},onAddPhoto,
+          {record->onCopyMeal(record,selectedDate)})
       }
       item{
         FlowRow(horizontalArrangement=Arrangement.spacedBy(4.dp)){
@@ -472,14 +493,11 @@ private fun sleepStages(day:HealthDailyOverview?)=listOf(
       TextButton(onClick={copying=!copying}){Text("用最近一餐")}
       if(copying)allRecords.take(10).forEach{record->TextButton(onClick={onCopyMeal(record,selectedDate)}){Text("${record.meal?.occurredOn} · ${record.title}")}}
     }
-    if(mealTab=="records")item{
-      localMeals.filter{it.state!="committed"}.forEach{command->
-        val input=runCatching{org.json.JSONObject(app.queue.commandBody(command)).getJSONObject("input")}.getOrNull()
-        if(input?.optString("occurred_on")==selectedDate)HealthSurface{
-          Text(if(command.state in setOf("failed","blocked"))"本机餐次 · 同步需要处理" else "本机餐次 · 待同步",style=MaterialTheme.typography.titleMedium)
-          Text(input.optJSONArray("items")?.let{items->(0 until items.length()).map{items.getJSONObject(it).optString("name")}.joinToString("、")}.orEmpty())
-          Text("同步确认后会并入当天餐次；当前营养汇总采用已接收记录。",style=MaterialTheme.typography.bodySmall)
-        }
+    if(showsDay)items(pendingMeals,key={"pending-meal:${it.id}"}){meal->
+      HealthSurface{
+        Text(if(meal.failed)"本机餐次 · 同步需要处理" else "本机餐次 · 待同步",style=MaterialTheme.typography.titleMedium)
+        Text(meal.foods)
+        Text("同步确认后会并入当天餐次；当前营养汇总采用已接收记录。",style=MaterialTheme.typography.bodySmall)
       }
     }
     val planning=(overviewState as? LoadState.Ready)?.value as? WorkspaceOverview.Meals
@@ -493,18 +511,15 @@ private fun sleepStages(day:HealthDailyOverview?)=listOf(
           TextButton(onClick={submittedHistory=query.trim()}){Text("搜索")}
         }
       }
-      item{
-        val history=rememberRecordPages(accountId,submittedHistory){cursor->repository.records(LifeDomain.Meals,submittedHistory,cursor)}
-        StateContent(history.state,history.retry){page->
-          if(page.items.isEmpty())EmptyState("没有匹配的饮食记录")
-          else page.items.forEach{record->
-            MealHistoryRow(record,assetPreviews,onLoadAsset,{if(record.meal!=null)onAddPhoto(record)}){
-              onDetail(LifeDomain.Meals,record.detailId?:record.id,record.title)
-            }
-          }
-          if(page.nextCursor!=null)TextButton(onClick=history.more){Text("加载更早记录")}
+      item{StateContent(history.state,history.retry){}}
+      val page=(history.state as? LoadState.Ready)?.value
+      if(page?.items?.isEmpty()==true)item{EmptyState("没有匹配的饮食记录")}
+      items(page?.items.orEmpty(),key={"meal-history:${it.kind}:${it.id}"}){record->
+        MealHistoryRow(record,assetPreviews,onLoadAsset,{if(record.meal!=null)onAddPhoto(record)}){
+          onDetail(LifeDomain.Meals,record.detailId?:record.id,record.title)
         }
       }
+      if(page?.nextCursor!=null)item{TextButton(onClick=history.more){Text("加载更早记录")}}
     }
   }}
 }
@@ -658,21 +673,25 @@ private fun sleepStages(day:HealthDailyOverview?)=listOf(
 }
 @Composable private fun ActivityMetric(label:String,key:String,value:Double?,unit:String){val status=metricAssessment(key,value,unit,true);val edit=LocalEditHealthReference.current;val hasGoal=LocalHealthReferences.current[key]!=null;Column(Modifier.clickable(role=Role.Button){edit(key,label,unit,true)},verticalArrangement=Arrangement.spacedBy(5.dp)){RingLegend(label,value?.let{healthValueText(it,unit)}?:"—",unit,healthTone(status.tone));if(hasGoal)AssessmentLabel(status,false);Text(if(!hasGoal)"设置目标" else status.basis,style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
 
+private data class PendingMealPreview(val id:String,val failed:Boolean,val foods:String)
+
 @OptIn(ExperimentalLayoutApi::class)
-@Composable private fun MealDayGroups(records:List<RecordSummary>,assetPreviews:Map<String,LoadState<ByteArray>>,onLoadAsset:(String)->Unit,onDetail:(LifeDomain,String,String)->Unit,onCapture:(String)->Unit,onAddPhoto:(RecordSummary)->Unit,onCopy:(RecordSummary)->Unit){
-  LifeSection("当天餐次"){
-    val grouped=records.groupBy{it.meal?.mealType}
-    mealOrder.forEach{type->
-      grouped[type].orEmpty().forEach{record->
-        MealGroupCard(record,assetPreviews,onLoadAsset,{onAddPhoto(record)},{onCopy(record)}){
-          onDetail(LifeDomain.Meals,record.detailId?:record.id,record.title)
-        }
+private fun LazyListScope.mealDayGroups(
+  grouped:Map<String?,List<RecordSummary>>,assetPreviews:Map<String,LoadState<ByteArray>>,onLoadAsset:(String)->Unit,
+  onDetail:(LifeDomain,String,String)->Unit,onCapture:(String)->Unit,onAddPhoto:(RecordSummary)->Unit,onCopy:(RecordSummary)->Unit
+){
+  item("meal-day-heading"){Text("当天餐次",style=MaterialTheme.typography.titleLarge)}
+  mealOrder.forEach{type->
+    items(grouped[type].orEmpty(),key={"meal-day:${it.id}"}){record->
+      MealGroupCard(record,assetPreviews,onLoadAsset,{onAddPhoto(record)},{onCopy(record)}){
+        onDetail(LifeDomain.Meals,record.detailId?:record.id,record.title)
       }
     }
+  }
+  val missing=mealOrder.filter{it!="other"&&grouped[it].isNullOrEmpty()}
+  if(missing.isNotEmpty())item("meal-day-capture"){
     FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)){
-      mealOrder.filter{it!="other"&&grouped[it].isNullOrEmpty()}.forEach{type->
-        AssistChip(onClick={onCapture(type)},label={Text("＋${mealTypeUi(type)}")})
-      }
+      missing.forEach{type->AssistChip(onClick={onCapture(type)},label={Text("＋${mealTypeUi(type)}")})}
     }
   }
 }
@@ -702,103 +721,190 @@ private fun sleepStages(day:HealthDailyOverview?)=listOf(
 }
 
 @Composable private fun MealHistoryRow(record:RecordSummary,assetPreviews:Map<String,LoadState<ByteArray>>,onLoadAsset:(String)->Unit,onAddPhoto:()->Unit,onClick:()->Unit){val meal=record.meal;if(meal==null){RecordRow(record,onClick);return};Row(Modifier.fillMaxWidth().clickable(role=Role.Button,onClick=onClick).padding(vertical=8.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){MealPhoto(meal.photoAssetVersionId,assetPreviews,onLoadAsset,Modifier.size(58.dp),onAddPhoto);Column(Modifier.weight(1f)){Text(mealTypeUi(meal.mealType),style=MaterialTheme.typography.titleMedium);Text(record.title,maxLines=1,overflow=TextOverflow.Ellipsis,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(meal.occurredOn,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)};record.trailing?.let{Text(it,style=MaterialTheme.typography.labelMedium)}}}
-@Composable private fun MealPhoto(versionId:String?,states:Map<String,LoadState<ByteArray>>,onLoad:(String)->Unit,modifier:Modifier,onAdd:(()->Unit)?=null){if(versionId==null){Surface(modifier.then(if(onAdd!=null)Modifier.clickable(role=Role.Button,onClick=onAdd) else Modifier),shape=RoundedCornerShape(20.dp),color=MealCoral.copy(alpha=.11f)){Box(contentAlignment=Alignment.Center){Column(horizontalAlignment=Alignment.CenterHorizontally){Text("＋",style=MaterialTheme.typography.headlineMedium,color=MealCoral);Text("添加餐照",style=MaterialTheme.typography.labelMedium,color=MealCoral)}}};return};LaunchedEffect(versionId){onLoad(versionId)};when(val state=states[versionId]){is LoadState.Ready->{val bitmap=remember(state.value){BitmapFactory.decodeByteArray(state.value,0,state.value.size)?.asImageBitmap()};if(bitmap!=null)MealPhotoPreview(bitmap,modifier) else PhotoLoadFallback(modifier,"无法解码")};is LoadState.Failed->PhotoLoadFallback(modifier,"点击重试"){onLoad(versionId)};else->Surface(modifier,shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surfaceVariant){Box(contentAlignment=Alignment.Center){CircularProgressIndicator(Modifier.size(24.dp),strokeWidth=2.dp)}}}}
-@Composable private fun MealPhotoPreview(bitmap:androidx.compose.ui.graphics.ImageBitmap,modifier:Modifier){
+@Composable private fun MealPhoto(
+  versionId:String?,states:Map<String,LoadState<ByteArray>>,onLoad:(String)->Unit,modifier:Modifier,onAdd:(()->Unit)?=null
+){
+  if(versionId==null){
+    Surface(modifier.then(if(onAdd!=null)Modifier.clickable(role=Role.Button,onClick=onAdd) else Modifier),
+      shape=RoundedCornerShape(20.dp),color=MealCoral.copy(alpha=.11f)){
+      Box(contentAlignment=Alignment.Center){
+        Column(horizontalAlignment=Alignment.CenterHorizontally){
+          Text("＋",style=MaterialTheme.typography.headlineMedium,color=MealCoral)
+          Text("添加餐照",style=MaterialTheme.typography.labelMedium,color=MealCoral)
+        }
+      }
+    }
+    return
+  }
+  LaunchedEffect(versionId){onLoad(versionId)}
+  when(val state=states[versionId]){
+    is LoadState.Ready->{
+      val bytes=state.value
+      val preview=rememberLifeRead(bytes){decodeMealThumbnail(bytes)}
+      when(val result=preview.state){
+        is LoadState.Ready->MealPhotoPreview(result.value,bytes,modifier)
+        is LoadState.Failed->PhotoLoadFallback(modifier,"无法解码")
+        else->PhotoLoading(modifier)
+      }
+    }
+    is LoadState.Failed->PhotoLoadFallback(modifier,"点击重试"){onLoad(versionId)}
+    else->PhotoLoading(modifier)
+  }
+}
+
+private fun decodeMealThumbnail(bytes:ByteArray):ImageBitmap{
+  val bounds=BitmapFactory.Options().apply{inJustDecodeBounds=true}
+  BitmapFactory.decodeByteArray(bytes,0,bytes.size,bounds)
+  var sample=1
+  val edge=maxOf(bounds.outWidth,bounds.outHeight)
+  while(edge/sample>768)sample*=2
+  val options=BitmapFactory.Options().apply{inSampleSize=sample}
+  return checkNotNull(BitmapFactory.decodeByteArray(bytes,0,bytes.size,options)){"无法解码餐照"}.asImageBitmap()
+}
+
+@Composable private fun PhotoLoading(modifier:Modifier){
+  Surface(modifier,shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surfaceVariant){
+    Box(contentAlignment=Alignment.Center){CircularProgressIndicator(Modifier.size(24.dp),strokeWidth=2.dp)}
+  }
+}
+
+@Composable private fun MealPhotoPreview(thumbnail:ImageBitmap,bytes:ByteArray,modifier:Modifier){
   var full by rememberSaveable{mutableStateOf(false)}
-  Image(bitmap,"查看餐次照片",modifier.clip(RoundedCornerShape(20.dp)).clickable(role=Role.Button){full=true},contentScale=ContentScale.Crop)
+  Image(thumbnail,"查看餐次照片",modifier.clip(RoundedCornerShape(20.dp)).clickable(role=Role.Button){full=true},contentScale=ContentScale.Crop)
   if(full)LifeFullScreen("餐次照片",{full=false}){
+    val original=rememberLifeRead(bytes){
+      checkNotNull(BitmapFactory.decodeByteArray(bytes,0,bytes.size)){"无法解码餐照"}.asImageBitmap()
+    }
     var zoom by remember{mutableFloatStateOf(1f)}
     var offset by remember{mutableStateOf(Offset.Zero)}
-    val transform=rememberTransformableState{scale,pan,_ ->
+    val transform=rememberTransformableState{scale,pan,_->
       zoom=(zoom*scale).coerceIn(1f,5f)
       offset=if(zoom==1f)Offset.Zero else offset+pan
     }
-    Box(Modifier.fillMaxSize().clipToBounds().transformable(transform)){
-      Image(bitmap,"餐次照片",Modifier.fillMaxSize().graphicsLayer{
-        scaleX=zoom;scaleY=zoom;translationX=offset.x;translationY=offset.y
-      },contentScale=ContentScale.Fit)
+    Column(Modifier.fillMaxSize()){
+      if(original.state is LoadState.Loading)LinearProgressIndicator(Modifier.fillMaxWidth())
+      if(original.state is LoadState.Failed)StateContent(original.state,original.retry){}
+      val bitmap=(original.state as? LoadState.Ready)?.value?:thumbnail
+      Box(Modifier.weight(1f).fillMaxWidth().clipToBounds().transformable(transform)){
+        Image(bitmap,"餐次照片",Modifier.fillMaxSize().graphicsLayer{
+          scaleX=zoom;scaleY=zoom;translationX=offset.x;translationY=offset.y
+        },contentScale=ContentScale.Fit)
+      }
     }
   }
 }
-
 @Composable private fun PhotoLoadFallback(modifier:Modifier,label:String,onClick:(()->Unit)?=null){Surface(modifier.then(if(onClick!=null)Modifier.clickable(role=Role.Button,onClick=onClick) else Modifier),shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surfaceVariant){Box(contentAlignment=Alignment.Center){Text(label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
 
 @Composable private fun HealthSurface(modifier:Modifier=Modifier,onClick:(()->Unit)?=null,content:@Composable ColumnScope.()->Unit){LifeCard(modifier,onClick,content)}
-@Composable private fun TrendChart(points:List<HealthTrendPoint>,modifier:Modifier,color:Color,metricKey:String?=null,onOpen:((HealthTrendPoint)->Unit)?=null){
-  val epochs=points.map{LocalDate.parse(it.occurredOn).toEpochDay()}
-  val span=((epochs.maxOrNull()?:0)-(epochs.minOrNull()?:0)).coerceAtLeast(1)
-  val positions=epochs.map{(it-(epochs.minOrNull()?:0)).toFloat()/span}
-  val colors=points.map{if(metricKey==null)color else healthTone(metricAssessment(metricKey,it.value,it.unit).tone)}
-  val values=points.map{it.value};val outline=MaterialTheme.colorScheme.outline;val surface=MaterialTheme.colorScheme.surface;val textColor=MaterialTheme.colorScheme.onSurfaceVariant;val unit=points.lastOrNull()?.unit.orEmpty()
-  val axisPaint=remember{textPaint(Paint.Align.RIGHT)}.apply{this.color=textColor.toArgb()}
-  val pointPaint=remember{textPaint(Paint.Align.LEFT,true)}
-  val hitBounds=remember{floatArrayOf(0f,1f)}
-  var selected by rememberSaveable(points.map{it.id}){mutableIntStateOf((points.size-1).coerceAtLeast(0))}
-  Column(modifier,verticalArrangement=Arrangement.spacedBy(8.dp)){
-  points.getOrNull(selected)?.let{point->
-    val sameDay=points.filter{it.occurredOn==point.occurredOn}.sortedBy{it.occurredAt.orEmpty()}
-    Text(point.occurredOn,style=MaterialTheme.typography.labelLarge)
-    sameDay.forEach{reading->
-      val time=reading.occurredAt?.let{runCatching{java.time.Instant.parse(it).atZone(java.time.ZoneId.systemDefault()).toLocalTime().toString().take(5)}.getOrNull()}
-      val label=listOfNotNull(time,"${reading.valueText} ${unitLabel(reading.unit)}",sourceLabel(reading.sourceKind)).joinToString(" · ")
-      if(onOpen==null)Text(label,style=MaterialTheme.typography.bodySmall)
-      else TextButton(onClick={onOpen(reading)}){Text(label)}
-    }
+@Composable private fun TrendChart(
+  points:List<HealthTrendPoint>,modifier:Modifier,color:Color,metricKey:String?=null,onOpen:((HealthTrendPoint)->Unit)?=null
+){
+  val epochs=remember(points){points.map{LocalDate.parse(it.occurredOn).toEpochDay()}}
+  val positions=remember(epochs){
+    val first=epochs.minOrNull()?:0L
+    val span=((epochs.maxOrNull()?:first)-first).coerceAtLeast(1)
+    epochs.map{(it-first).toFloat()/span}
   }
-  Canvas(Modifier.fillMaxWidth().weight(1f).clipToBounds().pointerInput(points){detectTapGestures{position->selected=positions.indices.minByOrNull{abs(positions[it]-(position.x-hitBounds[0])/(hitBounds[1]-hitBounds[0]).coerceAtLeast(1f))}?:0}}){
-    if(values.isEmpty())return@Canvas
-    axisPaint.textSize=11.sp.toPx()
-    pointPaint.textSize=12.sp.toPx()
-    val rawMin=values.minOrNull()?:0.0;val rawMax=values.maxOrNull()?:rawMin;val padding=((rawMax-rawMin)*.12).takeIf{it>.000001}?:maxOf(abs(rawMax)*.01,.5);val min=rawMin-padding;val max=rawMax+padding;val range=max-min
-    val ticks=List(4){index->healthValueText(max-range*index/3,unit)}
-    val axisGap=8.dp.toPx()
-    val left=ticks.maxOf{axisPaint.measureText(it)}+axisGap
-    val right=size.width-6.dp.toPx()
-    hitBounds[0]=left;hitBounds[1]=right
-    val top=pointPaint.fontSpacing+12.dp.toPx()
-    val bottom=size.height-axisPaint.fontSpacing/2-4.dp.toPx()
-    if(right<=left||bottom<=top)return@Canvas
-    val axisBaseline=-(axisPaint.ascent()+axisPaint.descent())/2
-    ticks.forEachIndexed{index,label->
-      val y=top+(bottom-top)*index/3f
-      drawLine(outline.copy(alpha=.35f),Offset(left,y),Offset(right,y),1.dp.toPx())
-      drawContext.canvas.nativeCanvas.drawText(label,left-axisGap,y+axisBaseline,axisPaint)
-    }
-    fun pointOffset(index:Int,value:Double):Offset{
-      val x=if(values.size==1)(left+right)/2 else left+(right-left)*positions[index]
-      return Offset(x,bottom-(bottom-top)*((value-min)/range).toFloat())
-    }
-    if(values.size>1){val path=Path();values.forEachIndexed{index,value->val point=pointOffset(index,value);if(index==0||epochs[index]-epochs[index-1]>1)path.moveTo(point.x,point.y) else path.lineTo(point.x,point.y)};drawPath(path,color,style=Stroke(3.dp.toPx(),cap=StrokeCap.Round))}
-    // Dense series keep their complete line without turning every sample into an overlapping dot.
-    val showAllMarkers=values.size<=1||(right-left)/values.lastIndex>=10.dp.toPx()
-    values.forEachIndexed{index,value->
-      if(showAllMarkers||index==values.lastIndex){
-        val point=pointOffset(index,value)
-        drawCircle(surface,5.dp.toPx(),point)
-        drawCircle(colors[index],3.dp.toPx(),point)
+  val values=remember(points){points.map{it.value}}
+  val reference=metricKey?.let{LocalHealthReferences.current[it]?:defaultHealthReference(it)}
+  val palette=HealthTone.entries.map{healthTone(it)}
+  val colors=remember(points,reference,palette,color,metricKey){
+    points.map{if(metricKey==null)color else palette[assessHealth(it.value,it.unit,reference,false).tone.ordinal]}
+  }
+  val measurementsByDay=remember(points){
+    points.groupBy{it.occurredOn}.mapValues{(_,readings)->readings.sortedBy{it.occurredAt.orEmpty()}}
+  }
+  val scheme=MaterialTheme.colorScheme
+  val hitBounds=remember{floatArrayOf(0f,1f)}
+  val pointIds=remember(points){points.map{it.id}}
+  var selected by rememberSaveable(pointIds){mutableIntStateOf(points.lastIndex.coerceAtLeast(0))}
+  Column(modifier,verticalArrangement=Arrangement.spacedBy(8.dp)){
+    points.getOrNull(selected)?.let{point->
+      Text(point.occurredOn,style=MaterialTheme.typography.labelLarge)
+      measurementsByDay[point.occurredOn].orEmpty().forEach{reading->
+        val time=reading.occurredAt?.let{runCatching{java.time.Instant.parse(it).atZone(java.time.ZoneId.systemDefault()).toLocalTime().toString().take(5)}.getOrNull()}
+        val label=listOfNotNull(time,"${reading.valueText} ${unitLabel(reading.unit)}",sourceLabel(reading.sourceKind)).joinToString(" · ")
+        if(onOpen==null)Text(label,style=MaterialTheme.typography.bodySmall)
+        else TextButton(onClick={onOpen(reading)}){Text(label)}
       }
     }
-    if(selected in values.indices){val point=pointOffset(selected,values[selected]);drawLine(outline,Offset(point.x,top),Offset(point.x,bottom),1.dp.toPx());drawCircle(colors[selected],5.dp.toPx(),point)}
-    // The card already lists min/max/average. Only annotate the latest measurement on the plot.
-    val latest=pointOffset(values.lastIndex,values.last())
-    val label=healthValueText(values.last(),unit)
-    val labelWidth=pointPaint.measureText(label)
-    val labelPadding=3.dp.toPx()
-    if(labelWidth+labelPadding*2<=right-left){
-      val x=(latest.x-labelWidth/2).coerceIn(left+labelPadding,right-labelWidth-labelPadding)
-      val baseline=latest.y-9.dp.toPx()
-      drawRoundRect(
-        surface.copy(alpha=.94f),
-        Offset(x-labelPadding,baseline+pointPaint.ascent()-labelPadding),
-        Size(labelWidth+labelPadding*2,pointPaint.descent()-pointPaint.ascent()+labelPadding*2),
-        cornerRadius=androidx.compose.ui.geometry.CornerRadius(labelPadding)
-      )
-      pointPaint.color=colors.last().toArgb()
-      drawContext.canvas.nativeCanvas.drawText(label,x,baseline,pointPaint)
-    }
-  }  }
+    Box(Modifier.fillMaxWidth().weight(1f).clipToBounds().pointerInput(positions){
+      detectTapGestures{position->
+        val fraction=(position.x-hitBounds[0])/(hitBounds[1]-hitBounds[0]).coerceAtLeast(1f)
+        selected=positions.indices.minByOrNull{abs(positions[it]-fraction)}?:0
+      }
+    }.drawWithCache{
+      if(values.isEmpty())return@drawWithCache onDrawBehind{}
+      val axisPaint=textPaint(Paint.Align.RIGHT).apply{
+        this.color=scheme.onSurfaceVariant.toArgb()
+        textSize=11.sp.toPx()
+      }
+      val pointPaint=textPaint(Paint.Align.LEFT,true).apply{
+        this.color=colors.last().toArgb()
+        textSize=12.sp.toPx()
+      }
+      val rawMin=values.min()
+      val rawMax=values.max()
+      val padding=((rawMax-rawMin)*.12).takeIf{it>.000001}?:maxOf(abs(rawMax)*.01,.5)
+      val min=rawMin-padding
+      val max=rawMax+padding
+      val range=max-min
+      val unit=points.last().unit
+      val ticks=List(4){index->healthValueText(max-range*index/3,unit)}
+      val axisGap=8.dp.toPx()
+      val left=ticks.maxOf{axisPaint.measureText(it)}+axisGap
+      val right=size.width-6.dp.toPx()
+      hitBounds[0]=left
+      hitBounds[1]=right
+      val top=pointPaint.fontSpacing+12.dp.toPx()
+      val bottom=size.height-axisPaint.fontSpacing/2-4.dp.toPx()
+      if(right<=left||bottom<=top)return@drawWithCache onDrawBehind{}
+      val axisBaseline=-(axisPaint.ascent()+axisPaint.descent())/2
+      val offsets=values.mapIndexed{index,value->
+        Offset(if(values.size==1)(left+right)/2 else left+(right-left)*positions[index],
+          bottom-(bottom-top)*((value-min)/range).toFloat())
+      }
+      val path=Path().apply{
+        offsets.forEachIndexed{index,point->
+          if(index==0||epochs[index]-epochs[index-1]>1)moveTo(point.x,point.y) else lineTo(point.x,point.y)
+        }
+      }
+      val showAllMarkers=values.size<=1||(right-left)/values.lastIndex>=10.dp.toPx()
+      val markerIndices=if(showAllMarkers)values.indices else values.lastIndex..values.lastIndex
+      val latest=offsets.last()
+      val label=healthValueText(values.last(),unit)
+      val labelWidth=pointPaint.measureText(label)
+      val labelPadding=3.dp.toPx()
+      val labelBaseline=latest.y-9.dp.toPx()
+      val labelX=if(labelWidth+labelPadding*2<=right-left)
+        (latest.x-labelWidth/2).coerceIn(left+labelPadding,right-labelWidth-labelPadding) else null
+      onDrawBehind{
+        ticks.forEachIndexed{index,tick->
+          val y=top+(bottom-top)*index/3f
+          drawLine(scheme.outline.copy(alpha=.35f),Offset(left,y),Offset(right,y),1.dp.toPx())
+          drawContext.canvas.nativeCanvas.drawText(tick,left-axisGap,y+axisBaseline,axisPaint)
+        }
+        if(values.size>1)drawPath(path,color,style=Stroke(3.dp.toPx(),cap=StrokeCap.Round))
+        markerIndices.forEach{index->
+          drawCircle(scheme.surface,5.dp.toPx(),offsets[index])
+          drawCircle(colors[index],3.dp.toPx(),offsets[index])
+        }
+        val index=selected
+        offsets.getOrNull(index)?.let{point->
+          drawLine(scheme.outline,Offset(point.x,top),Offset(point.x,bottom),1.dp.toPx())
+          drawCircle(colors[index],5.dp.toPx(),point)
+        }
+        if(labelX!=null){
+          drawRoundRect(scheme.surface.copy(alpha=.94f),
+            Offset(labelX-labelPadding,labelBaseline+pointPaint.ascent()-labelPadding),
+            Size(labelWidth+labelPadding*2,pointPaint.descent()-pointPaint.ascent()+labelPadding*2),
+            cornerRadius=androidx.compose.ui.geometry.CornerRadius(labelPadding))
+          drawContext.canvas.nativeCanvas.drawText(label,labelX,labelBaseline,pointPaint)
+        }
+      }
+    })
+  }
 }
-
 
 private fun textPaint(align:Paint.Align,bold:Boolean=false)=Paint(Paint.ANTI_ALIAS_FLAG).apply{textAlign=align;typeface=if(bold)Typeface.create(Typeface.DEFAULT,Typeface.BOLD) else Typeface.DEFAULT}
 

@@ -96,10 +96,13 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
   private var detailJob:Job?=null
   private var readSequence=0L
   private val latestReads=mutableMapOf<String,Long>()
+  private val domainReadRevisions=androidx.compose.runtime.mutableStateMapOf<LifeDomain,Int>()
 
   private fun beginRead(key:String):Long=(++readSequence).also{latestReads[key]=it}
   private fun isCurrentRead(key:String,token:Long)=activeAccountId!=null&&latestReads[key]==token
-  private fun invalidateReads(){readSequence++;latestReads.clear()}
+  internal fun readRevision(domain:LifeDomain)=domainReadRevisions[domain]?:0
+  private fun invalidateWorkspaceReads(domain:LifeDomain){domainReadRevisions[domain]=readRevision(domain)+1}
+  private fun invalidateReads(){readSequence++;latestReads.clear();domainReadRevisions.clear()}
 
   internal var trainingPlans:LoadState<List<NativeTrainingPlan>> by androidx.compose.runtime.mutableStateOf(LoadState.Loading);private set
   var trainingSubmit:SubmitState by androidx.compose.runtime.mutableStateOf(SubmitState.Editing);private set
@@ -281,8 +284,24 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
   fun saveTravelDay(draft:TravelDayDraft){if(submit is SubmitState.Sending)return;submit=SubmitState.Sending("travel_day");viewModelScope.launch{try{submit=SubmitState.Saved(repository.saveTravelDay(draft))}catch(error:CancellationException){throw error}catch(error:Exception){submit=SubmitState.Rejected(error.message?:"无法保存日程")}}}
   fun saveTravelChecklist(tripId:String,revision:Int?,items:List<TravelChecklistItemSummary>){if(submit is SubmitState.Sending)return;submit=SubmitState.Sending("travel_checklist");viewModelScope.launch{try{submit=SubmitState.Saved(repository.saveTravelChecklist(tripId,revision,items))}catch(error:CancellationException){throw error}catch(error:Exception){submit=SubmitState.Rejected(error.message?:"无法保存清单")}}}
   fun prepareOfflineItinerary(tripId:String){val token=beginRead("offline-itinerary");offlineItinerary=LoadState.Loading;viewModelScope.launch{val result=load("无法生成行程单"){repository.prepareOfflineItinerary(tripId)};if(isCurrentRead("offline-itinerary",token))offlineItinerary=result}}
-  fun loadMoneyImportMonth(period:String=LocalDate.now().toString().take(7)){val token=beginRead("money-import-month");moneyImportMonth=LoadState.Loading;viewModelScope.launch{val result=load("这个月没有账单候选"){repository.moneyImportMonth(period)};if(isCurrentRead("money-import-month",token))moneyImportMonth=result}}
-  fun openMoneyImportBatch(id:String){val token=beginRead("money-import-review");moneyImportReview=LoadState.Loading;viewModelScope.launch{val result=load("批次已不可用"){repository.moneyImportReview(id)};if(isCurrentRead("money-import-review",token))moneyImportReview=result}}
+  fun loadMoneyImportMonth(period:String=LocalDate.now().toString().take(7)){
+    val token=beginRead("money-import-month")
+    val previous=moneyImportMonth as? LoadState.Ready
+    moneyImportMonth=moneyImportMonth.beginRefresh(previous?.value?.period==period)
+    viewModelScope.launch{
+      val result=load("这个月没有账单候选"){repository.moneyImportMonth(period)}
+      if(isCurrentRead("money-import-month",token))moneyImportMonth=moneyImportMonth.finishRefresh(result)
+    }
+  }
+  fun openMoneyImportBatch(id:String){
+    val token=beginRead("money-import-review")
+    val previous=moneyImportReview as? LoadState.Ready
+    moneyImportReview=previous?.beginRefresh(previous.value.batchId==id)?:LoadState.Loading
+    viewModelScope.launch{
+      val result=load("批次已不可用"){repository.moneyImportReview(id)}
+      if(isCurrentRead("money-import-review",token))moneyImportReview=moneyImportReview?.finishRefresh(result)?:result
+    }
+  }
   var moneyImportPendingId:String? by androidx.compose.runtime.mutableStateOf(null);private set
   fun resolveMoneyImport(candidate:MoneyImportCandidateSummary,decision:String,entryType:String,amount:String,date:String,category:String,originalEntryId:String){
     if(moneyImportSubmit is SubmitState.Sending||moneyImportPendingId!=null||bulkImportState?.running==true)return
@@ -436,7 +455,7 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
       }
     }
   }
-  fun reloadWorkspace(){workspaceDomain?.let{loadWorkspace(it,workspaceQuery)}}
+  fun reloadWorkspace(){workspaceDomain?.let{invalidateWorkspaceReads(it);loadWorkspace(it,workspaceQuery)}}
   fun loadMoreWorkspace(){
     val domain=workspaceDomain?:return
     if((workspace as? LoadState.Ready)?.value?.nextCursor==null)return
@@ -514,6 +533,7 @@ class NativeLifeViewModel(application:Application):AndroidViewModel(application)
       if(personalFoundation is LoadState.Ready)personalFoundation=personalFoundation.noticeUpdate() else refreshPersonalFoundation(personalKind,personalOn)
     }
     val domains=affectedReadDomains(capabilities)
+    domains.forEach(::invalidateWorkspaceReads)
     refreshToday()
     if(timeline is LoadState.Ready)timeline=timeline.noticeUpdate() else refreshTimeline()
     if(day is LoadState.Ready){day=day.noticeUpdate();memories=memories.noticeUpdate()} else loadDay()

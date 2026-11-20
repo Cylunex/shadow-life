@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -54,7 +55,7 @@ import kotlin.math.abs
   refundCandidates:LoadState<RecordPage>,onSearchRefunds:(String)->Unit,importPendingId:String?,accountId:String,
   importFileState:SubmitState=SubmitState.Editing,onStageImportFile:((Uri)->Unit)?=null,
   bulkImportState:MoneyBulkImport?=null,onBulkImport:((String,List<MoneyImportCandidateSummary>)->Unit)?=null,
-  onForeign:()->Unit={}
+  onForeign:()->Unit={},readRevision:Int=0
 ){
   var tab by rememberSaveable(initialTab){mutableStateOf(initialTab.takeIf{it in setOf("overview","details","stats","budgets","recurring","intents","supplies","cards","reconcile")}?:"overview")};var query by rememberSaveable{mutableStateOf("")}
   var returnTab by rememberSaveable{mutableStateOf<String?>(null)}
@@ -64,7 +65,7 @@ import kotlin.math.abs
   val workspaceScroll=rememberModuleListState(tab)
   LaunchedEffect(tab){if(tab=="cards")onLoadCards("")}
   var submittedQuery by rememberSaveable{mutableStateOf("")}
-  LaunchedEffect(tab){onSearch(if(tab in setOf("details","cards","intents"))submittedQuery else "")}
+  LaunchedEffect(tab){if(tab=="cards"||tab=="intents")onSearch("")}
   LaunchedEffect(planningPeriod){onLoadImportMonth(planningPeriod)}
   val overview=((overviewState as? LoadState.Ready)?.value as? WorkspaceOverview.Money)?.takeIf{it.period==planningPeriod}
   val records=(recordsState as? LoadState.Ready)?.value?.items.orEmpty()
@@ -74,16 +75,26 @@ import kotlin.math.abs
   var category by rememberSaveable(planningPeriod){mutableStateOf<String?>(null)}
   val context=LocalContext.current
   val repository by remember(accountId){lazy{NativeLifeRepository(context,context.applicationContext as ShadowApp)}}
-  val readsMoney=tab in setOf("overview","details","stats")
-  val summary=if(readsMoney)rememberLifeRead(accountId,planningPeriod,recordsState){repository.monthlyMoney(planningPeriod)}
-    else Reading(LoadState.Loading,{})
+  val readsTransactions=tab=="overview"||tab=="details"
+  val summary=rememberLifeRead(accountId,planningPeriod,enabled=readsTransactions||tab=="stats",refreshKey=readRevision){
+    repository.monthlyMoney(planningPeriod)
+  }
   val totals=(summary.state as? LoadState.Ready)?.value?.totals.orEmpty()
   val currencies=totals.map{it.currency}.sorted()
   val currency=selectedCurrency?.takeIf{it in currencies}?:"CNY".takeIf{it in currencies}?:currencies.firstOrNull()
-  val monthly=if(readsMoney)rememberRecordPages(accountId,listOf(planningPeriod,currency,entryType,selectedDay,category,submittedQuery,tab,recordsState)){
-    cursor->repository.records(LifeDomain.Money,if(tab=="details")submittedQuery else "",cursor,planningPeriod,currency,entryType.takeIf{tab=="details"},on=selectedDay.takeIf{tab=="details"},category=category.takeIf{tab=="details"})
-  } else RecordPages(LoadState.Loading,{}, {})
+  val usesFilters=tab!="overview"
+  val monthlyQuery=submittedQuery.takeIf{usesFilters}.orEmpty()
+  val monthlyType=entryType.takeIf{usesFilters}
+  val monthlyDay=selectedDay.takeIf{usesFilters}
+  val monthlyCategory=category.takeIf{usesFilters}
+  val monthly=rememberRecordPages(accountId,listOf(planningPeriod,currency,monthlyType,monthlyDay,monthlyCategory,monthlyQuery),
+    enabled=readsTransactions&&summary.state !is LoadState.Loading,refreshKey=readRevision){cursor->
+    repository.records(LifeDomain.Money,monthlyQuery,cursor,planningPeriod,currency,monthlyType,on=monthlyDay,category=monthlyCategory)
+  }
   val periodRecords=(monthly.state as? LoadState.Ready)?.value?.items.orEmpty()
+  val importContent=rememberMoneyImportContent(planningPeriod,importMonth,importReview,importSubmit,onLoadImportMonth,onOpenImportBatch,
+    onResolveImport,refundCandidates,onSearchRefunds,importPendingId,{id->onDetail(LifeDomain.Money,id,"账单关联记录")},
+    workspaceScroll,tab=="reconcile",importFileState,onStageImportFile,bulkImportState,onBulkImport)
 
   Scaffold(containerColor=MaterialTheme.colorScheme.background,
     topBar={LifeModuleTopBar(LifeModule.Money,onBack,overview?.period)},
@@ -102,18 +113,15 @@ import kotlin.math.abs
       }
       if(planningPeriod!=java.time.YearMonth.now().toString())TextButton(onClick={onPlanningPeriod(java.time.YearMonth.now().toString())},enabled=planningState !is SubmitState.Sending){Text("回到本月")}
     }
-    if(overview==null&&overviewState is LoadState.Ready)item{LinearProgressIndicator(Modifier.fillMaxWidth())}
-    if(overviewState !is LoadState.Ready||overviewState.refreshing||overviewState.refreshError!=null||overviewState.updateAvailable)item{StateContent(overviewState,onRetry){} }
-    if(recordsState !is LoadState.Ready||recordsState.refreshing||recordsState.refreshError!=null||recordsState.updateAvailable)item{StateContent(recordsState,onRetry){} }
+    if(tab in setOf("budgets","recurring","intents","supplies"))item{StateContent(overviewState,onRetry){}}
+    if(tab=="cards"||tab=="intents")item{StateContent(recordsState,onRetry){}}
     if(tab in setOf("details","reconcile"))item{
       returnTab?.let{previous->TextButton(onClick=::returnFromDetails){Text(if(previous=="stats")"返回统计" else "返回概览")}}
       WorkspaceTabs(tab,{tab=it},listOf("details" to "正式明细","reconcile" to "账单待处理"))
       Row{TextButton(onClick=onCapturedOrders){Text("采集订单")};TextButton(onClick=onForeign){Text("外币与分摊")}}
     }
     if(tab=="cards")item{NativeServiceCardsSection(cardsState,selectedCard,cardSubmit,records,onLoadCards,onSearch,onMoreCards,onOpenCard,onCloseCard,onOlderUses,onSaveCard,onCardUse,onResetCard)}
-    if(tab=="reconcile")item(key="money-import-review"){NativeMoneyImportSection(planningPeriod,importMonth,importReview,importSubmit,onLoadImportMonth,onOpenImportBatch,
-      onResolveImport,refundCandidates,onSearchRefunds,importPendingId,{id->onDetail(LifeDomain.Money,id,"账单关联记录")},
-      importFileState,onStageImportFile,bulkImportState,onBulkImport)}
+    if(tab=="reconcile")importContent()
     if(focusId.isNotBlank()&&overview!=null)item{Text("提醒关联事项",style=MaterialTheme.typography.titleMedium);if((tab=="recurring"&&overview.occurrenceDetails.none{it.id==focusId})||(tab=="supplies"&&overview.useCycleDetails.none{it.id==focusId}))Text("该事项当前未加载或已不可用，请返回查看其他事项。")}
     if(tab=="details"){
       item{
@@ -140,25 +148,24 @@ import kotlin.math.abs
       if(page?.items?.isEmpty()==true)item{EmptyState("没有匹配的月度明细")}
       if(page?.nextCursor!=null)item{LoadMoreButton("加载更多明细",monthly.more)}
     }
-    if(overview!=null&&tab !in setOf("cards","reconcile","details"))when(tab){
+    when(tab){
       "stats"->{
         item{TextButton(onClick=onOrderStats){Text("购买与食用统计 ↗")}}
         if(currencies.size>1)item{WorkspaceTabs(currency.orEmpty(),{selectedCurrency=it},currencies.map{it to it})}
-        item{
-          StateContent(summary.state,summary.retry){data->
-            MoneyMonthBreakdown(data,planningPeriod,currency,{date->
-              selectedDay=date;category=null;entryType=null;query="";submittedQuery="";drillInto("details")
-            },{name->
-              category=name.orEmpty();selectedDay=null;entryType="expense";query="";submittedQuery="";drillInto("details")
-            })
-          }
+        item("money-stats-state"){StateContent(summary.state,summary.retry){}}
+        (summary.state as? LoadState.Ready)?.value?.let{data->
+          moneyMonthBreakdown(data,planningPeriod,currency,{date->
+            selectedDay=date;category=null;entryType=null;query="";submittedQuery="";drillInto("details")
+          },{name->
+            category=name.orEmpty();selectedDay=null;entryType="expense";query="";submittedQuery="";drillInto("details")
+          })
         }
       }
-      "budgets"->item{key(overview.period){NativeBudgetSection(overview,planningState,onSaveBudget,onResetPlanning)}}
-      "recurring"->item{key(overview.period){NativeRecurringSection(if(focusId.isBlank())overview else overview.copy(occurrenceDetails=overview.occurrenceDetails.filter{it.id==focusId},recurringDetails=overview.recurringDetails.filter{plan->overview.occurrenceDetails.any{it.id==focusId&&it.planId==plan.id}}),planningState,onSaveRecurring,onOccurrence,onResetPlanning){id->onDetail(LifeDomain.Money,id,"周期账单付款")}}}
-      "intents"->item{NativeSpendingIntentSection(overview,planningState,records,onSearch,onSaveIntent,onResetPlanning)}
-      "supplies"->item{NativeUseCycleSection(if(focusId.isBlank())overview else overview.copy(useCycleDetails=overview.useCycleDetails.filter{it.id==focusId}),planningState,onSaveCycle,onConsumableUse,onResetPlanning)}
-      else->{
+      "budgets"->if(overview!=null)item{key(overview.period){NativeBudgetSection(overview,planningState,onSaveBudget,onResetPlanning)}}
+      "recurring"->if(overview!=null)item{key(overview.period){NativeRecurringSection(if(focusId.isBlank())overview else overview.copy(occurrenceDetails=overview.occurrenceDetails.filter{it.id==focusId},recurringDetails=overview.recurringDetails.filter{plan->overview.occurrenceDetails.any{it.id==focusId&&it.planId==plan.id}}),planningState,onSaveRecurring,onOccurrence,onResetPlanning){id->onDetail(LifeDomain.Money,id,"周期账单付款")}}}
+      "intents"->if(overview!=null)item{NativeSpendingIntentSection(overview,planningState,records,onSearch,onSaveIntent,onResetPlanning)}
+      "supplies"->if(overview!=null)item{NativeUseCycleSection(if(focusId.isBlank())overview else overview.copy(useCycleDetails=overview.useCycleDetails.filter{it.id==focusId}),planningState,onSaveCycle,onConsumableUse,onResetPlanning)}
+      "overview"->{
         if(currencies.size>1)item{Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){currencies.forEach{code->FilterChip(currency==code,{selectedCurrency=code},{Text(code)})}}}
         item{
           StateContent(summary.state,summary.retry){values->
@@ -175,17 +182,19 @@ import kotlin.math.abs
           }
         }
         val today=LocalDate.now()
-        val upcoming=overview.occurrences.filter{it.state in setOf("pending","reminded","snoozed")&&it.dueOn in today.toString()..today.plusDays(7).toString()}.minByOrNull{it.dueOn}
+        val upcoming=overview?.occurrences?.filter{it.state in setOf("pending","reminded","snoozed")&&it.dueOn in today.toString()..today.plusDays(7).toString()}?.minByOrNull{it.dueOn}
         if(upcoming!=null)item{LifeCard(onClick={tab="recurring"}){Text(upcoming.title);Text("${upcoming.dueOn} 到期")}}
-        val replenish=overview.useCycles.firstOrNull{it.balanceStatus in setOf("replenish_now","depleted")}
+        val replenish=overview?.useCycles?.firstOrNull{it.balanceStatus in setOf("replenish_now","depleted")}
         if(replenish!=null)item{LifeCard(onClick={tab="supplies"}){Text("${replenish.title} · 待补货")}}
         if(monthly.state is LoadState.Ready)item{RecentMoney(periodRecords,onDetail){entryType=null;selectedDay=null;category=null;submittedQuery="";query="";drillInto("details")}}
         item{Row{
           TextButton(onClick=onPriceBook){Text("常购价格")}
           TextButton(onClick=onReturns){Text("售后与退款")}
         }}
-        if(overview.budgets.isNotEmpty())item{BudgetPreview(overview){tab="budgets"}}
+        if(overview!=null&&overview.budgets.isNotEmpty())item{BudgetPreview(overview){tab="budgets"}}
+        if(overviewState is LoadState.Failed)item{StateContent(overviewState,onRetry){}}
       }
+      else->Unit
     }
   }}
 }
@@ -239,30 +248,33 @@ import kotlin.math.abs
   }
 }
 
-@Composable private fun MoneyMonthBreakdown(data:MonthlyMoneyRead,period:String,currency:String?,onDay:(String)->Unit,onCategory:(String?)->Unit){
+private fun LazyListScope.moneyMonthBreakdown(data:MonthlyMoneyRead,period:String,currency:String?,onDay:(String)->Unit,onCategory:(String?)->Unit){
   val days=data.days.filter{it.currency==currency}.sortedByDescending{it.on}
+  if(days.isEmpty()){
+    item("money-stats-empty"){EmptyState("本月没有可统计的正式收支")}
+    return
+  }
   val categories=data.categories.filter{it.currency==currency}.sortedByDescending{it.expense.toBigDecimalOrNull()}
-  if(days.isEmpty())EmptyState("本月没有可统计的正式收支")
-  else{
+  item("money-stats-calendar"){
     SpendingCalendar(java.time.YearMonth.parse(period),currency.orEmpty(),days,onDay)
-    LifeSection("主要消费去向"){
-      val largest=categories.firstOrNull()?.expense?.toDoubleOrNull()?.takeIf{it>0}
-      categories.forEach{category->
-        LifeCard(onClick={onCategory(category.category)}){
-          Text(category.category?:"未分类",style=MaterialTheme.typography.titleMedium)
-          Text("$currency ${displayDecimal(category.expense)}")
-          if(largest!=null)LinearProgressIndicator({((category.expense.toDoubleOrNull()?:0.0)/largest).toFloat().coerceIn(0f,1f)},Modifier.fillMaxWidth())
-        }
-      }
+  }
+  item("money-stats-category-heading"){Text("主要消费去向",style=MaterialTheme.typography.titleLarge)}
+  val largest=categories.firstOrNull()?.expense?.toDoubleOrNull()?.takeIf{it>0}
+  items(categories,key={category->"money-stats-category:"+category.category?.let{"name:$it"}.orEmpty()}){category->
+    LifeCard(onClick={onCategory(category.category)}){
+      Text(category.category?:"未分类",style=MaterialTheme.typography.titleMedium)
+      Text("$currency ${displayDecimal(category.expense)}")
+      if(largest!=null)LinearProgressIndicator({((category.expense.toDoubleOrNull()?:0.0)/largest).toFloat().coerceIn(0f,1f)},Modifier.fillMaxWidth())
     }
-    LifeSection("每日净支出"){
-      days.forEach{day->LifeCard(onClick={onDay(day.on)}){
-        Row(Modifier.fillMaxWidth()){
-          Text(day.on,Modifier.weight(1f))
-          Text("$currency ${displayDecimal(day.net)}")
-        }
-        Text("${day.entries} 笔正式流水",style=MaterialTheme.typography.bodySmall)
-      }}
+  }
+  item("money-stats-day-heading"){Text("每日净支出",style=MaterialTheme.typography.titleLarge)}
+  items(days,key={"money-stats-day:${it.on}"}){day->
+    LifeCard(onClick={onDay(day.on)}){
+      Row(Modifier.fillMaxWidth()){
+        Text(day.on,Modifier.weight(1f))
+        Text("$currency ${displayDecimal(day.net)}")
+      }
+      Text("${day.entries} 笔正式流水",style=MaterialTheme.typography.bodySmall)
     }
   }
 }

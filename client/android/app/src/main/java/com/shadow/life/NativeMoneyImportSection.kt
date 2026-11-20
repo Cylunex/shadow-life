@@ -1,6 +1,9 @@
 package com.shadow.life
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.platform.LocalContext
@@ -16,29 +19,54 @@ import java.time.LocalDate
 data class MoneyBulkLine(val id:String,val title:String,val error:String?)
 data class MoneyBulkImport(val batchId:String,val total:Int,val running:Boolean,val items:List<MoneyBulkLine>)
 
-@Composable internal fun NativeMoneyImportSection(
+@Composable internal fun rememberMoneyImportContent(
   period:String,month:LoadState<MoneyImportMonthSummary>,review:LoadState<MoneyImportReviewSummary>?,submit:SubmitState,
   onMonth:(String)->Unit,onBatch:(String)->Unit,onResolve:(MoneyImportCandidateSummary,String,String,String,String,String,String)->Unit,
   refundCandidates:LoadState<RecordPage>,onSearchRefunds:(String)->Unit,pendingId:String?,onOpenRecord:(String)->Unit,
+  listState:LazyListState,active:Boolean=true,
   fileState:SubmitState=SubmitState.Editing,onStageFile:((android.net.Uri)->Unit)?=null,
   bulk:MoneyBulkImport?=null,onBulk:((String,List<MoneyImportCandidateSummary>)->Unit)?=null
-){
+):LazyListScope.()->Unit{
   var selectedBatch by rememberSaveable(period){mutableStateOf<String?>(null)}
   var onlyPending by rememberSaveable(period){mutableStateOf(true)}
   var reason by rememberSaveable(period){mutableStateOf("all")}
   var focused by rememberSaveable(period){mutableStateOf<String?>(null)}
   var showBatches by rememberSaveable(period){mutableStateOf(false)}
   var selectedSource by rememberSaveable(period){mutableStateOf("")}
+  var previousIndex by rememberSaveable(period){mutableIntStateOf(0)}
+  var previousOffset by rememberSaveable(period){mutableIntStateOf(0)}
+  var requestedPosition by remember(period){mutableStateOf<Pair<Int,Int>?>(null)}
+  val batch=selectedBatch
+  var limit by rememberSaveable(batch,reason,onlyPending){mutableIntStateOf(40)}
   val filePicker=androidx.activity.compose.rememberLauncherForActivityResult(
     androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
   ){uri->if(uri!=null)onStageFile?.invoke(uri)}
   val busy=submit is SubmitState.Sending||pendingId!=null||bulk?.running==true
-  LaunchedEffect(selectedBatch){selectedBatch?.let(onBatch)}
-  fun closeBatch(){selectedBatch=null;focused=null}
-  androidx.activity.compose.BackHandler(enabled=selectedBatch!=null){closeBatch()}
-  val reasons=listOf("all" to "全部","duplicate" to "疑似重复","refund" to "退款待关联","category" to "分类待补","missing" to "字段缺失")
-  Column(verticalArrangement=Arrangement.spacedBy(12.dp)){
-    if(selectedBatch==null&&onStageFile!=null){
+  LaunchedEffect(active,batch){
+    if(active&&batch!=null&&(review as? LoadState.Ready)?.value?.batchId!=batch)onBatch(batch)
+  }
+  LaunchedEffect(active,batch,requestedPosition,listState){
+    if(active)requestedPosition?.let{(index,offset)->
+      listState.scrollToItem(index,offset)
+      requestedPosition=null
+    }
+  }
+  fun openBatch(id:String,candidateId:String?=null){
+    previousIndex=listState.firstVisibleItemIndex
+    previousOffset=listState.firstVisibleItemScrollOffset
+    focused=candidateId
+    selectedBatch=id
+    requestedPosition=0 to 0
+  }
+  fun closeBatch(){
+    selectedBatch=null
+    focused=null
+    requestedPosition=previousIndex to previousOffset
+  }
+  androidx.activity.compose.BackHandler(enabled=active&&batch!=null){closeBatch()}
+  val value=(month as? LoadState.Ready)?.value?.takeIf{it.period==period}
+  return {
+    if(batch==null&&onStageFile!=null)item("statement-file"){
       val receipt=(fileState as? SubmitState.Saved)?.receipt
       Row(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically){
         OutlinedButton(enabled=!busy&&fileState !is SubmitState.Sending&&receipt?.queued!=true,
@@ -49,90 +77,93 @@ data class MoneyBulkImport(val batchId:String,val total:Int,val running:Boolean,
         is SubmitState.Sending->Text("正在读取文件",style=MaterialTheme.typography.bodySmall)
         is SubmitState.Saved->if(fileState.receipt.queued)Text("已保存到本机，待同步生成候选") else {
           Text("账单候选已生成")
-          fileState.receipt.resources.firstOrNull{it.type=="money_import_batch"}?.id?.let{id->
-            TextButton(onClick={focused=null;selectedBatch=id}){Text("打开此次导入")}
+          receipt?.resources?.firstOrNull{it.type=="money_import_batch"}?.id?.let{id->
+            TextButton(onClick={openBatch(id)}){Text("打开此次导入")}
           }
         }
         is SubmitState.Rejected->Text(fileState.message,color=MaterialTheme.colorScheme.error)
         else->Unit
       }
     }
-    StateContent(month,{onMonth(period)}){value->
-      if(value.period==period){
-        if(selectedBatch==null)LifeCard{
+    if(month !is LoadState.Ready||month.refreshing||month.refreshError!=null||month.updateAvailable){
+      item("statement-month-state"){StateContent(month,{onMonth(period)}){}}
+    }
+    if(batch==null&&value!=null){
+      item("statement-summary"){
+        LifeCard{
           Text("$period 账单",style=MaterialTheme.typography.labelLarge)
-          val headline=when{
+          Text(when{
             value.unconfirmed>0->"${value.unconfirmed} 笔待处理"
             value.batches.isEmpty()->"本月暂无账单"
             else->"本月账单已核对"
-          }
-          Text(headline,style=MaterialTheme.typography.headlineMedium)
+          },style=MaterialTheme.typography.headlineMedium)
           if(value.duplicates>0||value.refundsUnlinked>0)Text(listOfNotNull(
             "${value.duplicates} 笔疑似重复".takeIf{value.duplicates>0},
             "${value.refundsUnlinked} 笔退款待关联".takeIf{value.refundsUnlinked>0}).joinToString(" · "))
         }
-        if(selectedBatch==null){
-          LifeTabs(reason,{reason=it},reasons.map{(key,label)->
-            val count=when(key){"duplicate"->value.duplicates;"refund"->value.refundsUnlinked;"category"->value.uncategorized;"missing"->null;else->value.unconfirmed}
-            key to listOfNotNull(label,count?.toString()).joinToString(" ")
-          })
-          val sources=value.batches.map{it.platform to it.sourceAccount}.distinct().filter{it.first.isNotBlank()}
-          if(sources.isNotEmpty())LifeChoiceField("来源账号",selectedSource,listOf("" to "所有来源")+sources.map{(platform,account)->
-            "$platform|$account" to listOf(platform,account).filter{it.isNotBlank()}.joinToString(" · ")
-          }){selectedSource=it}
-          fun sourceMatches(platform:String,account:String)=selectedSource.isBlank()||selectedSource=="$platform|$account"
-          val pending=value.pending.filter{row->
-            sourceMatches(row.platform,row.sourceAccount)&&when(reason){
-              "duplicate"->row.duplicate;"refund"->row.refund;"category"->row.categoryMissing;"missing"->row.needsData;else->true
-            }
+      }
+      item("statement-filters"){
+        val filters=listOf("all" to "全部 ${value.unconfirmed}","duplicate" to "疑似重复 ${value.duplicates}",
+          "refund" to "退款待关联 ${value.refundsUnlinked}","category" to "分类待补 ${value.uncategorized}","missing" to "字段缺失")
+        LifeTabs(reason,{reason=it},filters)
+        val sources=value.batches.map{it.platform to it.sourceAccount}.distinct().filter{it.first.isNotBlank()}
+        if(sources.isNotEmpty())LifeChoiceField("来源账号",selectedSource,listOf("" to "所有来源")+sources.map{(platform,account)->
+          "$platform|$account" to listOf(platform,account).filter{it.isNotBlank()}.joinToString(" · ")
+        }){selectedSource=it}
+      }
+      fun sourceMatches(platform:String,account:String)=selectedSource.isBlank()||selectedSource=="$platform|$account"
+      val pending=value.pending.filter{row->
+        sourceMatches(row.platform,row.sourceAccount)&&when(reason){
+          "duplicate"->row.duplicate;"refund"->row.refund;"category"->row.categoryMissing;"missing"->row.needsData;else->true
+        }
+      }
+      items(pending,key={"statement-pending:${it.id}"}){row->
+        LifeCard(onClick={openBatch(row.batchId,row.id)}){
+          Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+            Text(row.counterparty.ifBlank{"商家待补"},Modifier.weight(1f),style=MaterialTheme.typography.titleMedium)
+            Text(row.amount.takeIf{it.isNotBlank()}?.let{"CNY $it"}?:"金额待补",style=MaterialTheme.typography.titleMedium)
           }
-          pending.forEach{row->
-            LifeCard(onClick={focused=row.id;selectedBatch=row.batchId}){
-              Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-                Text(row.counterparty.ifBlank{"商家待补"},Modifier.weight(1f),style=MaterialTheme.typography.titleMedium)
-                Text(row.amount.takeIf{it.isNotBlank()}?.let{"CNY $it"}?:"金额待补",style=MaterialTheme.typography.titleMedium)
-              }
-              Text(listOf(row.on.ifBlank{"日期待补"},row.source).filter{it.isNotBlank()}.joinToString(" · "),style=MaterialTheme.typography.bodySmall)
-              Text(listOfNotNull("疑似重复".takeIf{row.duplicate},"退款待关联".takeIf{row.refund},
-                "分类待补".takeIf{row.categoryMissing},"字段缺失".takeIf{row.needsData}).joinToString(" · ").ifBlank{"待核对"},
-                style=MaterialTheme.typography.bodySmall)
-            }
-          }
-          if(pending.isEmpty()&&value.pending.isNotEmpty())Text("当前筛选下没有已加载的待处理项")
-          if(value.unconfirmed>value.pending.size)Text("此处展示最近 80 笔候选，可从批次查看其余记录")
-          if(value.truncated)Text("当前最多显示 100 个批次")
-          TextButton(onClick={showBatches=!showBatches}){Text(if(showBatches)"收起导入批次" else "查看导入批次")}
-          if(showBatches){
-          if(value.batches.isEmpty())Text("本月没有导入候选")
-          val visibleBatches=value.batches.filter{batch->
-            sourceMatches(batch.platform,batch.sourceAccount)&&when(reason){"duplicate"->batch.duplicates>0;"refund"->batch.refundsUnlinked>0;"category"->batch.uncategorized>0;else->true}
-          }
-          if(visibleBatches.isEmpty()&&value.batches.isNotEmpty())Text("当前没有此类待核对账单")
-          visibleBatches.forEach{batch->
-            LifeCard(onClick={focused=null;selectedBatch=batch.id}){
-              Text(batch.name,style=MaterialTheme.typography.titleMedium)
-              Text("${batch.unconfirmed} 笔待处理 · 共 ${batch.total} 行")
-            }
-          }
+          Text(listOf(row.on.ifBlank{"日期待补"},row.source).filter{it.isNotBlank()}.joinToString(" · "),style=MaterialTheme.typography.bodySmall)
+          Text(listOfNotNull("疑似重复".takeIf{row.duplicate},"退款待关联".takeIf{row.refund},
+            "分类待补".takeIf{row.categoryMissing},"字段缺失".takeIf{row.needsData}).joinToString(" · ").ifBlank{"待核对"},
+            style=MaterialTheme.typography.bodySmall)
+        }
+      }
+      item("statement-batches-toggle"){
+        if(pending.isEmpty()&&value.pending.isNotEmpty())Text("当前筛选下没有已加载的待处理项")
+        if(value.unconfirmed>value.pending.size)Text("此处展示最近 80 笔候选，可从批次查看其余记录")
+        if(value.truncated)Text("当前最多显示 100 个批次")
+        TextButton(onClick={showBatches=!showBatches}){Text(if(showBatches)"收起导入批次" else "查看导入批次")}
+      }
+      if(showBatches){
+        val visibleBatches=value.batches.filter{item->
+          sourceMatches(item.platform,item.sourceAccount)&&when(reason){"duplicate"->item.duplicates>0;"refund"->item.refundsUnlinked>0;"category"->item.uncategorized>0;else->true}
+        }
+        if(visibleBatches.isEmpty())item("statement-batches-empty"){
+          Text(if(value.batches.isEmpty())"本月没有导入候选" else "当前没有此类待核对账单")
+        }
+        items(visibleBatches,key={"statement-batch:${it.id}"}){item->
+          LifeCard(onClick={openBatch(item.id)}){
+            Text(item.name,style=MaterialTheme.typography.titleMedium)
+            Text("${item.unconfirmed} 笔待处理 · 共 ${item.total} 行")
           }
         }
       }
     }
-    val batch=selectedBatch
     if(batch!=null){
-      TextButton(onClick=::closeBatch){Text("返回本月账单")}
-      val batchName=(month as? LoadState.Ready)?.value?.batches?.firstOrNull{it.id==batch}?.name
-      if(!batchName.isNullOrBlank())Text(batchName,style=MaterialTheme.typography.titleLarge)
-      if(submit is SubmitState.Rejected)Text(submit.message,color=MaterialTheme.colorScheme.error)
-      if(submit is SubmitState.Saved&&!submit.receipt.queued)Text("账单核对已同步")
-      if(review==null)TextButton(onClick={onBatch(batch)}){Text("读取批次")}
-      if(review!=null)StateContent(review,{onBatch(batch)}){value->
-        if(value.batchId!=batch)return@StateContent
-        FilterChip(onlyPending,{onlyPending=!onlyPending},label={Text("只看待处理")})
-        val visible=value.candidates.filter{candidate->
-          val pending=candidate.status in setOf("pending","invalid")
-          if(candidate.id==focused||!onlyPending)true
-          else pending&&when(reason){
+      item("statement-review-heading"){
+        TextButton(onClick=::closeBatch){Text("返回本月账单")}
+        value?.batches?.firstOrNull{it.id==batch}?.name?.takeUnless{it.isBlank()}?.let{Text(it,style=MaterialTheme.typography.titleLarge)}
+        if(submit is SubmitState.Rejected)Text(submit.message,color=MaterialTheme.colorScheme.error)
+        if(submit is SubmitState.Saved&&!submit.receipt.queued)Text("账单核对已同步")
+        if(review==null)TextButton(onClick={onBatch(batch)}){Text("读取批次")}
+        else StateContent(review,{onBatch(batch)}){}
+      }
+      val loaded=(review as? LoadState.Ready)?.value?.takeIf{it.batchId==batch}
+      if(loaded!=null){
+        val visible=loaded.candidates.filter{candidate->
+          val pendingStatus=candidate.status=="pending"||candidate.status=="invalid"
+          candidate.id==focused||!onlyPending||pendingStatus&&when(reason){
             "duplicate"->candidate.duplicateOf!=null||candidate.duplicateOfCandidate!=null
             "refund"->candidate.entryType=="refund"
             "category"->candidate.category.isBlank()
@@ -140,18 +171,22 @@ data class MoneyBulkImport(val batchId:String,val total:Int,val running:Boolean,
             else->true
           }
         }
-        if(visible.isEmpty())Text(if(onlyPending)"这批账单没有待处理的条目" else "这批账单没有条目")
-        if(focused!=null)TextButton(onClick={focused=null}){Text("查看本批其他记录")}
-        var limit by rememberSaveable(batch,reason,onlyPending){mutableIntStateOf(40)}
-        val shown=if(focused==null)visible.take(limit) else visible.filter{it.id==focused}
-        if(focused==null&&onBulk!=null)MoneyImportBulkPreview(batch,shown.filter{it.canConfirmWithoutEdit()},bulk?.takeIf{it.batchId==batch},busy,onBulk)
-        shown.forEach{candidate->
-          key(candidate.id,candidate.revision){
-            MoneyImportCandidateCard(candidate,value.rules,busy,pendingId==candidate.id,
-              refundCandidates,onSearchRefunds,onResolve,onOpenRecord)
-          }
+        item("statement-review-filter"){
+          FilterChip(onlyPending,{onlyPending=!onlyPending},label={Text("只看待处理")})
+          if(visible.isEmpty())Text(if(onlyPending)"这批账单没有待处理的条目" else "这批账单没有条目")
+          if(focused!=null)TextButton(onClick={focused=null}){Text("查看本批其他记录")}
         }
-        if(focused==null&&shown.size<visible.size)TextButton(onClick={limit+=40}){Text("继续显示本批候选 · ${shown.size}/${visible.size}")}
+        val shown=if(focused==null)visible.take(limit) else visible.filter{it.id==focused}
+        if(focused==null&&onBulk!=null)item("statement-bulk"){
+          MoneyImportBulkPreview(batch,shown.filter{it.canConfirmWithoutEdit()},bulk?.takeIf{it.batchId==batch},busy,onBulk)
+        }
+        items(shown,key={"statement-candidate:${it.id}:${it.revision}"}){candidate->
+          MoneyImportCandidateCard(candidate,loaded.rules,busy,pendingId==candidate.id,
+            refundCandidates,onSearchRefunds,onResolve,onOpenRecord)
+        }
+        if(focused==null&&shown.size<visible.size)item("statement-review-more"){
+          TextButton(onClick={limit+=40}){Text("继续显示本批候选 · ${shown.size}/${visible.size}")}
+        }
       }
     }
   }
