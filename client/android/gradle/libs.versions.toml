@@ -15,7 +15,7 @@ bcprov = "1.84"
 junit = "4.13.2"
 gson = "2.13.2"
 google-maps = "20.0.0"
-amap-maps = "10.1.200_loc6.4.9_sea9.7.4"
+amap-maps = "11.2.100_loc11.2.100_sea9.8.1"
 
 [libraries]
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose-bom" }

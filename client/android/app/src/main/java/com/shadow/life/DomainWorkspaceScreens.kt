@@ -93,7 +93,7 @@ import kotlin.math.abs
       TextButton(onClick=onCapturedOrders){Text("采集订单")}
     }
     if(tab=="cards")item{NativeServiceCardsSection(cardsState,selectedCard,cardSubmit,records,onLoadCards,onSearch,onMoreCards,onOpenCard,onCloseCard,onOlderUses,onSaveCard,onCardUse,onResetCard)}
-    if(tab=="reconcile")item{NativeMoneyImportSection(planningPeriod,importMonth,importReview,importSubmit,onLoadImportMonth,onOpenImportBatch,
+    if(tab=="reconcile")item(key="money-import-review"){NativeMoneyImportSection(planningPeriod,importMonth,importReview,importSubmit,onLoadImportMonth,onOpenImportBatch,
       onResolveImport,refundCandidates,onSearchRefunds,importPendingId){id->onDetail(LifeDomain.Money,id,"账单关联记录")}}
     if(focusId.isNotBlank()&&overview!=null)item{Text("提醒关联事项",style=MaterialTheme.typography.titleMedium);if((tab=="recurring"&&overview.occurrenceDetails.none{it.id==focusId})||(tab=="supplies"&&overview.useCycleDetails.none{it.id==focusId}))Text("该事项当前未加载或已不可用，请返回查看其他事项。")}
     if(tab=="details"){item{MoneySearch(query,{query=it},{submittedQuery=query;onSearch(query)},onCapture)};if(recordsState is LoadState.Ready)item{MoneyRecordList(records,onDetail)};if(recordsState is LoadState.Ready&&recordsState.value.nextCursor!=null)item{LoadMoreButton("加载更多明细",onLoadMore)}}

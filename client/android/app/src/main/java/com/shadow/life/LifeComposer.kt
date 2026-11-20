@@ -98,7 +98,23 @@ import java.time.LocalDate
 
 @Composable private fun CaptureForm(kind:CaptureKind,seed:CaptureSeed?,state:SubmitState,refundCandidates:LoadState<RecordPage>,onLoadRefundCandidates:(String)->Unit,onSubmit:(CaptureDraft)->Unit,onDirty:(Boolean)->Unit,onBack:()->Unit,onDone:()->Unit){
   val draftScope=LocalUiDraftScope.current
-  var primary by rememberDraftText("primary"){seed?.primary.orEmpty()};var secondary by rememberDraftText("secondary"){seed?.secondary?.takeIf{it.isNotBlank()}?:if(kind==CaptureKind.Trip)LocalDate.now().toString() else ""};var note by rememberDraftText("note"){seed?.note.orEmpty()};var option by rememberDraftText("option"){seed?.option?.ifBlank{defaultOption(kind)}?:defaultOption(kind)};var date by rememberDraftText("date"){seed?.date?:LocalDate.now().toString()};var category by rememberDraftText("category"){seed?.category.orEmpty()};var paymentMethod by rememberDraftText("paymentMethod"){seed?.paymentMethod.orEmpty()};var advancedMeal by rememberSaveable{mutableStateOf(false)};val mealRows=rememberSaveable(kind,seed?.contextId,saver=androidx.compose.runtime.saveable.Saver(
+  val initialOption=seed?.option?.ifBlank{defaultOption(kind)}?:defaultOption(kind)
+  val initialSecondary=seed?.secondary?.takeIf(String::isNotBlank)?:when(kind){
+    CaptureKind.Health->defaultMeasurementUnit(initialOption)
+    CaptureKind.Trip->LocalDate.now().toString()
+    else->""
+  }
+  var primary by rememberDraftText("primary"){seed?.primary.orEmpty()}
+  var option by rememberDraftText("option"){initialOption}
+  var secondary by rememberDraftText("secondary"){
+    if(kind==CaptureKind.Health&&option!=initialOption)defaultMeasurementUnit(option) else initialSecondary
+  }
+  var note by rememberDraftText("note"){seed?.note.orEmpty()}
+  var date by rememberDraftText("date"){seed?.date?:LocalDate.now().toString()}
+  var category by rememberDraftText("category"){seed?.category.orEmpty()}
+  var paymentMethod by rememberDraftText("paymentMethod"){seed?.paymentMethod.orEmpty()}
+  var advancedMeal by rememberSaveable{mutableStateOf(false)}
+  val mealRows=rememberSaveable(kind,seed?.contextId,saver=androidx.compose.runtime.saveable.Saver(
     save={rows:androidx.compose.runtime.snapshots.SnapshotStateList<MealDraftItem>->encodeMealDraftRows(rows.toList())},
     restore={encoded:String->decodeMealDraftRows(encoded)?.toMutableStateList()}
   )){
@@ -110,7 +126,7 @@ import java.time.LocalDate
   val moneyFocus=remember{androidx.compose.ui.focus.FocusRequester()}
   LaunchedEffect(kind){if(kind==CaptureKind.Expense)moneyFocus.requestFocus()}
 
-  val changed=primary!=seed?.primary.orEmpty()||secondary!=(seed?.secondary?.takeIf{it.isNotBlank()}?:if(kind==CaptureKind.Trip)LocalDate.now().toString() else "")||note!=seed?.note.orEmpty()||mealRows.toList()!=listOf(MealDraftItem(name=if(kind==CaptureKind.Meal)seed?.primary.orEmpty() else ""))||category!=seed?.category.orEmpty()||paymentMethod!=seed?.paymentMethod.orEmpty()||date!=(seed?.date?:LocalDate.now().toString())||option!=(seed?.option?.ifBlank{defaultOption(kind)}?:defaultOption(kind))
+  val changed=primary!=seed?.primary.orEmpty()||secondary!=initialSecondary||note!=seed?.note.orEmpty()||mealRows.toList()!=listOf(MealDraftItem(name=if(kind==CaptureKind.Meal)seed?.primary.orEmpty() else ""))||category!=seed?.category.orEmpty()||paymentMethod!=seed?.paymentMethod.orEmpty()||date!=(seed?.date?:LocalDate.now().toString())||option!=initialOption
   SideEffect{onDirty(changed);draftScope?.store?.write(draftScope.name,"mealRows",encodeMealDraftRows(mealRows.toList()))}
   when(state){
     is SubmitState.Saved->{TaskResultCard(state.receipt,onDone);return}
@@ -122,7 +138,12 @@ import java.time.LocalDate
   if(kind==CaptureKind.Purchase)OptionChips(listOf("offline_purchase" to "线下","online_purchase" to "网购","delivery" to "外卖","service" to "服务","transport" to "交通","other" to "其他"),option){option=it}
   if(kind==CaptureKind.Workout)OptionChips(listOf("步行" to "步行","跑步" to "跑步","骑行" to "骑行"),primary){primary=it}
   if(kind==CaptureKind.Meal)OptionChips(listOf("breakfast" to "早餐","lunch" to "午餐","dinner" to "晚餐","snack" to "加餐","other" to "其他"),option){option=it}
-  if(kind==CaptureKind.Health)OptionChips(listOf("weight" to "体重","body_fat" to "体脂","heart_rate" to "心率","temperature" to "体温","sleep_duration" to "睡眠","steps" to "步数","custom" to "其他"),option){option=it}
+  if(kind==CaptureKind.Health)OptionChips(listOf("weight" to "体重","body_fat" to "体脂","heart_rate" to "心率","temperature" to "体温","sleep_duration" to "睡眠","steps" to "步数","custom" to "其他"),option){metric->
+    if(metric!=option){
+      option=metric
+      secondary=defaultMeasurementUnit(metric)
+    }
+  }
   if(kind==CaptureKind.OwnedItem)OptionChips(listOf("owned" to "持有","gifted" to "已赠出","returned" to "已退货","disposed" to "已处置","lost" to "遗失"),option){option=it}
   if(kind==CaptureKind.Project)OptionChips(listOf("active" to "进行中","paused" to "暂停","completed" to "完成","cancelled" to "取消"),option){option=it}
   if(kind==CaptureKind.Meal){
@@ -213,6 +234,16 @@ import java.time.LocalDate
 @Composable fun TaskResultCard(receipt:OperationReceipt,onDone:()->Unit){var details by rememberSaveable{mutableStateOf(false)};LifeCard{Text(if(receipt.queued)"已安全保存，等待同步" else receiptLabel(receipt.capability),style=MaterialTheme.typography.titleLarge);receipt.resources.forEach{Text(kindLabel(it.type),color=MaterialTheme.colorScheme.onSurfaceVariant)};receipt.warnings.forEach{Text(it,color=MaterialTheme.colorScheme.tertiary)};TextButton(onClick={details=!details}){Text(if(details)"收起数据说明" else "数据说明")};if(details){Text(receipt.capability,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);Text("命令 ${receipt.commandId}",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant);receipt.executionId?.let{Text("执行 $it",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}};Button(onClick=onDone,Modifier.fillMaxWidth().heightIn(min=56.dp)){Text("完成")}}}
 
 private fun receiptLabel(capability:String)=when(capability){"money.record_entry"->"收支已记录";"money.record_refund"->"退款已记录";"life.record_purchase"->"购买已记录";"life.record_meal"->"餐次已记录";"health.record_measurement"->"健康数据已记录";"health.record_workout"->"训练已记录";"travel.record_visit"->"到访已记录";"travel.create_trip"->"旅程已创建";"life.save_owned_item"->"物品已保存";"life.save_project"->"项目已保存";"library.capture"->"资料已收存";else->"操作已保存"}
+
+private fun defaultMeasurementUnit(metric:String)=when(metric){
+  "weight"->"kg"
+  "body_fat"->"%"
+  "heart_rate"->"bpm"
+  "temperature"->"°C"
+  "sleep_duration"->"分钟"
+  "steps"->"步"
+  else->""
+}
 
 private fun defaultOption(kind:CaptureKind)=when(kind){CaptureKind.Expense->"expense";CaptureKind.Purchase->"offline_purchase";CaptureKind.Meal->"other";CaptureKind.Health->"weight";CaptureKind.OwnedItem->"owned";CaptureKind.Project->"active";CaptureKind.Refund,CaptureKind.Workout,CaptureKind.Visit,CaptureKind.Trip->"";CaptureKind.Library->"note"}
 private fun primaryLabel(kind:CaptureKind)=when(kind){CaptureKind.Expense,CaptureKind.Refund->"金额";CaptureKind.Purchase->"商家或商品";CaptureKind.Meal->"吃了什么";CaptureKind.Health->"数值";CaptureKind.Workout->"训练类型";CaptureKind.Visit->"地点";CaptureKind.Trip,CaptureKind.Project->"标题";CaptureKind.OwnedItem->"物品名称";CaptureKind.Library->"标题（可选）"}
