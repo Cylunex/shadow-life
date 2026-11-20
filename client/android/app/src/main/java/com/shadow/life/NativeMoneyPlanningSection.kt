@@ -45,7 +45,7 @@ import java.time.LocalDate
 
 @Composable internal fun NativeRecurringSection(
   overview:WorkspaceOverview.Money,state:SubmitState,onSave:(NativeRecurringDraft)->Unit,
-  onOccurrence:(MoneyPlanningResultDtoOccurrencesEntry,String)->Unit,onReset:()->Unit
+  onOccurrence:(MoneyPlanningResultDtoOccurrencesEntry,String)->Unit,onReset:()->Unit,onPayment:(String)->Unit={}
 ){
   var showEditor by rememberSaveable{mutableStateOf(false)}
   var editing by rememberJsonState(MoneyPlanningResultDtoRecurringPlansEntry.serializer())
@@ -72,6 +72,38 @@ import java.time.LocalDate
     Text("周期计划不等于实际付款；处理状态不会自动记账。",style=MaterialTheme.typography.bodySmall)
     if(overview.coverage?.recurringPlans==true)Text("周期计划仅显示前 ${overview.limits?.recurringPlans} 项。")
     if(overview.coverage?.occurrences==true)Text("期次仅显示前 ${overview.limits?.occurrences} 项。")
+    var occurrenceFilter by rememberSaveable{mutableStateOf("all")}
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){listOf("pending" to "待处理","all" to "全部期次").forEach{(key,label)->FilterChip(occurrenceFilter==key,{occurrenceFilter=key},{Text(label)})}}
+    val occurrences=overview.occurrenceDetails.filter{occurrenceFilter=="all"||it.state.wireValue in setOf("pending","reminded","snoozed")}
+    if(occurrences.isEmpty())Text("所选月份当前筛选下没有已加载期次。") else Text("${overview.period} 周期事项",style=MaterialTheme.typography.titleLarge)
+    val today=LocalDate.now().toString()
+    occurrences.groupBy{item->
+      when {
+        item.linkedRecordId!=null->"已关联付款"
+        item.state.wireValue in setOf("handled","dismissed")->"已处理"
+        item.effectiveDueOn<=today->"已到期待核实"
+        else->"接下来"
+      }
+    }.toSortedMap(compareBy<String>{listOf("已到期待核实","接下来","已关联付款","已处理").indexOf(it)}).forEach{(label,entries)->
+      Text(label,style=MaterialTheme.typography.titleMedium)
+      entries.sortedBy{it.effectiveDueOn}.forEach{item->LifeCard{
+      val plan=overview.recurringDetails.firstOrNull{it.id==item.planId}
+      Text(plan?.title?:"周期事项",style=MaterialTheme.typography.titleMedium)
+      Text("${item.effectiveDueOn} · ${when(item.state.wireValue){"snoozed"->"已稍后提醒";"reminded"->"已提醒";"handled"->"已处理";"dismissed"->"已忽略";else->"待处理"}}",color=MaterialTheme.colorScheme.onSurfaceVariant)
+      if(item.dueOn!=item.effectiveDueOn)Text("原定 ${item.dueOn}",style=MaterialTheme.typography.bodySmall)
+      Text(plan?.amount?.let{"计划金额 ${plan.currency} $it（非实付）"}?:"计划金额未定",style=MaterialTheme.typography.bodySmall)
+      item.linkedRecordId?.let{id->TextButton(onClick={onPayment(id)}){Text("查看已关联付款")}}
+      if(item.state.wireValue in setOf("pending","reminded","snoozed"))Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+        TextButton(onClick={onOccurrence(item,"handled")},enabled=!busy){Text("已处理")}
+        TextButton(onClick={onOccurrence(item,"snoozed")},enabled=!busy){Text("明天提醒")}
+        TextButton(onClick={onOccurrence(item,"dismissed")},enabled=!busy){Text("忽略本次")}
+      }
+    }}}
+    var showPlans by rememberSaveable{mutableStateOf(false)}
+    if(overview.recurringDetails.isNotEmpty())TextButton(onClick={showPlans=!showPlans}){
+      Text(if(showPlans)"收起周期计划" else "查看周期计划与下次日期")
+    }
+    if(showPlans){
     if(overview.recurringDetails.isEmpty())Text("还没有周期费用计划。",color=MaterialTheme.colorScheme.onSurfaceVariant)
     overview.recurringDetails.forEach{plan->LifeCard{
       Text(plan.title,style=MaterialTheme.typography.titleMedium)
@@ -82,22 +114,7 @@ import java.time.LocalDate
         TextButton(onClick={onSave(NativeRecurringDraft(plan.title,plan.amount.orEmpty(),plan.cadence.wireValue,plan.nextDueOn,plan.category.orEmpty(),plan,if(plan.state.wireValue=="paused")"active" else "paused"))},enabled=!busy){Text(if(plan.state.wireValue=="paused")"继续" else "暂停")}
       }
     }}
-    var occurrenceFilter by rememberSaveable{mutableStateOf("pending")}
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){listOf("pending" to "待处理","all" to "全部期次").forEach{(key,label)->FilterChip(occurrenceFilter==key,{occurrenceFilter=key},{Text(label)})}}
-    val occurrences=overview.occurrenceDetails.filter{occurrenceFilter=="all"||it.state.wireValue in setOf("pending","reminded","snoozed")}
-    if(occurrences.isEmpty())Text("所选月份当前筛选下没有已加载期次。") else Text("${overview.period} 周期事项",style=MaterialTheme.typography.titleLarge)
-    occurrences.forEach{item->LifeCard{
-      val plan=overview.recurringDetails.firstOrNull{it.id==item.planId}
-      Text(plan?.title?:"周期事项",style=MaterialTheme.typography.titleMedium)
-      Text("${item.effectiveDueOn} · ${when(item.state.wireValue){"snoozed"->"已稍后提醒";"reminded"->"已提醒";"handled"->"已处理";"dismissed"->"已忽略";else->"待处理"}}",color=MaterialTheme.colorScheme.onSurfaceVariant)
-      if(item.dueOn!=item.effectiveDueOn)Text("原定 ${item.dueOn}",style=MaterialTheme.typography.bodySmall)
-      Text(plan?.amount?.let{"计划金额 ${plan.currency} $it（非实付）"}?:"计划金额未定",style=MaterialTheme.typography.bodySmall)
-      if(item.state.wireValue in setOf("pending","reminded","snoozed"))Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-        TextButton(onClick={onOccurrence(item,"handled")},enabled=!busy){Text("已处理")}
-        TextButton(onClick={onOccurrence(item,"snoozed")},enabled=!busy){Text("明天提醒")}
-        TextButton(onClick={onOccurrence(item,"dismissed")},enabled=!busy){Text("忽略本次")}
-      }
-    }}
+    }
   }
 }
 

@@ -35,6 +35,15 @@ enum class DomainRecordsResultDtoItemsEntryEntryType(val wireValue: String) {
 }
 
 @Serializable
+data class DomainRecordsResultDtoItemsEntryLibraryPreview(
+  @SerialName("item_type") val itemType: String,
+  @SerialName("created_at") val createdAt: String,
+  @SerialName("source") val source: String?,
+  @SerialName("excerpt") val excerpt: String?,
+  @SerialName("image_version_id") val imageVersionId: String?
+)
+
+@Serializable
 data class DomainRecordsResultDtoItemsEntryWorkoutPlan(
   @SerialName("schedule") val schedule: JsonElement,
   @SerialName("detail") val detail: JsonElement?
@@ -53,6 +62,7 @@ data class DomainRecordsResultDtoItemsEntry(
   @SerialName("amount") val amount: String?,
   @SerialName("currency") val currency: String?,
   @SerialName("entry_type") val entryType: DomainRecordsResultDtoItemsEntryEntryType? = null,
+  @SerialName("library_preview") val libraryPreview: DomainRecordsResultDtoItemsEntryLibraryPreview? = null,
   @SerialName("workout_plan") val workoutPlan: DomainRecordsResultDtoItemsEntryWorkoutPlan? = null
 )
 
@@ -526,6 +536,22 @@ data class LifeSearchResultDto(
 )
 
 @Serializable
+data class ConsumptionStatsResultDtoOrderPageItemsEntry(
+  @SerialName("record_id") val recordId: String,
+  @SerialName("title") val title: String,
+  @SerialName("occurred_on") val occurredOn: String,
+  @SerialName("currency") val currency: String?,
+  @SerialName("amount") val amount: String?
+)
+
+@Serializable
+data class ConsumptionStatsResultDtoOrderPage(
+  @SerialName("items") val items: List<ConsumptionStatsResultDtoOrderPageItemsEntry>,
+  @SerialName("next_offset") val nextOffset: Long?,
+  @SerialName("total") val total: Long
+)
+
+@Serializable
 data class ConsumptionStatsResultDtoWindow(
   @SerialName("from_on") val fromOn: String,
   @SerialName("to_on_exclusive") val toOnExclusive: String,
@@ -769,6 +795,7 @@ data class ConsumptionStatsResultDtoUnknowns(
 @Serializable
 data class ConsumptionStatsResultDto(
   @SerialName("algorithm_version") val algorithmVersion: String,
+  @SerialName("order_page") val orderPage: ConsumptionStatsResultDtoOrderPage? = null,
   @SerialName("window") val window: ConsumptionStatsResultDtoWindow,
   @SerialName("applied_filters") val appliedFilters: ConsumptionStatsResultDtoAppliedFilters,
   @SerialName("monthly") val monthly: List<ConsumptionStatsResultDtoMonthlyEntry>,
@@ -4225,7 +4252,16 @@ data class LifeRecordResultDtoRecordMealsEntry(
 )
 
 @Serializable
+enum class LifeRecordResultDtoRecordSourcesEntryRole(val wireValue: String) {
+  @SerialName("evidence") Evidence("evidence"),
+  @SerialName("meal_photo") MealPhoto("meal_photo"),
+  @SerialName("order_screenshot") OrderScreenshot("order_screenshot"),
+  @SerialName("replacement") Replacement("replacement")
+}
+
+@Serializable
 data class LifeRecordResultDtoRecordSourcesEntry(
+  @SerialName("role") val role: LifeRecordResultDtoRecordSourcesEntryRole? = null,
   @SerialName("id") val id: String,
   @SerialName("kind") val kind: String,
   @SerialName("external_id") val externalId: String?,
@@ -4363,7 +4399,16 @@ data class LifeRecordResultDtoMealPaymentsEntry(
 )
 
 @Serializable
+enum class LifeRecordResultDtoMealSourcesEntryRole(val wireValue: String) {
+  @SerialName("evidence") Evidence("evidence"),
+  @SerialName("meal_photo") MealPhoto("meal_photo"),
+  @SerialName("order_screenshot") OrderScreenshot("order_screenshot"),
+  @SerialName("replacement") Replacement("replacement")
+}
+
+@Serializable
 data class LifeRecordResultDtoMealSourcesEntry(
+  @SerialName("role") val role: LifeRecordResultDtoMealSourcesEntryRole? = null,
   @SerialName("id") val id: String,
   @SerialName("kind") val kind: String,
   @SerialName("external_id") val externalId: String?,
@@ -4452,7 +4497,16 @@ data class HealthRecordResultDtoMeasurementFact(
 )
 
 @Serializable
+enum class HealthRecordResultDtoMeasurementSourceRole(val wireValue: String) {
+  @SerialName("evidence") Evidence("evidence"),
+  @SerialName("meal_photo") MealPhoto("meal_photo"),
+  @SerialName("order_screenshot") OrderScreenshot("order_screenshot"),
+  @SerialName("replacement") Replacement("replacement")
+}
+
+@Serializable
 data class HealthRecordResultDtoMeasurementSource(
+  @SerialName("role") val role: HealthRecordResultDtoMeasurementSourceRole? = null,
   @SerialName("id") val id: String,
   @SerialName("kind") val kind: String,
   @SerialName("external_id") val externalId: String?,
@@ -4613,7 +4667,16 @@ data class HealthRecordResultDtoObservationFact(
 )
 
 @Serializable
+enum class HealthRecordResultDtoObservationSourceRole(val wireValue: String) {
+  @SerialName("evidence") Evidence("evidence"),
+  @SerialName("meal_photo") MealPhoto("meal_photo"),
+  @SerialName("order_screenshot") OrderScreenshot("order_screenshot"),
+  @SerialName("replacement") Replacement("replacement")
+}
+
+@Serializable
 data class HealthRecordResultDtoObservationSource(
+  @SerialName("role") val role: HealthRecordResultDtoObservationSourceRole? = null,
   @SerialName("id") val id: String,
   @SerialName("kind") val kind: String,
   @SerialName("external_id") val externalId: String?,
@@ -4687,7 +4750,16 @@ data class HealthRecordResultDtoDailyWellbeingFact(
 )
 
 @Serializable
+enum class HealthRecordResultDtoDailyWellbeingSourceRole(val wireValue: String) {
+  @SerialName("evidence") Evidence("evidence"),
+  @SerialName("meal_photo") MealPhoto("meal_photo"),
+  @SerialName("order_screenshot") OrderScreenshot("order_screenshot"),
+  @SerialName("replacement") Replacement("replacement")
+}
+
+@Serializable
 data class HealthRecordResultDtoDailyWellbeingSource(
+  @SerialName("role") val role: HealthRecordResultDtoDailyWellbeingSourceRole? = null,
   @SerialName("id") val id: String,
   @SerialName("kind") val kind: String,
   @SerialName("external_id") val externalId: String?,
@@ -4763,7 +4835,16 @@ data class HealthRecordResultDtoSleepSessionFact(
 )
 
 @Serializable
+enum class HealthRecordResultDtoSleepSessionSourceRole(val wireValue: String) {
+  @SerialName("evidence") Evidence("evidence"),
+  @SerialName("meal_photo") MealPhoto("meal_photo"),
+  @SerialName("order_screenshot") OrderScreenshot("order_screenshot"),
+  @SerialName("replacement") Replacement("replacement")
+}
+
+@Serializable
 data class HealthRecordResultDtoSleepSessionSource(
+  @SerialName("role") val role: HealthRecordResultDtoSleepSessionSourceRole? = null,
   @SerialName("id") val id: String,
   @SerialName("kind") val kind: String,
   @SerialName("external_id") val externalId: String?,
@@ -4841,7 +4922,16 @@ data class HealthRecordResultDtoWorkoutSessionFact(
 )
 
 @Serializable
+enum class HealthRecordResultDtoWorkoutSessionSourceRole(val wireValue: String) {
+  @SerialName("evidence") Evidence("evidence"),
+  @SerialName("meal_photo") MealPhoto("meal_photo"),
+  @SerialName("order_screenshot") OrderScreenshot("order_screenshot"),
+  @SerialName("replacement") Replacement("replacement")
+}
+
+@Serializable
 data class HealthRecordResultDtoWorkoutSessionSource(
+  @SerialName("role") val role: HealthRecordResultDtoWorkoutSessionSourceRole? = null,
   @SerialName("id") val id: String,
   @SerialName("kind") val kind: String,
   @SerialName("external_id") val externalId: String?,
@@ -4919,7 +5009,16 @@ data class HealthRecordResultDtoDailyActivityFact(
 )
 
 @Serializable
+enum class HealthRecordResultDtoDailyActivitySourceRole(val wireValue: String) {
+  @SerialName("evidence") Evidence("evidence"),
+  @SerialName("meal_photo") MealPhoto("meal_photo"),
+  @SerialName("order_screenshot") OrderScreenshot("order_screenshot"),
+  @SerialName("replacement") Replacement("replacement")
+}
+
+@Serializable
 data class HealthRecordResultDtoDailyActivitySource(
+  @SerialName("role") val role: HealthRecordResultDtoDailyActivitySourceRole? = null,
   @SerialName("id") val id: String,
   @SerialName("kind") val kind: String,
   @SerialName("external_id") val externalId: String?,
@@ -4992,7 +5091,16 @@ data class HealthRecordResultDtoHabitLogFact(
 )
 
 @Serializable
+enum class HealthRecordResultDtoHabitLogSourceRole(val wireValue: String) {
+  @SerialName("evidence") Evidence("evidence"),
+  @SerialName("meal_photo") MealPhoto("meal_photo"),
+  @SerialName("order_screenshot") OrderScreenshot("order_screenshot"),
+  @SerialName("replacement") Replacement("replacement")
+}
+
+@Serializable
 data class HealthRecordResultDtoHabitLogSource(
+  @SerialName("role") val role: HealthRecordResultDtoHabitLogSourceRole? = null,
   @SerialName("id") val id: String,
   @SerialName("kind") val kind: String,
   @SerialName("external_id") val externalId: String?,

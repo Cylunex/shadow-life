@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun LifeComposerHost(open:Boolean,initialSeed:CaptureSeed?,submitState:SubmitState,assistantState:LoadState<AssistantReply>?,historyState:LoadState<AssistantConversation>?,threadState:LoadState<List<AssistantThreadSummary>>,selectedThreadId:String?,refundCandidates:LoadState<RecordPage>,onLoadOlder:()->Unit,onSelectThread:(String)->Unit,onNewThread:()->Unit,onLoadRefundCandidates:(String)->Unit,onDismiss:()->Unit,onSubmit:(CaptureDraft)->Unit,onAsk:(String)->Unit,onReset:()->Unit,onOpenCapture:()->Unit={},startWithAssistant:Boolean=false,onSavedMessage:(String)->Unit={},onOpenAssistant:()->Unit={}){
+@Composable fun LifeComposerHost(open:Boolean,initialSeed:CaptureSeed?,submitState:SubmitState,assistantState:LoadState<AssistantReply>?,historyState:LoadState<AssistantConversation>?,threadState:LoadState<List<AssistantThreadSummary>>,selectedThreadId:String?,refundCandidates:LoadState<RecordPage>,onLoadOlder:()->Unit,onSelectThread:(String)->Unit,onNewThread:()->Unit,onLoadRefundCandidates:(String)->Unit,onDismiss:()->Unit,onSubmit:(CaptureDraft)->Unit,onAsk:(String)->Unit,onReset:()->Unit,onOpenCapture:()->Unit={},startWithAssistant:Boolean=false,onSavedMessage:(String)->Unit={},onOpenAssistant:()->Unit={},referenceTitle:String?=null){
   if(!open)return
   val parentScope=LocalUiDraftScope.current
   var mode by rememberSaveable(initialSeed?.contextId,initialSeed?.kind){mutableStateOf(initialSeed?.kind)}
@@ -54,7 +54,7 @@ import java.time.LocalDate
     Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text(mode?.let{"记录${it.label}"}?:if(startWithAssistant)"Life 助手" else "快速记录")},navigationIcon={LifeBackButton{leave(if(mode!=null&&initialSeed==null)"types" else "close")}})}){padding->
       Column(Modifier.fillMaxSize().padding(padding).imePadding().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)){
         if(mode==null){
-          if(startWithAssistant)ComposerStart(assistantState,historyState,threadState,selectedThreadId,onLoadOlder,onSelectThread,onNewThread,onAsk,onChoose={mode=it;if(it==CaptureKind.Refund)onLoadRefundCandidates("")})
+          if(startWithAssistant)ComposerStart(assistantState,historyState,threadState,selectedThreadId,onLoadOlder,onSelectThread,onNewThread,onAsk,referenceTitle,onChoose={mode=it;if(it==CaptureKind.Refund)onLoadRefundCandidates("")})
           else{
             Text("选择你想记下的事",style=MaterialTheme.typography.headlineMedium)
             CaptureKind.entries.forEach{kind->LifeCard(onClick={mode=kind;if(kind==CaptureKind.Refund)onLoadRefundCandidates("")}){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(kind.label,Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);Text("＋",color=MaterialTheme.colorScheme.primary)}}}
@@ -67,8 +67,10 @@ import java.time.LocalDate
   }
 }
 
-@Composable private fun ComposerStart(assistantState:LoadState<AssistantReply>?,historyState:LoadState<AssistantConversation>?,threadState:LoadState<List<AssistantThreadSummary>>,selectedThreadId:String?,onLoadOlder:()->Unit,onSelectThread:(String)->Unit,onNewThread:()->Unit,onAsk:(String)->Unit,onChoose:(CaptureKind)->Unit){
+@Composable private fun ComposerStart(assistantState:LoadState<AssistantReply>?,historyState:LoadState<AssistantConversation>?,threadState:LoadState<List<AssistantThreadSummary>>,selectedThreadId:String?,onLoadOlder:()->Unit,onSelectThread:(String)->Unit,onNewThread:()->Unit,onAsk:(String)->Unit,referenceTitle:String?,onChoose:(CaptureKind)->Unit){
+  referenceTitle?.let{AssistChip(onClick={},enabled=false,label={Text("当前记录 · "+it)})}
   var message by rememberSaveable{mutableStateOf("")}
+  LaunchedEffect(assistantState){if(assistantState is LoadState.Ready)message=""}
   Text("直接告诉 Life 你要记录、查找或安排什么；也可以选择完整表单。",color=MaterialTheme.colorScheme.onSurfaceVariant)
   var showHistory by rememberSaveable{mutableStateOf(false)}
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){TextButton(onClick={showHistory=!showHistory}){Text(if(showHistory)"收起历史对话" else "历史对话")};
@@ -83,7 +85,7 @@ import java.time.LocalDate
     else->Unit
   }
   OutlinedTextField(message,{message=it},Modifier.fillMaxWidth(),label={Text("对 Life 说")},minLines=2,maxLines=5,enabled=assistantState !is LoadState.Loading)
-  Button(onClick={val outgoing=message;message="";onAsk(outgoing)},enabled=message.isNotBlank()&&assistantState !is LoadState.Loading,modifier=Modifier.fillMaxWidth().heightIn(min=56.dp)){Text(if(assistantState is LoadState.Loading)"Life 正在处理…" else if((assistantState as? LoadState.Ready)?.value?.state=="awaiting_input")"补充并继续" else "发送")}
+  Button(onClick={val outgoing=message;onAsk(outgoing)},enabled=message.isNotBlank()&&assistantState !is LoadState.Loading,modifier=Modifier.fillMaxWidth().heightIn(min=56.dp)){Text(if(assistantState is LoadState.Loading)"Life 正在处理…" else if((assistantState as? LoadState.Ready)?.value?.state=="awaiting_input")"补充并继续" else "发送")}
   when(assistantState){
     is LoadState.Ready->if(assistantState.value.receipts.isNotEmpty()||assistantState.value.prompt!=null)LifeCard{assistantState.value.prompt?.let{Text(it,color=MaterialTheme.colorScheme.tertiary)};assistantState.value.receipts.forEach{Text(receiptLabel(it.capability),color=MaterialTheme.colorScheme.primary)}}
     is LoadState.Failed->Text(assistantState.message,color=MaterialTheme.colorScheme.error)

@@ -248,7 +248,11 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun DetailScreen(title:String,state:LoadState<RecordDetail>,submitState:SubmitState,onRetry:()->Unit,onBack:()->Unit,onLink:(DetailLink)->Unit,onAction:(DetailAction)->Unit,onCorrect:(EditSeed,CorrectionDraft)->Unit,onReset:()->Unit,onQueueLibraryVision:(String)->Unit,onRetryLibraryVision:(String)->Unit,onSaveTravelDay:(TravelDayDraft)->Unit,travelPlaces:List<TravelPlaceSummary> = emptyList(),accountId:String="",onDishCatalog:(String,String)->Unit={_,_->}){
+@Composable fun DetailScreen(title:String,state:LoadState<RecordDetail>,submitState:SubmitState,onRetry:()->Unit,onBack:()->Unit,onLink:(DetailLink)->Unit,onAction:(DetailAction)->Unit,onCorrect:(EditSeed,CorrectionDraft)->Unit,onReset:()->Unit,onQueueLibraryVision:(String)->Unit,onRetryLibraryVision:(String)->Unit,onSaveTravelDay:(TravelDayDraft)->Unit,travelPlaces:List<TravelPlaceSummary> = emptyList(),accountId:String="",onDishCatalog:(String,String)->Unit={_,_->},originalPage:Int=0,
+  onAskRecord:(ResourceRef,String)->Unit={_,_->},assistantStatus:(ResourceRef?)->LoadState<AssistantReply>?={null},onComparePrice:(String)->Unit={}
+
+){
+  var showMaintenance by rememberSaveable{mutableStateOf(false)}
   var purchaseLineId by rememberSaveable(title){mutableStateOf<String?>(null)}
   var editing by rememberSaveable(title){mutableStateOf(false)}
   var editingDay by rememberSaveable(title){mutableStateOf(false)}
@@ -258,6 +262,13 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
   val activeDraftScope=LocalUiDraftScope.current
   var savedNotice by rememberSaveable(title){mutableStateOf<String?>(null)}
   val loadedDetail=(state as? LoadState.Ready)?.value
+  var reportOpen by rememberSaveable(originalPage){mutableStateOf(originalPage>0)}
+  val report=loadedDetail?.assets?.firstOrNull{it.mediaType=="application/pdf"}
+  if(reportOpen&&report!=null){
+    val context=androidx.compose.ui.platform.LocalContext.current
+    val repository=remember(accountId){NativeLifeRepository(context,context.applicationContext as ShadowApp)}
+    LibraryPdfViewer(accountId,repository,report,originalPage){reportOpen=false}
+  }
   val mealRead=loadedDetail?.meal?.let{rememberMealDetailRead(accountId,it,loadedDetail.revision,onRetry)}
   LaunchedEffect(submitState){if(editing&&submitState is SubmitState.Saved&&submitState.receipt.warnings.isEmpty()){activeDraftScope?.store?.clear(activeDraftScope.name);savedNotice=if(submitState.receipt.queued)"更正已保存到本机，待同步" else "更正已保存";editing=false;onReset()}}
 
@@ -267,14 +278,56 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
       savedNotice?.let{notice->item{Text(notice,color=MaterialTheme.colorScheme.primary)}}
       if(state is LoadState.Ready){
         val detail=state.value
-        if(mealRead!=null)mealDetailItems(detail,mealRead,onDishCatalog)
+        val photos=detail.assets.filter{it.role=="meal_photo"}
+        if(mealRead!=null){
+          if(photos.isNotEmpty())item("meal-photos"){LibraryOriginals(accountId,photos,"餐照",previewFirstImage=true)}
+          mealDetailItems(detail,mealRead,onDishCatalog)
+        }
         else {
           item{DetailHero(detail)}
-          item{DomainDetailContent(detail,onLink){purchaseLineId=it.id}}
+          detail.sections.firstOrNull{it.title=="关联餐次"}?.let{section->item("linked-meals"){DetailSectionContent(section,onLink)}}
+          item{
+            val purchase=detail.dishPurchase?.takeIf{it.shop.isNotBlank()&&it.items.isNotEmpty()}
+            val preferences=if(purchase!=null&&detail.state=="confirmed"){
+              val context=androidx.compose.ui.platform.LocalContext.current
+              val repository=remember(accountId){NativeLifeRepository(context,context.applicationContext as ShadowApp)}
+              val match=rememberLifeRead(accountId,purchase,showMaintenance){repository.visibleDishPreferences(purchase)}
+              (match.state as? LoadState.Ready)?.value.orEmpty()
+            }else emptyMap()
+            DomainDetailContent(detail,onLink,preferences){purchaseLineId=it.id}
+          }
+        }
+        detail.assistantRef?.let{reference->item("record-assistant"){
+          val work=assistantStatus(reference)
+          TextButton(onClick={onAskRecord(reference,detail.title)},enabled=work !is LoadState.Loading){
+            Text(when(work){
+              LoadState.Loading->"Life 正在处理"
+              is LoadState.Ready->when(work.value.state){
+                "awaiting_input"->"需要补充 · 继续对话"
+                "completed"->"已完成 · 查看答复"
+                else->"查看处理结果"
+              }
+              is LoadState.Failed->"结果待确认 · 打开助手"
+              else->"对此记录提问或交办"
+            })
+          }
+          if(work is LoadState.Ready)work.value.receipts.flatMap{it.resources}.distinctBy{it.type to it.id}
+            .filter{it.type in setOf("meal","money_entry","purchase","health_measurement","health_workout","library_item","trip","owned_item")}
+            .forEach{ref->TextButton(onClick={onLink(DetailLink(ref.type,ref.id,"查看处理结果"))}){
+              Text("查看"+when(ref.type){"meal"->"写入餐次";"money_entry","purchase"->"写入消费";"library_item"->"写入资料";else->"写入记录"})
+            }}
+        }}
+        val originalOrder=detail.sections.firstOrNull{it.title=="关联记录"}?.links?.firstOrNull{it.title=="退款原交易"}
+        if(originalOrder!=null)item("refund-origin"){
+          val refundDate=detail.heroSupporting.orEmpty().take(10)
+          val sourceDate=originalOrder.supporting.orEmpty().substringAfterLast(" · ").take(10)
+          LifeCard(onClick={onLink(originalOrder)}){
+            Text("退款原交易",style=MaterialTheme.typography.titleMedium)
+            if(refundDate.isNotBlank()&&sourceDate.isNotBlank())Text(refundDate.take(7)+" 退款入账 · 冲减 "+sourceDate.take(7)+" 原消费")
+            Text(originalOrder.supporting.orEmpty(),style=MaterialTheme.typography.bodySmall)
+          }
         }
         if(detail.state=="confirmed")detail.consumptionRecordId?.let{id->item{AmountEvidenceCard(accountId,id)}}
-        if(detail.state=="confirmed")detail.dishPurchase?.let{purchase->item{DishPreferenceCard(accountId,purchase)};if(purchase.items.isNotEmpty())item{PriceHistoryCard(accountId,purchase)}}
-        if(detail.state=="confirmed")detail.consumptionRecordId?.let{id->item{NativeMealConsumptionLink(accountId,id,detail.linkedMealIds)}}
         detail.libraryItemId?.let { id -> item {
           val context=androidx.compose.ui.platform.LocalContext.current
           TextButton(onClick={
@@ -284,7 +337,13 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
             context.startActivity(android.content.Intent.createChooser(share,"分享这条资料引用"))
           }){Text("分享这条资料引用")}
         } }
-        if(detail.assets.isNotEmpty())item{LibraryOriginals(accountId,detail.assets,if(detail.meal!=null)"餐照与原件" else "原件")}
+        if(detail.presentation==DetailPresentation.Sleep){
+          detail.sections.firstOrNull{it.title=="概要"}?.facts?.firstOrNull{it.label=="醒来日期"}?.value?.let{date->
+            item("sleep-morning"){MorningCheckinCard(accountId,date)}
+          }
+        }
+        val originals=detail.assets.filterNot{it in photos}
+        if(originals.isNotEmpty())item("record-originals"){LibraryOriginals(accountId,originals)}
         item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){detail.state?.let{StatusLabel(it)}}}
         val schedule=detail.travelSchedule
         if(schedule!=null){
@@ -297,10 +356,29 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
             item{Button(onClick={travelDate=date;onReset();editingDay=true},modifier=Modifier.fillMaxWidth()){Text("调整当天安排")};TextButton(onClick={onLink(DetailLink("travel_workspace",schedule.trip.id,schedule.trip.title))}){Text("地图、地点与旅程清单")}}
           }
         }
-        if(schedule==null||detailTab!="日程")detail.sections.filter{!domainSectionHandled(detail,it)&&(it.facts.isNotEmpty()||it.groups.isNotEmpty()||it.links.isNotEmpty())}.sortedBy(::isDetailMetadata).forEachIndexed{sectionIndex,section->
+        if(schedule==null||detailTab!="日程")detail.sections.filter{!domainSectionHandled(detail,it)&&it.title !in setOf("关联餐次","训练分组")&&(it.facts.isNotEmpty()||it.groups.isNotEmpty()||it.links.isNotEmpty())}.sortedBy(::isDetailMetadata).forEachIndexed{sectionIndex,section->
           item("section:$sectionIndex"){DetailSectionContent(section,onLink)}
         }
 
+        val strength=detail.sections.firstOrNull{it.title=="训练分组"}
+        if(strength!=null){
+          item("strength-heading"){Text("训练分组",style=MaterialTheme.typography.titleLarge)}
+          items(strength.groups,key={"strength/"+it.id}){group->
+            WorkoutSetCard(accountId,group,detail.workoutExercises[group.id],detail.assistantRef?.id)
+          }
+        }
+        if(detail.state=="confirmed"&&(detail.consumptionRecordId!=null||detail.dishPurchase!=null)){
+          item("record-maintenance"){
+            TextButton(onClick={showMaintenance=!showMaintenance}){Text(if(showMaintenance)"收起消费操作" else "更多消费操作")}
+          }
+          if(showMaintenance){
+            detail.dishPurchase?.let{purchase->
+              item{DishPreferenceCard(accountId,purchase)}
+              if(purchase.items.isNotEmpty())item{PriceHistoryCard(accountId,purchase)}
+            }
+            detail.consumptionRecordId?.let{id->item{NativeMealConsumptionLink(accountId,id,detail.linkedMealIds)}}
+          }
+        }
         if(detail.actions.isNotEmpty())item{Column(Modifier.fillMaxWidth().padding(top=14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){(if(showActions)detail.actions else detail.actions.take(2)).forEach{action->OutlinedButton(onClick={onAction(action)},Modifier.fillMaxWidth().heightIn(min=52.dp)){Text(action.label)}};if(detail.actions.size>2)TextButton(onClick={showActions=!showActions}){Text(if(showActions)"收起操作" else "更多操作（${detail.actions.size}）")}}}
         detail.libraryVisionSourceAssetId?.let{assetId->item{OutlinedButton(onClick={onQueueLibraryVision(assetId)},Modifier.fillMaxWidth().padding(top=8.dp),enabled=submitState !is SubmitState.Sending){Text("用所选 LLM 识图")}}}
         detail.libraryVisionRetryJobId?.let{jobId->item{OutlinedButton(onClick={onRetryLibraryVision(jobId)},Modifier.fillMaxWidth().padding(top=8.dp),enabled=submitState !is SubmitState.Sending){Text("重试视觉理解")}}}
@@ -314,14 +392,41 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
   val schedule=(state as? LoadState.Ready)?.value?.travelSchedule
   if(editingDay&&schedule!=null&&travelDate!=null)TravelDayEditor(schedule.trip,travelDate!!,schedule.days.firstOrNull{it.date==travelDate},travelPlaces,submitState,{editingDay=false;onReset()},onSaveTravelDay)
   loadedDetail?.purchaseLines?.firstOrNull{it.id==purchaseLineId}?.let{line->
-    PurchaseDestinationSheet(accountId,line,{purchaseLineId=null}){type,id->
-      onLink(DetailLink(type,id,line.name))
+    var transfer by rememberSaveable(line.id){mutableStateOf(false)}
+    if(transfer)PurchaseDestinationSheet(accountId,line,{purchaseLineId=null}){type,id->
+      purchaseLineId=null;onLink(DetailLink(type,id,line.name))
     }
+    else AlertDialog(onDismissRequest={purchaseLineId=null},title={Text(line.name)},
+      text={Column{
+        TextButton(onClick={purchaseLineId=null;onComparePrice(line.name)}){Text("查看同款价格")}
+        TextButton(onClick={transfer=true}){Text("转为物品、消耗品或库存")}
+      }},confirmButton={TextButton(onClick={purchaseLineId=null}){Text("关闭")}})
+
   }
   val seed=(state as? LoadState.Ready)?.value?.editSeed
   if(editing&&seed!=null)DetailEditSheet(seed,submitState,{editing=false;onReset()},{onCorrect(seed,it)}){
     if(seed is EditSeed.Meal&&loadedDetail!=null){
       MealIntakeEditor(accountId,loadedDetail.mealIntakes,seed,onRetry)
+    }
+  }
+}
+
+@Composable private fun WorkoutSetCard(accountId:String,group:DetailGroup,exercise:WorkoutExerciseReference?,session:String?){
+  var compare by rememberSaveable(session,group.id){mutableStateOf(false)}
+  LifeCard{
+    Text(group.title,style=MaterialTheme.typography.titleMedium)
+    group.facts.forEach{fact->Row(Modifier.fillMaxWidth()){
+      Text(fact.label,Modifier.weight(1f))
+      Text(fact.value)
+    }}
+    if(exercise!=null&&session!=null){
+      TextButton(onClick={compare=!compare}){Text(if(compare)"收起历次表现" else "查看同动作上次表现")}
+      if(compare){
+        val context=androidx.compose.ui.platform.LocalContext.current
+        val repository=remember(accountId){NativeLifeRepository(context,context.applicationContext as ShadowApp)}
+        val history=rememberLifeRead(accountId,exercise,session){repository.previousExercise(exercise.id,exercise.unit,exercise.equipment,session)}
+        StateContent(history.state,history.retry){value->Text(value?.replace('；','\n')?:"此前没有该动作的可比记录")}
+      }
     }
   }
 }
@@ -346,7 +451,7 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
   }
 }
 
-@Composable private fun DetailHero(detail:RecordDetail){val tone=detailAccent(detail.presentation);Surface(Modifier.fillMaxWidth().padding(bottom=12.dp),shape=RoundedCornerShape(24.dp),color=tone,contentColor=Color(0xFF202A25)){Column(Modifier.padding(24.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){Text(detailCategory(detail.presentation),style=MaterialTheme.typography.labelLarge);if(detail.title!=detailCategory(detail.presentation))Text(detail.title,style=MaterialTheme.typography.titleLarge);detail.heroValue?.let{Text(it,style=MaterialTheme.typography.headlineLarge,fontWeight=FontWeight.Bold)};detail.heroSupporting?.takeIf(String::isNotBlank)?.let{Text(it,style=MaterialTheme.typography.bodyMedium)}}}}
+@Composable private fun DetailHero(detail:RecordDetail){val tone=detailAccent(detail.presentation);Surface(Modifier.fillMaxWidth().padding(bottom=12.dp),shape=RoundedCornerShape(24.dp),color=tone.copy(alpha=.14f),border=androidx.compose.foundation.BorderStroke(1.dp,tone.copy(alpha=.28f)),contentColor=MaterialTheme.colorScheme.onSurface){Column(Modifier.padding(24.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){Text(detailCategory(detail.presentation),style=MaterialTheme.typography.labelLarge);if(detail.title!=detailCategory(detail.presentation))Text(detail.title,style=MaterialTheme.typography.titleLarge);detail.heroValue?.let{Text(it,style=MaterialTheme.typography.headlineLarge,fontWeight=FontWeight.Bold)};detail.heroSupporting?.takeIf(String::isNotBlank)?.let{Text(it,style=MaterialTheme.typography.bodyMedium)}}}}
 private fun detailCategory(value:DetailPresentation)=when(value){DetailPresentation.HealthMetric->"身体测量";DetailPresentation.Workout->"运动记录";DetailPresentation.Sleep->"睡眠记录";DetailPresentation.Activity->"活动记录";DetailPresentation.Meal->"饮食记录";DetailPresentation.Money->"消费记录";DetailPresentation.Travel->"旅程";DetailPresentation.Library->"资料";DetailPresentation.Habit->"生活习惯";DetailPresentation.Generic->"记录详情"}
 
 @OptIn(ExperimentalMaterial3Api::class,ExperimentalLayoutApi::class)
@@ -460,6 +565,15 @@ private data class FeatureEntry(val group:String,val title:String,val subtitle:S
   Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text("服务中心")},navigationIcon={LifeBackButton(onBack)})}){padding->
     LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
       item{OutlinedTextField(query,{query=it},Modifier.fillMaxWidth(),singleLine=true,label={Text("搜索功能")},leadingIcon={Icon(Icons.Default.Search,null)});Text("按生活领域找功能，也可以直接搜索记录。",Modifier.padding(top=8.dp),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+      if(query.isNotBlank())shown.firstOrNull{it.title.contains(query.trim(),ignoreCase=true)}?.let{entry->
+        val action=entry.action
+        if(action is FeatureAction.Workspace||action is FeatureAction.Destination)item("exact-feature"){
+          LifeCard(onClick={when(action){is FeatureAction.Workspace->onWorkspace(action.domain,action.tab);is FeatureAction.Destination->onDestination(action.route);else->Unit}}){
+            Text(entry.title,style=MaterialTheme.typography.titleMedium)
+            Text(entry.subtitle,style=MaterialTheme.typography.bodySmall)
+          }
+        }
+      }
       if(query.isNotBlank()){
         item{Text("相关记录",style=MaterialTheme.typography.titleLarge);StateContent(matches?:LoadState.Loading,{onFindRecords(query.trim())}){}}
         val found=(matches as? LoadState.Ready)?.value
@@ -489,6 +603,7 @@ private data class FeatureEntry(val group:String,val title:String,val subtitle:S
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun PlanDetailScreen(state:LoadState<PlanSummary>,onRetry:()->Unit,onRelated:(String,String)->Unit,onBack:()->Unit,onSaveAction:(String,String,String,String)->Unit,actionState:SubmitState){
   val plan=(state as? LoadState.Ready)?.value
+  var addingAction by rememberSaveable{mutableStateOf(false)}
   var actionTitle by rememberSaveable{mutableStateOf("")};var actionDate by rememberSaveable{mutableStateOf("")};var actionTime by rememberSaveable{mutableStateOf("")}
   PlanningDetailScaffold(plan?.title?:"项目详情",onBack){
     item{StateContent(state,onRetry){}}
@@ -497,8 +612,9 @@ private data class FeatureEntry(val group:String,val title:String,val subtitle:S
       plan.goal?.let{goal->item{LifeSection("目标"){LifeCard{Text(goal)}}}}
       item{LifeSection("时间"){LifeCard{PlanningFact("开始",plan.startsOn?:"未设置");PlanningFact("截止",plan.dueOn?:"未设置");plan.updatedAt?.let{PlanningFact("最近更新",it)}}}}
       item{Text("下一步与行动",style=MaterialTheme.typography.titleLarge)}
-      item{LifeCard{Text("添加行动",style=MaterialTheme.typography.titleMedium);OutlinedTextField(actionTitle,{actionTitle=it},Modifier.fillMaxWidth(),label={Text("行动")});OutlinedTextField(actionDate,{actionDate=it},Modifier.fillMaxWidth(),label={Text("日期 YYYY-MM-DD（可选）")});OutlinedTextField(actionTime,{actionTime=it},Modifier.fillMaxWidth(),label={Text("当天时间 HH:mm（可选）")});Button(onClick={onSaveAction(plan.id,actionTitle,actionDate,actionTime);actionTitle="";actionDate="";actionTime=""},enabled=actionTitle.isNotBlank()&&(actionTime.isBlank()||runCatching{java.time.LocalDate.parse(actionDate);java.time.LocalTime.parse(actionTime);true}.getOrDefault(false))){Text("保存行动")};if(actionState is SubmitState.Rejected)Text(actionState.message,color=MaterialTheme.colorScheme.error);if(actionState is SubmitState.Saved)TextButton(onClick=onRetry){Text(if(actionState.receipt.queued)"已加入同步队列 · 刷新行动" else "已保存 · 刷新行动")}}}
       if(plan.actionItems.isEmpty())item{EmptyState("还没有项目行动")} else items(plan.actionItems,key={"action:${it.id}"}){action->LifeCard{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(action.title,Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);StatusLabel(action.state)};Text(action.dueOn?.let{"计划 $it"}?:"未设置日期",color=MaterialTheme.colorScheme.onSurfaceVariant);action.scheduledAt?.let{Text("单日安排：${localDateTime(it,action.scheduledTimeZone?:java.time.ZoneId.systemDefault().id)}",color=MaterialTheme.colorScheme.primary)};action.sourceState?.let{Text("来源状态：$it",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
+      item{TextButton(onClick={addingAction=!addingAction}){Text(if(addingAction)"收起添加行动" else "添加行动")}}
+      if(addingAction)item{LifeCard{Text("添加行动",style=MaterialTheme.typography.titleMedium);OutlinedTextField(actionTitle,{actionTitle=it},Modifier.fillMaxWidth(),label={Text("行动")});OutlinedTextField(actionDate,{actionDate=it},Modifier.fillMaxWidth(),label={Text("日期 YYYY-MM-DD（可选）")});OutlinedTextField(actionTime,{actionTime=it},Modifier.fillMaxWidth(),label={Text("当天时间 HH:mm（可选）")});Button(onClick={onSaveAction(plan.id,actionTitle,actionDate,actionTime);actionTitle="";actionDate="";actionTime=""},enabled=actionTitle.isNotBlank()&&(actionTime.isBlank()||runCatching{java.time.LocalDate.parse(actionDate);java.time.LocalTime.parse(actionTime);true}.getOrDefault(false))){Text("保存行动")};if(actionState is SubmitState.Rejected)Text(actionState.message,color=MaterialTheme.colorScheme.error);if(actionState is SubmitState.Saved)TextButton(onClick=onRetry){Text(if(actionState.receipt.queued)"已加入同步队列 · 刷新行动" else "已保存 · 刷新行动")}}}
       item{Text("里程碑",style=MaterialTheme.typography.titleLarge,modifier=Modifier.padding(top=8.dp))}
       if(plan.milestones.isEmpty())item{EmptyState("还没有里程碑")} else items(plan.milestones,key={"milestone:${it.id}"}){milestone->LifeCard{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(milestone.title,Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);StatusLabel(milestone.state)};Text(milestone.dueOn?.let{"目标 $it"}?:"未设置日期",color=MaterialTheme.colorScheme.onSurfaceVariant)}}
       item{Text("相关内容",style=MaterialTheme.typography.titleLarge,modifier=Modifier.padding(top=8.dp))}
@@ -541,7 +657,17 @@ private data class FeatureEntry(val group:String,val title:String,val subtitle:S
       if(review.limitationItems.isEmpty())item{LifeCard{Text("本期没有额外覆盖限制",color=MaterialTheme.colorScheme.onSurfaceVariant)}} else items(review.limitationItems,key={it}){limitation->LifeCard{Text(limitation)}}
       item{TextButton(onClick={showMetadata=!showMetadata}){Text(if(showMetadata)"收起生成信息" else "查看生成信息")};if(showMetadata)LifeCard{PlanningFact("算法版本",review.algorithmVersion);PlanningFact("生成时间",review.generatedAt);PlanningFact("回顾修订",review.revision.toString());PlanningFact("证据数量","${review.evidence.size} 项")}}
       item{Text("证据索引",style=MaterialTheme.typography.titleLarge,modifier=Modifier.padding(top=8.dp))}
-      if(review.evidence.isEmpty())item{EmptyState("没有可显示的证据引用")} else items(if(showEvidence)review.evidence else review.evidence.take(5),key={"evidence:${it.kind}:${it.id}:${it.revision}"}){evidence->LifeCard(onClick=if(reviewEvidenceActionable(evidence.kind)){{onEvidence(evidence)}} else null){Text(planningKindLabel(evidence.kind),style=MaterialTheme.typography.titleMedium);Text(if(reviewEvidenceActionable(evidence.kind))"查看原记录" else "证据修订 ${evidence.revision}",color=if(reviewEvidenceActionable(evidence.kind))MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)}}
+      if(review.evidence.isEmpty())item{EmptyState("没有可显示的证据引用")}
+      else (if(showEvidence)review.evidence else review.evidence.take(5)).groupBy{it.kind}.forEach{(kind,entries)->
+        item("evidence-group:"+kind){Text(planningKindLabel(kind),style=MaterialTheme.typography.titleMedium)}
+        items(entries,key={entry->"evidence:"+entry.kind+":"+entry.id+":"+entry.revision}){entry->
+          val open=reviewEvidenceActionable(entry.kind)
+          LifeCard(onClick=if(open){{onEvidence(entry)}}else null){
+            Text(if(open)"查看原记录" else planningKindLabel(entry.kind))
+            Text("修订 "+entry.revision,style=MaterialTheme.typography.bodySmall)
+          }
+        }
+      }
       if(review.evidence.size>5)item{TextButton(onClick={showEvidence=!showEvidence}){Text(if(showEvidence)"收起关联记录" else "查看全部 ${review.evidence.size} 条关联记录")}}
     }
   }
@@ -562,7 +688,10 @@ private data class FeatureEntry(val group:String,val title:String,val subtitle:S
 private fun planningRoleLabel(role:String)=mapOf("receipt" to "购买凭证","manual" to "使用说明","warranty" to "保修资料","repair" to "维修记录")[role]?:role
 private fun planningKindLabel(kind:String)=when(kind){"trip"->"旅程";"health_plan"->"健康计划";"recurring_plan"->"周期计划";"owned_item"->"物品";"library_item"->"资料";"money_entry"->"交易";"meal"->"餐次";"purchase"->"消费";"health_record"->"健康记录";"recipe"->"食谱";"health_measurement"->"健康测量";"health_workout_session"->"训练记录";else->kind}
 private fun planningDomainLabel(domain:String)=when(domain){"money"->"消费";"meals"->"饮食";"health"->"健康";"items"->"物品";"library"->"资料";else->domain}
-@Composable private fun ReviewMetricCard(group:ReviewMetricGroup){LifeCard{Text(group.title,style=MaterialTheme.typography.titleMedium);group.values.forEach{PlanningFact(it.label,it.value)}}}
+@Composable private fun ReviewMetricCard(group:ReviewMetricGroup){LifeCard{Text(group.title,style=MaterialTheme.typography.titleMedium);group.values.chunked(2).forEach{pair->Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)){
+    pair.forEach{fact->Box(Modifier.weight(1f)){PlanningFact(fact.label,fact.value)}}
+    if(pair.size==1)Spacer(Modifier.weight(1f))
+  }}}}
 @Composable private fun HealthSummaryContent(summary:TodayHealthSummary){when(summary.state){HealthSummaryState.NotAuthorized->Text("未授权健康数据",color=MaterialTheme.colorScheme.onSurfaceVariant);HealthSummaryState.Empty->Text("尚无有效健康记录；缺失值不会显示为 0",color=MaterialTheme.colorScheme.onSurfaceVariant);HealthSummaryState.Failed->Text("健康摘要读取失败，请稍后重试",color=MaterialTheme.colorScheme.error);HealthSummaryState.Ready->{summary.weight?.let{PlanningFact("最近体重","$it ${summary.weightUnit.orEmpty()}${summary.weightOn?.let{on->" · $on"}.orEmpty()}")};summary.steps?.let{PlanningFact("今日步数",it.toString())};summary.sleepMinutes?.let{PlanningFact("睡眠",formatMinutes(it))};summary.updatedAt?.let{PlanningFact("最近更新",it)}}}}
 private fun formatMinutes(value:Long)="${value/60} 小时 ${value%60} 分"
 private fun reviewEvidenceActionable(kind:String)=kind in setOf("money_entry","meal","health_measurement","health_workout_session","library_item","owned_item")

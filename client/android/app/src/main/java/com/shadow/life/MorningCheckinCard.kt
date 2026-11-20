@@ -16,14 +16,14 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
-@Composable internal fun MorningCheckinCard(accountId:String) {
+@Composable internal fun MorningCheckinCard(accountId:String,date:String=LocalDate.now().toString()) {
   val context=LocalContext.current
   val app=context.applicationContext as ShadowApp
   val repository=remember(accountId){NativeLifeRepository(context,app)}
   val scope=rememberCoroutineScope()
   val zone=ZoneId.systemDefault().id
-  var end by rememberSaveable(accountId){mutableStateOf(LocalDate.now().toString())}
-  var selected by rememberSaveable(accountId){mutableStateOf(end)}
+  var end by rememberSaveable(accountId,date){mutableStateOf(date)}
+  var selected by rememberSaveable(accountId,date){mutableStateOf(end)}
   var rows by remember(accountId,end){mutableStateOf<List<JSONObject>>(emptyList())}
   var refresh by remember{mutableIntStateOf(0)}
   var message by remember(accountId){mutableStateOf("")}

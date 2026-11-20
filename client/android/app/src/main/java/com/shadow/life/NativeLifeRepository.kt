@@ -86,9 +86,9 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     return result.items.map{DayEntry(it.domain.wireValue,it.kind,it.id,it.recordId,it.happenedOn?:result.date,it.title,it.amount,it.currency,it.yearsAgo.toInt())}
   }
 
-  suspend fun consumptionStats(months:Int=3,scope:String?=null,category:String?=null,merchantRankBy:String="orders",itemRankBy:String="purchased_orders",currency:String="CNY"):ConsumptionStatsResultDto {
+  suspend fun consumptionStats(months:Int=3,scope:String?=null,category:String?=null,merchantRankBy:String="orders",itemRankBy:String="purchased_orders",currency:String="CNY",merchant:String?=null,offset:String?=null):ConsumptionStatsResultDto {
     val range=consumptionStatsDateRange(LocalDate.now(),months);val zone=ZoneId.systemDefault().id
-    val query=buildList{add("from_on=${range.first}");add("to_on_exclusive=${range.second}");add("time_zone=${encode(zone)}");add("merchant_rank_by=$merchantRankBy");add("item_rank_by=$itemRankBy");add("currency=${encode(currency)}");add("limit=20");scope?.takeIf(String::isNotBlank)?.let{add("scopes=${encode(it)}")};category?.takeIf(String::isNotBlank)?.let{add("categories=${encode(it)}")}}.joinToString("&")
+    val query=buildList{add("from_on=${range.first}");add("to_on_exclusive=${range.second}");add("time_zone=${encode(zone)}");add("merchant_rank_by=$merchantRankBy");add("item_rank_by=$itemRankBy");add("currency=${encode(currency)}");add("limit=20");scope?.takeIf(String::isNotBlank)?.let{add("scopes=${encode(it)}")};category?.takeIf(String::isNotBlank)?.let{add("categories=${encode(it)}")};merchant?.let{add("merchant=${encode(it)}")};offset?.let{add("order_offset=${encode(it)}")}}.joinToString("&")
     return wireJson.decodeFromString(getText("/api/life/consumption-stats?$query"))
   }
 
@@ -96,11 +96,12 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     return search(query,cursor,null)
   }
 
-  private suspend fun search(query:String,cursor:String?,domains:Set<LifeDomain>?):RecordPage {
+  internal suspend fun search(query:String,cursor:String?,domains:Set<LifeDomain>?,from:LocalDate?=null,until:LocalDate?=null):RecordPage {
     val filters=domains?.takeIf{it.isNotEmpty()}?.joinToString(",",prefix="&types="){it.name.lowercase()}.orEmpty()
-    val result=wireJson.decodeFromString<LifeSearchResultDto>(getText("/api/search?view=$recordView&q=${encode(query)}&limit=50$filters${cursor?.let{"&cursor=${encode(it)}"}.orEmpty()}"))
+    val dates=if(from!=null&&until!=null)"&from_on=$from&to_on_exclusive=$until" else ""
+    val result=wireJson.decodeFromString<LifeSearchResultDto>(getText("/api/search?view=$recordView&q=${encode(query)}&limit=50$filters$dates${cursor?.let{"&cursor=${encode(it)}"}.orEmpty()}"))
     return RecordPage(result.items.map{item->
-      RecordSummary(domainFromWire(item.domain.wireValue),item.kind,if(item.kind=="activity_capture")"capture:${item.id}" else item.id,item.title,item.supporting?:item.happenedOn,item.amount?.let{listOfNotNull(item.currency,it).joinToString(" ")},null,item.recordId)
+      RecordSummary(domainFromWire(item.domain.wireValue),item.kind,if(item.kind=="activity_capture")"capture:${item.id}" else item.id,item.title,item.supporting?:item.happenedOn,item.amount?.let{listOfNotNull(item.currency,it).joinToString(" ")},null,item.recordId,happenedOn=item.happenedOn)
     },result.nextCursor,result.asOf)
   }
 
@@ -114,16 +115,42 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     return AssistantConversation(threadId,result.items.map{AssistantMessage(it.id,it.role.wireValue,it.content,it.createdAt)},result.nextCursor,result.asOf)
   }
 
-  suspend fun assist(message:String,existingThreadId:String?=null):AssistantReply=withContext(Dispatchers.IO){
+  suspend fun assist(message:String,existingThreadId:String?=null,reference:ResourceRef?=null):AssistantReply=withContext(Dispatchers.IO){
     val session=app.sessions.active()?:error("请先登录 Shadow Life")
     val fresh=when(val value=app.sessions.fresh(session.accountId,context)){SessionRefresh.ReauthRequired->error("会话已失效，请重新登录");SessionRefresh.Retryable->error("暂时无法刷新会话，请稍后重试");is SessionRefresh.Ready->value.value}
     val threadId=existingThreadId?:JSONObject(request(fresh,"/api/threads","POST",JSONObject().put("title",message.trim().take(60)).toString(),"application/json")).getString("id")
-    val connection=(URL(fresh.session.apiBase+"/api/threads/${encode(threadId)}/runs").openConnection() as HttpURLConnection).apply{requestMethod="POST";connectTimeout=10_000;readTimeout=150_000;doOutput=true;setRequestProperty("Authorization","Bearer ${fresh.accessToken}");setRequestProperty("Accept","text/event-stream");setRequestProperty("Content-Type","application/json");outputStream.bufferedWriter().use{it.write(JSONObject().put("text",message.trim()).toString())}}
+    val runInput=JSONObject().put("text",message.trim())
+    if(reference!=null){
+      val capability="agent.create_context_pack"
+      val input=JSONObject().put("thread_id",threadId).put("object_refs",JSONArray().put(
+        JSONObject().put("kind",reference.type).put("id",reference.id).put("revision",reference.revision)
+      )).put("ttl_minutes",15)
+      val command=JSONObject().put("protocol","shadow.command").put("capability",capability)
+        .put("command_id","cmd_context_${UUID.randomUUID().toString().replace("-","")}").put("input",input)
+      val result=JSONObject(request(fresh,"/api/commands/$capability","POST",command.toString(),"application/json"))
+      runInput.put("context_pack_id",result.getJSONObject("actual_values").getString("context_pack_id"))
+    }
+    val connection=(URL(fresh.session.apiBase+"/api/threads/${encode(threadId)}/runs").openConnection() as HttpURLConnection).apply{requestMethod="POST";connectTimeout=10_000;readTimeout=150_000;doOutput=true;setRequestProperty("Authorization","Bearer ${fresh.accessToken}");setRequestProperty("Accept","text/event-stream");setRequestProperty("Content-Type","application/json");outputStream.bufferedWriter().use{it.write(runInput.toString())}}
     var runId:String?=null;var state="started";var prompt:String?=null;var lastSequence=0;val answer=StringBuilder();val receipts=mutableListOf<OperationReceipt>();val receiptKeys=mutableSetOf<String>()
-    fun applyEvent(event:JSONObject){runId=event.optNullableString("run_id")?:runId;when(event.optString("type")){"message.delta"->answer.append(event.optString("text"));"run.state"->{state=event.optString("state",state);prompt=event.optNullableString("prompt")?:prompt};"operation.committed"->{val result=event.optJSONObject("result");val key=event.optNullableString("execution_id")?:event.optString("command_id");if(receiptKeys.add(key))receipts+=OperationReceipt(event.optString("capability"),event.optString("command_id"),event.optNullableString("execution_id"),result?.optJSONArray("resources").objects().map{ResourceRef(it.optString("type"),it.optString("id"),it.optInt("revision",1))})}}}
+    fun applyEvent(event:JSONObject){
+      runId=event.optNullableString("run_id")?:runId
+      when(event.optString("type")){
+        "message.delta"->answer.append(event.optString("text"))
+        "run.state"->{state=event.optString("state",state);prompt=event.optNullableString("prompt")}
+        "operation.committed"->{
+          val result=event.optJSONObject("result")?:return
+          val execution=event.optNullableString("execution_id")?:return
+          if(event.optString("authority")!="executor"||result.optString("protocol")!="shadow.execution-result"||
+            result.optString("status")!="committed"||result.optString("execution_id")!=execution)return
+          if(receiptKeys.add(execution))receipts+=OperationReceipt(event.optString("capability"),event.optString("command_id"),execution,
+            result.optJSONArray("resources").objects().map{ResourceRef(it.optString("type"),it.optString("id"),it.optInt("revision",1))})
+        }
+      }
+    }
     var streamFailure:Throwable?=null
     try{
       val code=connection.responseCode;if(code !in 200..299){val body=connection.errorStream?.bufferedReader()?.use{it.readText()}.orEmpty();error(runCatching{JSONObject(body).optString("message")}.getOrNull().orEmpty().ifBlank{"Life 请求失败（HTTP $code）"})}
+      runId=connection.getHeaderField("X-Shadow-Run-Id")?.takeIf{it.isNotBlank()}
       var eventSequence=0;connection.inputStream.bufferedReader().useLines{lines->lines.forEach{line->when{line.startsWith("id:")->eventSequence=line.removePrefix("id:").trim().toIntOrNull()?.takeIf{it>=0}?:eventSequence;line.startsWith("data:")->runCatching{JSONObject(line.removePrefix("data:").trim())}.getOrNull()?.let{applyEvent(it);lastSequence=maxOf(lastSequence,eventSequence)}}}}
     }catch(error:CancellationException){throw error
     }catch(error:Throwable){streamFailure=error
@@ -186,7 +213,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
             .withConsumedNutrition(food.consumedFraction)
         }
         meals[meal.id]=RecordSummary(LifeDomain.Meals,"meal",meal.id,foods.joinToString("、"){it.name},on,null,meal.revision.toInt(),
-          meal=MealCardSummary(meal.mealType.wireValue,on,meal.occurredAt,meal.timeZone,meal.note,foods,meal.sources.orEmpty().firstOrNull{it.assetVersionId!=null}?.assetVersionId,meal.items.map{it.captureFood()}))
+          meal=MealCardSummary(meal.mealType.wireValue,on,meal.occurredAt,meal.timeZone,meal.note,foods,meal.sources.orEmpty().firstOrNull{it.assetVersionId!=null&&it.role.wireValue=="meal_photo"}?.assetVersionId,meal.items.map{it.captureFood()}))
       }
       cursor=page.nextCursor.takeIf{page.items.none{it.occurredOn<on}}
       check(cursor==null||seen.add(cursor)){"餐次分页未能继续，请重试"}
@@ -200,8 +227,8 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     enqueueCommand("health.save_morning_checkin",input,expectedAccountId=accountId)
   }
 
-  suspend fun previousExercise(id:String, unit:String, equipment:String):String? {
-    val path = "/api/health/exercise-history?id=${encode(id)}&unit=${encode(unit)}&equipment=${encode(equipment)}"
+  suspend fun previousExercise(id:String,unit:String,equipment:String,beforeSession:String?=null):String? {
+    val path = "/api/health/exercise-history?id=${encode(id)}&unit=${encode(unit)}&equipment=${encode(equipment)}${beforeSession?.let{"&before_session_id="+encode(it)}.orEmpty()}"
     val sessions = JSONObject(getText(path)).getJSONArray("sessions")
     return (0 until sessions.length()).joinToString("；") { index ->
       val session = sessions.getJSONObject(index)
@@ -221,7 +248,10 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   suspend fun wellness(to:String,days:Int):JSONObject =
     JSONObject(getText("/api/life/wellness-review?to=$to&days=$days"))
 
-  suspend fun records(domain:LifeDomain,query:String="",cursor:String?=null):RecordPage {
+  suspend fun records(
+    domain:LifeDomain,query:String="",cursor:String?=null,period:String?=null,
+    currency:String?=null,entryType:String?=null,itemTypes:List<String> = emptyList(),on:String?=null,category:String?=null
+  ):RecordPage {
     val apiDomain=when(domain){LifeDomain.Meals->"life";else->domain.name.lowercase()}
     if(domain==LifeDomain.Meals){
       if(query.isNotBlank())return search(query,cursor,setOf(LifeDomain.Meals))
@@ -231,7 +261,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
           MealFoodSummary(food.name,food.quantity,food.unit,food.energyKcal,food.proteinG,food.fatG,food.carbG,food.estimate)
             .withConsumedNutrition(food.consumedFraction)
         }
-        val photo=item.sources.orEmpty().firstOrNull{source->source.assetVersionId!=null&&(source.role.wireValue=="meal_photo"||source.kind=="image"||source.kind.contains("meal_photo"))}?.assetVersionId
+        val photo=item.sources.orEmpty().firstOrNull{source->source.assetVersionId!=null&&source.role.wireValue=="meal_photo"}?.assetVersionId
         RecordSummary(
           domain,"meal",item.id,foods.map{it.name}.filter(String::isNotBlank).joinToString("、").ifBlank{mealTypeLabel(item.mealType.wireValue)},item.occurredOn,
           item.payments.joinToString(" + "){"${it.currency} ${it.amount}"}.ifBlank{null},item.revision.toInt(),
@@ -239,12 +269,37 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         )
       },result.nextCursor,result.asOf)
     }
-    val params=buildList{add("limit=50");if(query.isNotBlank())add("q=${encode(query)}");if(cursor!=null)add("cursor=${encode(cursor)}")}.joinToString("&")
+    val params=buildList{
+      add("limit=50")
+      if(query.isNotBlank())add("q=${encode(query)}")
+      cursor?.let{add("cursor=${encode(it)}")}
+      period?.let{add("period=${encode(it)}")}
+      currency?.let{add("currency=${encode(it)}")}
+      entryType?.let{add("entry_type=${encode(it)}")}
+      on?.let{add("on=${encode(it)}")}
+      category?.let{add("category=${encode(it)}")}
+      if(itemTypes.isNotEmpty())add("item_types=${encode(itemTypes.joinToString(","))}")
+    }.joinToString("&")
     val result=wireJson.decodeFromString<DomainRecordsResultDto>(getText("/api/$apiDomain?$params"))
     return RecordPage(result.items.map{item->
       val trailing=item.amount?.let{value->listOfNotNull(item.currency,value).joinToString(" ")}
       RecordSummary(domain,item.kind,item.id,item.title,item.supporting,trailing,item.revision?.toInt(),item.recordId,item.entryType?.wireValue,recordState=item.state,happenedOn=item.happenedOn)
     },result.nextCursor,result.asOf)
+  }
+
+  internal suspend fun monthlyMoney(period:String):MonthlyMoneyRead {
+    val body=JSONObject(getText("/api/money/summary?period=${encode(period)}"))
+    val totals=body.getJSONArray("totals").objects().map{row->
+      MonthlyMoneyTotal(row.getString("currency"),row.getString("net_spending"),row.getString("gross_expense"),
+        row.getString("refund"),row.getString("income"),row.getInt("entries"))
+    }
+    val days=body.optJSONArray("days").objects().map{row->
+      MonthlyMoneyDay(row.getString("currency"),row.getString("on"),row.getString("net_spending"),row.getInt("entries"))
+    }
+    val categories=body.optJSONArray("categories").objects().map{row->
+      MonthlyMoneyCategory(row.getString("currency"),row.optNullableString("category"),row.getString("gross_expense"))
+    }
+    return MonthlyMoneyRead(totals,days,categories)
   }
 
   suspend fun workspaceOverview(domain:LifeDomain,tripId:String?=null,moneyPeriod:String?=null):WorkspaceOverview=when(domain){
@@ -300,9 +355,9 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     }
   }
 
-  suspend fun planning():PlanningWorkspace=coroutineScope{
-    val today=LocalDate.now();val zone=ZoneId.systemDefault().id
-    val agendaRequest=async{wireJson.decodeFromString<PlanningAgendaResultDto>(getText("/api/planning/agenda?from_on=$today&to_on_exclusive=${today.plusDays(7)}&time_zone=${encode(zone)}&limit=100"))}
+  suspend fun planning(today:LocalDate=LocalDate.now(),days:Long=7):PlanningWorkspace=coroutineScope{
+    val zone=ZoneId.systemDefault().id
+    val agendaRequest=async{wireJson.decodeFromString<PlanningAgendaResultDto>(getText("/api/planning/agenda?from_on=$today&to_on_exclusive=${today.plusDays(days)}&time_zone=${encode(zone)}&limit=100"))}
     val projectsRequest=async{partialRequest{wireJson.decodeFromString<LifeProjectsResultDto>(getText("/api/life/projects?limit=50"))}};val itemsRequest=async{partialRequest{wireJson.decodeFromString<OwnedItemsResultDto>(getText("/api/life/owned-items?limit=100&time_zone=${encode(zone)}"))}};val reviewsRequest=async{partialRequest{wireJson.decodeFromString<LifeReviewsResultDto>(getText("/api/life/reviews?limit=20"))}}
     val agenda=agendaRequest.await();val projectsResult=projectsRequest.await();val itemsResult=itemsRequest.await();val reviewsResult=reviewsRequest.await();val projects=projectsResult.getOrNull();val items=itemsResult.getOrNull();val reviews=reviewsResult.getOrNull()
     PlanningWorkspace(
@@ -317,6 +372,11 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         reviewsResult.exceptionOrNull()?.let{"生活回顾读取失败，可重试后恢复"}
       )
     )
+  }
+
+  suspend fun ownedItems(query:String):Pair<List<OwnedItemSummary>,Boolean>{
+    val result=wireJson.decodeFromString<OwnedItemsResultDto>(getText("/api/life/owned-items?limit=100&time_zone=${encode(ZoneId.systemDefault().id)}&q=${encode(query)}"))
+    return result.items.map{ownedItemSummary(it,result.attention)} to result.truncated
   }
 
   suspend fun project(id:String):PlanSummary{
@@ -393,9 +453,18 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     enqueueCommand(primary.capability,input)
   }
 
-  suspend fun library(query:String="",cursor:String?=null):LibraryPage {
-    val page=records(LifeDomain.Library,query,cursor)
-    return LibraryPage(page.items.map{LibrarySummary(it.id,it.title,it.kind,it.supporting,it.revision)},page.nextCursor,page.asOf)
+  suspend fun library(query:String="",cursor:String?=null,type:String?=null):LibraryPage {
+    val types=when(type){"image"->"image,photo,screenshot";"ticket"->"ticket,receipt";"link"->"link,web,url";"note"->"note";"document"->"document,file";else->null}
+    val params=buildList{
+      add("limit=50");if(query.isNotBlank())add("q=${encode(query)}")
+      cursor?.let{add("cursor=${encode(it)}")};types?.let{add("item_types=${encode(it)}")}
+    }.joinToString("&")
+    val page=wireJson.decodeFromString<DomainRecordsResultDto>(getText("/api/library?$params"))
+    return LibraryPage(page.items.map{item->
+      val preview=item.libraryPreview
+      LibrarySummary(item.id,item.title,preview?.itemType?:item.kind,item.state,item.revision?.toInt(),
+        preview?.createdAt,preview?.source,preview?.excerpt,preview?.imageVersionId)
+    },page.nextCursor,page.asOf)
   }
 
   internal suspend fun readLibraryReference(ref:LibraryReference,accountId:String):ReferencedLibraryItem=withContext(Dispatchers.IO) {
@@ -421,7 +490,14 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     if(domain==LifeDomain.Travel)return travelDetail(wireJson.decodeFromString(getText(path)))
     if(domain==LifeDomain.Meals||domain==LifeDomain.Money)return lifeRecordDetail(domain,wireJson.decodeFromString(getText(path)))
     val wire=wireJson.decodeFromString<HealthRecordResultDto>(getText(path))
-    val detail=healthDetail(wire)
+    val detail=healthDetail(wire).let{record->
+      val reference=when(wire){
+        is HealthRecordResultDtoMeasurement->ResourceRef("health_measurement",id,wire.fact.revision.toInt())
+        is HealthRecordResultDtoWorkoutSession->ResourceRef("health_workout",id,wire.fact.revision.toInt())
+        else->null
+      }
+      record.copy(assistantRef=reference)
+    }
     if(wire !is HealthRecordResultDtoObservation)return detail
     val metric=wire.fact.metricKey.wireValue
     val points=partialRequest { val data=JSONObject(getText("/api/health/trend?metric_key=${encode(metric)}&limit=30${wire.fact.originalField?.let{"&original_field=${encode(it)}"}.orEmpty()}"));val rows=data.optJSONArray("points")?:JSONArray();(0 until rows.length()).map { val row=rows.getJSONObject(it);HealthTrendPoint(row.getString("id"),row.getString("occurred_on"),row.getString("value").toDouble(),row.getString("value"),row.getString("unit"),row.optString("source_kind"),row.optInt("revision",1)) }.filter{it.unit==wire.fact.unit} }.getOrDefault(emptyList())
@@ -465,6 +541,17 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   internal suspend fun amountEvidence(recordId:String):JSONObject=JSONObject(getText("/api/life/amount-evidence?record_id="+encode(recordId)))
   internal suspend fun intervalEvents(date:String,after:String?=null):JSONObject =
     JSONObject(getText("/api/life/interval-events?as_of="+encode(date)+(after?.let{"&after_id="+encode(it)}?:"")))
+  internal suspend fun visibleDishPreferences(purchase:DishPurchase):Map<String,String>{
+    val dishes=purchase.items.map{it.second}.toSet()
+    val labels=mapOf("repeat" to "还会点","avoid" to "避开","try" to "下次想试")
+    return dishPreferences(purchase.shop).getJSONArray("items").objects()
+      .filter{row->row.optString("shop_name")==purchase.shop&&row.optString("shop_source")==purchase.source}
+      .mapNotNull{row->
+        val dish=row.optString("dish_name")
+        labels[row.optString("preference")]?.takeIf{dish in dishes}?.let{dish to it}
+      }.toMap()
+  }
+
   internal suspend fun dishPreferences(shop:String,beforeAt:String?=null,beforeId:String?=null):JSONObject {
     val filters=mutableListOf<String>()
     if(shop.isNotBlank())filters.add("shop_name="+encode(shop))
@@ -493,11 +580,23 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
 
   suspend fun moneyImportMonth(period:String):MoneyImportMonthSummary=withContext(Dispatchers.IO){
     val body=JSONObject(getText("/api/money/import-month?period=${encode(period)}"));val totals=body.getJSONObject("totals");val batches=body.getJSONArray("batches")
-    MoneyImportMonthSummary(period,totals.getInt("unconfirmed"),totals.getInt("duplicates"),totals.getInt("uncategorized"),totals.getInt("refunds_unlinked"),(0 until batches.length()).map{index->val item=batches.getJSONObject(index);MoneyImportBatchSummary(item.getString("id"),item.getString("source_name"),item.getInt("total"),item.getInt("unconfirmed"),item.getInt("duplicates"),item.getInt("uncategorized"),item.getInt("refunds_unlinked"))})
+    val summaries=batches.objects().map{batch->
+      MoneyImportBatchSummary(batch.getString("id"),batch.getString("source_name"),batch.getInt("total"),
+        batch.getInt("unconfirmed"),batch.getInt("duplicates"),batch.getInt("uncategorized"),batch.getInt("refunds_unlinked"),
+        batch.optString("platform"),batch.optString("source_account"))
+    }
+    val pending=body.optJSONArray("pending_preview").objects().map{row->
+      MoneyPendingPreview(row.getString("id"),row.getString("batch_id"),row.getString("source_name"),
+        row.optString("platform"),row.optString("source_account"),row.getString("counterparty"),row.getString("occurred_on"),
+        row.getString("amount"),row.getBoolean("is_duplicate"),row.getBoolean("category_missing"),
+        row.getBoolean("refund_unlinked"),row.getBoolean("needs_data"))
+    }
+    MoneyImportMonthSummary(period,totals.getInt("unconfirmed"),totals.getInt("duplicates"),totals.getInt("uncategorized"),
+      totals.getInt("refunds_unlinked"),summaries,pending,body.optBoolean("truncated"))
   }
   suspend fun moneyImportReview(batchId:String):MoneyImportReviewSummary=withContext(Dispatchers.IO){
     val body=JSONObject(getText("/api/money/imports/${encode(batchId)}"));val rules=body.getJSONArray("rules");val ruleLabels=(0 until rules.length()).associate{index->val rule=rules.getJSONObject(index);rule.getString("id") to "${rule.getString("match_value")} → ${rule.getJSONObject("replacements")}"};val candidates=body.getJSONArray("candidates")
-    MoneyImportReviewSummary(batchId,(0 until candidates.length()).map{index->val row=candidates.getJSONObject(index);val proposed=row.getJSONObject("proposed");val applied=row.getJSONArray("applied_rule_ids");MoneyImportCandidateSummary(row.getString("id"),row.getInt("revision"),row.getInt("position"),row.getString("status"),row.getJSONObject("raw").toString(2),proposed.optString("entry_type","expense"),proposed.optString("amount"),proposed.optString("occurred_on"),proposed.optString("time_zone","Asia/Shanghai"),proposed.optString("counterparty"),proposed.optString("category"),if(row.isNull("duplicate_of_record_id"))null else row.getString("duplicate_of_record_id"),(0 until applied.length()).map{applied.getString(it)},row.optNullableString("linked_record_id"))},ruleLabels)
+    MoneyImportReviewSummary(batchId,(0 until candidates.length()).map{index->val row=candidates.getJSONObject(index);val proposed=row.getJSONObject("proposed");val applied=row.getJSONArray("applied_rule_ids");MoneyImportCandidateSummary(row.getString("id"),row.getInt("revision"),row.getInt("position"),row.getString("status"),row.getJSONObject("raw").toString(2),proposed.optString("entry_type","expense"),proposed.optString("amount"),proposed.optString("occurred_on"),proposed.optString("time_zone","Asia/Shanghai"),proposed.optString("counterparty"),proposed.optString("category"),if(row.isNull("duplicate_of_record_id"))null else row.getString("duplicate_of_record_id"),(0 until applied.length()).map{applied.getString(it)},row.optNullableString("linked_record_id"),row.optNullableString("duplicate_of_candidate_id"))},ruleLabels)
   }
   suspend fun linkMealConsumption(mealId:String,recordId:String):OperationReceipt=withContext(Dispatchers.IO){
     enqueueCommand("life.link_meal_consumption",JSONObject().put("meal_id",mealId).put("consumption_record_id",recordId).put("evidence","user_confirmed"))
@@ -919,7 +1018,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     val editSeed=latest?.let{EditSeed.Library(item.id,item.currentRevision.toInt(),item.title,it.text,it.url,it.tags,it.documentDate,it.category)}
     val visionMedia=setOf("application/pdf","image/png","image/jpeg","image/tiff","image/webp")
     val source=value.sources.firstOrNull{it.source.assetVersionId!=null&&it.asset?.mediaType in visionMedia}?.source?.assetVersionId
-    return RecordDetail(item.title,item.state.wireValue,item.currentRevision.toInt(),sections,editSeed,presentation=DetailPresentation.Library,libraryItemId=item.id,heroSupporting=item.itemType,libraryVisionSourceAssetId=source?.takeIf{value.processingJobs.none{job->job.kind.wireValue=="vision"&&job.requestedProcessor.startsWith("llm-vision-v1:")}},libraryVisionRetryJobId=value.processingJobs.firstOrNull{it.kind.wireValue=="vision"&&it.requestedProcessor.startsWith("llm-vision-v1:")&&it.state.wireValue=="failed"}?.id,assets=value.sources.mapNotNull{entry->val id=entry.source.assetVersionId;val media=entry.asset?.mediaType;if(id!=null&&media!=null)DetailAsset(id,media,item.title)else null}.distinctBy{it.versionId})
+    return RecordDetail(item.title,item.state.wireValue,item.currentRevision.toInt(),sections,editSeed,presentation=DetailPresentation.Library,libraryItemId=item.id,assistantRef=ResourceRef("library_item",item.id,item.currentRevision.toInt()),heroSupporting=item.itemType,libraryVisionSourceAssetId=source?.takeIf{value.processingJobs.none{job->job.kind.wireValue=="vision"&&job.requestedProcessor.startsWith("llm-vision-v1:")}},libraryVisionRetryJobId=value.processingJobs.firstOrNull{it.kind.wireValue=="vision"&&it.requestedProcessor.startsWith("llm-vision-v1:")&&it.state.wireValue=="failed"}?.id,assets=value.sources.mapNotNull{entry->val id=entry.source.assetVersionId;val media=entry.asset?.mediaType;if(id!=null&&media!=null)DetailAsset(id,media,item.title)else null}.distinctBy{it.versionId})
   }
 
   private fun travelDetail(value:TravelTripResultDto):RecordDetail{
@@ -947,7 +1046,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     if(value.members.isNotEmpty())sections+=DetailSection("成员",value.members.map{member->DetailFact(travelLabel(member.role.wireValue),travelLabel(member.visibility.wireValue))},value.members.size)
     if(value.revisions.isNotEmpty())sections+=DetailSection("更正历史",value.revisions.map{revision->DetailFact("版本 ${revision.revision}","${revision.reason} · ${time(revision.createdAt)}")},value.revisions.size)
     return RecordDetail(trip.title,null,trip.revision.toInt(),sections,
-      EditSeed.Trip(trip.id,trip.revision.toInt(),trip.title,trip.startsOn,trip.endsOn,trip.timeZone,trip.note),presentation=DetailPresentation.Travel,heroSupporting="${trip.startsOn} — ${trip.endsOn}",
+      EditSeed.Trip(trip.id,trip.revision.toInt(),trip.title,trip.startsOn,trip.endsOn,trip.timeZone,trip.note),presentation=DetailPresentation.Travel,assistantRef=ResourceRef("trip",trip.id,trip.revision.toInt()),heroSupporting="${trip.startsOn} — ${trip.endsOn}",
       travelSchedule=TravelDetailSchedule(TravelTripSummary(trip.id,trip.title,trip.startsOn,trip.endsOn,trip.timeZone,null,value.myRuns.any{it.state.wireValue=="active"}),
         value.dayPlans.map{day->TravelDaySummary(day.id,day.tripId,day.planDate,day.items.map{TravelStopSummary(it.stopId,it.title,it.startsAt,it.placeId,it.note)},day.revision.toInt())}))
   }
@@ -967,7 +1066,11 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       val revision=value.revision;val occurredOn=value.occurredOn;val timeZone=value.timeZone;val mealType=value.mealType
       val seed=if(revision!=null&&occurredOn!=null&&timeZone!=null&&mealType!=null)EditSeed.Meal(value.mealId,revision.toInt(),occurredOn,timeZone,mealType.wireValue,value.note) else null
       RecordDetail(type,null,revision?.toInt(),sections,seed,
-        assets=sources.mapNotNull{source->source.assetVersionId?.let{DetailAsset(it,if(source.kind=="image")"image/*" else "application/octet-stream","饮食凭证")}},
+        assets=sources.mapNotNull{source->source.assetVersionId?.let{
+          DetailAsset(it,if(source.kind=="image"||source.role?.wireValue=="meal_photo")"image/*" else "application/octet-stream",
+            if(source.role?.wireValue=="meal_photo")"餐照" else "饮食凭证",source.role?.wireValue)
+        }},
+        assistantRef=revision?.let{ResourceRef("meal",value.mealId,it.toInt())},
         mealIntakes=items,presentation=DetailPresentation.Meal,
         meal=MealDetailInfo(value.mealId,type,occurredOn,localDateTime(value.occurredAt,timeZone,includeDate=false),value.note))
     }
@@ -1001,7 +1104,10 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       RecordDetail(title,value.state.wireValue,value.revision.toInt(),sections,seed,actions,DetailPresentation.Money,entry?.let{"${it.currency} ${detailDecimal(it.amount)}"}?:purchase?.amount?.let{"${purchase.currency.orEmpty()} ${detailDecimal(it)}"},value.occurredOn,assets=sources.mapNotNull{source->source.assetVersionId?.let{DetailAsset(it,if(source.kind=="image")"image/*" else "application/octet-stream","消费凭证")}},consumptionRecordId=value.recordId,linkedMealIds=meals.map{it.id},
         purchaseLines=if(value.state.wireValue=="confirmed")items.filterNot{it.rawName.endsWith("等多件")}.map{
           PurchaseLineRef(it.id,value.recordId,it.rawName,value.occurredOn,it.quantity,it.unit)
-        } else emptyList(),dishPurchase=purchase?.let{DishPurchase(it.merchant.orEmpty(),it.placeRef?:it.channelNameRaw?:"手记",items.filterNot{item->item.rawName.endsWith("等多件")}.map{item->item.id to item.rawName})})
+        } else emptyList(),
+        assistantRef=entry?.let{ResourceRef("money_entry",it.id,it.revision.toInt())}
+          ?:purchase?.let{ResourceRef("purchase",it.id,it.revision.toInt())},
+        dishPurchase=purchase?.let{DishPurchase(it.merchant.orEmpty(),it.placeRef?:it.channelNameRaw?:"手记",items.filterNot{item->item.rawName.endsWith("等多件")}.map{item->item.id to item.rawName})})
     }
   }
 
@@ -1021,8 +1127,21 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         val fact=value.fact
         val detail=fact.detail as? JsonObject
         fun detailText(key:String)=(detail?.get(key) as? JsonPrimitive)?.content?.takeUnless{it.isBlank()||it=="null"}
+        val strength=JSONObject(detail?.toString()?:"{}").optJSONObject("strength_session")
+        val exercises=strength?.optJSONArray("exercises").objects().mapNotNull{row->
+          val name=row.optJSONObject("exercise")?.optString("name")?.takeIf{it.isNotBlank()}?:return@mapNotNull null
+          val sets=row.optJSONArray("sets").objects().mapIndexedNotNull{index,set->
+            val reps=if(set.has("reps"))"${set.optInt("reps")} 次" else if(set.has("seconds"))"${set.optInt("seconds")} 秒" else return@mapIndexedNotNull null
+            DetailFact("第 ${index+1} 组",listOfNotNull(set.optNullableString("load_kg")?.let{"$it kg／只"},reps).joinToString(" × "))
+          }
+          DetailGroup(row.optJSONObject("exercise")?.optString("id").orEmpty().ifBlank{name},name,sets)
+        }
         val auto=detailText("auto_detected")?.toBooleanStrictOrNull();val title=workoutTypeUi(fact.sessionType)
-        build(title,fact.revision,listOfNotNull(DetailFact("日期",fact.occurredOn),fact.startedAt?.let{DetailFact("开始时间",localDateTime(it,fact.timeZone)?:it)},fact.durationMinutes?.let{DetailFact("运动时长","$it 分钟")},fact.distanceKm?.let{DetailFact("距离","${healthValueText(it,"km")} km")},fact.caloriesKcal?.let{DetailFact("活动热量","${healthValueText(it,"kcal")} kcal")},fact.rpe?.let{DetailFact("主观强度","$it/10")},fact.heartRateAvg?.let{DetailFact("平均心率","$it 次/分")},auto?.let{DetailFact("记录方式",if(it)"Samsung Health 自动识别" else "手动开始")},detailText("provider_type")?.let{DetailFact("三星运动类型",it)},detailText("custom_title")?.let{DetailFact("自定义名称",it)},detailText("notes")?.let{DetailFact("备注",it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue,presentation=DetailPresentation.Workout,heroValue=fact.durationMinutes?.let{"$it 分钟"}?:fact.distanceKm?.let{"${healthValueText(it,"km")} km"}?:"已完成",heroSupporting=listOfNotNull(fact.startedAt?.let{localDateTime(it,fact.timeZone)},auto?.let{if(it)"自动记录" else "手动记录"}).joinToString(" · "))
+        build(title,fact.revision,listOfNotNull(DetailFact("日期",fact.occurredOn),fact.startedAt?.let{DetailFact("开始时间",localDateTime(it,fact.timeZone)?:it)},fact.durationMinutes?.let{DetailFact("运动时长","$it 分钟")},fact.distanceKm?.let{DetailFact("距离","${healthValueText(it,"km")} km")},fact.caloriesKcal?.let{DetailFact("活动热量","${healthValueText(it,"kcal")} kcal")},fact.rpe?.let{DetailFact("主观强度","$it/10")},fact.heartRateAvg?.let{DetailFact("平均心率","$it 次/分")},auto?.let{DetailFact("记录方式",if(it)"Samsung Health 自动识别" else "手动开始")},detailText("provider_type")?.let{DetailFact("三星运动类型",it)},detailText("custom_title")?.let{DetailFact("自定义名称",it)},detailText("notes")?.let{DetailFact("备注",it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue,presentation=DetailPresentation.Workout,heroValue=fact.durationMinutes?.let{"$it 分钟"}?:fact.distanceKm?.let{"${healthValueText(it,"km")} km"}?:"已完成",heroSupporting=listOfNotNull(fact.startedAt?.let{localDateTime(it,fact.timeZone)},auto?.let{if(it)"自动记录" else "手动记录"}).joinToString(" · "),extra=if(exercises.isEmpty())emptyList() else listOf(DetailSection("训练分组",groups=exercises))).copy(workoutExercises=strength?.optJSONArray("exercises").objects().mapNotNull{row->
+          val exercise=row.optJSONObject("exercise")?:return@mapNotNull null
+          val exerciseId=exercise.optString("id").takeIf{it.isNotBlank()}?:return@mapNotNull null
+          exerciseId to WorkoutExerciseReference(exerciseId,exercise.optString("unit"),exercise.optString("equipment"))
+        }.toMap())
       }
       is HealthRecordResultDtoDailyActivity->{val fact=value.fact;build("每日活动",fact.revision,listOfNotNull(DetailFact("日期",fact.occurredOn),fact.steps?.let{DetailFact("步数","$it 步")},fact.activeMinutes?.let{DetailFact("活跃时长","$it 分钟")},fact.effectiveCaloriesKcal?.let{DetailFact("活动热量","${healthValueText(it,"kcal")} kcal")},fact.deviceCaloriesKcal?.let{DetailFact("设备活动热量","${healthValueText(it,"kcal")} kcal")},fact.workoutCaloriesKcal?.let{DetailFact("运动合计热量","${healthValueText(it,"kcal")} kcal")},fact.stepsOrigin?.let{DetailFact("步数来源",it)},fact.stepsStartedAt?.let{DetailFact("区间开始",localDateTime(it,fact.timeZone)?:it)},fact.stepsEndedAt?.let{DetailFact("区间结束",localDateTime(it,fact.timeZone)?:it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue,presentation=DetailPresentation.Activity,heroValue=fact.steps?.let{"$it 步"}?:fact.activeMinutes?.let{"$it 分钟"}?:"已记录",heroSupporting=fact.occurredOn)}
       is HealthRecordResultDtoHabitLog->{val fact=value.fact;build(kindLabel(fact.habitKey),fact.revision,listOfNotNull(DetailFact("日期",fact.occurredOn),DetailFact("完成次数","${fact.doneCount}"),DetailFact("明确未完成",if(fact.explicitDenial)"是" else "否"),fact.note?.let{DetailFact("备注",it)}),value.source?.kind,value.source?.capturedAt?:value.source?.capturedOn,value.raw?.recordType?.wireValue,value.raw?.state?.wireValue,presentation=DetailPresentation.Habit,heroValue=if(fact.explicitDenial)"未完成" else "${fact.doneCount} 次",heroSupporting=fact.occurredOn)}

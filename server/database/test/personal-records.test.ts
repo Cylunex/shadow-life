@@ -13,9 +13,20 @@ test("subject-scoped containers, report observations, episodes and manual day un
   await run("life.save_container",{id:b,label:"蓝箱",expected_revision:1,parent_id:null});
   assert.deepEqual((await queries.containers(context,{container_id:b})).items[0]?.path,["蓝箱"]);
   const report=await run("library.capture",{title:"合成报告",item_type:"note",text:"测试项目",tags:[]});
+  const filtered=await queries.listDomain(context,"library",{item_types:["note"],query:"测试项目"});
+  assert.equal(filtered.items[0]?.library_preview?.item_type,"note");
+  assert.equal(filtered.items[0]?.library_preview?.excerpt,"测试项目");
+  assert.equal((await queries.listDomain(context,"library",{item_types:["document"]})).items.length,0);
+  assert.equal((await queries.ownedItems(context,{query:"蓝箱"})).items[0]?.id,item);
   const lab={report_id:report.actual_values.library_item_id,report_revision:1,page:1,tested_on:"2026-11-01",raw_name:"合成指标",value:"阴性"};
   const one=await run("health.save_lab_result",lab),two=await run("health.save_lab_result",{...lab,page:2,value:"6.5",unit:"mmol/L",reference:"按原报告"});
   assert.equal((await queries.labResults(context,{left_id:one.actual_values.id,right_id:two.actual_values.id})).items.length,2);
+  const matches=await queries.labResults(context,{raw_name:"合成指标",unit:""});
+  assert.equal(matches.items.length,1);
+  assert.equal(matches.items[0]?.id,one.actual_values.id);
+  const quantitative=await queries.labResults(context,{raw_name:"合成指标",unit:"mmol/L"});
+  assert.equal(quantitative.items[0]?.id,two.actual_values.id);
+  assert.equal((await queries.labResults(context,{raw_name:"合成指标",unit:"kg"})).items.length,0);
   const ep={title:"头痛",started_on:"2026-11-11",started_at:"2026-11-11T23:45:00+08:00",time_zone:"Asia/Shanghai"};
   const start=await run("health.save_episode",ep);
   await run("health.save_episode",{...ep,id:start.actual_values.id,expected_revision:1,ended_on:"2026-11-12",ended_at:"2026-11-12T00:15:00+08:00"});
@@ -61,6 +72,17 @@ test("formal expense totals include duplicate candidates with missing times and 
   const r=await queries.reconcileExpenses(context,{from:"2026-11-01",to:"2026-11-07"});
   assert.equal(r.confirmed_expenses,2);assert.equal(Number(r.gross_amount),38);assert.equal(r.items[0]?.basis,"same_day_amount");
   assert.equal(r.items[0]?.records.filter(x=>x.occurred_at===null).length,1);
+  const month=await queries.summarizeMoney(context,{period:"2026-11"});
+  assert.equal(month.totals[0]?.gross_expense,"38");
+  assert.deepEqual(month.days,[{currency:"CNY",on:"2026-11-02",net_spending:"38",entries:2}]);
+  assert.deepEqual(month.categories,[{currency:"CNY",category:null,gross_expense:"38"}]);
+  assert.equal((await queries.listDomain(context,"money",{period:"2026-11",on:"2026-11-03",category:""})).items.length,0);
+  const page=await queries.listDomain(context,"money",{period:"2026-11",currency:"CNY",entry_type:"expense",limit:1});
+  assert.ok(page.next_cursor);
+  assert.equal(page.items[0]?.happened_on,"2026-11-02");
+  const second=await queries.listDomain(context,"money",{period:"2026-11",currency:"CNY",entry_type:"expense",limit:1,cursor:page.next_cursor});
+  assert.equal(second.next_cursor,null);
+  await assert.rejects(()=>queries.listDomain(context,"money",{period:"2026-10",currency:"CNY",entry_type:"expense",cursor:page.next_cursor}));
 });
 test("route comparisons separate duration bases and evening sleep keeps missing data visible",pgOnly,async t=>{
   const {run,queries,context}=await reviewFixture(t);

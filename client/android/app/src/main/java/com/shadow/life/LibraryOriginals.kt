@@ -1,9 +1,11 @@
 package com.shadow.life
 
 import android.graphics.BitmapFactory
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.*
@@ -20,13 +22,14 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
-@Composable internal fun LibraryOriginals(accountId:String,assets:List<DetailAsset>,title:String="原件"){
+@Composable internal fun LibraryOriginals(accountId:String,assets:List<DetailAsset>,title:String="原件",initialPage:Int=0,previewFirstImage:Boolean=false){
   val context=LocalContext.current
   val app=context.applicationContext as ShadowApp
   val repository=remember(accountId){NativeLifeRepository(context,app)}
   val scope=rememberCoroutineScope()
   var selected by remember{mutableStateOf<DetailAsset?>(null)}
   var preview by remember{mutableStateOf<DetailAsset?>(null)}
+  var pdfId by rememberSaveable(assets,initialPage){mutableStateOf(assets.firstOrNull{initialPage>0&&it.mediaType=="application/pdf"}?.versionId)}
   var image by remember{mutableStateOf<ByteArray?>(null)}
   var busy by remember{mutableStateOf(false)}
   var message by remember{mutableStateOf<String?>(null)}
@@ -35,23 +38,25 @@ import kotlinx.coroutines.launch
     val asset=selected
     if(uri!=null&&asset!=null)scope.launch{busy=true;try{checkAccount();repository.exportAsset(asset.versionId,uri,accountId);checkAccount();message="原件已保存到所选位置"}catch(e:CancellationException){throw e}catch(e:Exception){message=e.message}finally{busy=false}}
   }
-  val firstImage=assets.firstOrNull{it.mediaType.startsWith("image/")}
+  val firstImage=assets.firstOrNull{previewFirstImage&&it.mediaType.startsWith("image/")}
   var inlineImage by remember(accountId,firstImage?.versionId){mutableStateOf<ByteArray?>(null)}
   LaunchedEffect(accountId,firstImage?.versionId){if(firstImage!=null)try{checkAccount();val bytes=repository.assetPreview(firstImage.versionId);checkAccount();inlineImage=bytes}catch(e:CancellationException){throw e}catch(_:Exception){}}
   val inlineBitmap=remember(inlineImage){inlineImage?.let{BitmapFactory.decodeByteArray(it,0,it.size)?.asImageBitmap()}}
-  inlineBitmap?.let{bitmap->Image(bitmap,firstImage?.title,Modifier.fillMaxWidth().heightIn(max=360.dp),contentScale=ContentScale.Fit)}
+  inlineBitmap?.let{bitmap->Image(bitmap,firstImage?.title,Modifier.fillMaxWidth().heightIn(max=360.dp).clickable{preview=firstImage;image=inlineImage},contentScale=ContentScale.Fit)}
   LifeCard{
     Text(title,style=MaterialTheme.typography.titleMedium)
     assets.forEach{asset->
       Text(asset.mediaType,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
       Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
         if(asset.mediaType.startsWith("image/"))TextButton(enabled=!busy,onClick={preview=asset;image=null;message=null;scope.launch{busy=true;try{checkAccount();val bytes=repository.assetPreview(asset.versionId);checkAccount();image=bytes}catch(e:CancellationException){throw e}catch(e:Exception){message=e.message}finally{busy=false}}}){Text("查看图片")}
+        if(asset.mediaType=="application/pdf")TextButton(onClick={pdfId=asset.versionId}){Text("查看 PDF")}
         TextButton(enabled=!busy,onClick={selected=asset;val extension=when(asset.mediaType){"application/pdf"->"pdf";"image/png"->"png";"image/jpeg"->"jpg";"text/html"->"html";else->"bin"};export.launch(asset.title.replace('/','_').take(80)+".$extension")}){Text("保存原件")}
       }
     }
     if(busy)LinearProgressIndicator(Modifier.fillMaxWidth())
     message?.let{Text(it,style=MaterialTheme.typography.bodyMedium)}
   }
+  assets.firstOrNull{it.versionId==pdfId}?.let{LibraryPdfViewer(accountId,repository,it,initialPage.coerceAtLeast(1)){pdfId=null}}
   preview?.let{asset->LifeFullScreen("图片原件",{preview=null;image=null}){
     val bitmap=remember(image){image?.let{BitmapFactory.decodeByteArray(it,0,it.size)?.asImageBitmap()}}
     var zoom by remember{mutableFloatStateOf(1f)}

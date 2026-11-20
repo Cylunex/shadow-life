@@ -9,7 +9,7 @@ import {setWorkoutRoute,setRestDay,routeComparison,eveningSleep} from "./trainin
 import {saveLibraryFilter,saveDiaryEntry,librarySavedFilters,tripDiary} from "./library-trip-diary.js";
 import {rememberMerchantDish,merchantMenu} from "./merchant-foods.js";
 import {saveReturnCase,returnCases,consumptionSources} from "./returns-and-sources.js";
-import {saveContainer,placeItem,railTicket,containers} from "./rail-container.js";
+import {storageTree,saveContainer,placeItem,railTicket,containers} from "./rail-container.js";
 import {saveLabResult,saveEpisode,labResults,episodes} from "./lab-episodes.js";
 import {saveClip,saveOfflineInterval,clips,offlineDay} from "./clips-intervals.js";
 import {reconcileExpenses} from "./returns-and-sources.js";
@@ -151,7 +151,10 @@ function domainRecordSummary(row:{kind:string;id:string;page_at:string;value:Rec
   const entryType=text("entry_type") as "expense"|"income"|"refund"|null;
   // List titles are previews; purchase names and notes remain complete in detail and search.
   const previewTitle=title.length>500?`${title.slice(0,499).replace(/[\uD800-\uDBFF]$/u,"")}…`:title;
-  return{kind:row.kind,id:row.id,title:previewTitle,supporting:text("occurred_on","wake_date","starts_on","plan_date","ends_on","state"),happened_on:happenedOn,state:text("state","ownership_state"),revision,record_id:recordId,amount:text("amount"),currency:text("currency"),...(entryType?{entry_type:entryType}:{}),...(row.kind==="workout_plan"?{workout_plan:{schedule:setHealthPlanInputSchema.shape.schedule.parse(value.schedule??{})!,detail:setHealthPlanInputSchema.shape.detail.parse(value.detail??null)!}}:{}),_page_at:row.page_at};
+  return{kind:row.kind,id:row.id,title:previewTitle,supporting:text("occurred_on","wake_date","starts_on","plan_date","ends_on","state"),happened_on:happenedOn,state:text("state","ownership_state"),revision,record_id:recordId,amount:text("amount"),currency:text("currency"),...(entryType?{entry_type:entryType}:{}),...(row.kind==="library_item"?{library_preview:{
+    item_type:text("item_type")??"document",created_at:new Date(String(value.created_at)).toISOString(),
+    source:text("source_kind"),excerpt:text("excerpt"),image_version_id:text("image_version_id")
+  }}:{}),...(row.kind==="workout_plan"?{workout_plan:{schedule:setHealthPlanInputSchema.shape.schedule.parse(value.schedule??{})!,detail:setHealthPlanInputSchema.shape.detail.parse(value.detail??null)!}}:{}),_page_at:row.page_at};
 }
 function remapPlanSnapshot(value:unknown,places:ReadonlyMap<string,string>):unknown{
   if(!value||typeof value!=="object"||!Array.isArray((value as {days?:unknown}).days))throw new Error("Travel Bundle plan snapshot is invalid");
@@ -220,10 +223,35 @@ function storeFor(database: Database | Transaction): TransactionStore {
     },
     ...mealsStore(database),
     async foodCatalog(subjectId,query,limit){const pattern=query?`%${query}%`:undefined,foodRows=await database.execute<{id:string;name:string;serving_amount:string|null;serving_unit:string|null;nutrients:Record<string,unknown>;provenance:string|null;state:"active"|"archived";revision:number}>(sql`select id,name,serving_amount::text,serving_unit,nutrients,provenance,state,revision from food_references where subject_id=${subjectId} ${pattern?sql`and name ilike ${pattern}`:sql``} order by updated_at desc,id desc limit ${limit}`),recipeRows=await database.execute<{id:string;title:string;servings:string;instructions:string|null;source_url:string|null;state:"active"|"archived";revision:number}>(sql`select id,title,servings::text,instructions,source_url,state,revision from recipes where subject_id=${subjectId} ${pattern?sql`and title ilike ${pattern}`:sql``} order by updated_at desc,id desc limit ${limit}`),recipeIds=recipeRows.rows.map(recipe=>recipe.id),itemRows=recipeIds.length?await database.execute<{recipe_id:string;position:number;snapshot:unknown}>(sql`select recipe_id,position,snapshot from recipe_items where recipe_id in (${sql.join(recipeIds.map(id=>sql`${id}`),sql`,`)}) order by recipe_id,position`):{rows:[]},itemsByRecipe=rowsBy(itemRows.rows,row=>row.recipe_id);return{foods:foodRows.rows.map(food=>({...food,serving_amount:trimNumeric(food.serving_amount)})),recipes:recipeRows.rows.map(recipe=>({...recipe,servings:trimNumeric(recipe.servings)!,items:(itemsByRecipe.get(recipe.id)??[]).map(item=>({position:item.position,snapshot:item.snapshot}))})),as_of:new Date().toISOString()};},
-    async summarizeMoney(subjectId) {
-      const rows=await database.select({currency:schema.moneyEntries.currency,gross:sql<string>`coalesce(sum(${schema.moneyEntries.amount}) filter(where ${schema.moneyEntries.entryType}='expense'),0)`,refund:sql<string>`coalesce(sum(${schema.moneyEntries.amount}) filter(where ${schema.moneyEntries.entryType}='refund'),0)`,income:sql<string>`coalesce(sum(${schema.moneyEntries.amount}) filter(where ${schema.moneyEntries.entryType}='income'),0)`,netSpending:sql<string>`coalesce(sum(${schema.moneyEntries.amount}) filter(where ${schema.moneyEntries.entryType}='expense'),0)-coalesce(sum(${schema.moneyEntries.amount}) filter(where ${schema.moneyEntries.entryType}='refund'),0)`,netCashflow:sql<string>`coalesce(sum(${schema.moneyEntries.amount}) filter(where ${schema.moneyEntries.entryType}='income'),0)-coalesce(sum(${schema.moneyEntries.amount}) filter(where ${schema.moneyEntries.entryType}='expense'),0)+coalesce(sum(${schema.moneyEntries.amount}) filter(where ${schema.moneyEntries.entryType}='refund'),0)`,entries:sql<number>`count(*)::int`}).from(schema.moneyEntries).innerJoin(schema.consumptionRecords,eq(schema.moneyEntries.recordId,schema.consumptionRecords.id)).where(and(eq(schema.moneyEntries.subjectId,subjectId),eq(schema.consumptionRecords.state,"confirmed"))).groupBy(schema.moneyEntries.currency);
-      const totals=rows.map(row=>({currency:row.currency,gross_expense:trimNumeric(row.gross)!,refund:trimNumeric(row.refund)!,net_spending:trimNumeric(row.netSpending)!,income:trimNumeric(row.income)!,net_cashflow:trimNumeric(row.netCashflow)!,entries:row.entries}));const cny=totals.find(row=>row.currency==="CNY");
-      return { currency: "CNY", expense_total: moneyNumeric(cny?.gross_expense??"0"), entries: cny?.entries??0, as_of:new Date().toISOString(), totals };
+    async summarizeMoney(subjectId,period) {
+      const groupings=period?sql`grouping sets ((entry.currency),(entry.currency,entry.occurred_on),(entry.currency,entry.category))`:sql`(entry.currency)`;
+      const groupColumns=period?sql`entry.occurred_on::text date,entry.category,grouping(entry.occurred_on,entry.category)::int mode`:sql`null date,null category,3 mode`;
+      const result=await database.execute<{currency:string;date:string|null;category:string|null;mode:number;gross:string;refund:string;income:string;net:string;cashflow:string;entries:number}>(sql`
+        with buckets as (
+          select entry.currency,${groupColumns},
+            coalesce(sum(entry.amount) filter(where entry.entry_type='expense'),0) gross,
+            coalesce(sum(entry.amount) filter(where entry.entry_type='refund'),0) refund,
+            coalesce(sum(entry.amount) filter(where entry.entry_type='income'),0) income,count(*)::int entries
+          from money_entries entry join consumption_records record on record.id=entry.record_id and record.state='confirmed'
+          where entry.subject_id=${subjectId} ${period?sql`and left(entry.occurred_on::text,7)=${period}`:sql``}
+          group by ${groupings}
+        )
+        select currency,date,category,mode,gross::text,refund::text,income::text,
+          (gross-refund)::text net,(income-gross+refund)::text cashflow,entries
+        from buckets order by currency,mode,date,category`);
+      const totals=result.rows.filter(row=>row.mode===3).map(row=>({
+        currency:row.currency,gross_expense:trimNumeric(row.gross)!,refund:trimNumeric(row.refund)!,
+        net_spending:trimNumeric(row.net)!,income:trimNumeric(row.income)!,net_cashflow:trimNumeric(row.cashflow)!,entries:row.entries
+      }));
+      const days=result.rows.filter(row=>row.mode===1&&row.date!==null).map(row=>({
+        currency:row.currency,on:row.date!,net_spending:trimNumeric(row.net)!,entries:row.entries
+      }));
+      const categories=result.rows.filter(row=>row.mode===2&&/[1-9]/u.test(row.gross)).map(row=>({
+        currency:row.currency,category:row.category,gross_expense:trimNumeric(row.gross)!
+      }));
+      const cny=totals.find(row=>row.currency==="CNY");
+      return {currency:"CNY",expense_total:moneyNumeric(cny?.gross_expense??"0"),entries:cny?.entries??0,as_of:new Date().toISOString(),
+        totals,...(period?{days,categories}:{})};
     },
     async executeDomainWrite({ subjectId, command, nextId, context }) {
       const completion=await writeCaptureCompletion(database,subjectId,command,context,nextId,nested=>storeFor(database).executeDomainWrite({subjectId,command:nested,nextId,...(context?{context}:{})}));if(completion)return completion;
@@ -841,7 +869,12 @@ function storeFor(database: Database | Transaction): TransactionStore {
       if(domain==="money"){const result=await database.execute<{kind:string;id:string;page_at:string;value:Record<string,unknown>}>(sql`select kind,id,to_char(page_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') page_at,value from (select 'money_entry'::text kind,entry.id,record.created_at page_at,to_jsonb(entry)||jsonb_build_object('title',${moneyTitle(options.includePurchase??false)},'amount',entry.amount::text,'record_id',record.id,'state',record.state,'revision',record.revision) value from money_entries entry join consumption_records record on record.id=entry.record_id where entry.subject_id=${subjectId}
         union all select 'purchase'::text kind,purchase.id,record.created_at page_at,to_jsonb(purchase)||jsonb_build_object('title',coalesce(purchase.merchant,'购买记录'),'amount',null,'record_id',record.id,'state',record.state,'revision',record.revision) value
         from purchases purchase join consumption_records record on record.id=purchase.record_id where purchase.subject_id=${subjectId} and ${options.includePurchase??false} and not exists(select 1 from money_entries entry where entry.record_id=record.id)
-        ) page where page_at<=${asOf}::timestamptz ${before} and (${options.query??null}::text is null or lower(value::text) like ${pattern}) order by page_at desc,kind desc,id desc limit ${options.limit+1}`);return finish(result.rows);}
+        ) page where page_at<=${asOf}::timestamptz ${before}
+        ${options.period?sql`and left(value->>'occurred_on',7)=${options.period} and value->>'state'='confirmed'`:sql``}
+        ${options.currency?sql`and value->>'currency'=${options.currency}`:sql``}
+        ${options.entryType?sql`and value->>'entry_type'=${options.entryType}`:sql``}
+        ${options.on?sql`and value->>'occurred_on'=${options.on}`:sql``}
+        ${options.category===undefined?sql``:sql`and coalesce(value->>'category','')=${options.category}`} and (${options.query??null}::text is null or lower(value::text) like ${pattern}) order by page_at desc,kind desc,id desc limit ${options.limit+1}`);return finish(result.rows);}
       if(domain==="health"){const result=await database.execute<{kind:string;id:string;page_at:string;value:Record<string,unknown>}>(sql`select kind,id,to_char(page_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') page_at,value from (
         select 'measurement'::text kind,id,created_at page_at,to_jsonb(value.*) value from health_measurements value where subject_id=${subjectId}
         union all select 'observation',id,created_at,to_jsonb(value.*) from health_observations value where subject_id=${subjectId}
@@ -862,7 +895,17 @@ function storeFor(database: Database | Transaction): TransactionStore {
         union all select 'day_plan',plan.id,plan.created_at,to_jsonb(plan) from trip_day_plans plan join visible_trips trip on trip.id=plan.trip_id
         union all select 'place',place.id,place.created_at,to_jsonb(place) from places place where place.subject_id=${subjectId}
       ) select kind,id,to_char(page_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') page_at,value from page where page_at<=${asOf}::timestamptz ${before} and (${options.query??null}::text is null or lower(value::text) like ${pattern} or lower(kind) like ${pattern}) order by page_at desc,kind desc,id desc limit ${options.limit+1}`);return finish(result.rows);}
-      const result=await database.execute<{kind:string;id:string;page_at:string;value:Record<string,unknown>}>(sql`select 'library_item'::text kind,item.id,to_char(item.created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') page_at,to_jsonb(item)||jsonb_build_object('text',revision.text,'url',revision.url,'tags',revision.tags,'revision',revision.revision,'reading_state',(select to_jsonb(reading) from library_reading_states reading where reading.item_id=item.id and reading.subject_id=${subjectId})) value from library_items item join library_revisions revision on revision.item_id=item.id and revision.revision=item.current_revision where item.state='active' and item.subject_id=${subjectId} and item.created_at<=${asOf}::timestamptz ${options.before?sql`and (item.created_at,'library_item',item.id)<(${options.before.at}::timestamptz,${options.before.kind},${options.before.id})`:sql``} and (${options.query??null}::text is null or lower(item.title) like ${pattern} or lower(coalesce(revision.text,'')) like ${pattern} or lower(revision.tags::text) like ${pattern} or exists(select 1 from library_snippets snippet where snippet.item_id=item.id and snippet.subject_id=${subjectId} and snippet.item_revision=item.current_revision and lower(snippet.text) like ${pattern})) order by item.created_at desc,item.id desc limit ${options.limit+1}`);return finish(result.rows);
+      const result=await database.execute<{kind:string;id:string;page_at:string;value:Record<string,unknown>}>(sql`select 'library_item'::text kind,item.id,to_char(item.created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') page_at,to_jsonb(item)||jsonb_build_object('text',revision.text,'url',revision.url,'tags',revision.tags,'revision',revision.revision,
+        'source_kind',(select source.kind from sources source where source.id=item.source_id and source.subject_id=item.subject_id),
+        'image_version_id',(select version.id from sources source join asset_versions version on version.id=source.asset_version_id
+          join assets asset on asset.id=version.asset_id where source.id=item.source_id and source.subject_id=item.subject_id
+          and asset.subject_id=item.subject_id and asset.media_type like 'image/%'),
+        'excerpt',left(coalesce((select substring(snippet.text from greatest(1,strpos(lower(snippet.text),${options.query??""})-45))
+          from library_snippets snippet where snippet.item_id=item.id and snippet.item_revision=item.current_revision
+          and snippet.subject_id=${subjectId} and ${options.query??null}::text is not null and lower(snippet.text) like ${pattern}
+          order by snippet.id limit 1),case when ${options.query??null}::text is not null
+            then substring(revision.text from greatest(1,strpos(lower(revision.text),${options.query??""})-45)) else revision.text end),180),
+        'reading_state',(select to_jsonb(reading) from library_reading_states reading where reading.item_id=item.id and reading.subject_id=${subjectId})) value from library_items item join library_revisions revision on revision.item_id=item.id and revision.revision=item.current_revision where item.state='active' and item.subject_id=${subjectId} ${options.itemTypes?sql`and item.item_type in (${sql.join(options.itemTypes.map(type=>sql`${type}`),sql`,`)})`:sql``} and item.created_at<=${asOf}::timestamptz ${options.before?sql`and (item.created_at,'library_item',item.id)<(${options.before.at}::timestamptz,${options.before.kind},${options.before.id})`:sql``} and (${options.query??null}::text is null or lower(item.title) like ${pattern} or lower(coalesce(revision.text,'')) like ${pattern} or lower(revision.tags::text) like ${pattern} or exists(select 1 from library_snippets snippet where snippet.item_id=item.id and snippet.subject_id=${subjectId} and snippet.item_revision=item.current_revision and lower(snippet.text) like ${pattern})) order by item.created_at desc,item.id desc limit ${options.limit+1}`);return finish(result.rows);
     },
     async captureCompletion(subjectId,name,input,context){return readCaptureCompletion(database,subjectId,name,input,context);},
     async captureWorkspace(subjectId,input,canReadMeals){return readCaptureWorkspace(database,subjectId,input,canReadMeals);},
@@ -931,6 +974,9 @@ function storeFor(database: Database | Transaction): TransactionStore {
           and item->'exercise'->>'id' = ${exercise.id}
           and item->'exercise'->>'unit' = ${exercise.unit}
           and item->'exercise'->>'equipment' = ${exercise.equipment}
+          ${exercise.before_session_id?sql`and exists(select 1 from health_workout_sessions anchor
+            where anchor.subject_id=${subjectId} and anchor.id=${exercise.before_session_id} and anchor.effective
+              and (session.occurred_on,session.created_at,session.id)<(anchor.occurred_on,anchor.created_at,anchor.id))`:sql``}
         order by session.occurred_on desc, session.created_at desc, session.id desc
         limit 3`);
       return {sessions:result.rows};
@@ -1087,26 +1133,50 @@ function storeFor(database: Database | Transaction): TransactionStore {
       return{batch:{...batch,created_at:new Date(batch.created_at).toISOString()},candidates:candidates.rows,rules:rules.rows};
     },
     async moneyImportMonth(subjectId,period){
-      const result=await database.execute<{batches:unknown[];total_batches:number;totals:Record<string,number>}>(sql`
-        with matching as (
-          select batch.id,batch.source_name,batch.status,
+      const result=await database.execute<{batches:unknown[];pending_preview:unknown[];total_batches:number;totals:Record<string,number>}>(sql`
+        with monthly_candidates as (
+          select batch.id batch_id,batch.source_name,batch.status batch_status,batch.platform,batch.source_account,
             to_char(batch.created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') created_at,
-            count(candidate.id)::int total,
-            count(*) filter(where candidate.status in ('pending','invalid'))::int unconfirmed,
-            count(*) filter(where candidate.status in ('pending','invalid') and (candidate.duplicate_of_record_id is not null or exists(select 1 from money_import_candidates referenced where referenced.id=candidate.duplicate_of_candidate_id and referenced.subject_id=candidate.subject_id and referenced.status<>'ignored') or exists(
-              select 1 from money_import_candidates prior where prior.subject_id=candidate.subject_id and prior.platform=candidate.platform and prior.source_account=candidate.source_account and prior.external_id=candidate.external_id
-                and (prior.identity_kind is not distinct from candidate.identity_kind or (prior.identity_kind in ('expense','income') and candidate.identity_kind in ('expense','income')) or prior.identity_kind is null or candidate.identity_kind is null) and prior.id<>candidate.id and prior.status='confirmed'
-            )))::int duplicates,
-            count(*) filter(where candidate.status in ('pending','invalid') and nullif(btrim(candidate.proposed->>'category'),'') is null)::int uncategorized,
-            count(*) filter(where candidate.status in ('pending','invalid') and candidate.proposed->>'entry_type'='refund')::int refunds_unlinked
-          from money_import_batches batch join money_import_candidates candidate on candidate.batch_id=batch.id and candidate.subject_id=${subjectId}
-          where batch.subject_id=${subjectId} and (left(candidate.proposed->>'occurred_on',7)=${period} or (candidate.proposed->>'occurred_on' is null and to_char(batch.created_at at time zone batch.time_zone,'YYYY-MM')=${period}))
-          group by batch.id
-        ), page as (select * from matching order by created_at desc,id desc limit 100)
+            candidate.id,candidate.position,candidate.status,candidate.proposed,
+            candidate.status in ('pending','invalid') is_pending,
+            (candidate.duplicate_of_record_id is not null or exists(
+              select 1 from money_import_candidates prior
+              where prior.subject_id=candidate.subject_id and prior.status<>'ignored' and (
+                prior.id=candidate.duplicate_of_candidate_id or (prior.status='confirmed' and prior.id<>candidate.id
+                  and prior.platform=candidate.platform and prior.source_account=candidate.source_account
+                  and prior.external_id=candidate.external_id and (prior.identity_kind is not distinct from candidate.identity_kind
+                    or (prior.identity_kind in ('expense','income') and candidate.identity_kind in ('expense','income'))
+                    or prior.identity_kind is null or candidate.identity_kind is null))
+              )
+            )) is_duplicate,
+            nullif(btrim(candidate.proposed->>'category'),'') is null category_missing,
+            coalesce(candidate.proposed->>'entry_type'='refund',false) refund_unlinked
+          from money_import_batches batch
+          join money_import_candidates candidate on candidate.batch_id=batch.id and candidate.subject_id=${subjectId}
+          where batch.subject_id=${subjectId} and (left(candidate.proposed->>'occurred_on',7)=${period}
+            or (candidate.proposed->>'occurred_on' is null and to_char(batch.created_at at time zone batch.time_zone,'YYYY-MM')=${period}))
+        ), matching as (
+          select batch_id id,source_name,platform,source_account,batch_status status,created_at,
+            count(*)::int total,count(*) filter(where is_pending)::int unconfirmed,
+            count(*) filter(where is_pending and is_duplicate)::int duplicates,
+            count(*) filter(where is_pending and category_missing)::int uncategorized,
+            count(*) filter(where is_pending and refund_unlinked)::int refunds_unlinked
+          from monthly_candidates group by batch_id,source_name,platform,source_account,batch_status,created_at
+        ), page as (select * from matching order by created_at desc,id desc limit 100),
+        pending as (
+          select id,batch_id,source_name,platform,source_account,
+            coalesce(proposed->>'counterparty','') counterparty,coalesce(proposed->>'occurred_on','') occurred_on,
+            coalesce(proposed->>'amount','') amount,is_duplicate,category_missing,refund_unlinked,status='invalid' needs_data,
+            created_at,position
+          from monthly_candidates where is_pending order by created_at desc,batch_id,position,id limit 80
+        )
         select coalesce((select jsonb_agg(to_jsonb(page) order by created_at desc,id desc) from page),'[]'::jsonb) batches,
+          coalesce((select jsonb_agg(to_jsonb(pending)-'created_at'-'position' order by created_at desc,batch_id,position,id) from pending),'[]'::jsonb) pending_preview,
           count(*)::int total_batches,
-          jsonb_build_object('unconfirmed',coalesce(sum(unconfirmed),0),'duplicates',coalesce(sum(duplicates),0),'uncategorized',coalesce(sum(uncategorized),0),'refunds_unlinked',coalesce(sum(refunds_unlinked),0)) totals from matching`);
-      const value=result.rows[0]!;return{period,...value,truncated:value.total_batches>100,as_of:new Date().toISOString()};
+          jsonb_build_object('unconfirmed',coalesce(sum(unconfirmed),0),'duplicates',coalesce(sum(duplicates),0),
+            'uncategorized',coalesce(sum(uncategorized),0),'refunds_unlinked',coalesce(sum(refunds_unlinked),0)) totals from matching`);
+      const value=result.rows[0]!;
+      return{period,...value,truncated:value.total_batches>100,as_of:new Date().toISOString()};
     },
     mealDietEvidence(subjectId,mealId){return readMealDietEvidence(database,subjectId,mealId);},
     dietReviewEvidence(subjectId,input,window,effects){return readDietEvidence(database,subjectId,input,window,effects);},
@@ -1191,7 +1261,7 @@ function storeFor(database: Database | Transaction): TransactionStore {
       const preference=await database.execute(sql`select enabled,quiet_start::text,quiet_end::text,time_zone,revision,to_char(updated_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') updated_at from notification_preferences where subject_id=${subjectId}`);
       return{items:result.rows.slice(0,options.limit),hasMore:result.rows.length>options.limit,preferences:preference.rows[0]??{enabled:true,quiet_start:null,quiet_end:null,time_zone:"UTC",revision:0,updated_at:null},asOf:snapshot};
     },
-    async ownedItems(subjectId,state,limit,visibility,id){const items=await database.execute<Record<string,unknown>>(sql`select item.id,item.name,item.ownership_state,item.location,item.location_path,item.started_on::text,item.warranty_ends_on::text,item.return_by::text,item.purchase_item_id,item.revision,to_char(item.created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') created_at,to_char(item.updated_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') updated_at from owned_items item where item.subject_id=${subjectId} and (${id??null}::text is null or item.id=${id??null}) and (${state??null}::text is null or item.ownership_state=${state??null}) order by item.updated_at desc,item.id desc limit ${limit}`),ids=items.rows.map(item=>String(item.id));if(!ids.length)return{items:[],as_of:new Date().toISOString()};const [purchases,documents,events]=await Promise.all([visibility.purchase?database.execute<Record<string,unknown>>(sql`select owned.id owned_item_id,jsonb_build_object('purchase_item_id',line.id,'purchase_id',purchase.id,'record_id',purchase.record_id,'raw_name',line.raw_name,'quantity',line.quantity::text,'unit',line.unit,'line_amount',line.line_amount::text) value from owned_items owned join purchase_items line on line.id=owned.purchase_item_id join purchases purchase on purchase.id=line.purchase_id and purchase.subject_id=${subjectId} where owned.id in (${sql.join(ids.map(id=>sql`${id}`),sql`,`)})`):Promise.resolve({rows:[]}),database.execute<Record<string,unknown>>(sql`select document.owned_item_id,document.library_item_id,document.library_revision,document.role${visibility.library?sql`,item.title`:sql``} from owned_item_documents document ${visibility.library?sql`join library_items item on item.id=document.library_item_id and item.subject_id=${subjectId}`:sql``} where document.owned_item_id in (${sql.join(ids.map(id=>sql`${id}`),sql`,`)}) order by document.owned_item_id,document.role,document.library_item_id`),database.execute<Record<string,unknown>>(sql`select event.id,event.owned_item_id,event.event_kind,event.occurred_on::text,event.note,event.revision,to_char(event.created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') created_at,event.document_library_item_id,event.document_library_revision${visibility.money?sql`,event.cost_entry_id,entry.amount::text cost_amount,entry.currency cost_currency`:sql``}${visibility.library?sql`,document.title document_title`:sql``} from owned_item_events event ${visibility.money?sql`left join money_entries entry on entry.id=event.cost_entry_id and entry.subject_id=${subjectId}`:sql``} ${visibility.library?sql`left join library_items document on document.id=event.document_library_item_id and document.subject_id=${subjectId}`:sql``} where event.owned_item_id in (${sql.join(ids.map(id=>sql`${id}`),sql`,`)}) order by event.owned_item_id,event.occurred_on desc,event.id desc`)]),purchaseBy=new Map(purchases.rows.map(row=>[String(row.owned_item_id),row.value])),documentsBy=rowsBy(documents.rows,row=>String(row.owned_item_id)),eventsBy=rowsBy(events.rows,row=>String(row.owned_item_id));return{items:items.rows.map(item=>({...item,purchase:purchaseBy.get(String(item.id))??null,documents:(documentsBy.get(String(item.id))??[]).map(({owned_item_id:_,...document})=>document),events:(eventsBy.get(String(item.id))??[]).map(({owned_item_id:_,...event})=>event)})),as_of:new Date().toISOString()};},
+    async ownedItems(subjectId,state,limit,visibility,id,query){const items=await database.execute<Record<string,unknown>>(sql`${storageTree(subjectId)} select item.id,item.name,item.ownership_state,item.location,coalesce(to_jsonb(tree.path),item.location_path) location_path,item.started_on::text,item.warranty_ends_on::text,item.return_by::text,item.purchase_item_id,item.revision,to_char(item.created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') created_at,to_char(item.updated_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') updated_at from owned_items item left join tree on tree.id=item.container_id where item.subject_id=${subjectId} and (${id??null}::text is null or item.id=${id??null}) and (${state??null}::text is null or item.ownership_state=${state??null}) ${query?sql`and strpos(lower(concat_ws(' ',item.name,array_to_string(tree.path,' '),case when tree.id is null then coalesce(item.location_path::text,item.location) end)),lower(${query}))>0`:sql``} order by item.updated_at desc,item.id desc limit ${limit}`),ids=items.rows.map(item=>String(item.id));if(!ids.length)return{items:[],as_of:new Date().toISOString()};const [purchases,documents,events]=await Promise.all([visibility.purchase?database.execute<Record<string,unknown>>(sql`select owned.id owned_item_id,jsonb_build_object('purchase_item_id',line.id,'purchase_id',purchase.id,'record_id',purchase.record_id,'raw_name',line.raw_name,'quantity',line.quantity::text,'unit',line.unit,'line_amount',line.line_amount::text) value from owned_items owned join purchase_items line on line.id=owned.purchase_item_id join purchases purchase on purchase.id=line.purchase_id and purchase.subject_id=${subjectId} where owned.id in (${sql.join(ids.map(id=>sql`${id}`),sql`,`)})`):Promise.resolve({rows:[]}),database.execute<Record<string,unknown>>(sql`select document.owned_item_id,document.library_item_id,document.library_revision,document.role${visibility.library?sql`,item.title`:sql``} from owned_item_documents document ${visibility.library?sql`join library_items item on item.id=document.library_item_id and item.subject_id=${subjectId}`:sql``} where document.owned_item_id in (${sql.join(ids.map(id=>sql`${id}`),sql`,`)}) order by document.owned_item_id,document.role,document.library_item_id`),database.execute<Record<string,unknown>>(sql`select event.id,event.owned_item_id,event.event_kind,event.occurred_on::text,event.note,event.revision,to_char(event.created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') created_at,event.document_library_item_id,event.document_library_revision${visibility.money?sql`,event.cost_entry_id,entry.amount::text cost_amount,entry.currency cost_currency`:sql``}${visibility.library?sql`,document.title document_title`:sql``} from owned_item_events event ${visibility.money?sql`left join money_entries entry on entry.id=event.cost_entry_id and entry.subject_id=${subjectId}`:sql``} ${visibility.library?sql`left join library_items document on document.id=event.document_library_item_id and document.subject_id=${subjectId}`:sql``} where event.owned_item_id in (${sql.join(ids.map(id=>sql`${id}`),sql`,`)}) order by event.owned_item_id,event.occurred_on desc,event.id desc`)]),purchaseBy=new Map(purchases.rows.map(row=>[String(row.owned_item_id),row.value])),documentsBy=rowsBy(documents.rows,row=>String(row.owned_item_id)),eventsBy=rowsBy(events.rows,row=>String(row.owned_item_id));return{items:items.rows.map(item=>({...item,purchase:purchaseBy.get(String(item.id))??null,documents:(documentsBy.get(String(item.id))??[]).map(({owned_item_id:_,...document})=>document),events:(eventsBy.get(String(item.id))??[]).map(({owned_item_id:_,...event})=>event)})),as_of:new Date().toISOString()};},
     async lifeReviews(subjectId,limit,authorizedDomains,id){if(!authorizedDomains.length)return{items:[],as_of:new Date().toISOString()};const values=authorizedDomains.map(domain=>sql`${domain}`),result=await database.execute(sql`select id,from_on::text,to_on::text,time_zone,domains,algorithm_version,metrics,coverage,evidence,limitations,revision,to_char(generated_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') generated_at from life_reviews review where subject_id=${subjectId} and (${id??null}::text is null or review.id=${id??null}) and not exists(select 1 from jsonb_array_elements_text(review.domains) domain where domain not in (${sql.join(values,sql`,`)}) ) order by to_on desc,from_on desc,id desc limit ${limit}`);return{items:result.rows,as_of:new Date().toISOString()};},
     async lifeProjects(subjectId,state,limit,authorizedKinds,id){const projects=await database.execute<Record<string,unknown>>(sql`select id,title,goal,starts_on::text,ends_on::text,state,revision,to_char(created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') created_at,to_char(updated_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') updated_at from life_projects where subject_id=${subjectId} and (${id??null}::text is null or id=${id??null}) and (${state??null}::text is null or state=${state??null}) order by updated_at desc,id desc limit ${limit}`),ids=projects.rows.map(row=>String(row.id));if(!ids.length)return{items:[],as_of:new Date().toISOString()};const [milestones,links,actions]=await Promise.all([database.execute<Record<string,unknown>>(sql`select id,project_id,title,due_on::text,state,position from life_project_milestones where project_id in (${sql.join(ids.map(id=>sql`${id}`),sql`,`)}) order by project_id,position`),authorizedKinds.length?database.execute<Record<string,unknown>>(sql`select link.project_id,link.ref_kind,link.ref_id,link.ref_revision,link.role from life_project_links link where link.project_id in (${sql.join(ids.map(id=>sql`${id}`),sql`,`)}) and link.ref_kind in (${sql.join(authorizedKinds.map(kind=>sql`${kind}`),sql`,`)}) and (link.ref_kind<>'trip' or exists(select 1 from trips trip where trip.id=link.ref_id and (trip.subject_id=${subjectId} or exists(select 1 from trip_members member where member.trip_id=trip.id and member.subject_id=${subjectId})))) order by link.project_id,link.ref_kind,link.ref_id,link.role`):Promise.resolve({rows:[]}),database.execute<Record<string,unknown>>(sql`select action.id,action.project_id,action.title,action.due_on::text,to_char(action.scheduled_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') scheduled_at,action.scheduled_time_zone,action.state,action.recurring_occurrence_id,action.health_habit_id,action.revision,to_char(action.updated_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') updated_at,coalesce(occurrence.state,habit.state) source_state from action_items action left join recurring_occurrences occurrence on occurrence.id=action.recurring_occurrence_id left join health_habit_definitions habit on habit.id=action.health_habit_id where action.project_id in (${sql.join(ids.map(id=>sql`${id}`),sql`,`)}) order by action.project_id,action.state,action.due_on nulls last,action.id`)]),milestonesBy=rowsBy(milestones.rows,row=>String(row.project_id)),linksBy=rowsBy(links.rows,row=>String(row.project_id)),actionsBy=rowsBy(actions.rows,row=>String(row.project_id)),canRecurring=authorizedKinds.includes("recurring_plan"),canHealth=authorizedKinds.includes("health_plan");return{items:projects.rows.map(project=>({...project,milestones:(milestonesBy.get(String(project.id))??[]).map(({project_id:_,...value})=>value),links:(linksBy.get(String(project.id))??[]).map(({project_id:_,...value})=>value),actions:(actionsBy.get(String(project.id))??[]).map(({project_id:_,...raw})=>{const value={...raw};if(!canRecurring){delete value.recurring_occurrence_id;if(raw.recurring_occurrence_id)delete value.source_state;}if(!canHealth){delete value.health_habit_id;if(raw.health_habit_id)delete value.source_state;}return value;})})),as_of:new Date().toISOString()};},
     async planningAgenda(subjectId,input){

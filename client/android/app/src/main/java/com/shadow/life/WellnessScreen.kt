@@ -1,6 +1,8 @@
 package com.shadow.life
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -44,7 +46,17 @@ import java.time.LocalDate
           Text("主睡眠 ${current.getInt("sleep_days")} 天 · 实际训练 ${current.getInt("workout_sessions")} 次")
         }}
         val dates=data.getJSONArray("days").let{array->(0 until array.length()).map{array.getJSONObject(it)}}
-        item{LifeDateField(selected,{selected=it},"查看某一天")}
+        item{
+          Text("按日回看",style=MaterialTheme.typography.titleMedium)
+          Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)){
+            dates.forEach{day->
+              val on=day.getString("date")
+              val coverage=listOfNotNull("餐".takeIf{day.getInt("meals")>0},"秤".takeIf{!day.isNull("weight")},
+                "眠".takeIf{!day.isNull("sleep")},"练".takeIf{day.getJSONObject("workouts").getInt("sessions")>0})
+              FilterChip(on==selected,{selected=on},{Column{Text(on.takeLast(5));Text(coverage.joinToString(" ").ifBlank{"—"})}})
+            }
+          }
+        }
         val day=dates.firstOrNull{it.getString("date")==selected}
         if(day==null)item{Text("请选择本次范围内的日期")}
         else{
@@ -71,8 +83,21 @@ import java.time.LocalDate
           item{LifeCard{
             Text(label,style=MaterialTheme.typography.titleMedium)
             Text("已知合计 ${value(nutrient,"known_total")} · ${nutrient.getInt("known_items")}/${current.getInt("items")} 项")
-            Text("齐全日期均值 ${value(nutrient,"average_on_complete_days")} · ${nutrient.getInt("complete_days")} 天")
-            Text("前期均值 ${value(before,"average_on_complete_days")} · ${before.getInt("complete_days")} 天")
+            val currentAverage=value(nutrient,"average_on_complete_days").toDoubleOrNull()
+            val previousAverage=value(before,"average_on_complete_days").toDoubleOrNull()
+            val scale=maxOf(currentAverage?:0.0,previousAverage?:0.0)
+            listOf("本期" to nutrient,"前期" to before).forEach{(period,row)->
+              val average=value(row,"average_on_complete_days")
+              Text("$period $average／天 · ${row.getInt("complete_days")} 天齐全")
+              if(scale>0)average.toDoubleOrNull()?.let{amount->
+                LinearProgressIndicator({(amount/scale).toFloat().coerceIn(0f,1f)},Modifier.fillMaxWidth(),
+                  color=if(period=="本期")MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary)
+              }
+            }
+            if(currentAverage!=null&&previousAverage!=null&&previousAverage>0){
+              val percent=java.text.NumberFormat.getPercentInstance().format(currentAverage/previousAverage-1.0)
+              Text("较前期 $percent",style=MaterialTheme.typography.bodySmall)
+            }
           }}
         }
         item{Text("统计口径",style=MaterialTheme.typography.titleMedium);val notes=data.getJSONArray("limitations");for(i in 0 until notes.length())Text(notes.getString(i),style=MaterialTheme.typography.bodySmall)}

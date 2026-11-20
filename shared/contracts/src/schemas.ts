@@ -502,7 +502,7 @@ export const containerQueryResultSchema=z.object({containers:z.array(z.object({i
   items:z.array(z.object({id:stableId,name:z.string(),container_id:stableId.nullable(),path:storedPath,revision:z.number()})),more_containers:z.boolean(),more_items:z.boolean()}).strict();
 export const labResultInputSchema=z.object({...revisionEdit,report_id:stableId,report_revision:z.number().int().positive(),page:z.number().int().min(1),
   tested_on:localDate,raw_name:featureLabel,value:featureLabel,unit:featureLabel.optional(),reference:featureLabel.optional()}).strict().refine(matchesRevision);
-export const labCompareInputSchema=z.object({report_id:stableId.optional(),left_id:stableId.optional(),right_id:stableId.optional(),...featurePage}).strict()
+export const labCompareInputSchema=z.object({raw_name:z.string().trim().min(1).max(200).optional(),unit:z.string().max(80).optional(),report_id:stableId.optional(),left_id:stableId.optional(),right_id:stableId.optional(),...featurePage}).strict()
   .refine(v=>Boolean(v.left_id)===Boolean(v.right_id)&&(!v.left_id||v.left_id!==v.right_id));
 export const labCompareResultSchema=z.object({items:z.array(z.object({id:stableId,revision:z.number(),report_id:stableId,report_revision:z.number(),report_title:z.string(),
   page:z.number(),tested_on:localDate,raw_name:z.string(),value:z.string(),unit:z.string().nullable(),reference:z.string().nullable()})),next_offset:z.number().nullable()}).strict();
@@ -750,7 +750,7 @@ export const recordOwnedItemEventInputSchema=z.object({owned_item_id:stableId,ex
 export const deadlineStateSchema=z.object({state:z.enum(["unknown","past","today","soon","later","inactive","empty"]),days_until:z.number().int().nullable()}).strict();
 export const stockAttentionSchema=z.object({on:localDate,time_zone:ianaTimeZone,soon_days:z.literal(7),items:z.array(z.object({lot_id:stableId,...deadlineStateSchema.shape}).strict())}).strict();
 export const itemAttentionSchema=z.object({on:localDate,time_zone:ianaTimeZone,return_soon_days:z.literal(7),warranty_soon_days:z.literal(30),items:z.array(z.object({item_id:stableId,return_window:deadlineStateSchema,warranty:deadlineStateSchema}).strict())}).strict();
-export const ownedItemsInputSchema=z.object({on:localDate.optional(),time_zone:ianaTimeZone.default("Asia/Shanghai"),id:stableId.optional(),state:z.enum(["owned","gifted","returned","disposed","lost"]).optional(),limit:z.number().int().min(1).max(100).default(50)}).strict();
+export const ownedItemsInputSchema=z.object({query:z.string().trim().min(1).max(200).optional(),on:localDate.optional(),time_zone:ianaTimeZone.default("Asia/Shanghai"),id:stableId.optional(),state:z.enum(["owned","gifted","returned","disposed","lost"]).optional(),limit:z.number().int().min(1).max(100).default(50)}).strict();
 export const generateLifeReviewInputSchema=z.object({review_id:stableId.optional(),expected_revision:z.number().int().positive().optional(),from_on:localDate,to_on:localDate,time_zone:ianaTimeZone,domains:z.array(z.enum(["money","meals","health","items","library"])).min(1).max(5).default(["money","meals","health","items","library"])}).strict().superRefine((value,context)=>{if((value.review_id===undefined)!==(value.expected_revision===undefined))context.addIssue({code:"custom",message:"review_id and expected_revision must be supplied together"});if(value.to_on<value.from_on)context.addIssue({code:"custom",path:["to_on"],message:"to_on must not precede from_on"});const days=(Date.parse(`${value.to_on}T00:00:00Z`)-Date.parse(`${value.from_on}T00:00:00Z`))/86_400_000+1;if(days>366)context.addIssue({code:"custom",path:["to_on"],message:"review period must not exceed 366 days"});if(new Set(value.domains).size!==value.domains.length)context.addIssue({code:"custom",path:["domains"],message:"review domains must be unique"});});
 export const lifeReviewsInputSchema=z.object({id:stableId.optional(),limit:z.number().int().min(1).max(50).default(20)}).strict();
 
@@ -1008,12 +1008,14 @@ export const moneySummarySchema = z.object({
   expense_total: cnyAmount.or(z.literal("0.00")),
   entries: z.number().int().nonnegative(),
   as_of: instant,
+  days:z.array(z.object({currency:currencyCode,on:localDate,net_spending:signedStoredAmount,entries:z.number().int().nonnegative()}).strict()).optional(),
+  categories:z.array(z.object({currency:currencyCode,category:z.string().nullable(),gross_expense:storedAmount}).strict()).optional(),
   totals: z.array(z.object({currency:currencyCode,gross_expense:storedAmount,refund:storedAmount,net_spending:signedStoredAmount,income:storedAmount,net_cashflow:signedStoredAmount,entries:z.number().int().nonnegative()}).strict())
 }).strict();
 
 export const listMealsInputSchema = z.object({ occurred_on:localDate.optional(), limit: z.number().int().min(1).max(100).default(20),cursor:z.string().max(1_000).optional() }).strict();
 export const listMealsResultSchema = z.object({ items: z.array(mealViewSchema),next_cursor:z.string().nullable(),as_of:instant }).strict();
-const lifeRecordSourceSchema=z.object({id:stableId,kind:z.string(),external_id:z.string().nullable(),captured_on:localDate.nullable(),captured_at:instant.nullable(),time_zone:ianaTimeZone.nullable(),original_text:z.string().nullable(),asset_version_id:stableId.nullable(),revision:z.number().int().positive()}).strict();
+const lifeRecordSourceSchema=z.object({role:z.enum(["evidence","meal_photo","order_screenshot","replacement"]).optional(),id:stableId,kind:z.string(),external_id:z.string().nullable(),captured_on:localDate.nullable(),captured_at:instant.nullable(),time_zone:ianaTimeZone.nullable(),original_text:z.string().nullable(),asset_version_id:stableId.nullable(),revision:z.number().int().positive()}).strict();
 const lifeRecordIntakeSchema=z.object({id:stableId,meal_id:stableId,position:z.number().int().nonnegative(),name:z.string(),food_ref_id:stableId.nullable(),free_text:z.string().nullable(),quantity:canonicalDecimal.nullable(),unit:z.string().nullable(),amount_g:canonicalDecimal.nullable(),energy_kcal:canonicalDecimal.nullable(),protein_g:canonicalDecimal.nullable(),fat_g:canonicalDecimal.nullable(),carb_g:canonicalDecimal.nullable(),fiber_g:canonicalDecimal.nullable(),sodium_mg:canonicalDecimal.nullable(),consumed_fraction:canonicalDecimal.nullable(),provenance:z.string().nullable(),grouping_origin:z.string().nullable(),estimate:z.boolean(),evidence_note:z.string().nullable(),revision:z.number().int().positive(),weight_basis:weightBasis.nullable().optional(),calcium_mg:canonicalDecimal.nullable().optional(),iron_mg:canonicalDecimal.nullable().optional()}).strict();
 const lifeRecordMoneyEntrySchema=z.object({id:stableId,record_id:stableId,entry_type:z.enum(["expense","income","refund"]),amount:storedAmount,currency:currencyCode,occurred_on:localDate,occurred_at:instant.nullable(),time_zone:ianaTimeZone,note:z.string().nullable(),category:z.string().nullable(),counterparty:z.string().nullable(),source_id:stableId.nullable().optional(),payment_method:paymentMethodSchema.nullable(),source_scale:z.number().int().min(0).max(6),revision:z.number().int().positive()}).strict();
 const lifeRecordPurchaseSchema=z.object({id:stableId,record_id:stableId,merchant:z.string().nullable(),amount:storedAmount.nullable(),currency:currencyCode,category:z.string().nullable(),occurred_on:localDate,occurred_at:instant.nullable(),time_zone:ianaTimeZone,note:z.string().nullable(),source_id:stableId.nullable().optional(),scene:z.string().nullable(),channel_name_raw:z.string().nullable(),place_ref:z.string().nullable(),rating:z.number().int().min(1).max(5).nullable(),would_repeat:z.boolean().nullable(),revision:z.number().int().positive()}).strict();
@@ -1023,8 +1025,13 @@ const relatedRecordSchema=z.object({domain:z.enum(["money","meals","travel"]),ki
 export const lifeConsumptionRecordResultSchema=z.object({kind:z.literal("record"),record_id:stableId,state:z.enum(["draft","confirmed","voided"]),occurred_on:localDate,occurred_at:instant.nullable(),time_zone:ianaTimeZone,note:z.string().nullable(),revision:z.number().int().positive(),purchase:lifeRecordPurchaseSchema.nullable().optional(),purchase_items:z.array(lifeRecordPurchaseItemSchema).max(100).optional(),money_entry:lifeRecordMoneyEntrySchema.nullable().optional(),meals:z.array(lifeRecordLinkedMealSchema).max(100).optional(),sources:z.array(lifeRecordSourceSchema).max(100).optional(),related_records:z.array(relatedRecordSchema).max(100).optional()}).strict();
 export const lifeMealRecordResultSchema=z.object({kind:z.literal("meal"),meal_id:stableId,occurred_on:localDate.optional(),occurred_at:instant.nullable().optional(),time_zone:ianaTimeZone.optional(),meal_type:z.enum(["breakfast","lunch","dinner","snack","other"]).optional(),note:z.string().nullable().optional(),revision:z.number().int().positive().optional(),items:z.array(lifeRecordIntakeSchema).max(100).optional(),payments:z.array(lifeRecordMoneyEntrySchema).max(100).optional(),sources:z.array(lifeRecordSourceSchema).max(100).optional(),related_records:z.array(relatedRecordSchema).max(100).optional()}).strict();
 export const lifeRecordResultSchema=z.discriminatedUnion("kind",[lifeConsumptionRecordResultSchema,lifeMealRecordResultSchema]);
-export const moneySummaryInputSchema = z.object({}).strict();
-export const domainRecordsInputSchema=z.object({query:z.string().trim().min(1).max(200).optional(),limit:z.number().int().min(1).max(100).default(50),cursor:z.string().max(1_000).optional()}).strict();
+export const moneySummaryInputSchema = z.object({period:z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/u).optional()}).strict();
+export const domainRecordsInputSchema=z.object({
+  period:z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/u).optional(),
+  currency:currencyCode.optional(),entry_type:z.enum(["expense","income","refund"]).optional(),
+  on:localDate.optional(),category:z.string().trim().max(120).optional(),
+  item_types:z.array(z.string().regex(/^[a-z_]+$/u)).min(1).max(12).optional(),
+  query:z.string().trim().min(1).max(200).optional(),limit:z.number().int().min(1).max(100).default(50),cursor:z.string().max(1_000).optional()}).strict();
 export const domainRecordSummarySchema=z.object({
   kind:z.string().min(1).max(80),
   id:stableId,
@@ -1037,6 +1044,7 @@ export const domainRecordSummarySchema=z.object({
   amount:signedStoredAmount.nullable(),
   currency:currencyCode.nullable(),
   entry_type:z.enum(["expense","income","refund"]).optional(),
+  library_preview:z.object({item_type:z.string(),created_at:instant,source:z.string().nullable(),excerpt:z.string().nullable(),image_version_id:stableId.nullable()}).strict().optional(),
   workout_plan:z.object({schedule:z.json(),detail:z.json().nullable()}).strict().optional()
 }).strict();
 export const domainRecordsResultSchema=z.object({items:z.array(domainRecordSummarySchema),next_cursor:z.string().nullable(),as_of:instant}).strict();
@@ -1081,6 +1089,8 @@ export const lifeSearchResultSchema=z.object({items:z.array(lifeSearchItemSchema
 export const consumptionScopeSchema=z.enum(["restaurant_delivery","grocery_delivery","dine_in","takeaway","physical_retail","drink_snack","other","unknown"]);
 export const consumptionItemCategorySchema=z.enum(["dish","staple","snack","beverage","fresh_food","daily_goods","other","unknown"]);
 export const consumptionStatsInputSchema=z.object({
+  merchant:z.string().trim().min(1).max(500).optional(),
+  order_offset:z.number().int().nonnegative().max(100_000).optional(),
   from_on:localDate,to_on_exclusive:localDate,time_zone:ianaTimeZone,
   scopes:z.array(consumptionScopeSchema).min(1).max(8).optional(),
   categories:z.array(consumptionItemCategorySchema).min(1).max(8).optional(),
@@ -1096,6 +1106,10 @@ const consumptionMoneySchema=z.object({currency:currencyCode,gross:storedAmount,
 const consumptionClassificationSourceSchema=z.enum(["explicit","meal_link","rule","scene","unknown"]);
 export const consumptionStatsResultSchema=z.object({
   algorithm_version:z.literal("consumption-stats-v1"),
+  order_page:z.object({
+    items:z.array(z.object({record_id:stableId,title:z.string(),occurred_on:localDate,currency:currencyCode.nullable(),amount:storedAmount.nullable()}).strict()).max(50),
+    next_offset:z.number().int().nonnegative().nullable(),total:z.number().int().nonnegative()
+  }).strict().optional(),
   window:z.object({from_on:localDate,to_on_exclusive:localDate,time_zone:ianaTimeZone,refund_attribution:z.literal("original_purchase_month")}).strict(),
   applied_filters:z.object({scopes:z.array(consumptionScopeSchema),categories:z.array(consumptionItemCategorySchema),merchant_rank_by:z.enum(["orders","gross_spend","net_spend"]),item_rank_by:z.enum(["purchased_orders","confirmed_consumptions","line_spend"]),currency:currencyCode.nullable(),limit:z.number().int().positive()}).strict(),
   monthly:z.array(z.object({month:z.string().regex(/^\d{4}-\d{2}$/u),orders:z.number().int().nonnegative(),confirmed_meals:z.number().int().nonnegative(),spend:z.array(consumptionMoneySchema)}).strict()),
@@ -1112,7 +1126,11 @@ export const resourceDetailInputSchema=z.object({id:stableId}).strict();
 export const moneyPlanningInputSchema=z.object({period:z.string().regex(/^(?:0{3}[1-9]|0{2}[1-9]\d|0[1-9]\d{2}|[1-9]\d{3})-(0[1-9]|1[0-2])$/u)}).strict();
 export const moneyImportReviewInputSchema=z.object({batch_id:stableId}).strict();
 export const moneyImportMonthInputSchema=z.object({period:z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/u)}).strict();
-export const moneyImportMonthResultSchema=z.object({period:z.string(),total_batches:z.number().int().nonnegative().optional(),truncated:z.boolean().optional(),batches:z.array(z.object({id:stableId,source_name:z.string(),status:z.enum(["review","completed"]),created_at:instant,total:z.number().int().nonnegative(),unconfirmed:z.number().int().nonnegative(),duplicates:z.number().int().nonnegative(),uncategorized:z.number().int().nonnegative(),refunds_unlinked:z.number().int().nonnegative()}).strict()).max(100),totals:z.object({unconfirmed:z.number().int().nonnegative(),duplicates:z.number().int().nonnegative(),uncategorized:z.number().int().nonnegative(),refunds_unlinked:z.number().int().nonnegative()}).strict(),as_of:instant}).strict();
+export const moneyImportMonthResultSchema=z.object({period:z.string(),pending_preview:z.array(z.object({
+  id:stableId,batch_id:stableId,source_name:z.string(),platform:moneyImportPlatformSchema,source_account:z.string(),
+  counterparty:z.string(),occurred_on:z.string(),amount:z.string(),
+  is_duplicate:z.boolean(),category_missing:z.boolean(),refund_unlinked:z.boolean(),needs_data:z.boolean()
+}).strict()).max(80).optional(),total_batches:z.number().int().nonnegative().optional(),truncated:z.boolean().optional(),batches:z.array(z.object({id:stableId,source_name:z.string(),platform:moneyImportPlatformSchema.optional(),source_account:z.string().optional(),status:z.enum(["review","completed"]),created_at:instant,total:z.number().int().nonnegative(),unconfirmed:z.number().int().nonnegative(),duplicates:z.number().int().nonnegative(),uncategorized:z.number().int().nonnegative(),refunds_unlinked:z.number().int().nonnegative()}).strict()).max(100),totals:z.object({unconfirmed:z.number().int().nonnegative(),duplicates:z.number().int().nonnegative(),uncategorized:z.number().int().nonnegative(),refunds_unlinked:z.number().int().nonnegative()}).strict(),as_of:instant}).strict();
 export const foodCatalogInputSchema=z.object({query:z.string().trim().min(1).max(200).optional(),limit:z.number().int().min(1).max(100).default(50)}).strict();
 export const foodCatalogResultSchema=z.object({foods:z.array(z.object({id:stableId,name:z.string(),serving_amount:canonicalDecimal.nullable(),serving_unit:z.string().nullable(),nutrients:z.record(z.string(),z.unknown()),provenance:z.string().nullable(),state:z.enum(["active","archived"]),revision:z.number().int().positive()}).strict()),recipes:z.array(z.object({id:stableId,title:z.string(),servings:positiveDecimal,instructions:z.string().nullable(),source_url:z.url().nullable(),state:z.enum(["active","archived"]),revision:z.number().int().positive(),items:z.array(z.object({position:z.number().int().nonnegative(),snapshot:intakeItemInputSchema}).strict())}).strict()),as_of:instant}).strict();
 export const moneyImportProposedSchema=z.object({entry_type:z.enum(["expense","income","refund"]).optional(),amount:cnyAmount.optional(),currency:z.literal("CNY").optional(),occurred_on:localDate.optional(),time_zone:ianaTimeZone.optional(),counterparty:z.string().optional(),category:z.string().optional(),payment_method:z.string().optional(),note:z.string().optional()}).strict();

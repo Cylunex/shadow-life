@@ -23,7 +23,8 @@ export async function labResults(db:Database,subject:string,v:ReturnType<typeof 
     from lab_observations o join library_items l on l.id=o.report_id and l.subject_id=o.subject_id where o.subject_id=${subject}
       and not exists(select 1 from capture_screenshot_sources cs where cs.item_id=l.id and cs.deleted_at is not null)
       ${v.report_id?sql`and o.report_id=${v.report_id}`:sql` `} ${v.left_id?sql`and o.id in (${v.left_id},${v.right_id})`:sql` `}
-      order by o.tested_on desc,o.id offset ${v.offset} limit ${v.limit+1}`);
+        ${v.raw_name?sql`and trim(o.raw_name)=${v.raw_name}`:sql``} ${v.unit!==undefined?sql`and coalesce(o.unit,'')=${v.unit}`:sql``}
+    order by o.tested_on desc,o.id offset ${v.offset} limit ${v.limit+1}`);
   return {items:result.rows.slice(0,v.limit),next_offset:result.rows.length>v.limit?v.offset+v.limit:null};
 }
 export async function saveEpisode(db:Database,{subjectId,command,nextId}:Write):ReturnType<TransactionStore["executeDomainWrite"]>{

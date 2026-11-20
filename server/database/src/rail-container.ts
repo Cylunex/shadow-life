@@ -54,9 +54,11 @@ export async function placeItem(db:Database,{subjectId,command}:Write):ReturnTyp
   const row=r.rows[0];if(!row)throw conflict("物品或容器已变更");
   return {resources:[{type:"owned_item",id:v.item_id,...row}],actualValues:{item_id:v.item_id,...row}};
 }
-export async function containers(db:Database,subject:string,v:ReturnType<typeof containerQuerySchema.parse>,_effects:ReadonlySet<string>){
-  const paths=sql`with recursive tree as (select id,label,parent_id,revision,array[label] path,array[id] ids from storage_containers where subject_id=${subject} and parent_id is null
+export const storageTree=(subject:string)=>sql`with recursive tree as (select id,label,parent_id,revision,array[label] path,array[id] ids from storage_containers where subject_id=${subject} and parent_id is null
     union all select c.id,c.label,c.parent_id,c.revision,array_append(t.path,c.label),array_append(t.ids,c.id) from storage_containers c join tree t on c.parent_id=t.id where c.subject_id=${subject})`;
+
+export async function containers(db:Database,subject:string,v:ReturnType<typeof containerQuerySchema.parse>,_effects:ReadonlySet<string>){
+  const paths=storageTree(subject);
   const boxes=await db.execute(sql`${paths} select id,label,parent_id,revision,path from tree where true
     ${v.container_id?sql`and ${v.container_id}=any(ids)`:sql` `} ${v.query?sql`and strpos(lower(array_to_string(path,' ')),lower(${v.query}))>0`:sql` `}
     order by path,id offset ${v.offset} limit ${v.limit+1}`);

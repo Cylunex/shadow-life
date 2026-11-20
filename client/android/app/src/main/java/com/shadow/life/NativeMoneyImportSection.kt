@@ -20,32 +20,82 @@ import java.time.LocalDate
 ){
   var selectedBatch by rememberSaveable(period){mutableStateOf<String?>(null)}
   var onlyPending by rememberSaveable(period){mutableStateOf(true)}
+  var reason by rememberSaveable(period){mutableStateOf("all")}
+  var focused by rememberSaveable(period){mutableStateOf<String?>(null)}
+  var showBatches by rememberSaveable(period){mutableStateOf(false)}
+  var selectedSource by rememberSaveable(period){mutableStateOf("")}
+  val reasons=listOf("all" to "全部","duplicate" to "疑似重复","refund" to "退款待关联","category" to "分类待补","missing" to "字段缺失")
   Column(verticalArrangement=Arrangement.spacedBy(12.dp)){
     StateContent(month,{onMonth(period)}){value->
       if(value.period==period){
         Text("${value.unconfirmed} 笔待处理 · ${value.duplicates} 笔疑似重复",style=MaterialTheme.typography.titleMedium)
         if(selectedBatch==null){
+          LifeTabs(reason,{reason=it},reasons.map{(key,label)->
+            val count=when(key){"duplicate"->value.duplicates;"refund"->value.refundsUnlinked;"category"->value.uncategorized;"missing"->null;else->value.unconfirmed}
+            key to listOfNotNull(label,count?.toString()).joinToString(" ")
+          })
+          val sources=value.batches.map{it.platform to it.sourceAccount}.distinct().filter{it.first.isNotBlank()}
+          if(sources.isNotEmpty())LifeChoiceField("来源账号",selectedSource,listOf("" to "所有来源")+sources.map{(platform,account)->
+            "$platform|$account" to listOf(platform,account).filter{it.isNotBlank()}.joinToString(" · ")
+          }){selectedSource=it}
+          fun sourceMatches(platform:String,account:String)=selectedSource.isBlank()||selectedSource=="$platform|$account"
+          val pending=value.pending.filter{row->
+            sourceMatches(row.platform,row.sourceAccount)&&when(reason){
+              "duplicate"->row.duplicate;"refund"->row.refund;"category"->row.categoryMissing;"missing"->row.needsData;else->true
+            }
+          }
+          pending.forEach{row->
+            LifeCard(onClick={focused=row.id;selectedBatch=row.batchId;onBatch(row.batchId)}){
+              Text(row.counterparty.ifBlank{"商家待补"},style=MaterialTheme.typography.titleMedium)
+              Text(listOf(row.on.ifBlank{"日期待补"},row.amount.ifBlank{"金额待补"},row.source).joinToString(" · "))
+              Text(listOfNotNull("疑似重复".takeIf{row.duplicate},"退款待关联".takeIf{row.refund},
+                "分类待补".takeIf{row.categoryMissing},"字段缺失".takeIf{row.needsData}).joinToString(" · ").ifBlank{"待核对"},
+                style=MaterialTheme.typography.bodySmall)
+            }
+          }
+          if(pending.isEmpty()&&value.pending.isNotEmpty())Text("当前筛选下没有已加载的待处理项")
+          if(value.unconfirmed>value.pending.size)Text("此处展示最近 80 笔候选，可从批次查看其余记录")
+          if(value.truncated)Text("当前最多显示 100 个批次")
+          TextButton(onClick={showBatches=!showBatches}){Text(if(showBatches)"收起导入批次" else "查看导入批次")}
+          if(showBatches){
           if(value.batches.isEmpty())Text("本月没有导入候选")
-          value.batches.forEach{batch->
-            LifeCard(onClick={selectedBatch=batch.id;onBatch(batch.id)}){
+          val visibleBatches=value.batches.filter{batch->
+            sourceMatches(batch.platform,batch.sourceAccount)&&when(reason){"duplicate"->batch.duplicates>0;"refund"->batch.refundsUnlinked>0;"category"->batch.uncategorized>0;else->true}
+          }
+          if(visibleBatches.isEmpty()&&value.batches.isNotEmpty())Text("当前没有此类待核对账单")
+          visibleBatches.forEach{batch->
+            LifeCard(onClick={focused=null;selectedBatch=batch.id;onBatch(batch.id)}){
               Text(batch.name,style=MaterialTheme.typography.titleMedium)
               Text("${batch.unconfirmed} 笔待处理 · 共 ${batch.total} 行")
             }
+          }
           }
         }
       }
     }
     val batch=selectedBatch
     if(batch!=null){
-      TextButton(onClick={selectedBatch=null}){Text("‹ 返回批次")}
+      TextButton(onClick={selectedBatch=null;focused=null}){Text("‹ 返回批次")}
       if(submit is SubmitState.Rejected)Text(submit.message,color=MaterialTheme.colorScheme.error)
       if(submit is SubmitState.Saved&&!submit.receipt.queued)Text("账单核对已同步")
       if(review!=null)StateContent(review,{onBatch(batch)}){value->
         if(value.batchId!=batch)return@StateContent
         FilterChip(onlyPending,{onlyPending=!onlyPending},label={Text("只看待处理")})
-        val visible=value.candidates.filter{!onlyPending||it.status in setOf("pending","invalid")}
+        val visible=value.candidates.filter{candidate->
+          val pending=candidate.status in setOf("pending","invalid")
+          if(candidate.id==focused||!onlyPending)true
+          else pending&&when(reason){
+            "duplicate"->candidate.duplicateOf!=null||candidate.duplicateOfCandidate!=null
+            "refund"->candidate.entryType=="refund"
+            "category"->candidate.category.isBlank()
+            "missing"->candidate.status=="invalid"
+            else->true
+          }
+        }
         if(visible.isEmpty())Text(if(onlyPending)"这批账单没有待处理的条目" else "这批账单没有条目")
-        visible.forEach{candidate->
+        if(focused!=null)TextButton(onClick={focused=null}){Text("查看本批其他记录")}
+        val shown=if(focused==null)visible else visible.filter{it.id==focused}
+        shown.forEach{candidate->
           key(candidate.id,candidate.revision){
             MoneyImportCandidateCard(candidate,value.rules,submit is SubmitState.Sending||pendingId!=null,pendingId==candidate.id,
               refundCandidates,onSearchRefunds,onResolve,onOpenRecord)
@@ -82,7 +132,7 @@ import java.time.LocalDate
     if(entryType!=candidate.entryType) add(types.toMap()[candidate.entryType]?:candidate.entryType)
     if(category.trim()!=candidate.category) add("分类 ${candidate.category.ifBlank{"未填"}}")
   }
-  val canConfirm=!busy&&candidate.duplicateOf==null&&normalizedAmount!=null&&validDate&&category.trim().length<=80&&
+  val canConfirm=!busy&&candidate.duplicateOf==null&&candidate.duplicateOfCandidate==null&&normalizedAmount!=null&&validDate&&category.trim().length<=80&&
     (candidate.status=="pending"||editing||originalValues.isNotEmpty()||original.isNotBlank())&&
     (entryType!="refund"||original.isNotBlank())
   LifeCard{
@@ -95,6 +145,7 @@ import java.time.LocalDate
       Text(normalizedAmount?.let{"$it CNY"}?:"金额待补",style=MaterialTheme.typography.titleMedium)
     }
     if(pending)Text("已存本机，待同步",color=MaterialTheme.colorScheme.primary)
+    if(candidate.duplicateOfCandidate!=null&&candidate.duplicateOf==null)Text("与导入候选重复 · 等待原行处理")
     if(category.isNotBlank())Text("分类 · ${category.trim()}",style=MaterialTheme.typography.bodySmall)
     if(originalValues.isNotEmpty())Text("原始建议 · ${originalValues.joinToString(" · ")}",style=MaterialTheme.typography.bodySmall)
     candidate.linkedRecordId?.let{id->TextButton(onClick={onOpenRecord(id)}){Text("查看已入账记录")}}
@@ -153,19 +204,24 @@ import java.time.LocalDate
   LifeFullScreen("核对疑似重复账单",onBack){
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){
       LifeCard{
-        Text("账单候选",style=MaterialTheme.typography.titleMedium)
-        Text("${candidate.counterparty.ifBlank{"未记录商家"}} · ${candidate.occurredOn}")
-        Text("${candidate.amount} CNY")
-        Text(candidate.raw,style=MaterialTheme.typography.bodySmall)
-      }
-      LifeCard{
-        Text("已有流水",style=MaterialTheme.typography.titleMedium)
+        Text("逐项比较",style=MaterialTheme.typography.titleMedium)
         StateContent(state,{retry++}){detail->
-          Text(detail.title)
-          Text(listOfNotNull(detail.heroSupporting,detail.heroValue).joinToString(" · "))
-          detail.sections.firstOrNull{it.title=="金额"}?.facts?.filter{it.label in setOf("类型","交易方","分类","支付方式")}
-            ?.forEach{fact->Text("${fact.label} · ${fact.value}")}
+          val facts=detail.sections.firstOrNull{it.title=="金额"}?.facts.orEmpty().associate{it.label to it.value}
+          val fields=listOf(
+            Triple("商家",candidate.counterparty,facts["交易方"]?:detail.title),
+            Triple("金额","CNY "+candidate.amount,detail.heroValue.orEmpty()),
+            Triple("日期",candidate.occurredOn,detail.heroSupporting.orEmpty()),
+            Triple("分类",candidate.category,facts["分类"].orEmpty())
+          )
+          fields.forEach{(label,imported,current)->
+            HorizontalDivider()
+            Text(label,style=MaterialTheme.typography.labelLarge)
+            Text("账单 · "+imported.ifBlank{"未提供"})
+            Text("流水 · "+current.ifBlank{"未提供"},color=if(imported!=current)MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurface)
+          }
         }
+        Text("原始账单行",style=MaterialTheme.typography.labelLarge)
+        Text(candidate.raw,style=MaterialTheme.typography.bodySmall)
         TextButton(onClick=onRecord){Text("打开已有流水和来源")}
       }
     }

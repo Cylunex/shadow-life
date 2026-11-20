@@ -29,7 +29,7 @@ const actualSetSchema = z.object({
   reps: z.number().int().min(1).max(1000).optional(), seconds: z.number().int().min(1).max(7200).optional(),
   load_kg: z.string().regex(/^(?:0|[1-9]\d{0,2})(?:\.\d{1,3})?$/u).optional(),
 }).strict().refine(value=>(value.reps===undefined)!==(value.seconds===undefined),"each actual set needs reps or seconds, not both");
-export const exerciseHistoryInputSchema = workoutExerciseSchema.pick({id:true, unit:true, equipment:true});
+export const exerciseHistoryInputSchema = workoutExerciseSchema.pick({id:true, unit:true, equipment:true}).extend({before_session_id:z.string().min(1).max(200).optional()});
 export type ExerciseHistoryInput = z.infer<typeof exerciseHistoryInputSchema>;
 export const exerciseHistoryResultSchema = z.object({
   sessions: z.array(z.object({

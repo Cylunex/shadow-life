@@ -23,7 +23,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalLayoutApi::class)
-@Composable internal fun HomeRecentInfoCard(accountId:String,onDetail:(LifeDomain,String,String)->Unit,onRecords:()->Unit,onOrders:()->Unit,onSettings:()->Unit,inboxState:LoadState<InboxSnapshot> = LoadState.Loading,onInbox:()->Unit = onRecords,onRefreshInbox:()->Unit = {}){
+@Composable internal fun HomeRecentInfoCard(accountId:String,onDetail:(LifeDomain,String,String)->Unit,onRecords:()->Unit,onOrders:()->Unit,onSettings:()->Unit,inboxState:LoadState<InboxSnapshot> = LoadState.Loading,onInbox:()->Unit = onRecords,onRefreshInbox:()->Unit = {},onTarget:(NotificationTarget)->Unit={onInbox()}){
   val context=LocalContext.current
   val app=context.applicationContext as ShadowApp
   val model:HomeRecentInfoModel=viewModel(key="home-recent:$accountId"){HomeRecentInfoModel(app,accountId)}
@@ -61,7 +61,7 @@ import java.time.format.DateTimeFormatter
         is LoadState.Ready->{
           val notifications=inboxState.value.items.sortedBy{it.readState!="unread"}
           if(notifications.isEmpty())Text("暂无消息",style=MaterialTheme.typography.bodySmall)
-          notifications.take(2).forEach{notification->Column(Modifier.fillMaxWidth().clickable(onClick=onInbox).padding(vertical=6.dp),verticalArrangement=Arrangement.spacedBy(3.dp)){
+          notifications.take(2).forEach{notification->Column(Modifier.fillMaxWidth().clickable{notification.target?.let(onTarget)?:onInbox()}.padding(vertical=6.dp),verticalArrangement=Arrangement.spacedBy(3.dp)){
             Text(notification.title,maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodyMedium)
             Text(notification.body,maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
           }}
@@ -77,7 +77,12 @@ import java.time.format.DateTimeFormatter
     rows.take(if(expanded)5 else 2).forEach{row->key(row.key){
       Column(Modifier.fillMaxWidth().clickable{if(row.domain!=null&&row.targetId!=null)onDetail(row.domain,row.targetId,row.title) else preview=row}.padding(vertical=6.dp),verticalArrangement=Arrangement.spacedBy(3.dp)){
         Text(row.title,maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodyMedium)
-        Text("${row.status} · ${DateTimeFormatter.ofPattern("M/d HH:mm").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(row.at))}",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2,overflow=TextOverflow.Ellipsis)
+        Text("${row.status} · ${DateTimeFormatter.ofPattern("M/d HH:mm").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(row.at))}",style=MaterialTheme.typography.labelSmall,color=when{
+          row.localState in setOf("failed","blocked")->MaterialTheme.colorScheme.error
+          row.domain==LifeDomain.Money&&row.targetId!=null->MaterialTheme.colorScheme.primary
+          row.targetId==null->MaterialTheme.colorScheme.tertiary
+          else->MaterialTheme.colorScheme.onSurfaceVariant
+        },maxLines=2,overflow=TextOverflow.Ellipsis)
       }
     }}
     error?.let{Text(it,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.error)}

@@ -12,6 +12,15 @@ const data=(extra:Partial<ConsumptionStatsRawData>={}):ConsumptionStatsRawData=>
 test("merges full-width punctuation and personal merchant aliases while retaining explanations",()=>{
   const result=buildConsumptionStats(data({purchases:[purchase("purchase_1",{merchant:"饭堂（东区）",scene:"dine_in"}),purchase("purchase_2",{merchant:"饭堂(东区)",scene:"dine_in"}),purchase("purchase_3",{merchant:"东区饭堂",scene:"dine_in"})],aliases:[{alias:"东区饭堂",target_kind:"merchant",target_value:"饭堂（东区）"}]}),input(),true);
   assert.equal(result.merchants.length,1);assert.equal(result.merchants[0]!.orders,3);assert.deepEqual(result.merchants[0]!.raw_names,["东区饭堂","饭堂(东区)","饭堂（东区）"]);assert.ok(result.merchants[0]!.normalization.includes("personal_alias"));assert.ok(result.merchants[0]!.normalization.includes("unicode_nfkc"));
+  const selected=buildConsumptionStats(data({purchases:[
+    purchase("purchase_1",{merchant:"饭堂（东区）",scene:"dine_in",purchase_amount:"12"}),
+    purchase("purchase_2",{merchant:"东区饭堂",scene:"dine_in"}),
+    purchase("purchase_3",{merchant:"另一个饭堂",scene:"dine_in"}),
+  ],aliases:[{alias:"东区饭堂",target_kind:"merchant",target_value:"饭堂（东区）"}]}),
+  input({merchant:result.merchants[0]!.canonical_name,scopes:["dine_in"]}),false);
+  assert.equal(selected.order_page?.total,2);
+  assert.deepEqual(selected.order_page?.items.map(row=>row.record_id),["record_purchase_2","record_purchase_1"]);
+  assert.ok(selected.order_page?.items.every(row=>row.amount===null&&row.currency===null));
 });
 
 test("filters service and preference rows without hiding real products",()=>{

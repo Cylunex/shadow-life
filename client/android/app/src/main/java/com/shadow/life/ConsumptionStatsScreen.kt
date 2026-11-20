@@ -17,7 +17,7 @@ private val statsScopeLabels=listOf("" to "全部场景","restaurant_delivery" t
 private val statsCategoryLabels=listOf("" to "全部品类","dish" to "菜品","staple" to "主食","snack" to "零食","beverage" to "饮品","fresh_food" to "生鲜","daily_goods" to "日用品","unknown" to "待识别")
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun ConsumptionStatsScreen(state:LoadState<ConsumptionStatsResultDto>,onLoad:(Int,String?,String?,String,String)->Unit,onBack:()->Unit){
+@Composable fun ConsumptionStatsScreen(state:LoadState<ConsumptionStatsResultDto>,onLoad:(Int,String?,String?,String,String)->Unit,onBack:()->Unit,onMerchant:(String,Int,String,String)->Unit={_,_,_,_->},onProduct:(String)->Unit={}){
   var months by rememberSaveable{mutableIntStateOf(3)};var scope by rememberSaveable{mutableStateOf("")};var category by rememberSaveable{mutableStateOf("")};var merchantRank by rememberSaveable{mutableStateOf("orders")};var itemRank by rememberSaveable{mutableStateOf("purchased_orders")}
   fun reload(nextMonths:Int=months,nextScope:String=scope,nextCategory:String=category,nextMerchant:String=merchantRank,nextItem:String=itemRank){onLoad(nextMonths,nextScope.ifBlank{null},nextCategory.ifBlank{null},nextMerchant,nextItem)}
   Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Column{Text("消费统计");Text("订单、食用与金额独立计数",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}},navigationIcon={LifeBackButton(onBack)})}){padding->
@@ -27,9 +27,9 @@ private val statsCategoryLabels=listOf("" to "全部品类","dish" to "菜品","
         item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){StatsMetric("订单",value.coverage.orders.toString(),Modifier.weight(1f));StatsMetric("关联饮食",value.coverage.mealLinkedOrders.toString(),Modifier.weight(1f));StatsMetric("场景覆盖",percent(value.coverage.orders-value.coverage.scopeUnknown,value.coverage.orders),Modifier.weight(1f))}}
         item{StatsSurface{Text("月度趋势",style=MaterialTheme.typography.titleLarge);val max=value.monthly.maxOfOrNull{it.orders}?.coerceAtLeast(1)?:1;value.monthly.forEach{month->Column(verticalArrangement=Arrangement.spacedBy(4.dp)){Row(Modifier.fillMaxWidth()){Text(month.month,Modifier.weight(1f));Text("${month.orders} 单")};LinearProgressIndicator({month.orders.toFloat()/max.toFloat()},Modifier.fillMaxWidth());Text(month.spend.firstOrNull{it.currency=="CNY"}?.let{"净额 ${it.net} CNY"}?:"金额不可用",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}}
         item{StatsRankingControls("常去商家",merchantRank,listOf("orders" to "订单数","gross_spend" to "消费总额","net_spend" to "退款后净额")){merchantRank=it;reload(nextMerchant=it)}}
-        items(value.merchants,key={"${it.canonicalName}:${it.scope.wireValue}"}){merchant->StatsRankRow(merchant.canonicalName,"${statsScopeLabels.toMap()[merchant.scope.wireValue]?:merchant.scope.wireValue} · ${merchant.orders} 单 · ${merchant.confirmedMeals} 次食用",if(merchantRank=="orders")merchant.orders.toString() else merchant.spend.firstOrNull{it.currency=="CNY"}?.let{if(merchantRank=="gross_spend")it.gross else it.net}?:"—")}
+        items(value.merchants,key={"${it.canonicalName}:${it.scope.wireValue}"}){merchant->StatsRankRow(merchant.canonicalName,"${statsScopeLabels.toMap()[merchant.scope.wireValue]?:merchant.scope.wireValue} · ${merchant.orders} 单 · ${merchant.confirmedMeals} 次食用",if(merchantRank=="orders")merchant.orders.toString() else merchant.spend.firstOrNull{it.currency=="CNY"}?.let{if(merchantRank=="gross_spend")it.gross else it.net}?:"—"){onMerchant(merchant.canonicalName,months,merchant.scope.wireValue,category)}}
         item{StatsRankingControls("常买商品 / 菜品",itemRank,listOf("purchased_orders" to "购买订单","confirmed_consumptions" to "确认食用","line_spend" to "商品金额")){itemRank=it;reload(nextItem=it)}}
-        items(value.items,key={"${it.canonicalName}:${it.category.wireValue}"}){product->StatsRankRow(product.canonicalName,"${statsCategoryLabels.toMap()[product.category.wireValue]?:product.category.wireValue} · ${product.purchasedOrders} 单购买 · ${product.confirmedConsumptions} 次食用",when(itemRank){"confirmed_consumptions"->product.confirmedConsumptions.toString();"line_spend"->product.lineSpend.firstOrNull{it.currency=="CNY"}?.amount?:"—";else->product.purchasedOrders.toString()})}
+        items(value.items,key={"${it.canonicalName}:${it.category.wireValue}"}){product->StatsRankRow(product.canonicalName,"${statsCategoryLabels.toMap()[product.category.wireValue]?:product.category.wireValue} · ${product.purchasedOrders} 单购买 · ${product.confirmedConsumptions} 次食用",when(itemRank){"confirmed_consumptions"->product.confirmedConsumptions.toString();"line_spend"->product.lineSpend.firstOrNull{it.currency=="CNY"}?.amount?:"—";else->product.purchasedOrders.toString()}){onProduct(product.canonicalName)}}
         item{StatsSurface{Text("数据覆盖",style=MaterialTheme.typography.titleLarge);Text("商品行 ${value.coverage.includedItemLines}/${value.coverage.itemLines} · 排除服务 ${value.coverage.excludedServiceLines} · 折叠摘要 ${value.coverage.excludedFoldedLines}");Text("明细不完整 ${value.coverage.foldedOrders} 单 · 已补录 ${value.coverage.supplementedOrders} 单",color=MaterialTheme.colorScheme.error);Text("明确分类 ${value.coverage.itemCategoryExplicit} · 规则推断 ${value.coverage.itemCategoryDerived} · 待识别 ${value.coverage.itemCategoryUnknown}",color=MaterialTheme.colorScheme.onSurfaceVariant);Text("只纳入已确认且未作废的事实；退款归回原订单月份，币种与购买/食用数量不混算。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant);if(!value.coverage.moneyAuthorized)Text("没有账目读取权限，金额不会按零展示。",color=MaterialTheme.colorScheme.error);if(value.unknowns.merchants.isNotEmpty()||value.unknowns.items.isNotEmpty())Text("待识别："+(value.unknowns.merchants.map{it.name}+value.unknowns.items.map{it.name}).distinct().take(10).joinToString("、"),style=MaterialTheme.typography.bodySmall)}}
       }}
     }
@@ -39,6 +39,34 @@ private val statsCategoryLabels=listOf("" to "全部品类","dish" to "菜品","
 @Composable private fun StatsSelector(label:String,value:String,options:List<Pair<String,String>>,onChange:(String)->Unit){var open by remember{mutableStateOf(false)};Box{OutlinedButton(onClick={open=true},Modifier.fillMaxWidth()){Text("$label：${options.toMap()[value]?:value}")};DropdownMenu(open,{open=false}){options.forEach{(key,text)->DropdownMenuItem({Text(text)},{open=false;onChange(key)})}}}}
 @Composable private fun StatsRankingControls(title:String,value:String,options:List<Pair<String,String>>,onChange:(String)->Unit){StatsSurface{Text(title,style=MaterialTheme.typography.titleLarge);Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(7.dp)){options.forEach{(key,label)->FilterChip(value==key,{onChange(key)},{Text(label)})}}}}
 @Composable private fun StatsMetric(label:String,value:String,modifier:Modifier){Surface(modifier,shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.55f)){Column(Modifier.padding(14.dp)){Text(label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(value,style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.SemiBold)}}}
-@Composable private fun StatsRankRow(name:String,subtitle:String,value:String){StatsSurface{Row(Modifier.fillMaxWidth()){Column(Modifier.weight(1f)){Text(name,style=MaterialTheme.typography.titleMedium);Text(subtitle,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};Text(value,fontWeight=FontWeight.SemiBold)}}}
+@Composable private fun StatsRankRow(name:String,subtitle:String,value:String,onClick:()->Unit){LifeCard(onClick=onClick){Row(Modifier.fillMaxWidth()){Column(Modifier.weight(1f)){Text(name,style=MaterialTheme.typography.titleMedium);Text(subtitle,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};Text(value,fontWeight=FontWeight.SemiBold)}}}
 @Composable private fun StatsSurface(content:@Composable ColumnScope.()->Unit){Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(22.dp),color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.48f)){Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp),content=content)}}
 private fun percent(known:Long,total:Long)=if(total==0L)"100%" else "${known*100/total}%"
+
+@Composable internal fun MerchantRecordsScreen(accountId:String,merchant:String,months:Int,scope:String,category:String,onBack:()->Unit,onOpen:(String)->Unit){
+  val context=androidx.compose.ui.platform.LocalContext.current
+  val repository=remember(accountId){NativeLifeRepository(context,context.applicationContext as ShadowApp)}
+  val (from,until)=consumptionStatsDateRange(java.time.LocalDate.now(),months)
+  val page=rememberRecordPages(accountId,listOf(merchant,months,scope,category)){cursor->
+    val result=repository.consumptionStats(months,scope,category.ifBlank{null},merchant=merchant,offset=cursor)
+    val orders=checkNotNull(result.orderPage){"当前服务暂未返回可追溯订单"}
+    RecordPage(orders.items.map{row->
+      RecordSummary(LifeDomain.Money,"purchase",row.recordId,row.title,row.occurredOn,
+        row.amount?.let{row.currency.orEmpty()+" "+it},null,happenedOn=row.occurredOn)
+    },orders.nextOffset?.toString(),result.asOf)
+  }
+  LifeFullScreen(merchant,onBack){
+    LazyColumn(verticalArrangement=Arrangement.spacedBy(10.dp)){
+      item{Text("$from 起 · $months 个自然月内的相关消费");StateContent(page.state,page.retry){}}
+      val records=(page.state as? LoadState.Ready)?.value
+      if(records?.items?.isEmpty()==true)item{EmptyState("此期间没有匹配的消费")}
+      items(records?.items.orEmpty(),key={it.kind+it.id}){record->
+        LifeCard(onClick={onOpen(record.detailId?:record.id)}){
+          Text(record.title,style=MaterialTheme.typography.titleMedium)
+          Text(listOfNotNull(record.happenedOn,record.trailing).joinToString(" · "))
+        }
+      }
+      if(records?.nextCursor!=null)item{TextButton(onClick=page.more){Text("加载更多")}}
+    }
+  }
+}

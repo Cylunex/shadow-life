@@ -49,9 +49,9 @@ export interface TransactionStore {
   getOperationByExecutionId(subjectId: string, executionId: string): Promise<StoredOperation | undefined>;
   listMeals(subjectId:string,options:{limit:number;includeMoney:boolean;occurredOn?:string;asOf?:string;before?:{on:string;at:string;id:string}}):Promise<{items:readonly (MealView&{_page_at:string})[];hasMore:boolean;asOf:string}>;
   foodCatalog(subjectId:string,query:string|undefined,limit:number):Promise<unknown>;
-  summarizeMoney(subjectId: string): Promise<MoneySummary>;
+  summarizeMoney(subjectId: string, period?:string): Promise<MoneySummary>;
   executeDomainWrite(value: { subjectId: string; command: UniversalCommandEnvelope; context?: RequestContext; nextId(type: string): string }): Promise<{ resources: ExecutionResult["resources"]; actualValues: ExecutionResult["actual_values"]; warnings?: string[] }>;
-  listDomain(subjectId:string,domain:"money"|"health"|"travel"|"library",options:{view?:"events"|"facts";includePurchase?:boolean;query?:string;limit:number;asOf?:string;before?:{at:string;kind:string;id:string}}):Promise<{items:readonly DomainRecordPageItem[];hasMore:boolean;asOf:string}>;
+  listDomain(subjectId:string,domain:"money"|"health"|"travel"|"library",options:{view?:"events"|"facts";includePurchase?:boolean;query?:string;period?:string;currency?:string;entryType?:string;itemTypes?:string[];on?:string;category?:string;limit:number;asOf?:string;before?:{at:string;kind:string;id:string}}):Promise<{items:readonly DomainRecordPageItem[];hasMore:boolean;asOf:string}>;
   captureCompletion?(subjectId:string,name:string,input:unknown,context:RequestContext):Promise<unknown>;
   captureWorkspace?(subjectId:string,input:{date:string;time_zone:string;recordings_before_id?:string|undefined},canReadMeals?:boolean):Promise<unknown>;
   activitySource?(subjectId:string,id:string):Promise<unknown>;
@@ -115,7 +115,7 @@ export interface TransactionStore {
   agentContext(subjectId:string,options:import("./agent-context.js").AgentContextReadOptions):Promise<import("./agent-context.js").AgentContextReadData>;
   agentMemories(subjectId:string,category:string|undefined,limit:number):Promise<{items:readonly Record<string,unknown>[];asOf:string}>;
   notifications(subjectId:string,options:{limit:number;asOf?:string|undefined;before?:{at:string;id:string}|undefined}):Promise<unknown>;
-  ownedItems(subjectId:string,state:string|undefined,limit:number,visibility:{purchase:boolean;library:boolean;money:boolean},id?:string):Promise<unknown>;
+  ownedItems(subjectId:string,state:string|undefined,limit:number,visibility:{purchase:boolean;library:boolean;money:boolean},id?:string,query?:string):Promise<unknown>;
   lifeReviews(subjectId:string,limit:number,authorizedDomains:readonly string[],id?:string):Promise<unknown>;
   lifeProjects(subjectId:string,state:string|undefined,limit:number,authorizedKinds:readonly string[],id?:string):Promise<unknown>;
   planningAgenda(subjectId:string,input:{fromOn:string;toOnExclusive:string;timeZone:string;limit:number;includeProjects:boolean;includeMoney:boolean;includeHealth:boolean}):Promise<{items:readonly PlanningAgendaItem[];truncated:boolean;asOf:string}>;

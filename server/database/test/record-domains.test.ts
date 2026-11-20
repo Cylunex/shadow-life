@@ -30,6 +30,8 @@ test("monthly reconciliation keeps raw candidates and separates pending, duplica
   const batchId=String(staged.actual_values.batch_id);
   const month=await f.queries.moneyImportMonth(f.context,{period:"2026-09"});
   assert.equal(month.totals.unconfirmed,2);assert.equal(month.totals.uncategorized,2);assert.equal(month.totals.refunds_unlinked,1);
+  assert.equal(month.pending_preview?.length,2);
+  assert.equal(month.pending_preview?.find(row=>row.refund_unlinked)?.batch_id,batchId);
   const review=await f.queries.moneyImportReview(f.context,batchId);
   assert.equal(review.candidates[0]!.proposed.amount,"12.30");assert.equal(review.candidates[0]!.raw.amount,"12.30");
   await assert.rejects(()=>f.queries.moneyImportMonth({...f.context,effects:new Set()}, {period:"2026-09"}),/Missing permission/u);

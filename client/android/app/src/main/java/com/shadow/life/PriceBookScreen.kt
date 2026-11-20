@@ -14,13 +14,13 @@ import org.json.JSONObject
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable internal fun PriceBookScreen(
-  accountId:String,onBack:()->Unit,onRecord:(String)->Unit,onSelect:((JSONObject)->Unit)?=null
+  accountId:String,onBack:()->Unit,onRecord:(String)->Unit,onSelect:((JSONObject)->Unit)?=null,initialProduct:String=""
 ){
   val context=LocalContext.current
   val repository=remember(accountId){NativeLifeRepository(context,context.applicationContext as ShadowApp)}
-  var query by rememberSaveable{mutableStateOf("")}
+  var query by rememberSaveable(initialProduct){mutableStateOf(initialProduct)}
   var search by rememberSaveable{mutableStateOf("")}
-  var product by rememberSaveable{mutableStateOf("")}
+  var product by rememberSaveable(initialProduct){mutableStateOf(initialProduct)}
   var cursor by rememberSaveable{mutableStateOf<String?>(null)}
   var recent by remember(accountId){mutableStateOf(emptyList<String>())}
   var retry by remember{mutableIntStateOf(0)}

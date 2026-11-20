@@ -56,10 +56,8 @@ import org.json.JSONObject
     LifeTabs(workspace,{workspace=it},section.second.map{it to it})
     if(workspace in setOf("分析","检索","设置与导出"))key(workspace){CaptureCompletionPanel(accountId,date,workspace)}
     if(workspace in setOf("录音","地点","截图","订单","回顾"))key(workspace){CaptureSuitePanel(accountId,date,workspace,onMoneyRecord)}
-    if(workspace=="应用与活动"){
-    HorizontalDivider()
-    Text("仅统计已捕获的完整应用区间，缺失时段保持未知；应用时长不等于专注时间。")
-    data?.let{Text("已记录使用：${it.usageSeconds/60} 分钟 · ${it.total} 条活动",style=MaterialTheme.typography.titleLarge)}
+    if(workspace=="设置与导出"){
+      Text("设备采集权限",style=MaterialTheme.typography.titleMedium)
     TextButton(onClick={context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))}){Text("授权应用使用情况访问")}
     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("自动采集应用使用");Switch(checked=automatic,onCheckedChange={automatic=it;ActivityCaptureScheduler.setEnabled(context,accountId,it)})}
     Text("开启后定期采集今天及昨天的完整区间；关闭停止后续采集，已入队记录继续同步。",style=MaterialTheme.typography.bodySmall)
@@ -77,6 +75,11 @@ import org.json.JSONObject
     OutlinedTextField(value=title,onValueChange={title=it.take(200)},label={Text("活动名称（结束于现在）")},modifier=Modifier.fillMaxWidth())
     OutlinedTextField(value=duration,onValueChange={duration=it.take(4)},label={Text("实际持续分钟（1–1440）")},modifier=Modifier.fillMaxWidth())
     Button(enabled=!busy&&date==LocalDate.now()&&title.isNotBlank()&&duration.toLongOrNull() in 1L..1440L,onClick={run{val end=Instant.now();val zone=ZoneId.systemDefault();repository.saveActivities(JSONArray().put(JSONObject().put("source_id","manual_${java.util.UUID.randomUUID().toString().replace("-","")}").put("kind","manual").put("title",title.trim()).put("started_at",end.minusSeconds(duration.toLong()*60).toString()).put("ended_at",end.toString()).put("time_zone",zone.id)),accountId);title="";duration="";message="活动已进入加密同步队列，实际上传状态见设置。"}}){Text("保存活动")}
+    }
+    if(workspace=="应用与活动"){
+    HorizontalDivider()
+    Text("仅统计已捕获的完整应用区间，缺失时段保持未知；应用时长不等于专注时间。")
+    data?.let{Text("已记录使用：${it.usageSeconds/60} 分钟 · ${it.total} 条活动",style=MaterialTheme.typography.titleLarge)}
     TextButton(enabled=!busy,onClick={run{read();message=null}}){Text("刷新已同步记录")}
     message?.let{Text(it)};if(busy)LinearProgressIndicator(Modifier.fillMaxWidth())
     data?.items?.sortedBy{it.startedAt}?.forEach{item->Card(Modifier.fillMaxWidth()){Column(Modifier.padding(14.dp)){Text(item.title,style=MaterialTheme.typography.titleMedium);TextButton(onClick={onSource(item.id)}){Text("分类、项目与长期保留")};Text("${item.startedAt} — ${item.endedAt}",style=MaterialTheme.typography.bodySmall);item.latitude?.let{Text("坐标 $it, ${item.longitude} · 精度 ${item.accuracyM} 米")};item.text?.let{Text(it)}

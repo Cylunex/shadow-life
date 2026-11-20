@@ -1,7 +1,7 @@
 import { captureCompletionQueries } from "@shadow/contracts";
 import { activitySourceResultSchema } from "@shadow/contracts";
 import { moneyImportFileResultSchema } from "@shadow/contracts";
-import { moneyImportHistoryInputSchema, moneyImportHistoryResultSchema, instant, stableId } from "@shadow/contracts";
+import { moneySummaryInputSchema, domainRecordsInputSchema, moneyImportHistoryInputSchema, moneyImportHistoryResultSchema, instant, stableId } from "@shadow/contracts";
 import { captureDateSchema, captureWorkspaceResultSchema } from "@shadow/contracts";
 import { capturedPaymentPlatform, inspectActivityOrder } from "./activity-order.js";
 import { inspectLibraryOrder } from "./library-order.js";
@@ -59,7 +59,7 @@ import { buildConsumptionStats } from "./consumption-stats.js";
 import { buildDailyRecordCheck } from "./daily-record-check.js";
 
 type Domain="money"|"health"|"travel"|"library";
-type Cursor={domain:Domain;query:string;at:string;kind:string;id:string;as_of:string};
+type Cursor={domain:Domain;query:string;filter?:string;at:string;kind:string;id:string;as_of:string};
 type LifeRecordSection="meal"|"purchase"|"money"|"sources";
 type TimelineCursor={domains:string;at:string;domain:string;kind:string;id:string;as_of:string};
 type SearchCursor={signature:string;on:string;domain:LifeOverviewDomain;kind:string;id:string;as_of:string};
@@ -75,7 +75,7 @@ function lifeRecordWire(raw:unknown):unknown{
   const times=(item:Record<string,unknown>,keys:readonly string[])=>{const result={...item};for(const key of keys)if(result[key]!==null&&result[key]!==undefined)result[key]=new Date(String(result[key])).toISOString();return result;};
   const intakeKeys=["id","meal_id","position","name","food_ref_id","free_text","quantity","unit","amount_g","weight_basis","energy_kcal","protein_g","fat_g","carb_g","fiber_g","sodium_mg","calcium_mg","iron_mg","consumed_fraction","provenance","grouping_origin","estimate","evidence_note","revision"] as const;
   const moneyKeys=["id","record_id","entry_type","amount","currency","occurred_on","occurred_at","time_zone","note","category","counterparty","source_id","payment_method","source_scale","revision"] as const;
-  const sourceKeys=["id","kind","external_id","captured_on","captured_at","time_zone","original_text","asset_version_id","revision"] as const;
+  const sourceKeys=["id","kind","external_id","captured_on","captured_at","time_zone","original_text","asset_version_id","revision","role"] as const;
   const money=(item:Record<string,unknown>)=>times(pick(item,moneyKeys),["occurred_at"]);
   const sources=(item:unknown)=>rows(item).map(row=>times(pick(row,sourceKeys),["captured_at"]));
   const intakes=(item:unknown)=>rows(item).map(row=>pick(row,intakeKeys));
@@ -168,12 +168,25 @@ export class QueryService {
     return listMealsResultSchema.parse({items,next_cursor:next,as_of:page.asOf});
   }
   async foodCatalog(context:RequestContext,input:unknown){if(!context.effects.has("life.meal.read"))throw permissionDenied("life.meal.read");const parsed=foodCatalogInputSchema.safeParse(input);if(!parsed.success)throw invalidInput("food catalog query is invalid",parsed.error.issues.map(issue=>issue.path.join(".")));return foodCatalogResultSchema.parse(await this.unitOfWork.read(store=>store.foodCatalog(context.subjectId,parsed.data.query,parsed.data.limit)));}
-  async summarizeMoney(context:RequestContext):Promise<MoneySummary>{if(!context.effects.has("money.summary.read"))throw permissionDenied("money.summary.read");return moneySummarySchema.parse(await this.unitOfWork.read(store=>store.summarizeMoney(context.subjectId)));}
-  async listDomain(context:RequestContext,domain:Domain,options:{query?:string|undefined;limit?:number|undefined;cursor?:string|undefined}={}):Promise<{items:readonly DomainRecordSummary[];next_cursor:string|null;as_of:string}>{
+  async summarizeMoney(context:RequestContext,input:unknown={}):Promise<MoneySummary>{
+    if(!context.effects.has("money.summary.read"))throw permissionDenied("money.summary.read");
+    const {period}=moneySummaryInputSchema.parse(input);
+    const value=await this.unitOfWork.read(store=>store.summarizeMoney(context.subjectId,period));
+    if(context.effects.has("money.entry.read"))return moneySummarySchema.parse(value);
+    const {days:_days,categories:_categories,...summary}=value;
+    return moneySummarySchema.parse(summary);
+  }
+  async listDomain(context:RequestContext,domain:Domain,input:unknown={}):Promise<{items:readonly DomainRecordSummary[];next_cursor:string|null;as_of:string}>{
     const effect=`${domain}.${domain==="library"?"item":domain==="health"?"measurement":domain==="travel"?"trip":"entry"}.read`;if(!context.effects.has(effect))throw permissionDenied(effect);
-    const limit=options.limit??50;if(!Number.isInteger(limit)||limit<1||limit>100)throw invalidInput("limit must be between 1 and 100",["limit"]);const query=options.query?.trim().toLocaleLowerCase()??"";let asOf:string|undefined,before:Cursor|undefined;
-    if(options.cursor){try{before=JSON.parse(Buffer.from(options.cursor,"base64url").toString("utf8")) as Cursor;}catch{throw invalidInput("cursor is invalid",["cursor"]);}if(before.domain!==domain||before.query!==query||!before.at||!before.kind||!before.id||!before.as_of)throw invalidInput("cursor does not match this query",["cursor"]);asOf=before.as_of;}
-    const page=await this.unitOfWork.read(store=>store.listDomain(context.subjectId,domain,{includePurchase:context.effects.has("life.meal.read"),...(query?{query}:{}),limit,...(asOf?{asOf}:{}),...(before?{before:{at:before.at,kind:before.kind,id:before.id}}:{})}));asOf=page.asOf;const items=page.items.map(({_page_at,...item})=>item);const last=page.items.at(-1),next=page.hasMore&&last?Buffer.from(JSON.stringify({domain,query,at:last._page_at,kind:last.kind,id:last.id,as_of:asOf} satisfies Cursor)).toString("base64url"):null;return domainRecordsResultSchema.parse({items,next_cursor:next,as_of:asOf});
+    const options=domainRecordsInputSchema.parse(input);
+    const {period,currency,entry_type:entryType,item_types:itemTypes,on,category}=options;
+    if((domain!=="money"&&(period||currency||entryType||on||category!==undefined))||(domain!=="library"&&itemTypes))throw invalidInput("filters do not match this domain",["filters"]);
+    const filters=[period,currency,entryType,itemTypes?.slice().sort()];
+    if(on||category!==undefined)filters.push(on,category);
+    const filter=filters.some(value=>value!==undefined)?JSON.stringify(filters):undefined;
+    const limit=options.limit;if(!Number.isInteger(limit)||limit<1||limit>100)throw invalidInput("limit must be between 1 and 100",["limit"]);const query=options.query?.trim().toLocaleLowerCase()??"";let asOf:string|undefined,before:Cursor|undefined;
+    if(options.cursor){try{before=JSON.parse(Buffer.from(options.cursor,"base64url").toString("utf8")) as Cursor;}catch{throw invalidInput("cursor is invalid",["cursor"]);}if(before.domain!==domain||before.query!==query||before.filter!==filter||!before.at||!before.kind||!before.id||!before.as_of)throw invalidInput("cursor does not match this query",["cursor"]);asOf=before.as_of;}
+    const page=await this.unitOfWork.read(store=>store.listDomain(context.subjectId,domain,{includePurchase:context.effects.has("life.meal.read"),...(query?{query}:{}),...(period?{period}:{}),...(currency?{currency}:{}),...(entryType?{entryType}:{}),...(itemTypes?{itemTypes}:{}),...(on?{on}:{}),...(category===undefined?{}:{category}),limit,...(asOf?{asOf}:{}),...(before?{before:{at:before.at,kind:before.kind,id:before.id}}:{})}));asOf=page.asOf;const items=page.items.map(({_page_at,...item})=>item);const last=page.items.at(-1),next=page.hasMore&&last?Buffer.from(JSON.stringify({domain,query,...(filter?{filter}:{}),at:last._page_at,kind:last.kind,id:last.id,as_of:asOf} satisfies Cursor)).toString("base64url"):null;return domainRecordsResultSchema.parse({items,next_cursor:next,as_of:asOf});
   }
   async healthReleaseHistory(context:RequestContext,input:unknown){if(!context.effects.has("health.measurement.read"))throw permissionDenied("health.measurement.read");const parsed=healthReleaseHistoryInputSchema.parse(input);return healthReleaseHistoryResultSchema.parse(await this.unitOfWork.read(store=>store.healthReleaseHistory(context.subjectId,parsed)));}
   async stockRecipes(context:RequestContext,input:unknown){
@@ -488,7 +501,7 @@ export class QueryService {
     });
     return notificationsResultSchema.parse({items,next_cursor:next,preferences:page.preferences,as_of:page.asOf});
   }
-  async ownedItems(context:RequestContext,input:unknown={}){if(!context.effects.has("life.item.read"))throw permissionDenied("life.item.read");const parsed=ownedItemsInputSchema.safeParse(input);if(!parsed.success)throw invalidInput("owned item query is invalid",parsed.error.issues.map(issue=>issue.path.join(".")));const raw=ownedItemsResultSchema.parse(await this.unitOfWork.read(store=>store.ownedItems(context.subjectId,parsed.data.state,parsed.data.limit+1,{purchase:context.effects.has("life.meal.read"),library:context.effects.has("library.item.read"),money:context.effects.has("money.entry.read")},parsed.data.id)));
+  async ownedItems(context:RequestContext,input:unknown={}){if(!context.effects.has("life.item.read"))throw permissionDenied("life.item.read");const parsed=ownedItemsInputSchema.safeParse(input);if(!parsed.success)throw invalidInput("owned item query is invalid",parsed.error.issues.map(issue=>issue.path.join(".")));const raw=ownedItemsResultSchema.parse(await this.unitOfWork.read(store=>store.ownedItems(context.subjectId,parsed.data.state,parsed.data.limit+1,{purchase:context.effects.has("life.meal.read"),library:context.effects.has("library.item.read"),money:context.effects.has("money.entry.read")},parsed.data.id,parsed.data.query)));
     const items=raw.items.slice(0,parsed.data.limit);
     return ownedItemsResultSchema.parse({...raw,items,truncated:raw.items.length>parsed.data.limit,attention:buildItemAttention(items,raw.as_of,parsed.data.time_zone,parsed.data.on)});}
   async lifeReviews(context:RequestContext,input:unknown={}){if(!context.effects.has("life.review.read"))throw permissionDenied("life.review.read");const parsed=lifeReviewsInputSchema.safeParse(input);if(!parsed.success)throw invalidInput("life review query is invalid",parsed.error.issues.map(issue=>issue.path.join(".")));const effects={money:"money.entry.read",meals:"life.meal.read",health:"health.measurement.read",items:"life.item.read",library:"library.item.read"} as const,authorized=Object.entries(effects).filter(([,effect])=>context.effects.has(effect)).map(([domain])=>domain);return lifeReviewsResultSchema.parse(await this.unitOfWork.read(store=>store.lifeReviews(context.subjectId,parsed.data.limit,authorized,parsed.data.id)));}

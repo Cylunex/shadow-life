@@ -16,7 +16,7 @@ import org.json.JSONObject
 import java.time.Instant
 import java.time.ZoneId
 
-@Composable internal fun HealthArchiveScreen(accountId:String,onBack:()->Unit,onReport:(String)->Unit){
+@Composable internal fun HealthArchiveScreen(accountId:String,onBack:()->Unit,onReport:(String,Int)->Unit){
   var section by rememberSaveable{mutableStateOf("reports")}
   var reportId by rememberSaveable{mutableStateOf<String?>(null)}
   var indicator by rememberSaveable{mutableStateOf<String?>(null)}
@@ -29,7 +29,14 @@ import java.time.ZoneId
     val path=if(section=="reports")"/api/health/lab-results" else "/api/health/episodes"
     val params=buildMap{
       put("offset",offset.toString())
-      if(section=="reports"&&indicator==null)reportId?.let{put("report_id",it)}
+      if(section=="reports"){
+        val metric=indicator
+        if(metric==null)reportId?.let{put("report_id",it)}
+        else{
+          put("raw_name",metric.substringBefore('\n'))
+          put("unit",metric.substringAfter('\n',""))
+        }
+      }
     }
     try{state=LoadState.Ready(repo.personalRecordsPage(path,params))}
     catch(error:CancellationException){throw error}
@@ -81,7 +88,7 @@ import java.time.ZoneId
               Text("${row.getString("tested_on")} · 报告第 ${row.getInt("page")} 页")
               if(!row.isNull("reference"))Text("报告参考范围 · ${row.getString("reference")}")
               TextButton(onClick={edit=row.toString()}){Text("编辑结果")}
-              TextButton(onClick={onReport(row.getString("report_id"))}){Text("打开报告原件")}
+              TextButton(onClick={onReport(row.getString("report_id"),row.getInt("page"))}){Text("打开报告原件")}
               if(indicator==null)TextButton(onClick={indicator=labIndicator(row)}){Text("看同项历次结果")}
             }
           }

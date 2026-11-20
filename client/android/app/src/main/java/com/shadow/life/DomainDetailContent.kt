@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -30,7 +31,7 @@ internal fun domainSectionHandled(detail:RecordDetail,section:DetailSection)=whe
   else->false
 }
 
-@Composable internal fun DomainDetailContent(detail:RecordDetail,onLink:(DetailLink)->Unit,onPurchaseLine:(PurchaseLineRef)->Unit={}){
+@Composable internal fun DomainDetailContent(detail:RecordDetail,onLink:(DetailLink)->Unit,preferences:Map<String,String> = emptyMap(),onPurchaseLine:(PurchaseLineRef)->Unit={}){
   val accent=detailAccent(detail.presentation)
   Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(20.dp)){
     when(detail.presentation){
@@ -40,9 +41,21 @@ internal fun domainSectionHandled(detail:RecordDetail,section:DetailSection)=whe
         if(detail.trend.isNotEmpty()){
           Text("${detail.title} · 最近 ${detail.trend.size} 次",style=MaterialTheme.typography.titleMedium)
           val points=detail.trend
+          val currentId=detail.assistantRef?.id?:detail.editSeed?.detailId
+          val current=points.indexOfFirst{it.id==currentId}
+          val latest=points.getOrNull(current)
+          val previous=points.getOrNull(current-1)
+          if(latest!=null){
+            Text(metricAssessment(detail.metrics.firstOrNull{it.id==currentId}?.key.orEmpty(),latest.value,latest.unit).label,
+              style=MaterialTheme.typography.bodySmall)
+            if(previous!=null&&previous.unit==latest.unit&&previous.sourceKind==latest.sourceKind){
+              val delta=latest.value-previous.value
+              Text("较上次同来源 "+(if(delta>0)"+" else "")+healthValueText(delta,latest.unit)+" "+unitLabel(latest.unit))
+            }
+          }
           Canvas(Modifier.fillMaxWidth().height(110.dp)){
             val low=points.minOf{it.value};val high=points.maxOf{it.value};val span=(high-low).takeIf{it>0}?:1.0
-            val path=Path();points.forEachIndexed{i,p->val x=if(points.size==1)size.width/2 else 8f+(size.width-16f)*i/(points.size-1);val y=if(high==low)size.height/2 else 10f+((high-p.value)/span*(size.height-20f)).toFloat();if(i==0)path.moveTo(x,y)else path.lineTo(x,y);drawCircle(accent,3.dp.toPx(),androidx.compose.ui.geometry.Offset(x,y))};drawPath(path,accent,style=Stroke(2.dp.toPx()))
+            val path=Path();points.forEachIndexed{i,p->val x=if(points.size==1)size.width/2 else 8f+(size.width-16f)*i/(points.size-1);val y=if(high==low)size.height/2 else 10f+((high-p.value)/span*(size.height-20f)).toFloat();if(i==0)path.moveTo(x,y)else path.lineTo(x,y);drawCircle(accent,if(i==current)6.dp.toPx() else 3.dp.toPx(),androidx.compose.ui.geometry.Offset(x,y))};drawPath(path,accent,style=Stroke(2.dp.toPx()))
           }
           Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(points.first().occurredOn,style=MaterialTheme.typography.labelSmall);Text(points.last().occurredOn,style=MaterialTheme.typography.labelSmall)}
           Text("范围 ${points.minOf{it.value}}–${points.maxOf{it.value}} ${points.first().unit} · 仅展示已记录数据",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
@@ -66,7 +79,30 @@ internal fun domainSectionHandled(detail:RecordDetail,section:DetailSection)=whe
         val groups=detail.sections.firstOrNull{it.title=="购买明细"}?.groups.orEmpty()
         if(groups.isNotEmpty()){
           Text("买了什么",style=MaterialTheme.typography.titleLarge)
-          groups.forEach{group->Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(group.title,Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);Text(group.facts.firstOrNull{it.label in setOf("份量","数量")}?.value.orEmpty(),color=accent)};group.facts.filter{it.label !in setOf("份量","数量")}.forEach{Text("${it.label}  ${it.value}",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)};detail.purchaseLines.firstOrNull{it.id==group.id}?.let{line->TextButton(onClick={onPurchaseLine(line)}){Text("转入物品、消耗品或库存")}};HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant.copy(alpha=.35f))}}
+          LifeCard{
+            groups.forEachIndexed{index,group->
+              val line=detail.purchaseLines.firstOrNull{it.id==group.id}
+              val quantity=group.facts.firstOrNull{it.label=="数量"||it.label=="份量"}?.value
+              val amount=group.facts.firstOrNull{it.label=="金额"}?.value
+              val unitPrice=group.facts.firstOrNull{it.label=="单价"}?.value
+              Row(Modifier.fillMaxWidth().then(if(line!=null)Modifier.clickable{onPurchaseLine(line)} else Modifier).padding(vertical=9.dp),
+                horizontalArrangement=Arrangement.spacedBy(12.dp)){
+                Column(Modifier.weight(1f)){
+                  Text(group.title,style=MaterialTheme.typography.titleMedium)
+                  unitPrice?.let{Text("单价 "+it,style=MaterialTheme.typography.bodySmall)}
+                  preferences[group.title]?.let{label->
+                    Text(label,style=MaterialTheme.typography.labelSmall,
+                      color=if(label=="避开")MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary)
+                  }
+                }
+                Column(horizontalAlignment=Alignment.End){
+                  Text(amount?:"—")
+                  quantity?.let{Text(it,style=MaterialTheme.typography.bodySmall)}
+                }
+              }
+              if(index<groups.lastIndex)HorizontalDivider()
+            }
+          }
         }
       }
       else->Unit

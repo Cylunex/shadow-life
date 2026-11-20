@@ -152,9 +152,11 @@ sealed interface WorkspaceOverview { val asOf:String
 }
 data class HealthProgression(val id:String,val title:String,val status:String,val reason:String,val nextDurationMinutes:Int?,val evidence:List<String>)
 data class BudgetProgress(val title:String,val amount:String,val currency:String,val spent:String)
-data class MoneyImportBatchSummary(val id:String,val name:String,val total:Int,val unconfirmed:Int,val duplicates:Int,val uncategorized:Int,val refundsUnlinked:Int)
-data class MoneyImportMonthSummary(val period:String,val unconfirmed:Int,val duplicates:Int,val uncategorized:Int,val refundsUnlinked:Int,val batches:List<MoneyImportBatchSummary>)
-data class MoneyImportCandidateSummary(val id:String,val revision:Int,val position:Int,val status:String,val raw:String,val entryType:String,val amount:String,val occurredOn:String,val timeZone:String,val counterparty:String,val category:String,val duplicateOf:String?,val appliedRules:List<String>,val linkedRecordId:String?=null)
+data class MoneyImportBatchSummary(val id:String,val name:String,val total:Int,val unconfirmed:Int,val duplicates:Int,val uncategorized:Int,val refundsUnlinked:Int,val platform:String="",val sourceAccount:String="")
+data class MoneyImportMonthSummary(val period:String,val unconfirmed:Int,val duplicates:Int,val uncategorized:Int,val refundsUnlinked:Int,val batches:List<MoneyImportBatchSummary>,val pending:List<MoneyPendingPreview> = emptyList(),val truncated:Boolean=false)
+data class MoneyPendingPreview(val id:String,val batchId:String,val source:String,val platform:String,val sourceAccount:String,
+  val counterparty:String,val on:String,val amount:String,val duplicate:Boolean,val categoryMissing:Boolean,val refund:Boolean,val needsData:Boolean)
+data class MoneyImportCandidateSummary(val id:String,val revision:Int,val position:Int,val status:String,val raw:String,val entryType:String,val amount:String,val occurredOn:String,val timeZone:String,val counterparty:String,val category:String,val duplicateOf:String?,val appliedRules:List<String>,val linkedRecordId:String?=null,val duplicateOfCandidate:String?=null)
 data class MoneyImportReviewSummary(val batchId:String,val candidates:List<MoneyImportCandidateSummary>,val rules:Map<String,String>)
 data class ProjectMilestone(val id:String,val title:String,val dueOn:String?,val state:String,val position:Int)
 data class ProjectAction(val id:String,val title:String,val dueOn:String?,val state:String,val revision:Int,val sourceState:String?,val scheduledAt:String?=null,val scheduledTimeZone:String?=null)
@@ -183,7 +185,7 @@ data class ReviewSummary(
   val evidence:List<ReviewEvidence> = emptyList(),val limitationItems:List<String> = emptyList()
 )
 data class PlanningWorkspace(val agenda:List<AgendaItem>,val projects:List<PlanSummary>,val ownedItems:List<OwnedItemSummary>,val reviews:List<ReviewSummary>,val truncated:Boolean,val asOf:String,val partialFailures:List<String> = emptyList(),val ownedItemsTruncated:Boolean=false,val ownedAttention:OwnedItemsResultDtoAttention?=null)
-data class LibrarySummary(val id:String,val title:String,val itemType:String,val state:String?,val revision:Int?)
+data class LibrarySummary(val id:String,val title:String,val itemType:String,val state:String?,val revision:Int?,val createdAt:String?=null,val source:String?=null,val excerpt:String?=null,val thumbnailId:String?=null)
 data class LibraryPage(val items:List<LibrarySummary>,val nextCursor:String?,val asOf:String)
 data class DetailFact(val label:String,val value:String)
 data class DetailLink(val kind:String,val id:String,val title:String,val supporting:String?=null)
@@ -206,16 +208,17 @@ sealed interface EditSeed { val domain:LifeDomain;val detailId:String
 }
 data class CorrectionDraft(val primary:String,val secondary:String,val note:String,val date:String,val option:String,val reason:String)
 enum class DetailPresentation { Generic, Meal, Money, HealthMetric, Workout, Sleep, Activity, Habit, Travel, Library }
-data class DetailAsset(val versionId:String,val mediaType:String,val title:String)
+data class DetailAsset(val versionId:String,val mediaType:String,val title:String,val role:String?=null)
 data class DetailMetric(val id:String,val key:String,val label:String,val value:String,val unit:String,val derived:Boolean)
 data class SleepStage(val label:String,val minutes:Int)
+data class WorkoutExerciseReference(val id:String,val unit:String,val equipment:String)
 data class DishPurchase(val shop:String,val source:String,val items:List<Pair<String,String>>)
 data class MealDetailInfo(val id:String,val type:String,val date:String?,val time:String?,val note:String?)
 data class PurchaseLineRef(val id:String,val recordId:String,val name:String,val occurredOn:String,val quantity:String?,val unit:String?)
 data class RecordDetail(
   val title:String,val state:String?,val revision:Int?,val sections:List<DetailSection>,val editSeed:EditSeed?=null,val actions:List<DetailAction> = emptyList(),
   val presentation:DetailPresentation=DetailPresentation.Generic,val heroValue:String?=null,val heroSupporting:String?=null,val travelSchedule:TravelDetailSchedule?=null,
-  val libraryVisionSourceAssetId:String?=null,val libraryVisionRetryJobId:String?=null,val assets:List<DetailAsset> = emptyList(),val mealIntakes:List<LifeRecordResultDtoMealItemsEntry> = emptyList(),val metrics:List<DetailMetric> = emptyList(),val sleepStages:List<SleepStage> = emptyList(),val trend:List<HealthTrendPoint> = emptyList(),val libraryItemId:String?=null,val consumptionRecordId:String?=null,val linkedMealIds:List<String> = emptyList(),val dishPurchase:DishPurchase?=null,val meal:MealDetailInfo?=null,val purchaseLines:List<PurchaseLineRef> = emptyList()
+  val libraryVisionSourceAssetId:String?=null,val libraryVisionRetryJobId:String?=null,val assets:List<DetailAsset> = emptyList(),val mealIntakes:List<LifeRecordResultDtoMealItemsEntry> = emptyList(),val metrics:List<DetailMetric> = emptyList(),val sleepStages:List<SleepStage> = emptyList(),val trend:List<HealthTrendPoint> = emptyList(),val libraryItemId:String?=null,val consumptionRecordId:String?=null,val linkedMealIds:List<String> = emptyList(),val dishPurchase:DishPurchase?=null,val meal:MealDetailInfo?=null,val purchaseLines:List<PurchaseLineRef> = emptyList(),val assistantRef:ResourceRef?=null,val workoutExercises:Map<String,WorkoutExerciseReference> = emptyMap()
 )
 
 @Serializable data object TodayRoute
@@ -226,7 +229,7 @@ data class RecordDetail(
 @Serializable data class PlansRoute(val reviews:Boolean=false)
 @Serializable data object LibraryRoute
 @Serializable data class WorkspaceRoute(val domain:String,val tab:String="",val focus:String="")
-@Serializable data class DetailRoute(val domain:String,val id:String,val title:String="")
+@Serializable data class DetailRoute(val domain:String,val id:String,val title:String="",val originalPage:Int=0)
 @Serializable data class PlanDetailRoute(val id:String)
 @Serializable data class OwnedItemDetailRoute(val id:String)
 @Serializable data class ReviewDetailRoute(val id:String)

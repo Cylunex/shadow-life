@@ -138,6 +138,11 @@ internal fun LazyListScope.mealDetailItems(
             else Text("${shown(energy.amount)} kcal",style=MaterialTheme.typography.headlineSmall)
             if(energy!=null)Text(mealCoverage(energy,consumed),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             val visible=totals.filter{it.key in setOf("protein_g","carb_g","fat_g")}
+            fun macro(key:String)=visible.firstOrNull{it.key==key}?.amount?.toDouble()
+            if(visible.size==3&&visible.all{it.known==consumed}){
+                NutrientBar(MealNutrition(null,macro("protein_g"),macro("fat_g"),macro("carb_g"),consumed.toInt(),consumed.toInt(),
+                    visible.any{it.estimated>0},true))
+            }
             FlowRow(horizontalArrangement=Arrangement.spacedBy(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
                 visible.forEach{value->
                     val (label,unit)=mealNutrients.getValue(value.key)
@@ -184,10 +189,12 @@ internal fun mealCoverage(value:MealDetailTotal,consumed:Long):String {
                 Text(listOfNotNull(description,fraction,"估算".takeIf{!row.uneaten&&row.estimated}).joinToString(" · "),
                     style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 row.stall?.takeIf(String::isNotBlank)?.let{Text(it,style=MaterialTheme.typography.bodySmall)}
+                val groups=row.groups+listOfNotNull("主食".takeIf{row.staple})
+                if(groups.isNotEmpty())Text(groups.joinToString(" · "),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.primary)
             }
             if(!row.uneaten)row.nutrients["energy_kcal"]?.let{Text("${shown(it)} kcal",style=MaterialTheme.typography.labelLarge)}
         }
-        val hasDetails=row.basis!=null||row.weightBasis!=null||row.merchant!=null||row.groups.isNotEmpty()||row.staple||
+        val hasDetails=row.basis!=null||row.weightBasis!=null||row.merchant!=null||
             !row.uneaten&&row.nutrients.keys.any{it!="energy_kcal"}
         if(hasDetails)TextButton(onClick={expanded=!expanded}){Text(if(expanded)"收起依据" else "营养与依据")}
         if(expanded){
@@ -196,8 +203,6 @@ internal fun mealCoverage(value:MealDetailTotal,consumed:Long):String {
                 "payment_derived"->Text("按实付与档口单价估算克重",style=MaterialTheme.typography.bodySmall)
                 "measured_net"->Text("依据实测净重",style=MaterialTheme.typography.bodySmall)
             }
-            val labels=row.groups+listOfNotNull("主食".takeIf{row.staple})
-            if(labels.isNotEmpty())Text(labels.joinToString(" · "),style=MaterialTheme.typography.bodySmall)
             if(!row.uneaten)FlowRow(horizontalArrangement=Arrangement.spacedBy(12.dp)){
                 mealNutrients.filterKeys{it!="energy_kcal"}.forEach{(key,label)->
                     row.nutrients[key]?.let{Text("${label.first} ${shown(it)} ${label.second}",style=MaterialTheme.typography.bodySmall)}

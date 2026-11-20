@@ -79,11 +79,13 @@ class MoneyReconciliationTest {
           onReturns = {},
           refundCandidates = LoadState.Loading,
           onSearchRefunds = {},
-          importPendingId = null
+          importPendingId = null,
+          accountId = "test"
         )
       }
     }
 
+    compose.onNodeWithText("查看导入批次").performClick()
     compose.onNodeWithText(batch.name).performClick()
     compose.onNodeWithText("只看待处理").assertExists()
 
@@ -115,6 +117,7 @@ class MoneyReconciliationTest {
         )
       }
     }
+    compose.onNodeWithText("查看导入批次").performClick()
     compose.onNodeWithText(batch.name).performClick()
     compose.onNodeWithText("修改").performClick()
     compose.onNodeWithText("精确金额（CNY）").performTextReplacement("65.80")
