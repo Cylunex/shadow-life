@@ -12,6 +12,9 @@ test("meal paging preserves the date filter and opaque cursor",()=>{
   const params=new URL(request.url).searchParams;
   assert.equal(params.get("occurred_on"),"2026-11-18");
   assert.equal(params.get("cursor"),"opaque+/==");
+  assert.equal(params.has("with_evidence"),false);
+  const evidence=buildCapabilityHttpRequest("https://life.example.com","life.list_meals",{limit:10,with_evidence:"1"});
+  assert.equal(new URL(evidence.url).searchParams.get("with_evidence"),"1");
 });
 test("unknown outcomes can be recovered with the original validated command id",()=>{const request=buildCapabilityHttpRequest("https://life.example.com","operations.find",{command_id:"cmd_transport_12345678"});assert.equal(request.url,"https://life.example.com/api/operations/by-command/cmd_transport_12345678");assert.throws(()=>buildCapabilityHttpRequest("https://life.example.com","operations.find",{command_id:"bad-key"}));});
 test("date-only history queries need both boundaries and preserve domain filters",()=>{const request=buildCapabilityHttpRequest("https://life.example.com","life.search",{types:["meals"],from_on:"2026-09-21",to_on_exclusive:"2026-09-22"});const url=new URL(request.url);assert.equal(url.searchParams.has("q"),false);assert.equal(url.searchParams.get("types"),"meals");assert.throws(()=>buildCapabilityHttpRequest("https://life.example.com","life.search",{}));assert.throws(()=>buildCapabilityHttpRequest("https://life.example.com","life.search",{from_on:"2026-09-21"}));});
