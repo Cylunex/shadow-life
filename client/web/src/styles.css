@@ -680,8 +680,6 @@ button.secondary,.soft-button { color:#bdc7d2; border-color:var(--line-strong); 
 .editor-card,.compact-form,.catalog-form,.workout-form,.travel-form,.library-upload { margin:12px 0 18px; padding:18px; border-color:var(--line); border-radius:16px; background:#0d141d; box-shadow:none; }
 .form-context,.source-guidance { color:var(--muted); font-size:12px; line-height:1.6; }
 .life-projects:not(.show-editor)>.compact-form,.life-projects:not(.show-action)>.review-range,.meal-planning:not(.show-editor)>.compact-form:not(.stock-form),.travel-panel:not(.show-tools)>.travel-grid:last-child { display:none; }
-.catalog-grid.editor-none>form { display:none; }
-.catalog-grid.editor-food>form:nth-of-type(n+2),.catalog-grid.editor-recipe>form:not(:nth-of-type(2)),.catalog-grid.editor-meal>form:not(:nth-of-type(3)) { display:none; }
 .travel-planning.editor-none>.travel-grid { display:none; }
 .travel-planning.editor-day>.travel-grid>section,.travel-planning.editor-publish>.travel-grid>form,.travel-planning.editor-publish>.travel-grid>section>form:last-child,.travel-planning.editor-segment>.travel-grid>form,.travel-planning.editor-segment>.travel-grid>section>form:first-child { display:none; }
 .plan-picker { max-width:360px; }

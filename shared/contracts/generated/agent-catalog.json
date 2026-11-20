@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "5f2094fd8eaacdb1f0cf2b167f9cd1b4851c465c63b6165f50141a719aa0a8c7",
+  "catalog_revision": "c496fbecb6f6d2e72c9031c56cc9f287f1076c142646f3597d05b70d9d4c186e",
   "terms": [
     {
       "id": "activity_capture",
@@ -1998,6 +1998,22 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 200
+          },
+          "meal_types": {
+            "description": "Return only meal records of these exact types, within the authorized scenario and date range. Counts and continuation apply to matching records.",
+            "minItems": 1,
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "breakfast",
+                "lunch",
+                "dinner",
+                "snack",
+                "other"
+              ]
+            }
           },
           "from_on": {
             "type": "string",

@@ -49,7 +49,7 @@ function AudioClip({row,headers}:{row:Row;headers:HeadersInit}){
   useEffect(()=>()=>{if(url)URL.revokeObjectURL(url);},[url]);
   return url?<audio controls autoPlay src={url+"#t="+row.start_ms/1000+","+row.end_ms/1000} onTimeUpdate={e=>{if(e.currentTarget.currentTime>=row.end_ms/1000)e.currentTarget.pause();}}/>:<button type="button" disabled={!row.asset_version_id} onClick={async()=>{try{const r=await fetch("/api/assets/"+row.asset_version_id,{headers});if(!r.ok)throw Error("原声读取失败");setUrl(URL.createObjectURL(await r.blob()));}catch(e){setError(String(e));}}}>{error||(!row.asset_version_id?"原声不可用":"播放选段")}</button>;
 }
-export function PersonalRecords({headers,execute,capabilities,sections}:{sections?:string[];headers:HeadersInit;execute:Execute;capabilities:ReadonlySet<string>}){
+export function PersonalRecords({headers,execute,capabilities,sections,mealDay,onMealRecorded}:{mealDay?:string;onMealRecorded?:()=>void;sections?:string[];headers:HeadersInit;execute:Execute;capabilities:ReadonlySet<string>}){
   const link=new URLSearchParams(location.search).get("container");
   const available=groups.filter(g=>(!sections||sections.includes(g.title))&&g.actions.some(a=>capabilities.has(a.cap)));
   const [group,setGroup]=useState(link?"收纳位置":""),[tab,setTab]=useState(0),[open,setOpen]=useState(!!link);
@@ -86,10 +86,14 @@ export function PersonalRecords({headers,execute,capabilities,sections}:{section
   }
   const portion: ReturnType<typeof merchantDishProfileSchema.parse>["portion"] =
     picked?.id===form.food_ref_id?.trim()&&picked?.dish===form.dish?.trim()?picked?.profile?.portion:undefined;
+  function fieldValue(action:Action,f:Field):string{
+    const diaryDate=action.cap==="life.record_meal"&&f.key==="occurred_on"?mealDay:undefined;
+    return form[f.key]??diaryDate??initial(f);
+  }
   function build(a:Action){
     const payload:Row={};
     for(const f of a.fields){
-      const value=(form[f.key]??initial(f)).trim();
+      const value=fieldValue(a,f).trim();
       if(!value)continue;
       if(a.cap==="life.save_offline_interval"&&f.type==="instant"){
         const zone=form.time_zone||Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -116,7 +120,17 @@ export function PersonalRecords({headers,execute,capabilities,sections}:{section
       setData({...d,queryDay:payload.date,queryZone:payload.time_zone});setRows(prev=>more?[...prev,...list]:list);setSelected([]);
       setNext(d.next_cursor?{cursor:d.next_cursor}:d.next_offset!=null?{offset:d.next_offset}:typeof d.next==="string"?{[a.nextParam??"after_id"]:d.next}:d.next&&typeof d.next==="object"?d.next:(a.rows==="containers"?d.more_containers:d.more_items)?{offset:Number(more?.offset??0)+list.length}:undefined);
       if(!list.length)setMessage("没有匹配的记录");
-    }else{const receipt=await execute(a.cap as WriteCapabilityName,payload,"personal:"+a.cap);if(serial.current!==id)return;setMessage("已保存 · "+receipt.resources.map(r=>r.id).join("、"));setForm(p=>({...p,id:"",case_id:"",expected_revision:""}));}
+    }else{
+      const receipt=await execute(a.cap as WriteCapabilityName,payload,"personal:"+a.cap);
+      if(a.cap==="life.record_meal")onMealRecorded?.();
+      if(serial.current!==id)return;
+      setMessage("已保存 · "+receipt.resources.map(r=>r.id).join("、"));
+      setForm(current=>{
+        const next:Record<string,string>={...current,id:"",case_id:"",expected_revision:""};
+        if(a.cap==="life.record_meal"&&current.occurred_on===payload.occurred_on)delete next.occurred_on;
+        return next;
+      });
+    }
   }catch(e){if(serial.current===id)setMessage(e instanceof Error?e.message:String(e));}finally{if(serial.current===id)setBusy(false);}}
   async function book(r:Row,existing?:Row){try{setBusy(true);const input={reservation_type:"rail",title:[r.service_number,r.origin,r.destination].filter(Boolean).join(" ")||"铁路预订",state:"confirmed",visibility:"private",
     ...Object.fromEntries(["confirmation_code","starts_at","origin","destination","service_number"].filter(k=>r[k]).map(k=>[k,r[k]])),source:{kind:"text",external_id:`library:${r.library_item_id}:r${r.library_revision}`,captured_on:date(),original_text:r.quote}};
@@ -141,7 +155,7 @@ export function PersonalRecords({headers,execute,capabilities,sections}:{section
         }}/></label>)}</fieldset>;
       if(recordingSeconds>0&&["start_ms","end_ms"].includes(f.key))return <label key={f.key}>{f.label} <output>{form[f.key]??"0"} 秒</output><input type="range" min={0} max={recordingSeconds} step="0.1" value={form[f.key]??0} onChange={e=>field(f.key,e.target.value)}/></label>;
       if(f.key==="purchase_item_id"&&picked&&picked.purchase_item_id===form[f.key]||f.key==="segment_id"&&recordingSeconds>0)return <p key={f.key}>{f.label} · {picked?.name??picked?.title??picked?.raw_name}</p>;
-      return <label key={f.key}>{f.label}{f.type==="choice"||f.type==="bool"?<select aria-label={f.label} value={form[f.key]??initial(f)} onChange={e=>field(f.key,e.target.value)}><option value="">请选择</option>{Object.entries(f.choices??{true:"是",false:"否"}).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select>:hints[f.type]||f.type==="long"?<textarea value={form[f.key]??initial(f)} placeholder={hints[f.type]} onChange={e=>field(f.key,e.target.value)}/>:<input type={f.type==="date"?"date":f.type==="instant"?"datetime-local":["int","seconds","decimal"].includes(f.type)?"number":"text"} step="any" value={form[f.key]??initial(f)} onChange={e=>field(f.key,e.target.value)}/>}</label>;
+      return <label key={f.key}>{f.label}{f.type==="choice"||f.type==="bool"?<select aria-label={f.label} value={fieldValue(active,f)} onChange={e=>field(f.key,e.target.value)}><option value="">请选择</option>{Object.entries(f.choices??{true:"是",false:"否"}).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select>:hints[f.type]||f.type==="long"?<textarea value={fieldValue(active,f)} placeholder={hints[f.type]} onChange={e=>field(f.key,e.target.value)}/>:<input type={f.type==="date"?"date":f.type==="instant"?"datetime-local":["int","seconds","decimal"].includes(f.type)?"number":"text"} step="any" value={fieldValue(active,f)} onChange={e=>field(f.key,e.target.value)}/>}</label>;
     })}
     {active.cap==="life.record_meal"&&portion&&!form.amount_g?.trim()&&<label>
       <input type="checkbox" checked={form.use_portion==="true"} onChange={e=>field("use_portion",String(e.target.checked))}/>

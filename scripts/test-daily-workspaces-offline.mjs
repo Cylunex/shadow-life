@@ -61,14 +61,20 @@ await withOfflinePostgres(async url=>{
     await page.locator('.stock-attention-list').getByRole('button',{name:'校正'}).click();await page.getByLabel('实际数量').fill('0');await page.getByRole('button',{name:'保存库存批次',exact:true}).click();await page.getByText('当前筛选下没有已加载批次。',{exact:true}).waitFor();
     await page.getByLabel('筛选已加载批次').selectOption('empty');await page.waitForFunction(()=>document.querySelectorAll('.stock-attention-list li').length===2);assert.equal((await pool.query("select note from food_stock_lots where name='临期牛奶'")).rows[0].note,'保留批次备注');await screenshot('food-desktop');console.log('PASS food expiry filter, zero stock and visible edit form');
     await navigate('record','food');
+    const diary=page.locator('.meal-diary');
+    const diaryDate=diary.getByLabel('查看日期');
+    await diaryDate.fill(offset(-1));
+    await diary.getByText('当天还没有餐次。').waitFor();
     await page.locator('summary').filter({hasText:/^门店食品库$/u}).click();
     const canteen=page.locator('.personal-records-form');
     await canteen.getByLabel('门店（可用常去食堂）').fill('合成食堂');
     await canteen.getByRole('button',{name:'查询',exact:true}).click();
     await canteen.getByRole('button',{name:'记下这道菜'}).click();
+    assert.equal(await canteen.getByLabel('发生日期').inputValue(),offset(-1));
     assert.equal(await canteen.getByRole('checkbox',{name:/按档案记 1 勺/u}).isChecked(),true);
     await canteen.getByRole('button',{name:'记入本次餐食'}).click();
     await canteen.getByRole('status').filter({hasText:'已保存'}).waitFor();
+    await diary.getByRole('link',{name:/清蒸豆腐/u}).waitFor();
     const snapshot=(await pool.query('select quantity,unit,amount_g,calcium_mg,iron_mg,provenance,estimate,evidence_note from intake_items where food_ref_id=$1',
       [dish.actual_values.food_id])).rows[0];
     assert.deepEqual([Number(snapshot.quantity),snapshot.unit,Number(snapshot.amount_g),Number(snapshot.calcium_mg),Number(snapshot.iron_mg)],[1,'勺',80,40,2]);
@@ -76,12 +82,40 @@ await withOfflinePostgres(async url=>{
     assert.equal(snapshot.estimate,true);
     assert.match(snapshot.evidence_note,/合成称重/u);
     await canteen.getByLabel('本次估重（克）').fill('95');
+    await canteen.getByLabel('发生日期').fill(offset(-3));
+    await diaryDate.fill(offset(-2));
+    assert.equal(await canteen.getByLabel('发生日期').inputValue(),offset(-3));
     await canteen.getByRole('button',{name:'记入本次餐食'}).click();
     await canteen.getByRole('status').filter({hasText:'已保存'}).waitFor();
-    const override=(await pool.query('select quantity,calcium_mg,iron_mg from intake_items where food_ref_id=$1 and amount_g=95',
+    const override=(await pool.query('select quantity,calcium_mg,iron_mg,m.occurred_on::text as occurred_on from intake_items i join meals m on m.id=i.meal_id where food_ref_id=$1 and amount_g=95',
       [dish.actual_values.food_id])).rows[0];
-    assert.deepEqual(override,{quantity:null,calcium_mg:null,iron_mg:null});
+    assert.deepEqual(override,{quantity:null,calcium_mg:null,iron_mg:null,occurred_on:offset(-3)});
+    assert.equal(await canteen.getByLabel('发生日期').inputValue(),offset(-2));
     console.log('PASS canteen quick entry snapshots the chosen serving and leaves nutrition unknown for a manual weight');
+    // This identity can record meals from recipes without editing the underlying catalog.
+    await page.route('**/api/capabilities',async route=>{
+      const response=await route.fetch(),body=await response.json();
+      body.capabilities=body.capabilities.filter(item=>!['life.save_food','life.save_recipe'].includes(item.name));
+      await route.fulfill({response,json:body});
+    });
+    await page.reload();
+    const catalog=page.locator('.food-panel');
+    await catalog.getByRole('button',{name:'＋ 按食谱记餐'}).click();
+    const recipeMeal=catalog.locator('.recipe-meal');
+    assert.equal(await recipeMeal.getByLabel('用餐日').inputValue(),offset(-2));
+    await recipeMeal.getByRole('combobox',{name:/^食谱/u}).selectOption({label:'牛奶粥 · v1'});
+    await recipeMeal.getByLabel('实际食用比例').fill('0.5');
+    await diaryDate.fill(offset(-4));
+    assert.equal(await recipeMeal.getByLabel('用餐日').inputValue(),offset(-4));
+    await recipeMeal.getByLabel('用餐日').fill(offset(-5));
+    await diaryDate.fill(offset(-6));
+    assert.equal(await recipeMeal.getByLabel('用餐日').inputValue(),offset(-5));
+    await diaryDate.fill(offset(-5));
+    assert.equal(await recipeMeal.getByLabel('实际食用比例').inputValue(),'0.5');
+    await recipeMeal.getByRole('button',{name:'记录实际用餐'}).click();
+    await diary.getByRole('link',{name:/临期牛奶/u}).waitFor();
+    await page.unroute('**/api/capabilities');
+    console.log('PASS diary backfill from the canteen and recipe, manual date overrides and receipt refresh');
     await navigate('record','items');await page.getByLabel('售后期限').selectOption('return');await page.getByRole('button',{name:'合成耳机',exact:true}).waitFor();assert.equal(await page.locator('.owned-item-list li').count(),1);
     await page.getByLabel('搜索已加载物品').fill('抽屉');assert.equal(await page.locator('.owned-item-list li').count(),1);await screenshot('items-desktop');console.log('PASS item deadline and location filters exclude returned items');
     await navigate('plan','budget');await page.getByLabel('查看月份').fill('2026-10');await page.getByText('123.45 / 1000.00 CNY',{exact:true}).waitFor();await page.getByText('金额未记录',{exact:true}).waitFor();
@@ -110,6 +144,6 @@ await withOfflinePostgres(async url=>{
     for(const [tab,section,name] of [['plan','meals','food'],['record','items','items'],['plan','budget','money']]){await navigate(tab,section);if(name==='money')await page.getByLabel('查看月份').fill('2026-10');await page.locator(name==='food'?'.attention-toolbar':name==='items'?'.owned-item-list':'.money-planning .plan-grid').waitFor();await screenshot(`${name}-narrow`);}
     const itinerary=renderOfflineItinerary({trip:{title:'合成离线旅行',starts_on:'2026-10-22',ends_on:'2026-10-23',time_zone:'Asia/Shanghai'},day_plans:[],segments:[{origin:'出发点',destination:'目的地',mode:'rail',starts_at:'2026-10-21T08:00:00Z',ends_at:'2026-10-21T10:00:00Z'}],reservations:[{title:'两晚住宿',reservation_type:'hotel',state:'confirmed',starts_at:'2026-10-21T06:00:00Z',ends_at:'2026-10-23T04:00:00Z',origin:null,destination:null,confirmation_code:'EXAMPLE'}],visits:[]},{id:'list_export',trip_id:'trip_export',revision:1,items:[{id:'check_export',title:'证件',state:'packed',note:null}]});
     await writeFile(`${output}/travel-offline.html`,itinerary);await page.setContent(itinerary);await context.setOffline(true);await page.getByText('☑ 证件（已备好）',{exact:true}).waitFor();await screenshot('travel-narrow');await page.setViewportSize({width:1440,height:1000});await screenshot('travel-desktop');console.log('PASS standalone itinerary stays readable without network');
-    assert.deepEqual(errors,[]);assert.deepEqual(external,[]);await writeFile(`${output}/result.json`,JSON.stringify({passed:true,cases:['expiry and stock correction','canteen quick-entry serving and manual weight','item deadline and location filters','gross budget and revision','occurrence evidence preservation','unknown recurring amount','65-row pagination and retry','query binding and search race','reader response race and automatic reading position','desktop and 390px layouts','standalone offline itinerary'],pageErrors:errors,externalRequests:external},null,2));console.log(`Browser artifacts: ${output}`);
+    assert.deepEqual(errors,[]);assert.deepEqual(external,[]);await writeFile(`${output}/result.json`,JSON.stringify({passed:true,cases:['expiry and stock correction','canteen quick-entry serving and manual weight','backdated canteen and recipe meals in the selected diary','item deadline and location filters','gross budget and revision','occurrence evidence preservation','unknown recurring amount','65-row pagination and retry','query binding and search race','reader response race and automatic reading position','desktop and 390px layouts','standalone offline itinerary'],pageErrors:errors,externalRequests:external},null,2));console.log(`Browser artifacts: ${output}`);
   }catch(error){if(debugPage){await debugPage.screenshot({path:`${output}/failure.png`,fullPage:true}).catch(()=>{});await writeFile(`${output}/failure.html`,await debugPage.content()).catch(()=>{});console.log(`Failure artifacts: ${output}`);}throw error;}finally{if(browser)await browser.close();if(web)await web.close();if(server)await new Promise(resolve=>server.close(resolve));await unitOfWork.close();}
 });

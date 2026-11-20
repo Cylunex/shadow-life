@@ -118,7 +118,7 @@ test("F09 API: a different instance requests stop and the live owner's heartbeat
 });
 
 test("personal CLI describes, discovers and executes the same read operations against a migrated Life API",pgOnly,async t=>{
-  const {unitOfWork,executor,queries,context}=await fixture(t);
+  const {unitOfWork,executor,queries,context,run}=await fixture(t);
   const app=createApp({unitOfWork,executor,queries,developmentAuth:true});
   const server=serve({fetch:app.fetch,hostname:"127.0.0.1",port:0});
   if(!server.listening)await new Promise<void>(resolve=>server.once("listening",resolve));
@@ -131,6 +131,14 @@ test("personal CLI describes, discovers and executes the same read operations ag
   const input=join(dir,"input.json");
   const names=["health.workout_progression","life.meal_planning","travel.workspace","library.records","life.merchant_menu"];
   const catalog=await call("catalog");
+  assert.ok(catalog.find((tool:{name:string})=>tool.name==="agent.context")?.inputSchema.properties.meal_types);
+  for(const meal_type of ["lunch","dinner"]){
+    await run("life.record_meal",{occurred_on:"2026-09-10",time_zone:"Asia/Shanghai",meal_type,items:[{name:"合成米饭",estimate:false}]});
+  }
+  await writeFile(input,JSON.stringify({scenario:"daily",from_on:"2026-09-10",to_on_exclusive:"2026-09-11",meal_types:["lunch"],response_format:"detailed"}));
+  const mealContext=await call("call","agent.context",input);
+  assert.equal(mealContext.coverage.matched_records,1);
+  assert.deepEqual(mealContext.records.map((record:{facts:{meal_type:string}})=>record.facts.meal_type),["lunch"]);
   await writeFile(input,JSON.stringify({names,read_only:true,limit:20}));
   const discovered=await call("call","agent.discover",input);
   for(const name of names){

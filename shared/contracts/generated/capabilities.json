@@ -103783,6 +103783,22 @@
             "minLength": 1,
             "maxLength": 200
           },
+          "meal_types": {
+            "description": "Return only meal records of these exact types, within the authorized scenario and date range. Counts and continuation apply to matching records.",
+            "minItems": 1,
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "breakfast",
+                "lunch",
+                "dinner",
+                "snack",
+                "other"
+              ]
+            }
+          },
           "from_on": {
             "type": "string",
             "format": "date",
@@ -103919,6 +103935,22 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 200
+          },
+          "meal_types": {
+            "description": "Return only meal records of these exact types, within the authorized scenario and date range. Counts and continuation apply to matching records.",
+            "minItems": 1,
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "breakfast",
+                "lunch",
+                "dinner",
+                "snack",
+                "other"
+              ]
+            }
           },
           "from_on": {
             "type": "string",

@@ -1,11 +1,12 @@
 import { z } from 'zod';
 import { agentProfileSchema, agentScenarioNameSchema } from './agent-schemas.js';
-import { agentObjectReferenceSchema, agentMemoriesResultSchema, ianaTimeZone, instant, localDate, storedAmount } from './schemas.js';
+import { agentObjectReferenceSchema, agentMemoriesResultSchema, ianaTimeZone, instant, localDate, mealViewSchema, storedAmount } from './schemas.js';
 
 export const agentContextInputSchema = z.object({
   scenario: agentScenarioNameSchema.optional().describe('Narrows record kinds: daily=meal/purchase/measurement, spending=purchase/money, health=measurement/workout, travel=trip, library=library_item, planning=meal/purchase/money. Never grants effects.'),
   profile: agentProfileSchema.optional().describe('Additional narrowing only; MCP owns the configured profile.'),
   query: z.string().trim().min(1).max(200).optional().describe('Literal case-insensitive substring of names, notes and source text; no natural-language classifier or SQL wildcard syntax.'),
+  meal_types: z.array(mealViewSchema.shape.meal_type).min(1).max(5).optional().describe('Return only meal records of these exact types, within the authorized scenario and date range. Counts and continuation apply to matching records.'),
   from_on: localDate.optional(), to_on_exclusive: localDate.optional(),
   time_zone: ianaTimeZone.default('Asia/Shanghai').describe('Timestamps use this local date; date-only facts retain their stored date. Library uses document_date or local creation date; trips use starts_on.'),
   object_refs: z.array(agentObjectReferenceSchema).max(20).default([]).describe('Exact current effective revisions; Library permits immutable historical revisions. Unavailable references fail uniformly. With other filters, their intersection is returned.'),
@@ -15,7 +16,7 @@ export const agentContextInputSchema = z.object({
   byte_budget: z.number().int().min(2048).max(65536).default(16000).describe('Actual UTF-8 JSON bytes, including metadata and continuation; whole records only.'),
   offset: z.number().int().min(0).max(10000).default(0).describe('Continue with the same filters and next_offset. Each page revalidates current facts and is a fresh snapshot.')
 }).strict().superRefine((value, context) => {
-  if (!value.scenario && !value.query && !value.from_on && !value.object_refs.length && !value.memory_keys.length) context.addIssue({ code: 'custom', message: 'A scenario, query, complete date range, object reference or memory key is required' });
+  if (!value.scenario && !value.query && !value.meal_types && !value.from_on && !value.object_refs.length && !value.memory_keys.length) context.addIssue({ code: 'custom', message: 'A scenario, query, meal type, complete date range, object reference or memory key is required' });
   if ((value.from_on === undefined) !== (value.to_on_exclusive === undefined)) context.addIssue({ code: 'custom', path: ['to_on_exclusive'], message: 'Both date endpoints are required' });
   if (value.from_on && value.to_on_exclusive && value.from_on >= value.to_on_exclusive) context.addIssue({ code: 'custom', path: ['to_on_exclusive'], message: 'Exclusive end must follow start' });
   if (new Set(value.object_refs.map(ref => `${ref.kind}:${ref.id}:${ref.revision}`)).size !== value.object_refs.length) context.addIssue({ code: 'custom', path: ['object_refs'], message: 'References must be unique' });

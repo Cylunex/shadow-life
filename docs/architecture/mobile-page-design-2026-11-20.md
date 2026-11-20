@@ -65,6 +65,8 @@
 
 例如午餐有三样菜，只知道两样的热量，页面写「已记录 420 kcal · 2／3 项有热量」。点一行即可看到哪样缺数据；「基本记全」只表达用户对当天记录的判断。手动记一顿无需先关联支付。菜品库已支持采用常用份量、档口营养及出处，本轮把这条路径接进主表单。[菜品库](../../client/android/app/src/main/java/com/shadow/life/NativeCanteenProfiles.kt) · [餐次详情](../../client/android/app/src/main/java/com/shadow/life/MealDetailContent.kt) · [现有逐项更正](../../client/android/app/src/main/java/com/shadow/life/MealIntakeEditor.kt)
 
+Web 饮食日记的「记下这道菜」和「按食谱记餐」默认采用当前浏览日期。补记时可以直接保存到昨天，也可以在草稿里另选日期。保存成功后日记重新读取该日记录。Fork Log 支持把食物或整餐放到指定日期和餐别，Life 将这个可见的日期选择用在已有的门店菜品和食谱入口。[Fork Log](https://github.com/amiv1/ForkLog#-fork-highlights)
+
 ## 消费
 
 | 栏目 | 页面结构与操作 |

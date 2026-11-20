@@ -10,7 +10,8 @@ const textArray=(values:readonly string[])=>sql`array(select jsonb_array_element
 
 type Database=Pick<NodePgDatabase<typeof schema>,'execute'>;
 export async function readAgentContext(database:Database, subjectId:string, options:AgentContextReadOptions):Promise<AgentContextReadData>{
-  const {input,kinds}=options, include=(kind:string)=>kinds.includes(kind as typeof kinds[number]);
+  const {input,kinds}=options;
+  const include=(kind:typeof kinds[number])=>kinds.includes(kind) && (!input.meal_types || kind==='meal');
   const refs=sql`${JSON.stringify(input.object_refs)}::jsonb`, query=input.query?.toLowerCase()??'';
   // One statement = one MVCC snapshot for validity, projections, counts, memories and as_of.
   const result=await database.execute<Record<string,unknown>&AgentContextReadData>(sql`
@@ -23,6 +24,7 @@ export async function readAgentContext(database:Database, subjectId:string, opti
         coalesce(m.note,'')||' '||m.meal_type||' '||coalesce((select string_agg(i.name||' '||coalesce(i.free_text,''),' ') from intake_items i where i.meal_id=m.id and i.effective),'') searchable,
         left(coalesce(m.note,''),1000) excerpt,jsonb_build_object('meal_type',m.meal_type,'nutrition','read_detail_for_recorded_values') facts
         from meals m where ${include('meal')} and m.subject_id=${subjectId} and m.state='active'
+          ${input.meal_types ? sql`and m.meal_type = any(${textArray(input.meal_types)})` : sql``}
       union all
       select 'purchase',p.id,p.revision,'meals',left(coalesce(p.merchant,p.note,'购买记录'),150),p.occurred_on,p.occurred_at,p.time_zone,
         coalesce(s.kind,'manual'),case when ${options.includeMoney} then p.amount::text end,case when ${options.includeMoney} then p.currency end,p.record_id,
