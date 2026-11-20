@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -105,8 +106,8 @@ import java.time.ZoneId
   var startTime by rememberSaveable{mutableStateOf(row?.optNullableString("started_at")?.let{episodeTime(it,zone)}.orEmpty())}
   var endTime by rememberSaveable{mutableStateOf(row?.optNullableString("ended_at")?.let{episodeTime(it,zone)}.orEmpty())}
   var note by rememberSaveable{mutableStateOf(row?.optNullableString("note").orEmpty())}
-  var points by rememberSaveable{
-    mutableStateOf(ArrayList(row?.optJSONArray("points")?.trainingObjects().orEmpty().map(JSONObject::toString)))
+  var points by rememberSaveable(stateSaver=listSaver<List<String>,String>(save={it},restore={it.toList()})){
+    mutableStateOf(row?.optJSONArray("points")?.trainingObjects().orEmpty().map(JSONObject::toString))
   }
   var editingPoint by rememberSaveable{mutableStateOf<Int?>(null)}
   RecordWriteScreen(accountId,if(row==null)"记录不适" else "更新不适发作","health.save_episode",onBack,onSaved){enabled,save->
@@ -153,8 +154,9 @@ import java.time.ZoneId
   editingPoint?.let{index->
     key(index){
       EpisodePointEditor(points.getOrNull(index)?.let(::JSONObject),startedOn,zone,{editingPoint=null},
-        onRemove=if(index<points.size){{points=ArrayList(points).apply{removeAt(index)};editingPoint=null}}else null){value->
-        points=ArrayList(points).apply{if(index==size)add(value.toString()) else set(index,value.toString())}
+        onRemove=if(index<points.size){{points=points.filterIndexed{position,_->position!=index};editingPoint=null}}else null){value->
+        points=if(index==points.size)points+value.toString()
+          else points.mapIndexed{position,entry->if(position==index)value.toString() else entry}
         editingPoint=null
       }
     }
