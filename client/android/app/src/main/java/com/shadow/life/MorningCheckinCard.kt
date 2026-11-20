@@ -4,7 +4,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -73,8 +77,8 @@ import java.time.ZoneId
       }
       if(row!=null || pending==null){
         Text("$selected 醒来感受")
-        LifeChoiceField("精力",energy,morningScoreOptions){dirty=true;energy=it}
-        LifeChoiceField("睡眠质量",quality,morningScoreOptions){dirty=true;quality=it}
+        InlineScoreField("精力",energy.toIntOrNull(),!busy&&pending==null){dirty=true;energy=it?.toString().orEmpty()}
+        InlineScoreField("睡眠质量",quality.toIntOrNull(),!busy&&pending==null){dirty=true;quality=it?.toString().orEmpty()}
         OutlinedTextField(notes,{if(it.length<=2000){dirty=true;notes=it}},label={Text("备注")})
         Button(enabled=!busy&&pending==null&&(energy.isNotEmpty()||quality.isNotEmpty()||notes.isNotBlank()),onClick={
           busy=true
@@ -100,4 +104,15 @@ import java.time.ZoneId
 
 private fun JSONObject.optIntOrNull(key:String):Int? = if(isNull(key))null else getInt(key)
 
-private val morningScoreOptions=listOf("" to "未填写")+(0..10).map{it.toString() to "$it／10"}
+@OptIn(ExperimentalLayoutApi::class)
+@Composable internal fun InlineScoreField(label:String,score:Int?,enabled:Boolean=true,onSelect:(Int?)->Unit){
+  Text(label,style=MaterialTheme.typography.labelLarge)
+  FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)){
+    (0..10).forEach{value->
+      FilterChip(score==value,{onSelect(value)},enabled=enabled,label={Text(value.toString())},
+        modifier=Modifier.semantics{contentDescription="$label $value 分"})
+    }
+    FilterChip(score==null,{onSelect(null)},enabled=enabled,label={Text("未填写")},
+      modifier=Modifier.semantics{contentDescription="$label 未填写"})
+  }
+}

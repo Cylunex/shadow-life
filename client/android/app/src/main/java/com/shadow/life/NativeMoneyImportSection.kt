@@ -75,20 +75,28 @@ import java.time.LocalDate
   }
   val types=listOf("expense" to "支出","income" to "收入","refund" to "退款")
   val validDate=runCatching{LocalDate.parse(date)}.isSuccess
-  val validAmount=amount.trim().matches(Regex("[0-9]+([.][0-9]{1,2})?"))&&amount.trim().toBigDecimalOrNull()?.signum()==1
-  val canConfirm=!busy&&candidate.duplicateOf==null&&validAmount&&validDate&&
-    (candidate.status=="pending"||editing)&&(entryType!="refund"||original.isNotBlank())
+  val normalizedAmount=remember(amount){runCatching{normalizeCnyAmount(amount)}.getOrNull()}
+  val originalValues=buildList{
+    if((normalizedAmount?:amount.trim())!=candidate.amount) add("金额 ${candidate.amount.ifBlank{"未填"}}")
+    if(date!=candidate.occurredOn) add("日期 ${candidate.occurredOn.ifBlank{"未填"}}")
+    if(entryType!=candidate.entryType) add(types.toMap()[candidate.entryType]?:candidate.entryType)
+    if(category.trim()!=candidate.category) add("分类 ${candidate.category.ifBlank{"未填"}}")
+  }
+  val canConfirm=!busy&&candidate.duplicateOf==null&&normalizedAmount!=null&&validDate&&category.trim().length<=80&&
+    (candidate.status=="pending"||editing||originalValues.isNotEmpty()||original.isNotBlank())&&
+    (entryType!="refund"||original.isNotBlank())
   LifeCard{
     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Top,horizontalArrangement=Arrangement.spacedBy(8.dp)){
       Column(Modifier.weight(1f)){
         Text(candidate.counterparty.ifBlank{"未记录商家"},style=MaterialTheme.typography.titleMedium)
-        Text(listOf(candidate.occurredOn.ifBlank{"日期待补"},types.toMap()[candidate.entryType]?:status,status).joinToString(" · "),
+        Text(listOf(date.takeIf{validDate} ?: "日期待补",types.toMap()[entryType]?:status,status).joinToString(" · "),
           style=MaterialTheme.typography.bodySmall)
       }
-      Text(if(candidate.amount.isBlank())"金额待补" else "${candidate.amount} CNY",style=MaterialTheme.typography.titleMedium)
+      Text(normalizedAmount?.let{"$it CNY"}?:"金额待补",style=MaterialTheme.typography.titleMedium)
     }
     if(pending)Text("已存本机，待同步",color=MaterialTheme.colorScheme.primary)
-    if(candidate.category.isNotBlank())Text("分类 · ${candidate.category}",style=MaterialTheme.typography.bodySmall)
+    if(category.isNotBlank())Text("分类 · ${category.trim()}",style=MaterialTheme.typography.bodySmall)
+    if(originalValues.isNotEmpty())Text("原始建议 · ${originalValues.joinToString(" · ")}",style=MaterialTheme.typography.bodySmall)
     candidate.linkedRecordId?.let{id->TextButton(onClick={onOpenRecord(id)}){Text("查看已入账记录")}}
     candidate.duplicateOf?.let{id->
       TextButton(onClick={compare=true}){Text("疑似重复 · 核对原始行与流水")}
@@ -102,18 +110,25 @@ import java.time.LocalDate
         OutlinedTextField(amount,{amount=it},Modifier.fillMaxWidth(),label={Text("精确金额（CNY）")},singleLine=true,
           keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(keyboardType=androidx.compose.ui.text.input.KeyboardType.Decimal))
         LifeDateField(date,{date=it},"发生日")
-        OutlinedTextField(category,{category=it},Modifier.fillMaxWidth(),label={Text("分类（可选）")},singleLine=true)
+        OutlinedTextField(category,{category=it.take(80)},Modifier.fillMaxWidth(),label={Text("分类（可选）")},singleLine=true)
         if(entryType=="refund"){
           LaunchedEffect(Unit){onSearchRefunds("")}
           RefundEntryPicker(refunds,original,{original=it},onSearchRefunds)
         }
       }
       FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)){
-        Button(enabled=canConfirm,onClick={onResolve(candidate,"confirm",entryType,amount,date,category,original)}){Text("确认入账")}
+        Button(enabled=canConfirm,onClick={onResolve(candidate,"confirm",entryType,checkNotNull(normalizedAmount),date,category,original)}){Text("确认入账")}
         TextButton(enabled=!busy,onClick={editing=!editing}){Text(if(editing)"收起修改" else "修改")}
         TextButton(enabled=!busy,onClick={onResolve(candidate,"ignore",entryType,amount,date,category,original)}){Text("忽略")}
       }
-      if(!editing&&entryType=="refund")Text("需先选择退款对应的原交易",style=MaterialTheme.typography.bodySmall)
+      if(!editing&&entryType=="refund"){
+        val selected=(refunds as? LoadState.Ready)?.value?.items?.firstOrNull{it.id==original}
+        Text(when{
+          original.isBlank()->"需先选择退款对应的原交易"
+          selected!=null->"退款对应 · ${selected.title}"
+          else->"已选择退款对应的原交易"
+        },style=MaterialTheme.typography.bodySmall)
+      }
     }
     TextButton(onClick={rawOpen=!rawOpen}){Text(if(rawOpen)"收起原始行" else "查看原始行")}
     if(rawOpen){

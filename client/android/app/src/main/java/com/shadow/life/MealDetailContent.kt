@@ -82,7 +82,7 @@ internal data class MealDetailRead(val state:LoadState<MealDietReviewResultDto>,
 }
 
 internal fun LazyListScope.mealDetailItems(
-    detail:RecordDetail,accountId:String,read:MealDetailRead,onDishCatalog:(String,String)->Unit
+    detail:RecordDetail,read:MealDetailRead,onDishCatalog:(String,String)->Unit
 ){
     val meal=checkNotNull(detail.meal)
     val review=(read.state as? LoadState.Ready)?.value
@@ -94,8 +94,6 @@ internal fun LazyListScope.mealDetailItems(
     item("meal-food-heading"){Text("本餐食物",style=MaterialTheme.typography.titleLarge)}
     if(rows.isEmpty())item("meal-empty"){EmptyState("这餐还没有记录食物明细")}
     items(rows,key={"meal-food/${it.id}"}){row->MealFoodCard(row,onDishCatalog)}
-    if(detail.mealIntakes.isNotEmpty()&&accountId.isNotBlank()){
-    }
     when(val state=read.state){
         LoadState.Loading->item("meal-evidence-loading"){LinearProgressIndicator(Modifier.fillMaxWidth())}
         is LoadState.Failed->item("meal-evidence-error"){

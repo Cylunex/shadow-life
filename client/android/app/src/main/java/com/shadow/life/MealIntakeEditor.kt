@@ -91,7 +91,17 @@ import org.json.JSONObject
     if(selected=="new"){
       val draftKey="intake/${meal.detailId}/new"
       var draft by remember{mutableStateOf(decodeMealDraftRows(store.read(draftKey,"row"))?.firstOrNull()?:MealDraftItem())}
-      FoodEditFields(draft,enabled){draft=it;store.write(draftKey,"row",encodeMealDraftRows(listOf(it)))}
+      fun changeFood(value:MealDraftItem){
+        draft=value
+        store.write(draftKey,"row",encodeMealDraftRows(listOf(value)))
+      }
+      var pickerOpen by rememberSaveable{mutableStateOf(false)}
+      TextButton(enabled=enabled,onClick={pickerOpen=true}){Text("从常吃或门店菜品选择")}
+      if(pickerOpen)MealCaptureFoodPicker(accountId,1,{pickerOpen=false}){foods->
+        changeFood(foods.single())
+        pickerOpen=false
+      }
+      FoodEditFields(draft,enabled,::changeFood)
       Button(onClick={write{
         repository.captureWrite("life.add_intake",JSONObject().put("meal_id",meal.detailId)
           .put("expected_meal_revision",meal.revision).put("item",repository.mealItems(listOf(draft),"").getJSONObject(0))

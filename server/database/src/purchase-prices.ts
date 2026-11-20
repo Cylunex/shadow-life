@@ -52,8 +52,12 @@ export async function readPrices(database:Database,subject:string,v:PriceQuery){
       count(unit_price)::int comparable,(select count(distinct product)::int from (select product from samples where unit_price is not null
         group by product,currency,base_unit,price_basis having count(distinct record_id)>=3) g) qualified from samples`)).rows[0]!;
   const result=await database.execute<{id:string;occurred_on:string}>(sql`${data} select id,record_id,occurred_on::text,merchant,currency,raw_name,product,
-    line_amount::text,price_basis,pack_count::text,pack_size::text,unit,discount::text,revision,base_unit,unit_price::text,has_refund
+    line_amount::text,price_basis,pack_count::text,pack_size::text,unit,discount::text,revision,base_unit,unit_price::text,has_refund,
+    case when unit_price is not null then null when unassigned then 'unallocated_refund'
+      when line_amount is null then 'missing_line_amount' when line_amount<discount+line_refund then 'deductions_exceed_amount'
+      else 'missing_spec' end unavailable_reason
     from samples where true ${v.product?sql`and product=${v.product}`:sql` `}
+      ${v.query?sql`and (strpos(lower(product),lower(${v.query}))>0 or strpos(lower(raw_name),lower(${v.query}))>0)`:sql` `}
       ${v.item_id?sql`and id=${v.item_id}`:sql` `} ${v.before_id?sql`and (occurred_on,id)<(${v.before_on}::date,${v.before_id})`:sql` `}
     order by occurred_on desc,id desc limit ${v.limit+1}`);
   const items=result.rows.slice(0,v.limit),last=items.at(-1);

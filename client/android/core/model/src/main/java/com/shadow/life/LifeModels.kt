@@ -106,7 +106,8 @@ data class HealthDailyOverview(
   val workouts:Int,val habitsDone:Int,val updatedAt:String,
   val lightMinutes:Long?=null,val awakeMinutes:Long?=null,val sleepSource:String?=null,
   val sleepTotalDayMinutes:Long?=null,val napMinutes:List<Long> = emptyList(),val caloriesSource:String?=null,
-  val workoutItems:List<HealthWorkoutSummary> = emptyList(),val sleepId:String?=null
+  val workoutItems:List<HealthWorkoutSummary> = emptyList(),val sleepId:String?=null,
+  val sleepWindow:HealthDailyResultDtoResultSleepWindow?=null
 )
 data class MoneyRecurringSummary(val id:String,val title:String,val amount:String?,val currency:String,val cadence:String,val nextDueOn:String,val state:String)
 data class MoneyOccurrenceSummary(val id:String,val title:String,val dueOn:String,val state:String,val amount:String?,val currency:String?)
@@ -139,7 +140,7 @@ sealed interface WorkspaceOverview { val asOf:String
   data class Health(
     val sources:Int,val sourcesNeedingAttention:Int,val streams:Int,val summary:TodayHealthSummary,
     val metrics:List<HealthMetricTrend> = emptyList(),val daily:HealthDailyOverview?=null,
-    val history:List<HealthDailyOverview> = emptyList(),val sleepInsights:HealthSleepInsightsResultDto?=null,val progression:List<HealthProgression>?=null,override val asOf:String
+    val history:List<HealthDailyOverview> = emptyList(),val sleepInsights:HealthSleepInsightsResultDto?=null,val progression:List<HealthProgression>?=null,override val asOf:String, val unavailableDays:Int=0
   ):WorkspaceOverview
   data class Travel(
     val trips:Int,val places:Int,val maps:Int,val activeRun:Boolean,

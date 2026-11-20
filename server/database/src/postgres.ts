@@ -1111,7 +1111,19 @@ function storeFor(database: Database | Transaction): TransactionStore {
     mealDietEvidence(subjectId,mealId){return readMealDietEvidence(database,subjectId,mealId);},
     dietReviewEvidence(subjectId,input,window,effects){return readDietEvidence(database,subjectId,input,window,effects);},
     async wellnessReviewDays(subjectId,from,to){return readWellnessDays(database,subjectId,from,to);},
-    async healthDaily(subjectId,date){const result=await database.execute(sql`select subject_id,occurred_on,algorithm_version,result,source_set_hash,revision,updated_at from health_daily_summaries where subject_id=${subjectId} and occurred_on=${date} order by updated_at desc limit 1`);return result.rows[0];},
+    async healthDaily(subjectId,date){
+      const result=await database.execute(sql`
+        select day.subject_id,day.occurred_on,day.algorithm_version,day.source_set_hash,day.revision,day.updated_at,
+          case when day.result#>>'{sleep,id}' is null then day.result else
+            jsonb_set(day.result,'{sleep,window}',jsonb_build_object(
+              'started_at',session.started_at,'ended_at',session.ended_at,'time_zone',session.time_zone)) end result
+        from health_daily_summaries day
+        left join health_sleep_sessions session on session.id=day.result#>>'{sleep,id}'
+          and session.subject_id=day.subject_id and session.wake_date=day.occurred_on and session.effective
+        where day.subject_id=${subjectId} and day.occurred_on=${date}
+        order by day.updated_at desc limit 1`);
+      return result.rows[0];
+    },
     async healthSleepNights(subjectId,from,to){const result=await database.execute<import("@shadow/kernel").SleepInsightNight>(sql`select distinct on (session.wake_date) session.wake_date::text wake_date,session.time_zone,session.started_at::text started_at,session.ended_at::text ended_at,session.total_minutes,session.deep_minutes,session.rem_minutes,coalesce(instance.source_type,'manual') source_type from health_sleep_sessions session left join health_raw_records raw on raw.id=session.raw_id left join health_source_instances instance on instance.id=raw.source_instance_id where session.subject_id=${subjectId} and session.wake_date between ${from}::date and ${to}::date and session.effective order by session.wake_date,session.total_minutes desc,session.revision desc,session.id`);return result.rows;},
     async healthRecord(subjectId,id){const result=await database.execute<{kind:string;fact:Record<string,unknown>;source:Record<string,unknown>|null;raw:Record<string,unknown>|null}>(sql`with fact as(
       select 'measurement'::text kind,(to_jsonb(m)-'subject_id')||jsonb_build_object('value',m.value::text) fact,m.source_id,m.raw_id from health_measurements m where m.id=${id} and m.subject_id=${subjectId} and m.effective

@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "22576f48ad42977a2ae79bfd768e06b98edec2b456796916025eca022d2dd0bb",
+  "catalog_revision": "54bba331fa425e917c040c91d51441669e732d617359b3a828782f66ad97f8ae",
   "terms": [
     {
       "id": "activity_capture",
@@ -9519,6 +9519,53 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "window": {
+                        "type": "object",
+                        "properties": {
+                          "started_at": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "ended_at": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "time_zone": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "started_at",
+                          "ended_at",
+                          "time_zone"
+                        ],
+                        "additionalProperties": false
                       },
                       "selection_policy": {
                         "type": "string",
@@ -47296,6 +47343,11 @@
             "minLength": 1,
             "maxLength": 200
           },
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
           "item_id": {
             "type": "string",
             "pattern": "^[a-z][a-z0-9_]{7,127}$"
@@ -47435,6 +47487,22 @@
                 },
                 "has_refund": {
                   "type": "boolean"
+                },
+                "unavailable_reason": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "unallocated_refund",
+                        "missing_spec",
+                        "missing_line_amount",
+                        "deductions_exceed_amount"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "required": [

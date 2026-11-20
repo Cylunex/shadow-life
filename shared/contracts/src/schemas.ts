@@ -397,14 +397,16 @@ export const purchasePriceSpecSchema=z.object({
   unit:priceUnit,price_basis:priceBasis,discount:storedAmount.default("0"),expected_revision:z.number().int().positive().optional()
 }).strict().refine(v=>v.price_basis!=="paid"||Number(v.discount)===0,"实付行金额已包含优惠");
 export const pricesInputSchema=z.object({
-  product:z.string().trim().min(1).max(200).optional(),item_id:stableId.optional(),before_id:stableId.optional(),before_on:localDate.optional(),
+  product:z.string().trim().min(1).max(200).optional(),query:z.string().trim().min(1).max(200).optional(),
+  item_id:stableId.optional(),before_id:stableId.optional(),before_on:localDate.optional(),
   limit:z.coerce.number().int().min(1).max(100).default(30)
 }).strict().refine(v=>!!v.before_id===!!v.before_on,"请带完整分页位置");
 export type PriceQuery=z.infer<typeof pricesInputSchema>;
 export const pricesResultSchema=z.object({
   items:z.array(z.object({id:stableId,record_id:stableId,occurred_on:localDate,merchant:z.string().nullable(),currency:z.string(),raw_name:z.string(),
     product:z.string(),line_amount:z.string().nullable(),price_basis:priceBasis,pack_count:z.string(),pack_size:z.string().nullable(),unit:priceUnit.nullable(),
-    discount:z.string(),revision:z.number().int().nullable(),base_unit:z.enum(["L","kg","件"]).nullable(),unit_price:z.string().nullable(),has_refund:z.boolean()})),
+    discount:z.string(),revision:z.number().int().nullable(),base_unit:z.enum(["L","kg","件"]).nullable(),unit_price:z.string().nullable(),has_refund:z.boolean(),
+    unavailable_reason:z.enum(["unallocated_refund","missing_spec","missing_line_amount","deductions_exceed_amount"]).nullable().optional()})),
   coverage:z.object({total:z.number().int(),identified:z.number().int(),convertible:z.number().int(),comparable:z.number().int(),qualified:z.number().int()}),
   next:z.object({before_on:localDate,before_id:stableId}).nullable()
 });
@@ -1137,7 +1139,9 @@ const healthDailySleepSourceSchema=z.object({id:stableId,total_minutes:z.number(
 export const healthDailyResultSchema=z.object({occurred_on:localDate,algorithm_version:z.string(),result:z.object({
   facts:z.array(z.object({kind:z.enum(["observation","measurement"]),id:stableId,key:z.string(),value:canonicalDecimal,unit:z.string()}).strict()).max(10_000),
   activity:z.object({steps:z.number().int().nonnegative().nullable(),steps_reconciliation:z.object({steps:z.number().int().nonnegative().nullable(),selected_origin:z.string().nullable(),policy:z.literal("nonoverlap-origin-max-v1"),day_attribution:z.literal("interval_start")}).strict(),active_minutes:z.number().int().nonnegative().nullable(),device_summary_calories_kcal:canonicalDecimal.nullable(),workout_sum_calories_kcal:canonicalDecimal.nullable(),calories_kcal:canonicalDecimal.nullable(),calories_source:z.enum(["device_summary","workout_sum","equal"]).nullable()}).strict().nullable(),
-  sleep:healthDailySleepSourceSchema.extend({selection_policy:z.literal("longest_effective_session"),total_day_minutes:z.number().int().nonnegative(),naps:z.array(healthDailySleepSourceSchema),sources:z.array(z.object({session_id:stableId,source_type:z.string(),instance_key:z.string().nullable(),raw_id:stableId.nullable()}).strict())}).strict().nullable(),
+  sleep:healthDailySleepSourceSchema.extend({
+    window:z.object({started_at:instant.nullable(),ended_at:instant.nullable(),time_zone:ianaTimeZone.nullable()}).strict().optional(),
+    selection_policy:z.literal("longest_effective_session"),total_day_minutes:z.number().int().nonnegative(),naps:z.array(healthDailySleepSourceSchema),sources:z.array(z.object({session_id:stableId,source_type:z.string(),instance_key:z.string().nullable(),raw_id:stableId.nullable()}).strict())}).strict().nullable(),
   wellbeing:z.array(z.object({mood_score:z.number().int().min(0).max(10).nullable(),energy_level:z.number().int().min(0).max(10).nullable(),sleep_quality:z.number().int().min(0).max(10).nullable(),morning_erection:z.boolean().nullable(),notes:z.string().nullable()}).strict()).max(1_000),
   workouts:z.array(z.object({id:stableId,session_type:z.string(),time_zone:ianaTimeZone.optional(),started_at:instant.nullable(),duration_minutes:z.number().int().nonnegative().nullable(),distance_km:canonicalDecimal.nullable(),calories_kcal:canonicalDecimal.nullable(),rpe:z.number().int().min(0).max(10).nullable(),heart_rate_avg:z.number().int().positive().nullable(),detail:z.json().nullable()}).strict()).max(1_000),
   habits:z.array(z.object({id:stableId,habit_key:z.string(),done_count:z.number().int().nonnegative(),explicit_denial:z.boolean(),note:z.string().nullable()}).strict()).max(1_000)

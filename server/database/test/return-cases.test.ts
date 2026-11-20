@@ -10,6 +10,7 @@ test("split refund allocations use only linked money actually received",pgOnly,a
   const save=(idx:number)=>({purchase_item_id:items[idx].id,expected_amount:"20",currency:"CNY"});
   const a=await run("money.save_return_case",save(0)),b=await run("money.save_return_case",save(1));
   await run("money.record_refund",{...date,original_entry_id:original.id,currency:"CNY",amount:"20.00"});
+  assert.ok((await queries.purchasePrices(context,{})).items.every(row=>row.unavailable_reason==="unallocated_refund"));
   const {refund_entry_id}=(await pool.query("select refund_entry_id from refunds")).rows[0];
   const allocate=(idx:number,id:unknown)=>run("money.save_return_case",{...save(idx),case_id:id,expected_revision:1,allocations:[{refund_entry_id,amount:"20"}]});
   const settled=await Promise.allSettled([allocate(0,a.actual_values.case_id),allocate(1,b.actual_values.case_id)]);

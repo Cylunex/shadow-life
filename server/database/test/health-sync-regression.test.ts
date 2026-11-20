@@ -185,3 +185,21 @@ test("event view groups scale constituents before paging and searches child metr
  assert.equal((await queries.lifeSearch({...context,subjectId:"other-subject"},{q:"体脂率",types:["health"],view:"events"})).items.length,0);
  const id=events.items[0]!.id;await run("health.ingest_raw",{...record,client_record_id:"weigh-b",record_version:2,payload:{...record.payload,occurred_at:"2026-09-10T03:30:00Z",observations:record.payload.observations.slice(0,2)}});await processPendingHealth(pool);assert.equal((await queries.lifeTimeline(context,{domains:["health"],view:"events"})).items[0]!.id,id);
 });
+
+test("daily summary adds the exact main sleep interval to existing snapshots",pgOnly,async t=>{
+  const {pool,run,queries,context}=await reviewFixture(t);
+  const main={wake_date:"2026-09-10",time_zone:"Asia/Shanghai",started_at:"2026-09-09T15:00:00Z",ended_at:"2026-09-09T23:00:00Z",total_minutes:480};
+  const record={source_type:"samsung",source_instance_key:"sleep-fixture",source_fingerprint:"sleep-fixture",record_type:"sleep",record_version:1,sync_epoch:1,change_kind:"upsert",parse_version:"samsung-data-4"};
+  await run("health.ingest_raw",{...record,client_record_id:"main",payload:main});
+  await run("health.ingest_raw",{...record,client_record_id:"nap",payload:{...main,started_at:"2026-09-10T05:00:00Z",ended_at:"2026-09-10T05:30:00Z",total_minutes:30}});
+  await processPendingHealth(pool);
+  const stored=(await pool.query("select result from health_daily_summaries where occurred_on='2026-09-10'")).rows[0].result;
+  assert.equal(stored.sleep.window,undefined);
+  const sleep=(await queries.healthDaily(context,main.wake_date)).result.sleep;
+  assert.equal(sleep?.id,stored.sleep.id);
+  assert.ok(sleep?.window);
+  assert.equal(new Date(sleep.window.started_at!).toISOString(),new Date(main.started_at).toISOString());
+  assert.equal(new Date(sleep.window.ended_at!).toISOString(),new Date(main.ended_at).toISOString());
+  assert.equal(sleep.window.time_zone,main.time_zone);
+  assert.equal(sleep.naps.length,1);
+});

@@ -66,13 +66,9 @@ import kotlin.math.abs
   val currencyRecords=periodRecords.filter{recordCurrency(it)==currency}
   Scaffold(containerColor=MaterialTheme.colorScheme.background,
     topBar={LifeModuleTopBar(LifeModule.Money,onBack,overview?.period)},
-    bottomBar={
-      Column {
-        if(tab in setOf("overview","details"))ModuleCaptureAction("记消费"){onCapture(CaptureKind.Expense)}
-        LifeModuleBottomBar(when(tab){"reconcile"->"details";"recurring","intents","supplies","cards"->"budgets";else->tab},moneyModuleTabs){tab=it}
-      }
-    }
-  ){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),state=workspaceScroll,contentPadding=PaddingValues(20.dp,10.dp,20.dp,28.dp),verticalArrangement=Arrangement.spacedBy(18.dp)){
+    floatingActionButton={if(tab in setOf("overview","details"))ModuleCaptureAction("记消费"){onCapture(CaptureKind.Expense)}},
+    bottomBar={LifeModuleBottomBar(when(tab){"reconcile"->"details";"recurring","intents","supplies","cards"->"budgets";else->tab},moneyModuleTabs){tab=it}}
+  ){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),state=workspaceScroll,contentPadding=PaddingValues(20.dp,10.dp,20.dp,if(tab in setOf("overview","details"))88.dp else 28.dp),verticalArrangement=Arrangement.spacedBy(18.dp)){
     if(tab in setOf("budgets","recurring","intents","supplies","cards"))item{
       WorkspaceTabs(tab,{tab=it},listOf("budgets" to "预算","recurring" to "订阅","cards" to "次卡","intents" to "想买","supplies" to "消耗品"))
     }

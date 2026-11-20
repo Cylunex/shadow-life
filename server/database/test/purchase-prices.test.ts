@@ -9,9 +9,13 @@ test("price coverage counts comparable same-product purchases and keeps volume, 
   }
   const x=await run("life.record_purchase",{occurred_on:"2026-11-07",time_zone:"Asia/Shanghai",scene:"offline_purchase",items:[{raw_name:"双瓶牛奶",quantity:"1",unit:"组",line_amount:"12.00"}]});
   let result=await queries.purchasePrices(context,{});assert.deepEqual(result.coverage,{total:7,identified:7,convertible:6,comparable:6,qualified:2});
-  const item=result.items.find(r=>r.record_id===x.actual_values.record_id)!;assert.equal(item.unit_price,null);
+  const item=result.items.find(r=>r.record_id===x.actual_values.record_id)!;assert.equal(item.unit_price,null);assert.equal(item.unavailable_reason,"missing_spec");
+  assert.deepEqual((await queries.purchasePrices(context,{query:"牛奶"})).items.map(row=>row.id),[item.id]);
+  assert.equal((await queries.purchasePrices(context,{query:"%"})).items.length,0);
   const input={purchase_item_id:item.id,product:"全脂奶",pack_count:"2",pack_size:"500",unit:"ml",price_basis:"listed",discount:"2.00"};
   await run("life.set_price_spec",input);
+  const byOriginalName=await queries.purchasePrices(context,{query:"牛奶"});
+  assert.deepEqual(byOriginalName.items.map(row=>[row.product,row.unavailable_reason]),[["全脂奶",null]]);
   result=await queries.purchasePrices(context,{product:"全脂奶",limit:2});assert.deepEqual(result.items.map(r=>Number(r.unit_price)),[10,12]);assert.equal(result.items[0]?.base_unit,"L");
   assert.ok(result.next);assert.equal((await queries.purchasePrices(context,{product:"全脂奶",...result.next})).items.length,2);
   await assert.rejects(()=>run("life.set_price_spec",{...input,expected_revision:1,discount:"15.00"}));

@@ -425,7 +425,19 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     if(wire !is HealthRecordResultDtoObservation)return detail
     val metric=wire.fact.metricKey.wireValue
     val points=partialRequest { val data=JSONObject(getText("/api/health/trend?metric_key=${encode(metric)}&limit=30${wire.fact.originalField?.let{"&original_field=${encode(it)}"}.orEmpty()}"));val rows=data.optJSONArray("points")?:JSONArray();(0 until rows.length()).map { val row=rows.getJSONObject(it);HealthTrendPoint(row.getString("id"),row.getString("occurred_on"),row.getString("value").toDouble(),row.getString("value"),row.getString("unit"),row.optString("source_kind"),row.optInt("revision",1)) }.filter{it.unit==wire.fact.unit} }.getOrDefault(emptyList())
-    return detail.copy(metrics=wire.fact.relatedObservations.map{DetailMetric(it.id,it.metricKey.wireValue,healthSeriesLabel(healthSeriesKey(it.metricKey.wireValue,it.originalField)),healthValueText(it.value,it.unit),unitLabel(it.unit),it.autofilled)},trend=points)
+    return detail.copy(metrics=groupedHealthMetrics(wire),trend=points)
+  }
+
+  internal suspend fun bodyComposition(id:String):List<DetailMetric>{
+    val record=wireJson.decodeFromString<HealthRecordResultDto>(getText("/api/health/records/${encode(id)}"))
+    return if(record is HealthRecordResultDtoObservation)groupedHealthMetrics(record) else emptyList()
+  }
+
+  private fun groupedHealthMetrics(record:HealthRecordResultDtoObservation):List<DetailMetric>{
+    return record.fact.relatedObservations.map{item->
+      val key=healthSeriesKey(item.metricKey.wireValue,item.originalField)
+      DetailMetric(item.id,key,healthSeriesLabel(key),healthValueText(item.value,item.unit),unitLabel(item.unit),item.autofilled)
+    }
   }
 
   suspend fun saveTravelDay(draft:TravelDayDraft):OperationReceipt=withContext(Dispatchers.IO){
@@ -446,8 +458,8 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     return JSONObject(getText(path+"?"+params.entries.joinToString("&"){encode(it.key)+"="+encode(it.value)}))
   }
   internal suspend fun stockRecipes(lot:String,on:String,offset:Int):JSONObject=JSONObject(getText("/api/life/stock-recipes?lot_id="+encode(lot)+"&on="+encode(on)+"&offset="+offset))
-  internal suspend fun purchasePrices(item:String?=null,product:String?=null,before:JSONObject?=null):JSONObject{
-    val params=listOfNotNull(item?.let{"item_id="+encode(it)},product?.let{"product="+encode(it)},before?.let{"before_on="+encode(it.getString("before_on"))+"&before_id="+encode(it.getString("before_id"))})
+  internal suspend fun purchasePrices(item:String?=null,product:String?=null,before:JSONObject?=null,query:String?=null):JSONObject{
+    val params=listOfNotNull(item?.let{"item_id="+encode(it)},product?.let{"product="+encode(it)},query?.let{"query="+encode(it)},before?.let{"before_on="+encode(it.getString("before_on"))+"&before_id="+encode(it.getString("before_id"))})
     return JSONObject(getText("/api/life/purchase-prices?"+params.joinToString("&")))
   }
   internal suspend fun amountEvidence(recordId:String):JSONObject=JSONObject(getText("/api/life/amount-evidence?record_id="+encode(recordId)))
@@ -493,7 +505,16 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   suspend fun resolveMoneyImport(candidate:MoneyImportCandidateSummary,decision:String,entryType:String,amount:String,date:String,category:String,originalEntryId:String):OperationReceipt=withContext(Dispatchers.IO){
     require(decision in setOf("confirm","ignore")){"不支持的复核决定"}
     val payload=JSONObject().put("candidate_id",candidate.id).put("expected_revision",candidate.revision).put("decision",decision).put("reason","Android 月度账单核对")
-    if(decision=="confirm")payload.put("corrections",JSONObject().put("entry_type",entryType).put("amount",amount.trim()).put("currency","CNY").put("occurred_on",date).put("time_zone",candidate.timeZone).apply{candidate.counterparty.takeIf(String::isNotBlank)?.let{put("counterparty",it)};category.trim().takeIf(String::isNotBlank)?.let{put("category",it)}}).apply{if(entryType=="refund")put("original_entry_id",originalEntryId.trim())}
+    if(decision=="confirm"){
+      val corrections=JSONObject().put("entry_type",entryType).put("amount",normalizeCnyAmount(amount))
+        .put("currency","CNY").put("occurred_on",date).put("time_zone",candidate.timeZone)
+      if(candidate.counterparty.isNotBlank())corrections.put("counterparty",candidate.counterparty)
+      if(category.isNotBlank()||candidate.category.isNotBlank()){
+        corrections.put("category",category.trim().takeIf(String::isNotBlank)?:JSONObject.NULL)
+      }
+      payload.put("corrections",corrections)
+      if(entryType=="refund")payload.put("original_entry_id",originalEntryId.trim())
+    }
     val account=app.sessions.active()?.accountId?:error("请先登录 Shadow Life")
     val digest=java.security.MessageDigest.getInstance("SHA-256").digest("$account/$payload".toByteArray()).joinToString(""){"%02x".format(it)}
     enqueueCommand("money.resolve_import_candidate",payload,"cmd_android_import_$digest",account)
@@ -541,9 +562,9 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
 
   suspend fun enqueue(draft:CaptureDraft):OperationReceipt=withContext(Dispatchers.IO){
     val input=when(draft.kind){
-      CaptureKind.Expense->JSONObject().put("entry_type",if(draft.option=="income")"income" else "expense").put("amount",money(draft.primary)).put("currency","CNY").put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).apply{draft.secondary.trim().takeIf(String::isNotBlank)?.let{put("counterparty",it)};draft.category.trim().takeIf(String::isNotBlank)?.let{put("category",it)};draft.paymentMethod.takeIf(String::isNotBlank)?.let{put("payment_method",it)};draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
-      CaptureKind.Purchase->JSONObject().put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).put("scene",draft.option.ifBlank{"other"}).put("merchant_name_raw",draft.primary.trim()).put("items",JSONArray().put(JSONObject().put("raw_name",draft.primary.trim()).apply{draft.secondary.trim().takeIf(String::isNotBlank)?.let{put("line_amount",money(it))}})).apply{draft.category.trim().takeIf(String::isNotBlank)?.let{put("channel_name_raw",it)};draft.secondary.trim().takeIf(String::isNotBlank)?.let{put("payment",JSONObject().put("amount",money(it)).put("currency","CNY").put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).apply{draft.paymentMethod.takeIf(String::isNotBlank)?.let{method->put("payment_method",method)}})};draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
-      CaptureKind.Refund->JSONObject().put("original_entry_id",draft.secondary.trim()).put("amount",money(draft.primary)).put("currency","CNY").put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
+      CaptureKind.Expense->JSONObject().put("entry_type",if(draft.option=="income")"income" else "expense").put("amount",normalizeCnyAmount(draft.primary)).put("currency","CNY").put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).apply{draft.secondary.trim().takeIf(String::isNotBlank)?.let{put("counterparty",it)};draft.category.trim().takeIf(String::isNotBlank)?.let{put("category",it)};draft.paymentMethod.takeIf(String::isNotBlank)?.let{put("payment_method",it)};draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
+      CaptureKind.Purchase->JSONObject().put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).put("scene",draft.option.ifBlank{"other"}).put("merchant_name_raw",draft.primary.trim()).put("items",JSONArray().put(JSONObject().put("raw_name",draft.primary.trim()).apply{draft.secondary.trim().takeIf(String::isNotBlank)?.let{put("line_amount",normalizeCnyAmount(it))}})).apply{draft.category.trim().takeIf(String::isNotBlank)?.let{put("channel_name_raw",it)};draft.secondary.trim().takeIf(String::isNotBlank)?.let{put("payment",JSONObject().put("amount",normalizeCnyAmount(it)).put("currency","CNY").put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).apply{draft.paymentMethod.takeIf(String::isNotBlank)?.let{method->put("payment_method",method)}})};draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
+      CaptureKind.Refund->JSONObject().put("original_entry_id",draft.secondary.trim()).put("amount",normalizeCnyAmount(draft.primary)).put("currency","CNY").put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
       CaptureKind.Meal->JSONObject().put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).put("meal_type",draft.option.ifBlank{"other"}).put("items",mealItems(draft.mealItems,draft.primary)).apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
       CaptureKind.Health->JSONObject().put("metric",draft.option.ifBlank{"weight"}).put("value",decimal(draft.primary)).put("unit",draft.secondary.trim()).put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).apply{draft.note.trim().takeIf(String::isNotBlank)?.let{put("note",it)}}
       CaptureKind.Workout->JSONObject().put("session_type",draft.primary.trim()).put("occurred_on",draft.date).put("time_zone",ZoneId.systemDefault().id).apply{draft.secondary.trim().takeIf(String::isNotBlank)?.let{put("duration_minutes",it.toIntOrNull()?:error("训练时长必须是整数分钟"))};draft.note.trim().takeIf(String::isNotBlank)?.let{put("detail",JSONObject().put("note",it))}}
@@ -783,7 +804,11 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         else->metricKeys.map{(key,label)->HealthMetricTrend(key,label,emptyList(),0,false,unavailable=true)}
       }
     }
-    val sources=sourcesRequest.await();val history=dailyRequests.mapNotNull{(_,request)->request.await().getOrNull()?.toHealthDailyOverview()}.sortedBy{it.occurredOn};val daily=history.firstOrNull{it.occurredOn==today.toString()};val metrics=fillDerivedBodyMetrics(trendRequest.await().flatMap{metric->if(metric.points.isEmpty())listOf(metric) else metric.points.groupBy{healthSeriesKey(metric.key,it.originalField)}.map{(key,points)->metric.copy(key=key,label=healthSeriesLabel(key),points=points)}})
+    val sources=sourcesRequest.await()
+    val days=dailyRequests.map{(_,request)->request.await()}
+    val unavailableDays=days.count{it.isFailure&&it.exceptionOrNull()?.message!="health day was not found"}
+    val history=days.mapNotNull{it.getOrNull()?.toHealthDailyOverview()}.sortedBy{it.occurredOn}
+    val daily=history.firstOrNull{it.occurredOn==today.toString()};val metrics=fillDerivedBodyMetrics(trendRequest.await().flatMap{metric->if(metric.points.isEmpty())listOf(metric) else metric.points.groupBy{healthSeriesKey(metric.key,it.originalField)}.map{(key,points)->metric.copy(key=key,label=healthSeriesLabel(key),points=points)}})
     val weight=metrics.firstOrNull{it.key=="weight"}?.points?.lastOrNull()
     val summary=TodayHealthSummary(
       state=when{daily!=null||weight!=null->HealthSummaryState.Ready;metrics.all{it.unavailable}->HealthSummaryState.Failed;else->HealthSummaryState.Empty},
@@ -795,7 +820,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     WorkspaceOverview.Health(
       sources=deviceSources.size,
       sourcesNeedingAttention=deviceSources.count{source->healthSourceNeedsAttention(source.sourceType,source.permissionState,source.cursors.map{it.state})},
-      streams=deviceSources.sumOf{it.cursors.size},summary=summary,metrics=metrics,daily=daily,history=history,sleepInsights=sleepInsightsRequest?.await()?.getOrNull(),progression=progressionRequest?.await()?.getOrNull(),asOf=sources.asOf
+      streams=deviceSources.sumOf{it.cursors.size},summary=summary,metrics=metrics,daily=daily,history=history,sleepInsights=sleepInsightsRequest?.await()?.getOrNull(),progression=progressionRequest?.await()?.getOrNull(),asOf=sources.asOf,unavailableDays=unavailableDays
     )
   }
 
@@ -804,7 +829,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     sleepMinutes=result.sleep?.totalMinutes,deepMinutes=result.sleep?.deepMinutes,remMinutes=result.sleep?.remMinutes,
     workouts=result.workouts.size,habitsDone=result.habits.sumOf{it.doneCount.toInt()},updatedAt=updatedAt,
     lightMinutes=result.sleep?.lightMinutes,awakeMinutes=result.sleep?.awakeMinutes,sleepSource=result.sleep?.sourceType,
-    sleepId=result.sleep?.id,sleepTotalDayMinutes=result.sleep?.totalDayMinutes,napMinutes=result.sleep?.naps.orEmpty().map{it.totalMinutes},caloriesSource=result.activity?.caloriesSource?.wireValue,
+    sleepId=result.sleep?.id,sleepWindow=result.sleep?.window,sleepTotalDayMinutes=result.sleep?.totalDayMinutes,napMinutes=result.sleep?.naps.orEmpty().map{it.totalMinutes},caloriesSource=result.activity?.caloriesSource?.wireValue,
     workoutItems=result.workouts.map{workout->HealthWorkoutSummary(
       id=workout.id,occurredOn=occurredOn,sessionType=workout.sessionType,startedAt=workout.startedAt,timeZone=workout.timeZone?:ZoneId.systemDefault().id,
       durationMinutes=workout.durationMinutes,distanceKm=workout.distanceKm,caloriesKcal=workout.caloriesKcal,
@@ -1012,11 +1037,11 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
 }
 
 private fun JSONArray?.objects():List<JSONObject>{if(this==null)return emptyList();return (0 until length()).mapNotNull{optJSONObject(it)}}
-private fun JSONObject.optNullableString(key:String):String?=if(!has(key)||isNull(key))null else optString(key).takeIf(String::isNotBlank)
+internal fun JSONObject.optNullableString(key:String):String?=if(!has(key)||isNull(key))null else optString(key).takeIf(String::isNotBlank)
 private fun encode(value:String)=java.net.URLEncoder.encode(value,Charsets.UTF_8.name())
 internal fun consumptionStatsDateRange(today:LocalDate,months:Int):Pair<LocalDate,LocalDate>{require(months in setOf(1,3,6,12));val current=today.withDayOfMonth(1);return current.minusMonths(months.toLong()-1) to current.plusMonths(1)}
 private fun decimal(value:String):String { val normalized=value.trim().removePrefix("+");require(Regex("^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$").matches(normalized)){"请输入有效数值，最多 6 位小数"};return normalized }
-private fun money(value:String):String { val normalized=value.trim();require(Regex("^(?:0|[1-9]\\d*)(?:\\.\\d{1,2})?$").matches(normalized)){"请输入有效金额，最多 2 位小数"};return normalized.toBigDecimal().setScale(2).toPlainString().also{require(it!="0.00"){"金额必须大于 0"}} }
+internal fun normalizeCnyAmount(value:String):String { val normalized=value.trim();require(Regex("^(?:0|[1-9]\\d*)(?:\\.\\d{1,2})?$").matches(normalized)){"请输入有效金额，最多 2 位小数"};return normalized.toBigDecimal().setScale(2).toPlainString().also{require(it!="0.00"){"金额必须大于 0"}} }
 private fun correctionReason(value:String)=value.trim().ifBlank{"用户在详情中更正"}
 private fun mealTypeLabel(value:String)=mapOf("breakfast" to "早餐","lunch" to "午餐","dinner" to "晚餐","snack" to "加餐","other" to "一餐")[value]?:"一餐"
 private fun domainFromWire(value:String)=LifeDomain.entries.first{it.name.equals(value,true)}

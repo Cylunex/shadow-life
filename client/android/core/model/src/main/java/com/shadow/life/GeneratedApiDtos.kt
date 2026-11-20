@@ -5116,6 +5116,13 @@ data class HealthDailyResultDtoResultActivity(
 )
 
 @Serializable
+data class HealthDailyResultDtoResultSleepWindow(
+  @SerialName("started_at") val startedAt: String?,
+  @SerialName("ended_at") val endedAt: String?,
+  @SerialName("time_zone") val timeZone: String?
+)
+
+@Serializable
 data class HealthDailyResultDtoResultSleepNapsEntry(
   @SerialName("id") val id: String,
   @SerialName("total_minutes") val totalMinutes: Long,
@@ -5147,6 +5154,7 @@ data class HealthDailyResultDtoResultSleep(
   @SerialName("source_type") val sourceType: String,
   @SerialName("instance_key") val instanceKey: String?,
   @SerialName("raw_id") val rawId: String?,
+  @SerialName("window") val window: HealthDailyResultDtoResultSleepWindow? = null,
   @SerialName("selection_policy") val selectionPolicy: String,
   @SerialName("total_day_minutes") val totalDayMinutes: Long,
   @SerialName("naps") val naps: List<HealthDailyResultDtoResultSleepNapsEntry>,

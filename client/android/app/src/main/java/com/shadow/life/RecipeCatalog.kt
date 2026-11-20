@@ -57,6 +57,14 @@ import org.json.JSONObject
   val steps=recipe.optString("instructions").takeUnless{recipe.isNull("instructions")}.orEmpty()
     .lineSequence().map(String::trim).filter(String::isNotEmpty).toList()
   LifeFullScreen(recipe.getString("title"),onBack){
+    if(step in steps.indices){
+      val view=androidx.compose.ui.platform.LocalView.current
+      DisposableEffect(view){
+        val original=view.keepScreenOn
+        view.keepScreenOn=true
+        onDispose{view.keepScreenOn=original}
+      }
+    }
     LazyColumn(verticalArrangement=Arrangement.spacedBy(10.dp)){
       if(step<0){
         item{

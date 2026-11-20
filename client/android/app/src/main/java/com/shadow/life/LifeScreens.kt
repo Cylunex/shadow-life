@@ -267,7 +267,7 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
       savedNotice?.let{notice->item{Text(notice,color=MaterialTheme.colorScheme.primary)}}
       if(state is LoadState.Ready){
         val detail=state.value
-        if(mealRead!=null)mealDetailItems(detail,accountId,mealRead,onDishCatalog)
+        if(mealRead!=null)mealDetailItems(detail,mealRead,onDishCatalog)
         else {
           item{DetailHero(detail)}
           item{DomainDetailContent(detail,onLink){purchaseLineId=it.id}}
@@ -375,7 +375,7 @@ private fun detailCategory(value:DetailPresentation)=when(value){DetailPresentat
     if(seed is EditSeed.Meal)mealFoods()
     if(seed !is EditSeed.Library)OutlinedTextField(note,{note=it},Modifier.fillMaxWidth(),label={Text("备注（可选）")},minLines=2)
     OutlinedTextField(reason,{reason=it},Modifier.fillMaxWidth(),label={Text("更正说明（可选）")},minLines=2,supportingText={Text("留空时会记录为“用户在详情中更正”")})
-    when(state){is SubmitState.Rejected->Text(state.message,color=MaterialTheme.colorScheme.error);is SubmitState.Saved->TaskResultCard(state.receipt,onDismiss);else->Button(onClick={onSubmit(CorrectionDraft(primary,secondary,note,date,option,reason))},enabled=state !is SubmitState.Sending&&primaryValid(seed,primary,secondary),modifier=Modifier.fillMaxWidth().heightIn(min=56.dp)){Text(if(state is SubmitState.Sending)"正在保存…" else "保存更正")}}
+    when(state){is SubmitState.Rejected->Text(state.message,color=MaterialTheme.colorScheme.error);is SubmitState.Saved->TaskResultCard(state.receipt,onDismiss);else->Button(onClick={onSubmit(CorrectionDraft(primary,secondary,note,date,option,reason))},enabled=state !is SubmitState.Sending&&primaryValid(seed,primary,secondary),modifier=Modifier.fillMaxWidth().heightIn(min=56.dp)){Text(if(state is SubmitState.Sending)"正在保存…" else if(seed is EditSeed.Meal)"保存餐次信息" else "保存更正")}}
   }}
 }
 

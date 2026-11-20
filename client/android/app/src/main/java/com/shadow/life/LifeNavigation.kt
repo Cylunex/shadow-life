@@ -153,9 +153,9 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
         HealthArchiveScreen(session.accountId,{nav.popBackStack()}){id->nav.openRecord(LifeDomain.Library,id)}
       }
       composable<ReturnCasesRoute>{
-        ReturnCasesScreen(session.accountId,{nav.popBackStack()}){id->nav.openRecord(LifeDomain.Money,id)}
+        ReturnCasesScreen(session.accountId,{nav.popBackStack()},{id->nav.openRecord(LifeDomain.Money,id)})
       }
-      composable<PriceBookRoute>{PriceBookScreen(session.accountId,{nav.popBackStack()}){id->nav.openRecord(LifeDomain.Money,id)}}
+      composable<PriceBookRoute>{PriceBookScreen(session.accountId,{nav.popBackStack()},{id->nav.openRecord(LifeDomain.Money,id)})}
       composable<PersonalRecordsRoute>{
         LifeFullScreen("生活记录与复盘",{nav.popBackStack()}){
           LazyColumn{item{PersonalRecordsCard(session.accountId)}}
