@@ -10,12 +10,12 @@ import org.json.JSONObject
 import java.time.LocalDate
 import java.time.ZoneId
 
-@Composable internal fun IntervalEventsCard(accountId:String){
+@Composable internal fun IntervalEventsCard(accountId:String,initiallyOpen:Boolean=false){
   val context=LocalContext.current
   val app=context.applicationContext as ShadowApp
   val repository=remember(accountId){NativeLifeRepository(context,app)}
   val scope=rememberCoroutineScope()
-  var open by rememberSaveable{mutableStateOf(false)}
+  var open by rememberSaveable{mutableStateOf(initiallyOpen)}
   var selected by rememberSaveable{mutableStateOf("")}
   var name by rememberSaveable{mutableStateOf("")}
   var events by remember{mutableStateOf<List<JSONObject>>(emptyList())}
@@ -36,6 +36,7 @@ import java.time.ZoneId
       }catch(e:CancellationException){throw e}catch(e:Exception){message=e.message?:"读取失败"}finally{busy=false}
     }
   }
+  LaunchedEffect(accountId,open){if(open)load()}
   fun save(capability:String,input:JSONObject){
     busy=true
     scope.launch{
@@ -60,7 +61,7 @@ import java.time.ZoneId
   }
   val available=!busy&&queue==null
   LifeCard{
-    TextButton(onClick={open=!open;if(open)load()},enabled=!busy){Text("上次是什么时候")}
+    if(!initiallyOpen)TextButton(onClick={open=!open},enabled=!busy){Text("上次是什么时候")}
     if(open){
       OutlinedTextField(name,{name=it},label={Text("新事项，例如换滤芯")})
       TextButton(enabled=available&&name.isNotBlank(),onClick={save("life.save_interval_event",JSONObject().put("name",name.trim()))}){Text("创建事项")}

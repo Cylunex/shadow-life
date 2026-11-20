@@ -30,7 +30,7 @@ internal fun domainSectionHandled(detail:RecordDetail,section:DetailSection)=whe
   else->false
 }
 
-@Composable internal fun DomainDetailContent(detail:RecordDetail,onLink:(DetailLink)->Unit){
+@Composable internal fun DomainDetailContent(detail:RecordDetail,onLink:(DetailLink)->Unit,onPurchaseLine:(PurchaseLineRef)->Unit={}){
   val accent=detailAccent(detail.presentation)
   Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(20.dp)){
     when(detail.presentation){
@@ -66,7 +66,7 @@ internal fun domainSectionHandled(detail:RecordDetail,section:DetailSection)=whe
         val groups=detail.sections.firstOrNull{it.title=="购买明细"}?.groups.orEmpty()
         if(groups.isNotEmpty()){
           Text("买了什么",style=MaterialTheme.typography.titleLarge)
-          groups.forEach{group->Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(group.title,Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);Text(group.facts.firstOrNull{it.label in setOf("份量","数量")}?.value.orEmpty(),color=accent)};group.facts.filter{it.label !in setOf("份量","数量")}.forEach{Text("${it.label}  ${it.value}",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)};HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant.copy(alpha=.35f))}}
+          groups.forEach{group->Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(group.title,Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);Text(group.facts.firstOrNull{it.label in setOf("份量","数量")}?.value.orEmpty(),color=accent)};group.facts.filter{it.label !in setOf("份量","数量")}.forEach{Text("${it.label}  ${it.value}",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)};detail.purchaseLines.firstOrNull{it.id==group.id}?.let{line->TextButton(onClick={onPurchaseLine(line)}){Text("转入物品、消耗品或库存")}};HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant.copy(alpha=.35f))}}
         }
       }
       else->Unit

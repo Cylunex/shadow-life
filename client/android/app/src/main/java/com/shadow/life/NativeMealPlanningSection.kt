@@ -19,7 +19,7 @@ private fun plusDays(value:String,days:Long)=LocalDate.parse(value).plusDays(day
 @Composable internal fun NativeMealPlanningSection(
   overview:WorkspaceOverview.Meals,actionState:SubmitState,
   onSave:(NativeMealPlanDraft)->Unit,onBuild:(MealPlanningResultDtoMealPlansEntry,String)->Unit,
-  onUpdate:(MealPlanningResultDtoShoppingListsEntryItemsEntry,String)->Unit,onSetStock:(MealPlanningResultDtoStockLotsEntry?,String,String,String,String?)->Unit,onSaveRecipe:(String,String,String,String,String)->Unit,onReset:()->Unit,initialSection:String="planning",accountId:String,controlledSection:String?=null,onSectionChange:((String)->Unit)?=null
+  onUpdate:(MealPlanningResultDtoShoppingListsEntryItemsEntry,String)->Unit,onSetStock:(MealPlanningResultDtoStockLotsEntry?,String,String,String,String?)->Unit,onSaveRecipe:(String,String,String,String,String)->Unit,onReset:()->Unit,initialSection:String="planning",accountId:String,controlledSection:String?=null,onSectionChange:((String)->Unit)?=null,focusStockId:String="",onStockPurchase:(String)->Unit={}
 ){
   val today=LocalDate.now().toString()
   var editing by rememberJsonState(MealPlanningResultDtoMealPlansEntry.serializer())
@@ -86,12 +86,18 @@ private fun plusDays(value:String,days:Long)=LocalDate.parse(value).plusDays(day
     }
     val attention=overview.stockAttention?.items.orEmpty().associateBy{it.lotId}
     val lots=overview.stockLots.filter{stockMatches(stockFilter,attention[it.id]?.state?.wireValue)}
+      .sortedByDescending{it.id==focusStockId}
     if(lots.isEmpty())Text("当前筛选下没有已加载批次。",color=MaterialTheme.colorScheme.onSurfaceVariant)
     lots.forEach{lot->LifeCard{
       Text("${lot.name} · ${lot.quantity} ${lot.unit}")
+      lot.purchaseRecordId?.let{id->TextButton(onClick={onStockPurchase(id)}){Text("查看购买来源")}}
       StockRecipesCard(accountId,lot.id,today)
       val deadline=attention[lot.id]
       Text(listOfNotNull(lot.expiresOn,deadlineLabel(deadline?.state?.wireValue,deadline?.daysUntil)).joinToString(" · "))
+      val quantity=lot.quantity.toBigDecimalOrNull()
+      if(quantity!=null&&quantity.signum()>0){
+        TextButton(enabled=!busy,onClick={onSetStock(lot,lot.name,"0",lot.unit,lot.expiresOn)}){Text("用完")}
+      }
       lot.note?.takeIf(String::isNotBlank)?.let{Text(it,style=MaterialTheme.typography.bodySmall)}
       TextButton(onClick={onReset();editingLotJson=kotlinx.serialization.json.Json.encodeToString(MealPlanningResultDtoStockLotsEntry.serializer(),lot);showStockEditor=true;stockName=lot.name;stockQuantity=lot.quantity;stockUnit=lot.unit;stockExpiry=lot.expiresOn.orEmpty()},enabled=!busy){Text("校正")}
     }}
@@ -105,7 +111,27 @@ private fun plusDays(value:String,days:Long)=LocalDate.parse(value).plusDays(day
       var extraNames by rememberSaveable(plan.id){mutableStateOf("")}
       Text(plan.title,style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
       Text("${plan.startsOn} 至 ${plan.endsOn} · ${plan.entries.size} 餐",color=MaterialTheme.colorScheme.onSurfaceVariant)
-      plan.entries.take(4).forEach{Text("${it.planDate.takeLast(5)} ${mealTypeName(it.mealType.wireValue)} · ${it.title}",style=MaterialTheme.typography.bodyMedium)}
+      var expanded by rememberSaveable(plan.id){mutableStateOf(false)}
+      var recipeEntry by rememberSaveable(plan.id){mutableStateOf<String?>(null)}
+      val entries=(if(expanded)plan.entries else plan.entries.take(4)).groupBy{it.planDate}.toSortedMap()
+      entries.forEach{(date,planned)->
+        Text(date,style=MaterialTheme.typography.labelLarge)
+        planned.forEach{entry->
+          val label="${mealTypeName(entry.mealType.wireValue)} · ${entry.title}"
+          if(entry.recipeSnapshot!=null)TextButton(onClick={recipeEntry=entry.id}){Text(label)}
+          else Text(label,style=MaterialTheme.typography.bodyMedium)
+        }
+      }
+      plan.entries.firstOrNull{it.id==recipeEntry}?.let{entry->
+        entry.recipeSnapshot?.let{snapshot->
+          val wire=JSONObject(kotlinx.serialization.json.Json.encodeToString(MealPlanningResultDtoMealPlansEntryEntriesEntryRecipeSnapshot.serializer(),snapshot))
+          val ingredients=org.json.JSONArray()
+          wire.getJSONArray("items").trainingObjects().forEach{ingredients.put(JSONObject().put("snapshot",it))}
+          val recipe=wire.getJSONObject("recipe").put("items",ingredients)
+          RecipeCookingView(recipe,initialServings=entry.servings){recipeEntry=null}
+        }
+      }
+      if(plan.entries.size>4)TextButton(onClick={expanded=!expanded}){Text(if(expanded)"收起餐单" else "展开全部日期")}
       Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){
         OutlinedButton(onClick={open(plan)},enabled=!busy){Text("编辑")}
         OutlinedButton(onClick={open(plan,true)},enabled=!busy){Text("复制到下周")}
@@ -126,7 +152,10 @@ private fun plusDays(value:String,days:Long)=LocalDate.parse(value).plusDays(day
     overview.lists.forEach{list->LifeCard{
       Text(list.title,style=MaterialTheme.typography.titleMedium)
       Text("${list.items.count{it.state.wireValue=="needed"}} 项待买",color=MaterialTheme.colorScheme.onSurfaceVariant)
-      list.items.forEach{item->Column(verticalArrangement=Arrangement.spacedBy(3.dp)){
+      var showDone by rememberSaveable(list.id){mutableStateOf(false)}
+      val (needed,done)=list.items.partition{it.state.wireValue=="needed"}
+      if(done.isNotEmpty())TextButton(onClick={showDone=!showDone}){Text(if(showDone)"收起已处理" else "已处理 · ${done.size}")}
+      (if(showDone)needed+done else needed).forEach{item->Column(verticalArrangement=Arrangement.spacedBy(3.dp)){
         Text("${item.name}${item.quantity?.let{" · $it ${item.unit.orEmpty()}"}.orEmpty()}",style=MaterialTheme.typography.bodyLarge)
         Text(when(item.state.wireValue){"bought"->"已买到";"skipped"->"已跳过";else->"待买"}+" · "+stockGap(item,overview.stockLots,overview.stockTruncated,overview.plans.firstOrNull{it.id==list.mealPlanId}?.endsOn?:LocalDate.now().toString()),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){

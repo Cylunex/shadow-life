@@ -80,11 +80,15 @@ internal fun moduleIcon(module:LifeModule):ImageVector=when(module){
       }
       subtitle?.let{Text(it,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}
     }},
-    navigationIcon={if(navigation==null)LifeBackButton(onBack)},
+    navigationIcon={
+      if(navigation==null)LifeBackButton(onBack)
+      else if(module!=LifeModule.Life)TextButton(onClick={navigation.onModule(LifeModule.Life,null)}){Text("生活")}
+    },
     colors=TopAppBarDefaults.topAppBarColors(containerColor=MaterialTheme.colorScheme.background),
     actions={if(navigation!=null){
       IconButton(onClick=navigation.onServices){Icon(LifeModuleIcons.Services,"服务中心")}
-      FilledTonalIconButton(onClick={onCreate?.invoke()?:navigation.onCapture(module.capture)}){Icon(Icons.Default.Add,"快速记录")}
+      if(module !in setOf(LifeModule.Life,LifeModule.Health,LifeModule.Meals,LifeModule.Money))
+        FilledTonalIconButton(onClick={onCreate?.invoke()?:navigation.onCapture(module.capture)}){Icon(Icons.Default.Add,"快速记录")}
       Box{IconButton(onClick={menu=true}){Icon(Icons.Default.MoreVert,"更多")};DropdownMenu(menu,{menu=false}){
         assistant?.let{DropdownMenuItem(text={Text("Life 助手")},onClick={menu=false;it()})}
         DropdownMenuItem(text={Text("提醒与消息")},onClick={menu=false;navigation.onInbox()})
@@ -108,7 +112,7 @@ internal fun moduleIcon(module:LifeModule):ImageVector=when(module){
 }
 
 internal data class ModuleTab(val key:String,val label:String,val icon:ImageVector)
-internal val moneyModuleTabs=listOf(ModuleTab("overview","概览",Icons.Default.Home),ModuleTab("details","明细",Icons.AutoMirrored.Filled.List),ModuleTab("stats","统计",LifeModuleIcons.Statistics),ModuleTab("budgets","预算",LifeModuleIcons.Wallet))
+internal val moneyModuleTabs=listOf(ModuleTab("overview","概览",Icons.Default.Home),ModuleTab("details","明细",Icons.AutoMirrored.Filled.List),ModuleTab("stats","统计",LifeModuleIcons.Statistics),ModuleTab("budgets","规划",LifeModuleIcons.Wallet))
 internal val healthModuleTabs=listOf(ModuleTab("overview","概览",Icons.Default.Home),ModuleTab("body","身体",Icons.Default.Favorite),ModuleTab("sleep","睡眠",LifeModuleIcons.Sleep),ModuleTab("activity","运动",LifeModuleIcons.Training))
 internal val mealModuleTabs=listOf(ModuleTab("records","今天",LifeModuleIcons.Meals),ModuleTab("planning","餐单",Icons.Default.DateRange),ModuleTab("stock","食材",Icons.Default.Build),ModuleTab("shopping","采购",Icons.Default.ShoppingCart))
 internal val travelModuleTabs=listOf(ModuleTab("overview","旅程",Icons.Default.Home),ModuleTab("itinerary","行程",Icons.Default.DateRange),ModuleTab("map","地图",Icons.Default.Place),ModuleTab("places","地点",Icons.Default.Star))
@@ -136,7 +140,7 @@ internal val travelModuleTabs=listOf(ModuleTab("overview","旅程",Icons.Default
 
 @Composable internal fun HomeCommonServices(onWorkspace:(LifeDomain,String)->Unit,onItems:()->Unit,onLibrary:()->Unit,onTraining:()->Unit,onServices:()->Unit){
   Column(verticalArrangement=Arrangement.spacedBy(10.dp)){
-    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text("常用",Modifier.weight(1f),style=MaterialTheme.typography.titleLarge);TextButton(onClick=onServices){Text("全部服务")}}
+    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text("常用",Modifier.weight(1f),style=MaterialTheme.typography.titleLarge)}
     val entries=listOf(
       Triple("消费",moduleIcon(LifeModule.Money),{onWorkspace(LifeDomain.Money,"")}),
       Triple("健康",moduleIcon(LifeModule.Health),{onWorkspace(LifeDomain.Health,"")}),
@@ -145,11 +149,14 @@ internal val travelModuleTabs=listOf(ModuleTab("overview","旅程",Icons.Default
       Triple("出行",moduleIcon(LifeModule.Travel),{onWorkspace(LifeDomain.Travel,"")}),
       Triple("物品",moduleIcon(LifeModule.Items),onItems),Triple("资料",moduleIcon(LifeModule.Library),onLibrary),Triple("服务中心",LifeModuleIcons.Services,onServices)
     )
-    entries.chunked(4).forEach{row->Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(4.dp)){
+    var expanded by rememberSaveable{mutableStateOf(false)}
+    val visible=if(expanded)entries else entries.take(3)+entries.last()
+    visible.chunked(4).forEach{row->Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(4.dp)){
       row.forEach{(label,icon,action)->Column(Modifier.weight(1f).clickable(role=Role.Button,onClick=action).padding(vertical=8.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(8.dp)){
         Surface(shape=RoundedCornerShape(16.dp),color=MaterialTheme.colorScheme.surfaceContainer){Box(Modifier.size(46.dp),contentAlignment=Alignment.Center){Icon(icon,null)}}
         Text(label,style=MaterialTheme.typography.labelLarge)
       }}
     }}
+    TextButton(onClick={expanded=!expanded}){Text(if(expanded)"收起常用" else "展开常用")}
   }
 }

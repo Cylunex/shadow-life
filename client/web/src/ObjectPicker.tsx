@@ -4,17 +4,17 @@ export type ObjectKind = "trip" | "health_plan" | "recurring_plan" | "owned_item
 export type ObjectOption = { kind: ObjectKind; id: string; revision: number; title: string; subtitle?: string };
 type ObjectPage={items:ObjectOption[];nextCursor:string|null};
 
-export function ObjectPicker({kind,headers,value,onChange,optional=true,label="关联对象",refreshKey=""}:{kind:ObjectKind;headers:HeadersInit;value:string;onChange:(option:ObjectOption|undefined)=>void;optional?:boolean;label?:string;refreshKey?:string}) {
+export function ObjectPicker({kind,headers,value,onChange,optional=true,label="关联对象",refreshKey="",expenseOnly=false}:{expenseOnly?:boolean;kind:ObjectKind;headers:HeadersInit;value:string;onChange:(option:ObjectOption|undefined)=>void;optional?:boolean;label?:string;refreshKey?:string}) {
   const[options,setOptions]=useState<ObjectOption[]>([]),[query,setQuery]=useState(""),[cursor,setCursor]=useState<string|null>(null),[error,setError]=useState<string>(),[loading,setLoading]=useState(false);
   const generation=useRef(0);
-  const scope=JSON.stringify([kind,refreshKey,Array.from(new Headers(headers).entries()).sort()]);
+  const scope=JSON.stringify([kind,refreshKey,expenseOnly,Array.from(new Headers(headers).entries()).sort()]);
   const [loadedScope,setLoadedScope]=useState("");
   const [chosen,setChosen]=useState<{scope:string;option:ObjectOption}>();
   useEffect(()=>{
     const request=++generation.current;
     setOptions([]);setCursor(null);setLoading(true);setError(undefined);
     const timer=setTimeout(()=>{
-      void loadObjectOptions(kind,headers,query).then(page=>{
+      void loadObjectOptions(kind,headers,query,undefined,expenseOnly).then(page=>{
         if(generation.current===request){setLoadedScope(scope);setOptions(page.items);setCursor(page.nextCursor);const match=page.items.find(item=>item.id===value);if(match)setChosen({scope,option:match});}
       }).catch(caught=>{if(generation.current===request)setError(caught instanceof Error?caught.message:"对象读取失败");})
         .finally(()=>{if(generation.current===request)setLoading(false);});
@@ -26,7 +26,7 @@ export function ObjectPicker({kind,headers,value,onChange,optional=true,label="�
     const request=generation.current;
     setLoading(true);setError(undefined);
     try{
-      const page=await loadObjectOptions(kind,headers,query,cursor);
+      const page=await loadObjectOptions(kind,headers,query,cursor,expenseOnly);
       if(generation.current!==request)return;
       setOptions(current=>[...current,...page.items.filter(item=>!current.some(existing=>existing.id===item.id))]);setCursor(page.nextCursor);
     }catch(caught){if(generation.current===request)setError(caught instanceof Error?caught.message:"对象读取失败");}
@@ -37,7 +37,7 @@ export function ObjectPicker({kind,headers,value,onChange,optional=true,label="�
   return <div className="object-picker"><label>{label}<input value={query} onChange={event=>setQuery(event.target.value)} placeholder={loading?"正在读取…":kind==="meal"?"筛选餐次名称或日期":"输入关键词从服务端搜索"}/></label><div className="picker-options" role="listbox" aria-label={label}>{optional&&<button type="button" className={!value?"selected":""} onClick={()=>onChange(undefined)}>不关联</button>}{currentOptions.map(item=><button type="button" role="option" aria-selected={item.id===value} className={item.id===value?"selected":""} key={`${item.kind}:${item.id}:${item.revision}`} onClick={()=>{setChosen({scope,option:item});onChange(item);}}><span><b>{item.title}</b>{item.subtitle&&<small>{item.subtitle}</small>}</span><em>v{item.revision}</em></button>)}</div>{loadedScope===scope&&cursor&&<button type="button" className="secondary" disabled={loading} onClick={()=>void more()}>加载更多</button>}{kind==="meal"&&query.trim()&&<small>在已加载餐次中筛选；可加载更早餐次继续查找。</small>}{selected&&<span className="reference-chip">{kindLabel(selected.kind)} · {selected.title} · v{selected.revision}</span>}{!loading&&!error&&!currentOptions.length&&<small>当前没有匹配的{kindLabel(kind)}。</small>}{error&&<small className="inline-error">{error}</small>}</div>;
 }
 
-export async function loadObjectOptions(kind:ObjectKind,headers:HeadersInit,query="",cursor?:string):Promise<ObjectPage> {
+export async function loadObjectOptions(kind:ObjectKind,headers:HeadersInit,query="",cursor?:string,expenseOnly=false):Promise<ObjectPage> {
   const generic:Partial<Record<ObjectKind,{route:string;recordKind:string}>>={trip:{route:"/api/travel",recordKind:"trip"},health_plan:{route:"/api/health",recordKind:"health_plan"},library_item:{route:"/api/library",recordKind:"library_item"},money_entry:{route:"/api/money",recordKind:"money_entry"}};
   const source=generic[kind];
   let route:string;
@@ -49,7 +49,7 @@ export async function loadObjectOptions(kind:ObjectKind,headers:HeadersInit,quer
   let candidates=kind==="recipe"?array(body.recipes):kind==="recurring_plan"?array(body.recurring_plans??body.plans):array(body.items);
   if(source)candidates=candidates.filter(value=>{const row=object(value),actual=text(row.kind);return kind==="health_plan"?["habit_plan","goal","workout_plan"].includes(actual):actual===source.recordKind;});
   if(!source&&kind!=="recipe"&&query.trim()){const needle=query.trim().toLocaleLowerCase();candidates=candidates.filter(value=>JSON.stringify(value).toLocaleLowerCase().includes(needle));}
-  const items=candidates.map(object).filter(row=>accept(kind,row)).flatMap(row=>{
+  const items=candidates.map(object).filter(row=>accept(kind,row)&&(!expenseOnly||row.entry_type==="expense"&&row.currency==="CNY"&&row.state!=="voided")).flatMap(row=>{
     const id=text(row.id??row.meal_id),revision=Number(row.revision??row.current_revision??row.currentRevision),title=text((kind==="meal"?array(row.items).map(item=>text(object(item).name)).join("、")||row.meal_type:undefined)??row.title??row.name??row.counterparty??row.raw_name??row.metric_label??row.metric_key??row.kind);
     if(!id||!Number.isInteger(revision)||revision<1)return[];
     const dates=[row.starts_on,row.ends_on,row.occurred_on,row.due_on].filter(item=>typeof item==="string").join(" 至 "),subtitle=[dates,text(row.state)].filter(Boolean).join(" · ");

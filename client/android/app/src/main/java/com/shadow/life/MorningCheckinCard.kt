@@ -73,8 +73,8 @@ import java.time.ZoneId
       }
       if(row!=null || pending==null){
         Text("$selected 醒来感受")
-        OutlinedTextField(energy,{if(it.isEmpty()||it.toIntOrNull() in 0..10){dirty=true;energy=it}},label={Text("精力（0–10）")})
-        OutlinedTextField(quality,{if(it.isEmpty()||it.toIntOrNull() in 0..10){dirty=true;quality=it}},label={Text("睡眠质量（0–10）")})
+        LifeChoiceField("精力",energy,morningScoreOptions){dirty=true;energy=it}
+        LifeChoiceField("睡眠质量",quality,morningScoreOptions){dirty=true;quality=it}
         OutlinedTextField(notes,{if(it.length<=2000){dirty=true;notes=it}},label={Text("备注")})
         Button(enabled=!busy&&pending==null&&(energy.isNotEmpty()||quality.isNotEmpty()||notes.isNotBlank()),onClick={
           busy=true
@@ -99,3 +99,5 @@ import java.time.ZoneId
 }
 
 private fun JSONObject.optIntOrNull(key:String):Int? = if(isNull(key))null else getInt(key)
+
+private val morningScoreOptions=listOf("" to "未填写")+(0..10).map{it.toString() to "$it／10"}

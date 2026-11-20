@@ -134,13 +134,6 @@ internal fun trainingMenuOrDefault(candidate:JSONObject?,fallback:JSONObject):JS
     error?.let{Text(it,color=MaterialTheme.colorScheme.error)}
     if(state is LoadState.Ready&&state.refreshError!=null)ReadStatus(state,onLoad)
     when(submit){is SubmitState.Rejected->Text(submit.message,color=MaterialTheme.colorScheme.error);is SubmitState.Saved->Text(if(submit.receipt.queued)"已保存到同步队列；联网后同步" else "已保存");else->Unit}
-    if(draft.restUntil>0){
-      val remaining=trainingRestSeconds(draft.restUntil,now)
-      OutlinedCard{Column(Modifier.fillMaxWidth().padding(14.dp)){
-        Text(if(remaining>0)"组间休息 · ${remaining}s" else "休息结束，可以继续",style=MaterialTheme.typography.titleMedium)
-        Row{listOf(30,60,90).forEach{seconds->TextButton(enabled=!pending,onClick={restLength=seconds;update(draft.copy(restUntil=System.currentTimeMillis()+seconds*1000L))}){Text("${seconds}s")}};TextButton(enabled=!pending,onClick={update(draft.copy(restUntil=0))}){Text("跳过")}}
-      }}
-    }
     when(tab){
       "today"->{
         if(draft.exercises.isEmpty()){
@@ -181,6 +174,9 @@ internal fun trainingMenuOrDefault(candidate:JSONObject?,fallback:JSONObject):JS
                   }
                 }
                 previous?.let{Text("最近同动作 · $it",style=MaterialTheme.typography.bodySmall)}
+                if(draft.restUntil==0L)LifeChoiceField("组间休息",restLength.toString(),listOf(30,60,90).map{it.toString() to "$it 秒"}){
+                  restLength=it.toInt()
+                }
                 row.sets.forEachIndexed{setIndex,set->
                   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){
                     Text("${setIndex+1}",modifier=Modifier.width(20.dp))
@@ -276,6 +272,19 @@ internal fun trainingMenuOrDefault(candidate:JSONObject?,fallback:JSONObject):JS
     LifeFullScreen("进行中的训练",{executionOpen=false}){
       Column(Modifier.fillMaxSize()){
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())){content()}
+        if(draft.restUntil>0){
+          val remaining=trainingRestSeconds(draft.restUntil,now)
+          Surface(color=MaterialTheme.colorScheme.surfaceContainer,shape=MaterialTheme.shapes.medium){
+            Column(Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=4.dp)){
+              Text(if(remaining>0)"组间休息 · ${remaining}s" else "休息结束",style=MaterialTheme.typography.titleMedium)
+              Row(horizontalArrangement=Arrangement.spacedBy(4.dp)){
+                TextButton(enabled=!pending,onClick={update(draft.copy(restUntil=(draft.restUntil-15000L).coerceAtLeast(now)))}){Text("−15 秒")}
+                TextButton(enabled=!pending,onClick={update(draft.copy(restUntil=maxOf(draft.restUntil,now)+15000L))}){Text("＋15 秒")}
+                TextButton(enabled=!pending,onClick={update(draft.copy(restUntil=0))}){Text("跳过")}
+              }
+            }
+          }
+        }
         val row=draft.exercises.getOrNull(activeExercise)
         val index=row?.sets?.indexOfFirst{!it.completed}?:-1
         if(row!=null&&index>=0)Button(enabled=!pending,onClick={toggleSet(row,index)},modifier=Modifier.fillMaxWidth().padding(vertical=8.dp)){

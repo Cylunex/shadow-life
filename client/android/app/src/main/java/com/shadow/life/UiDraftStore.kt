@@ -8,7 +8,7 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
 /** Local UI drafts are encrypted and isolated by account and object; never business facts. */
-internal class UiDraftStore(context:Context,accountId:String){
+internal class UiDraftStore(context:Context,val accountId:String){
   private val account=java.security.MessageDigest.getInstance("SHA-256").digest(accountId.toByteArray()).joinToString(""){"%02x".format(it)}
   private val preferences=EncryptedSharedPreferences.create(context,"shadow-life-ui-drafts",
     MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
@@ -32,10 +32,10 @@ internal val LocalUiDraftScope=staticCompositionLocalOf<UiDraftScope?>{null}
   }}
 }
 
-internal fun encodeMealDraftRows(rows:List<MealDraftItem>):String=Json.encodeToString(rows.map{listOf(it.name,it.quantity,it.unit,it.energyKcal,it.proteinG,it.fatG,it.carbG)})
+internal fun encodeMealDraftRows(rows:List<MealDraftItem>):String=Json.encodeToString(rows.map{listOf(it.name,it.quantity,it.unit,it.energyKcal,it.proteinG,it.fatG,it.carbG,it.sourceJson)})
 internal fun decodeMealDraftRows(raw:String?):List<MealDraftItem>? = runCatching{
   val rows=Json.decodeFromString<List<List<String>>>(requireNotNull(raw));require(rows.size in 1..100)
-  rows.map{row->require(row.size==7);MealDraftItem(row[0],row[1],row[2],row[3],row[4],row[5],row[6])}
+  rows.map{row->require(row.size in 7..8);MealDraftItem(row[0],row[1],row[2],row[3],row[4],row[5],row[6],row.getOrNull(7).orEmpty())}
 }.getOrNull()
 internal fun readMealDraftRows(raw:String?,initialName:String):List<MealDraftItem> = decodeMealDraftRows(raw)?:listOf(MealDraftItem(name=initialName))
 

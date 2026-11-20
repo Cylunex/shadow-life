@@ -56,7 +56,7 @@ internal fun travelDayMap(day:TravelDaySummary?,places:List<TravelPlaceSummary>,
   }
 }
 
-internal fun LazyListScope.travelDayContent(day:TravelDaySummary?,date:String?,zone:String,places:List<TravelPlaceSummary> = emptyList(),onVisit:((TravelStopSummary)->Unit)?=null){
+internal fun LazyListScope.travelDayContent(day:TravelDaySummary?,date:String?,zone:String,places:List<TravelPlaceSummary> = emptyList(),onVisit:((TravelStopSummary)->Unit)?=null,onMapStop:((TravelStopSummary)->Unit)?=null){
   val stops=day?.stops.orEmpty()
   item("day-heading"){Text("${date.orEmpty()} · ${stops.size} 个停留点",style=MaterialTheme.typography.titleLarge,modifier=Modifier.padding(top=12.dp))}
   if(stops.isEmpty())item("day-empty"){EmptyState("当天还没有安排，可以添加地点或留作自由活动")}
@@ -72,6 +72,7 @@ internal fun LazyListScope.travelDayContent(day:TravelDaySummary?,date:String?,z
           stop.note?.takeIf(String::isNotBlank)?.let{Text(it,color=MaterialTheme.colorScheme.onSurfaceVariant)}
         }
       }
+      if(onMapStop!=null&&place?.latitude!=null&&place.longitude!=null)TextButton(onClick={onMapStop(stop)}){Text("定位到地图")}
       if(onVisit!=null)TextButton(onClick={onVisit(stop)}){Text("记录实际到访")}
     }
   }

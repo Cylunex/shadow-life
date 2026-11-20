@@ -10,6 +10,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -34,6 +36,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.nativeCanvas
@@ -59,11 +66,11 @@ private val BodyOrange:Color @Composable get()=if(MaterialTheme.colorScheme.back
 private val SleepPurple:Color @Composable get()=if(MaterialTheme.colorScheme.background.luminance()<.5f)Color(0xFFA982FF) else Color(0xFF70579C)
 private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.background.luminance()<.5f)Color(0xFFFF806F) else Color(0xFFA54737)
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class,ExperimentalLayoutApi::class)
 @Composable fun HealthWorkspaceScreen(
   accountId:String,overviewState:LoadState<WorkspaceOverview>,recordsState:LoadState<RecordPage>,deviceStatus:DeviceSyncStatus,queueState:LoadState<QueueSummary>,samsungAvailable:Boolean,
   onRetry:()->Unit,onLoadMore:()->Unit,onBack:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onCapture:(CaptureKind)->Unit,
-  onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onSettings:()->Unit,onMeals:()->Unit,initialTab:String="overview",releaseState:LoadState<HealthReleaseHistoryResultDto>,onReleaseLoad:(String,String)->Unit,trainingContent:@Composable ()->Unit={}
+  onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onSettings:()->Unit,onMeals:()->Unit,initialTab:String="overview",releaseState:LoadState<HealthReleaseHistoryResultDto>,onReleaseLoad:(String,String)->Unit,onArchive:()->Unit={},onReview:(String)->Unit={},trainingContent:@Composable ()->Unit={}
 ){
   var tab by rememberSaveable(initialTab){mutableStateOf(initialTab.takeIf{value->healthTabs.any{it.first==value}}?:"overview")}
   val context=LocalContext.current
@@ -73,74 +80,126 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
   val workspaceScroll=rememberModuleListState(tab)
   val overview=(overviewState as? LoadState.Ready)?.value as? WorkspaceOverview.Health
   Scaffold(containerColor=MaterialTheme.colorScheme.background,
-    topBar={LifeModuleTopBar(LifeModule.Health,onBack,healthSourceLine(overview))},
-    bottomBar={LifeModuleBottomBar(if(tab=="training")"activity" else tab,healthModuleTabs){tab=it}}
+    topBar={LifeModuleTopBar(LifeModule.Health,onBack)},
+    bottomBar={
+      Column {
+        if(tab=="overview")ModuleCaptureAction("记体重"){onCapture(CaptureKind.Health)}
+        LifeModuleBottomBar(when(tab){"training"->"activity";"release"->"overview";else->tab},healthModuleTabs){tab=it}
+      }
+    }
   ){padding->
-    LazyColumn(Modifier.fillMaxSize().padding(padding),state=workspaceScroll,contentPadding=PaddingValues(horizontal=20.dp,vertical=10.dp),verticalArrangement=Arrangement.spacedBy(18.dp)){
-      if(tab in setOf("overview","activity","training","release"))item{Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-        FilterChip(tab=="training",{tab="training"},label={Text("训练")})
-        FilterChip(tab=="release",{tab="release"},label={Text("起飞记录")})
-        TextButton(onClick=onMeals){Text("饮食与营养")}
-      }}
+    LazyColumn(Modifier.fillMaxSize().padding(padding),state=workspaceScroll,contentPadding=PaddingValues(horizontal=16.dp,vertical=8.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
       item{StateContent(overviewState,onRetry){} }
-      if(tab=="overview")item{NativeDietReview(accountId,LocalDate.now().toString(),false,overviewState,onDetail)}
-      if(tab=="overview")item{PersonalRecordsCard(accountId,"体检项目对照")}
-      if(tab=="overview")item{PersonalRecordsCard(accountId,"不适发作")}
-      if(tab=="training"||tab=="sleep")item{PersonalRecordsCard(accountId,"路线与训练复盘")}
-      if(tab=="sleep")item{MorningCheckinCard(accountId)}
+      if(tab in setOf("activity","training"))item{
+        FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+          FilterChip(tab=="training",{tab=if(tab=="training")"activity" else "training"},label={Text("训练")})
+        }
+      }
       if(tab=="training")item{trainingContent()}
       if(tab=="release")item{ReleaseHistoryWorkspace(releaseState,onReleaseLoad,onDetail)}
       if(overview!=null){
         when(tab){
           "body"->item{BodyMetricsWorkspace(overview.metrics,hiddenMetrics,::toggleMetric,onDetail,onCapture)}
           "activity"->{item{ActivityWorkspace(overview.history,onDetail,onCapture)};item{HealthSurface{Text("下一次训练",style=MaterialTheme.typography.titleLarge);when(val suggestions=overview.progression){null->Text("建议暂时不可读取");else->if(suggestions.isEmpty())Text("尚无进行中的训练计划") else suggestions.forEach{plan->Text(plan.title,style=MaterialTheme.typography.titleMedium);Text(plan.reason);if(plan.status in setOf("increase_duration","hold"))plan.nextDurationMinutes?.let{Text("${it} 分钟")};plan.evidence.forEach{Text(it,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}}}}
-          "sleep"->item{SleepWorkspace(overview.history,overview.sleepInsights)}
+          "sleep"->{
+            item{SleepWorkspace(overview.history,overview.sleepInsights)}
+            item{HealthSleepSchedule(accountId,overview.history){id->onDetail(LifeDomain.Health,id,"主睡眠")}}
+            item{MorningCheckinCard(accountId)}
+          }
           "release","training"->Unit
-          else->{item{DailyActivityHero(overview.daily,onCapture)};item{HealthOverviewCards(overview,{tab=it},onMeals)};item{BodyCompositionStrip(overview.metrics.filterNot{it.key in hiddenMetrics}){tab="body"}}}
+          else->{
+            item{DailyActivityHero(overview.daily)}
+            item{
+              val night=overview.history.lastOrNull{it.sleepMinutes!=null}?:overview.daily?.takeIf{it.sleepMinutes!=null}
+              val weight=overview.metrics.firstOrNull{it.key=="weight"}?.points?.lastOrNull()
+              LifeCard{
+                HealthSummaryRow("主睡眠",night?.occurredOn?.let{"$it 醒来"}?:"未同步",
+                  night?.sleepMinutes?.let(::minutesLabel)?: "—", SleepPurple){
+                  val id=night?.sleepId
+                  if(id!=null)onDetail(LifeDomain.Health,id,"主睡眠") else tab="sleep"
+                }
+                HorizontalDivider()
+                HealthSummaryRow("最近称重",weight?.occurredOn?:"尚未测量",
+                  weight?.let{"${it.valueText} ${unitLabel(it.unit)}"}?: "—",ActivityGreen){
+                  if(weight!=null)onDetail(LifeDomain.Health,weight.id,"身体测量") else tab="body"
+                }
+              }
+            }
+          }
         }
-        item{CompactDeviceStatus(deviceStatus,queueState,samsungAvailable,onHealthSync,onSamsungSync,onScale,onSettings)}
       }
+      if(tab=="activity")item{PersonalRecordsCard(accountId,"路线与训练复盘")}
       if(tab=="overview"){
         item{Text("最近健康记录",style=MaterialTheme.typography.titleLarge)}
         item{StateContent(recordsState,onRetry){} }
         if(recordsState is LoadState.Ready){items(recordsState.value.items.size){index->val record=recordsState.value.items[index];RecordRow(record){onDetail(LifeDomain.Health,record.detailId?:record.id,record.title)}};if(recordsState.value.nextCursor!=null)item{TextButton(onClick=onLoadMore,Modifier.fillMaxWidth()){Text("加载更多健康记录")}}}
       }
-      item{Spacer(Modifier.height(12.dp))}
+      if(tab=="overview")item{
+        LifeSection("健康档案"){
+          FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+            TextButton(onClick=onArchive){Text("体检与不适")}
+            TextButton(onClick={tab="release"}){Text("起飞记录")}
+            TextButton(onClick={onReview(LocalDate.now().toString())}){Text("健康与饮食复盘")}
+            TextButton(onClick=onMeals){Text("饮食日记")}
+          }
+        }
+      }
+      if(tab=="overview"||tab=="body")item{CompactDeviceStatus(deviceStatus,queueState,samsungAvailable,onHealthSync,onSamsungSync,onScale,onSettings)}
     }
   }
 }
 
-@Composable private fun DailyActivityHero(daily:HealthDailyOverview?,onCapture:(CaptureKind)->Unit){HealthSurface{
-  val isToday=daily?.occurredOn==LocalDate.now().toString()
-  Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Top){Column(Modifier.weight(1f)){Text(if(isToday||daily==null)"当天活动" else "最近活动",style=MaterialTheme.typography.titleLarge);Text(daily?.occurredOn?:LocalDate.now().toString(),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)};FilledTonalIconButton(onClick={onCapture(CaptureKind.Workout)}){Icon(Icons.Default.Add,"记录训练")}}
-  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)){
-    Column(Modifier.weight(1f)){ActivityMetric("步数","steps",daily?.steps?.toDouble(),"步")}
-    Column(Modifier.weight(1f)){ActivityMetric("活跃时间","active_minutes",daily?.activeMinutes?.toDouble(),"分钟")}
+@Composable private fun DailyActivityHero(daily:HealthDailyOverview?) {
+  val today=LocalDate.now().toString()
+  LifeCard {
+    Text("今日活动 · $today",style=MaterialTheme.typography.titleMedium)
+    val current=daily?.takeIf{it.occurredOn==today}
+    if(current?.steps==null&&current?.activeMinutes==null) {
+      Text("今天暂无活动数据",color=MaterialTheme.colorScheme.onSurfaceVariant)
+    } else Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)){
+      Column(Modifier.weight(1f)){ActivityMetric("步数","steps",current?.steps?.toDouble(),"步")}
+      Column(Modifier.weight(1f)){ActivityMetric("活跃时间","active_minutes",current?.activeMinutes?.toDouble(),"分钟")}
+    }
   }
-  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)){
-    Column(Modifier.weight(1f)){ActivityMetric("活动热量","active_calories",daily?.caloriesKcal?.toDoubleOrNull(),"kcal")}
-    Column(Modifier.weight(1f)){RingLegend("运动",daily?.workouts?.toString()?:"—","次",ActivityGreen)}
+}
+
+@Composable internal fun ModuleCaptureAction(label:String,onClick:()->Unit){
+  Row(Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=4.dp),horizontalArrangement=Arrangement.End){
+    FilledTonalButton(onClick=onClick){
+      Icon(Icons.Default.Add,null)
+      Spacer(Modifier.width(6.dp))
+      Text(label)
+    }
   }
-  daily?.caloriesSource?.let{Text("消耗采用${when(it){"workout_sum"->"运动明细合计";"equal"->"设备与运动一致的数值";else->"设备每日汇总"}}，避免重复叠加。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
-  if(daily==null)Text("当天数据尚未同步",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-}}
+}
+
+@Composable private fun HealthSummaryRow(title:String,subtitle:String,value:String,tone:Color,onClick:()->Unit){
+  Row(Modifier.fillMaxWidth().clickable(role=Role.Button,onClick=onClick).heightIn(min=48.dp),
+    horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically){
+    Column(Modifier.weight(1f)){
+      Text(title,style=MaterialTheme.typography.titleSmall)
+      Text(subtitle,color=MaterialTheme.colorScheme.onSurfaceVariant,style=MaterialTheme.typography.bodySmall)
+    }
+    Text(value,Modifier.weight(1f),style=MaterialTheme.typography.titleMedium,color=tone,textAlign=androidx.compose.ui.text.style.TextAlign.End)
+  }
+}
 
 @Composable private fun RingLegend(label:String,value:String,unit:String,color:Color){Row(verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(9.dp).clip(CircleShape).background(color));Spacer(Modifier.width(9.dp));Column{Text(label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);Row(verticalAlignment=Alignment.Bottom){Text(value,style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.SemiBold,color=color);Spacer(Modifier.width(4.dp));Text(unit,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable private fun HealthOverviewCards(overview:WorkspaceOverview.Health,onTab:(String)->Unit,onMeals:()->Unit){LifeSection("健康分类"){FlowRow(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp),verticalArrangement=Arrangement.spacedBy(10.dp),maxItemsInEachRow=2){
-  OverviewModule("睡眠",overview.daily?.sleepMinutes?.let(::minutesLabel)?:"尚未同步",overview.daily?.sleepSource?.let(::sourceLabel)?:"查看分期与近 7 天",SleepPurple,{onTab("sleep")},Modifier.weight(1f));val weight=overview.metrics.firstOrNull{it.key=="weight"}?.points?.lastOrNull();OverviewModule("身体",weight?.let{"${it.valueText} ${unitLabel(it.unit)}"}?:"尚未测量",weight?.occurredOn?:"体重与身体成分",BodyOrange,{onTab("body")},Modifier.weight(1f));OverviewModule("运动",overview.daily?.workouts?.let{"$it 次"}?:"尚未同步","活动趋势与运动明细",ActivityGreen,{onTab("activity")},Modifier.weight(1f));OverviewModule("饮食","餐照与营养","按早餐、午餐、晚餐查看",MealCoral,onMeals,Modifier.weight(1f))
-}}}
-
-@Composable private fun OverviewModule(title:String,value:String,note:String,tone:Color,onClick:()->Unit,modifier:Modifier=Modifier){Surface(modifier.heightIn(min=118.dp).clickable(role=Role.Button,onClick=onClick),shape=RoundedCornerShape(24.dp),color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.48f)){Column(Modifier.padding(17.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){Box(Modifier.width(28.dp).height(4.dp).clip(CircleShape).background(tone));Text(title,style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(value,style=MaterialTheme.typography.titleLarge,maxLines=1,overflow=TextOverflow.Ellipsis);Text(note,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2)}}}
-
-@Composable private fun BodyCompositionStrip(metrics:List<HealthMetricTrend>,onSelect:()->Unit){val visible=bodySnapshotMetrics(metrics);LifeSection("身体成分",action={TextButton(onClick=onSelect){Text("完整分析")}}){if(visible.none{it.points.isNotEmpty()})ChartEmpty("体脂秤或 Samsung Health 同步后，在这里形成身体成分卡片") else Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(10.dp)){visible.forEach{metric->val latest=metric.points.lastOrNull();val assessment=metricAssessment(metric.key,latest?.value,latest?.unit.orEmpty());Surface(Modifier.width(152.dp).clickable(role=Role.Button,onClick=onSelect),shape=RoundedCornerShape(22.dp),color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.48f)){Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){Text(metric.label,color=MaterialTheme.colorScheme.onSurfaceVariant,style=MaterialTheme.typography.labelLarge);Text(latest?.let{"${it.valueText} ${unitLabel(it.unit)}"}?:"未记录",style=MaterialTheme.typography.titleLarge,maxLines=1,color=healthTone(assessment.tone));AssessmentLabel(assessment,false);MiniTrend(metric.points,Modifier.fillMaxWidth().height(48.dp),healthTone(assessment.tone));Text(latest?.let{"${it.occurredOn} · ${sourceLabel(it.sourceKind)}"}?:"等待同步",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}}}}
 
 @Composable private fun BodyMetricsWorkspace(metrics:List<HealthMetricTrend>,hiddenMetrics:Set<String>,onToggleMetric:(String)->Unit,onDetail:(LifeDomain,String,String)->Unit,onCapture:(CaptureKind)->Unit){
   var metricKey by rememberSaveable{mutableStateOf("weight")};var days by rememberSaveable{mutableIntStateOf(30)};val available=metrics.filter{it.key !in hiddenMetrics&&!it.unavailable&&it.points.isNotEmpty()};val metric=available.firstOrNull{it.key==metricKey}?:available.firstOrNull();val cutoff=LocalDate.now().minusDays(days.toLong()-1);val shown=metric?.points.orEmpty().filter{runCatching{LocalDate.parse(it.occurredOn) in cutoff..LocalDate.now()}.getOrDefault(false)};val latest=shown.lastOrNull();val first=shown.firstOrNull();val average=shown.map{it.value}.average().takeUnless{it.isNaN()}
   val assessment=metricAssessment(metric?.key.orEmpty(),latest?.value,latest?.unit.orEmpty());val editReference=LocalEditHealthReference.current
   var managing by rememberSaveable{mutableStateOf(false)}
   Column(verticalArrangement=Arrangement.spacedBy(18.dp)){
+    metrics.firstOrNull{it.key=="weight"}?.points?.lastOrNull()?.let{weight->
+      LifeCard(onClick={onDetail(LifeDomain.Health,weight.id,"本次称重")}){
+        Text("最近称重",style=MaterialTheme.typography.labelLarge)
+        Text("${weight.valueText} ${unitLabel(weight.unit)}",style=MaterialTheme.typography.headlineMedium,color=ActivityGreen)
+        val time=weight.occurredAt?.let{runCatching{java.time.Instant.parse(it).atZone(java.time.ZoneId.systemDefault()).toLocalDateTime().toString().replace('T',' ')}.getOrNull()}
+        Text("${time?:weight.occurredOn} · ${sourceLabel(weight.sourceKind)}")
+        Text("查看本次测量")
+      }
+    }
     TextButton(onClick={managing=!managing}){Text(if(managing)"收起显示管理" else "管理显示项目")}
     if(managing)HealthSurface{Text("身体趋势项目",style=MaterialTheme.typography.titleMedium);Text("收起不常看的趋势；手动录入仍可选择任何指标。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant);Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(7.dp)){metrics.filter{it.points.isNotEmpty()}.forEach{item->FilterChip(selected=item.key !in hiddenMetrics,onClick={onToggleMetric(item.key)},label={Text(item.label)})}}}
     ReferenceLegend()
@@ -150,12 +209,9 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
     if(metric?.truncated==true)Text("仅显示最近 ${metric.coveragePoints} 个测量点，部分历史未包含。",style=MaterialTheme.typography.bodySmall)
     if(metric?.key?.startsWith("skin_temperature")==true)Text("这是手腕皮肤温度，用于观察同类测量变化。",style=MaterialTheme.typography.bodySmall)
     if(metric?.key?.startsWith("heart_rate_daily")==true)Text("全天极值包含睡眠和活动，不作为静息心率判断。",style=MaterialTheme.typography.bodySmall)
-    LifeSection("各项最近测量"){val snapshot=bodySnapshotMetrics(metrics);Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(10.dp)){snapshot.forEach{item->BodySnapshotCard(item){item.points.lastOrNull()?.let{onDetail(LifeDomain.Health,it.id,"${item.label}记录")}}}}}
     LifeSection("测量历史"){if(shown.isEmpty())EmptyState("没有可显示的真实测量点") else shown.asReversed().take(12).forEach{point->Surface(Modifier.fillMaxWidth().clickable(role=Role.Button){onDetail(LifeDomain.Health,point.id,"${metric?.label}记录")},shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.42f)){Row(Modifier.padding(15.dp),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(point.occurredOn,style=MaterialTheme.typography.titleMedium);Text(sourceLabel(point.sourceKind),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};Column(horizontalAlignment=Alignment.End){val status=metricAssessment(metric?.key.orEmpty(),point.value,point.unit);Text("${point.valueText} ${unitLabel(point.unit)}",style=MaterialTheme.typography.titleMedium,color=healthTone(status.tone));AssessmentLabel(status,false)}}}};if(shown.size>12)Text("显示最近 12 次测量",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
   }
 }
-
-@Composable private fun BodySnapshotCard(metric:HealthMetricTrend,onClick:()->Unit){val latest=metric.points.lastOrNull();val assessment=metricAssessment(metric.key,latest?.value,latest?.unit.orEmpty());val tone=healthTone(assessment.tone);val previous=metric.points.dropLast(1).lastOrNull();Surface(Modifier.width(172.dp).heightIn(min=148.dp).clickable(role=Role.Button,onClick=onClick),shape=RoundedCornerShape(23.dp),color=tone.copy(alpha=.11f)){Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){Text(metric.label,style=MaterialTheme.typography.labelLarge,color=tone);Text(latest?.let{"${it.valueText} ${unitLabel(it.unit)}"}?:"未记录",style=MaterialTheme.typography.titleLarge,color=tone);AssessmentLabel(assessment,false);Text(if(latest!=null&&previous!=null)"较上次 ${signed(latest.value-previous.value)} ${unitLabel(latest.unit)}" else "等待更多测量",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(latest?.occurredOn?:"尚未测量",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant);MiniTrend(metric.points,Modifier.fillMaxWidth().height(44.dp),tone)}}}
 
 @Composable private fun ActivityWorkspace(history:List<HealthDailyOverview>,onDetail:(LifeDomain,String,String)->Unit,onCapture:(CaptureKind)->Unit){
   var metric by rememberSaveable{mutableStateOf("steps")};val days=lastSevenDays(history);val workouts=history.flatMap{it.workoutItems}.sortedByDescending{it.startedAt?:it.occurredOn};val values=days.map{(_,day)->when(metric){"minutes"->day?.activeMinutes?.toDouble();"calories"->day?.caloriesKcal?.toDoubleOrNull();else->day?.steps?.toDouble()}};val total=values.filterNotNull().sum();val unit=when(metric){"minutes"->"分钟";"calories"->"kcal";else->"步"};val tone=when(metric){"minutes"->ActivityBlue;"calories"->ActivityPurple;else->ActivityGreen}
@@ -164,7 +220,7 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
 
 @Composable private fun WorkoutCard(workout:HealthWorkoutSummary,onClick:()->Unit){val title=workoutTypeUi(workout.sessionType);val tone=workoutTone(workout.sessionType);HealthSurface(onClick=onClick){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Top){Box(Modifier.size(48.dp).clip(CircleShape).background(tone.copy(alpha=.16f)),contentAlignment=Alignment.Center){Text(workoutGlyph(workout.sessionType),style=MaterialTheme.typography.titleLarge,color=tone)};Spacer(Modifier.width(13.dp));Column(Modifier.weight(1f)){Text(title,style=MaterialTheme.typography.titleLarge);Text("${workout.occurredOn}${localDateTime(workout.startedAt,workout.timeZone,includeDate=false)?.let{" · $it"}.orEmpty()}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};Column(horizontalAlignment=Alignment.End,verticalArrangement=Arrangement.spacedBy(5.dp)){workout.sourceKind?.let{SourcePill(sourceLabel(it),tone)};workout.autoDetected?.let{SourcePill(if(it)"自动记录" else "手动记录",if(it)ActivityBlue else tone)}}};val facts=listOfNotNull(workout.distanceKm?.let{"距离" to "${healthValueText(it,"km")} km"},workout.durationMinutes?.let{"时长" to minutesLabel(it)},workout.caloriesKcal?.let{"热量" to "${healthValueText(it,"kcal")} kcal"},workout.heartRateAvg?.let{"运动平均心率" to "$it 次/分"},workoutPerformance(workout),workout.rpe?.let{"主观强度" to "$it / 10"});if(facts.isNotEmpty())Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(20.dp)){facts.forEach{(label,value)->HealthFact(label,value)}} else Text("这条运动记录没有更多指标。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
 
-@Composable private fun SleepWorkspace(history:List<HealthDailyOverview>,insights:HealthSleepInsightsResultDto?){val days=lastSevenDays(history);val latest=history.lastOrNull{it.sleepMinutes!=null};val values=days.map{it.second?.sleepMinutes?.toDouble()?.div(60)};Column(verticalArrangement=Arrangement.spacedBy(18.dp)){HealthSurface{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Top){Column(Modifier.weight(1f)){Text("睡眠",style=MaterialTheme.typography.titleLarge);Text(latest?.occurredOn?.let{"$it · 醒来日"}?:"近 7 天暂无睡眠记录",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)};latest?.sleepSource?.let{SourcePill(sourceLabel(it),SleepPurple)}};Text(latest?.sleepMinutes?.let(::minutesLabel)?:"尚未同步",style=MaterialTheme.typography.displaySmall,fontWeight=FontWeight.SemiBold);AssessmentLabel(metricAssessment("sleep_minutes",latest?.sleepMinutes?.toDouble(),"分钟",true));SleepStageBar(latest);Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(18.dp)){HealthFact("深睡",latest?.deepMinutes?.let(::minutesLabel)?:"未提供");HealthFact("浅睡",latest?.lightMinutes?.let(::minutesLabel)?:"未提供");HealthFact("REM",latest?.remMinutes?.let(::minutesLabel)?:"未提供");HealthFact("清醒",latest?.awakeMinutes?.let(::minutesLabel)?:"未提供")};Text("最长睡眠作为主睡眠；其他时段单独列出。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};if(latest!=null&&latest.napMinutes.isNotEmpty())HealthSurface{Text("其他睡眠时段",style=MaterialTheme.typography.titleLarge);latest.napMinutes.forEachIndexed{index,minutes->HealthFact("时段 ${index+1}",minutesLabel(minutes))};Text("各时段合计 ${latest.sleepTotalDayMinutes?.let(::minutesLabel)?:"—"} · 可能含重叠记录",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};HealthSurface{Text("近 7 天睡眠",style=MaterialTheme.typography.titleLarge);Text("按醒来日期查看睡眠时长",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant);WeekBarChart(days.map{it.first},values,SleepPurple,Modifier.fillMaxWidth().height(190.dp),"小时")};SleepInsightsCard(insights)}}
+@Composable private fun SleepWorkspace(history:List<HealthDailyOverview>,insights:HealthSleepInsightsResultDto?){val days=lastSevenDays(history);val latest=history.lastOrNull{it.sleepMinutes!=null};val values=days.map{it.second?.sleepMinutes?.toDouble()?.div(60)};Column(verticalArrangement=Arrangement.spacedBy(18.dp)){HealthSurface{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Top){Column(Modifier.weight(1f)){Text("睡眠",style=MaterialTheme.typography.titleLarge);Text(latest?.occurredOn?.let{"$it · 醒来日"}?:"近 7 天暂无睡眠记录",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)};latest?.sleepSource?.let{SourcePill(sourceLabel(it),SleepPurple)}};Text(latest?.sleepMinutes?.let(::minutesLabel)?:"尚未同步",style=MaterialTheme.typography.displaySmall,fontWeight=FontWeight.SemiBold);AssessmentLabel(metricAssessment("sleep_minutes",latest?.sleepMinutes?.toDouble(),"分钟",true));SleepStageBar(latest);Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(18.dp)){sleepStages(latest).forEach{(label,minutes,tone)->RingLegend(label,minutes?.let(::minutesLabel)?:"未提供","",tone)}};Text("最长睡眠作为主睡眠；其他时段单独列出。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};if(latest!=null&&latest.napMinutes.isNotEmpty())HealthSurface{Text("其他睡眠时段",style=MaterialTheme.typography.titleLarge);latest.napMinutes.forEachIndexed{index,minutes->HealthFact("时段 ${index+1}",minutesLabel(minutes))};Text("各时段合计 ${latest.sleepTotalDayMinutes?.let(::minutesLabel)?:"—"} · 可能含重叠记录",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};HealthSurface{Text("近 7 天睡眠",style=MaterialTheme.typography.titleLarge);Text("按醒来日期查看睡眠时长",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant);WeekBarChart(days.map{it.first},values,SleepPurple,Modifier.fillMaxWidth().height(190.dp),"小时")};SleepInsightsCard(insights)}}
 
 @Composable private fun SleepInsightsCard(insights:HealthSleepInsightsResultDto?){HealthSurface{
   Text("近 30 天睡眠统计",style=MaterialTheme.typography.titleLarge)
@@ -182,18 +238,29 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
   Text("每个醒来日选最长有效会话；分段睡眠与跨来源记录不重复相加。仅作记录统计。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
 }}
 
-@Composable private fun SleepStageBar(day:HealthDailyOverview?){val stages=listOf(day?.deepMinutes to Color(0xFF6257E8),day?.lightMinutes to Color(0xFF8C78F0),day?.remMinutes to Color(0xFFB991FF),day?.awakeMinutes to Color(0xFFFFA657));val total=stages.sumOf{it.first?:0L};Row(Modifier.fillMaxWidth().height(12.dp).clip(CircleShape)){if(total<=0)Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.outline.copy(alpha=.25f))) else stages.forEach{(minutes,color)->if(minutes!=null&&minutes>0)Box(Modifier.weight(minutes.toFloat()).fillMaxHeight().background(color))}}}
+private fun sleepStages(day:HealthDailyOverview?)=listOf(
+  Triple("深睡",day?.deepMinutes,Color(0xFF6257E8)),
+  Triple("浅睡",day?.lightMinutes,Color(0xFF8C78F0)),
+  Triple("REM",day?.remMinutes,Color(0xFFB991FF)),
+  Triple("清醒",day?.awakeMinutes,Color(0xFFFFA657))
+)
+
+@Composable private fun SleepStageBar(day:HealthDailyOverview?){
+  val stages=sleepStages(day).filter{(_,minutes,_) -> minutes!=null&&minutes>0}
+  if(stages.isNotEmpty())Row(Modifier.fillMaxWidth().height(12.dp).clip(CircleShape)){
+    stages.forEach{(_,minutes,color)->Box(Modifier.weight(minutes!!.toFloat()).fillMaxHeight().background(color))}
+  }
+}
 
 @Composable private fun CompactDeviceStatus(status:DeviceSyncStatus,queueState:LoadState<QueueSummary>,samsungAvailable:Boolean,onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onSettings:()->Unit){val queue=(queueState as? LoadState.Ready)?.value;LifeSection("设备与同步",action={TextButton(onClick=onSettings){Text("管理")}}){HealthSurface{SyncRow("Samsung Health",if(!samsungAvailable)"当前包未包含 SDK" else status.samsungMessage,status.samsungState,onSamsungSync);HorizontalDivider(color=MaterialTheme.colorScheme.outline.copy(alpha=.32f));SyncRow("小米体脂秤",status.scaleLastWeight?.let{"最近 $it kg · ${status.scaleMessage}"}?:status.scaleMessage,status.scaleState,onScale);if(HealthConnectSync.enabled()){HorizontalDivider(color=MaterialTheme.colorScheme.outline.copy(alpha=.32f));SyncRow("Health Connect","读取系统已授权的聚合健康数据","idle",onHealthSync)};queue?.let{Text("离线队列：${it.waiting} 待发送 · ${it.reconciling} 核对中 · ${it.failed} 需处理",style=MaterialTheme.typography.bodySmall,color=if(it.failed>0)MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)}}}}
 
 @Composable private fun SyncRow(title:String,subtitle:String,state:String,onClick:()->Unit){Row(Modifier.fillMaxWidth().clickable(role=Role.Button,onClick=onClick).padding(vertical=7.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(10.dp).clip(CircleShape).background(if(state in setOf("complete","committed","queued","detected"))ActivityGreen else if(state in setOf("needs_config","key_mismatch"))MaterialTheme.colorScheme.tertiary else if(state in setOf("error","timeout","needs_permission"))MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline));Spacer(Modifier.width(11.dp));Column(Modifier.weight(1f)){Text(title,style=MaterialTheme.typography.titleMedium);Text(subtitle,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2,overflow=TextOverflow.Ellipsis)};Icon(Icons.Default.Refresh,"立即操作",tint=MaterialTheme.colorScheme.primary)}}
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable fun MealsWorkspaceScreen(overviewState:LoadState<WorkspaceOverview>,recordsState:LoadState<RecordPage>,assetPreviews:Map<String,LoadState<ByteArray>>,onLoadAsset:(String)->Unit,onRetry:()->Unit,onLoadMore:()->Unit,onBack:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onMealCapture:(String,String)->Unit,onAddPhoto:(RecordSummary)->Unit,photoState:SubmitState,onStats:()->Unit,mealPlanningState:SubmitState,onSaveMealPlan:(NativeMealPlanDraft)->Unit,onBuildShopping:(MealPlanningResultDtoMealPlansEntry,String)->Unit,onUpdateShopping:(MealPlanningResultDtoShoppingListsEntryItemsEntry,String)->Unit,onSetFoodStock:(MealPlanningResultDtoStockLotsEntry?,String,String,String,String?)->Unit,onSaveRecipe:(String,String,String,String,String)->Unit,onResetMealPlanning:()->Unit,initialTab:String="records",accountId:String,onCopyMeal:(RecordSummary,String)->Unit,onDishCatalog:()->Unit){
+@OptIn(ExperimentalMaterial3Api::class,ExperimentalLayoutApi::class)
+@Composable fun MealsWorkspaceScreen(overviewState:LoadState<WorkspaceOverview>,recordsState:LoadState<RecordPage>,assetPreviews:Map<String,LoadState<ByteArray>>,onLoadAsset:(String)->Unit,onRetry:()->Unit,onLoadMore:()->Unit,onBack:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onMealCapture:(String,String)->Unit,onAddPhoto:(RecordSummary)->Unit,photoState:SubmitState,onStats:()->Unit,mealPlanningState:SubmitState,onSaveMealPlan:(NativeMealPlanDraft)->Unit,onBuildShopping:(MealPlanningResultDtoMealPlansEntry,String)->Unit,onUpdateShopping:(MealPlanningResultDtoShoppingListsEntryItemsEntry,String)->Unit,onSetFoodStock:(MealPlanningResultDtoStockLotsEntry?,String,String,String,String?)->Unit,onSaveRecipe:(String,String,String,String,String)->Unit,onResetMealPlanning:()->Unit,initialTab:String="records",accountId:String,onCopyMeal:(RecordSummary,String)->Unit,onDishCatalog:()->Unit,onReview:(String)->Unit,onPriceBook:()->Unit,focusStockId:String="",onStockPurchase:(String)->Unit={}){
   var mealTab by rememberSaveable(initialTab){mutableStateOf(initialTab.takeIf{it in setOf("planning","shopping","stock","recipes")}?:"records")}
   val context=LocalContext.current
   val repository=remember(accountId){NativeLifeRepository(context,context.applicationContext as ShadowApp)}
-  var dayState by remember(accountId){mutableStateOf<LoadState<RecordPage>>(LoadState.Loading)}
   var dayRetry by remember{mutableIntStateOf(0)}
   var localMeals by remember(accountId){mutableStateOf<List<PendingCommand>>(emptyList())}
   val app=context.applicationContext as ShadowApp
@@ -201,27 +268,61 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
     val session=app.sessions.active()?.takeIf{it.accountId==accountId}?:return@LaunchedEffect
     app.queue.observeMeals(session).collect{localMeals=it;dayRetry++}
   }
-  var selectedDate by rememberSaveable(initialTab){mutableStateOf(initialTab.removePrefix("day/").takeIf{initialTab.startsWith("day/")&&runCatching{LocalDate.parse(it)}.isSuccess}?:LocalDate.now().toString())};var query by rememberSaveable{mutableStateOf("")};val allRecords=(recordsState as? LoadState.Ready)?.value?.items.orEmpty().filter{it.meal!=null};val selected=allRecords.filter{it.meal?.occurredOn==selectedDate};val dates=(0L..6L).map{LocalDate.now().minusDays(it).toString()}.reversed()+listOf(selectedDate);val records=allRecords.filter{record->query.isBlank()||listOf(record.title,record.meal?.note.orEmpty(),mealTypeUi(record.meal?.mealType.orEmpty())).any{it.contains(query.trim(),ignoreCase=true)}};val nutrition=mealNutrition(selected)
+  var selectedDate by rememberSaveable(initialTab){
+    mutableStateOf(initialTab.removePrefix("day/").takeIf{initialTab.startsWith("day/")&&runCatching{LocalDate.parse(it)}.isSuccess}?:LocalDate.now().toString())
+  }
+  var dayState by remember(accountId,selectedDate){mutableStateOf<LoadState<RecordPage>>(LoadState.Loading)}
+  var query by rememberSaveable{mutableStateOf("")}
+  val allRecords=(recordsState as? LoadState.Ready)?.value?.items.orEmpty().filter{it.meal!=null}
+  val records=allRecords.filter{record->
+    query.isBlank()||listOf(record.title,record.meal?.note.orEmpty(),mealTypeUi(record.meal?.mealType.orEmpty()))
+      .any{it.contains(query.trim(),ignoreCase=true)}
+  }
   LaunchedEffect(accountId,selectedDate,dayRetry,photoState,recordsState){
     dayState=LoadState.Loading
     try{dayState=LoadState.Ready(repository.mealsOn(selectedDate))}
     catch(error:kotlinx.coroutines.CancellationException){throw error}
     catch(error:Exception){dayState=LoadState.Failed(error.message?:"当天餐次暂时无法读取")}
   }
-  val dayRecords=(dayState as? LoadState.Ready)?.value?.items.orEmpty()
-  val mealScroll=rememberModuleListState(mealTab)
-  Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={LifeModuleTopBar(LifeModule.Meals,onBack,onCreate={onMealCapture(selectedDate,"other")})},bottomBar={LifeModuleBottomBar(if(mealTab=="recipes")"planning" else mealTab,mealModuleTabs){mealTab=it}}){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),state=mealScroll,contentPadding=PaddingValues(horizontal=20.dp,vertical=10.dp),verticalArrangement=Arrangement.spacedBy(18.dp)){
-    if(mealTab=="records")item{DishCatalogEntry(onDishCatalog)}
-    item{TextButton(onClick=onStats){Text("订单与消费统计")}}
-    if(mealTab=="records"){
-    item{LifeDateField(selectedDate,{selectedDate=it},"查看日期")}
-    item{DateNavigator(selectedDate,{selectedDate=it},dates.distinct().sorted())}
-    item{StateContent(dayState,{dayRetry++}){}}
-    if(dayState is LoadState.Ready){
-      item{MealDayGroups(dayRecords,assetPreviews,onLoadAsset,onDetail,{type->onMealCapture(selectedDate,type)},onAddPhoto)}
-      item{MealNutritionHero(selectedDate,dayRecords,mealNutrition(dayRecords)){onMealCapture(selectedDate,"other")}}
-      item{NativeDietReview(accountId,selectedDate,true,dayState,onDetail)}
+  val dayPage=(dayState as? LoadState.Ready)?.value
+  val dayRecords=dayPage?.items.orEmpty()
+  var completeness by remember(accountId,selectedDate,dayPage){mutableStateOf<String?>(null)}
+  LaunchedEffect(accountId,selectedDate,dayPage){
+    if(dayPage!=null){
+      try{completeness=repository.dietReview(selectedDate,1).diary.firstOrNull{it.date==selectedDate}?.state?.wireValue}
+      catch(error:kotlinx.coroutines.CancellationException){throw error}
+      catch(_:Exception){completeness=null}
     }
+  }
+  val mealScroll=rememberModuleListState(mealTab)
+  Scaffold(containerColor=MaterialTheme.colorScheme.background,
+    topBar={LifeModuleTopBar(LifeModule.Meals,onBack)},
+    bottomBar={
+      Column {
+        if(mealTab=="records")ModuleCaptureAction("记一餐"){onMealCapture(selectedDate,"other")}
+        LifeModuleBottomBar(if(mealTab=="recipes")"planning" else mealTab,mealModuleTabs){mealTab=it}
+      }
+    }
+  ){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),state=mealScroll,contentPadding=PaddingValues(horizontal=16.dp,vertical=8.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
+    if(mealTab=="records"){
+      item{
+        val recordedDates=allRecords.mapNotNull{it.meal?.occurredOn}.toSet()+
+          if(dayRecords.isNotEmpty())setOf(selectedDate) else emptySet()
+        DateNavigator(selectedDate,{selectedDate=it},recordedDates)
+      }
+      item{StateContent(dayState,{dayRetry++}){}}
+      if(dayPage!=null){
+        item{MealNutritionHero(selectedDate,dayRecords,mealNutrition(dayRecords),dayPage.nextCursor!=null,completeness)}
+        item{MealDayGroups(dayRecords,assetPreviews,onLoadAsset,onDetail,{type->onMealCapture(selectedDate,type)},onAddPhoto,
+          {record->onCopyMeal(record,selectedDate)})}
+      }
+      item{
+        FlowRow(horizontalArrangement=Arrangement.spacedBy(4.dp)){
+          TextButton(onClick={onReview(selectedDate)}){Text("饮食与体重复盘")}
+          TextButton(onClick=onDishCatalog){Text("门店菜品")}
+          TextButton(onClick=onStats){Text("订单与消费统计")}
+        }
+      }
     if(photoState is SubmitState.Sending)item{LinearProgressIndicator(Modifier.fillMaxWidth())}
     if(photoState is SubmitState.Rejected)item{Text(photoState.message,color=MaterialTheme.colorScheme.error)}
 
@@ -243,7 +344,8 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
     }
     val planning=(overviewState as? LoadState.Ready)?.value as? WorkspaceOverview.Meals
     if(mealTab!="records")item{StateContent(overviewState,onRetry){}}
-    if(planning!=null&&mealTab!="records")item{NativeMealPlanningSection(planning,mealPlanningState,onSaveMealPlan,onBuildShopping,onUpdateShopping,onSetFoodStock,onSaveRecipe,onResetMealPlanning,initialTab,accountId,controlledSection=mealTab,onSectionChange={mealTab=it})}
+    if(mealTab=="shopping")item{TextButton(onClick=onPriceBook){Text("查看常购价格")}}
+    if(planning!=null&&mealTab!="records")item{NativeMealPlanningSection(planning,mealPlanningState,onSaveMealPlan,onBuildShopping,onUpdateShopping,onSetFoodStock,onSaveRecipe,onResetMealPlanning,initialTab,accountId,controlledSection=mealTab,onSectionChange={mealTab=it},focusStockId=focusStockId,onStockPurchase=onStockPurchase)}
     if(mealTab=="records"){
     item{LifeSection("查找饮食记录"){OutlinedTextField(query,{query=it},Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("搜索食物、餐次或备注")},leadingIcon={Icon(Icons.Default.Search,null)});if(query.isNotBlank())Text("匹配 ${records.size} 条",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}};item{Text("最近记录",style=MaterialTheme.typography.titleLarge)}
     if(recordsState is LoadState.Ready){items(records.size){index->val record=records[index];MealHistoryRow(record,assetPreviews,onLoadAsset,{onAddPhoto(record)}){onDetail(LifeDomain.Meals,record.detailId?:record.id,record.title)}};if(records.isEmpty()&&query.isNotBlank())item{EmptyState("已加载记录中没有匹配内容")};if(recordsState.value.nextCursor!=null)item{TextButton(onClick=onLoadMore,Modifier.fillMaxWidth()){Text("加载更早记录")}}};item{Spacer(Modifier.height(12.dp))}
@@ -251,9 +353,48 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
   }}
 }
 
-@Composable private fun DateNavigator(selected:String,onSelect:(String)->Unit,dates:List<String>){Column(verticalArrangement=Arrangement.spacedBy(10.dp)){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){OutlinedButton(onClick={onSelect(runCatching{LocalDate.parse(selected).minusDays(1).toString()}.getOrDefault(selected))}){Text("‹")};Column(Modifier.weight(1f),horizontalAlignment=Alignment.CenterHorizontally){Text(if(selected==LocalDate.now().toString())"今天" else selected,style=MaterialTheme.typography.titleLarge);Text(selected,color=MaterialTheme.colorScheme.onSurfaceVariant,style=MaterialTheme.typography.labelMedium)};OutlinedButton(onClick={onSelect(runCatching{LocalDate.parse(selected).plusDays(1).coerceAtMost(LocalDate.now()).toString()}.getOrDefault(selected))},enabled=selected<LocalDate.now().toString()){Text("›")}};Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(7.dp)){dates.forEach{date->FilterChip(selected==date,{onSelect(date)},{Text(if(date==LocalDate.now().toString())"今天" else date.takeLast(5))})}}}}
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable private fun DateNavigator(selected:String,onSelect:(String)->Unit,recordedDates:Set<String>){
+  val day=LocalDate.parse(selected)
+  val today=LocalDate.now()
+  val monday=day.minusDays(day.dayOfWeek.value.toLong()-1)
+  var calendar by rememberSaveable{mutableStateOf(false)}
+  Column {
+    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
+      TextButton(onClick={onSelect(day.minusWeeks(1).toString())}){Text("上周")}
+      TextButton(onClick={calendar=true}){Text(selected)}
+      TextButton(onClick={onSelect(day.plusWeeks(1).coerceAtMost(today).toString())},enabled=monday.plusWeeks(1)<=today){Text("下周")}
+    }
+    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(2.dp)){
+      repeat(7){offset->
+        val date=monday.plusDays(offset.toLong())
+        val active=date==day
+        val hasRecords=date.toString() in recordedDates
+        Surface(modifier=Modifier.weight(1f).heightIn(min=48.dp).semantics{
+          this.selected=active
+          contentDescription=date.toString()+if(hasRecords)"，有餐次" else ""
+        },onClick={onSelect(date.toString())},enabled=date<=today,
+          shape=RoundedCornerShape(12.dp),color=if(active)MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surface){
+          Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center){
+            Text("一二三四五六日"[offset].toString(),style=MaterialTheme.typography.labelSmall)
+            Text(date.dayOfMonth.toString(),style=MaterialTheme.typography.labelLarge)
+            if(hasRecords)Box(Modifier.size(4.dp).clip(CircleShape).background(MealCoral)) else Spacer(Modifier.height(4.dp))
+          }
+        }
+      }
+    }
+  }
+  if(calendar){
+    val picker=rememberDatePickerState(initialSelectedDateMillis=day.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli())
+    DatePickerDialog(onDismissRequest={calendar=false},
+      confirmButton={TextButton(onClick={
+        picker.selectedDateMillis?.let{onSelect(java.time.Instant.ofEpochMilli(it).atOffset(java.time.ZoneOffset.UTC).toLocalDate().coerceAtMost(today).toString())}
+        calendar=false
+      }){Text("查看")}},dismissButton={TextButton(onClick={calendar=false}){Text("取消")}}){DatePicker(picker)}
+  }
+}
 
-@Composable private fun MealNutritionHero(date:String,records:List<RecordSummary>,nutrition:MealNutrition,onCapture:(CaptureKind)->Unit){
+@Composable private fun MealNutritionHero(date:String,records:List<RecordSummary>,nutrition:MealNutrition,hasMore:Boolean,completeness:String?){
   val editReference=LocalEditHealthReference.current
   val coverage=mealEnergyCoverage(records)
   val energy=when {
@@ -263,16 +404,30 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
     else->metricAssessment("meal_kcal",nutrition.kcal,"kcal")
   }
   HealthSurface{
-    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Top){Column(Modifier.weight(1f)){Text(if(date==LocalDate.now().toString())"今日已记录摄入" else "$date 已记录摄入",style=MaterialTheme.typography.labelLarge);Row(verticalAlignment=Alignment.Bottom){Text(nutrition.kcal?.let(::number)?:"—",style=MaterialTheme.typography.displaySmall,fontWeight=FontWeight.SemiBold,color=healthTone(energy.tone));Spacer(Modifier.width(6.dp));Text("kcal",style=MaterialTheme.typography.titleMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)};Text("${records.size} 餐 · ${nutrition.knownItems}/${nutrition.totalItems} 个食物条目含营养",color=MaterialTheme.colorScheme.onSurfaceVariant)};FilledTonalIconButton(onClick={onCapture(CaptureKind.Meal)}){Icon(Icons.Default.Add,"添加餐次")}}
-    AssessmentLabel(energy);TextButton(onClick={editReference("meal_kcal","每日摄入热量","kcal",false)}){Text("设置热量参考范围")}
-    ReferenceLegend()
+    Text(if(date==LocalDate.now().toString())"今日已记录热量" else "$date 已记录热量",style=MaterialTheme.typography.labelLarge)
+    Text(nutrition.kcal?.let{"${number(it)} kcal"}?:"—",style=MaterialTheme.typography.displaySmall,fontWeight=FontWeight.SemiBold,color=MealCoral)
+    Text("${coverage.recorded}／${coverage.total} 项有热量"+if(hasMore)" · 仅已加载餐次" else "",style=MaterialTheme.typography.bodySmall)
+    val diaryLabel=when(completeness){
+      "complete"->"基本记全"
+      "partial"->"部分记录"
+      "recheck"->"待重新核对"
+      "unknown"->"未标记完整性"
+      else->null
+    }
+    val annotations=listOfNotNull(diaryLabel,"含估算".takeIf{nutrition.estimated})
+    if(annotations.isNotEmpty())Text(annotations.joinToString(" · "),style=MaterialTheme.typography.labelSmall)
     if(nutrition.knownItems>0){NutrientBar(nutrition);Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
       NutrientChip("蛋白质",nutrition.protein,"g",macroAssessment(nutrition,"protein"),Modifier.weight(1f))
       NutrientChip("碳水",nutrition.carb,"g",macroAssessment(nutrition,"carb"),Modifier.weight(1f))
       NutrientChip("脂肪",nutrition.fat,"g",macroAssessment(nutrition,"fat"),Modifier.weight(1f))
     }}
-    Text("营养素颜色比较已记录食物的供能占比（成人参考），不是全天摄入量是否足够。热量只与自定范围比较。"+(if(nutrition.estimated)" 含估算值。" else ""),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-    Text("只汇总已加载条目，不代表全天完整摄入。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    var explained by rememberSaveable{mutableStateOf(false)}
+    TextButton(onClick={explained=!explained}){Text(if(explained)"收起统计说明" else "如何计算")}
+    if(explained){
+      AssessmentLabel(energy)
+      Text("这里汇总有数据的食物。全天记录完整情况可在饮食与体重复盘中查看。",style=MaterialTheme.typography.bodySmall)
+      TextButton(onClick={editReference("meal_kcal","每日摄入热量","kcal",false)}){Text("设置热量参考范围")}
+    }
   }
 }
 
@@ -285,14 +440,71 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
   Row(Modifier.fillMaxWidth().height(10.dp).clip(CircleShape)){parts.filter{it.first>0}.forEach{(amount,key)->Box(Modifier.weight(amount.toFloat()).fillMaxHeight().background(healthTone(macroAssessment(value,key).tone)))}}
 }
 @Composable private fun NutrientChip(label:String,value:Double?,unit:String,status:HealthAssessment,modifier:Modifier){val color=healthTone(status.tone);Surface(modifier,shape=RoundedCornerShape(18.dp),color=color.copy(alpha=.12f)){Column(Modifier.padding(10.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){Text(label,style=MaterialTheme.typography.labelMedium);Text("${value?.let(::number)?:"—"} $unit",style=MaterialTheme.typography.titleMedium,color=color);AssessmentLabel(status)}}}
-@Composable private fun ActivityMetric(label:String,key:String,value:Double?,unit:String){val status=metricAssessment(key,value,unit,true);val edit=LocalEditHealthReference.current;Column(Modifier.clickable(role=Role.Button){edit(key,label,unit,true)},verticalArrangement=Arrangement.spacedBy(5.dp)){RingLegend(label,value?.let{healthValueText(it,unit)}?:"—",unit,healthTone(status.tone));AssessmentLabel(status,false);Text(if(LocalHealthReferences.current[key]==null)"点击设置目标" else status.basis,style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
+@Composable private fun ActivityMetric(label:String,key:String,value:Double?,unit:String){val status=metricAssessment(key,value,unit,true);val edit=LocalEditHealthReference.current;val hasGoal=LocalHealthReferences.current[key]!=null;Column(Modifier.clickable(role=Role.Button){edit(key,label,unit,true)},verticalArrangement=Arrangement.spacedBy(5.dp)){RingLegend(label,value?.let{healthValueText(it,unit)}?:"—",unit,healthTone(status.tone));if(hasGoal)AssessmentLabel(status,false);Text(if(!hasGoal)"设置目标" else status.basis,style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
 
-@Composable private fun MealDayGroups(records:List<RecordSummary>,assetPreviews:Map<String,LoadState<ByteArray>>,onLoadAsset:(String)->Unit,onDetail:(LifeDomain,String,String)->Unit,onCapture:(String)->Unit,onAddPhoto:(RecordSummary)->Unit){LifeSection("餐次与餐照"){mealOrder.forEach{type->val group=records.filter{it.meal?.mealType==type};if(type!="other"||group.isNotEmpty()){if(group.isEmpty())EmptyMealGroup(type,onCapture) else group.forEach{record->MealGroupCard(record,assetPreviews,onLoadAsset,{onAddPhoto(record)}){onDetail(LifeDomain.Meals,record.detailId?:record.id,record.title)}}}}}}
-@Composable private fun EmptyMealGroup(type:String,onCapture:(String)->Unit){Surface(Modifier.fillMaxWidth().clickable(role=Role.Button){onCapture(type)},shape=RoundedCornerShape(22.dp),color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.42f)){Row(Modifier.padding(17.dp),verticalAlignment=Alignment.CenterVertically){Text(mealTypeUi(type),style=MaterialTheme.typography.titleMedium,modifier=Modifier.weight(1f));Text("未记录  ＋",color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
-@Composable private fun MealGroupCard(record:RecordSummary,assetPreviews:Map<String,LoadState<ByteArray>>,onLoadAsset:(String)->Unit,onAddPhoto:()->Unit,onClick:()->Unit){val meal=record.meal?:return;val nutrition=mealNutrition(listOf(record));HealthSurface(onClick=onClick){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(14.dp)){MealPhoto(meal.photoAssetVersionId,assetPreviews,onLoadAsset,Modifier.size(104.dp),onAddPhoto);Column(Modifier.weight(1f)){Row(Modifier.fillMaxWidth()){Text(mealTypeUi(meal.mealType),style=MaterialTheme.typography.titleLarge,modifier=Modifier.weight(1f));Text(localDateTime(meal.occurredAt,meal.timeZone,includeDate=false)?:meal.occurredOn.takeLast(5),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)};Text(meal.foods.joinToString("、"){it.name}.ifBlank{"仅保存了餐照"},maxLines=3,overflow=TextOverflow.Ellipsis);if(nutrition.knownItems>0)Text(listOfNotNull(nutrition.kcal?.let{"${number(it)} kcal"},nutrition.protein?.let{"蛋白 ${number(it)} g"},nutrition.carb?.let{"碳水 ${number(it)} g"},nutrition.fat?.let{"脂肪 ${number(it)} g"}).joinToString(" · ").ifBlank{"已记录部分营养"},color=MealCoral,style=MaterialTheme.typography.bodySmall);meal.note?.let{Text(it,maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}};if(meal.foods.isNotEmpty())Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(7.dp)){meal.foods.forEach{food->AssistChip(onClick=onClick,label={Text(food.name)})}}}}
+@OptIn(ExperimentalLayoutApi::class)
+@Composable private fun MealDayGroups(records:List<RecordSummary>,assetPreviews:Map<String,LoadState<ByteArray>>,onLoadAsset:(String)->Unit,onDetail:(LifeDomain,String,String)->Unit,onCapture:(String)->Unit,onAddPhoto:(RecordSummary)->Unit,onCopy:(RecordSummary)->Unit){
+  LifeSection("当天餐次"){
+    val grouped=records.groupBy{it.meal?.mealType}
+    mealOrder.forEach{type->
+      grouped[type].orEmpty().forEach{record->
+        MealGroupCard(record,assetPreviews,onLoadAsset,{onAddPhoto(record)},{onCopy(record)}){
+          onDetail(LifeDomain.Meals,record.detailId?:record.id,record.title)
+        }
+      }
+    }
+    FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)){
+      mealOrder.filter{it!="other"&&grouped[it].isNullOrEmpty()}.forEach{type->
+        AssistChip(onClick={onCapture(type)},label={Text("＋${mealTypeUi(type)}")})
+      }
+    }
+  }
+}
+@OptIn(ExperimentalLayoutApi::class)
+@Composable private fun MealGroupCard(
+  record:RecordSummary,assetPreviews:Map<String,LoadState<ByteArray>>,onLoadAsset:(String)->Unit,
+  onAddPhoto:()->Unit,onCopy:()->Unit,onClick:()->Unit
+){
+  val meal=record.meal?:return
+  val nutrition=mealNutrition(listOf(record))
+  HealthSurface(onClick=onClick){
+    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)){
+      if(meal.photoAssetVersionId!=null)MealPhoto(meal.photoAssetVersionId,assetPreviews,onLoadAsset,Modifier.size(76.dp))
+      Column(Modifier.weight(1f)){
+        Text(mealTypeUi(meal.mealType),style=MaterialTheme.typography.titleMedium)
+        localDateTime(meal.occurredAt,meal.timeZone,includeDate=false)?.let{Text(it,style=MaterialTheme.typography.bodySmall)}
+        Text(meal.foods.joinToString("、"){food->listOfNotNull(food.name,food.quantity,food.unit).joinToString(" ")}.ifBlank{"仅保存了餐照"},
+          maxLines=3,overflow=TextOverflow.Ellipsis)
+        nutrition.kcal?.let{Text("已记录 ${number(it)} kcal",color=MealCoral)}
+      }
+    }
+    FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)){
+      if(meal.photoAssetVersionId==null)TextButton(onClick=onAddPhoto){Text("添加餐照")}
+      if(meal.foods.isNotEmpty())TextButton(onClick=onCopy){Text("照这餐再记")}
+    }
+  }
+}
 
 @Composable private fun MealHistoryRow(record:RecordSummary,assetPreviews:Map<String,LoadState<ByteArray>>,onLoadAsset:(String)->Unit,onAddPhoto:()->Unit,onClick:()->Unit){val meal=record.meal;if(meal==null){RecordRow(record,onClick);return};Row(Modifier.fillMaxWidth().clickable(role=Role.Button,onClick=onClick).padding(vertical=8.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){MealPhoto(meal.photoAssetVersionId,assetPreviews,onLoadAsset,Modifier.size(58.dp),onAddPhoto);Column(Modifier.weight(1f)){Text(mealTypeUi(meal.mealType),style=MaterialTheme.typography.titleMedium);Text(record.title,maxLines=1,overflow=TextOverflow.Ellipsis,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(meal.occurredOn,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)};record.trailing?.let{Text(it,style=MaterialTheme.typography.labelMedium)}}}
-@Composable private fun MealPhoto(versionId:String?,states:Map<String,LoadState<ByteArray>>,onLoad:(String)->Unit,modifier:Modifier,onAdd:(()->Unit)?=null){if(versionId==null){Surface(modifier.then(if(onAdd!=null)Modifier.clickable(role=Role.Button,onClick=onAdd) else Modifier),shape=RoundedCornerShape(20.dp),color=MealCoral.copy(alpha=.11f)){Box(contentAlignment=Alignment.Center){Column(horizontalAlignment=Alignment.CenterHorizontally){Text("＋",style=MaterialTheme.typography.headlineMedium,color=MealCoral);Text("添加餐照",style=MaterialTheme.typography.labelMedium,color=MealCoral)}}};return};LaunchedEffect(versionId){onLoad(versionId)};when(val state=states[versionId]){is LoadState.Ready->{val bitmap=remember(state.value){BitmapFactory.decodeByteArray(state.value,0,state.value.size)?.asImageBitmap()};if(bitmap!=null)Image(bitmap,"餐次照片",modifier.clip(RoundedCornerShape(20.dp)),contentScale=ContentScale.Crop) else PhotoLoadFallback(modifier,"无法解码")};is LoadState.Failed->PhotoLoadFallback(modifier,"点击重试"){onLoad(versionId)};else->Surface(modifier,shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surfaceVariant){Box(contentAlignment=Alignment.Center){CircularProgressIndicator(Modifier.size(24.dp),strokeWidth=2.dp)}}}}
+@Composable private fun MealPhoto(versionId:String?,states:Map<String,LoadState<ByteArray>>,onLoad:(String)->Unit,modifier:Modifier,onAdd:(()->Unit)?=null){if(versionId==null){Surface(modifier.then(if(onAdd!=null)Modifier.clickable(role=Role.Button,onClick=onAdd) else Modifier),shape=RoundedCornerShape(20.dp),color=MealCoral.copy(alpha=.11f)){Box(contentAlignment=Alignment.Center){Column(horizontalAlignment=Alignment.CenterHorizontally){Text("＋",style=MaterialTheme.typography.headlineMedium,color=MealCoral);Text("添加餐照",style=MaterialTheme.typography.labelMedium,color=MealCoral)}}};return};LaunchedEffect(versionId){onLoad(versionId)};when(val state=states[versionId]){is LoadState.Ready->{val bitmap=remember(state.value){BitmapFactory.decodeByteArray(state.value,0,state.value.size)?.asImageBitmap()};if(bitmap!=null)MealPhotoPreview(bitmap,modifier) else PhotoLoadFallback(modifier,"无法解码")};is LoadState.Failed->PhotoLoadFallback(modifier,"点击重试"){onLoad(versionId)};else->Surface(modifier,shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surfaceVariant){Box(contentAlignment=Alignment.Center){CircularProgressIndicator(Modifier.size(24.dp),strokeWidth=2.dp)}}}}
+@Composable private fun MealPhotoPreview(bitmap:androidx.compose.ui.graphics.ImageBitmap,modifier:Modifier){
+  var full by rememberSaveable{mutableStateOf(false)}
+  Image(bitmap,"查看餐次照片",modifier.clip(RoundedCornerShape(20.dp)).clickable(role=Role.Button){full=true},contentScale=ContentScale.Crop)
+  if(full)LifeFullScreen("餐次照片",{full=false}){
+    var zoom by remember{mutableFloatStateOf(1f)}
+    var offset by remember{mutableStateOf(Offset.Zero)}
+    val transform=rememberTransformableState{scale,pan,_ ->
+      zoom=(zoom*scale).coerceIn(1f,5f)
+      offset=if(zoom==1f)Offset.Zero else offset+pan
+    }
+    Box(Modifier.fillMaxSize().clipToBounds().transformable(transform)){
+      Image(bitmap,"餐次照片",Modifier.fillMaxSize().graphicsLayer{
+        scaleX=zoom;scaleY=zoom;translationX=offset.x;translationY=offset.y
+      },contentScale=ContentScale.Fit)
+    }
+  }
+}
+
 @Composable private fun PhotoLoadFallback(modifier:Modifier,label:String,onClick:(()->Unit)?=null){Surface(modifier.then(if(onClick!=null)Modifier.clickable(role=Role.Button,onClick=onClick) else Modifier),shape=RoundedCornerShape(20.dp),color=MaterialTheme.colorScheme.surfaceVariant){Box(contentAlignment=Alignment.Center){Text(label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
 
 @Composable private fun HealthSurface(modifier:Modifier=Modifier,onClick:(()->Unit)?=null,content:@Composable ColumnScope.()->Unit){LifeCard(modifier,onClick,content)}

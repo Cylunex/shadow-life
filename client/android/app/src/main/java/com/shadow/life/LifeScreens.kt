@@ -249,6 +249,7 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun DetailScreen(title:String,state:LoadState<RecordDetail>,submitState:SubmitState,onRetry:()->Unit,onBack:()->Unit,onLink:(DetailLink)->Unit,onAction:(DetailAction)->Unit,onCorrect:(EditSeed,CorrectionDraft)->Unit,onReset:()->Unit,onQueueLibraryVision:(String)->Unit,onRetryLibraryVision:(String)->Unit,onSaveTravelDay:(TravelDayDraft)->Unit,travelPlaces:List<TravelPlaceSummary> = emptyList(),accountId:String="",onDishCatalog:(String,String)->Unit={_,_->}){
+  var purchaseLineId by rememberSaveable(title){mutableStateOf<String?>(null)}
   var editing by rememberSaveable(title){mutableStateOf(false)}
   var editingDay by rememberSaveable(title){mutableStateOf(false)}
   var travelDate by rememberSaveable(title){mutableStateOf<String?>(null)}
@@ -269,7 +270,7 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
         if(mealRead!=null)mealDetailItems(detail,accountId,mealRead,onDishCatalog)
         else {
           item{DetailHero(detail)}
-          item{DomainDetailContent(detail,onLink)}
+          item{DomainDetailContent(detail,onLink){purchaseLineId=it.id}}
         }
         if(detail.state=="confirmed")detail.consumptionRecordId?.let{id->item{AmountEvidenceCard(accountId,id)}}
         if(detail.state=="confirmed")detail.dishPurchase?.let{purchase->item{DishPreferenceCard(accountId,purchase)};if(purchase.items.isNotEmpty())item{PriceHistoryCard(accountId,purchase)}}
@@ -284,7 +285,6 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
           }){Text("分享这条资料引用")}
         } }
         if(detail.assets.isNotEmpty())item{LibraryOriginals(accountId,detail.assets,if(detail.meal!=null)"餐照与原件" else "原件")}
-        if(detail.meal==null&&detail.mealIntakes.isNotEmpty())item{MealIntakeEditor(accountId,detail.mealIntakes)}
         item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){detail.state?.let{StatusLabel(it)}}}
         val schedule=detail.travelSchedule
         if(schedule!=null){
@@ -313,8 +313,17 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
   }
   val schedule=(state as? LoadState.Ready)?.value?.travelSchedule
   if(editingDay&&schedule!=null&&travelDate!=null)TravelDayEditor(schedule.trip,travelDate!!,schedule.days.firstOrNull{it.date==travelDate},travelPlaces,submitState,{editingDay=false;onReset()},onSaveTravelDay)
+  loadedDetail?.purchaseLines?.firstOrNull{it.id==purchaseLineId}?.let{line->
+    PurchaseDestinationSheet(accountId,line,{purchaseLineId=null}){type,id->
+      onLink(DetailLink(type,id,line.name))
+    }
+  }
   val seed=(state as? LoadState.Ready)?.value?.editSeed
-  if(editing&&seed!=null)DetailEditSheet(seed,submitState,{editing=false;onReset()},{onCorrect(seed,it)})
+  if(editing&&seed!=null)DetailEditSheet(seed,submitState,{editing=false;onReset()},{onCorrect(seed,it)}){
+    if(seed is EditSeed.Meal&&loadedDetail!=null){
+      MealIntakeEditor(accountId,loadedDetail.mealIntakes,seed,onRetry)
+    }
+  }
 }
 
 @Composable private fun DetailSectionContent(section:DetailSection,onLink:(DetailLink)->Unit){
@@ -341,7 +350,7 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
 private fun detailCategory(value:DetailPresentation)=when(value){DetailPresentation.HealthMetric->"身体测量";DetailPresentation.Workout->"运动记录";DetailPresentation.Sleep->"睡眠记录";DetailPresentation.Activity->"活动记录";DetailPresentation.Meal->"饮食记录";DetailPresentation.Money->"消费记录";DetailPresentation.Travel->"旅程";DetailPresentation.Library->"资料";DetailPresentation.Habit->"生活习惯";DetailPresentation.Generic->"记录详情"}
 
 @OptIn(ExperimentalMaterial3Api::class,ExperimentalLayoutApi::class)
-@Composable private fun DetailEditSheet(seed:EditSeed,state:SubmitState,onDismiss:()->Unit,onSubmit:(CorrectionDraft)->Unit){
+@Composable private fun DetailEditSheet(seed:EditSeed,state:SubmitState,onDismiss:()->Unit,onSubmit:(CorrectionDraft)->Unit,mealFoods:@Composable ()->Unit={}){
   var primary by rememberDraftText("primary"){when(seed){is EditSeed.Meal->"";is EditSeed.Money->seed.amount;is EditSeed.Health->seed.value;is EditSeed.Trip->seed.title;is EditSeed.Library->seed.title}}
   var secondary by rememberDraftText("secondary"){when(seed){is EditSeed.Meal->"";is EditSeed.Money->seed.category.orEmpty();is EditSeed.Health->seed.unit;is EditSeed.Trip->seed.endsOn;is EditSeed.Library->seed.text?:seed.url.orEmpty()}}
   var note by rememberDraftText("note"){when(seed){is EditSeed.Meal->seed.note.orEmpty();is EditSeed.Money->seed.note.orEmpty();is EditSeed.Health->seed.note.orEmpty();is EditSeed.Trip->seed.note.orEmpty();is EditSeed.Library->""}}
@@ -363,6 +372,7 @@ private fun detailCategory(value:DetailPresentation)=when(value){DetailPresentat
     else if(seed !is EditSeed.Meal)OutlinedTextField(secondary,{secondary=it},Modifier.fillMaxWidth(),label={Text(when(seed){is EditSeed.Money->"分类（可选）";is EditSeed.Health->"单位";is EditSeed.Trip->"结束日期";is EditSeed.Library->"正文或链接";else->"补充"})},minLines=if(seed is EditSeed.Library)4 else 1)
     if(seed is EditSeed.Money||seed is EditSeed.Health)OutlinedTextField(option,{option=it},Modifier.fillMaxWidth(),label={Text(if(seed is EditSeed.Money)"交易方（可选）" else "标签（可选)")})
     if(seed is EditSeed.Library){LifeOptionalDateField(date,{date=it},"资料日期（可选）");OutlinedTextField(option,{option=it},Modifier.fillMaxWidth(),label={Text("分类（可选）")},singleLine=true)}else LifeDateField(date,{date=it},if(seed is EditSeed.Trip)"开始日期" else "发生日期")
+    if(seed is EditSeed.Meal)mealFoods()
     if(seed !is EditSeed.Library)OutlinedTextField(note,{note=it},Modifier.fillMaxWidth(),label={Text("备注（可选）")},minLines=2)
     OutlinedTextField(reason,{reason=it},Modifier.fillMaxWidth(),label={Text("更正说明（可选）")},minLines=2,supportingText={Text("留空时会记录为“用户在详情中更正”")})
     when(state){is SubmitState.Rejected->Text(state.message,color=MaterialTheme.colorScheme.error);is SubmitState.Saved->TaskResultCard(state.receipt,onDismiss);else->Button(onClick={onSubmit(CorrectionDraft(primary,secondary,note,date,option,reason))},enabled=state !is SubmitState.Sending&&primaryValid(seed,primary,secondary),modifier=Modifier.fillMaxWidth().heightIn(min=56.dp)){Text(if(state is SubmitState.Sending)"正在保存…" else "保存更正")}}
@@ -403,7 +413,7 @@ private data class FeatureEntry(val group:String,val title:String,val subtitle:S
     FeatureEntry("健康","睡眠趋势","主睡眠、分期及醒来日期","昨晚 睡了多久 睡觉 睡眠",FeatureAction.Workspace(LifeDomain.Health,"sleep")),
     FeatureEntry("健康","继续训练","回到当前组合和已完成组","健身 练 训练菜单",FeatureAction.Destination(TrainingRoute())),
     FeatureEntry("健康","动作库","搜索动作并加入今天的组合","飞鸟 卧推 动作 教学",FeatureAction.Destination(TrainingRoute("library"))),
-    FeatureEntry("健康","健康与饮食复盘","按日回看体重、睡眠、摄入及实际训练","一周 健康 复盘 营养",FeatureAction.Destination(WellnessRoute)),
+    FeatureEntry("健康","健康与饮食复盘","按日回看体重、睡眠、摄入及实际训练","一周 健康 复盘 营养",FeatureAction.Destination(WellnessRoute())),
     FeatureEntry("健康","设备与同步状态","查看设备权限、同步队列和来源","手表 同步队列 设备",FeatureAction.Destination(SettingsRoute)),
     FeatureEntry("饮食","食谱与食材","餐单、购物清单、食品库存与食谱","买菜 采购 库存 菜谱 食谱 购物清单",FeatureAction.Workspace(LifeDomain.Meals,"planning")),
     FeatureEntry("饮食","购物清单","打开待采购食材","买菜 采购 待买",FeatureAction.Workspace(LifeDomain.Meals,"shopping")),

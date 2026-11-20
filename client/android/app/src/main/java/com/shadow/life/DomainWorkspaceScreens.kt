@@ -48,26 +48,35 @@ import kotlin.math.abs
   onLoadCards:(String)->Unit,onMoreCards:()->Unit,onOpenCard:(String)->Unit,onCloseCard:()->Unit,onOlderUses:()->Unit,
   onSaveCard:(NativeServiceCardDraft)->Unit,onCardUse:(NativeServiceCardUseDraft)->Unit,onResetCard:()->Unit,
   importMonth:LoadState<MoneyImportMonthSummary>,importReview:LoadState<MoneyImportReviewSummary>?,importSubmit:SubmitState,onLoadImportMonth:(String)->Unit,onOpenImportBatch:(String)->Unit,onResolveImport:(MoneyImportCandidateSummary,String,String,String,String,String,String)->Unit,
-  planningPeriod:String,onPlanningPeriod:(String)->Unit,focusId:String="",onCapturedOrders:()->Unit={}
+  planningPeriod:String,onPlanningPeriod:(String)->Unit,focusId:String="",onCapturedOrders:()->Unit={},onOrderStats:()->Unit,onPriceBook:()->Unit,onReturns:()->Unit,
+  refundCandidates:LoadState<RecordPage>,onSearchRefunds:(String)->Unit,importPendingId:String?
 ){
   var tab by rememberSaveable(initialTab){mutableStateOf(initialTab.takeIf{it in setOf("overview","details","stats","budgets","recurring","intents","supplies","cards","reconcile")}?:"overview")};var query by rememberSaveable{mutableStateOf("")}
   val workspaceScroll=rememberModuleListState(tab)
   LaunchedEffect(tab){if(tab=="cards")onLoadCards("")}
-  LaunchedEffect(tab){if(tab=="reconcile")onLoadImportMonth(LocalDate.now().toString().take(7))}
-  val overview=(overviewState as? LoadState.Ready)?.value as? WorkspaceOverview.Money
+  var submittedQuery by rememberSaveable{mutableStateOf("")}
+  LaunchedEffect(tab){onSearch(if(tab in setOf("details","cards","intents"))submittedQuery else "")}
+  LaunchedEffect(planningPeriod){onLoadImportMonth(planningPeriod)}
+  val overview=((overviewState as? LoadState.Ready)?.value as? WorkspaceOverview.Money)?.takeIf{it.period==planningPeriod}
   val records=(recordsState as? LoadState.Ready)?.value?.items.orEmpty()
   var selectedCurrency by rememberSaveable{mutableStateOf<String?>(null)}
-  val periodRecords=records.filter{it.recordState!="voided"&&it.subtype in setOf("expense","income","refund")&&it.supporting?.startsWith(overview?.period?:LocalDate.now().toString().take(7))==true}
+  val periodRecords=records.filter{it.recordState!="voided"&&it.subtype in setOf("expense","income","refund")&&(it.happenedOn?:it.supporting)?.startsWith(planningPeriod)==true}
   val currencies=periodRecords.mapNotNull(::recordCurrency).distinct().sorted()
   val currency=selectedCurrency?.takeIf{it in currencies}?:currencies.firstOrNull()
   val currencyRecords=periodRecords.filter{recordCurrency(it)==currency}
   Scaffold(containerColor=MaterialTheme.colorScheme.background,
     topBar={LifeModuleTopBar(LifeModule.Money,onBack,overview?.period)},
-    bottomBar={LifeModuleBottomBar(tab,moneyModuleTabs){tab=it}}
+    bottomBar={
+      Column {
+        if(tab in setOf("overview","details"))ModuleCaptureAction("记消费"){onCapture(CaptureKind.Expense)}
+        LifeModuleBottomBar(when(tab){"reconcile"->"details";"recurring","intents","supplies","cards"->"budgets";else->tab},moneyModuleTabs){tab=it}
+      }
+    }
   ){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),state=workspaceScroll,contentPadding=PaddingValues(20.dp,10.dp,20.dp,28.dp),verticalArrangement=Arrangement.spacedBy(18.dp)){
-    if(tab=="overview")item{WorkspaceTabs("",{tab=it},listOf("reconcile" to "账单待处理","cards" to "次卡","recurring" to "订阅","intents" to "想买","supplies" to "消耗品"))}
-    if(tab in setOf("reconcile","cards","recurring","intents","supplies"))item{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(when(tab){"reconcile"->"账单待处理";"cards"->"次卡";"recurring"->"订阅与周期事项";"intents"->"想买";else->"消耗品"},Modifier.weight(1f),style=MaterialTheme.typography.titleLarge);TextButton(onClick={tab="overview"}){Text("消费概览")}}}
-    if(tab in setOf("budgets","recurring","intents","supplies"))item{
+    if(tab in setOf("budgets","recurring","intents","supplies","cards"))item{
+      WorkspaceTabs(tab,{tab=it},listOf("budgets" to "预算","recurring" to "订阅","cards" to "次卡","intents" to "想买","supplies" to "消耗品"))
+    }
+    if(tab in setOf("overview","stats","budgets","recurring","intents","supplies","reconcile"))item{
       val month=java.time.YearMonth.parse(planningPeriod)
       Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
         TextButton(onClick={onPlanningPeriod(month.minusMonths(1).toString())},enabled=planningState !is SubmitState.Sending&&(month.year>1||month.monthValue>1)){Text("上月")}
@@ -76,15 +85,21 @@ import kotlin.math.abs
       }
       if(planningPeriod!=java.time.YearMonth.now().toString())TextButton(onClick={onPlanningPeriod(java.time.YearMonth.now().toString())},enabled=planningState !is SubmitState.Sending){Text("回到本月")}
     }
+    if(overview==null&&overviewState is LoadState.Ready)item{LinearProgressIndicator(Modifier.fillMaxWidth())}
     if(overviewState !is LoadState.Ready||overviewState.refreshing||overviewState.refreshError!=null||overviewState.updateAvailable)item{StateContent(overviewState,onRetry){} }
     if(recordsState !is LoadState.Ready||recordsState.refreshing||recordsState.refreshError!=null||recordsState.updateAvailable)item{StateContent(recordsState,onRetry){} }
-    if(tab in setOf("overview","details"))item{TextButton(onClick=onCapturedOrders){Text("采集结果 · 查看未入账订单 →")}}
+    if(tab in setOf("details","reconcile"))item{
+      WorkspaceTabs(tab,{tab=it},listOf("details" to "正式明细","reconcile" to "账单待处理"))
+      TextButton(onClick=onCapturedOrders){Text("采集订单")}
+    }
     if(tab=="cards")item{NativeServiceCardsSection(cardsState,selectedCard,cardSubmit,records,onLoadCards,onSearch,onMoreCards,onOpenCard,onCloseCard,onOlderUses,onSaveCard,onCardUse,onResetCard)}
-    if(tab=="reconcile")item{NativeMoneyImportSection(importMonth,importReview,importSubmit,onLoadImportMonth,onOpenImportBatch,onResolveImport){id->onDetail(LifeDomain.Money,id,"账单关联记录")}}
+    if(tab=="reconcile")item{NativeMoneyImportSection(planningPeriod,importMonth,importReview,importSubmit,onLoadImportMonth,onOpenImportBatch,
+      onResolveImport,refundCandidates,onSearchRefunds,importPendingId){id->onDetail(LifeDomain.Money,id,"账单关联记录")}}
     if(focusId.isNotBlank()&&overview!=null)item{Text("提醒关联事项",style=MaterialTheme.typography.titleMedium);if((tab=="recurring"&&overview.occurrenceDetails.none{it.id==focusId})||(tab=="supplies"&&overview.useCycleDetails.none{it.id==focusId}))Text("该事项当前未加载或已不可用，请返回查看其他事项。")}
-    if(tab=="details"){item{MoneySearch(query,{query=it},{onSearch(query)},onCapture)};if(recordsState is LoadState.Ready)item{MoneyRecordList(records,onDetail)};if(recordsState is LoadState.Ready&&recordsState.value.nextCursor!=null)item{LoadMoreButton("加载更多明细",onLoadMore)}}
+    if(tab=="details"){item{MoneySearch(query,{query=it},{submittedQuery=query;onSearch(query)},onCapture)};if(recordsState is LoadState.Ready)item{MoneyRecordList(records,onDetail)};if(recordsState is LoadState.Ready&&recordsState.value.nextCursor!=null)item{LoadMoreButton("加载更多明细",onLoadMore)}}
     if(overview!=null&&tab !in setOf("cards","reconcile","details"))when(tab){
       "stats"->{
+        item{TextButton(onClick=onOrderStats){Text("购买与食用统计 ↗")}}
         if(currencies.size>1)item{WorkspaceTabs(currency.orEmpty(),{selectedCurrency=it},currencies.map{it to it})}
         item{Text("消费统计",style=MaterialTheme.typography.titleLarge);Text("按已加载的本月明细、原币种分别统计",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
         if(currencyRecords.isEmpty())item{EmptyState("当前没有可统计的本月收支明细")}
@@ -98,26 +113,40 @@ import kotlin.math.abs
       else->{
         if(currencies.size>1)item{Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){currencies.forEach{code->FilterChip(currency==code,{selectedCurrency=code},{Text(code)})}}}
         if(recordsState is LoadState.Ready){
-          item{MoneyHero(currencyRecords,overview,currency,recordsState.value.nextCursor!=null,onCapture)}
-          item{RecentMoney(records,onDetail){tab="details"}}
-
+          item{MoneyHero(currencyRecords,overview,currency,recordsState.value.nextCursor!=null)}
         }
+        item{
+          val month=(importMonth as? LoadState.Ready)?.value?.takeIf{it.period==planningPeriod}
+          LifeCard(onClick={tab="reconcile"}){
+            Text("账单待处理",style=MaterialTheme.typography.titleMedium)
+            Text(month?.let{"${it.unconfirmed} 笔待处理"}?:if(importMonth is LoadState.Failed)"暂不可读 · 点击重试" else "正在读取")
+          }
+        }
+        val today=LocalDate.now()
+        val upcoming=overview.occurrences.filter{it.state in setOf("pending","reminded","snoozed")&&it.dueOn in today.toString()..today.plusDays(7).toString()}.minByOrNull{it.dueOn}
+        if(upcoming!=null)item{LifeCard(onClick={tab="recurring"}){Text(upcoming.title);Text("${upcoming.dueOn} 到期")}}
+        val replenish=overview.useCycles.firstOrNull{it.balanceStatus in setOf("replenish_now","depleted")}
+        if(replenish!=null)item{LifeCard(onClick={tab="supplies"}){Text("${replenish.title} · 待补货")}}
+        if(recordsState is LoadState.Ready)item{RecentMoney(periodRecords,onDetail){tab="details"}}
+        item{Row{
+          TextButton(onClick=onPriceBook){Text("常购价格")}
+          TextButton(onClick=onReturns){Text("售后与退款")}
+        }}
         if(overview.budgets.isNotEmpty())item{BudgetPreview(overview){tab="budgets"}}
       }
     }
   }}
 }
 
-@Composable private fun MoneyHero(records:List<RecordSummary>,overview:WorkspaceOverview.Money,currency:String?,hasMore:Boolean,onCapture:(CaptureKind)->Unit){
+@Composable private fun MoneyHero(records:List<RecordSummary>,overview:WorkspaceOverview.Money,currency:String?,hasMore:Boolean){
   val totals=moneyCardTotals(records,currency.orEmpty())
   LifeCard{
     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Top){
       Column(Modifier.weight(1f)){
         Text("${overview.period} · 已加载收支",color=MaterialTheme.colorScheme.secondary,style=MaterialTheme.typography.labelLarge)
         Text(if(records.isEmpty())"暂无收支明细" else "${currency.orEmpty()} ${totals.net.stripTrailingZeros().toPlainString()}",style=MaterialTheme.typography.headlineMedium,fontWeight=FontWeight.SemiBold)
-        Text("净支出 · 支出减退款",color=MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("净支出 · 已加载明细小计",color=MaterialTheme.colorScheme.onSurfaceVariant)
       }
-      FilledTonalIconButton(onClick={onCapture(CaptureKind.Expense)}){Icon(Icons.Default.Add,"记消费")}
     }
     if(records.isNotEmpty()){
       Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){
@@ -132,7 +161,7 @@ import kotlin.math.abs
 
 @Composable private fun MoneyBars(records:List<RecordSummary>,currency:String,modifier:Modifier){
   val days=records.filter{recordCurrency(it)==currency&&it.subtype in setOf("expense","refund")}
-    .groupBy{it.supporting.orEmpty().take(10)}.toSortedMap().entries.toList().takeLast(14)
+    .groupBy{(it.happenedOn?:it.supporting.orEmpty()).take(10)}.toSortedMap().entries.toList().takeLast(14)
   if(days.isEmpty())return
   val values=days.map{moneyCardTotals(it.value,currency).net.toDouble()}
   val grid=MaterialTheme.colorScheme.outline;val expense=MaterialTheme.colorScheme.tertiary;val refund=MaterialTheme.colorScheme.primary
@@ -208,8 +237,29 @@ private fun useCycleLine(item:MoneyUseCycleSummary)=if(item.usageState=="pending
   val dates=trip?.let{travelDates(it,days)}.orEmpty()
   val date=travelSelectedDate(dates,selectedDate.takeIf{selectedDateTripId==trip?.id},LocalDate.now(java.time.ZoneId.of(trip?.timeZone?:"UTC")).toString())
   val day=days.firstOrNull{it.date==date}
+  var focusedStop by rememberSaveable(day?.id){mutableStateOf<String?>(null)}
+  var showMap by rememberSaveable{mutableStateOf(true)}
   val workspaceScroll=rememberModuleListState(tab)
-  Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={LifeModuleTopBar(LifeModule.Travel,onBack)},bottomBar={LifeModuleBottomBar(tab,travelModuleTabs){tab=it}}){padding->
+  Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={
+    Column {
+      LifeModuleTopBar(LifeModule.Travel,onBack)
+      if(tab=="itinerary"&&value!=null&&date!=null){
+        val map=travelDayMap(day,value.placeItems)
+        if(map.markers.isNotEmpty()){
+          Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),horizontalArrangement=Arrangement.SpaceBetween){
+            TextButton(onClick={showMap=!showMap}){Text(if(showMap)"收起行程地图" else "展开行程地图")}
+            if(focusedStop!=null)TextButton(onClick={focusedStop=null}){Text("查看全部站点")}
+          }
+          if(showMap){
+            val point=map.markers.firstOrNull{it.id=="${day?.id}:$focusedStop"}
+            TravelNativeMap(TravelMapProvider.Google,point?.let(::listOf)?:map.markers,emptyList(),
+              Modifier.fillMaxWidth().height(190.dp).padding(horizontal=12.dp),
+              routes=if(point==null)map.routes else emptyList(),onGestureActive={mapGestureActive=it})
+          }
+        }
+      }
+    }
+  },bottomBar={LifeModuleBottomBar(tab,travelModuleTabs){tab=it}}){padding->
     LazyColumn(Modifier.fillMaxSize().padding(padding),state=workspaceScroll,userScrollEnabled=!mapGestureActive,contentPadding=PaddingValues(20.dp,10.dp,20.dp,28.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
       if(tab=="overview"||tab=="records")item{TextButton(onClick={tab=if(tab=="records")"overview" else "records"}){Text(if(tab=="records")"返回旅程" else "全部出行记录")}}
       item{StateContent(overviewState,onRetry){} }
@@ -228,9 +278,9 @@ private fun useCycleLine(item:MoneyUseCycleSummary)=if(item.usageState=="pending
               item{PersonalRecordsCard(accountId,"旅行小记与票据")}
               if(date!=null)item{key(accountId,trip.id,date){DestinationCard(accountId,trip,date,value.placeItems)}}
               if(day!=null)item{key(accountId,day.id,day.revision){TravelConnectionCard(accountId,trip,day)}}
-              val dayMap=travelDayMap(day,value.placeItems)
-              if(dayMap.markers.isNotEmpty())item{Column(verticalArrangement=Arrangement.spacedBy(5.dp)){TravelNativeMap(TravelMapProvider.Google,dayMap.markers,emptyList(),Modifier.fillMaxWidth().height(280.dp),dayMap.routes,onGestureActive={mapGestureActive=it});Text("编号为日程顺序；橙色虚线仅示意连续地点，不是道路导航，也不代表已到访。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
-              travelDayContent(day,date,trip.timeZone,value.placeItems){stop->onVisit(CaptureSeed(CaptureKind.Visit,primary=stop.title,date=LocalDate.now(java.time.ZoneId.of(trip.timeZone)).toString(),option=trip.timeZone,contextKind="trip",contextId=trip.id,contextLabel=trip.title))}
+              travelDayContent(day,date,trip.timeZone,value.placeItems,onVisit={stop->
+                onVisit(CaptureSeed(CaptureKind.Visit,primary=stop.title,date=LocalDate.now(java.time.ZoneId.of(trip.timeZone)).toString(),option=trip.timeZone,contextKind="trip",contextId=trip.id,contextLabel=trip.title))
+              },onMapStop={stop->focusedStop=stop.id;showMap=true})
               val segments=value.segments.filter{it.tripId==trip.id&&(it.startsAt==null||runCatching{java.time.Instant.parse(it.startsAt).atZone(java.time.ZoneId.of(trip.timeZone)).toLocalDate().toString()==date}.getOrDefault(false))}
               if(segments.isNotEmpty())item{Text("当天交通与待定交通",style=MaterialTheme.typography.titleLarge)}
               items(segments,key={"segment:${it.id}"}){segment->LifeCard{Text("${segment.origin} → ${segment.destination}",style=MaterialTheme.typography.titleMedium);Text("${travelLabel(segment.mode)} · ${travelTime(segment.startsAt,trip.timeZone)}")}}

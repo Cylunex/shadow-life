@@ -271,17 +271,7 @@ private data class DishEdit(
             saving=true;saveError=null
             scope.launch {
                 try {
-                    val intake=JSONObject().put("name",row.dish).put("food_ref_id",row.id)
-                    if(grams.isNotBlank())intake.put("amount_g",grams).put("estimate",true).put("evidence_note","本人填写本次估重")
-                    else if(usePortion)row.profile?.portion?.let { portion->
-                        intake.put("quantity",portion.quantity).put("unit",portion.unit).put("amount_g",portion.grams)
-                            .put("provenance","reference_snapshot").put("estimate",portion.estimated)
-                            .put("evidence_note","按菜品档案第${row.revision}版的常用份量。依据：${portion.basis}".take(500))
-                        portion.nutrients?.let { values->
-                            val saved=JSONObject(menuJson.encodeToString(MerchantMenuResultDtoItemsEntryProfilePortionNutrients.serializer(),values))
-                            for(key in saved.keys())intake.put(key,saved.getString(key))
-                        }
-                    }
+                    val intake=repository.mealItems(listOf(row.portionFood(grams,usePortion)),"").getJSONObject(0)
                     val body=JSONObject().put("occurred_on",date).put("time_zone",ZoneId.systemDefault().id)
                         .put("meal_type",type).put("items",JSONArray().put(intake))
                     val receipt=repository.captureWrite("life.record_meal",body,accountId)

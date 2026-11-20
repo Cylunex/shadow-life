@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "8c1470d45a8f405c9dc17c2a129f677da469a38283ca40f077a06421c4f86653",
+  "catalog_revision": "22576f48ad42977a2ae79bfd768e06b98edec2b456796916025eca022d2dd0bb",
   "terms": [
     {
       "id": "activity_capture",
@@ -44327,6 +44327,17 @@
                   "type": "string",
                   "pattern": "^[a-z][a-z0-9_]{7,127}$"
                 },
+                "purchase_record_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "name": {
                   "type": "string"
                 },
@@ -60135,6 +60146,10 @@
               }
             ]
           },
+          "reuse_purchase_link": {
+            "type": "boolean",
+            "const": true
+          },
           "name": {
             "type": "string",
             "minLength": 1,
@@ -62715,6 +62730,10 @@
             "type": "integer",
             "exclusiveMinimum": 0,
             "maximum": 9007199254740991
+          },
+          "purchase_item_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
           },
           "name": {
             "type": "string",
@@ -77173,6 +77192,10 @@
           "purchase_item_id": {
             "type": "string",
             "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "reuse_purchase_link": {
+            "type": "boolean",
+            "const": true
           },
           "usage_state": {
             "type": "string",

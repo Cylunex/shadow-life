@@ -95,7 +95,6 @@ internal fun LazyListScope.mealDetailItems(
     if(rows.isEmpty())item("meal-empty"){EmptyState("这餐还没有记录食物明细")}
     items(rows,key={"meal-food/${it.id}"}){row->MealFoodCard(row,onDishCatalog)}
     if(detail.mealIntakes.isNotEmpty()&&accountId.isNotBlank()){
-        item("meal-edit-food"){MealIntakeEditor(accountId,detail.mealIntakes)}
     }
     when(val state=read.state){
         LoadState.Loading->item("meal-evidence-loading"){LinearProgressIndicator(Modifier.fillMaxWidth())}

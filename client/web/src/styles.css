@@ -1227,3 +1227,55 @@ html,body {background:#000;}
 
 .personal-records-form > article { grid-column:1/-1; flex-wrap:wrap; justify-content:flex-start; gap:.75rem; min-width:0; }
 .personal-records-form > article > dl { flex:1 1 100%; min-width:0; overflow-wrap:anywhere; }
+
+.meal-diary { padding:clamp(12px,3vw,28px); border-radius:24px; background:var(--surface); }
+.diary-layout { display:grid; grid-template-columns:minmax(0,1fr); gap:20px; align-items:start; }
+.diary-layout:has(.diary-detail) { grid-template-columns:minmax(230px,1fr) minmax(0,2fr); }
+.diary-list,.diary-detail { min-width:0; }
+.diary-week { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:3px; margin:10px 0; }
+.diary-week button { padding:5px 0; min-width:0; min-height:44px; border-radius:10px; }
+.diary-week button span { display:block; font-size:.75rem; }
+.diary-week button[aria-pressed="true"], .daily-nutrition { background:#ffd39c; color:#683b16; }
+.daily-nutrition { display:grid; gap:4px; border-radius:16px; padding:14px 16px; }
+.daily-nutrition strong { font-size:clamp(1.6rem,5vw,2.4rem); line-height:1.2; font-variant-numeric:tabular-nums; }
+.daily-nutrition strong small { font-size:1rem; }
+.diary-macros { display:flex; flex-wrap:wrap; gap:4px 12px; margin-top:4px; font-size:.875rem; }
+.health-grid>.daily-health-card,.health-trend-layout { grid-column:1/-1; }
+.health-trend-layout { display:grid; grid-template-columns:minmax(150px,1fr) minmax(0,3fr); gap:12px; align-items:start; }
+.health-trend-layout>.trend-card { grid-column:auto; min-width:0; }
+.health-trend-layout label { display:grid; gap:6px; }
+.money-month-overview { background:#ffe586; color:#59451a; border-radius:18px; padding:14px 17px; margin:12px 0; }
+.money-month-overview strong { font-size:1.9rem; font-variant-numeric:tabular-nums; }
+.money-month-overview small { display:block; }
+.import-workspace { display:grid; grid-template-columns:minmax(180px,1fr) minmax(0,3fr); gap:12px; align-items:start; }
+.import-batch-list { display:grid; gap:8px; align-content:start; }
+.import-candidate-pane,.candidate { min-width:0; }
+.import-candidate-pane pre { overflow:auto; }
+@media(max-width:720px) {
+  .diary-layout:has(.diary-detail),.health-trend-layout,.import-workspace { grid-template-columns:minmax(0,1fr); }
+  .diary-layout:has(.diary-detail)>.diary-list { display:none; }
+}
+.import-panel .import-row-header { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:start; }
+.import-panel .import-row-title,.import-panel .import-row-amount { display:grid; gap:4px; }
+.import-panel .import-row-title { overflow-wrap:anywhere; }
+.import-panel .import-row-title small,.import-panel .import-row-amount small { color:inherit; opacity:.73; }
+.import-panel .import-row-amount { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.import-panel .import-row-amount strong { font-size:1.35rem; }
+.import-panel .import-row-actions { display:flex; flex-wrap:wrap; gap:6px; justify-content:flex-start; }
+.import-panel .import-row-actions button { white-space:nowrap; padding:8px 12px; min-height:44px; }
+.import-panel .import-explainer { margin:0 0 12px; font-size:.875rem; }
+.import-panel .import-explainer p { margin:.5em 0; }
+@media(max-width:560px) {
+  .money-workspace { padding:12px; }
+  .money-workspace .import-panel { padding:12px; }
+  .money-workspace .import-panel .panel-actions { justify-content:flex-start; gap:6px; }
+  .money-workspace .import-panel .panel-actions button { padding:8px 12px; min-height:44px; }
+}
+.import-comparison { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.import-comparison h4 { margin:.6em 0; }
+.import-comparison section { min-width:0; overflow-wrap:anywhere; }
+@media(max-width:640px) { .import-comparison { grid-template-columns:minmax(0,1fr); } }
+.meal-intake-editor { display:grid; gap:8px; margin-top:14px; }
+.intake-edit-row { padding:10px 12px; border:1px solid var(--line, #8b9694); border-radius:10px; }
+.intake-edit-row form { margin-top:8px; padding:12px; }
+.intake-portion-actions { justify-content:flex-start; }

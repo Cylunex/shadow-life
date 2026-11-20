@@ -1,11 +1,14 @@
 package com.shadow.life
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
 import org.json.JSONObject
 
@@ -34,7 +37,56 @@ import org.json.JSONObject
         Text(recipe.getString("title"),style=MaterialTheme.typography.titleMedium)
         Text("${recipe.getString("servings")} 份")
         TextButton(onClick={expanded=if(expanded==recipe.getString("id"))null else recipe.getString("id")}){Text(if(expanded==recipe.getString("id"))"收起做法" else "查看做法")}
-        if(expanded==recipe.getString("id"))Text(if(recipe.isNull("instructions"))"尚未填写做法" else recipe.getString("instructions"))
+
+      }
+    }
+  }
+  val recipe=recipes?.trainingObjects()?.firstOrNull{it.getString("id")==expanded}
+  if(recipe!=null)RecipeCookingView(recipe){expanded=null}
+
+}
+
+
+@Composable internal fun RecipeCookingView(recipe:JSONObject,initialServings:String?=null,onBack:()->Unit){
+  val original=recipe.getString("servings").toBigDecimal()
+  var servingsText by rememberSaveable(recipe.getString("id")){mutableStateOf(initialServings?:original.toPlainString())}
+  var step by rememberSaveable(recipe.getString("id")){mutableIntStateOf(-1)}
+  val servings=servingsText.toBigDecimalOrNull()?.takeIf{it.signum()>0}?:original
+  val scale=servings.divide(original,java.math.MathContext.DECIMAL64)
+  val ingredients=recipe.getJSONArray("items").trainingObjects().map{it.getJSONObject("snapshot")}
+  val steps=recipe.optString("instructions").takeUnless{recipe.isNull("instructions")}.orEmpty()
+    .lineSequence().map(String::trim).filter(String::isNotEmpty).toList()
+  LifeFullScreen(recipe.getString("title"),onBack){
+    LazyColumn(verticalArrangement=Arrangement.spacedBy(10.dp)){
+      if(step<0){
+        item{
+          Row(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){
+            OutlinedButton(onClick={servingsText=(servings-java.math.BigDecimal.ONE).stripTrailingZeros().toPlainString()},
+              enabled=servings>java.math.BigDecimal.ONE){Text("−")}
+            Text("${servings.stripTrailingZeros().toPlainString()} 份")
+            OutlinedButton(onClick={servingsText=(servings+java.math.BigDecimal.ONE).stripTrailingZeros().toPlainString()}){Text("＋")}
+          }
+        }
+        item{Text("食材",style=MaterialTheme.typography.titleLarge)}
+        itemsIndexed(ingredients){_,row->
+          val unit=row.optString("unit")
+          val quantity=row.optString("quantity").toBigDecimalOrNull()?.takeIf{unit.isNotBlank()}
+          LifeCard{Text(row.getString("name"));Text(quantity?.multiply(scale)?.setScale(3,java.math.RoundingMode.HALF_UP)?.stripTrailingZeros()?.toPlainString()?.let{"$it $unit"}?:"份量未提供")}
+        }
+        if(steps.isNotEmpty())item{Button(onClick={step=0}){Text("开始烹饪")}}
+        else item{Text("尚未填写做法")}
+      }else{
+        val current=step.coerceAtMost(steps.lastIndex)
+        if(current>=0)item{
+          Text("第 ${current+1} 步 · 共 ${steps.size} 步",style=MaterialTheme.typography.titleMedium)
+          Text(steps[current],style=MaterialTheme.typography.headlineSmall)
+          Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+            TextButton(onClick={step--}){Text(if(current==0)"返回食材" else "上一步")}
+            Button(onClick={step=if(current==steps.lastIndex)-1 else current+1}){
+              Text(if(current==steps.lastIndex)"完成" else "下一步")
+            }
+          }
+        }
       }
     }
   }

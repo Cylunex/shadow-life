@@ -3,6 +3,11 @@ package com.shadow.life
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -29,6 +35,7 @@ import org.json.JSONObject
   var selected by remember{mutableStateOf<JSONObject?>(null)}
   var message by remember{mutableStateOf("")}
   var preview by remember{mutableStateOf<android.graphics.Bitmap?>(null)}
+  var fullSize by rememberSaveable{mutableStateOf(false)}
   val fields=mapOf("paid" to "实付","discount" to "优惠","delivery" to "配送费")
   LaunchedEffect(open,accountId,recordId,retry){
     if(!open)return@LaunchedEffect
@@ -57,20 +64,52 @@ import org.json.JSONObject
         if(!row.isNull("page"))Text("来源第 ${row.getInt("page")} 页／屏")
         if(!row.isNull("quote"))Text(row.getString("quote"))
         preview?.let{bitmap->
-          Box(Modifier.fillMaxWidth().aspectRatio(bitmap.width.toFloat()/bitmap.height)){
-            Image(bitmap.asImageBitmap(),"金额来源原图",modifier=Modifier.fillMaxSize())
-            row.optJSONObject("region")?.let{region->
-              val w=region.getInt("image_width");val h=region.getInt("image_height")
-              if(kotlin.math.abs(bitmap.width.toDouble()/bitmap.height-w.toDouble()/h)<0.01)
-                Canvas(Modifier.fillMaxSize()){
-                  drawRect(Color.Red,Offset(size.width*region.getInt("x")/w,size.height*region.getInt("y")/h),
-                    Size(size.width*region.getInt("width")/w,size.height*region.getInt("height")/h),style=Stroke(3f))
+          TextButton(onClick={fullSize=true}){Text("放大核对原件")}
+          Box(Modifier.fillMaxWidth().heightIn(max=240.dp).aspectRatio(bitmap.width.toFloat()/bitmap.height)){
+            AmountEvidenceImage(bitmap,row.optJSONObject("region"))
+          }
+          if(fullSize)LifeFullScreen("金额来源原图",{fullSize=false}){
+            var zoom by remember{mutableFloatStateOf(1f)}
+            var pan by remember{mutableStateOf(Offset.Zero)}
+            val transform=rememberTransformableState{scale,offset,_ ->
+              zoom=(zoom*scale).coerceIn(1f,5f)
+              pan=if(zoom==1f)Offset.Zero else pan+offset
+            }
+            Column{
+              Row{
+                TextButton(onClick={zoom=(zoom+.5f).coerceAtMost(5f)}){Text("放大")}
+                TextButton(onClick={zoom=1f;pan=Offset.Zero}){Text("还原")}
+              }
+              Box(Modifier.fillMaxWidth().weight(1f).clipToBounds().transformable(transform),
+                contentAlignment=androidx.compose.ui.Alignment.Center){
+                Box(Modifier.fillMaxWidth().aspectRatio(bitmap.width.toFloat()/bitmap.height).graphicsLayer{
+                  scaleX=zoom;scaleY=zoom;translationX=pan.x;translationY=pan.y
+                }){
+                  AmountEvidenceImage(bitmap,row.optJSONObject("region"))
                 }
+              }
             }
           }
         }
       }
       if(message.isNotBlank()){Text(message);TextButton(onClick={retry++}){Text("重新读取")}}
     }
+  }
+}
+
+
+@Composable private fun AmountEvidenceImage(bitmap:android.graphics.Bitmap,region:JSONObject?){
+  val image=remember(bitmap){bitmap.asImageBitmap()}
+  Image(image,"金额来源原图",modifier=Modifier.fillMaxSize(),contentScale=ContentScale.Fit)
+  if(region==null)return
+  val width=region.getInt("image_width")
+  val height=region.getInt("image_height")
+  if(width<=0||height<=0||kotlin.math.abs(bitmap.width.toDouble()/bitmap.height-width.toDouble()/height)>=.01)return
+  Canvas(Modifier.fillMaxSize()){
+    val scale=minOf(size.width/width,size.height/height)
+    val x=(size.width-width*scale)/2
+    val y=(size.height-height*scale)/2
+    drawRect(Color.Red,Offset(x+region.getInt("x")*scale,y+region.getInt("y")*scale),
+      Size(region.getInt("width")*scale,region.getInt("height")*scale),style=Stroke(3f))
   }
 }

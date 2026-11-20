@@ -71,6 +71,13 @@ import java.util.Locale
   RootPage("生活",onProjects,onSettings,onFeatures){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp,8.dp,20.dp,28.dp),verticalArrangement=Arrangement.spacedBy(20.dp)){
     item("common-services"){HomeCommonServices(onWorkspace,onItems,onLibrary,onTraining,onFeatures)}
     item("recent-records-messages"){HomeRecentInfoCard(accountId,onDetail,onRecords,onCaptureOrders,onSettings,inboxState,onInbox,onRefreshInbox)}
+    if(deviceStatus.scaleState in setOf("starting","scanning","detected","reading"))item("active-scale"){
+      LifeCard{Text("体脂秤正在接收",style=MaterialTheme.typography.titleMedium);TextButton(onClick=onCancelScale){Text("取消接收")}}
+    }
+    val training=TrainingDraftStore(context,accountId).read()
+    if(training?.started==true)item("active-training"){
+      LifeCard(onClick=onTraining){Text("继续训练",style=MaterialTheme.typography.titleMedium);Text("已完成 ${training.completedSets} 组")}
+    }
     item("cards-heading"){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text("我的卡片",Modifier.weight(1f),style=MaterialTheme.typography.titleLarge);TextButton(onClick={editCards=true}){Text("编辑卡片")}}}
     item("home-read-state"){StateContent(state,onRetry){} }
     if(cards.isEmpty())item{EmptyState("首页还没有卡片","添加卡片"){editCards=true}}
@@ -366,20 +373,28 @@ private fun todayScaleActionLabel(state:String)=when(state){"starting"->"正在�
 private fun todayScaleQueueLabel(state:String)=when(state){"pending"->"待发送";"sending"->"发送中";"reconciling"->"核对中";"committed"->"已完成";"failed"->"失败";"blocked"->"已阻止";else->state}
 private fun todayDeviceTime(value:Long):String?=value.takeIf{it>0}?.let{Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("M 月 d 日 HH:mm"))}
 
-@Composable fun RecordsVisualScreen(state:LoadState<TimelinePage>,searchState:LoadState<RecordPage>?,onRetry:()->Unit,onLoadMore:()->Unit,onSearch:(String)->Unit,onLoadMoreSearch:()->Unit,onClearSearch:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onQuickCapture:()->Unit,onProjects:()->Unit,onSettings:()->Unit,selectedDay:LocalDate,day:LoadState<DayPage>,memories:LoadState<List<DayEntry>>,onDay:(LocalDate)->Unit,onDayMore:()->Unit,onDaySource:(DayEntry)->Unit,onActivity:()->Unit={},recordsView:String="events",onRecordsView:(String)->Unit={},initialQuery:String="",accountId:String=""){
+@Composable fun RecordsVisualScreen(state:LoadState<TimelinePage>,searchState:LoadState<RecordPage>?,onRetry:()->Unit,onLoadMore:()->Unit,onSearch:(String)->Unit,onLoadMoreSearch:()->Unit,onClearSearch:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onQuickCapture:()->Unit,onProjects:()->Unit,onSettings:()->Unit,selectedDay:LocalDate,day:LoadState<DayPage>,memories:LoadState<List<DayEntry>>,onDay:(LocalDate)->Unit,onDayMore:()->Unit,onDaySource:(DayEntry)->Unit,onActivity:()->Unit={},recordsView:String="events",onRecordsView:(String)->Unit={},initialQuery:String="",accountId:String="",onIntervals:()->Unit={},onPersonal:()->Unit={}){
   var query by rememberSaveable{mutableStateOf("")};var submittedQuery by rememberSaveable{mutableStateOf("")};var domain by rememberSaveable{mutableStateOf<String?>(null)};var period by rememberSaveable{mutableStateOf("all")}
   LaunchedEffect(initialQuery){if(initialQuery.isNotBlank()){query=initialQuery;submittedQuery=initialQuery;onSearch(initialQuery)}}
   RootPage("记录",onProjects,onSettings){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp,8.dp,20.dp,28.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
     item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){OutlinedTextField(query,{query=it;if(it.isBlank()){submittedQuery="";onClearSearch()}},Modifier.weight(1f),singleLine=true,placeholder={Text("搜索记录、地点或资料")},leadingIcon={Icon(Icons.Default.Search,null)});FilledTonalIconButton(onClick={submittedQuery=query.trim();onSearch(submittedQuery)},enabled=query.isNotBlank()){Icon(Icons.Default.Search,"搜索")};FilledIconButton(onClick=onQuickCapture){Icon(Icons.Default.Add,"打开快速记录")}}}
     item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){listOf("events" to "生活事件","facts" to "全部数据").forEach{(key,label)->FilterChip(recordsView==key,{onRecordsView(key)},label={Text(label)})}}}
-    item{TextButton(onClick=onActivity,modifier=Modifier.fillMaxWidth()){Icon(Icons.Default.Info,null);Spacer(Modifier.width(8.dp));Text("活动、采集与回顾")}}
     if(searchState==null)item{RecordFilters(domain,{domain=it},period,{period=it})}
-    if(searchState==null&&accountId.isNotBlank())item{PersonalRecordsCard(accountId)}
-    if(searchState==null&&accountId.isNotBlank())item{IntervalEventsCard(accountId)}
-    if(searchState==null)item{LifeCard{DayMemorySection(selectedDay,day,memories,onDay,onDayMore,onDaySource)}}
-    else item{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text("全部领域的搜索结果",Modifier.weight(1f),color=MaterialTheme.colorScheme.onSurfaceVariant);TextButton(onClick={query="";submittedQuery="";onClearSearch()}){Text("退出搜索")}}}
+    else item{TextButton(onClick={query="";submittedQuery="";onClearSearch()}){Text("退出搜索")}}
     if(searchState!=null){item{StateContent(searchState,{onSearch(submittedQuery)}){} };if(searchState is LoadState.Ready){items(searchState.value.items,key={"search:${it.domain}:${it.kind}:${it.id}"}){record->VisualRecordCard(record.domain,record.title,record.supporting,record.trailing){onDetail(record.domain,record.detailId?:record.id,record.title)}};if(searchState.value.nextCursor!=null)item{TextButton(onClick=onLoadMoreSearch,modifier=Modifier.fillMaxWidth(),enabled=!searchState.refreshing){Text("加载更多搜索结果")}}}}
     else{item{StateContent(state,onRetry){} };if(state is LoadState.Ready){val now=LocalDate.now();val filtered=state.value.items.filter{item->(domain==null||item.domain.name==domain)&&inRecordPeriod(recordDate(item.happenedAt),period,now)};val groups=filtered.groupBy{recordDate(it.happenedAt)?.toString()?:"日期未知"};if(filtered.isEmpty())item{EmptyState(if(state.value.nextCursor!=null)"已加载记录中没有匹配项，可继续加载更早记录" else "当前筛选没有记录","清除筛选"){domain=null;period="all"}};groups.forEach{(date,rows)->item{Text(if(date==now.toString())"今天" else date,style=MaterialTheme.typography.titleLarge,modifier=Modifier.padding(top=8.dp))};val captures=rows.filter{it.kind=="activity_capture"};if(captures.isNotEmpty())item("captures:$date"){var showSources by rememberSaveable{mutableStateOf(false)};LifeCard{Text("活动采集 · ${captures.size} 项已加载来源",style=MaterialTheme.typography.titleMedium);TextButton(onClick={showSources=!showSources}){Text(if(showSources)"收起来源" else "展开来源")};if(showSources)captures.forEach{source->TextButton(onClick={onDetail(source.domain,source.recordId?:source.id,source.title)},modifier=Modifier.fillMaxWidth()){Text(source.title)}}}};items(rows.filterNot{it.kind=="activity_capture"},key={"${it.domain}:${it.kind}:${it.id}"}){item->VisualRecordCard(item.domain,item.title,listOfNotNull(item.domain.label(),recordTime(item.happenedAt)).joinToString(" · "),item.amount?.let{"${item.currency.orEmpty()} ${displayDecimal(it)}"}){onDetail(item.domain,item.recordId?:item.id,item.title)}}};if(state.value.nextCursor!=null)item{TextButton(onClick=onLoadMore,modifier=Modifier.fillMaxWidth(),enabled=!state.refreshing){Text("加载更早记录")}}}}
+    if(searchState==null){
+      item{
+        LifeSection("回顾与采集"){
+          TextButton(onClick=onActivity){Text("活动与采集")}
+          if(accountId.isNotBlank()){
+            TextButton(onClick=onIntervals){Text("上次是什么时候")}
+            TextButton(onClick=onPersonal){Text("生活记录与复盘")}
+          }
+        }
+      }
+      item{LifeCard{DayMemorySection(selectedDay,day,memories,onDay,onDayMore,onDaySource)}}
+    }
   }}
 }
 
@@ -415,7 +430,7 @@ private fun todayDeviceTime(value:Long):String?=value.takeIf{it>0}?.let{Instant.
   RootPage("计划",onProjects,onSettings){padding->
     LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp,8.dp,20.dp,28.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
       item{LifeTabs(tab,{tab=it},listOf("agenda" to "日程","projects" to "项目","goals" to "目标"))}
-      item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){TextButton(onClick=onTraining){Text("训练")};TextButton(onClick=onItems){Text("物品与维护")};TextButton(onClick={history=!history}){Text(if(history)"收起回顾" else "生活回顾")}}}
+      if(tab!="agenda")item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){TextButton(onClick=onTraining){Text("训练")};TextButton(onClick=onItems){Text("物品与维护")};TextButton(onClick={history=!history}){Text(if(history)"收起回顾" else "生活回顾")}}}
       message?.let{item{Text(it,color=MaterialTheme.colorScheme.primary)}}
       item{StateContent(state,onRetry){} }
       if(tab=="goals")item{goals()}
@@ -468,7 +483,23 @@ private fun todayDeviceTime(value:Long):String?=value.takeIf{it>0}?.let{Instant.
 @Composable private fun LibraryVisualCard(value:LibrarySummary,onClick:()->Unit){LifeCard(onClick=onClick){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Surface(Modifier.size(54.dp),shape=RoundedCornerShape(17.dp),color=MaterialTheme.colorScheme.secondary.copy(alpha=.12f)){Box(contentAlignment=Alignment.Center){Text(libraryMark(value.itemType),style=MaterialTheme.typography.titleLarge,color=MaterialTheme.colorScheme.secondary)}};Spacer(Modifier.width(13.dp));Column(Modifier.weight(1f)){Text(value.title,style=MaterialTheme.typography.titleMedium,maxLines=2,overflow=TextOverflow.Ellipsis);Text("${libraryTypeLabel(value.itemType)} · ${value.state?.let(::rootStateLabel)?:"已收存"}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}}
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun ItemsWorkspaceScreen(state:LoadState<PlanningWorkspace>,onRetry:()->Unit,onBack:()->Unit,onDetail:(OwnedItemSummary)->Unit,onCapture:(CaptureKind)->Unit){var query by rememberSaveable{mutableStateOf("")};var filter by rememberSaveable{mutableStateOf("all")};Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={LifeModuleTopBar(LifeModule.Items,onBack)}){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){item{StateContent(state,onRetry){} };if(state is LoadState.Ready){val all=state.value.ownedItems;item{OutlinedTextField(query,{query=it},modifier=Modifier.fillMaxWidth(),singleLine=true,label={Text("搜索物品或存放位置")})};item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(9.dp)){RootPlanStat("物品",all.size.toString(),Modifier.weight(1f));RootPlanStat("有保修",all.count{it.warrantyEndsOn!=null}.toString(),Modifier.weight(1f));RootPlanStat("有事件",all.count{it.events>0}.toString(),Modifier.weight(1f))}};item{Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(7.dp)){listOf("all" to "全部","owned" to "持有中","attention" to "待处理").forEach{(key,label)->FilterChip(filter==key,{filter=key},{Text(label)})}}};val shown=all.filter{query.isBlank()||it.name.contains(query.trim(),ignoreCase=true)||it.location.orEmpty().contains(query.trim(),ignoreCase=true)}.filter{filter=="all"||(filter=="owned"&&it.state=="owned")||(filter=="attention"&&(it.returnBy!=null||it.warrantyEndsOn!=null||it.events>0))};if(shown.isEmpty())item{EmptyState("当前分类没有物品","添加物品"){onCapture(CaptureKind.OwnedItem)}} else items(shown,key={it.id}){item->OwnedVisualCard(item){onDetail(item)}}}}}}
+@Composable fun ItemsWorkspaceScreen(state:LoadState<PlanningWorkspace>,onRetry:()->Unit,onBack:()->Unit,onDetail:(OwnedItemSummary)->Unit,onCapture:(CaptureKind)->Unit){var query by rememberSaveable{mutableStateOf("")};var filter by rememberSaveable{mutableStateOf("all")};var room by rememberSaveable{mutableStateOf<String?>(null)};Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={LifeModuleTopBar(LifeModule.Items,onBack)}){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){item{StateContent(state,onRetry){} };if(state is LoadState.Ready){val all=state.value.ownedItems;
+val attention=all.filter{ownedItemMatches("return",it)||ownedItemMatches("warranty",it)}
+if(attention.isNotEmpty())item{
+  LifeSection("近期退货与保修"){
+    attention.take(4).forEach{owned->
+      TextButton(onClick={onDetail(owned)}){
+        Text(owned.name+" · "+listOfNotNull(
+          owned.returnBy?.takeIf{ownedItemMatches("return",owned)}?.let{"$it 退货截止"},
+          owned.warrantyEndsOn?.takeIf{ownedItemMatches("warranty",owned)}?.let{"$it 保修到期"}).joinToString(" ／ "))
+      }
+    }
+  }
+};
+val rooms=all.mapNotNull{it.locationPath?.firstOrNull()}.distinct().sorted()
+if(rooms.isNotEmpty())item{
+  LifeChoiceField("按房间浏览",room.orEmpty(),listOf("" to "所有位置")+rooms.map{it to it}){room=it.takeIf(String::isNotBlank)}
+};item{OutlinedTextField(query,{query=it},modifier=Modifier.fillMaxWidth(),singleLine=true,label={Text("搜索物品或存放位置")})};item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(9.dp)){RootPlanStat("物品",all.size.toString(),Modifier.weight(1f));RootPlanStat("有保修",all.count{it.warrantyEndsOn!=null}.toString(),Modifier.weight(1f));RootPlanStat("有事件",all.count{it.events>0}.toString(),Modifier.weight(1f))}};item{Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(7.dp)){listOf("all" to "全部","owned" to "持有中","attention" to "待处理").forEach{(key,label)->FilterChip(filter==key,{filter=key},{Text(label)})}}};val shown=all.filter{room==null||it.locationPath?.firstOrNull()==room}.filter{query.isBlank()||it.name.contains(query.trim(),ignoreCase=true)||it.location.orEmpty().contains(query.trim(),ignoreCase=true)||it.locationPath.orEmpty().any{part->part.contains(query.trim(),ignoreCase=true)}}.filter{filter=="all"||(filter=="owned"&&it.state=="owned")||(filter=="attention"&&(ownedItemMatches("return",it)||ownedItemMatches("warranty",it)))};if(shown.isEmpty())item{EmptyState("当前分类没有物品","添加物品"){onCapture(CaptureKind.OwnedItem)}} else items(shown,key={it.id}){item->OwnedVisualCard(item){onDetail(item)}}}}}}
 
 @Composable private fun RootStatus(value:String){Surface(shape=RoundedCornerShape(99.dp),color=MaterialTheme.colorScheme.primaryContainer){Text(rootStateLabel(value),Modifier.padding(horizontal=9.dp,vertical=5.dp),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onPrimaryContainer)}}
 private fun rootStateLabel(value:String)=mapOf("active" to "进行中","planned" to "计划中","open" to "待完成","pending" to "待处理","reminded" to "已提醒","snoozed" to "已延后","completed" to "已完成","handled" to "已处理","owned" to "持有中","consumed" to "已用完","retired" to "已停用","archived" to "已归档","ready" to "可用")[value]?:value

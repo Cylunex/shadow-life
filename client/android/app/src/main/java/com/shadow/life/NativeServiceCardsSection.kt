@@ -1,6 +1,7 @@
 package com.shadow.life
 
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.*
@@ -69,13 +70,18 @@ import java.time.LocalDate
     };else->Unit}
     if(selectedState is LoadState.Loading)LinearProgressIndicator(Modifier.fillMaxWidth())
     if(selectedState is LoadState.Failed)Text(selectedState.message,color=MaterialTheme.colorScheme.error)
-    if(selectedState is LoadState.Ready)ReadStatus(selectedState){onOpen(selectedState.value.id)}
-    if(selected!=null)LifeCard{
-      Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(selected.name,style=MaterialTheme.typography.titleLarge);TextButton(onClick=onClose){Text("收起")}}
+    if(selected!=null)LifeFullScreen(selected.name,onClose){
+      Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)){
+      if(selectedState is LoadState.Ready)ReadStatus(selectedState){onOpen(selectedState.value.id)}
+      when(submit){
+        is SubmitState.Rejected->Text(submit.message,color=MaterialTheme.colorScheme.error)
+        is SubmitState.Saved->Text(if(submit.receipt.queued)"已存本机，待同步" else "已保存")
+        else->Unit
+      }
       Text("${selected.merchantName.orEmpty()} · ${serviceCardStatus(selected.balanceStatus.wireValue)} · 剩余 ${selected.remainingUnits} ${selected.unitLabel}")
       Text("开始 ${selected.startedOn} · 到期 ${selected.expiresOn?:"未设置"}",color=MaterialTheme.colorScheme.onSurfaceVariant)
       selected.note?.let{Text(it)}
-      TextButton(onClick={edit(selected)},enabled=!busy){Text("编辑次卡")}
+      TextButton(onClick={edit(selected);onClose()},enabled=!busy){Text("编辑次卡")}
       if(selected.state.wireValue=="active"||useEntry!=null){
         Text(if(useEntry==null)"记录实际使用" else "更正使用记录",style=MaterialTheme.typography.titleMedium)
         LifeDateField(useDate,{useDate=it},"使用日期")
@@ -95,6 +101,7 @@ import java.time.LocalDate
         HorizontalDivider()
       }}
       if(selected.nextUsesBeforeId!=null)TextButton(onClick=onOlder){Text("更早使用记录")}
+      }
     }
   }
 }

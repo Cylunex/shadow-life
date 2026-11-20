@@ -2491,6 +2491,7 @@ data class MealPlanningResultDtoMealPlansEntry(
 @Serializable
 data class MealPlanningResultDtoStockLotsEntry(
   @SerialName("id") val id: String,
+  @SerialName("purchase_record_id") val purchaseRecordId: String? = null,
   @SerialName("name") val name: String,
   @SerialName("quantity") val quantity: String,
   @SerialName("unit") val unit: String,

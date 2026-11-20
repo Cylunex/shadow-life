@@ -10,12 +10,13 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun LifeComposerHost(open:Boolean,initialSeed:CaptureSeed?,submitState:SubmitState,assistantState:LoadState<AssistantReply>?,historyState:LoadState<AssistantConversation>?,threadState:LoadState<List<AssistantThreadSummary>>,selectedThreadId:String?,refundCandidates:LoadState<RecordPage>,onLoadOlder:()->Unit,onSelectThread:(String)->Unit,onNewThread:()->Unit,onLoadRefundCandidates:(String)->Unit,onDismiss:()->Unit,onSubmit:(CaptureDraft)->Unit,onAsk:(String)->Unit,onReset:()->Unit,onOpenCapture:()->Unit={},startWithAssistant:Boolean=false,onSavedMessage:(String)->Unit={}){
+@Composable fun LifeComposerHost(open:Boolean,initialSeed:CaptureSeed?,submitState:SubmitState,assistantState:LoadState<AssistantReply>?,historyState:LoadState<AssistantConversation>?,threadState:LoadState<List<AssistantThreadSummary>>,selectedThreadId:String?,refundCandidates:LoadState<RecordPage>,onLoadOlder:()->Unit,onSelectThread:(String)->Unit,onNewThread:()->Unit,onLoadRefundCandidates:(String)->Unit,onDismiss:()->Unit,onSubmit:(CaptureDraft)->Unit,onAsk:(String)->Unit,onReset:()->Unit,onOpenCapture:()->Unit={},startWithAssistant:Boolean=false,onSavedMessage:(String)->Unit={},onOpenAssistant:()->Unit={}){
   if(!open)return
   val parentScope=LocalUiDraftScope.current
   var mode by rememberSaveable(initialSeed?.contextId,initialSeed?.kind){mutableStateOf(initialSeed?.kind)}
@@ -27,7 +28,21 @@ import java.time.LocalDate
     ModalBottomSheet(onDismissRequest=onDismiss,containerColor=MaterialTheme.colorScheme.surface){
       Column(Modifier.fillMaxWidth().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
         Text("快速记录",style=MaterialTheme.typography.headlineMedium)
-        CaptureKind.entries.forEach{kind->TextButton(onClick={mode=kind;if(kind==CaptureKind.Refund)onLoadRefundCandidates("")},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text(kind.label,Modifier.weight(1f));Text("＋")}}
+        var more by rememberSaveable{mutableStateOf(false)}
+        val usual=listOf(CaptureKind.Meal,CaptureKind.Expense,CaptureKind.Health,CaptureKind.Workout)
+        val labels=listOf("记一餐","记消费","记体重","记运动")
+        usual.chunked(2).forEachIndexed{row,kinds->
+          Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+            kinds.forEachIndexed{column,kind->
+              FilledTonalButton(onClick={mode=kind},modifier=Modifier.weight(1f).heightIn(min=48.dp)){Text(labels[row*2+column])}
+            }
+          }
+        }
+        TextButton(onClick=onOpenAssistant){Text("对 Life 说")}
+        TextButton(onClick={more=!more}){Text(if(more)"收起类型" else "更多类型")}
+        if(more)(CaptureKind.entries-usual.toSet()).forEach{kind->
+          TextButton(onClick={mode=kind;if(kind==CaptureKind.Refund)onLoadRefundCandidates("")},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text(kind.label)}
+        }
         TextButton(onClick=onOpenCapture,modifier=Modifier.fillMaxWidth()){Text("录音、截图与自动记录")}
       }
     }
@@ -83,7 +98,18 @@ import java.time.LocalDate
 
 @Composable private fun CaptureForm(kind:CaptureKind,seed:CaptureSeed?,state:SubmitState,refundCandidates:LoadState<RecordPage>,onLoadRefundCandidates:(String)->Unit,onSubmit:(CaptureDraft)->Unit,onDirty:(Boolean)->Unit,onBack:()->Unit,onDone:()->Unit){
   val draftScope=LocalUiDraftScope.current
-  var primary by rememberDraftText("primary"){seed?.primary.orEmpty()};var secondary by rememberDraftText("secondary"){seed?.secondary?.takeIf{it.isNotBlank()}?:if(kind==CaptureKind.Trip)LocalDate.now().toString() else ""};var note by rememberDraftText("note"){seed?.note.orEmpty()};var option by rememberDraftText("option"){seed?.option?.ifBlank{defaultOption(kind)}?:defaultOption(kind)};var date by rememberDraftText("date"){seed?.date?:LocalDate.now().toString()};var category by rememberDraftText("category"){seed?.category.orEmpty()};var paymentMethod by rememberDraftText("paymentMethod"){seed?.paymentMethod.orEmpty()};var advancedMeal by rememberSaveable{mutableStateOf(false)};val mealRows=rememberSaveable(kind,seed?.contextId,saver=androidx.compose.runtime.saveable.listSaver<androidx.compose.runtime.snapshots.SnapshotStateList<MealDraftItem>,String>(save={rows->rows.map{org.json.JSONArray(listOf(it.name,it.quantity,it.unit,it.energyKcal,it.proteinG,it.fatG,it.carbG)).toString()}},restore={rows->rows.map{org.json.JSONArray(it).let{a->MealDraftItem(a.getString(0),a.getString(1),a.getString(2),a.getString(3),a.getString(4),a.getString(5),a.getString(6))}}.toMutableStateList()})){readMealDraftRows(draftScope?.let{it.store.read(it.name,"mealRows")}?:seed?.mealItems?.takeIf{it.isNotEmpty()}?.let(::encodeMealDraftRows),if(kind==CaptureKind.Meal)seed?.primary.orEmpty() else "").toMutableStateList()}
+  var primary by rememberDraftText("primary"){seed?.primary.orEmpty()};var secondary by rememberDraftText("secondary"){seed?.secondary?.takeIf{it.isNotBlank()}?:if(kind==CaptureKind.Trip)LocalDate.now().toString() else ""};var note by rememberDraftText("note"){seed?.note.orEmpty()};var option by rememberDraftText("option"){seed?.option?.ifBlank{defaultOption(kind)}?:defaultOption(kind)};var date by rememberDraftText("date"){seed?.date?:LocalDate.now().toString()};var category by rememberDraftText("category"){seed?.category.orEmpty()};var paymentMethod by rememberDraftText("paymentMethod"){seed?.paymentMethod.orEmpty()};var advancedMeal by rememberSaveable{mutableStateOf(false)};val mealRows=rememberSaveable(kind,seed?.contextId,saver=androidx.compose.runtime.saveable.Saver(
+    save={rows:androidx.compose.runtime.snapshots.SnapshotStateList<MealDraftItem>->encodeMealDraftRows(rows.toList())},
+    restore={encoded:String->decodeMealDraftRows(encoded)?.toMutableStateList()}
+  )){
+    readMealDraftRows(draftScope?.let{it.store.read(it.name,"mealRows")}?:seed?.mealItems?.takeIf{it.isNotEmpty()}?.let(::encodeMealDraftRows),
+      if(kind==CaptureKind.Meal)seed?.primary.orEmpty() else "").toMutableStateList()
+  }
+  val accountId=draftScope?.store?.accountId
+  var chooseFood by rememberSaveable{mutableStateOf(false)}
+  val moneyFocus=remember{androidx.compose.ui.focus.FocusRequester()}
+  LaunchedEffect(kind){if(kind==CaptureKind.Expense)moneyFocus.requestFocus()}
+
   val changed=primary!=seed?.primary.orEmpty()||secondary!=(seed?.secondary?.takeIf{it.isNotBlank()}?:if(kind==CaptureKind.Trip)LocalDate.now().toString() else "")||note!=seed?.note.orEmpty()||mealRows.toList()!=listOf(MealDraftItem(name=if(kind==CaptureKind.Meal)seed?.primary.orEmpty() else ""))||category!=seed?.category.orEmpty()||paymentMethod!=seed?.paymentMethod.orEmpty()||date!=(seed?.date?:LocalDate.now().toString())||option!=(seed?.option?.ifBlank{defaultOption(kind)}?:defaultOption(kind))
   SideEffect{onDirty(changed);draftScope?.store?.write(draftScope.name,"mealRows",encodeMealDraftRows(mealRows.toList()))}
   when(state){
@@ -101,13 +127,29 @@ import java.time.LocalDate
   if(kind==CaptureKind.Project)OptionChips(listOf("active" to "进行中","paused" to "暂停","completed" to "完成","cancelled" to "取消"),option){option=it}
   if(kind==CaptureKind.Meal){
     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text("食物与份量",Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);TextButton(onClick={advancedMeal=!advancedMeal}){Text(if(advancedMeal)"使用逐行编辑" else "高级粘贴")}}
+    if(!advancedMeal&&accountId!=null){
+      val capacity=100-mealRows.count{it.name.isNotBlank()}
+      TextButton(onClick={chooseFood=true},enabled=capacity>0){Text("从常吃或门店菜品选择")}
+      if(chooseFood)MealCaptureFoodPicker(accountId,capacity,{chooseFood=false}){foods->
+        mealRows.removeAll{it==MealDraftItem()}
+        mealRows.addAll(foods.take(100-mealRows.size))
+        chooseFood=false
+      }
+    }
     if(advancedMeal)OutlinedTextField(primary,{primary=it},Modifier.fillMaxWidth(),label={Text("每行一种食物")},minLines=4,supportingText={Text("名称，或 名称 | 份量 | 单位")})
     else{
       mealRows.forEachIndexed{index,row->LifeCard{
-        OutlinedTextField(row.name,{value->mealRows[index]=row.copy(name=value)},Modifier.fillMaxWidth(),label={Text("食物 ${index+1}")},singleLine=true)
+        OutlinedTextField(row.name,{value->mealRows[index]=row.copy(name=value,sourceJson=if(value==row.name)row.sourceJson else "")},Modifier.fillMaxWidth(),label={Text("食物 ${index+1}")},singleLine=true)
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
           OutlinedTextField(row.quantity,{value->mealRows[index]=row.copy(quantity=value)},Modifier.weight(1f),label={Text("份量")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal))
           OutlinedTextField(row.unit,{value->mealRows[index]=row.copy(unit=value)},Modifier.weight(1f),label={Text("单位")},singleLine=true)
+        }
+        if(row.sourceJson.isNotBlank()){
+          val fraction=row.extraIntake().optString("consumed_fraction","1")
+          Text("实际吃了多少",style=MaterialTheme.typography.labelMedium)
+          OptionChips(listOf("0.5" to "半份","1" to "全份"),fraction){value->
+            mealRows[index]=row.copy(sourceJson=row.extraIntake().put("consumed_fraction",value).toString())
+          }
         }
         var showNutrition by remember{mutableStateOf(false)}
         TextButton(onClick={showNutrition=!showNutrition}){Text(if(showNutrition)"收起营养" else "补营养（可选）")}
@@ -123,9 +165,14 @@ import java.time.LocalDate
         }
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf("g","ml","份","个").forEach{unit->AssistChip(onClick={mealRows[index]=row.copy(unit=unit)},label={Text(unit)})};if(mealRows.size>1)TextButton(onClick={mealRows.removeAt(index)}){Text("移除")}}
       }}
-      OutlinedButton(onClick={mealRows.add(MealDraftItem())},Modifier.fillMaxWidth()){Text("添加一种食物")}
+      OutlinedButton(onClick={mealRows.add(MealDraftItem())},Modifier.fillMaxWidth(),enabled=mealRows.size<100){Text("添加一种食物")}
     }
-  }else OutlinedTextField(primary,{primary=it},Modifier.fillMaxWidth(),label={Text(primaryLabel(kind))},minLines=1,singleLine=kind!=CaptureKind.Library,keyboardOptions=KeyboardOptions(keyboardType=if(kind in listOf(CaptureKind.Expense,CaptureKind.Refund,CaptureKind.Health))KeyboardType.Decimal else KeyboardType.Text))
+  }else OutlinedTextField(primary,{primary=it},Modifier.fillMaxWidth().then(if(kind==CaptureKind.Expense)Modifier.focusRequester(moneyFocus) else Modifier),
+    textStyle=if(kind==CaptureKind.Expense)MaterialTheme.typography.headlineMedium else MaterialTheme.typography.bodyLarge,label={Text(primaryLabel(kind))},minLines=1,singleLine=kind!=CaptureKind.Library,keyboardOptions=KeyboardOptions(keyboardType=if(kind in listOf(CaptureKind.Expense,CaptureKind.Refund,CaptureKind.Health))KeyboardType.Decimal else KeyboardType.Text))
+  if(kind==CaptureKind.Expense){
+    if(option=="expense")OptionChips(listOf("餐饮","交通","日用","购物").map{it to it},category){category=if(category==it)"" else it}
+    OptionChips(listOf("wechat" to "微信","alipay" to "支付宝","bank_card" to "银行卡","cash" to "现金"),paymentMethod){paymentMethod=if(paymentMethod==it)"" else it}
+  }
   if(kind==CaptureKind.Refund)RefundEntryPicker(refundCandidates,secondary,{secondary=it},onLoadRefundCandidates)
   else if(kind==CaptureKind.Trip)LifeDateField(secondary.ifBlank{date},{secondary=it},"结束日期")
   else if(kind !in listOf(CaptureKind.Meal,CaptureKind.Visit))OutlinedTextField(secondary,{secondary=it},Modifier.fillMaxWidth(),label={Text(secondaryLabel(kind))},minLines=if(kind==CaptureKind.Library||kind==CaptureKind.Project)4 else 1,singleLine=kind!=CaptureKind.Library&&kind!=CaptureKind.Project,keyboardOptions=KeyboardOptions(keyboardType=if(kind in listOf(CaptureKind.Purchase,CaptureKind.Workout))KeyboardType.Decimal else KeyboardType.Text))
@@ -135,7 +182,7 @@ import java.time.LocalDate
   if(more){
     if(kind==CaptureKind.Expense||kind==CaptureKind.Purchase){
       OutlinedTextField(category,{category=it},Modifier.fillMaxWidth(),label={Text(if(kind==CaptureKind.Expense)"分类（可选）" else "渠道（可选）")},singleLine=true)
-      OptionChips(listOf("" to "未知支付方式","wechat" to "微信","alipay" to "支付宝","bank_card" to "银行卡","cash" to "现金","other" to "其他"),paymentMethod){paymentMethod=it}
+      if(kind==CaptureKind.Purchase)OptionChips(listOf("" to "未知支付方式","wechat" to "微信","alipay" to "支付宝","bank_card" to "银行卡","cash" to "现金","other" to "其他"),paymentMethod){paymentMethod=it}
     }
     OutlinedTextField(note,{note=it},Modifier.fillMaxWidth(),label={Text("备注（可选）")},minLines=2)
   }
@@ -145,7 +192,7 @@ import java.time.LocalDate
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable private fun RefundEntryPicker(state:LoadState<RecordPage>,selectedId:String,onSelect:(String)->Unit,onSearch:(String)->Unit){
+@Composable internal fun RefundEntryPicker(state:LoadState<RecordPage>,selectedId:String,onSelect:(String)->Unit,onSearch:(String)->Unit){
   var expanded by remember{mutableStateOf(false)};var query by rememberSaveable{mutableStateOf("")}
   val candidates=(state as? LoadState.Ready)?.value?.items.orEmpty();val selected=candidates.firstOrNull{it.id==selectedId}
   OutlinedTextField(query,{query=it},Modifier.fillMaxWidth(),label={Text("搜索原交易")},singleLine=true,trailingIcon={TextButton(onClick={onSearch(query)}){Text("搜索")}})

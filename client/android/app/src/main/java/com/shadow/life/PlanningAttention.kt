@@ -19,12 +19,13 @@ internal fun visibleOwnedItems(items:List<OwnedItemSummary>,query:String,filter:
   val words=query.trim().split(Regex("\\s+")).filter(String::isNotBlank)
   return items.filter{item->
     val text=listOfNotNull(item.name,item.location,item.locationPath?.joinToString(" ")).joinToString(" ")
-    words.all{text.contains(it,ignoreCase=true)} && when(filter){
-      "owned" -> item.state=="owned"
-      "return" -> item.attention?.returnWindow?.state?.wireValue in setOf("today","soon")
-      "warranty" -> item.attention?.warranty?.state?.wireValue in setOf("today","soon")
-      "past" -> item.attention?.let{it.returnWindow.state.wireValue=="past"||it.warranty.state.wireValue=="past"}==true
-      else -> true
-    }
+    words.all{text.contains(it,ignoreCase=true)} && ownedItemMatches(filter,item)
   }
+}
+internal fun ownedItemMatches(filter:String,item:OwnedItemSummary):Boolean=when(filter){
+  "owned" -> item.state=="owned"
+  "return" -> item.attention?.returnWindow?.state?.wireValue in setOf("today","soon")
+  "warranty" -> item.attention?.warranty?.state?.wireValue in setOf("today","soon")
+  "past" -> item.attention?.let{it.returnWindow.state.wireValue=="past"||it.warranty.state.wireValue=="past"}==true
+  else -> true
 }

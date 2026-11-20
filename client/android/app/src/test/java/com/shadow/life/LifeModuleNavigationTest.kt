@@ -87,11 +87,11 @@ class LifeModuleNavigationTest {
     showNavigation()
     compose.runOnIdle{nav.openLifeModule(LifeModule.Money,"details")}
     compose.onNodeWithText("明细").assertIsSelected()
-    compose.onNodeWithText("预算").performClick()
+    compose.onNodeWithText("规划").performClick()
     compose.runOnIdle{nav.openLifeModule(LifeModule.Health)}
     compose.runOnIdle{nav.openLifeModule(LifeModule.Money,"details")}
     compose.onNodeWithText("明细").assertIsSelected()
-    compose.onNodeWithText("预算").performClick()
+    compose.onNodeWithText("规划").performClick()
     compose.runOnIdle{nav.openLifeModule(LifeModule.Money,"details")}
     compose.onNodeWithText("明细").assertIsSelected()
     compose.runOnIdle{nav.popBackStack()}
@@ -108,7 +108,7 @@ class LifeModuleNavigationTest {
     compose.runOnIdle{nav.openLifeModule(LifeModule.Health)}
     compose.runOnIdle{nav.openLifeModule(LifeModule.Money,"budgets")}
     compose.onNodeWithText("已打开消费详情").assertDoesNotExist()
-    compose.onNodeWithText("预算").assertIsSelected()
+    compose.onNodeWithText("规划").assertIsSelected()
   }
 
   @Test @Config(qualifiers="w320dp-h640dp-mdpi") fun narrowModuleChromeCanOpenTheSwitcherAndServices(){
@@ -126,7 +126,7 @@ class LifeModuleNavigationTest {
         }
       }
     }}
-    compose.onNodeWithText("预算").assertIsDisplayed()
+    compose.onNodeWithText("规划").assertIsDisplayed()
     screenshot("life-home-structure-320")
     compose.onNodeWithContentDescription("服务中心").performClick()
     assertTrue(services)

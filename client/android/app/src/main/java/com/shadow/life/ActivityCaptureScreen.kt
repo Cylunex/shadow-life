@@ -46,7 +46,14 @@ import org.json.JSONObject
   Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
     Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){LifeBackButton(onBack);Text("活动与采集",style=MaterialTheme.typography.headlineMedium)}
     LifeDateField(date.toString(),{date=LocalDate.parse(it)},"查看日期",!busy)
-    LifeTabs(workspace,{workspace=it},listOf("应用与活动","录音","地点","截图","订单","回顾","分析","检索","设置与导出").map{it to it})
+    val sections=listOf(
+      "待核对与订单" to listOf("订单","截图"),
+      "时间线与录音" to listOf("应用与活动","录音","地点","回顾"),
+      "分析与设置" to listOf("分析","检索","设置与导出")
+    )
+    val section=sections.firstOrNull{workspace in it.second}?:sections[1]
+    LifeTabs(section.first,{label->workspace=sections.first{it.first==label}.second.first()},sections.map{it.first to it.first})
+    LifeTabs(workspace,{workspace=it},section.second.map{it to it})
     if(workspace in setOf("分析","检索","设置与导出"))key(workspace){CaptureCompletionPanel(accountId,date,workspace)}
     if(workspace in setOf("录音","地点","截图","订单","回顾"))key(workspace){CaptureSuitePanel(accountId,date,workspace,onMoneyRecord)}
     if(workspace=="应用与活动"){

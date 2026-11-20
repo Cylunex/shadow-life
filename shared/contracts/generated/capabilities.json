@@ -41376,6 +41376,10 @@
             "type": "string",
             "pattern": "^[a-z][a-z0-9_]{7,127}$"
           },
+          "reuse_purchase_link": {
+            "type": "boolean",
+            "const": true
+          },
           "usage_state": {
             "type": "string",
             "enum": [
@@ -41513,6 +41517,10 @@
               "purchase_item_id": {
                 "type": "string",
                 "pattern": "^[a-z][a-z0-9_]{7,127}$"
+              },
+              "reuse_purchase_link": {
+                "type": "boolean",
+                "const": true
               },
               "usage_state": {
                 "type": "string",
@@ -76014,6 +76022,10 @@
               }
             ]
           },
+          "reuse_purchase_link": {
+            "type": "boolean",
+            "const": true
+          },
           "name": {
             "type": "string",
             "minLength": 1,
@@ -76179,6 +76191,10 @@
                     "type": "null"
                   }
                 ]
+              },
+              "reuse_purchase_link": {
+                "type": "boolean",
+                "const": true
               },
               "name": {
                 "type": "string",
@@ -79453,6 +79469,10 @@
             "exclusiveMinimum": 0,
             "maximum": 9007199254740991
           },
+          "purchase_item_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
           "name": {
             "type": "string",
             "minLength": 1,
@@ -79526,6 +79546,10 @@
                 "type": "integer",
                 "exclusiveMinimum": 0,
                 "maximum": 9007199254740991
+              },
+              "purchase_item_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{7,127}$"
               },
               "name": {
                 "type": "string",
@@ -105990,6 +106014,17 @@
                 "id": {
                   "type": "string",
                   "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "purchase_record_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "name": {
                   "type": "string"

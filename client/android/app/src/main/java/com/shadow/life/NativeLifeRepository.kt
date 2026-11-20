@@ -186,7 +186,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
             .withConsumedNutrition(food.consumedFraction)
         }
         meals[meal.id]=RecordSummary(LifeDomain.Meals,"meal",meal.id,foods.joinToString("、"){it.name},on,null,meal.revision.toInt(),
-          meal=MealCardSummary(meal.mealType.wireValue,on,meal.occurredAt,meal.timeZone,meal.note,foods,meal.sources.orEmpty().firstOrNull{it.assetVersionId!=null}?.assetVersionId))
+          meal=MealCardSummary(meal.mealType.wireValue,on,meal.occurredAt,meal.timeZone,meal.note,foods,meal.sources.orEmpty().firstOrNull{it.assetVersionId!=null}?.assetVersionId,meal.items.map{it.captureFood()}))
       }
       cursor=page.nextCursor.takeIf{page.items.none{it.occurredOn<on}}
       check(cursor==null||seen.add(cursor)){"餐次分页未能继续，请重试"}
@@ -235,7 +235,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
         RecordSummary(
           domain,"meal",item.id,foods.map{it.name}.filter(String::isNotBlank).joinToString("、").ifBlank{mealTypeLabel(item.mealType.wireValue)},item.occurredOn,
           item.payments.joinToString(" + "){"${it.currency} ${it.amount}"}.ifBlank{null},item.revision.toInt(),
-          meal=MealCardSummary(item.mealType.wireValue,item.occurredOn,item.occurredAt,item.timeZone,item.note,foods,photo)
+          meal=MealCardSummary(item.mealType.wireValue,item.occurredOn,item.occurredAt,item.timeZone,item.note,foods,photo,item.items.map{it.captureFood()})
         )
       },result.nextCursor,result.asOf)
     }
@@ -243,7 +243,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     val result=wireJson.decodeFromString<DomainRecordsResultDto>(getText("/api/$apiDomain?$params"))
     return RecordPage(result.items.map{item->
       val trailing=item.amount?.let{value->listOfNotNull(item.currency,value).joinToString(" ")}
-      RecordSummary(domain,item.kind,item.id,item.title,item.supporting,trailing,item.revision?.toInt(),item.recordId,item.entryType?.wireValue,recordState=item.state)
+      RecordSummary(domain,item.kind,item.id,item.title,item.supporting,trailing,item.revision?.toInt(),item.recordId,item.entryType?.wireValue,recordState=item.state,happenedOn=item.happenedOn)
     },result.nextCursor,result.asOf)
   }
 
@@ -410,6 +410,11 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     ReferencedLibraryItem(value.item.title,revision,snapshot.text,snapshot.url,libraryDetail(value).assets)
   }
 
+  internal suspend fun sleepWindow(id:String):HealthRecordResultDtoSleepSessionFact?{
+    val response=wireJson.decodeFromString<HealthRecordResultDto>(getText("/api/health/records/${encode(id)}"))
+    return (response as? HealthRecordResultDtoSleepSession)?.fact?.takeIf{it.effective&&it.id==id}
+  }
+
   suspend fun detail(domain:LifeDomain,id:String):RecordDetail {
     val path=when(domain){LifeDomain.Meals->"/api/life/records/$id";LifeDomain.Health->"/api/health/records/$id";LifeDomain.Travel->"/api/travel/trips/$id";LifeDomain.Library->"/api/library/items/$id";LifeDomain.Money->"/api/life/records/$id"}
     if(domain==LifeDomain.Library)return libraryDetail(wireJson.decodeFromString(getText(path)))
@@ -489,7 +494,9 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     require(decision in setOf("confirm","ignore")){"不支持的复核决定"}
     val payload=JSONObject().put("candidate_id",candidate.id).put("expected_revision",candidate.revision).put("decision",decision).put("reason","Android 月度账单核对")
     if(decision=="confirm")payload.put("corrections",JSONObject().put("entry_type",entryType).put("amount",amount.trim()).put("currency","CNY").put("occurred_on",date).put("time_zone",candidate.timeZone).apply{candidate.counterparty.takeIf(String::isNotBlank)?.let{put("counterparty",it)};category.trim().takeIf(String::isNotBlank)?.let{put("category",it)}}).apply{if(entryType=="refund")put("original_entry_id",originalEntryId.trim())}
-    enqueueCommand("money.resolve_import_candidate",payload)
+    val account=app.sessions.active()?.accountId?:error("请先登录 Shadow Life")
+    val digest=java.security.MessageDigest.getInstance("SHA-256").digest("$account/$payload".toByteArray()).joinToString(""){"%02x".format(it)}
+    enqueueCommand("money.resolve_import_candidate",payload,"cmd_android_import_$digest",account)
   }
 
   suspend fun saveMealPlan(draft:NativeMealPlanDraft):OperationReceipt=withContext(Dispatchers.IO){
@@ -583,14 +590,14 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     return result
   }
 
-  private fun mealItems(rows:List<MealDraftItem>,advanced:String):JSONArray{
+  internal fun mealItems(rows:List<MealDraftItem>,advanced:String):JSONArray{
     if(rows.isEmpty())return mealItems(advanced)
     val result=JSONArray()
     rows.forEachIndexed{index,row->
       val name=row.name.trim();if(name.isBlank())error("第 ${index+1} 种食物缺少名称")
       val quantity=row.quantity.trim();val unit=row.unit.trim()
       if(quantity.isBlank()!=unit.isBlank())error("第 ${index+1} 种食物的份量和单位需要同时填写")
-      val item=JSONObject().put("name",name).put("free_text",name).put("estimate",false)
+      val item=row.extraIntake().put("name",name).put("free_text",name)
       if(quantity.isNotBlank()){val normalized=runCatching{java.math.BigDecimal(quantity).stripTrailingZeros()}.getOrNull()?.takeIf{it>java.math.BigDecimal.ZERO}?:error("第 ${index+1} 种食物份量必须是正数");item.put("quantity",normalized.toPlainString()).put("unit",unit)}
       listOf("energy_kcal" to row.energyKcal,"protein_g" to row.proteinG,"fat_g" to row.fatG,"carb_g" to row.carbG).forEach{(key,value)->
         if(value.isNotBlank()){
@@ -797,7 +804,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     sleepMinutes=result.sleep?.totalMinutes,deepMinutes=result.sleep?.deepMinutes,remMinutes=result.sleep?.remMinutes,
     workouts=result.workouts.size,habitsDone=result.habits.sumOf{it.doneCount.toInt()},updatedAt=updatedAt,
     lightMinutes=result.sleep?.lightMinutes,awakeMinutes=result.sleep?.awakeMinutes,sleepSource=result.sleep?.sourceType,
-    sleepTotalDayMinutes=result.sleep?.totalDayMinutes,napMinutes=result.sleep?.naps.orEmpty().map{it.totalMinutes},caloriesSource=result.activity?.caloriesSource?.wireValue,
+    sleepId=result.sleep?.id,sleepTotalDayMinutes=result.sleep?.totalDayMinutes,napMinutes=result.sleep?.naps.orEmpty().map{it.totalMinutes},caloriesSource=result.activity?.caloriesSource?.wireValue,
     workoutItems=result.workouts.map{workout->HealthWorkoutSummary(
       id=workout.id,occurredOn=occurredOn,sessionType=workout.sessionType,startedAt=workout.startedAt,timeZone=workout.timeZone?:ZoneId.systemDefault().id,
       durationMinutes=workout.durationMinutes,distanceKm=workout.distanceKm,caloriesKcal=workout.caloriesKcal,
@@ -964,9 +971,12 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
       val seed=entry?.let{EditSeed.Money(value.recordId,value.revision.toInt(),it.amount,it.currency,it.occurredOn,it.timeZone,it.category,it.counterparty,it.note)}
       val actions=buildList{
         if(entry?.entryType?.wireValue=="expense"&&entry.currency=="CNY")add(DetailAction("记录这笔交易的退款",CaptureSeed(CaptureKind.Refund,date=LocalDate.now().toString(),secondary=entry.id,contextKind="money_entry",contextId=entry.id,contextLabel=listOfNotNull(entry.counterparty,entry.category,"CNY ${entry.amount}").joinToString(" · "))))
-        items.take(10).forEach{item->add(DetailAction("将“${item.rawName}”加入我的物品",CaptureSeed(CaptureKind.OwnedItem,primary=item.rawName,date=value.occurredOn,option="owned",contextKind="purchase_item",contextId=item.id,contextLabel="来自本次购买")))}
+
       }
-      RecordDetail(title,value.state.wireValue,value.revision.toInt(),sections,seed,actions,DetailPresentation.Money,entry?.let{"${it.currency} ${detailDecimal(it.amount)}"}?:purchase?.amount?.let{"${purchase.currency.orEmpty()} ${detailDecimal(it)}"},value.occurredOn,assets=sources.mapNotNull{source->source.assetVersionId?.let{DetailAsset(it,if(source.kind=="image")"image/*" else "application/octet-stream","消费凭证")}},consumptionRecordId=value.recordId,linkedMealIds=meals.map{it.id},dishPurchase=purchase?.let{DishPurchase(it.merchant.orEmpty(),it.placeRef?:it.channelNameRaw?:"手记",items.filterNot{item->item.rawName.endsWith("等多件")}.map{item->item.id to item.rawName})})
+      RecordDetail(title,value.state.wireValue,value.revision.toInt(),sections,seed,actions,DetailPresentation.Money,entry?.let{"${it.currency} ${detailDecimal(it.amount)}"}?:purchase?.amount?.let{"${purchase.currency.orEmpty()} ${detailDecimal(it)}"},value.occurredOn,assets=sources.mapNotNull{source->source.assetVersionId?.let{DetailAsset(it,if(source.kind=="image")"image/*" else "application/octet-stream","消费凭证")}},consumptionRecordId=value.recordId,linkedMealIds=meals.map{it.id},
+        purchaseLines=if(value.state.wireValue=="confirmed")items.filterNot{it.rawName.endsWith("等多件")}.map{
+          PurchaseLineRef(it.id,value.recordId,it.rawName,value.occurredOn,it.quantity,it.unit)
+        } else emptyList(),dishPurchase=purchase?.let{DishPurchase(it.merchant.orEmpty(),it.placeRef?:it.channelNameRaw?:"手记",items.filterNot{item->item.rawName.endsWith("等多件")}.map{item->item.id to item.rawName})})
     }
   }
 

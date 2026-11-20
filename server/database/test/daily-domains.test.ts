@@ -40,3 +40,33 @@ test("daily domains retain evidence, explicit stock, location and one-day timing
   assert.ok(preserved.scheduled_at,"status updates preserve a previously scheduled time");
   await assert.rejects(()=>run("life.save_action_item",{project_id:project.actual_values.project_id,title:"跨日",due_on:"2026-09-24",scheduled_at:"2026-09-25T11:00:00.000Z",scheduled_time_zone:"Asia/Shanghai"}),/scheduled time/i);
 });
+
+test("purchase destinations reuse an existing link and stock retains its authorized purchase source",pgOnly,async t=>{
+  const {run,queries,context,unitOfWork}=await reviewFixture(t);
+  const on="2026-11-20";
+  const purchase=await run("life.record_purchase",{occurred_on:on,time_zone:"Asia/Shanghai",scene:"offline_purchase",
+    items:[{raw_name:"米",quantity:"1",unit:"袋"}]});
+  const itemId=purchase.resources.find(item=>item.type==="purchase_item")!.id;
+  const recordId=purchase.actual_values.record_id;
+  const source={purchase_item_id:itemId};
+  const [stock,again]=await Promise.all([
+    run("life.set_food_stock",{...source,name:"米",quantity:"1",unit:"袋"}),
+    run("life.set_food_stock",{...source,name:"米",quantity:"1",unit:"袋"})
+  ]);
+  assert.equal(again.actual_values.lot_id,stock.actual_values.lot_id);
+  const owner={...source,name:"米",started_on:on,reuse_purchase_link:true};
+  assert.equal((await run("life.save_owned_item",owner)).actual_values.owned_item_id,
+    (await run("life.save_owned_item",owner)).actual_values.owned_item_id);
+  const cycle={...source,purchase_record_id:recordId,item_name:"米",started_on:on,state:"active",usage_state:"pending",
+    quantity_unit:"count",initial_quantity:"1",reuse_purchase_link:true};
+  assert.equal((await run("money.set_use_cycle",cycle)).actual_values.use_cycle_id,
+    (await run("money.set_use_cycle",cycle)).actual_values.use_cycle_id);
+  await run("life.set_food_stock",{lot_id:stock.actual_values.lot_id,expected_revision:1,name:"米",quantity:"0",unit:"袋"});
+  const lots=(await queries.mealPlanning(context,{limit:20})).stock_lots;
+  assert.equal(lots.length,1);
+  assert.equal(lots[0]?.quantity,"0");
+  assert.equal(lots[0]?.purchase_record_id,recordId);
+  const other={...context,actorId:"subject_other_purchase",subjectId:"subject_other_purchase"};
+  await unitOfWork.ensurePrincipal(other.subjectId);
+  await assert.rejects(()=>run("life.set_food_stock",{...source,name:"米",quantity:"1",unit:"袋"},other),/purchase item does not exist/);
+});

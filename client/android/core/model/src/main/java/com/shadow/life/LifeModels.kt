@@ -90,9 +90,9 @@ data class MealFoodSummary(
 )
 data class MealCardSummary(
   val mealType:String,val occurredOn:String,val occurredAt:String?,val timeZone:String,val note:String?,
-  val foods:List<MealFoodSummary>,val photoAssetVersionId:String?=null
+  val foods:List<MealFoodSummary>,val photoAssetVersionId:String?=null,val reusableFoods:List<MealDraftItem> = emptyList()
 )
-data class RecordSummary(val domain:LifeDomain,val kind:String,val id:String,val title:String,val supporting:String?,val trailing:String?,val revision:Int?,val detailId:String?=null,val subtype:String?=null,val meal:MealCardSummary?=null,val recordState:String?=null)
+data class RecordSummary(val domain:LifeDomain,val kind:String,val id:String,val title:String,val supporting:String?,val trailing:String?,val revision:Int?,val detailId:String?=null,val subtype:String?=null,val meal:MealCardSummary?=null,val recordState:String?=null,val happenedOn:String?=null)
 data class RecordPage(val items:List<RecordSummary>,val nextCursor:String?,val asOf:String)
 data class HealthTrendPoint(val id:String,val occurredOn:String,val value:Double,val valueText:String,val unit:String,val sourceKind:String,val revision:Int,val occurredAt:String?=null,val originalField:String?=null)
 data class HealthMetricTrend(val key:String,val label:String,val points:List<HealthTrendPoint>,val coveragePoints:Int,val truncated:Boolean,val unavailable:Boolean=false)
@@ -106,7 +106,7 @@ data class HealthDailyOverview(
   val workouts:Int,val habitsDone:Int,val updatedAt:String,
   val lightMinutes:Long?=null,val awakeMinutes:Long?=null,val sleepSource:String?=null,
   val sleepTotalDayMinutes:Long?=null,val napMinutes:List<Long> = emptyList(),val caloriesSource:String?=null,
-  val workoutItems:List<HealthWorkoutSummary> = emptyList()
+  val workoutItems:List<HealthWorkoutSummary> = emptyList(),val sleepId:String?=null
 )
 data class MoneyRecurringSummary(val id:String,val title:String,val amount:String?,val currency:String,val cadence:String,val nextDueOn:String,val state:String)
 data class MoneyOccurrenceSummary(val id:String,val title:String,val dueOn:String,val state:String,val amount:String?,val currency:String?)
@@ -210,10 +210,11 @@ data class DetailMetric(val id:String,val key:String,val label:String,val value:
 data class SleepStage(val label:String,val minutes:Int)
 data class DishPurchase(val shop:String,val source:String,val items:List<Pair<String,String>>)
 data class MealDetailInfo(val id:String,val type:String,val date:String?,val time:String?,val note:String?)
+data class PurchaseLineRef(val id:String,val recordId:String,val name:String,val occurredOn:String,val quantity:String?,val unit:String?)
 data class RecordDetail(
   val title:String,val state:String?,val revision:Int?,val sections:List<DetailSection>,val editSeed:EditSeed?=null,val actions:List<DetailAction> = emptyList(),
   val presentation:DetailPresentation=DetailPresentation.Generic,val heroValue:String?=null,val heroSupporting:String?=null,val travelSchedule:TravelDetailSchedule?=null,
-  val libraryVisionSourceAssetId:String?=null,val libraryVisionRetryJobId:String?=null,val assets:List<DetailAsset> = emptyList(),val mealIntakes:List<LifeRecordResultDtoMealItemsEntry> = emptyList(),val metrics:List<DetailMetric> = emptyList(),val sleepStages:List<SleepStage> = emptyList(),val trend:List<HealthTrendPoint> = emptyList(),val libraryItemId:String?=null,val consumptionRecordId:String?=null,val linkedMealIds:List<String> = emptyList(),val dishPurchase:DishPurchase?=null,val meal:MealDetailInfo?=null
+  val libraryVisionSourceAssetId:String?=null,val libraryVisionRetryJobId:String?=null,val assets:List<DetailAsset> = emptyList(),val mealIntakes:List<LifeRecordResultDtoMealItemsEntry> = emptyList(),val metrics:List<DetailMetric> = emptyList(),val sleepStages:List<SleepStage> = emptyList(),val trend:List<HealthTrendPoint> = emptyList(),val libraryItemId:String?=null,val consumptionRecordId:String?=null,val linkedMealIds:List<String> = emptyList(),val dishPurchase:DishPurchase?=null,val meal:MealDetailInfo?=null,val purchaseLines:List<PurchaseLineRef> = emptyList()
 )
 
 @Serializable data object TodayRoute
@@ -228,7 +229,7 @@ data class RecordDetail(
 @Serializable data class PlanDetailRoute(val id:String)
 @Serializable data class OwnedItemDetailRoute(val id:String)
 @Serializable data class ReviewDetailRoute(val id:String)
-@Serializable data object WellnessRoute
+@Serializable data class WellnessRoute(val date:String="")
 @Serializable data object FeaturesRoute
 @Serializable data object SettingsRoute
 @Serializable data object ConnectionsRoute
@@ -263,6 +264,6 @@ data class CaptureDraft(
   val contextKind:String?=null,
   val contextId:String?=null
 )
-data class MealDraftItem(val name:String="",val quantity:String="",val unit:String="",val energyKcal:String="",val proteinG:String="",val fatG:String="",val carbG:String="")
+data class MealDraftItem(val name:String="",val quantity:String="",val unit:String="",val energyKcal:String="",val proteinG:String="",val fatG:String="",val carbG:String="",val sourceJson:String="")
 
 @kotlinx.serialization.Serializable data class CaptureSourceRoute(val id:String)
