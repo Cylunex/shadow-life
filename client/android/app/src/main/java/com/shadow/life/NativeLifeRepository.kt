@@ -748,7 +748,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     return result
   }
 
-  private val readCache by lazy{OfflineReadCache(context)}
+  private val readCache get()=app.readCache
   private suspend fun networkText(path:String,body:JSONObject?,session:ProductSession):String{
     return when(val fresh=app.sessions.fresh(session.accountId,context)){
       SessionRefresh.ReauthRequired->{readCache.clear(session);error("会话已失效，请重新登录")}

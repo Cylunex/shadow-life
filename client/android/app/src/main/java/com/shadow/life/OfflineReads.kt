@@ -18,11 +18,20 @@ internal object OfflineReads {
     if(at==null)paths.remove(path) else paths[path]=at
     cached.value=cached.value+(account to paths)
   }
+  @Synchronized fun clear(account:String){
+    cached.value=cached.value-account
+  }
 }
 internal class OfflineReadCache(context:Context){
   private val preferences=EncryptedSharedPreferences.create(context,"shadow-life-read-cache",
     MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
     EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
+  // The encrypted preferences API decrypts every response when reading all entries.
+  private val timestamps by lazy {
+    preferences.all.mapValuesTo(mutableMapOf()) { (_, value) ->
+      runCatching { org.json.JSONObject(value as String).getLong("at") }.getOrDefault(0L)
+    }
+  }
   private fun hash(value:String)=MessageDigest.getInstance("SHA-256").digest(value.toByteArray()).joinToString(""){"%02x".format(it)}
   private fun prefix(session:ProductSession)=hash(session.accountId+"\u0000"+session.subjectId+"\u0000"+session.apiBase)+"/"
   private fun key(session:ProductSession,path:String)=prefix(session)+hash(path)
@@ -30,11 +39,15 @@ internal class OfflineReadCache(context:Context){
   @Synchronized fun write(session:ProductSession,path:String,body:String){
     if(!allowed(path)||body.toByteArray().size>512*1024)return
     if(runCatching{org.json.JSONObject(body)}.isFailure)return
-    val name=key(session,path)
-    val value=org.json.JSONObject().put("at",System.currentTimeMillis()).put("body",body).toString()
-    val keys=preferences.all.filterKeys{it.startsWith(prefix(session))}
-    val oldest=keys.entries.sortedBy{runCatching{org.json.JSONObject(it.value as String).getLong("at")}.getOrDefault(0)}
-    preferences.edit().apply{oldest.take((keys.size-127).coerceAtLeast(0)).forEach{remove(it.key)};putString(name,value)}.apply()
+    val prefix=prefix(session)
+    val name=prefix+hash(path)
+    val now=System.currentTimeMillis()
+    val value=org.json.JSONObject().put("at",now).put("body",body).toString()
+    val others=timestamps.entries.filter{it.key!=name&&it.key.startsWith(prefix)}
+    val evicted=if(others.size>127)others.sortedBy{it.value}.take(others.size-127).map{it.key} else emptyList()
+    preferences.edit().apply{evicted.forEach{remove(it)};putString(name,value)}.apply()
+    evicted.forEach{timestamps.remove(it)}
+    timestamps[name]=now
   }
   fun read(session:ProductSession,path:String):Pair<String,Long>?=runCatching{
     if(!allowed(path))return null
@@ -43,7 +56,13 @@ internal class OfflineReadCache(context:Context){
     if(System.currentTimeMillis()-at !in 0..30L*24*60*60*1000)return null
     value.getString("body") to at
   }.getOrNull()
-  @Synchronized fun clear(session:ProductSession){OfflineReads.cached.value=OfflineReads.cached.value-session.accountId;preferences.edit().apply{preferences.all.keys.filter{it.startsWith(prefix(session))}.forEach{remove(it)}}.commit()}
+  @Synchronized fun clear(session:ProductSession){
+    OfflineReads.clear(session.accountId)
+    val prefix=prefix(session)
+    val keys=timestamps.keys.filter{it.startsWith(prefix)}
+    preferences.edit().apply{keys.forEach{remove(it)}}.commit()
+    keys.forEach{timestamps.remove(it)}
+  }
 }
 @Composable internal fun OfflineReadBanner(accountId:String,onRetry:()->Unit){
   val cached by OfflineReads.cached.collectAsState()
