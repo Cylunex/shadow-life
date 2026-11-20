@@ -5,6 +5,7 @@ const entries:Array<Destination & {title:string;words:string;group:string;permis
   {title:"体重、睡眠与健康趋势",words:"昨晚 睡了多久 体脂 称重",group:"健康与运动",permission:"health.trend",tab:"record",section:"health"},
   {title:"继续训练与动作库",words:"健身 飞鸟 卧推 运动",group:"健康与运动",permission:"health.records",tab:"record",section:"training"},
   {title:"饮食日记与营养复盘",words:"早餐 午餐 晚餐 摄入 吃了什么",group:"饮食与食材",permission:"life.list_meals",tab:"record",section:"food"},
+  {title:"门店菜单与菜品统计",words:"菜名 外卖 食堂 档口 常吃 吃过几次 频次 餐数",group:"饮食与食材",permission:"life.merchant_menu",tab:"record",section:"dining"},
   {title:"餐单、食谱与购物清单",words:"买菜 待买 库存 菜谱 食材",group:"饮食与食材",permission:"life.meal_planning",tab:"plan",section:"meals"},
   {title:"消费与账单",words:"付款 支出 收入 退款 摇一摇 邮件 Agent 购物 支付 关联 原件",group:"消费与物品",permission:"money.records",tab:"record",section:"money"},
   {title:"次卡余额与使用",words:"理发卡 课时 洗车 剩余几次",group:"消费与物品",permission:"money.service_cards",tab:"plan",section:"cards"},

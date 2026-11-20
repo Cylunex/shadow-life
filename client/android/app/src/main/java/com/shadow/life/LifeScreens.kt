@@ -556,6 +556,8 @@ private data class FeatureEntry(val group:String,val title:String,val subtitle:S
     FeatureEntry("健康","Samsung Health 同步","读取已授权的三星健康数据","三星 手表 自动同步",FeatureAction.Samsung),
     FeatureEntry("健康","小米体脂秤称重","开启三分钟蓝牙接收窗口","小米 体重秤 s400 scale2 蓝牙",FeatureAction.Scale),
     FeatureEntry("饮食","记录一餐","用食物行、份量和单位快速录入","早餐 午餐 晚餐 食物",FeatureAction.Capture(CaptureKind.Meal)),
+    FeatureEntry("饮食","门店菜单","查门店、菜品档案和订单","食堂 档口 门店菜品 菜单 外卖",FeatureAction.Destination(DishCatalogRoute())),
+    FeatureEntry("饮食","菜品统计","按门店查看近 30 天各道菜吃过几餐","饮食 常吃 菜品排行 实吃次数",FeatureAction.Destination(DishStatsRoute())),
     FeatureEntry("饮食","饮食记录","查看餐次并搜索","吃了什么 餐次 饮食日记",FeatureAction.Workspace(LifeDomain.Meals)),
     FeatureEntry("消费","记录收支","记录支出或收入","消费 收入 账单",FeatureAction.Capture(CaptureKind.Expense)),
     FeatureEntry("消费","摇一摇记账","在微信或支付宝的单笔账单详情摇动手机补记","订单 交易 支付 摇一摇 补记",FeatureAction.Destination(ActivityCaptureRoute("订单"))),

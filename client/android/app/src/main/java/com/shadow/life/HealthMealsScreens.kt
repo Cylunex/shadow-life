@@ -401,7 +401,7 @@ private fun sleepStages(day:HealthDailyOverview?)=listOf(
 @Composable private fun SyncRow(title:String,subtitle:String,state:String,onClick:()->Unit){Row(Modifier.fillMaxWidth().clickable(role=Role.Button,onClick=onClick).padding(vertical=7.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(10.dp).clip(CircleShape).background(if(state in setOf("complete","committed","queued","detected"))ActivityGreen else if(state in setOf("needs_config","key_mismatch"))MaterialTheme.colorScheme.tertiary else if(state in setOf("error","timeout","needs_permission"))MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline));Spacer(Modifier.width(11.dp));Column(Modifier.weight(1f)){Text(title,style=MaterialTheme.typography.titleMedium);Text(subtitle,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2,overflow=TextOverflow.Ellipsis)};Icon(Icons.Default.Refresh,"立即操作",tint=MaterialTheme.colorScheme.primary)}}
 
 @OptIn(ExperimentalMaterial3Api::class,ExperimentalLayoutApi::class)
-@Composable fun MealsWorkspaceScreen(overviewState:LoadState<WorkspaceOverview>,recordsState:LoadState<RecordPage>,assetPreviews:Map<String,LoadState<ByteArray>>,onLoadAsset:(String)->Unit,onRetry:()->Unit,onLoadMore:()->Unit,onBack:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onMealCapture:(String,String)->Unit,onAddPhoto:(RecordSummary)->Unit,photoState:SubmitState,onStats:()->Unit,mealPlanningState:SubmitState,onSaveMealPlan:(NativeMealPlanDraft)->Unit,onBuildShopping:(MealPlanningResultDtoMealPlansEntry,String)->Unit,onUpdateShopping:(MealPlanningResultDtoShoppingListsEntryItemsEntry,String)->Unit,onSetFoodStock:(MealPlanningResultDtoStockLotsEntry?,String,String,String,String?)->Unit,onSaveRecipe:(String,String,String,String,String)->Unit,onResetMealPlanning:()->Unit,initialTab:String="records",accountId:String,onCopyMeal:(RecordSummary,String)->Unit,onDishCatalog:()->Unit,onReview:(String)->Unit,onPriceBook:()->Unit,focusStockId:String="",onStockPurchase:(String)->Unit={},onHealthDay:(String)->Unit,readRevision:Int=0){
+@Composable fun MealsWorkspaceScreen(overviewState:LoadState<WorkspaceOverview>,recordsState:LoadState<RecordPage>,assetPreviews:Map<String,LoadState<ByteArray>>,onLoadAsset:(String)->Unit,onRetry:()->Unit,onLoadMore:()->Unit,onBack:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onMealCapture:(String,String)->Unit,onAddPhoto:(RecordSummary)->Unit,photoState:SubmitState,onStats:()->Unit,mealPlanningState:SubmitState,onSaveMealPlan:(NativeMealPlanDraft)->Unit,onBuildShopping:(MealPlanningResultDtoMealPlansEntry,String)->Unit,onUpdateShopping:(MealPlanningResultDtoShoppingListsEntryItemsEntry,String)->Unit,onSetFoodStock:(MealPlanningResultDtoStockLotsEntry?,String,String,String,String?)->Unit,onSaveRecipe:(String,String,String,String,String)->Unit,onResetMealPlanning:()->Unit,initialTab:String="records",accountId:String,onCopyMeal:(RecordSummary,String)->Unit,onDishCatalog:(String)->Unit,onDishStats:(String)->Unit,onReview:(String)->Unit,onPriceBook:()->Unit,focusStockId:String="",onStockPurchase:(String)->Unit={},onHealthDay:(String)->Unit,readRevision:Int=0){
   var mealTab by rememberSaveable(initialTab){mutableStateOf(initialTab.takeIf{it in setOf("planning","shopping","stock","recipes","history")}?:"records")}
   val context=LocalContext.current
   val repository=remember(accountId){NativeLifeRepository(context,context.applicationContext as ShadowApp)}
@@ -464,6 +464,10 @@ private fun sleepStages(day:HealthDailyOverview?)=listOf(
           if(dayRecords.isNotEmpty())setOf(selectedDate) else emptySet()
         DateNavigator(selectedDate,{selectedDate=it},recordedDates)
         if(week.state is LoadState.Failed)TextButton(onClick=week.retry){Text("重试读取本周餐次标记")}
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+          OutlinedButton(onClick={onDishCatalog(selectedDate)},modifier=Modifier.weight(1f)){Text("门店菜单")}
+          OutlinedButton(onClick={onDishStats(selectedDate)},modifier=Modifier.weight(1f)){Text("菜品统计")}
+        }
       }
       item{StateContent(day.state,day.retry){}}
       if(dayPage!=null){
@@ -480,7 +484,6 @@ private fun sleepStages(day:HealthDailyOverview?)=listOf(
         FlowRow(horizontalArrangement=Arrangement.spacedBy(4.dp)){
           TextButton(onClick={onHealthDay(selectedDate)}){Text("同日健康")}
           TextButton(onClick={onReview(selectedDate)}){Text("饮食与体重复盘")}
-          TextButton(onClick=onDishCatalog){Text("门店菜品")}
           TextButton(onClick=onStats){Text("订单与消费统计")}
         }
       }

@@ -180,14 +180,25 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     return wireJson.decodeFromString(getText(path))
   }
 
-  internal suspend fun diningDirectory(merchant:String=""):MerchantMenuResultDtoDirectory {
+  internal suspend fun diningDirectory(merchant:String="",on:String=LocalDate.now().toString()):MerchantMenuResultDtoDirectory {
     val zone=ZoneId.systemDefault()
     val path=buildString {
-      append("/api/life/merchant-menu?browse=1&on=${java.time.LocalDate.now(zone)}&time_zone=${encode(zone.id)}&limit=1")
+      append("/api/life/merchant-menu?browse=1&on=${encode(on)}&time_zone=${encode(zone.id)}&limit=1")
       if(merchant.isNotBlank())append("&merchant=${encode(merchant)}")
     }
     val result=wireJson.decodeFromString<MerchantMenuResultDto>(getText(path))
     return result.directory ?: error("门店总览暂不可用")
+  }
+
+  internal suspend fun dishStatistics(merchant:String,on:String,query:String,offset:Long,browse:Boolean):MerchantMenuResultDto {
+    val path=buildString {
+      append("/api/life/merchant-menu?stats=1&limit=25&on=${encode(on)}&time_zone=${encode(ZoneId.systemDefault().id)}")
+      if(merchant.isNotBlank())append("&merchant=${encode(merchant.trim())}")
+      if(query.isNotBlank())append("&query=${encode(query.trim())}")
+      if(offset>0)append("&stats_offset=$offset")
+      if(browse)append("&browse=1")
+    }
+    return wireJson.decodeFromString(getText(path))
   }
 
   internal suspend fun dietReview(date:String,days:Int):DietReviewResultDto =

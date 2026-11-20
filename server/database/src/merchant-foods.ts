@@ -1,6 +1,6 @@
 import {sql} from "drizzle-orm";
 import type {NodePgDatabase} from "drizzle-orm/node-postgres";
-import {localDate,rememberMerchantDishSchema,takeoutDetailsSchema,type merchantMenuInputSchema} from "@shadow/contracts";
+import {localDate,rememberMerchantDishSchema,takeoutDetailsSchema,type merchantMenuInputSchema,type merchantMenuResultSchema} from "@shadow/contracts";
 import {conflict,inspectTakeoutOrder,isDiningOrderServiceLine,mergeOrderObservations,permissionDenied,sha256Fingerprinter,type TransactionStore} from "@shadow/kernel";
 
 type Database=Pick<NodePgDatabase,"execute">;
@@ -148,29 +148,61 @@ async function capturedDiningOrders(db:Database,subject:string,from:string,to:st
   });
 }
 
-async function diningDirectory(db:Database,subject:string,on:string|undefined,zone:string,effects:ReadonlySet<string>,merchant?:string){
+type MenuFilters=ReturnType<typeof merchantMenuInputSchema.parse>;
+type MenuResult=ReturnType<typeof merchantMenuResultSchema.parse>;
+type Directory=NonNullable<MenuResult["directory"]>;
+type Statistics=NonNullable<MenuResult["statistics"]>;
+
+async function diningOverview(db:Database,subject:string,v:MenuFilters,effects:ReadonlySet<string>){
+  const zone=v.time_zone??"UTC";
   const window=(await db.execute<{from:string;to:string}>(sql`
     select (local_day-29)::text "from",local_day::text "to" from
-    (select coalesce(${on??null}::date,(now() at time zone ${zone})::date) as local_day) days`)).rows[0]!;
+    (select coalesce(${v.on??null}::date,(now() at time zone ${zone})::date) as local_day) days`)).rows[0]!;
+  const offset=v.stats_offset??0;
+  const fields=[];
+  if(v.browse)fields.push(sql`
+    coalesce((select jsonb_agg(s order by s.meals desc,s.menu_items desc,s.name) from store_summary s),'[]') merchants,
+    coalesce((select jsonb_agg(to_jsonb(f)-'last_eaten_on' order by f.meals desc,f.last_eaten_on desc,f.name,f.merchant,f.food_id) from frequent f),'[]') dishes`);
+  if(v.stats)fields.push(sql`
+    (select count(*)::int from filtered) dish_count,
+    (select count(distinct ids.meal_id)::int from filtered cross join lateral unnest(source_meals) ids(meal_id)) meal_count,
+    coalesce((select jsonb_agg(p order by p.meals desc,p.last_eaten_on desc,p.name,p.merchant,p.food_id) from page p),'[]') items`);
   const result=await db.execute<{
-    merchants:Array<{name:string;menu_items:number;meals:number}>;
-    dishes:Array<{name:string;merchant:string|null;food_id:string|null;meals:number;meal_id:string}>;
+    merchants:Directory["merchants"];dishes:Directory["dishes"];items:Statistics["items"];meal_count:number;dish_count:number;
   }>(sql`
     with catalog as (
-      select f.id,m.merchant,m.dish from merchant_foods m
+      select f.id,m.merchant,m.dish,m.stall from merchant_foods m
       join food_references f on f.id=m.food_id and f.subject_id=m.subject_id
       where m.subject_id=${subject} and f.state='active'
       union all
-      select f.id,split_part(f.name,'｜',1),split_part(f.name,'｜',2) from food_references f
+      select f.id,split_part(f.name,'｜',1),split_part(f.name,'｜',2),null from food_references f
       where f.subject_id=${subject} and f.state='active' and f.name ~ '^[^｜|]+｜[^｜|]+$'
         and nullif(trim(f.provenance),'') is not null and not exists(select 1 from merchant_foods m where m.food_id=f.id)
-    ), eaten as (
-      select m.id meal_id,m.occurred_on,m.occurred_at,i.name,c.id food_id,c.dish,
-        coalesce(nullif(i.dish_profile_snapshot->>'merchant',''),c.merchant) item_merchant
+    ), intakes as (
+      select m.id meal_id,m.occurred_on,m.occurred_at,i.id,i.name,i.food_ref_id,i.dish_profile_snapshot snapshot
       from meals m join intake_items i on i.meal_id=m.id and i.subject_id=m.subject_id
-      left join catalog c on c.id=i.food_ref_id
       where m.subject_id=${subject} and m.state='active' and m.occurred_on between ${window.from}::date and ${window.to}::date
         and i.effective and coalesce(i.consumed_fraction,1)>0 and nullif(trim(i.name),'') is not null
+    ), evidenced as (
+      -- Menu backfills can bind an existing intake without rewriting the diary.
+      select i.id,min(e.food_id) food_id from intakes i
+      join merchant_food_evidence e on e.kind='meal_intake' and e.meal_id=i.meal_id and e.intake_id=i.id
+      join catalog c on c.id=e.food_id
+      left join catalog direct on direct.id=i.food_ref_id
+      where direct.id is null and not exists (
+        -- Legacy links identify an intake, but do not identify its revision.
+        select 1 from intake_item_revisions r where r.item_id=i.id and
+          (r.snapshot->>'name' is distinct from i.name
+            or coalesce(r.snapshot->>'foodRefId',r.snapshot->>'food_ref_id') is distinct from i.food_ref_id)
+      )
+      group by i.id having count(distinct e.food_id)=1
+    ), eaten as (
+      select i.meal_id,i.occurred_on,i.occurred_at,
+        coalesce(case when e.id is not null then c.dish end,nullif(i.snapshot->>'dish',''),c.dish,trim(i.name)) name,
+        coalesce(case when e.id is not null then c.merchant end,nullif(i.snapshot->>'merchant',''),c.merchant) item_merchant,
+        case when e.id is null and i.snapshot ? 'stall' then i.snapshot->>'stall' else c.stall end stall,
+        coalesce(c.id,case when i.snapshot->>'merchant' is not null then i.food_ref_id end) food_id
+      from intakes i left join evidenced e on e.id=i.id left join catalog c on c.id=coalesce(e.food_id,i.food_ref_id)
     ), meal_ids as (select distinct meal_id from eaten),
     candidates as (
       select meal_id,item_merchant merchant,1 priority from eaten where item_merchant is not null
@@ -194,26 +226,51 @@ async function diningDirectory(db:Database,subject:string,on:string|undefined,zo
       select min(merchant) name,sum(menu_items)::int menu_items,sum(meals)::int meals from stores
       where length(merchant)<=160 and merchant !~ '[｜|[:cntrl:]]'
       group by lower(merchant) order by meals desc,menu_items desc,name limit 100
-    ), dish_summary as (
-      select min(coalesce(e.dish,trim(e.name))) name,min(coalesce(e.item_merchant,m.merchant)) merchant,e.food_id,
-        count(distinct e.meal_id)::int meals,
-        (array_agg(e.meal_id order by e.occurred_on desc,e.occurred_at desc nulls last,e.meal_id))[1] meal_id
-      from eaten e left join meal_merchants m on m.meal_id=e.meal_id
-      group by lower(coalesce(e.item_merchant,m.merchant)),e.food_id,case when e.food_id is null then lower(trim(e.name)) end
-      having count(distinct e.meal_id)>1 order by meals desc,max(e.occurred_on) desc,name limit 12
+    ), named as (
+      select e.*,coalesce(e.item_merchant,m.merchant) merchant from eaten e left join meal_merchants m on m.meal_id=e.meal_id
+    ), unique_menu_names as (
+      select lower(merchant) merchant_key,lower(dish) dish_key,min(id) food_id,min(stall) stall from catalog
+      group by lower(merchant),lower(dish) having count(*)=1
+    ), dish_facts as (
+      select n.meal_id,n.occurred_on,n.occurred_at,n.name,n.merchant,coalesce(n.food_id,u.food_id) food_id,
+        coalesce(n.stall,u.stall) stall from named n left join unique_menu_names u on n.food_id is null
+        and lower(n.merchant)=u.merchant_key and lower(n.name)=u.dish_key
+    ), grouped as (
+      select min(name) name,min(merchant) merchant,food_id,
+        (array_agg(stall order by occurred_on desc,occurred_at desc nulls last,meal_id desc,stall nulls last))[1] stall,
+        count(distinct meal_id)::int meals,max(occurred_on)::text last_eaten_on,
+        array_agg(distinct meal_id) source_meals,
+        (array_agg(meal_id order by occurred_on desc,occurred_at desc nulls last,meal_id desc))[1] meal_id
+      from dish_facts group by lower(merchant),food_id,case when food_id is null then lower(name) end
+    ), frequent as (
+      select name,merchant,food_id,meals,meal_id,last_eaten_on from grouped where meals>1
+      ${v.merchant?sql`and lower(merchant)=lower(${v.merchant})`:sql``}
+      order by meals desc,last_eaten_on desc,name,merchant,food_id limit 12
+    ), filtered as (
+      select * from grouped where true
+      ${v.merchant?sql`and lower(merchant)=lower(${v.merchant})`:sql``}
+      ${v.query?sql`and strpos(lower(name),lower(${v.query}))>0`:sql``}
+    ), page as (
+      select name,merchant,stall,food_id,meals,last_eaten_on,meal_id from filtered order by meals desc,last_eaten_on desc,name,merchant,food_id
+      limit ${v.limit} offset ${offset}
     )
-    select coalesce((select jsonb_agg(s order by s.meals desc,s.menu_items desc,s.name) from store_summary s),'[]') merchants,
-      coalesce((select jsonb_agg(d order by d.meals desc) from dish_summary d),'[]') dishes`);
+    select ${sql.join(fields,sql`,`)}`);
+  const row=result.rows[0]!;
+  const statistics:Statistics|undefined=v.stats?{...window,merchant:v.merchant??null,meals:row.meal_count,dishes:row.dish_count,
+    items:row.items,next_offset:offset+v.limit<row.dish_count?offset+v.limit:null}:undefined;
+  if(!v.browse)return {statistics,directory:undefined};
   const default_merchant=effects.has("agent.run")?await defaultMerchant(db,subject,window.to):null;
-  const takeout=effects.has("library.item.read")
-    ?await capturedDiningOrders(db,subject,window.from,window.to,zone,merchant):[];
-  return {...window,...result.rows[0]!,default_merchant,takeout};
+  const takeout=effects.has("library.item.read")?await capturedDiningOrders(db,subject,window.from,window.to,zone,v.merchant):[];
+  return {statistics,directory:{...window,merchants:row.merchants,dishes:row.dishes,default_merchant,takeout}};
 }
 
-export async function merchantMenu(db:Database,subject:string,v:ReturnType<typeof merchantMenuInputSchema.parse>,effects:ReadonlySet<string>){
-  const directory=v.browse?await diningDirectory(db,subject,v.on,v.time_zone??"UTC",effects,v.merchant):undefined;
-  const merchant=v.merchant??(directory?directory.default_merchant:await resolveMerchant(db,subject,undefined,effects));
-  if(!merchant)return {merchant:"",items:[],next:null,directory};
+export async function merchantMenu(db:Database,subject:string,v:MenuFilters,effects:ReadonlySet<string>){
+  const overview:Pick<MenuResult,"statistics"|"directory">=v.browse||v.stats?await diningOverview(db,subject,v,effects):{};
+  // A statistics page needs no menu evidence or stall prices. Browsing or
+  // explicitly requesting profiles/menu pagination still returns the menu.
+  if(v.stats && !v.browse && !v.with_profiles && !v.after)return {merchant:v.merchant??"",items:[],next:null,...overview};
+  const merchant=v.merchant??(overview.directory?overview.directory.default_merchant:v.stats?null:await resolveMerchant(db,subject,undefined,effects));
+  if(!merchant)return {merchant:"",items:[],next:null,...overview};
   const rows=await db.execute<{id:string}>(sql`with menu as (
     select food_id,dish,stall,profile from merchant_foods where subject_id=${subject} and lower(merchant)=lower(${merchant})
     union all
@@ -239,5 +296,5 @@ export async function merchantMenu(db:Database,subject:string,v:ReturnType<typeo
     select stall,price_name,valid_from::text,until::text valid_to_exclusive,terms,evidence_note from periods
     where valid_from<=coalesce(${v.on??null}::date,current_date) and (until is null or until>coalesce(${v.on??null}::date,current_date))
     order by stall,price_name`);
-  return {merchant,items,...(directory?{directory}:{}),stall_prices:prices.rows.map(p=>({...p,valid_to_exclusive:p.valid_to_exclusive??undefined})),next:rows.rows.length>v.limit?items.at(-1)!.id:null};
+  return {merchant,items,...overview,stall_prices:prices.rows.map(p=>({...p,valid_to_exclusive:p.valid_to_exclusive??undefined})),next:rows.rows.length>v.limit?items.at(-1)!.id:null};
 }

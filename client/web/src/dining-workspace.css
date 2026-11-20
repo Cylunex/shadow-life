@@ -1,0 +1,25 @@
+.dining-workspace { display:grid; gap:16px; padding:clamp(16px,3vw,28px); border-radius:24px; background:var(--surface); }
+.dining-workspace h2,.dining-workspace h3 { margin:0; }
+.dining-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+.dining-filters,.dining-search,.dining-views,.dining-shortcuts { display:flex; flex-wrap:wrap; align-items:flex-end; gap:10px; }
+.dining-shortcuts { align-items:center; }
+.dining-workspace label { color:var(--muted); }
+.dining-filters label,.dining-search label { margin:0; min-width:0; max-width:100%; }
+.dining-filters select { max-width:min(100%,28rem); }
+.dining-workspace .dining-search { border:0; box-shadow:none; border-radius:0; padding:0; margin:0; background:transparent; }
+.dining-views button,.dining-shortcuts button { padding:7px 13px; min-height:36px; }
+.dining-views button[aria-pressed=true] { border-color:var(--primary); color:var(--text); }
+.dining-workspace .dish-statistics { display:grid; gap:12px; }
+.dish-statistics p { margin:0; }
+.dining-rows { list-style:none; margin:0; padding:0; }
+.dining-rows li { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); overflow-wrap:anywhere; }
+.dining-rows li div { display:grid; gap:3px; }
+.dining-rows li div:last-child { flex-shrink:0; text-align:right; }
+.dining-rows small,.dining-note { color:var(--muted); }
+.dining-workspace .canteen-menu { margin:0; }
+@media (max-width:560px) {
+  .dining-filters { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,.85fr); align-items:end; }
+  .dining-filters select,.dining-filters input { width:100%; min-width:0; }
+  .dining-workspace .dining-search { flex-wrap:wrap; }
+  .dining-search label { flex:1 1 8rem; }
+}

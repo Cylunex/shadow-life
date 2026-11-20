@@ -62,10 +62,11 @@ private data class DishEdit(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable internal fun DishCatalogScreen(
-    accountId:String,initialMerchant:String,initialQuery:String,onBack:()->Unit,onLink:(DetailLink)->Unit
+    accountId:String,initialMerchant:String,initialQuery:String,initialDate:String,onBack:()->Unit,onStats:(String)->Unit,onLink:(DetailLink)->Unit
 ) {
     val context=LocalContext.current
     val app=context.applicationContext as ShadowApp
+    val on=initialDate.ifBlank{LocalDate.now().toString()}
     val repository=remember(accountId){NativeLifeRepository(context,app)}
     val scope=rememberCoroutineScope()
     var tab by rememberSaveable(initialMerchant){mutableIntStateOf(0)}
@@ -112,10 +113,10 @@ private data class DishEdit(
         catch(failure:Exception){error=failure.message ?: "菜品暂时无法读取"}
         finally{loading=false}
     }
-    LaunchedEffect(accountId,refreshDirectory) {
+    LaunchedEffect(accountId,on,refreshDirectory) {
         overview=LoadState.Loading
         try {
-            val directory=repository.diningDirectory()
+            val directory=repository.diningDirectory(on=on)
             check(app.sessions.active()?.accountId==accountId){"账号已切换"}
             overview=LoadState.Ready(directory)
         } catch(cancel:CancellationException){throw cancel}
@@ -124,11 +125,11 @@ private data class DishEdit(
     LaunchedEffect(accountId,merchant,appliedQuery,revision,pageCursor) {
         if(merchant.isNotBlank())loadMenu(merchant,appliedQuery,pageCursor)
     }
-    LaunchedEffect(accountId,merchant,retryOrders) {
+    LaunchedEffect(accountId,on,merchant,retryOrders,refreshDirectory) {
         if(merchant.isNotBlank()){
             storeOrders=LoadState.Loading
             try{
-                val orders=repository.diningDirectory(merchant).takeout
+                val orders=repository.diningDirectory(merchant,on).takeout
                 check(app.sessions.active()?.accountId==accountId){"账号已切换"}
                 storeOrders=LoadState.Ready(orders)
             } catch(cancel:CancellationException){throw cancel}
@@ -152,9 +153,12 @@ private data class DishEdit(
     val directory=(overview as? LoadState.Ready)?.value
     Scaffold(
         topBar={TopAppBar(
-            title={Text(merchant.ifBlank{"菜品与门店"},maxLines=1,overflow=TextOverflow.Ellipsis)},
+            title={Text(merchant.ifBlank{"门店菜单"},maxLines=1,overflow=TextOverflow.Ellipsis)},
             navigationIcon={LifeBackButton(::back)},
-            actions={if(merchant.isNotBlank())TextButton(enabled=!loading,onClick={startEdit(DishEdit(merchant))}){Text("收录菜品")}}
+            actions={
+                TextButton(onClick={onStats(merchant)}){Text("菜品统计")}
+                if(merchant.isNotBlank())TextButton(enabled=!loading,onClick={startEdit(DishEdit(merchant))}){Text("收录菜品")}
+            }
         )}
     ){padding->
         Column(Modifier.fillMaxSize().padding(padding).imePadding()) {
@@ -266,7 +270,7 @@ private data class DishEdit(
         }
     }
     recording?.let { row->
-        CatalogRecordMeal(row,saving,saveError,{if(!saving)recording=null}){date,type,grams,usePortion->
+        CatalogRecordMeal(row,on,saving,saveError,{if(!saving)recording=null}){date,type,grams,usePortion->
             if(saving)return@CatalogRecordMeal
             saving=true;saveError=null
             scope.launch {
@@ -298,9 +302,9 @@ internal fun LazyListScope.catalogDirectoryItems(
                 val orderCount=directory.takeout.count{it.merchant.equals(name,true)}
                 val description=listOfNotNull(
                     "常去食堂".takeIf{name.equals(directory.defaultMerchant,true)},
-                    info?.menuItems?.takeIf{it>0}?.let{"已收录 $it 道"},
+                    info?.let{"已收录 ${it.menuItems} 道"},
                     "有外卖订单".takeIf{orderCount>0},
-                    info?.meals?.takeIf{it>0}?.let{"实吃 $it 餐"}
+                    info?.let{"近 30 天实吃 ${it.meals} 餐"}
                 ).joinToString(" · ")
                 CatalogRow(name,description){onShop(name)}
             }
@@ -337,7 +341,7 @@ internal fun LazyListScope.catalogDirectoryItems(
     }
 }
 
-private fun validMerchantName(name:String)=name.isNotBlank()&&name.length<=160&&name.none{it=='｜'||it=='|'||it.isISOControl()}
+internal fun validMerchantName(name:String)=name.isNotBlank()&&name.length<=160&&name.none{it=='｜'||it=='|'||it.isISOControl()}
 
 @Composable private fun CatalogSearch(value:String,onChange:(String)->Unit,label:String,onSearch:()->Unit){
     OutlinedTextField(value,{onChange(it.take(160))},Modifier.fillMaxWidth(),singleLine=true,label={Text(label)},
@@ -462,9 +466,9 @@ private fun MerchantMenuResultDtoDirectoryTakeoutEntry.catalogLink():DetailLink?
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable private fun CatalogRecordMeal(
-    dish:MerchantMenuResultDtoItemsEntry,busy:Boolean,error:String?,onBack:()->Unit,onSave:(String,String,String,Boolean)->Unit
+    dish:MerchantMenuResultDtoItemsEntry,initialDate:String,busy:Boolean,error:String?,onBack:()->Unit,onSave:(String,String,String,Boolean)->Unit
 ){
-    var date by rememberSaveable{mutableStateOf(LocalDate.now().toString())}
+    var date by rememberSaveable(dish.id,initialDate){mutableStateOf(initialDate)}
     var type by rememberSaveable{mutableStateOf("lunch")}
     var grams by rememberSaveable{mutableStateOf("")}
     var usePortion by rememberSaveable(dish.id){mutableStateOf(true)}

@@ -1521,6 +1521,28 @@ data class MoneyPlanningResultDto(
 )
 
 @Serializable
+data class MerchantMenuResultDtoStatisticsItemsEntry(
+  @SerialName("name") val name: String,
+  @SerialName("merchant") val merchant: String?,
+  @SerialName("stall") val stall: String?,
+  @SerialName("food_id") val foodId: String?,
+  @SerialName("meals") val meals: Long,
+  @SerialName("last_eaten_on") val lastEatenOn: String,
+  @SerialName("meal_id") val mealId: String
+)
+
+@Serializable
+data class MerchantMenuResultDtoStatistics(
+  @SerialName("from") val from: String,
+  @SerialName("to") val to: String,
+  @SerialName("merchant") val merchant: String?,
+  @SerialName("meals") val meals: Long,
+  @SerialName("dishes") val dishes: Long,
+  @SerialName("items") val items: List<MerchantMenuResultDtoStatisticsItemsEntry>,
+  @SerialName("next_offset") val nextOffset: Long?
+)
+
+@Serializable
 data class MerchantMenuResultDtoDirectoryMerchantsEntry(
   @SerialName("name") val name: String,
   @SerialName("menu_items") val menuItems: Long,
@@ -1659,6 +1681,7 @@ data class MerchantMenuResultDtoItemsEntry(
 
 @Serializable
 data class MerchantMenuResultDto(
+  @SerialName("statistics") val statistics: MerchantMenuResultDtoStatistics? = null,
   @SerialName("directory") val directory: MerchantMenuResultDtoDirectory? = null,
   @SerialName("stall_prices") val stallPrices: List<MerchantMenuResultDtoStallPricesEntry>? = null,
   @SerialName("merchant") val merchant: String,

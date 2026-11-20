@@ -6,9 +6,9 @@ import {formatInTimeZone} from "./travel-time.js";
 type Meal = ReturnType<typeof listMealsResultSchema.parse>["items"][number];
 const mealLabels = {breakfast:"早餐", lunch:"午餐", dinner:"晚餐", snack:"加餐", other:"其他餐次"};
 
-export function MealDiary({day,onDay,headers,timeZone,refreshKey,onCapture,detail,canReadHealth}:{
+export function MealDiary({day,onDay,headers,timeZone,refreshKey,onCapture,detail,canReadHealth,canReadDining}:{
   day:string;onDay:(day:string)=>void;headers:HeadersInit;timeZone:string;refreshKey:number;
-  onCapture?:(day:string)=>void;detail?:ReactNode;canReadHealth?:boolean;
+  onCapture?:(day:string)=>void;detail?:ReactNode;canReadHealth?:boolean;canReadDining?:boolean;
 }) {
   const [state,setState]=useState<{day:string;meals?:Meal[];error?:string;partial?:boolean}>();
   const [retry,setRetry]=useState(0);
@@ -52,6 +52,7 @@ export function MealDiary({day,onDay,headers,timeZone,refreshKey,onCapture,detai
   const number=new Intl.NumberFormat("zh-CN",{maximumFractionDigits:1});
   return <section className="meal-diary">
     <div className="panel-heading"><h2>饮食日记</h2><div className="panel-actions">{canReadHealth&&<a href={dailyHref("health",day)}>查看同日健康</a>}
+      {canReadDining&&<a href={`?${new URLSearchParams({tab:"record",section:"dining",day})}`}>门店菜单与菜品统计</a>}
       {onCapture&&<button onClick={()=>onCapture(day)}>记一餐</button>}</div></div>
     <div className="diary-layout">
       <div className="diary-list">

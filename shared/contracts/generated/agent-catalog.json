@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "c496fbecb6f6d2e72c9031c56cc9f287f1076c142646f3597d05b70d9d4c186e",
+  "catalog_revision": "6249f6ebf63972754701b57ac5e0eb65091be2b233b9ccea98aea61cb7cee12e",
   "terms": [
     {
       "id": "activity_capture",
@@ -45201,7 +45201,7 @@
     },
     {
       "name": "life.merchant_menu",
-      "description": "分页查门店菜品与摄入可用的 food ID；browse=1 时返回近 30 天常吃菜品、门店及外卖记录。",
+      "description": "分页查门店菜品与摄入可用的 food ID；browse=1 查看门店目录与外卖，stats=1 按全部或指定门店、菜名分页统计近 30 天实吃菜品和不同餐次数。",
       "domain": "life",
       "mode": "read",
       "possible_effects": [
@@ -45244,6 +45244,17 @@
               "1"
             ]
           },
+          "stats": {
+            "type": "string",
+            "enum": [
+              "1"
+            ]
+          },
+          "stats_offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+          },
           "time_zone": {
             "type": "string",
             "minLength": 1,
@@ -45269,6 +45280,117 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "statistics": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "to": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "merchant": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "meals": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "dishes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "merchant": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "stall": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "food_id": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "meals": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "last_eaten_on": {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    "meal_id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "merchant",
+                    "stall",
+                    "food_id",
+                    "meals",
+                    "last_eaten_on",
+                    "meal_id"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "next_offset": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "from",
+              "to",
+              "merchant",
+              "meals",
+              "dishes",
+              "items",
+              "next_offset"
+            ],
+            "additionalProperties": false
+          },
           "directory": {
             "type": "object",
             "properties": {

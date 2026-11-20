@@ -90,3 +90,46 @@ test("dining directory reads order dishes separately from distinct eaten meals",
   assert.equal(store.directory?.takeout.length,1);
   await assert.rejects(()=>queries.merchantMenu({...readOnly,effects:new Set()},{browse:"1"}),/permission/i);
 });
+
+test("dish statistics page counts distinct meals, including single visits and menu backfill evidence",pgOnly,async t=>{
+  const {run,queries,context,pool}=await reviewFixture(t);
+  const east="合成东店",west="合成西店",menuOnly="仅有菜单的门店";
+  const on="2026-11-19",date={occurred_on:on,time_zone:"Asia/Shanghai",meal_type:"lunch"};
+  const readOnly={...context,effects:new Set(["life.meal.read"])};
+  const stats=async (filters:Record<string,unknown>={})=>(await queries.merchantMenu(readOnly,{stats:"1",on,...filters})).statistics!;
+  const remember=(merchant:string,dish:string,stall?:string)=>run("life.remember_merchant_dish",{merchant,dish,stall,evidence:{kind:"note",note:"合成菜单"}});
+  const original=await run("life.record_meal",{...date,occurred_on:"2026-10-21",items:[{name:"小份豆腐"},{name:"米饭"}]});
+  const meal_id=original.actual_values.meal_id;
+  const intake_id=(await pool.query("select id from intake_items where meal_id=$1 and position=0",[meal_id])).rows[0].id;
+  const tofu=await run("life.remember_merchant_dish",{merchant:east,dish:"烧豆腐",stall:"素食",evidence:{kind:"meal_intake",meal_id,intake_id}});
+  const tofuId=tofu.actual_values.food_id;
+  const item={name:"烧豆腐",food_ref_id:tofuId};
+  const current=await run("life.record_meal",{...date,items:[item,item,{name:"烧豆腐"},{name:"米饭"},{name:"仅拍照",consumed_fraction:"0"}]});
+  const westTofu=await remember(west,"烧豆腐","热菜");
+  await run("life.record_meal",{...date,items:[{name:"烧豆腐",food_ref_id:westTofu.actual_values.food_id}]});
+  await run("life.record_meal",{...date,occurred_on:"2026-10-20",items:[item]});
+  await run("life.record_meal",{...date,occurred_on:"2026-11-20",items:[item]});
+  await remember(menuOnly,"仅看了菜单的面");
+  await run("life.record_purchase",{occurred_on:on,time_zone:"Asia/Shanghai",scene:"delivery",merchant_name_raw:menuOnly,items:[{raw_name:"外卖炒面"}]});
+  const single=await run("life.record_meal",{...date,items:[{name:"家中苹果"}]});
+  const all=await stats();
+  assert.deepEqual([all.from,all.to,all.merchant,all.meals,all.dishes,all.next_offset],["2026-10-21",on,null,4,4,null]);
+  const first=await stats({merchant:east,query:"豆腐",limit:1});
+  assert.deepEqual([first.meals,first.dishes,first.items], [2,1,[{name:"烧豆腐",merchant:east,stall:"素食",food_id:tofuId,
+    meals:2,last_eaten_on:on,meal_id:current.actual_values.meal_id}]]);
+  const eastPage=await stats({merchant:east,limit:1}),next=await stats({merchant:east,limit:1,stats_offset:eastPage.next_offset});
+  assert.deepEqual([eastPage.dishes,eastPage.meals,eastPage.next_offset,next.next_offset],[2,2,1,null]);
+  assert.deepEqual([eastPage.items[0]!.name,next.items[0]!.name].sort(),["烧豆腐","米饭"].sort());
+  assert.equal(all.items.find(d=>d.meal_id===single.actual_values.meal_id)?.merchant,null);
+  const empty=await queries.merchantMenu(readOnly,{merchant:menuOnly,stats:"1",browse:"1",on});
+  assert.equal(empty.directory?.merchants.find(m=>m.name===menuOnly)?.menu_items,1);
+  assert.deepEqual([empty.statistics?.dishes,empty.statistics?.meals,empty.statistics?.items],[0,0,[]]);
+  const isolated=await queries.merchantMenu({...readOnly,subjectId:"subject_another_owner"},{stats:"1",on});
+  assert.equal(isolated.statistics?.meals,0);
+  await run("life.correct_intake",{item_id:intake_id,expected_revision:1,consumed_fraction:"0.5",reason:"改份量"});
+  assert.equal((await stats({merchant:east,query:"烧豆腐"})).meals,2);
+  await run("life.correct_intake",{item_id:intake_id,expected_revision:2,item:{name:"炒洋葱"},reason:"更正菜名"});
+  assert.equal((await stats({merchant:east,query:"烧豆腐"})).meals,1);
+  assert.equal((await stats({query:"炒洋葱"})).items[0]?.meal_id,meal_id);
+  await assert.rejects(()=>queries.merchantMenu({...readOnly,effects:new Set()},{stats:"1"}),/permission/i);
+});
