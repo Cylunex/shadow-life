@@ -107,3 +107,62 @@ test("correcting a takeout portion preserves the whole-serving evidence and paid
   const review = await queries.wellnessReview(context, { to: date, days: 7 });
   assert.equal(review.current.nutrients.energy_kcal.known_total, "300");
 });
+
+test("image sources in record_meal default to meal_photo and attach_meal_source upgrades existing photo roles without external_id conflict", pgOnly, async t => {
+  const { run, queries, context, pool } = await reviewFixture(t);
+  const seedAsset = async (assetId: string, versionId: string) => {
+    await pool.query("insert into assets(id,subject_id,media_type) values($1,$2,'image/jpeg')", [assetId, context.subjectId]);
+    await pool.query("insert into asset_versions(id,asset_id,sha256,byte_size,storage_key) values($1,$2,$3,12,$4)", [versionId, assetId, `${versionId}_sha`, `test/${versionId}`]);
+  };
+  await seedAsset("asset_photo_1", "ver_photo_1");
+  await seedAsset("asset_photo_2", "ver_photo_2");
+  const meal = await run("life.record_meal", {
+    occurred_on: date, time_zone: timeZone, meal_type: "lunch",
+    items: [completeItem],
+    source: { kind: "image", external_id: "qq:msg-photo-1", captured_on: date, original_text: "初版说明", asset_version_id: "ver_photo_1" }
+  });
+  const mealId = String(meal.actual_values.meal_id);
+  const initial = await queries.lifeRecord(context, mealId);
+  assert.ok(initial.kind === "meal" && initial.sources?.[0]?.role === "meal_photo");
+  // Simulate a legacy row stored with role='evidence' and verify re-tagging succeeds even when metadata differs.
+  await pool.query("update meal_source_links set role='evidence' where meal_id=$1", [mealId]);
+  const retagged = await run("life.attach_meal_source", {
+    meal_id: mealId, expected_meal_revision: 1, role: "meal_photo",
+    source: { kind: "image", external_id: "qq:msg-photo-1", captured_on: date, original_text: "补录更正说明", asset_version_id: "ver_photo_1" }
+  });
+  assert.equal(retagged.actual_values.role, "meal_photo");
+  const after = await queries.lifeRecord(context, mealId);
+  assert.ok(after.kind === "meal" && after.sources?.length === 1 && after.sources[0]?.role === "meal_photo");
+  // Different asset_version_id reusing the same external_id must still fail with conflict.
+  await assert.rejects(() => run("life.attach_meal_source", {
+    meal_id: mealId, expected_meal_revision: 2, role: "meal_photo",
+    source: { kind: "image", external_id: "qq:msg-photo-1", captured_on: date, asset_version_id: "ver_photo_2" }
+  }), /different content/);
+});
+
+test("life.void_meal soft-voids duplicate meals, preserves revisions, blocks edits, and protects confirmed payments", pgOnly, async t => {
+  const { run, queries, context, pool } = await reviewFixture(t);
+  const kept = await run("life.record_meal", { occurred_on: date, time_zone: timeZone, meal_type: "lunch", items: [completeItem] });
+  const duplicate = await run("life.record_meal", { occurred_on: date, time_zone: timeZone, meal_type: "lunch", items: [completeItem] });
+  const dupId = String(duplicate.actual_values.meal_id);
+  const voided = await run("life.void_meal", { meal_id: dupId, expected_revision: 1, reason: "重复录入软作废" });
+  assert.equal(voided.actual_values.state, "voided");
+  assert.equal(voided.actual_values.revision, 2);
+  const detail = await queries.lifeRecord(context, dupId);
+  assert.ok(detail.kind === "meal" && detail.state === "voided" && detail.revision === 2);
+  assert.equal((await pool.query("select count(*)::int n from meal_revisions where meal_id=$1", [dupId])).rows[0].n, 1);
+  const meals = await queries.listMeals(context, { occurred_on: date, limit: 10 });
+  assert.deepEqual(meals.items.map(item => item.id), [String(kept.actual_values.meal_id)]);
+  const today = await queries.lifeToday(context, { date, time_zone: timeZone, domains: ["meals"] });
+  assert.equal(today.domains.meals!.count, 1);
+  // Voided meals cannot be voided again or edited.
+  await assert.rejects(() => run("life.void_meal", { meal_id: dupId, expected_revision: 2, reason: "再次作废" }), /already voided|revision/);
+  await assert.rejects(() => run("life.correct_meal", { meal_id: dupId, expected_revision: 2, occurred_on: date, time_zone: timeZone, meal_type: "dinner", reason: "改已作废餐" }), /meal/);
+  // Meals with a confirmed direct payment cannot be voided independently.
+  const paid = await run("life.record_meal", {
+    occurred_on: date, time_zone: timeZone, meal_type: "dinner",
+    items: [completeItem],
+    payment: { amount: "20.00", currency: "CNY", occurred_on: date, time_zone: timeZone }
+  });
+  await assert.rejects(() => run("life.void_meal", { meal_id: String(paid.actual_values.meal_id), expected_revision: 1, reason: "有实付不应直接作废" }), /confirmed linked payment/);
+});

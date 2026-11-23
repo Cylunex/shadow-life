@@ -96,7 +96,7 @@ export class CommandExecutor {
           timeZone: command.input.payment.time_zone
         });
       }
-      if (sourceId !== undefined) await store.linkMealSource(mealId, sourceId);
+      if (sourceId !== undefined) await store.linkMealSource(mealId, sourceId, command.input.source?.kind === "image" ? "meal_photo" : "evidence");
       const existingConsumption = command.input.existing_consumption;
       if (existingConsumption) await store.executeDomainWrite({ subjectId: context.subjectId, context,
         command: { protocol: "shadow.command", capability: "life.link_meal_consumption", command_id: command.command_id,

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { capabilityRegistry, commandEnvelopeSchema, diningSceneSchema, domainRecordsResultSchema, healthObservationPayloadSchema, healthSourcesResultSchema, lifeTimelineInputSchema, lifeTodayInputSchema, lifeTodayResultSchema, moneyPlanningInputSchema, projectDirectoryResultSchema, publishTripPlanInputSchema, recordDiningInputSchema, recordMealInputSchema, setHealthPlanInputSchema, setHealthSourceStateInputSchema, setRecurringPlanInputSchema, setTripDayPlanInputSchema, setTripStopOutcomeInputSchema, universalCommandEnvelopeSchema } from "../src/index.js";
-import { healthTrendResultSchema, setUseCycleInputSchema, updatePurchaseItemsInputSchema } from "../src/index.js";
+import { healthTrendResultSchema, lifeMealRecordResultSchema, personalOperatorTools, setUseCycleInputSchema, updatePurchaseItemsInputSchema, voidMealInputSchema } from "../src/index.js";
 
 test("library reading URLs accept HTTP and HTTPS and reject executable schemes",()=>{
   const capture=capabilityRegistry["library.capture"].inputSchema;
@@ -219,4 +219,16 @@ test("purchase originals keep the legacy input and validate mutually exclusive d
     { sources: [{ ...source, role: "meal_photo" }] }, { sources: [{ ...source, captured_on: undefined }] },
     { sources: [{ kind: "image", captured_on: base.occurred_on }] }, { sources: Array(21).fill(source) }
   ]) assert.equal(schema.safeParse({ ...base, ...input }).success, false);
+});
+
+test("void meal contract validates revision/reason and meal get_record accepts state", () => {
+  const valid = { meal_id: "meal_12345678", expected_revision: 1, reason: "重复录入作废" };
+  assert.deepEqual(voidMealInputSchema.parse(valid), valid);
+  assert.equal(voidMealInputSchema.safeParse({ ...valid, expected_revision: 0 }).success, false);
+  assert.equal(voidMealInputSchema.safeParse({ ...valid, reason: "   " }).success, false);
+  assert.equal(voidMealInputSchema.safeParse({ ...valid, extra: true }).success, false);
+  assert.equal(personalOperatorTools.has("life.void_meal"), true);
+  assert.deepEqual(capabilityRegistry["life.void_meal"].possibleEffects, ["life.meal.write"]);
+  assert.equal(lifeMealRecordResultSchema.safeParse({ kind: "meal", meal_id: "meal_12345678", revision: 2, state: "voided" }).success, true);
+  assert.equal(lifeMealRecordResultSchema.safeParse({ kind: "meal", meal_id: "meal_12345678", revision: 2, state: "deleted" }).success, false);
 });

@@ -43,7 +43,7 @@ export interface TransactionStore {
   insertMeal(value: { id: string; subjectId: string; input: RecordMealInput }): Promise<void>;
   insertIntakeItem(value: { id: string; subjectId: string; mealId: string; position: number; item: RecordMealInput["items"][number] }): Promise<void>;
   insertMoneyEntry(value: { id: string; subjectId: string; mealId: string; payment: { amount:string; currency:"CNY"; payment_method?:string|undefined; note?:string|undefined }; occurredOn: string; occurredAt?: string; timeZone: string }): Promise<void>;
-  linkMealSource(mealId: string, sourceId: string): Promise<void>;
+  linkMealSource(mealId: string, sourceId: string, role?: "evidence" | "meal_photo" | "order_screenshot" | "replacement"): Promise<void>;
   insertOperation(value: StoredOperation): Promise<void>;
   insertOutbox(value: { id: string; subjectId: string; eventType: string; aggregateId: string; payload: unknown }): Promise<void>;
   getOperationByExecutionId(subjectId: string, executionId: string): Promise<StoredOperation | undefined>;

@@ -4468,6 +4468,12 @@ data class LifeRecordResultDtoMealRelatedRecordsEntry(
 )
 
 @Serializable
+enum class LifeRecordResultDtoMealState(val wireValue: String) {
+  @SerialName("active") Active("active"),
+  @SerialName("voided") Voided("voided")
+}
+
+@Serializable
 @SerialName("meal")
 data class LifeRecordResultDtoMeal(
   @SerialName("meal_id") val mealId: String,
@@ -4480,7 +4486,8 @@ data class LifeRecordResultDtoMeal(
   @SerialName("items") val items: List<LifeRecordResultDtoMealItemsEntry>? = null,
   @SerialName("payments") val payments: List<LifeRecordResultDtoMealPaymentsEntry>? = null,
   @SerialName("sources") val sources: List<LifeRecordResultDtoMealSourcesEntry>? = null,
-  @SerialName("related_records") val relatedRecords: List<LifeRecordResultDtoMealRelatedRecordsEntry>? = null
+  @SerialName("related_records") val relatedRecords: List<LifeRecordResultDtoMealRelatedRecordsEntry>? = null,
+  @SerialName("state") val state: LifeRecordResultDtoMealState? = null
 ): LifeRecordResultDto
 
 @Serializable

@@ -4,9 +4,11 @@ import { CommandExecutor, KernelError, sha256Fingerprinter, type Clock, type IdG
 
 class MemoryUnitOfWork implements UnitOfWork {
   state = { operations: [] as StoredOperation[], meals: [] as string[], money: [] as string[], sources: [] as string[], items: [] as string[], outbox: [] as string[] };
+  mealSourceRoles: Array<{ mealId: string; sourceId: string; role?: string }> = [];
   failAt?: string;
   async transaction<T>(work: (store: TransactionStore) => Promise<T>): Promise<T> {
     const draft = structuredClone(this.state);
+    const roles: Array<{ mealId: string; sourceId: string; role?: string }> = [];
     const touch = (name: keyof typeof draft, id: string) => { if (this.failAt === name) throw new Error(`injected ${name}`); (draft[name] as string[]).push(id); };
     const store: TransactionStore = {
       assertAgentRun:async()=>undefined,
@@ -17,7 +19,7 @@ class MemoryUnitOfWork implements UnitOfWork {
       insertMeal: async ({ id }) => touch("meals", id),
       insertIntakeItem: async ({ id }) => touch("items", id),
       insertMoneyEntry: async ({ id }) => touch("money", id),
-      linkMealSource: async () => undefined,
+      linkMealSource: async (mealId, sourceId, role) => { roles.push({ mealId, sourceId, ...(role === undefined ? {} : { role }) }); },
       insertOperation: async (value) => { if (this.failAt === "operations") throw new Error("injected operations"); draft.operations.push(value); },
       insertOutbox: async ({ id }) => touch("outbox", id),
       getOperationByExecutionId: async (subjectId, executionId) => draft.operations.find((item) => item.subjectId === subjectId && item.executionId === executionId),
@@ -63,6 +65,7 @@ class MemoryUnitOfWork implements UnitOfWork {
     };
     const result = await work(store);
     this.state = draft;
+    this.mealSourceRoles.push(...roles);
     return result;
   }
   read<T>(work: (store: TransactionStore) => Promise<T>): Promise<T> { return this.transaction(work); }
@@ -127,4 +130,20 @@ test("command-id receipt recovery is subject-bound and requires operation read a
   await assert.rejects(executor.findOperationByCommand({ ...context, subjectId: "subject_other" }, command.command_id), (error: unknown) => error instanceof KernelError && error.status === 404);
   await assert.rejects(executor.findOperationByCommand({ ...context, effects: new Set() }, command.command_id), (error: unknown) => error instanceof KernelError && error.status === 403);
   assert.equal(unitOfWork.state.meals.length, 1);
+});
+
+test("record_meal links image sources as meal_photo and text sources as evidence", async () => {
+  const unitOfWork = new MemoryUnitOfWork();
+  const executor = new CommandExecutor({ unitOfWork, ids, clock, fingerprinter: sha256Fingerprinter });
+  await executor.execute(context, command);
+  await executor.execute(context, {
+    ...command,
+    command_id: "cmd_image_meal_0001",
+    input: {
+      occurred_on: "2026-09-08", time_zone: "Asia/Shanghai", meal_type: "dinner",
+      items: [{ name: "鸡胸肉沙拉", estimate: false }],
+      source: { kind: "image", captured_on: "2026-09-08", asset_version_id: "ver_synthetic_0001" }
+    }
+  });
+  assert.deepEqual(unitOfWork.mealSourceRoles.map(entry => entry.role), ["evidence", "meal_photo"]);
 });
