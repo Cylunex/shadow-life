@@ -32,6 +32,11 @@ The examples contain fictional records and illustrative IDs; replace them with r
   `evidence`. Read the consumption record first to resolve its ID, then read it back and
   verify `meals` contains the meal. Notes and `agent.objects` references do not attach facts.
   Use `life.attach_meal_source` to attach an uploaded original to an existing meal.
+- One meal can link to several consumption records. When an existing duplicate already shares
+  confirmed payments with the meal to keep, use `life.void_meal` with `retained_meal_id`,
+  the duplicate meal's `expected_revision` and a reason. Every confirmed payment from the
+  duplicate must already link to the same-day retained meal. Then verify the active meal list
+  and the `meals` on each affected consumption record.
 - When saving a new meal with an already confirmed expense, use `life.record_meal.existing_consumption`
   with the current consumption `record_id` and `expected_record_revision`. Include the uploaded original in `source`.
   After the receipt, read `life.get_record` for both the new meal and the original expense. A conflict requires rereading the

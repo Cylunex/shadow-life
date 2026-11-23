@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "89bdf2e2e8dfa0a61687b4550e6eeac0794a93ed0465a6b2ab52935b923b5bea",
+  "catalog_revision": "12def45b544c3bcdfd225fcb8dbb6399bf47d44f3e526f6b800deacc725c6ad1",
   "terms": [
     {
       "id": "activity_capture",
@@ -66729,7 +66729,7 @@
     },
     {
       "name": "life.void_meal",
-      "description": "软作废重复或误录的餐次并保留修订快照；若关联了已确认付款需先处理付款。",
+      "description": "软作废重复或误录的餐次并保留修订快照。已有实付时传 retained_meal_id，确认同日保留餐次已关联每笔付款。",
       "domain": "life",
       "mode": "write",
       "possible_effects": [
@@ -66755,6 +66755,10 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 500
+          },
+          "retained_meal_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
           }
         },
         "required": [

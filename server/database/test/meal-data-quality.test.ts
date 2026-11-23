@@ -179,6 +179,63 @@ test("life.void_meal soft-voids duplicate meals, preserves revisions, blocks edi
   }), /confirmed linked payment/);
 });
 
+test("voiding a paid duplicate keeps both confirmed expenses on the retained meal", pgOnly, async t => {
+  const { run, queries, context } = await reviewFixture(t);
+  const mealInput = { occurred_on: date, time_zone: timeZone, items: [completeItem] };
+  const kept = await run("life.record_meal", { ...mealInput, meal_type: "lunch" });
+  const duplicate = await run("life.record_meal", { ...mealInput, meal_type: "other" });
+  const keptId = String(kept.actual_values.meal_id), duplicateId = String(duplicate.actual_values.meal_id);
+  const saveExpense = async (amount: string) => String((await run("money.record_entry", {
+    occurred_on: date, time_zone: timeZone, entry_type: "expense", currency: "CNY", amount
+  })).actual_values.record_id);
+  const link = (meal_id: string, consumption_record_id: string) => run("life.link_meal_consumption", {
+    meal_id, consumption_record_id, evidence: "user_confirmed"
+  });
+  const comboId = await saveExpense("26.00"), addOnId = await saveExpense("30.00");
+  await link(keptId, comboId);
+  await link(duplicateId, addOnId);
+  const voidInput = { meal_id: duplicateId, retained_meal_id: keptId, expected_revision: 1, reason: "作废同一餐的零摄入占位" };
+  await assert.rejects(() => run("life.void_meal", voidInput), /confirmed linked payment/);
+  await link(keptId, addOnId);
+
+  const before = await queries.lifeRecord(context, addOnId);
+  assert.ok(before.kind === "record" && before.meals?.length === 2);
+  const receipt = await run("life.void_meal", voidInput);
+  assert.equal(receipt.actual_values.retained_meal_id, keptId);
+  const historical = await queries.lifeRecord(context, duplicateId);
+  assert.ok(historical.kind === "meal" && historical.state === "voided");
+  const meals = await queries.listMeals(context, { occurred_on: date, limit: 10 });
+  assert.deepEqual(meals.items.map(meal => meal.id), [keptId]);
+  for (const [recordId, amount] of [[comboId, 26], [addOnId, 30]] as const) {
+    const record = await queries.lifeRecord(context, recordId);
+    assert.ok(record.kind === "record" && record.state === "confirmed");
+    assert.equal(Number(record.money_entry?.amount), amount);
+    assert.deepEqual(record.meals?.map(meal => meal.id), [keptId]);
+  }
+});
+
+test("competing duplicate voids cannot both remove the meal linked to a payment", pgOnly, async t => {
+  const { run, queries, context } = await reviewFixture(t);
+  const first = await run("life.record_meal", {
+    occurred_on: date, time_zone: timeZone, meal_type: "other", items: [completeItem],
+    payment: { amount: "30.00", currency: "CNY", occurred_on: date, time_zone: timeZone }
+  });
+  const second = await run("life.record_meal", {
+    occurred_on: date, time_zone: timeZone, meal_type: "lunch", items: [completeItem]
+  });
+  const firstId = String(first.actual_values.meal_id), secondId = String(second.actual_values.meal_id);
+  const recordId = first.resources.find(resource => resource.type === "consumption_record")!.id;
+  await run("life.link_meal_consumption", { meal_id: secondId, consumption_record_id: recordId, evidence: "user_confirmed" });
+  const voidMeal = (meal_id: string, retained_meal_id: string) => run("life.void_meal", {
+    meal_id, retained_meal_id, expected_revision: 1, reason: "合成重复餐次"
+  });
+  const results = await Promise.allSettled([voidMeal(firstId, secondId), voidMeal(secondId, firstId)]);
+  assert.equal(results.filter(result => result.status === "fulfilled").length, 1);
+  const record = await queries.lifeRecord(context, recordId);
+  assert.ok(record.kind === "record" && record.meals?.length === 1);
+  assert.equal(record.meals[0]!.id, results[0]!.status === "fulfilled" ? secondId : firstId);
+});
+
 test("racing a confirmed expense link with a meal void commits exactly one", pgOnly, async t => {
   const { run, queries, context } = await reviewFixture(t);
   const expense = await run("money.record_entry", {

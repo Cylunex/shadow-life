@@ -177,7 +177,12 @@ export const recordDiningInputSchema=z.object({occurred_on:localDate,occurred_at
   payment:datedPaymentSchema.optional(), sources:z.array(diningSourceInputSchema).max(20).default([]), visit:z.object({place_name:z.string().trim().min(1).max(200),latitude:z.number().min(-90).max(90).optional(),longitude:z.number().min(-180).max(180).optional()}).strict().superRefine((value,context)=>{if((value.latitude===undefined)!==(value.longitude===undefined))context.addIssue({code:"custom",message:"latitude and longitude must be supplied together"});}).optional()
 }).strict().superRefine((value,context)=>{if(value.items&&value.consumed_items)context.addIssue({code:"custom",path:["consumed_items"],message:"use consumed_items instead of supplying both fields"});const consumed=value.consumed_items??value.items??[];if(consumed.length===0&&!value.sources.some(source=>source.role==="meal_photo"))context.addIssue({code:"custom",path:["consumed_items"],message:"a dining record needs consumed items or a meal photo"});if(!factDateMatches(value))context.addIssue({code:"custom",path:["occurred_at"],message:"occurred_at does not fall on occurred_on in time_zone"});});
 export const correctMealInputSchema=z.object({meal_id:stableId,expected_revision:z.number().int().positive(),occurred_on:localDate,occurred_at:instant.optional(),time_zone:ianaTimeZone,meal_type:z.enum(["breakfast","lunch","dinner","snack","other"]),note:z.string().trim().min(1).max(2_000).optional(),reason:z.string().trim().min(1).max(500)}).strict().refine(factDateMatches,{path:["occurred_at"],message:"occurred_at does not fall on occurred_on in time_zone"});
-export const voidMealInputSchema=z.object({meal_id:stableId,expected_revision:z.number().int().positive(),reason:z.string().trim().min(1).max(500)}).strict();
+export const voidMealInputSchema=z.object({
+  meal_id:stableId,
+  expected_revision:z.number().int().positive(),
+  reason:z.string().trim().min(1).max(500),
+  retained_meal_id:stableId.optional()
+}).strict().refine(input=>input.retained_meal_id!==input.meal_id,{path:["retained_meal_id"],message:"保留餐次须与作废餐次不同"});
 export const addIntakeInputSchema=z.object({meal_id:stableId,expected_meal_revision:z.number().int().positive(),item:intakeItemInputSchema,reason:z.string().trim().min(1).max(500)}).strict();
 export const removeIntakeInputSchema=z.object({item_id:stableId,expected_revision:z.number().int().positive(),reason:z.string().trim().min(1).max(500)}).strict();
 export const addMealPaymentInputSchema=z.object({meal_id:stableId,expected_meal_revision:z.number().int().positive(),payment:datedPaymentSchema}).strict();
