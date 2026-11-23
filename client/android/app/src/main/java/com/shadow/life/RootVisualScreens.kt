@@ -72,8 +72,12 @@ import java.util.Locale
   RootPage("生活",onProjects,onSettings,onFeatures){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp,8.dp,20.dp,28.dp),verticalArrangement=Arrangement.spacedBy(20.dp)){
     item("common-services"){HomeCommonServices(onWorkspace,onItems,onLibrary,onTraining,onFeatures)}
     item("recent-records-messages"){HomeRecentInfoCard(accountId,onDetail,onRecords,onCaptureOrders,onSettings,inboxState,onInbox,onRefreshInbox,onInboxTarget)}
-    if(deviceStatus.scaleState in setOf("starting","scanning","detected","reading"))item("active-scale"){
-      LifeCard{Text("体脂秤正在接收",style=MaterialTheme.typography.titleMedium);TextButton(onClick=onCancelScale){Text("取消接收")}}
+    if(deviceStatus.scaleActive)item("active-scale"){
+      LifeCard{
+        Text(deviceStatus.scalePendingWeight?.let{"本次体重 $it kg"}?:"小米体脂秤",style=MaterialTheme.typography.titleMedium)
+        Text(deviceStatus.scaleMessage,style=MaterialTheme.typography.bodySmall)
+        TextButton(onClick=onCancelScale){Text("取消接收")}
+      }
     }
     val training=TrainingDraftStore(context,accountId).read()
     if(training?.started==true)item("active-training"){
@@ -312,7 +316,7 @@ private fun List<TodayCardKind>.filterNotSame(item:TodayCardKind)=filterNot{it==
   val queueSummary=(queue as? LoadState.Ready)?.value
   val uploadState=queueSummary?.latestScaleState
   val currentUploadState=uploadState.takeIf{status.scaleState=="queued"}
-  val active=status.scaleState in setOf("starting","scanning","detected","reading","needs_config","key_mismatch")
+  val active=status.scaleActive
   val tone=todayScaleTone(status.scaleState,currentUploadState)
   val stateLabel=todayScaleStateLabel(status.scaleState,currentUploadState)
   val message=todayScaleMessage(status,currentUploadState)
@@ -320,7 +324,8 @@ private fun List<TodayCardKind>.filterNotSame(item:TodayCardKind)=filterNot{it==
     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
       Column(Modifier.weight(1f)){
         Text("小米体脂秤",style=MaterialTheme.typography.titleMedium)
-        Text(status.scaleLastWeight?.let{"$it kg"}?:"尚无称重",style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.SemiBold)
+        val weight=status.scalePendingWeight?.let{"$it kg"}?:status.scaleLastWeight?.let{if(active)"上次 $it kg" else "$it kg"}
+        Text(weight?:"尚无称重",style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.SemiBold)
       }
       if(active)OutlinedButton(onClick=onCancel){Text("取消接收")}
       else FilledTonalButton(onClick=onStart){Text(if(status.scaleLastWeight==null)"开始接收" else "再测一次")}
@@ -353,7 +358,7 @@ private fun List<TodayCardKind>.filterNotSame(item:TodayCardKind)=filterNot{it==
   uploadState=="failed"||state in setOf("error","timeout","needs_permission")->MaterialTheme.colorScheme.error
   state in setOf("needs_config","key_mismatch")->MaterialTheme.colorScheme.tertiary
   uploadState=="committed"||state in setOf("queued","committed","complete")->MaterialTheme.colorScheme.primary
-  state in setOf("starting","scanning","detected","reading")->MaterialTheme.colorScheme.secondary
+  state in setOf("starting","scanning","detected","collecting","reading")->MaterialTheme.colorScheme.secondary
   else->MaterialTheme.colorScheme.onSurfaceVariant
 }
 private fun todayScaleStateLabel(state:String,uploadState:String?)=when{
@@ -361,7 +366,7 @@ private fun todayScaleStateLabel(state:String,uploadState:String?)=when{
   state=="queued"&&uploadState=="failed"->"上传失败"
   state=="queued"&&uploadState=="reconciling"->"核对中"
   state=="queued"&&uploadState=="pending"->"发送中"
-  else->mapOf("idle" to "未开启","cancelled" to "已取消","starting" to "正在启动","scanning" to "等待上秤","detected" to "已发现设备","reading" to "正在保存","queued" to "已接收","committed" to "已同步","complete" to "已同步","timeout" to "未收到","needs_permission" to "需授权","needs_config" to "缺少设备密钥","key_mismatch" to "设备密钥不匹配","error" to "接收失败")[state]?:state
+  else->mapOf("idle" to "未开启","cancelled" to "已取消","starting" to "正在启动","scanning" to "等待上秤","detected" to "已发现设备","collecting" to "已收到体重","reading" to "正在保存","queued" to "已接收","committed" to "已同步","complete" to "已同步","timeout" to "未收到","needs_permission" to "需授权","needs_config" to "缺少设备密钥","key_mismatch" to "设备密钥不匹配","error" to "接收失败")[state]?:state
 }
 private fun todayScaleMessage(status:DeviceSyncStatus,uploadState:String?)=when{
   status.scaleState=="queued"&&uploadState=="committed"->"稳定读数已接收，并已同步到 Life"

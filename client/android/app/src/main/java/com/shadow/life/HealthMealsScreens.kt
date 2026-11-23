@@ -396,9 +396,25 @@ private fun sleepStages(day:HealthDailyOverview?)=listOf(
   }
 }
 
-@Composable private fun CompactDeviceStatus(status:DeviceSyncStatus,queueState:LoadState<QueueSummary>,samsungAvailable:Boolean,onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onSettings:()->Unit){val queue=(queueState as? LoadState.Ready)?.value;LifeSection("设备与同步",action={TextButton(onClick=onSettings){Text("管理")}}){HealthSurface{SyncRow("Samsung Health",if(!samsungAvailable)"当前包未包含 SDK" else status.samsungMessage,status.samsungState,onSamsungSync);HorizontalDivider(color=MaterialTheme.colorScheme.outline.copy(alpha=.32f));SyncRow("小米体脂秤",status.scaleLastWeight?.let{"最近 $it kg · ${status.scaleMessage}"}?:status.scaleMessage,status.scaleState,onScale);if(HealthConnectSync.enabled()){HorizontalDivider(color=MaterialTheme.colorScheme.outline.copy(alpha=.32f));SyncRow("Health Connect","读取系统已授权的聚合健康数据","idle",onHealthSync)};queue?.let{Text("离线队列：${it.waiting} 待发送 · ${it.reconciling} 核对中 · ${it.failed} 需处理",style=MaterialTheme.typography.bodySmall,color=if(it.failed>0)MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)}}}}
+@Composable private fun CompactDeviceStatus(status:DeviceSyncStatus,queueState:LoadState<QueueSummary>,samsungAvailable:Boolean,onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onSettings:()->Unit){
+  val queue=(queueState as? LoadState.Ready)?.value
+  val scaleWeight=status.scalePendingWeight?.let{"本次 $it kg"}?:status.scaleLastWeight?.let{"最近 $it kg"}
+  val scaleSummary=listOfNotNull(scaleWeight,status.scaleMessage).joinToString(" · ")
+  LifeSection("设备与同步",action={TextButton(onClick=onSettings){Text("管理")}}){
+    HealthSurface {
+      SyncRow("Samsung Health",if(!samsungAvailable)"当前包未包含 SDK" else status.samsungMessage,status.samsungState,onSamsungSync)
+      HorizontalDivider(color=MaterialTheme.colorScheme.outline.copy(alpha=.32f))
+      SyncRow("小米体脂秤",scaleSummary,status.scaleState,onScale,enabled=!status.scaleActive)
+      if(HealthConnectSync.enabled()){
+        HorizontalDivider(color=MaterialTheme.colorScheme.outline.copy(alpha=.32f))
+        SyncRow("Health Connect","读取系统已授权的聚合健康数据","idle",onHealthSync)
+      }
+      queue?.let{Text("离线队列：${it.waiting} 待发送 · ${it.reconciling} 核对中 · ${it.failed} 需处理",style=MaterialTheme.typography.bodySmall,color=if(it.failed>0)MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)}
+    }
+  }
+}
 
-@Composable private fun SyncRow(title:String,subtitle:String,state:String,onClick:()->Unit){Row(Modifier.fillMaxWidth().clickable(role=Role.Button,onClick=onClick).padding(vertical=7.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(10.dp).clip(CircleShape).background(if(state in setOf("complete","committed","queued","detected"))ActivityGreen else if(state in setOf("needs_config","key_mismatch"))MaterialTheme.colorScheme.tertiary else if(state in setOf("error","timeout","needs_permission"))MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline));Spacer(Modifier.width(11.dp));Column(Modifier.weight(1f)){Text(title,style=MaterialTheme.typography.titleMedium);Text(subtitle,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2,overflow=TextOverflow.Ellipsis)};Icon(Icons.Default.Refresh,"立即操作",tint=MaterialTheme.colorScheme.primary)}}
+@Composable private fun SyncRow(title:String,subtitle:String,state:String,onClick:()->Unit,enabled:Boolean=true){Row(Modifier.fillMaxWidth().clickable(enabled=enabled,role=Role.Button,onClick=onClick).padding(vertical=7.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(10.dp).clip(CircleShape).background(if(state in setOf("complete","committed","queued","detected","collecting"))ActivityGreen else if(state in setOf("needs_config","key_mismatch"))MaterialTheme.colorScheme.tertiary else if(state in setOf("error","timeout","needs_permission"))MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline));Spacer(Modifier.width(11.dp));Column(Modifier.weight(1f)){Text(title,style=MaterialTheme.typography.titleMedium);Text(subtitle,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2,overflow=TextOverflow.Ellipsis)};if(enabled)Icon(Icons.Default.Refresh,"立即操作",tint=MaterialTheme.colorScheme.primary)}}
 
 @OptIn(ExperimentalMaterial3Api::class,ExperimentalLayoutApi::class)
 @Composable fun MealsWorkspaceScreen(overviewState:LoadState<WorkspaceOverview>,recordsState:LoadState<RecordPage>,assetPreviews:Map<String,LoadState<ByteArray>>,onLoadAsset:(String)->Unit,onRetry:()->Unit,onLoadMore:()->Unit,onBack:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onMealCapture:(String,String)->Unit,onAddPhoto:(RecordSummary)->Unit,photoState:SubmitState,onStats:()->Unit,mealPlanningState:SubmitState,onSaveMealPlan:(NativeMealPlanDraft)->Unit,onBuildShopping:(MealPlanningResultDtoMealPlansEntry,String)->Unit,onUpdateShopping:(MealPlanningResultDtoShoppingListsEntryItemsEntry,String)->Unit,onSetFoodStock:(MealPlanningResultDtoStockLotsEntry?,String,String,String,String?)->Unit,onSaveRecipe:(String,String,String,String,String)->Unit,onResetMealPlanning:()->Unit,initialTab:String="records",accountId:String,onCopyMeal:(RecordSummary,String)->Unit,onDishCatalog:(String)->Unit,onDishStats:(String)->Unit,onReview:(String)->Unit,onPriceBook:()->Unit,focusStockId:String="",onStockPurchase:(String)->Unit={},onHealthDay:(String)->Unit,readRevision:Int=0){

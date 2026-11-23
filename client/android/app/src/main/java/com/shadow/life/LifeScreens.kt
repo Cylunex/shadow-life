@@ -103,7 +103,7 @@ import java.util.Locale
 
 @Composable fun DeviceSyncPanel(status:DeviceSyncStatus,queueState:LoadState<QueueSummary>,samsungAvailable:Boolean,onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onSettings:()->Unit){
   val queue=(queueState as? LoadState.Ready)?.value
-  val scaleActive=status.scaleState in setOf("starting","scanning","detected","reading","needs_config","key_mismatch")
+  val scaleActive=status.scaleActive
   LifeSection("健康设备",action={TextButton(onClick=onSettings){Text("设备设置")}}){
     LifeCard{
       Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
@@ -123,7 +123,8 @@ import java.util.Locale
       Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
         Column(Modifier.weight(1f)){
           Text("小米体脂秤",style=MaterialTheme.typography.titleLarge)
-          status.scaleLastWeight?.let{Text("$it kg",style=MaterialTheme.typography.displaySmall,fontWeight=FontWeight.SemiBold)}
+          val weight=status.scalePendingWeight?.let{"$it kg"}?:status.scaleLastWeight?.let{if(scaleActive)"上次 $it kg" else "$it kg"}
+          weight?.let{Text(it,style=MaterialTheme.typography.displaySmall,fontWeight=FontWeight.SemiBold)}
           Text(status.scaleMessage,color=deviceStatusColor(status.scaleState))
           val details=listOfNotNull(status.scaleLastModel,deviceTime(status.scaleMeasuredAt),queue?.latestScaleState?.let{"上传${queueStateLabel(it)}"})
           if(details.isNotEmpty())Text(details.joinToString(" · "),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)

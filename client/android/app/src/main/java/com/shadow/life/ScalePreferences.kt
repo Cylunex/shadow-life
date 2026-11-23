@@ -18,6 +18,7 @@ class ScalePreferences(context:Context) {
     EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
   )
   fun current()=ScaleProfileSettings(values.getString("sex","").orEmpty(),values.getString("birth_date","").orEmpty(),values.getString("height_cm","").orEmpty(),values.getString("s400_bindkey","").orEmpty())
+  fun s400Bindkey():String?=values.getString("s400_bindkey",null)
   fun save(value:ScaleProfileSettings){
     require(value.sex.isBlank()||value.sex in setOf("male","female")){"请选择性别"}
     if(value.birthDate.isNotBlank())require(runCatching{LocalDate.parse(value.birthDate)}.isSuccess){"生日格式应为 YYYY-MM-DD"}

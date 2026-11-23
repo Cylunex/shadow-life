@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.awaitClose
@@ -21,8 +22,11 @@ import kotlinx.coroutines.withContext
 data class DeviceSyncStatus(
   val samsungState:String="idle",val samsungMessage:String="尚未连接",val samsungUpdatedAt:Long=0,val samsungRecords:Int=0,
   val scaleState:String="idle",val scaleMessage:String="尚未开始称重",val scaleUpdatedAt:Long=0,
-  val scaleLastWeight:String?=null,val scaleLastModel:String?=null,val scaleMeasuredAt:Long=0
-)
+  val scaleLastWeight:String?=null,val scaleLastModel:String?=null,val scaleMeasuredAt:Long=0,
+  val scalePendingWeight:String?=null
+){
+  val scaleActive get()=scaleState in setOf("starting","scanning","detected","collecting","reading","needs_config","key_mismatch")
+}
 
 class DeviceSyncStatusStore(context:Context){
   private val writer=CoroutineScope(SupervisorJob()+Dispatchers.IO)
@@ -43,7 +47,8 @@ class DeviceSyncStatusStore(context:Context){
     scaleUpdatedAt=values.getLong(key(accountId,"scale_updated_at"),0),
     scaleLastWeight=values.getString(key(accountId,"scale_weight"),null),
     scaleLastModel=values.getString(key(accountId,"scale_model"),null),
-    scaleMeasuredAt=values.getLong(key(accountId,"scale_measured_at"),0)
+    scaleMeasuredAt=values.getLong(key(accountId,"scale_measured_at"),0),
+    scalePendingWeight=values.getString(key(accountId,"scale_pending_weight"),null)
   )
   fun observe(accountId:String):Flow<DeviceSyncStatus> = callbackFlow{
     val prefix="$accountId:"
@@ -51,7 +56,32 @@ class DeviceSyncStatusStore(context:Context){
     values.registerOnSharedPreferenceChangeListener(listener);trySend(Unit);awaitClose{values.unregisterOnSharedPreferenceChangeListener(listener)}
   }.conflate().map{withContext(Dispatchers.IO){current(accountId)}}.distinctUntilChanged()
   fun updateSamsung(accountId:String,state:String,message:String,records:Int?=null){writer.launch{writeMutex.withLock{values.edit().putString(key(accountId,"samsung_state"),state).putString(key(accountId,"samsung_message"),message).putLong(key(accountId,"samsung_updated_at"),System.currentTimeMillis()).apply{records?.let{putInt(key(accountId,"samsung_records"),it)}}.apply()}}}
-  fun updateScale(accountId:String,state:String,message:String){writer.launch{writeMutex.withLock{values.edit().putString(key(accountId,"scale_state"),state).putString(key(accountId,"scale_message"),message).putLong(key(accountId,"scale_updated_at"),System.currentTimeMillis()).apply()}}}
-  fun recordScale(accountId:String,weight:String,model:String,measuredAt:Long,updateState:Boolean=true){writer.launch{writeMutex.withLock{values.edit().apply{if(updateState){putString(key(accountId,"scale_state"),"queued");putString(key(accountId,"scale_message"),"已收到稳定读数，等待上传");putLong(key(accountId,"scale_updated_at"),System.currentTimeMillis())}}.putString(key(accountId,"scale_weight"),weight).putString(key(accountId,"scale_model"),model).putLong(key(accountId,"scale_measured_at"),measuredAt).apply()}}}
+  fun updateScale(accountId:String,state:String,message:String,pendingWeight:String?=null){
+    writeScale {
+      putString(key(accountId,"scale_state"),state)
+      putString(key(accountId,"scale_message"),message)
+      putLong(key(accountId,"scale_updated_at"),System.currentTimeMillis())
+      putString(key(accountId,"scale_pending_weight"),pendingWeight)
+    }
+  }
+  fun recordScale(accountId:String,weight:String,model:String,measuredAt:Long,updateState:Boolean=true){
+    writeScale {
+      if(updateState){
+        putString(key(accountId,"scale_state"),"queued")
+        putString(key(accountId,"scale_message"),"已收到稳定读数，等待上传")
+        putLong(key(accountId,"scale_updated_at"),System.currentTimeMillis())
+        remove(key(accountId,"scale_pending_weight"))
+      }
+      putString(key(accountId,"scale_weight"),weight)
+      putString(key(accountId,"scale_model"),model)
+      putLong(key(accountId,"scale_measured_at"),measuredAt)
+    }
+  }
+  private fun writeScale(edit:SharedPreferences.Editor.()->Unit){
+    // Acquire the lock in call order so scanning, preview and save cannot overwrite newer states.
+    writer.launch(start=CoroutineStart.UNDISPATCHED){
+      writeMutex.withLock{withContext(Dispatchers.IO){values.edit().apply(edit).apply()}}
+    }
+  }
   private fun key(accountId:String,name:String)="$accountId:$name"
 }
