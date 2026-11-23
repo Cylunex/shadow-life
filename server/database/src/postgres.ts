@@ -344,11 +344,29 @@ function storeFor(database: Database | Transaction): TransactionStore {
         }
         case "life.void_meal": {
           const input=voidMealInputSchema.parse(command.input);
-          const linkedPayment=await database.execute<{id:string}>(sql`select entry.id from meal_money_links link join money_entries entry on entry.id=link.money_entry_id join consumption_records record on record.id=entry.record_id where link.meal_id=${input.meal_id} and entry.subject_id=${subjectId} and record.state='confirmed' limit 1`);
-          if(linkedPayment.rowCount)throw conflict("meal has a confirmed linked payment; void the payment before voiding the meal");
-          const saved=await database.execute<{revision:number}>(sql`with current as (select * from meals where id=${input.meal_id} and subject_id=${subjectId} and state='active' and revision=${input.expected_revision} for update), history as (insert into meal_revisions(meal_id,revision,snapshot,reason) select id,revision,to_jsonb(current),${input.reason} from current) update meals set state='voided',revision=meals.revision+1 from current where meals.id=current.id returning meals.revision`);
-          if(!saved.rowCount)throw conflict("meal revision changed, is already voided, or does not exist");
-          return{resources:[{type:"meal",id:input.meal_id,revision:saved.rows[0]!.revision}],actualValues:{meal_id:input.meal_id,state:"voided",revision:saved.rows[0]!.revision}};
+          // Serialize with payment creation and links to an existing expense. Check links
+          // in a fresh statement after acquiring the lock so committed links are visible.
+          const meal = await database.execute(sql`select id from meals where id=${input.meal_id}
+            and subject_id=${subjectId} and state='active' and revision=${input.expected_revision} for update`);
+          if (!meal.rowCount) throw conflict("meal revision changed, is already voided, or does not exist");
+          const linkedPayment = await database.execute(sql`
+            select 1 from consumption_records record
+            where record.subject_id=${subjectId} and record.state='confirmed' and record.id in (
+              select entry.record_id from meal_money_links link join money_entries entry on entry.id=link.money_entry_id
+              where link.meal_id=${input.meal_id} and entry.subject_id=${subjectId}
+              union all
+              select link.consumption_record_id from meal_consumption_links link
+              join money_entries entry on entry.record_id=link.consumption_record_id and entry.subject_id=link.subject_id
+              where link.meal_id=${input.meal_id} and link.subject_id=${subjectId}
+            ) limit 1`);
+          if (linkedPayment.rowCount) throw conflict("meal has a confirmed linked payment; void the payment before voiding the meal");
+          await database.execute(sql`insert into meal_revisions(meal_id,revision,snapshot,reason)
+            select id,revision,to_jsonb(meal),${input.reason} from meals meal where id=${input.meal_id} and subject_id=${subjectId}`);
+          const saved = await database.execute<{revision:number}>(sql`update meals set state='voided',revision=revision+1
+            where id=${input.meal_id} and subject_id=${subjectId} returning revision`);
+          const revision = saved.rows[0]!.revision;
+          return { resources: [{ type: "meal", id: input.meal_id, revision }],
+            actualValues: { meal_id: input.meal_id, state: "voided", revision } };
         }
         case "life.add_intake": {
           const input=addIntakeInputSchema.parse(command.input);const locked=await database.execute<{revision:number;position:number}>(sql`update meals set revision=revision+1 where id=${input.meal_id} and subject_id=${subjectId} and state='active' and revision=${input.expected_meal_revision} returning revision,(select coalesce(max(position),-1)+1 from intake_items where meal_id=${input.meal_id}) position`);if(!locked.rowCount)throw conflict("meal revision changed or meal does not exist");const item=input.item,id=nextId("intake");await database.insert(schema.intakeItems).values({id,subjectId,mealId:input.meal_id,position:locked.rows[0]!.position,name:item.name,foodRefId:item.food_ref_id,freeText:item.free_text,quantity:item.quantity,unit:item.unit,amountG:item.amount_g,energyKcal:item.energy_kcal,proteinG:item.protein_g,fatG:item.fat_g,carbG:item.carb_g,fiberG:item.fiber_g,sodiumMg:item.sodium_mg,calciumMg:item.calcium_mg,ironMg:item.iron_mg,consumedFraction:item.consumed_fraction,provenance:item.provenance,groupingOrigin:item.grouping_origin,estimate:item.estimate,weightBasis:item.weight_basis,evidenceNote:item.evidence_note});return{resources:[{type:"meal",id:input.meal_id,revision:locked.rows[0]!.revision},{type:"intake_item",id,revision:1}],actualValues:{meal_id:input.meal_id,intake_item_id:id,revision:locked.rows[0]!.revision},warnings:mealEstimateWarnings([item])};

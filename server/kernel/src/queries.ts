@@ -81,6 +81,7 @@ function lifeRecordWire(raw:unknown):unknown{
   const intakes=(item:unknown)=>rows(item).map(row=>pick(row,intakeKeys));
   if("meal_id" in value){
     const result:Record<string,unknown>={kind:"meal",...times(pick(value,["meal_id","occurred_on","occurred_at","time_zone","meal_type","note","revision","state"]),["occurred_at"])};
+    if(result.state==="deleted")result.state="voided";
     if("items" in value)result.items=intakes(value.items);
     if("payments" in value)result.payments=rows(value.payments).map(money);
     if("sources" in value)result.sources=sources(value.sources);

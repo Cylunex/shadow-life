@@ -9,6 +9,9 @@ import { moneyNumeric, rowsBy, trimNumeric } from "./postgres-values.js";
 type Database = Pick<NodePgDatabase<typeof schema>, "execute" | "select">;
 
 export async function linkMealConsumption(database: Pick<Database, "execute">, subjectId: string, input: ReturnType<typeof linkMealConsumptionInputSchema.parse>): ReturnType<TransactionStore["executeDomainWrite"]> {
+  const meal = await database.execute(sql`select id from meals where id=${input.meal_id}
+    and subject_id=${subjectId} and state='active' for update`);
+  if (!meal.rowCount) throw conflict("active meal and confirmed consumption record must exist under the same subject");
   const revision = input.expected_record_revision;
   const record = await database.execute(sql`
     select record.id from consumption_records record

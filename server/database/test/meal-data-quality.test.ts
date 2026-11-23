@@ -15,6 +15,8 @@ test("deleted meals cannot affect daily nutrition, meal coverage or freshness",p
   await pool.query("update meals set state='deleted',created_at='2026-10-25T12:00:00Z' where id=any($1::text[])",[[deletedWithItems.actual_values.meal_id,deletedEmpty.actual_values.meal_id]]);
   await pool.query("update meals set created_at='2026-10-25T01:00:00Z' where id=$1",[active.actual_values.meal_id]);
   const operationsBefore=(await pool.query("select count(*)::int n from operations")).rows[0].n;
+  const legacy = await queries.lifeRecord(context, String(deletedWithItems.actual_values.meal_id));
+  assert.ok(legacy.kind === "meal" && legacy.state === "voided");
   const today=await queries.lifeToday(context,{date,time_zone:timeZone,domains:["meals"]});
   const review=await queries.wellnessReview(context,{to:date,days:7});
   assert.equal(today.domains.meals!.count,1);
@@ -165,4 +167,34 @@ test("life.void_meal soft-voids duplicate meals, preserves revisions, blocks edi
     payment: { amount: "20.00", currency: "CNY", occurred_on: date, time_zone: timeZone }
   });
   await assert.rejects(() => run("life.void_meal", { meal_id: String(paid.actual_values.meal_id), expected_revision: 1, reason: "有实付不应直接作废" }), /confirmed linked payment/);
+  const expense = await run("money.record_entry", {
+    occurred_on: date, time_zone: timeZone, entry_type: "expense", currency: "CNY", amount: "12.00"
+  });
+  const linked = await run("life.record_meal", {
+    occurred_on: date, time_zone: timeZone, meal_type: "lunch", items: [completeItem],
+    existing_consumption: { record_id: expense.actual_values.record_id, expected_record_revision: 1 }
+  });
+  await assert.rejects(() => run("life.void_meal", {
+    meal_id: linked.actual_values.meal_id, expected_revision: 1, reason: "复用付款的餐次"
+  }), /confirmed linked payment/);
+});
+
+test("racing a confirmed expense link with a meal void commits exactly one", pgOnly, async t => {
+  const { run, queries, context } = await reviewFixture(t);
+  const expense = await run("money.record_entry", {
+    occurred_on: date, time_zone: timeZone, entry_type: "expense", currency: "CNY", amount: "8.00"
+  });
+  const meal = await run("life.record_meal", { occurred_on: date, time_zone: timeZone, meal_type: "lunch", items: [completeItem] });
+  const mealId = String(meal.actual_values.meal_id), recordId = String(expense.actual_values.record_id);
+  const results = await Promise.allSettled([
+    run("life.void_meal", { meal_id: mealId, expected_revision: 1, reason: "重复记录" }),
+    run("life.link_meal_consumption", { meal_id: mealId, consumption_record_id: recordId, evidence: "user_confirmed" })
+  ]);
+  assert.equal(results.filter(r => r.status === "fulfilled").length, 1);
+  const detail = await queries.lifeRecord(context, mealId);
+  const record = await queries.lifeRecord(context, recordId);
+  assert.ok(detail.kind === "meal" && record.kind === "record");
+  assert.equal(detail.state, results[0]!.status === "fulfilled" ? "voided" : "active");
+  assert.equal(record.meals?.some(m => m.id === mealId), results[1]!.status === "fulfilled");
+  if (results[1]!.status === "rejected") assert.match(String(results[1]!.reason), /active meal/);
 });
