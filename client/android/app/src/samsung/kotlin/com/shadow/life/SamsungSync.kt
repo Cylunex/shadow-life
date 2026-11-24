@@ -156,13 +156,32 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
       val versionKey="aggregate_version_$accountId"
       val readVersion=maxOf(now,prefs.getLong(versionKey,last)+1)
       check(prefs.edit().putLong(versionKey,readVersion).commit()){"无法保存同步版本"}
-      val read=readCommands(store,session,start,end,readVersion,granted,healthConnectPermissions){command->app.queue.enqueueCommand(session,command.commandId,command.capability,command.body)}
+      val hashes=applicationContext.getSharedPreferences("samsung-health-content",Context.MODE_PRIVATE)
+      val prefix=sha256("$accountId|${session.subjectId}").take(24)+":"
+      val previous=hashes.all.filterKeys{it.startsWith(prefix)}
+      val changes=hashes.edit()
+      val cutoff=now-45*86_400_000L
+      for((key,value) in previous)if((value as? String)?.substringBefore(':')?.toLongOrNull()?.let{it<cutoff}!=false)changes.remove(key)
+      val read=readCommands(store,session,start,end,readVersion,granted,healthConnectPermissions){command,content->
+        val key=content?.let{prefix+it.first}
+        val prior=key?.let{previous[it] as? String}
+        val digest=content?.second
+        if(key!=null&&prior!=null&&digest!=null&&prior.substringAfter(':')==digest) {
+          if(prior.substringBefore(':').toLongOrNull()?.let{now-it>86_400_000L}==true)changes.putString(key,"$now:$digest")
+          -1L
+        }else {
+          val queued=app.queue.enqueueCommand(session,command.commandId,command.capability,command.body)
+          if(key!=null)changes.putString(key,"$now:$digest")
+          queued
+        }
+      }
+      changes.apply()
       if(read.commandCount>0)SyncScheduler.schedule(applicationContext,accountId)
       val missing=SamsungSync.PERMISSIONS.size-granted.size
       if(read.failedTypes.isEmpty())prefs.edit().putLong("last_sync_$accountId",now).putString("permission_fingerprint_$accountId",permissionFingerprint).apply()
-      val state=if(missing>0||read.failedTypes.isNotEmpty())"needs_permission" else if(read.commandCount==0)"complete" else "queued"
+      val state=if(read.failedTypes.isNotEmpty())"error" else if(missing>0)"needs_permission" else if(read.commandCount==0)"complete" else "queued"
       val message=when{
-        read.failedTypes.isNotEmpty()->"已读取 ${read.commandCount} 条；${read.failedTypes.size} 类暂时失败，将自动重试"
+        read.failedTypes.isNotEmpty()->"已读取 ${read.commandCount} 条；${read.failedTypes.joinToString("、")} 读取不完整，将自动重试"
         missing>0->"已读取 ${read.commandCount} 条；仍有 $missing 类权限未授予"
         read.commandCount==0->"读取完成，暂无新数据"
         else->"已完整读取 ${read.commandCount} 条，正在上传"
@@ -179,7 +198,7 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
     }
   }
 
-  private suspend fun readCommands(store:HealthDataStore,session:ProductSession,start:LocalDate,end:LocalDate,version:Long,samsungPermissions:Set<Permission>,healthConnectPermissions:Set<String>,enqueue:suspend(HealthQueuedCommand)->Long):SamsungReadResult{
+  private suspend fun readCommands(store:HealthDataStore,session:ProductSession,start:LocalDate,end:LocalDate,version:Long,samsungPermissions:Set<Permission>,healthConnectPermissions:Set<String>,enqueue:suspend(HealthQueuedCommand,Pair<String,String>?)->Long):SamsungReadResult{
     var commandCount=0
     val failed=linkedSetOf<String>()
     val zone=ZoneId.systemDefault()
@@ -189,7 +208,8 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
     val dateFilter=LocalDateFilter.of(start,end,true,true)
     suspend fun add(type:String,id:String,payload:JSONObject,recordVersion:Long=version){
       val command=healthDeviceRecordCommand(session.accountId,session.subjectId,"samsung",instance,fingerprint,type,id,recordVersion,payload,SAMSUNG_PARSE_VERSION)
-      if(enqueue(command)>=0)commandCount++
+      val content=if(recordVersion==version) Pair(sha256("$instance|$type|$id"),sha256("$fingerprint|$SAMSUNG_PARSE_VERSION|$payload")) else null
+      if(enqueue(command,content)>=0)commandCount++
     }
     fun pointVersion(point:HealthDataPoint)=(point.updateTime?:point.endTime?:point.startTime)?.toEpochMilli()?:version
     fun permitted(type:DataType)=Permission.of(type,AccessType.READ) in samsungPermissions
@@ -308,7 +328,10 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
     val seen=mutableSetOf<String>();var token:String?=null
     do{
       val builder=type.readDataRequestBuilder.setLocalTimeFilter(filter).setPageSize(500);token?.let{builder.setPageToken(it)}
-      val response=store.readData(builder.build());for(point in response.dataList)onPoint(point);val next=response.pageToken?.takeIf{it.isNotBlank()&&seen.add(it)};token=next
+      val response=store.readData(builder.build())
+      token=response.pageToken?.takeIf{it.isNotBlank()}
+      check(token==null||seen.add(token)){"Samsung Health returned a repeated page token"}
+      for(point in response.dataList)onPoint(point)
     }while(token!=null)
   }
 
@@ -316,7 +339,10 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
     val seen=mutableSetOf<String>();var token:String?=null
     do{
       val builder=type.readDataRequestBuilder.setLocalDateFilter(filter).setPageSize(500);token?.let{builder.setPageToken(it)}
-      val response=store.readData(builder.build());for(point in response.dataList)onPoint(point);val next=response.pageToken?.takeIf{it.isNotBlank()&&seen.add(it)};token=next
+      val response=store.readData(builder.build())
+      token=response.pageToken?.takeIf{it.isNotBlank()}
+      check(token==null||seen.add(token)){"Samsung Health returned a repeated page token"}
+      for(point in response.dataList)onPoint(point)
     }while(token!=null)
   }
 

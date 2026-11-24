@@ -96,6 +96,7 @@ export interface TransactionStore {
   serviceCards(subjectId:string,input:import("@shadow/contracts").ServiceCardsInput):Promise<unknown>;
   moneyImportHistory(subjectId:string,input:Omit<import("@shadow/contracts").MoneyImportHistoryInput,"cursor"> & {asOf?:string;before?:{at:string;id:string}}):Promise<{items:import("@shadow/contracts").MoneyImportHistoryItem[];hasMore:boolean;asOf:string}>;
   moneyImportFile(subjectId:string,fileId:string):Promise<unknown|undefined>;
+  moneyImportRules(subjectId:string,matchValue:string):Promise<unknown>;
   moneyImportReview(subjectId:string,batchId:string):Promise<unknown|undefined>;
   moneyImportMonth(subjectId:string,period:string):Promise<unknown>;
   mealDietEvidence(subjectId:string,mealId:string):Promise<MealDietEvidence|undefined>;

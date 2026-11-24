@@ -28,7 +28,7 @@ test("health form writes a typed metric with its label, unit and note",()=>{
 test("money formatting rejects silent rounding",()=>{const fields={...initialRecordFields("2026-09-08","Asia/Shanghai"),amount:"18.009"};assert.throws(()=>buildFormCommand("record",fields),/两位小数/u);});
 
 test("health goal form produces a typed active goal",()=>{
-  const fields={...initialRecordFields("2026-12-31","Asia/Shanghai"),planKind:"goal" as const,title:"体重目标",amount:"65",healthMetric:"weight" as const,unit:"kg"};const built=buildFormCommand("plan",fields);
+  const fields={...initialRecordFields("2026-12-31","Asia/Shanghai"),planKind:"goal" as const,goalDueOn:"2026-12-31",title:"体重目标",amount:"65",healthMetric:"weight" as const,unit:"kg"};const built=buildFormCommand("plan",fields);
   assert.equal(built.capability,"health.set_plan");assert.deepEqual(capabilityRegistry[built.capability].inputSchema.parse(built.input),{kind:"goal",name:"体重目标",state:"active",metric_key:"weight",target_value:"65",unit:"kg",due_on:"2026-12-31"});
 });
 

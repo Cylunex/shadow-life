@@ -73,6 +73,14 @@ private fun number(value:Double?):String = value?.let { NumberFormat.getNumberIn
                     }
                     Text("${review.recordedCompleteDays} / $days 天基本记全 · ${review.completeEnergyDays} 天热量可比")
                     Text("${review.unclassifiedDays} 天有未分类条目或空餐",style=MaterialTheme.typography.bodySmall)
+                    review.healthTargets.orEmpty().forEach{target->
+                        val label=when(target.metricKey.wireValue){
+                            "weight_change_per_week"->"每周体重变化目标"
+                            "weight"->"目标体重"
+                            else->"每日热量目标"
+                        }
+                        Text("$label ${target.targetValue} ${target.unit}"+(target.dueOn?.let{" · 截至 $it"}?:""))
+                    }
                     if(showMeals){
                         review.foodGroups.forEach{item->Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){
                             Text(foodLabels[item.group.wireValue].orEmpty())
@@ -80,7 +88,8 @@ private fun number(value:Double?):String = value?.let { NumberFormat.getNumberIn
                         }}
                         review.lunches.lastOrNull()?.let{lunch->
                             TextButton(onClick={onDetail(LifeDomain.Meals,lunch.id,"午餐复盘")}){
-                                Text("最近午餐 · ${lunch.date.takeLast(5)} · 查看份量和依据")
+                                val unknown=lunch.unknownEnergyItems?.takeIf{it>0}?.let{" · $it 项未估热量"}.orEmpty()
+                                Text("最近午餐 · ${lunch.date.takeLast(5)}$unknown · 查看份量和依据")
                             }
                         }
                         val diary=review.diary.find{it.date==date}

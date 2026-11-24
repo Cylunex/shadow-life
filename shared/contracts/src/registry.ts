@@ -1,3 +1,4 @@
+import { moneyImportRulesInputSchema, moneyImportRulesResultSchema } from "./schemas.js";
 import { captureCompletionWrites,captureCompletionQueries } from "./capture-completion-schemas.js";
 import { activitySourceResultSchema } from "./activity-schemas.js";
 import { importMoneyFileInputSchema, moneyImportFileInputSchema, moneyImportFileResultSchema } from "./schemas.js";
@@ -200,6 +201,7 @@ type DomainCapabilityName=keyof typeof captureCompletionWrites|keyof typeof capt
   "money.import_history"|
   "money.import_month"|
   "money.import_review"|
+  "money.import_rules"|
   "money.planning"|
   "money.record_consumable_use"|
   "money.record_entry"|
@@ -483,6 +485,7 @@ const domainCapabilityRegistry:Record<DomainCapabilityName,DomainCapability> = {
   "money.planning":{name:"money.planning",description:"读取一个月的预算、周期事项、消费意向，以及基于当前有效摄入事实重算的可消耗物余量与补货状态。",inputSchema:moneyPlanningInputSchema,commandSchema:moneyPlanningInputSchema,resultSchema:moneyPlanningResultSchema,possibleEffects:["money.entry.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["money.entry.read"] as const},
   "money.import_history":{name:"money.import_history",description:"按平台、账号标签和处理状态分页读取账单导入历史、候选数量与日期覆盖。",inputSchema:moneyImportHistoryInputSchema,commandSchema:moneyImportHistoryInputSchema,resultSchema:moneyImportHistoryResultSchema,possibleEffects:["money.entry.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["money.entry.read"] as const},
   "money.import_file_status":{name:"money.import_file_status",description:"检查账单原件的处理结果、当前入账/跳过/待核对数量及批次，不返回解压密码。",inputSchema:moneyImportFileInputSchema,commandSchema:moneyImportFileInputSchema,resultSchema:moneyImportFileResultSchema,possibleEffects:["money.entry.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["money.entry.read"] as const},
+  "money.import_rules":{name:"money.import_rules",description:"按商户原始名称核对消费分类规则及版本。",inputSchema:moneyImportRulesInputSchema,commandSchema:moneyImportRulesInputSchema,resultSchema:moneyImportRulesResultSchema,possibleEffects:["money.entry.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["money.entry.read"] as const},
   "money.import_review":{name:"money.import_review",description:"读取一个账单导入批次及其原始行、问题、重复提示和复核状态。",inputSchema:moneyImportReviewInputSchema,commandSchema:moneyImportReviewInputSchema,resultSchema:moneyImportReviewResultSchema,possibleEffects:["money.entry.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["money.entry.read"] as const},
   "money.import_month":{name:"money.import_month",description:"按账单候选发生月读取批次和未确认、重复、未分类、退款待关联数量。",inputSchema:moneyImportMonthInputSchema,commandSchema:moneyImportMonthInputSchema,resultSchema:moneyImportMonthResultSchema,possibleEffects:["money.entry.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["money.entry.read"] as const},
   "life.meal_diet_review":{name:"life.meal_diet_review",description:"按餐次查看实吃食物组、份量、热量和各字段覆盖，区分估算与实称。",inputSchema:mealDietReviewInputSchema,commandSchema:mealDietReviewInputSchema,resultSchema:mealDietReviewResultSchema,possibleEffects:["life.meal.read"] as const,idempotency:"not-applicable" as const,statusQuery:"operations.get",resolveEffects:()=>["life.meal.read"] as const},

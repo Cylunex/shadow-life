@@ -1,3 +1,4 @@
+import { moneyImportRulesInputSchema, moneyImportRulesResultSchema } from "@shadow/contracts";
 import { captureCompletionQueries } from "@shadow/contracts";
 import { activitySourceResultSchema } from "@shadow/contracts";
 import { moneyImportFileResultSchema } from "@shadow/contracts";
@@ -405,6 +406,11 @@ export class QueryService {
     return moneyImportHistoryResultSchema.parse({items:page.items,next_cursor:next,as_of:page.asOf});
   }
   async moneyImportFile(context:RequestContext,fileId:string){if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");const read=this.unitOfWork.snapshot?.bind(this.unitOfWork)??this.unitOfWork.read.bind(this.unitOfWork);const value=await read(store=>store.moneyImportFile(context.subjectId,fileId));if(value===undefined)throw notFound("statement file was not found");return moneyImportFileResultSchema.parse(value);}
+  async moneyImportRules(context:RequestContext,input:unknown){
+    if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");
+    const {match_value}=moneyImportRulesInputSchema.parse(input);
+    return moneyImportRulesResultSchema.parse(await this.unitOfWork.read(store=>store.moneyImportRules(context.subjectId,match_value)));
+  }
   async moneyImportReview(context:RequestContext,batchId:string){if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");const read=this.unitOfWork.snapshot?.bind(this.unitOfWork)??this.unitOfWork.read.bind(this.unitOfWork);const value=await read(store=>store.moneyImportReview(context.subjectId,batchId));if(value===undefined)throw notFound("money import batch was not found");return moneyImportReviewResultSchema.parse(value);}
   async moneyImportMonth(context:RequestContext,input:unknown){if(!context.effects.has("money.entry.read"))throw permissionDenied("money.entry.read");const {period}=moneyImportMonthInputSchema.parse(input);return moneyImportMonthResultSchema.parse(await this.unitOfWork.read(store=>store.moneyImportMonth(context.subjectId,period)));}
   async captureCompletion(context:RequestContext,name:string,input:unknown){

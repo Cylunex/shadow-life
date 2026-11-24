@@ -30,7 +30,7 @@ const bodyComparison=z.object({band:z.enum(["morning","evening"]),metric,method:
   current:comparison,previous:comparison}).strict();
 const weightWeek = z.object({from:localDate,to:localDate,days:count,mean_kg:z.number().nullable(),min_kg:z.number().nullable(),max_kg:z.number().nullable()}).strict();
 const lunch = ref.extend({date:localDate, items: count, classified_items:count, groups:z.array(z.enum(dietFoodGroups)),
-  staples:z.array(z.string()), known_staple_grams:z.number().nonnegative().nullable(), weighed_staples:count, estimated_staples:count, estimated_items:count, energy_kcal:z.number().nonnegative().nullable()});
+  staples:z.array(z.string()), known_staple_grams:z.number().nonnegative().nullable(), weighed_staples:count, estimated_staples:count, estimated_items:count, unknown_energy_items:count.optional(), energy_kcal:z.number().nonnegative().nullable()});
 const goal = ref.extend({direction:z.enum(["maintain","gain","lose"])});
 export const dietReviewResultSchema = z.object({
   wellness:wellnessReviewResultSchema,
@@ -47,6 +47,8 @@ export const dietReviewResultSchema = z.object({
   menu:z.object({merchant:z.string(),dishes:z.array(z.string())}).nullable(),
   next_meal:z.object({text:z.string(),meal:ref.nullable()}).strict().nullable(),
   weight_followup:z.object({text:z.string(),meals:z.array(ref)}).strict().nullable().optional(),
+  health_targets:z.array(ref.extend({metric_key:z.enum(["weight","weight_change_per_week","energy_kcal"]),
+    name:z.string(),target_value:z.number(),unit:z.string(),due_on:localDate.nullable()})).optional(),
   energy:z.object({status:z.enum(["above","below","within","unknown"]),lower:z.number().nullable(),upper:z.number().nullable(),reliable_kcal:z.number().nullable(),target:ref.nullable()}).strict(),
   weight:z.object({
     source_count:count,

@@ -13,6 +13,7 @@ export type DietEvidence = {
   meals:(Ref & {date:string; type:string; merchant:string|null; items:{
     name:string; estimated:boolean; energy_kcal:number|null; calcium_mg?:number|null;iron_mg?:number|null; grams:number|null; groups?:FoodGroup[]|null; staple?:boolean|null;
   }[]})[];
+  healthTargets?:DietReviewResult["health_targets"];
   intentions:(Ref & {key:string; statement:string; recheck:boolean})[];
   measurements:(Ref & {
     date:string; occurred_at:string; source:string; session:string; metric:string;
@@ -187,7 +188,7 @@ export function buildDietReview(evidence:DietEvidence,input:DietReviewInput,heal
       lunches.push({id:meal.id,revision:meal.revision,date:meal.date,items:meal.items.length,classified_items:classified,
         groups:[...groups],staples:staples.map(item=>item.name),known_staple_grams:sumKnown(staples.map(item=>item.grams)),
         weighed_staples:staples.filter(item=>item.grams!==null).length,estimated_staples:staples.filter(item=>item.grams!==null&&item.estimated).length,
-        estimated_items:meal.items.filter(item=>item.estimated).length,energy_kcal:sumKnown(meal.items.map(item=>item.energy_kcal))});
+        estimated_items:meal.items.filter(item=>item.estimated).length,unknown_energy_items:meal.items.filter(item=>item.energy_kcal===null).length,energy_kcal:sumKnown(meal.items.map(item=>item.energy_kcal))});
     }
   }
   const diary=evidence.days.filter(day=>day.date>=from).map(day=>{
@@ -202,7 +203,11 @@ export function buildDietReview(evidence:DietEvidence,input:DietReviewInput,heal
   });
   const energyTarget=evidence.intentions.find(row=>row.key==="wellness.energy");
   const bounds=/^每日热量 (\d{1,5})–(\d{1,5}) kcal$/u.exec(energyTarget?.statement??"");
-  const target=bounds&&Number(bounds[1])>0&&Number(bounds[1])<=Number(bounds[2])?{lower:Number(bounds[1]),upper:Number(bounds[2])}:null;
+  const healthTargets=healthAllowed?evidence.healthTargets??[]:[];
+  const dailyTarget=healthTargets.find(row=>row.metric_key==="energy_kcal");
+  const legacyTarget=bounds&&Number(bounds[1])>0&&Number(bounds[1])<=Number(bounds[2])
+    ?{lower:Number(bounds[1]),upper:Number(bounds[2])}:null;
+  const target=dailyTarget?{lower:dailyTarget.target_value,upper:dailyTarget.target_value}:legacyTarget;
   const reliable=sumKnown(currentMeals.filter(meal=>meal.date===input.to).flatMap(meal=>meal.items.filter(item=>!item.estimated).map(item=>item.energy_kcal)));
   const todayComplete=completeEnergy.some(row=>row.date===input.to);
   const status=target&&reliable!==null?(reliable>target.upper?"above":todayComplete?reliable<target.lower?"below":"within":"unknown"):"unknown";
@@ -238,7 +243,8 @@ export function buildDietReview(evidence:DietEvidence,input:DietReviewInput,heal
     complete_energy_days:completeEnergy.length,food_groups:dietFoodGroups.map(group=>({group,days:grouped.get(group)!.size,lunches:lunches.filter(lunch=>lunch.groups.includes(group)).length})),
     group_days:groupDays.size,unclassified_days:unclassifiedDays.size,lunch_count:lunches.length,lunches,
     menu:evidence.menu?{merchant:evidence.menu.merchant,dishes:evidence.menu.dishes.map(dish=>dish.name)}:null,next_meal,
-    energy:{status,lower:target?.lower??null,upper:target?.upper??null,reliable_kcal:reliable,target:energyTarget&&target?{id:energyTarget.id,revision:energyTarget.revision}:null},
+    ...(healthTargets.length&&{health_targets:healthTargets}),
+    energy:{status,lower:target?.lower??null,upper:target?.upper??null,reliable_kcal:reliable,target:energyTarget&&legacyTarget&&!dailyTarget?{id:energyTarget.id,revision:energyTarget.revision}:null},
     weight,weight_followup,background:healthAllowed?{step_days:steps.length,median_steps:median(steps),active_days:active.length,median_active_minutes:median(active),
       latest:{state:stepState,steps:latestActivity?.steps??null,active_minutes:latestActivity?.active_minutes??null},sleep_days:wellness.current.sleep_days,mean_sleep_minutes:wellness.current.average_sleep_minutes}:null});
 }

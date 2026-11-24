@@ -2036,6 +2036,7 @@ data class DietReviewResultDtoLunchesEntry(
   @SerialName("weighed_staples") val weighedStaples: Long,
   @SerialName("estimated_staples") val estimatedStaples: Long,
   @SerialName("estimated_items") val estimatedItems: Long,
+  @SerialName("unknown_energy_items") val unknownEnergyItems: Long? = null,
   @SerialName("energy_kcal") val energyKcal: Double?
 )
 
@@ -2067,6 +2068,24 @@ data class DietReviewResultDtoWeightFollowupMealsEntry(
 data class DietReviewResultDtoWeightFollowup(
   @SerialName("text") val text: String,
   @SerialName("meals") val meals: List<DietReviewResultDtoWeightFollowupMealsEntry>
+)
+
+@Serializable
+enum class DietReviewResultDtoHealthTargetsEntryMetricKey(val wireValue: String) {
+  @SerialName("weight") Weight("weight"),
+  @SerialName("weight_change_per_week") WeightChangePerWeek("weight_change_per_week"),
+  @SerialName("energy_kcal") EnergyKcal("energy_kcal")
+}
+
+@Serializable
+data class DietReviewResultDtoHealthTargetsEntry(
+  @SerialName("id") val id: String,
+  @SerialName("revision") val revision: Long,
+  @SerialName("metric_key") val metricKey: DietReviewResultDtoHealthTargetsEntryMetricKey,
+  @SerialName("name") val name: String,
+  @SerialName("target_value") val targetValue: Double,
+  @SerialName("unit") val unit: String,
+  @SerialName("due_on") val dueOn: String?
 )
 
 @Serializable
@@ -2334,6 +2353,7 @@ data class DietReviewResultDto(
   @SerialName("menu") val menu: DietReviewResultDtoMenu?,
   @SerialName("next_meal") val nextMeal: DietReviewResultDtoNextMeal?,
   @SerialName("weight_followup") val weightFollowup: DietReviewResultDtoWeightFollowup? = null,
+  @SerialName("health_targets") val healthTargets: List<DietReviewResultDtoHealthTargetsEntry>? = null,
   @SerialName("energy") val energy: DietReviewResultDtoEnergy,
   @SerialName("weight") val weight: DietReviewResultDtoWeight?,
   @SerialName("background") val background: DietReviewResultDtoBackground?

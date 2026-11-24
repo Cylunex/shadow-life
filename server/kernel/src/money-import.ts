@@ -275,3 +275,12 @@ function markdownRows(content: string): Record<string, unknown>[] {
   for (const line of lines.slice(start + 2)) { if (!line.includes("|")) { if (line && rows.length) break; continue; } rows.push(cells(line)); }
   return tableRows(headers, rows, "Markdown");
 }
+
+export function bankMailCategory(merchant: string): string {
+  if (/管理处|门票|景区|公园|博物/u.test(merchant)) return "门票/景区";
+  if (/服饰|服装|鞋|衣/u.test(merchant)) return "服饰";
+  if (/超市|便利店|百货/u.test(merchant)) return "超市/零食";
+  if (/12306|铁路|打车|滴滴|地铁|出行|加油/u.test(merchant)) return "交通";
+  if (/包子|饭|面|餐|咖啡|奶茶|小吃|粥|粉|烤|馍|饼/u.test(merchant)) return "餐饮";
+  return "其他";
+}

@@ -4,10 +4,13 @@ export type RecordKind="expense"|"income"|"meal"|"health";
 export type PlanKind="budget"|"habit"|"goal"|"workout";
 export type MealType="breakfast"|"lunch"|"dinner"|"snack"|"other";
 export type HealthMetric="weight"|"body_fat"|"heart_rate"|"blood_pressure_systolic"|"blood_pressure_diastolic"|"temperature"|"sleep_duration"|"steps"|"custom";
-export interface RecordFormFields { title:string; amount:string; note:string; category:string; paymentMethod:string; kind:RecordKind; planKind:PlanKind; scheduleDays:string; occurredOn:string; paymentOn:string; timeZone:string; mealType:MealType; mealKcal:string; mealProteinG:string; mealFatG:string; mealCarbG:string; healthMetric:HealthMetric; unit:string; }
+export type HealthGoalMetric=HealthMetric|"weight_change_per_week"|"energy_kcal";
+export interface RecordFormFields { title:string; amount:string; note:string; category:string; paymentMethod:string; kind:RecordKind; planKind:PlanKind; scheduleDays:string; occurredOn:string; paymentOn:string; timeZone:string; mealType:MealType; mealKcal:string; mealProteinG:string; mealFatG:string; mealCarbG:string; healthMetric:HealthMetric; goalMetric?:HealthGoalMetric; goalDueOn?:string; unit:string; }
 export interface BuiltFormCommand { capability:WriteCapabilityName; input:unknown; }
 
 export const healthMetricUnits:Record<HealthMetric,string>={weight:"kg",body_fat:"%",heart_rate:"bpm",blood_pressure_systolic:"mmHg",blood_pressure_diastolic:"mmHg",temperature:"°C",sleep_duration:"min",steps:"count",custom:"unit"};
+
+export const goalMetricUnits:Record<HealthGoalMetric,string>={...healthMetricUnits,weight_change_per_week:"kg/week",energy_kcal:"kcal/day"};
 
 export function initialRecordFields(date:string,timeZone:string):RecordFormFields{return{title:"",amount:"",note:"",category:"",paymentMethod:"",kind:"expense",planKind:"budget",scheduleDays:"1,3,5",occurredOn:date,paymentOn:date,timeZone,mealType:"other",mealKcal:"",mealProteinG:"",mealFatG:"",mealCarbG:"",healthMetric:"weight",unit:"kg"};}
 
@@ -16,7 +19,11 @@ export function buildFormCommand(tab:"record"|"plan"|"library",fields:RecordForm
   if(tab==="library")return{capability:"library.capture",input:{title:fields.title.trim(),item_type:"note",text:fields.note,tags:splitTags(fields.category)}};
   if(tab==="plan"){
     if(fields.planKind==="budget")return{capability:"money.set_budget",input:{period:fields.occurredOn.slice(0,7),category:fields.category.trim(),amount:cny(fields.amount),currency:"CNY"}};
-    if(fields.planKind==="goal")return{capability:"health.set_plan",input:{kind:"goal",name:fields.title.trim(),state:"active",metric_key:fields.healthMetric,target_value:decimal(fields.amount),unit:fields.unit.trim(),...(fields.occurredOn?{due_on:fields.occurredOn}:{})}};
+    if(fields.planKind==="goal"){
+      const due=fields.goalDueOn;
+      return{capability:"health.set_plan",input:{kind:"goal",name:fields.title.trim(),state:"active",
+        metric_key:fields.goalMetric??fields.healthMetric,target_value:decimal(fields.amount),unit:fields.unit.trim(),...(due?{due_on:due}:{})}};
+    }
     return{capability:"health.set_plan",input:{kind:fields.planKind,name:fields.title.trim(),state:"active",schedule:{days:scheduleDays(fields.scheduleDays)},...(fields.planKind==="workout"&&note?{detail:{note}}:{})}};
   }
   if(fields.kind==="meal")return{capability:"life.record_meal",input:{occurred_on:fields.occurredOn,time_zone:timeZone,meal_type:fields.mealType,...(note?{note}:{}),items:[{name:fields.title.trim(),estimate:false,...mealNutrients(fields)}],...(fields.amount.trim()?{payment:{amount:cny(fields.amount),currency:"CNY",occurred_on:fields.paymentOn,time_zone:timeZone,...(fields.paymentMethod?{payment_method:fields.paymentMethod}:{})}}:{})}};

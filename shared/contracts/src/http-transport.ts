@@ -66,6 +66,7 @@ export const queryTransportRegistry:Readonly<Record<string,ReadRoute>>={
   "money.planning":input=>get(`/api/money/planning${search({period:input.period})}`),
   "money.import_history":input=>get(`/api/money/imports${search(input)}`),
   "money.import_file_status":input=>get(`/api/money/import-files/${encodeURIComponent(input.file_id)}`),
+  "money.import_rules":input=>get(`/api/money/import-rules?match_value=${encodeURIComponent(input.match_value)}`),
   "money.import_review":input=>get(`/api/money/imports/${encodeURIComponent(input.batch_id)}`),
   "money.import_month":input=>get(`/api/money/import-month${search({period:input.period})}`),
   "life.meal_diet_review":input=>get(`/api/life/meals/${encodeURIComponent(input.meal_id)}/diet-review`),

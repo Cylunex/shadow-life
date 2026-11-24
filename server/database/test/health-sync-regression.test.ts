@@ -19,6 +19,21 @@ test("device sources can refresh volatile fingerprints without stranding a same-
   await assert.rejects(()=>run("health.ingest_raw",{...strict,source_fingerprint:"permission-snapshot-b",record_version:2}),/newer sync epoch/);
 });
 
+test("an unchanged raw version retains its receipt without a second normalization event",pgOnly,async t=>{
+  const {pool,run}=await reviewFixture(t);
+  const record={source_type:"samsung",source_instance_key:"test-history",source_fingerprint:"test-permissions",
+    record_type:"archive",client_record_id:"test-record",record_version:1,sync_epoch:1,change_kind:"upsert",
+    parse_version:"samsung-test",payload:{value:"same"}};
+  const first=await run("health.ingest_raw",record);
+  const replay=await run("health.ingest_raw",record);
+  assert.equal(replay.actual_values.raw_id,first.actual_values.raw_id);
+  assert.equal(replay.actual_values.changed,false);
+  const count=(await pool.query(`select (select count(*) from operations where capability='health.ingest_raw') commands,
+      (select count(*) from outbox where event_type='health.ingest_raw.committed') events,
+      (select count(*) from health_raw_revisions) versions`)).rows[0];
+  assert.deepEqual(count,{commands:"2",events:"1",versions:"1"});
+});
+
 test("provider-native archive payloads are retained without creating duplicate projections",pgOnly,async t=>{
   const {pool,run}=await reviewFixture(t);
   const payload={samsung_data_type:"com.samsung.health.heart_rate",sdk_schema_version:"1.1.0",uid:"heart-archive-1",fields:{heart_rate:72,series_data:[{heart_rate:71,start_time:"2026-09-10T01:00:00Z",end_time:"2026-09-10T01:01:00Z"}]}};

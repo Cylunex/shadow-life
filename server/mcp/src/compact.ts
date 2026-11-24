@@ -19,13 +19,16 @@ export const compactCommandTool = {
   annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true }
 };
 
+// Keep the retired bridge on its existing capability surface.
+export const skillOnly = new Set<string>(["money.import_rules", "money.set_import_rule"]);
+
 export const compactInstructions = `This MCP uses the compact toolset. Start with agent.discover using a task/query or exact names and include_schemas=true; follow next_offset when needed. Each returned input_schema describes only the capability input.
 For mode=read call life.query with {capability: name, input: schemaMatchingInput}. For mode=write call life.command with {capability: name, command_id: stableCmdKey, input: schemaMatchingInput}.
 operations.find remains directly callable for unknown write outcomes. Other domain names are discovery targets, not directly exposed tools in compact mode. Toolset selection does not grant permissions. Never send code, SQL or nested batches.`;
 
 export async function listCompactTools(client: LifeClient) {
   // Fetch metadata only: no full schema catalog or legacy per-capability schema fan-out.
-  const visible = await client.listCapabilities();
+  const visible = (await client.listCapabilities()).filter(item => !skillOnly.has(item.name));
   const tools: Array<ReturnType<typeof capabilityTool> | typeof compactQueryTool | typeof compactCommandTool> = visible.filter(item => compactEntrypoints.has(item.name)).map(item => {
     const name = item.name as CapabilityName;
     return capabilityTool(name, z.toJSONSchema(capabilityRegistry[name].inputSchema));
@@ -39,7 +42,7 @@ export function resolveCompactCall(client: LifeClient, tool: string, args: unkno
   const write = tool === compactCommandTool.name;
   const parsed = (write ? commandSchema : querySchema).parse(args);
   const name = parsed.capability;
-  if (!client.allows(name)) throw new ToolFailure({ protocol: "shadow.error", code: "permission_denied", message: "The capability is unavailable in this profile/scenario." });
+  if (skillOnly.has(name) || !client.allows(name)) throw new ToolFailure({ protocol: "shadow.error", code: "permission_denied", message: "The capability is unavailable in this profile/scenario." });
   if ((capabilityRegistry[name].idempotency === "required") !== write) throw new ToolFailure({
     protocol: "shadow.error", code: "validation", fields: ["capability"],
     message: `This capability requires ${write ? "life.query" : "life.command"}; no command was submitted.`

@@ -119,7 +119,8 @@ export const outbox = pgTable("outbox", {
   payload: jsonb("payload").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   deliveredAt: timestamp("delivered_at", { withTimezone: true })
-}, (table) => [index("outbox_pending_idx").on(table.createdAt).where(sql`${table.deliveredAt} is null`)]);
+}, (table) => [index("outbox_pending_idx").on(table.createdAt).where(sql`${table.deliveredAt} is null`),
+  index("outbox_delivered_health_raw_idx").on(table.deliveredAt).where(sql`${table.eventType} = 'health.ingest_raw.committed' and ${table.deliveredAt} is not null`)]);
 
 export const consumptionRecords = pgTable("consumption_records", { id:text("id").primaryKey(),subjectId:text("subject_id").references(()=>principals.id).notNull(),recordKind:text("record_kind").notNull(),state:text("state").notNull(),occurredOn:date("occurred_on").notNull(),occurredAt:timestamp("occurred_at",{withTimezone:true}),timeZone:text("time_zone").notNull(),note:text("note"),revision:integer("revision").default(1).notNull(),confirmedAt:timestamp("confirmed_at",{withTimezone:true}),voidedAt:timestamp("voided_at",{withTimezone:true}),createdAt:timestamp("created_at",{withTimezone:true}).defaultNow().notNull(),updatedAt:timestamp("updated_at",{withTimezone:true}).defaultNow().notNull() });
 export const consumptionRecordRevisions=pgTable("consumption_record_revisions",{recordId:text("record_id").references(()=>consumptionRecords.id).notNull(),revision:integer("revision").notNull(),snapshot:jsonb("snapshot").notNull(),reason:text("reason").notNull(),createdAt:timestamp("created_at",{withTimezone:true}).defaultNow().notNull()},table=>[primaryKey({columns:[table.recordId,table.revision]})]);

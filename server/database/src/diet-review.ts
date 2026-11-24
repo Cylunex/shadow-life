@@ -77,6 +77,16 @@ export async function readDietEvidence(
           and (i.data->>'valid_from' is null or (i.data->>'valid_from')::date<=${input.to}::date)
           and (i.data->>'valid_to_exclusive' is null or (i.data->>'valid_to_exclusive')::date>${input.to}::date))
       )`)).rows:[];
+    const targets=canHealth?(await db.execute<NonNullable<DietEvidence["healthTargets"]>[number]>(sql`
+      select distinct on (metric_key) id,revision,metric_key,name,target_value::float8 target_value,unit,due_on::text
+      from health_goals
+      where subject_id=${subject} and state='active'
+        and (created_at at time zone ${input.time_zone})::date<=${input.to}::date
+        and (due_on is null or due_on>=${input.to}::date)
+        and ((metric_key='weight' and unit='kg' and target_value>0)
+          or (metric_key='weight_change_per_week' and unit='kg/week')
+          or (metric_key='energy_kcal' and unit='kcal/day' and target_value>0))
+      order by metric_key, updated_at desc, id desc`)).rows:[];
     // Reuse the menu's evidence filtering and compatibility with legacy food references.
     const canteen=/^常去食堂[：:]\s*([^｜|\n]{1,160})$/u.exec(saved.find(row=>row.key==="dining.usual_canteen")?.statement??"")?.[1]?.trim();
     const menu=canteen?merchantMenuResultSchema.parse(await merchantMenu(db,subject,{merchant:canteen,on:input.to,limit:100,with_profiles:"1"},effects)):null;
@@ -99,7 +109,7 @@ export async function readDietEvidence(
         (result #>> '{activity,active_minutes}')::int active_minutes
       from health_daily_summaries where subject_id=${subject} and occurred_on between ${window.from}::date and ${input.to}::date
       order by occurred_on,updated_at desc,algorithm_version desc`)).rows:[];
-    return {...wellness,meals:mealRows.rows,intentions:saved,measurements,activity,menu:menu?{
+    return {...wellness,meals:mealRows.rows,intentions:saved,healthTargets:targets,measurements,activity,menu:menu?{
       merchant:menu.merchant,dishes:menu.items.filter(row=>row.provenance||row.evidence.length)
         .map(row=>({name:row.dish,groups:row.profile?.groups??null}))
     }:null};

@@ -43,6 +43,13 @@ let maintaining=false;
 const maintainCaptures=async()=>{if(maintaining)return;maintaining=true;try{await maintainCaptureRetention(pool);}finally{maintaining=false;}};
 const captureRetentionTimer=setInterval(()=>void maintainCaptures().catch(error=>console.error(error)),900_000);
 const agentRetentionTimer = setInterval(() => void maintainAgentChanges(pool).catch(error => console.error(error)), 900_000);
+const healthOutboxRetentionTimer = setInterval(() => {
+  void pool.query(`delete from outbox where id in (
+    select id from outbox where event_type='health.ingest_raw.committed'
+      and delivered_at < now() - interval '30 days'
+    order by delivered_at limit 5000 for update skip locked
+  )`).catch(error => console.error(error));
+}, 900_000);
 let processingLibrary=false;
 const updateLibrary=async()=>{if(processingLibrary)return;processingLibrary=true;try{await processPendingLibrary(pool,4);}finally{processingLibrary=false;}};
 const libraryTimer=setInterval(()=>void updateLibrary().catch(error=>console.error(error)),30_000);
@@ -55,6 +62,6 @@ await updateReviews();
 await maintainCaptures();
 await materializeNotifications(pool);
 
-async function shutdown() { clearInterval(timer);clearInterval(recoveryTimer);clearInterval(planningTimer);clearInterval(libraryTimer);clearInterval(recordingTimer);clearInterval(reviewTimer);clearInterval(captureRetentionTimer);clearInterval(agentRetentionTimer);clearInterval(notificationTimer); await boss.stop(); await pool.end(); process.exit(0); }
+async function shutdown() { clearInterval(timer);clearInterval(recoveryTimer);clearInterval(planningTimer);clearInterval(libraryTimer);clearInterval(recordingTimer);clearInterval(reviewTimer);clearInterval(captureRetentionTimer);clearInterval(agentRetentionTimer);clearInterval(healthOutboxRetentionTimer);clearInterval(notificationTimer); await boss.stop(); await pool.end(); process.exit(0); }
 process.on("SIGINT", () => void shutdown());
 process.on("SIGTERM", () => void shutdown());

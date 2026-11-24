@@ -79,6 +79,7 @@ export function DietReviewOverview({data,date,canWrite,execute,reload}:{data:Die
   const [lower,setLower]=useState(energy.lower?.toString()??""),[upper,setUpper]=useState(energy.upper?.toString()??"");
   const windowDays=data.wellness.current.days;
   const knownEnergy=day?.nutrients.energy_kcal.known_total;
+  const unknownEnergyItems=day?Math.max(0,day.items-day.nutrients.energy_kcal.known_items):0;
 
   async function save(key:string,kind:"preference"|"goal",statement:string,original:{id:string;revision:number}|null,validity:Record<string,string>={}) {
     if(busy)return;
@@ -168,13 +169,18 @@ export function DietReviewOverview({data,date,canWrite,execute,reload}:{data:Die
     </div>
     <section className="diet-card diet-day-state" aria-label="饮食记录完整性">
       <h3>{date.slice(5)} 饮食记录</h3>
-      <p>{diaryLabels[declaration?.state??"unknown"]} · 热量 {knownEnergy==null?"未知":format(Number(knownEnergy))+" kcal"}
-        {day&&` · ${day.nutrients.energy_kcal.estimated_items} 项估算`}</p>
-      {date===data.wellness.current.to&&energy.target&&energy.status!=="unknown"&&<p>{({above:"可靠的已记录摄入已超过目标上沿",below:"全天已记录摄入低于目标下沿",within:"全天已记录摄入在目标范围内"} as const)[energy.status]}</p>}
+      <p>{diaryLabels[declaration?.state??"unknown"]} · 热量 {knownEnergy==null?"未知":`已知 ${format(Number(knownEnergy))} kcal`}
+        {unknownEnergyItems>0&&` · ${unknownEnergyItems} 项未估`}
+        {day&&day.nutrients.energy_kcal.estimated_items>0&&` · ${day.nutrients.energy_kcal.estimated_items} 项估算`}</p>
+      {date===data.wellness.current.to&&energy.lower!==null&&energy.status!=="unknown"&&<p>{({above:"可靠的已记录摄入已超过目标上沿",below:"全天已记录摄入低于目标下沿",within:"全天已记录摄入在目标范围内"} as const)[energy.status]}</p>}
       {canWrite&&<div className="diet-day-buttons">
         <button type="button" disabled={busy||declaration?.state==="complete"} onClick={()=>void saveDiary("complete")}>已吃完并记全</button>
         <button type="button" className="secondary" disabled={busy||declaration?.state==="partial"} onClick={()=>void saveDiary("partial")}>还有漏记</button>
       </div>}
+      {data.health_targets?.map(target=><p key={target.id}>
+        {target.metric_key==="weight_change_per_week"?"每周体重变化目标":target.metric_key==="weight"?"目标体重":"每日热量目标"}
+        {" "}{format(target.target_value)} {target.unit}{target.due_on&&` · 截至 ${target.due_on}`}
+      </p>)}
       {canWrite&&<details><summary>我的饮食目标</summary><div className="diet-goals">
         {weight&&<form onSubmit={event=>{event.preventDefault();void save("wellness.weight","goal",goalStatements[direction],currentGoal,{valid_from:data.wellness.current.to});}}>
           <label>体重方向<select value={direction} onChange={event=>setDirection(event.target.value as typeof direction)}>{Object.entries(goalStatements).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>

@@ -225,3 +225,20 @@ test("a complete diary day is flagged after adding, deleting or moving a meal in
     assert.equal(await state(),"recheck",change);
   }
 });
+
+
+test("diet review projects an explicit weekly rate separately from target weight",pgOnly,async t=>{
+  const {run,queries,context}=await reviewFixture(t);
+  const base={kind:"goal",state:"active"};
+  const weekly=await run("health.set_plan",{...base,name:"每周减重",metric_key:"weight_change_per_week",target_value:"-1",unit:"kg/week"});
+  const goal=await run("health.set_plan",{...base,name:"目标体重",metric_key:"weight",target_value:"80",unit:"kg"});
+  const today=new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Shanghai"}).format(new Date());
+  const review=await queries.dietReview(context,{to:today,days:1});
+  assert.deepEqual(review.health_targets?.map(({id,target_value,unit})=>({id,target_value,unit})),[
+    {id:goal.actual_values.health_plan_id,target_value:80,unit:"kg"},
+    {id:weekly.actual_values.health_plan_id,target_value:-1,unit:"kg/week"},
+  ]);
+  await run("health.set_plan",{...base,state:"cancelled",name:"每周减重",metric_key:"weight_change_per_week",target_value:"-1",unit:"kg/week",
+    plan_id:weekly.actual_values.health_plan_id,expected_revision:1});
+  assert.equal((await queries.dietReview(context,{to:today,days:1})).health_targets?.length,1);
+});

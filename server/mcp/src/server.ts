@@ -2,7 +2,7 @@ import { z } from "zod";
 import { LifeClient, toolError } from "./client.js";
 import { uploadLocalImage, uploadTool, uploadLocalFile, uploadFileTool } from "./media.js";
 import { operatorInstructions } from "./profile.js";
-import { compactCommandTool, compactEntrypoints, compactInstructions, compactQueryTool, listCompactTools, resolveCompactCall, type McpToolset } from "./compact.js";
+import { compactCommandTool, compactEntrypoints, compactInstructions, compactQueryTool, listCompactTools, resolveCompactCall, skillOnly, type McpToolset } from "./compact.js";
 
 const requestSchema = z.object({ jsonrpc: z.literal("2.0"), id: z.union([z.string(), z.number().int()]).optional(), method: z.string(), params: z.unknown().optional() });
 const callSchema = z.object({ name: z.string(), arguments: z.unknown().optional() });
@@ -33,7 +33,7 @@ export function createMcpServer(client: LifeClient, mediaRoots: readonly string[
           const { tools, canUpload, canUploadFile } = await listCompactTools(client);
           return result({ tools: [...(mediaRoots.length > 0 && canUpload ? [uploadTool] : []), ...(mediaRoots.length > 0 && canUploadFile ? [uploadFileTool] : []), ...tools] });
         }
-        const tools = await client.listTools();
+        const tools = (await client.listTools()).filter(tool => !skillOnly.has(tool.name));
         const canUpload = mediaRoots.length > 0 && tools.some(tool => tool.name === "library.capture");
         return result({ tools: [...(canUpload ? [uploadTool] : []), ...(canUpload && tools.some(t => t.name === "money.import_file") ? [uploadFileTool] : []), ...tools] });
       }
@@ -42,7 +42,7 @@ export function createMcpServer(client: LifeClient, mediaRoots: readonly string[
         const uploadFile = params.name === uploadFileTool.name && mediaRoots.length > 0 && client.allows("money.import_file");
         const upload = (params.name === uploadTool.name || uploadFile) && mediaRoots.length > 0;
         const compact = toolset === "compact" && [compactQueryTool.name, compactCommandTool.name].includes(params.name);
-        if (!upload && !compact && (!client.allows(params.name) || toolset === "compact" && !compactEntrypoints.has(params.name))) return rpcError(message.id, -32602, "Unknown tool or tool unavailable in this profile");
+        if (!upload && !compact && (skillOnly.has(params.name) || !client.allows(params.name) || toolset === "compact" && !compactEntrypoints.has(params.name))) return rpcError(message.id, -32602, "Unknown tool or tool unavailable in this profile");
         let targetName = params.name, targetArgs = args;
         try {
           if (compact) { const target = resolveCompactCall(client, params.name, args); targetName = target.name; targetArgs = target.args; }

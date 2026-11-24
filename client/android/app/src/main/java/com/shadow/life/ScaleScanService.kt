@@ -46,7 +46,7 @@ import java.util.Locale
 import kotlin.math.roundToLong
 
 class ScaleScanService:Service(){
-  private data class Measurement(val key:String,val address:String,val frame:XiaomiScaleFrame,val instant:Instant,val zone:ZoneId)
+  private data class Measurement(val key:String,val address:String,val frame:XiaomiScaleFrame,val broadcastIds:Set<String>,val instant:Instant,val zone:ZoneId)
   private val handler=Handler(Looper.getMainLooper());private val scope=CoroutineScope(SupervisorJob()+Dispatchers.IO)
   private val bodyUuid=ParcelUuid.fromString("0000181b-0000-1000-8000-00805f9b34fb");private val miBeaconUuid=ParcelUuid.fromString("0000fe95-0000-1000-8000-00805f9b34fb")
   private var scanner:BluetoothLeScanner?=null;private var callback:ScanCallback?=null;private var accountId:String?=null;private var sawAdvertisement=false
@@ -122,7 +122,7 @@ class ScaleScanService:Service(){
           handler.post {
             if(!accepting||generation!=scanGeneration)return@post
             advertisement("体脂秤 2")
-            XiaomiScaleParser.parseScale2(data)?.let{accept(address,it)}
+            XiaomiScaleParser.parseScale2(data)?.let{accept(address,it,broadcastId(address,data))}
           }
         }
         record.getServiceData(miBeaconUuid)?.takeIf(XiaomiScaleParser::isS400)?.let { data ->
@@ -190,6 +190,9 @@ class ScaleScanService:Service(){
     S400ParseResult.BindkeyMismatch->{warnBindkey("key_mismatch","S400 bindkey 已保存，但与当前体脂秤不匹配");return}
   }
     val device=address.uppercase(Locale.US)
+    val broadcast=broadcastId(device,data)
+    if(!frame.reset && frame.weightKg!=null && alreadySaved(broadcast))return
+    if(frame.reset)clearSavedBroadcast(device,frame.profileId)
     val previous=s400[device]
     when {
       frame.reset -> s400.finish(device,"scale_reset")
@@ -200,10 +203,10 @@ class ScaleScanService:Service(){
           if(!accepting)return
         }
         val buffered=s400[device]
-        val next=buffered?.copy(frame=buffered.frame.copy(
+        val next=buffered?.copy(broadcastIds=(buffered.broadcastIds+broadcast).takeLastBroadcasts(),frame=buffered.frame.copy(
           impedanceLow=frame.impedanceLow?:buffered.frame.impedanceLow,
           heartRate=frame.heartRate?:buffered.frame.heartRate
-        ))?:measurement(device,frame)
+        ))?:measurement(device,frame,broadcast)
         if(s400.collect(device,next))showWeight(next)
       }
       frame.impedanceHigh!=null && previous?.frame?.profileId==frame.profileId ->
@@ -218,13 +221,15 @@ class ScaleScanService:Service(){
     update(message)
     updateStatus(state,message)
   }
-  private fun accept(address:String,frame:XiaomiScaleFrame){
-    val next=measurement(address,frame)
-    val old=pending[next.key]
-    val merged=old?.copy(frame=frame.copy(impedanceLow=frame.impedanceLow?:old.frame.impedanceLow))?:next
+  private fun accept(address:String,frame:XiaomiScaleFrame,broadcast:String){
+    if(alreadySaved(broadcast))return
+    val next=measurement(address,frame,broadcast)
+    val windowKey=listOf(address,frame.model,frame.weightKg,frame.measuredAt).joinToString("|")
+    val old=pending[windowKey]
+    val merged=old?.copy(broadcastIds=(old.broadcastIds+broadcast).takeLastBroadcasts(),frame=frame.copy(impedanceLow=frame.impedanceLow?:old.frame.impedanceLow))?:next
     if(merged.frame.impedanceLow!=null){
-      if(!pending.finish(next.key,"impedance"){merged})enqueue(merged,"impedance")
-    }else if(pending.collect(next.key,merged))showWeight(merged)
+      if(!pending.finish(windowKey,"impedance"){merged})enqueue(merged,"impedance")
+    }else if(pending.collect(windowKey,merged))showWeight(merged)
   }
   private fun showWeight(measurement:Measurement){
     val weight=measurement.frame.weightKg?:return
@@ -233,8 +238,43 @@ class ScaleScanService:Service(){
     update("已收到 $formatted kg，等待体成分")
     updateStatus("collecting","等待体成分",formatted)
   }
-  private fun measurement(address:String,frame:XiaomiScaleFrame):Measurement{val zone=ZoneId.systemDefault();val instant=normalize(frame.measuredAt,zone);val weight=frame.weightKg?:0.0;val key="${instant.epochSecond/60}-${kotlin.math.round(weight*200)}-${sha256(address).take(12)}";return Measurement(key,address,frame,instant,zone)}
-  private fun normalize(value:LocalDateTime?,zone:ZoneId):Instant{val now=Instant.now();if(value==null)return now.epochSecond.let{Instant.ofEpochSecond(it-it%60)};val candidate=runCatching{value.atZone(zone).toInstant()}.getOrElse{return now};val delta=Duration.between(candidate,now).toMillis();if(kotlin.math.abs(delta)<=10*60_000)return candidate;val quantum=15*60_000L;return candidate.plusMillis((delta.toDouble()/quantum).roundToLong()*quantum)}
+  private fun broadcastId(address:String,data:ByteArray)=sha256(address.uppercase(Locale.US)+":"+data.joinToString(""){"%02x".format(it)})
+  private fun Set<String>.takeLastBroadcasts()=toList().takeLast(32).toSet()
+  private val broadcasts by lazy { getSharedPreferences("scale-broadcasts",MODE_PRIVATE) }
+  private fun alreadySaved(id:String):Boolean {
+    val account=accountId?:return false
+    val key="saved:$account:$id"
+    val at=broadcasts.getLong(key,-1)
+    return at>=0 && SystemClock.elapsedRealtime()-at in 0..30_000
+  }
+  private fun clearSavedBroadcast(address:String,profile:Int?) {
+    val account=accountId?:return
+    val group="group:$account:${sha256(address)}:$profile"
+    val ids=broadcasts.getStringSet(group,null).orEmpty()
+    val edit=broadcasts.edit().remove(group)
+    for(id in ids)edit.remove("saved:$account:$id")
+    edit.apply()
+  }
+  private fun rememberBroadcast(measurement:Measurement,account:String) {
+    val group="group:$account:${sha256(measurement.address)}:${measurement.frame.profileId}"
+    val edit=broadcasts.edit()
+    val now=SystemClock.elapsedRealtime()
+    for((key,value) in broadcasts.all)if(key.startsWith("saved:") && value is Long && now-value !in 0..30_000)edit.remove(key)
+    if(measurement.frame.profileId!=null)edit.putStringSet(group,measurement.broadcastIds)
+    for(id in measurement.broadcastIds)edit.putLong("saved:$account:$id",now)
+    edit.apply()
+  }
+
+  private fun measurement(address:String,frame:XiaomiScaleFrame,broadcast:String):Measurement{
+    val zone=ZoneId.systemDefault()
+    val instant=normalize(frame.measuredAt,zone)
+    // Use the scale's timestamp when it provides one. For radio-only frames
+    // the first observed instant belongs to this scan, independent of rounding.
+    val identity=frame.measuredAt?.let{"clock:$it"}?:"received:${instant.toEpochMilli()}"
+    val key="scale-v2-"+sha256("$address|$identity|${frame.profileId}|${frame.weightKg}").take(40)
+    return Measurement(key,address,frame,setOf(broadcast),instant,zone)
+  }
+  private fun normalize(value:LocalDateTime?,zone:ZoneId):Instant{val now=Instant.now();if(value==null)return now;val candidate=runCatching{value.atZone(zone).toInstant()}.getOrElse{return now};val delta=Duration.between(candidate,now).toMillis();if(kotlin.math.abs(delta)<=10*60_000)return candidate;val quantum=15*60_000L;return candidate.plusMillis((delta.toDouble()/quantum).roundToLong()*quantum)}
 
   private fun enqueue(measurement:Measurement,reason:String){
     val weight=measurement.frame.weightKg?:return
@@ -285,6 +325,7 @@ class ScaleScanService:Service(){
       val instance="android-scale-${sha256(measurement.address).take(24)}";val fingerprint=sha256("${measurement.frame.model}|${measurement.address}")
       val command=healthDeviceRecordCommand(session.accountId,session.subjectId,"scale",instance,fingerprint,"body",measurement.key,measurement.instant.toEpochMilli(),payload,"xiaomi-ble-2")
       val inserted=app.queue.enqueueCommand(session,command.commandId,command.capability,command.body)>=0
+      rememberBroadcast(measurement,session.accountId)
       withContext(Dispatchers.Main.immediate){
         val current=generation==scanGeneration
         app.deviceSync.recordScale(session.accountId,decimal(weight),measurement.frame.model,measurement.instant.toEpochMilli(),updateState=current)

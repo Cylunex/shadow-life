@@ -163,3 +163,18 @@ test("upgrade recovers platform identities from old Life raw headers without rei
   await assert.rejects(()=>f.run("money.resolve_import_candidate",decision(review.candidates[0]!.id)),/already links/u);
   assert.equal((await f.pool.query("select count(*)::int n from money_entries")).rows[0].n,1);
 });
+
+test("confirmed merchant rule fills uncategorized expenses and preserves a per-entry category",pgOnly,async t=>{
+  const {run,queries,context,pool}=await reviewFixture(t);
+  await run("money.set_import_rule",{match_value:"测试收款名",replacements:{counterparty:"测试商户",category:"饮料"}});
+  const rules=await queries.moneyImportRules(context,{match_value:"测试收款名"});
+  assert.equal(rules.rules[0]?.replacements.category,"饮料");
+  const base={entry_type:"expense",occurred_on:"2026-11-20",time_zone:"Asia/Shanghai",currency:"CNY",amount:"5.00",counterparty:"测试收款名"};
+  const inferred=await run("money.record_entry",base);
+  const explicit=await run("money.record_entry",{...base,category:"家庭用品"});
+  const saved=await pool.query("select category from money_entries where record_id=$1 or record_id=$2 order by category",
+    [inferred.actual_values.record_id,explicit.actual_values.record_id]);
+  assert.deepEqual(saved.rows.map(row=>row.category).sort(),["家庭用品","饮料"].sort());
+  const alias=await pool.query("select target_value from personal_aliases where subject_id=$1 and alias=$2",[context.subjectId,base.counterparty]);
+  assert.equal(alias.rows[0]?.target_value,"测试商户");
+});
