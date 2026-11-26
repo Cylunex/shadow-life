@@ -72,13 +72,6 @@ import java.util.Locale
   RootPage("生活",onProjects,onSettings,onFeatures){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp,8.dp,20.dp,28.dp),verticalArrangement=Arrangement.spacedBy(20.dp)){
     item("common-services"){HomeCommonServices(onWorkspace,onItems,onLibrary,onTraining,onFeatures)}
     item("recent-records-messages"){HomeRecentInfoCard(accountId,onDetail,onRecords,onCaptureOrders,onSettings,inboxState,onInbox,onRefreshInbox,onInboxTarget)}
-    if(deviceStatus.scaleActive)item("active-scale"){
-      LifeCard{
-        Text(deviceStatus.scalePendingWeight?.let{"本次体重 $it kg"}?:"小米体脂秤",style=MaterialTheme.typography.titleMedium)
-        Text(deviceStatus.scaleMessage,style=MaterialTheme.typography.bodySmall)
-        TextButton(onClick=onCancelScale){Text("取消接收")}
-      }
-    }
     val training=TrainingDraftStore(context,accountId).read()
     if(training?.started==true)item("active-training"){
       LifeCard(onClick=onTraining){Text("继续训练",style=MaterialTheme.typography.titleMedium);Text("已完成 ${training.completedSets} 组")}
