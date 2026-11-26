@@ -190,7 +190,12 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.get("/api/planning/agenda",async context=>context.json(await dependencies.queries.planningAgenda(context.get("requestContext"),planningAgendaInputSchema.parse({from_on:context.req.query("from_on"),to_on_exclusive:context.req.query("to_on_exclusive"),time_zone:context.req.query("time_zone"),limit:Number(context.req.query("limit")??"100")}))));
   app.get("/api/life/meal-planning",async context=>context.json(await dependencies.queries.mealPlanning(context.get("requestContext"),{...(context.req.query("on")?{on:context.req.query("on")}:{}),...(context.req.query("time_zone")?{time_zone:context.req.query("time_zone")}:{}),limit:Number(context.req.query("limit")??"20")})));
   app.get("/api/life/purchase-items",async context=>context.json(await dependencies.queries.purchaseItems(context.get("requestContext"),context.req.query("q"),Number(context.req.query("limit")??"50"))));
-  app.get("/api/money/foreign",async context=>context.json(await dependencies.queries.foreignEntries(context.get("requestContext"),{...(context.req.query("trip_id")?{trip_id:context.req.query("trip_id")}:{}),limit:Number(context.req.query("limit")??"50")})));
+  app.get("/api/money/foreign",async context=>{
+    const {trip_id,settlement_state,limit}=context.req.query();
+    return context.json(await dependencies.queries.foreignEntries(context.get("requestContext"),{
+      ...(trip_id?{trip_id}:{}),...(settlement_state===undefined?{}:{settlement_state}),limit:Number(limit??"50")
+    }));
+  });
   app.get("/api/:domain{money|health|travel|library}", async context => {
     const {q,cursor,period,currency,entry_type,item_types,limit,on,category}=context.req.query();
     return context.json(await dependencies.queries.listDomain(context.get("requestContext"),context.req.param("domain") as "money"|"health"|"travel"|"library",{

@@ -52,6 +52,19 @@ schema actually exposed by the tool; do not infer optional features from this ta
 - A source needs `original_text` or `asset_version_id`, and `captured_on` or `captured_at`.
   `captured_at` also needs `time_zone`. Preserve the user's uncertainty in notes.
 
+## Daily balances and foreign settlement
+
+- Use `money.records` with `on` for one transaction date. Keep all filters unchanged when following
+  `next_cursor`. Use `money.summarize` with `period` for one calendar month.
+- Record the original amount, currency, source precision, date and available evidence with
+  `money.record_foreign_entry`. Leave `conversion` out when the exchange amount is unknown.
+- Find open transactions with `money.foreign_entries` and `settlement_state: "pending"`.
+  From the bank statement, submit the actual CNY `amount` (two decimals) and `settled_on`
+  with the same `money_entry_id` and the entry's `expected_revision` to `money.settle_foreign_entry`.
+  Optional `source_ref` identifies the statement. The original amount and any earlier quote remain available.
+- Use `money.record_refund` with the original expense ID and matching currency. If the card issuer
+  settles the refund in CNY, record that amount against the refund's own money entry ID.
+
 ## Order, payment and intake
 
 When an eaten meal has an order screenshot, prefer `life.record_dining`: use `purchased_items` for

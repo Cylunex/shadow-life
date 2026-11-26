@@ -74,3 +74,45 @@ test("F10: migration CLI update/delete/replay preserves every exact historical d
   assert.equal((await restore.query("select amount::text amount from money_entries where id='money_import_fixture'")).rows[0].amount,"9007199254740993.123456");
   assert.equal((await restore.query("select consumed_fraction::text value from intake_items where id='intake_import_fixture'")).rows[0].value,"0.123400");
 });
+
+test("foreign expenses and refunds keep original currency before and after actual settlement",pgOnly,async t=>{
+  const {run,queries,context,executor,command}=await reviewFixture(t);
+  const origin={occurred_on:"2026-11-22",time_zone:"Asia/Shanghai"};
+  const entry=await run("money.record_foreign_entry",{
+    ...origin,entry_type:"expense",amount:"12.3250",currency:"USD",source_scale:4,counterparty:"示例商户",
+    source:{kind:"import",external_id:"synthetic-original",captured_on:origin.occurred_on,original_text:"合成外币交易"}
+  });
+  const expenseId=String(entry.actual_values.money_entry_id);
+  assert.equal(entry.actual_values.fx_snapshot_id,undefined);
+  const otherDay=await run("money.record_foreign_entry",{...origin,occurred_on:"2026-11-21",entry_type:"expense",amount:"12.3250",currency:"USD",source_scale:4});
+  const refund=await run("money.record_refund",{...origin,original_entry_id:expenseId,currency:"USD",amount:"2.123456"});
+  const refundId=String(refund.actual_values.money_entry_id);
+  await assert.rejects(()=>run("money.record_refund",{...origin,original_entry_id:expenseId,currency:"EUR",amount:"1.00"}),/matching confirmed expense/);
+  await assert.rejects(()=>run("money.record_refund",{...origin,original_entry_id:expenseId,currency:"USD",amount:"11.00"}),/exceeds/);
+  const first=await queries.listDomain(context,"money",{on:origin.occurred_on,currency:"USD",limit:1});
+  assert.ok(first.next_cursor);
+  const second=await queries.listDomain(context,"money",{on:origin.occurred_on,currency:"USD",limit:1,cursor:first.next_cursor});
+  assert.deepEqual(new Set([...first.items,...second.items].map(row=>row.id)),new Set([expenseId,refundId]));
+  assert.equal(second.next_cursor,null);
+  const read=(settlement_state:"pending"|"settled")=>queries.foreignEntries(context,{settlement_state});
+  const pending=await read("pending");
+  assert.equal(pending.items.length,3);
+  assert.equal(pending.items.find(row=>row.id===expenseId)?.base_amount,null);
+  const actual={money_entry_id:expenseId,expected_revision:1,amount:"88.19",settled_on:"2026-11-26"};
+  await assert.rejects(()=>run("money.settle_foreign_entry",{...actual,settled_on:"2026-11-21"}),/cannot precede/);
+  await assert.rejects(()=>run("money.settle_foreign_entry",{...actual,expected_revision:2}),/revision changed/);
+  const settle=command("money.settle_foreign_entry",actual);
+  const concurrent=await Promise.allSettled([executor.execute(context,settle),run("money.settle_foreign_entry",actual)]);
+  assert.equal(concurrent.filter(result=>result.status==="fulfilled").length,1);
+  if(concurrent[0]?.status==="fulfilled")assert.equal((await executor.execute(context,settle)).replayed,true);
+  await run("money.settle_foreign_entry",{...actual,money_entry_id:refundId,amount:"15.13"});
+  const settled=await read("settled");
+  assert.equal(settled.items.find(row=>row.id===expenseId)?.settlement?.amount,"88.19");
+  assert.equal(settled.items.find(row=>row.id===expenseId)?.amount,"12.325000");
+  assert.equal(settled.items.find(row=>row.id===expenseId)?.source_scale,4);
+  assert.equal(settled.items.find(row=>row.id===refundId)?.settlement?.amount,"15.13");
+  assert.equal(settled.items.find(row=>row.id===refundId)?.amount,"2.123456");
+  assert.deepEqual((await read("pending")).items.map(row=>row.id),[otherDay.actual_values.money_entry_id]);
+  const summary=await queries.summarizeMoney(context,{period:"2026-11"});
+  assert.ok(summary.totals.every(row=>row.currency==="USD"));
+});

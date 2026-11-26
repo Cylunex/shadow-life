@@ -198,11 +198,14 @@ export const recordMoneyEntryInputSchema = datedFactSchema.extend({
   payment_method: paymentMethodSchema.optional()
 }).strict().refine(factDateMatches, { path:["occurred_at"], message:"occurred_at does not fall on occurred_on in time_zone" });
 
+const positiveStoredAmount=storedAmount.refine(value=>Number(value)>0,"amount must be greater than zero");
 export const recordRefundInputSchema = datedFactSchema.extend({
   original_entry_id: stableId,
-  amount: cnyAmount,
-  currency: z.literal("CNY")
-}).strict().refine(factDateMatches, { path:["occurred_at"], message:"occurred_at does not fall on occurred_on in time_zone" });
+  amount: positiveStoredAmount,
+  currency: currencyCode
+}).strict().refine(value=>value.currency!=="CNY"||cnyAmount.safeParse(value.amount).success,
+  {path:["amount"],message:"CNY amount must have exactly two decimal places"})
+  .refine(factDateMatches, {path:["occurred_at"],message:"occurred_at does not fall on occurred_on in time_zone"});
 export const correctMoneyEntryInputSchema=z.object({
   record_id:stableId,
   expected_revision:z.number().int().positive(),
@@ -797,13 +800,47 @@ const mealPlanRecipeSnapshotSchema=z.object({recipe:z.object({id:stableId,title:
 export const mealPlanningResultSchema=z.object({stock_attention:stockAttentionSchema.optional(),meal_plans:z.array(z.object({id:stableId,title:z.string(),starts_on:localDate,ends_on:localDate,time_zone:ianaTimeZone,state:z.enum(["draft","active","completed","cancelled"]),revision:z.number().int().positive(),created_at:instant,updated_at:instant,entries:z.array(z.object({id:stableId,plan_date:localDate,meal_type:z.enum(["breakfast","lunch","dinner","snack","other"]),title:z.string(),servings:positiveDecimal,recipe_id:stableId.nullable(),recipe_revision:z.number().int().positive().nullable(),recipe_snapshot:mealPlanRecipeSnapshotSchema.nullable(),position:z.number().int().nonnegative()}).strict())}).strict()),stock_lots:z.array(z.object({id:stableId,purchase_record_id:stableId.nullable().optional(),name:z.string(),quantity:canonicalDecimal,unit:z.string(),expires_on:localDate.nullable(),note:z.string().nullable(),revision:z.number().int().positive()}).strict()),stock_truncated:z.boolean(),shopping_lists:z.array(z.object({id:stableId,meal_plan_id:stableId,meal_plan_revision:z.number().int().positive(),title:z.string(),state:z.enum(["open","completed","cancelled"]),revision:z.number().int().positive(),created_at:instant,updated_at:instant,items:z.array(z.object({id:stableId,name:z.string(),quantity:positiveDecimal.nullable(),unit:z.string().nullable(),source_entry_ids:z.array(stableId),state:z.enum(["needed","bought","skipped"]),purchase_item_id:stableId.nullable(),revision:z.number().int().positive()}).strict())}).strict()),as_of:instant}).strict();
 
 const fxRate=z.string().regex(/^(?:0|[1-9]\d*)(?:\.\d{1,12})?$/u).refine(value=>Number(value)>0,"rate must be greater than zero");
-export const recordForeignEntryInputSchema=z.object({entry_type:z.enum(["expense","income"]),amount:storedAmount.refine(value=>Number(value)>0,"amount must be greater than zero"),currency:currencyCode,source_scale:z.number().int().min(0).max(6),occurred_on:localDate,occurred_at:instant.optional(),time_zone:ianaTimeZone,counterparty:z.string().trim().min(1).max(200).optional(),category:z.string().trim().min(1).max(80).optional(),payment_method:paymentMethodSchema.optional(),note:z.string().trim().min(1).max(2_000).optional(),trip_id:stableId.optional(),conversion:z.object({base_amount:storedAmount.refine(value=>Number(value)>0,"base amount must be greater than zero"),base_currency:currencyCode,rate:fxRate,quoted_at:instant,source_kind:z.enum(["manual","provider","import"]),source_ref:z.string().trim().min(1).max(500).optional()}).strict(),allocations:z.array(z.object({participant_label:z.string().trim().min(1).max(100),original_amount:storedAmount.refine(value=>Number(value)>0,"allocation must be greater than zero"),state:z.enum(["unsettled","settled","waived"]).default("unsettled"),settled_on:localDate.optional()}).strict().refine(value=>(value.state==="settled")===(value.settled_on!==undefined),{message:"settled allocations require settled_on and other states forbid it"})).max(20).default([])}).strict().superRefine((value,context)=>{if(value.allocations.length&&value.entry_type!=="expense")context.addIssue({code:"custom",path:["allocations"],message:"shared allocations are only valid for expenses"});if(value.currency===value.conversion.base_currency)context.addIssue({code:"custom",path:["conversion","base_currency"],message:"conversion currency must differ from original currency"});const fraction=value.amount.split(".")[1]?.length??0;if(fraction>value.source_scale)context.addIssue({code:"custom",path:["source_scale"],message:"source_scale is smaller than the supplied amount precision"});const labels=new Set<string>();for(const [index,item] of value.allocations.entries()){const key=item.participant_label.toLocaleLowerCase();if(labels.has(key))context.addIssue({code:"custom",path:["allocations",index],message:"allocation participant labels must be unique"});labels.add(key);}if(!factDateMatches(value))context.addIssue({code:"custom",path:["occurred_at"],message:"occurred_at does not fall on occurred_on in time_zone"});});
+export const recordForeignEntryInputSchema=datedFactSchema.extend({
+  entry_type:z.enum(["expense","income"]),
+  amount:positiveStoredAmount,
+  currency:currencyCode,
+  source_scale:z.number().int().min(0).max(6),
+  counterparty:z.string().trim().min(1).max(200).optional(),
+  category:z.string().trim().min(1).max(80).optional(),
+  payment_method:paymentMethodSchema.optional(),
+  trip_id:stableId.optional(),
+  conversion:z.object({
+    base_amount:positiveStoredAmount,base_currency:currencyCode,rate:fxRate,quoted_at:instant,
+    source_kind:z.enum(["manual","provider","import"]),source_ref:z.string().trim().min(1).max(500).optional()
+  }).strict().optional(),
+  allocations:z.array(z.object({
+    participant_label:z.string().trim().min(1).max(100),original_amount:positiveStoredAmount,
+    state:z.enum(["unsettled","settled","waived"]).default("unsettled"),settled_on:localDate.optional()
+  }).strict().refine(value=>(value.state==="settled")===(value.settled_on!==undefined),{message:"settled allocations require settled_on and other states forbid it"})).max(20).default([])
+}).strict().superRefine((value,context)=>{
+  if(value.allocations.length&&value.entry_type!=="expense")context.addIssue({code:"custom",path:["allocations"],message:"shared allocations are only valid for expenses"});
+  if(value.currency===(value.conversion?.base_currency??"CNY"))context.addIssue({code:"custom",path:["currency"],message:"original currency must differ from conversion currency"});
+  if((value.amount.split(".")[1]?.length??0)>value.source_scale)context.addIssue({code:"custom",path:["source_scale"],message:"source_scale is smaller than the supplied amount precision"});
+  const labels=new Set<string>();
+  for(const [index,item] of value.allocations.entries()){
+    const key=item.participant_label.toLocaleLowerCase();
+    if(labels.has(key))context.addIssue({code:"custom",path:["allocations",index],"message":"allocation participant labels must be unique"});
+    labels.add(key);
+  }
+  if(!factDateMatches(value))context.addIssue({code:"custom",path:["occurred_at"],message:"occurred_at does not fall on occurred_on in time_zone"});
+});
+export const settleForeignEntryInputSchema=z.object({
+  money_entry_id:stableId,expected_revision:z.number().int().positive(),
+  amount:cnyAmount.pipe(positiveStoredAmount),settled_on:localDate,
+  source_ref:z.string().trim().min(1).max(500).optional()
+}).strict();
 export const updateSharedExpenseAllocationInputSchema=z.object({allocation_id:stableId,expected_revision:z.number().int().positive(),state:z.enum(["unsettled","settled","waived"]),settled_on:localDate.optional()}).strict().refine(value=>(value.state==="settled")===(value.settled_on!==undefined),{message:"settled allocations require settled_on and other states forbid it"});
-export const foreignEntriesInputSchema=z.object({trip_id:stableId.optional(),limit:z.number().int().min(1).max(100).default(50)}).strict();
+export const foreignEntriesInputSchema=z.object({trip_id:stableId.optional(),settlement_state:z.enum(["pending","settled"]).optional(),limit:z.number().int().min(1).max(100).default(50)}).strict();
 export const foreignEntriesResultSchema=z.object({items:z.array(z.object({
-  id:stableId,record_id:stableId,entry_type:z.enum(["expense","income"]),amount:storedAmount,currency:currencyCode,source_scale:z.number().int().min(0).max(6),
+  id:stableId,record_id:stableId,entry_type:z.enum(["expense","income","refund"]),amount:storedAmount,currency:currencyCode,source_scale:z.number().int().min(0).max(6),
   occurred_on:localDate,occurred_at:instant.nullable(),time_zone:ianaTimeZone,counterparty:z.string().nullable(),category:z.string().nullable(),payment_method:paymentMethodSchema.nullable(),note:z.string().nullable(),revision:z.number().int().positive(),
-  fx_snapshot_id:stableId,base_amount:storedAmount,base_currency:currencyCode,rate:fxRate,quote_convention:z.literal("base_per_original"),quoted_at:instant,source_kind:z.enum(["manual","provider","import"]),source_ref:z.string().nullable(),trip_id:stableId.nullable(),
+  fx_snapshot_id:stableId.nullable(),base_amount:storedAmount.nullable(),base_currency:currencyCode.nullable(),rate:fxRate.nullable(),quote_convention:z.literal("base_per_original").nullable(),quoted_at:instant.nullable(),source_kind:z.enum(["manual","provider","import"]).nullable(),source_ref:z.string().nullable(),trip_id:stableId.nullable(),
+  settlement:z.object({id:stableId,amount:storedAmount,currency:z.literal("CNY"),settled_on:localDate,source_ref:z.string().nullable()}).strict().nullable().optional(),
   allocations:z.array(z.object({id:stableId,participant_label:z.string(),original_amount:storedAmount,state:z.enum(["unsettled","settled","waived"]),settled_on:localDate.nullable(),revision:z.number().int().positive(),updated_at:instant}).strict()).max(20)
 }).strict()).max(100),as_of:instant}).strict();
 
@@ -934,6 +971,7 @@ export const writeCommandSchemas = {
   ,"life.build_shopping_list":buildShoppingListInputSchema
   ,"life.update_shopping_item":updateShoppingItemInputSchema
   ,"money.record_foreign_entry":recordForeignEntryInputSchema
+  ,"money.settle_foreign_entry":settleForeignEntryInputSchema
   ,"money.update_shared_allocation":updateSharedExpenseAllocationInputSchema
 } as const;
 
@@ -949,7 +987,7 @@ export const universalCommandEnvelopeSchema = z.object({
 });
 
 export const resourceReferenceSchema = z.object({
-  type: z.enum(["agent_intention", "agent_task", "agent_learning", "agent_subscription", "meal", "meal_template", "food", "recipe", "personal_alias", "intake_item", "consumption_record", "purchase", "purchase_item", "money_entry", "refund", "budget", "recurring_plan", "recurring_occurrence", "spending_intent", "use_cycle", "service_card", "service_card_use", "consumable_use", "money_import_file", "money_import_batch", "money_import_candidate", "money_import_rule", "health_measurement", "health_workout_session", "health_raw", "health_sync_cursor", "health_plan", "trip", "trip_segment", "reservation", "visit", "place", "travel_map", "trip_track", "trip_day_plan", "purchase_price_spec", "amount_evidence", "interval_event","interval_occurrence", "dish_preference", "destination_card", "workout_route", "workout_rest_day", "library_saved_filter", "trip_diary_entry", "return_case", "storage_container", "lab_observation", "symptom_episode", "recording_clip", "trip_connection", "trip_checklist", "trip_member", "trip_plan_version", "trip_run", "trip_stop_outcome", "library_item", "library_annotation", "library_derivation", "library_processing_job", "library_reading_state", "library_legacy_link", "agent_context_pack", "agent_memory", "notification_preferences", "notification", "notification_installation", "notification_delivery", "owned_item", "owned_item_event", "life_review", "life_project", "action_item", "meal_plan", "shopping_list", "shopping_list_item", "food_stock_lot", "money_fx_snapshot", "shared_expense_allocation", "source", "activity_capture", "thread", "run", "task"]),
+  type: z.enum(["agent_intention", "agent_task", "agent_learning", "agent_subscription", "meal", "meal_template", "food", "recipe", "personal_alias", "intake_item", "consumption_record", "purchase", "purchase_item", "money_entry", "refund", "budget", "recurring_plan", "recurring_occurrence", "spending_intent", "use_cycle", "service_card", "service_card_use", "consumable_use", "money_import_file", "money_import_batch", "money_import_candidate", "money_import_rule", "health_measurement", "health_workout_session", "health_raw", "health_sync_cursor", "health_plan", "trip", "trip_segment", "reservation", "visit", "place", "travel_map", "trip_track", "trip_day_plan", "purchase_price_spec", "amount_evidence", "interval_event","interval_occurrence", "dish_preference", "destination_card", "workout_route", "workout_rest_day", "library_saved_filter", "trip_diary_entry", "return_case", "storage_container", "lab_observation", "symptom_episode", "recording_clip", "trip_connection", "trip_checklist", "trip_member", "trip_plan_version", "trip_run", "trip_stop_outcome", "library_item", "library_annotation", "library_derivation", "library_processing_job", "library_reading_state", "library_legacy_link", "agent_context_pack", "agent_memory", "notification_preferences", "notification", "notification_installation", "notification_delivery", "owned_item", "owned_item_event", "life_review", "life_project", "action_item", "meal_plan", "shopping_list", "shopping_list_item", "food_stock_lot", "money_fx_snapshot", "money_fx_settlement", "shared_expense_allocation", "source", "activity_capture", "thread", "run", "task"]),
   id: stableId,
   revision: z.number().int().positive()
 }).strict();

@@ -33,6 +33,7 @@ import org.json.JSONObject
   var feedback by remember(accountId){mutableStateOf("")}
   var failed by remember(accountId){mutableStateOf(false)}
   var editing by rememberSaveable(accountId){mutableStateOf(false)}
+  var settling by rememberSaveable(accountId){mutableStateOf<String?>(null)}
   fun write(capability:String,input:JSONObject,onCommitted:()->Unit={}){
     val session=app.sessions.active()?.takeIf{it.accountId==accountId}?:return
     if(saving)return
@@ -58,18 +59,29 @@ import org.json.JSONObject
         if(editing)ForeignEntryForm(saving){write("money.record_foreign_entry",it){editing=false}}
         if(feedback.isNotBlank())Text(feedback,color=if(failed)MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
         if(model.items.isEmpty())Text("还没有外币记录")
-        else Text("最近 ${model.items.size} 笔有换算快照的记录",style=MaterialTheme.typography.bodySmall)
+        else Text("最近 ${model.items.size} 笔外币记录",style=MaterialTheme.typography.bodySmall)
       }
     }
     items(entries,key={it.id}){entry->
         LifeCard{
           Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
-            Text(entry.counterparty?:if(entry.entryType.wireValue=="income")"外币收入" else "外币支出",Modifier.weight(1f),style=MaterialTheme.typography.titleMedium)
+            Text(entry.counterparty?:when(entry.entryType.wireValue){"income"->"外币收入";"refund"->"外币退款";else->"外币支出"},Modifier.weight(1f),style=MaterialTheme.typography.titleMedium)
             Text("${entry.currency} ${foreignAmountText(entry.amount,entry.sourceScale.toInt())}",style=MaterialTheme.typography.titleLarge)
           }
-          Text("${entry.occurredOn} · ${entry.baseCurrency} ${displayDecimal(entry.baseAmount)}")
-          Text("汇率 ${displayDecimal(entry.rate)} ${entry.baseCurrency}/${entry.currency} · "+
-            (localDateTime(entry.quotedAt,entry.timeZone)?:entry.quotedAt),style=MaterialTheme.typography.bodySmall)
+          Text(entry.occurredOn)
+          entry.settlement?.let{Text("实结 CNY ${displayDecimal(it.amount)} · ${it.settledOn}")}
+          if(entry.baseAmount!=null)Text("参考换算 ${entry.baseCurrency} ${displayDecimal(entry.baseAmount.orEmpty())}",style=MaterialTheme.typography.bodySmall)
+          if(entry.currency!="CNY"&&entry.settlement==null){
+            Text("待结算")
+            if(settling==entry.id){
+              ForeignSettlementForm(saving,entry.occurredOn){
+                write("money.settle_foreign_entry",it.put("money_entry_id",entry.id).put("expected_revision",entry.revision)){settling=null}
+              }
+            }
+            TextButton(enabled=!saving,onClick={settling=if(settling==entry.id)null else entry.id}){
+              Text(if(settling==entry.id)"取消" else "补实际结算")
+            }
+          }
           FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)){
             TextButton(onClick={onRecord(entry.recordId)}){Text("查看原币流水")}
             entry.tripId?.let{TextButton(onClick={onTrip(it)}){Text("关联旅程")}}
@@ -114,7 +126,7 @@ import org.json.JSONObject
     OutlinedTextField(currency,{currency=it.take(3).uppercase(Locale.ROOT)},Modifier.fillMaxWidth(),label={Text("原币币种，如 JPY")},singleLine=true)
     LifeDateField(date,{date=it},"发生日")
     OutlinedTextField(counterparty,{counterparty=it.take(200)},Modifier.fillMaxWidth(),label={Text("交易对方")},singleLine=true)
-    Text("换算快照",style=MaterialTheme.typography.titleMedium)
+    Text("参考换算（可选）",style=MaterialTheme.typography.titleMedium)
     MoneyDecimalField("人民币金额",converted,{converted=it})
     MoneyDecimalField("汇率（CNY / 原币）",rate,{rate=it})
     OutlinedTextField(quotedAt,{quotedAt=it},Modifier.fillMaxWidth(),label={Text("报价时刻（ISO 8601）")},singleLine=true)
@@ -148,21 +160,42 @@ import org.json.JSONObject
         require(Regex("[A-Z]{3}").matches(code)&&code!="CNY"){"请选择与人民币不同的三位币种代码"}
         val original=foreignPositive(amount,6)
         require(runCatching{LocalDate.parse(date)}.isSuccess){"请选择发生日"}
-        val base=foreignPositive(converted,6)
-        val observedRate=foreignPositive(rate,12)
-        require((original.toBigDecimal()*observedRate.toBigDecimal()-base.toBigDecimal()).abs()<=java.math.BigDecimal("0.000001")){"人民币金额与原币金额、汇率不一致"}
-        val quote=runCatching{Instant.parse(quotedAt.trim())}.getOrElse{error("请输入带时区的有效报价时刻")}
+        val conversion=if(converted.isBlank()&&rate.isBlank())null else {
+          val base=foreignPositive(converted,6)
+          val observedRate=foreignPositive(rate,12)
+          require((original.toBigDecimal()*observedRate.toBigDecimal()-base.toBigDecimal()).abs()<=java.math.BigDecimal("0.000001")){"人民币金额与原币金额、汇率不一致"}
+          val quote=runCatching{Instant.parse(quotedAt.trim())}.getOrElse{error("请输入带时区的有效报价时刻")}
+          JSONObject().put("base_amount",base).put("base_currency","CNY")
+            .put("rate",observedRate).put("quoted_at",quote.toString()).put("source_kind","manual")
+        }
         val rows=if(type=="expense")allocations.map{JSONObject(it)} else emptyList()
         require(type!="expense"||(person.isBlank()&&share.isBlank())){"请先加入刚填写的共同份额"}
         require(rows.fold(java.math.BigDecimal.ZERO){sum,item->sum+item.getString("original_amount").toBigDecimal()}<=original.toBigDecimal()){"份额合计超过原币金额"}
         JSONObject().put("entry_type",type).put("amount",original).put("currency",code)
           .put("source_scale",original.substringAfter('.', "").length).put("occurred_on",date).put("time_zone",zone.id)
-          .put("conversion",JSONObject().put("base_amount",base).put("base_currency","CNY")
-            .put("rate",observedRate).put("quoted_at",quote.toString()).put("source_kind","manual"))
-          .put("allocations",JSONArray(rows)).apply{if(counterparty.isNotBlank())put("counterparty",counterparty.trim())}
+          .put("allocations",JSONArray(rows)).apply{
+            if(conversion!=null)put("conversion",conversion)
+            if(counterparty.isNotBlank())put("counterparty",counterparty.trim())
+          }
       }.onSuccess{error="";onSave(it)}.onFailure{error=it.message?:"请检查金额和报价"}
     }){Text("保存外币款项")}
   }
+}
+
+@Composable private fun ForeignSettlementForm(busy:Boolean,occurredOn:String,onSave:(JSONObject)->Unit){
+  var amount by rememberSaveable{mutableStateOf("")}
+  var date by rememberSaveable{mutableStateOf(LocalDate.now().toString())}
+  var error by rememberSaveable{mutableStateOf("")}
+  MoneyDecimalField("实际结算金额（CNY）",amount,{amount=it})
+  LifeDateField(date,{date=it},"结算日")
+  if(error.isNotBlank())Text(error,color=MaterialTheme.colorScheme.error)
+  Button(enabled=!busy,onClick={
+    runCatching{
+      val actual=foreignPositive(amount,2).toBigDecimal().setScale(2).toPlainString()
+      require(runCatching{LocalDate.parse(date)>=LocalDate.parse(occurredOn)}.getOrDefault(false)){"结算日须为交易日或之后"}
+      JSONObject().put("amount",actual).put("settled_on",date)
+    }.onSuccess{error="";onSave(it)}.onFailure{error=it.message?:"请核对银行账单"}
+  }){Text("保存结算")}
 }
 
 @Composable private fun MoneyDecimalField(label:String,value:String,onValue:(String)->Unit){

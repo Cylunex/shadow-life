@@ -34,7 +34,7 @@ export const personalOperatorTools: ReadonlySet<CapabilityName> = new Set<Capabi
   "life.save_project", "life.save_action_item", "life.save_meal_plan", "life.stock_recipes","life.build_shopping_list", "life.update_shopping_item",
   "life.save_food", "life.save_recipe", "life.record_meal_from_recipe", "life.generate_review",
   "money.set_budget", "money.set_recurring_plan", "money.set_spending_intent", "money.set_occurrence_state",
-  "money.record_foreign_entry", "health.set_plan", "travel.set_day_plan",
+  "money.record_foreign_entry", "money.settle_foreign_entry", "health.set_plan", "travel.set_day_plan",
 ]);
 
 export type McpProfile = "personal" | "personal-money-void" | "authorized";

@@ -2623,7 +2623,8 @@ data class MealPlanningResultDto(
 @Serializable
 enum class ForeignEntriesResultDtoItemsEntryEntryType(val wireValue: String) {
   @SerialName("expense") Expense("expense"),
-  @SerialName("income") Income("income")
+  @SerialName("income") Income("income"),
+  @SerialName("refund") Refund("refund")
 }
 
 @Serializable
@@ -2647,6 +2648,15 @@ enum class ForeignEntriesResultDtoItemsEntrySourceKind(val wireValue: String) {
   @SerialName("provider") Provider("provider"),
   @SerialName("import") Import("import")
 }
+
+@Serializable
+data class ForeignEntriesResultDtoItemsEntrySettlement(
+  @SerialName("id") val id: String,
+  @SerialName("amount") val amount: String,
+  @SerialName("currency") val currency: String,
+  @SerialName("settled_on") val settledOn: String,
+  @SerialName("source_ref") val sourceRef: String?
+)
 
 @Serializable
 enum class ForeignEntriesResultDtoItemsEntryAllocationsEntryState(val wireValue: String) {
@@ -2682,15 +2692,16 @@ data class ForeignEntriesResultDtoItemsEntry(
   @SerialName("payment_method") val paymentMethod: ForeignEntriesResultDtoItemsEntryPaymentMethod?,
   @SerialName("note") val note: String?,
   @SerialName("revision") val revision: Long,
-  @SerialName("fx_snapshot_id") val fxSnapshotId: String,
-  @SerialName("base_amount") val baseAmount: String,
-  @SerialName("base_currency") val baseCurrency: String,
-  @SerialName("rate") val rate: String,
-  @SerialName("quote_convention") val quoteConvention: String,
-  @SerialName("quoted_at") val quotedAt: String,
-  @SerialName("source_kind") val sourceKind: ForeignEntriesResultDtoItemsEntrySourceKind,
+  @SerialName("fx_snapshot_id") val fxSnapshotId: String?,
+  @SerialName("base_amount") val baseAmount: String?,
+  @SerialName("base_currency") val baseCurrency: String?,
+  @SerialName("rate") val rate: String?,
+  @SerialName("quote_convention") val quoteConvention: String?,
+  @SerialName("quoted_at") val quotedAt: String?,
+  @SerialName("source_kind") val sourceKind: ForeignEntriesResultDtoItemsEntrySourceKind?,
   @SerialName("source_ref") val sourceRef: String?,
   @SerialName("trip_id") val tripId: String?,
+  @SerialName("settlement") val settlement: ForeignEntriesResultDtoItemsEntrySettlement? = null,
   @SerialName("allocations") val allocations: List<ForeignEntriesResultDtoItemsEntryAllocationsEntry>
 )
 

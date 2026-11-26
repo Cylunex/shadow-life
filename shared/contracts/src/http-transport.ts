@@ -3,7 +3,7 @@ import { capabilityRegistry, type CapabilityName } from "./registry.js";
 
 export type CapabilityHttpRequest={method:"GET"|"POST";url:string;body?:string};
 type ReadRoute=(input:any)=>Omit<CapabilityHttpRequest,"url">&{path:string};
-const search=(values:Record<string,unknown>):string=>{const result=new URLSearchParams();for(const[key,value]of Object.entries(values)){if(value===undefined||value===null||value==="")continue;result.set(key,Array.isArray(value)?value.join(","):String(value));}const encoded=result.toString();return encoded?`?${encoded}`:"";};
+const search=(values:Record<string,unknown>):string=>{const result=new URLSearchParams();for(const[key,value]of Object.entries(values)){if(value===undefined||value===null||(value===""&&key!=="category"))continue;result.set(key,Array.isArray(value)?value.join(","):String(value));}const encoded=result.toString();return encoded?`?${encoded}`:"";};
 const get=(path:string):ReturnType<ReadRoute>=>({method:"GET",path});
 const post=(path:string,input:unknown):ReturnType<ReadRoute>=>({method:"POST",path,body:JSON.stringify(input)});
 
@@ -28,11 +28,11 @@ export const queryTransportRegistry:Readonly<Record<string,ReadRoute>>={
   "life.consumption_stats":input=>get(`/api/life/consumption-stats${search({from_on:input.from_on,to_on_exclusive:input.to_on_exclusive,time_zone:input.time_zone,scopes:input.scopes,categories:input.categories,merchant_rank_by:input.merchant_rank_by,item_rank_by:input.item_rank_by,currency:input.currency,limit:input.limit})}`),
   "life.list_meals":input=>get(`/api/meals${search({occurred_on:input.occurred_on,limit:input.limit,cursor:input.cursor,with_evidence:input.with_evidence})}`),
   "life.food_catalog":input=>get(`/api/life/foods${search({q:input.query,limit:input.limit})}`),
-  "money.summarize":()=>get("/api/money/summary"),
-  "money.records":input=>get(`/api/money${search({q:input.query,limit:input.limit,cursor:input.cursor})}`),
+  "money.summarize":input=>get(`/api/money/summary${search({period:input.period})}`),
+  "money.records":input=>get(`/api/money${search({q:input.query,period:input.period,currency:input.currency,entry_type:input.entry_type,on:input.on,category:input.category,limit:input.limit,cursor:input.cursor})}`),
   "health.records":input=>get(`/api/health${search({q:input.query,limit:input.limit,cursor:input.cursor})}`),
   "travel.records":input=>get(`/api/travel${search({q:input.query,limit:input.limit,cursor:input.cursor})}`),
-  "library.records":input=>get(`/api/library${search({q:input.query,limit:input.limit,cursor:input.cursor})}`),
+  "library.records":input=>get(`/api/library${search({q:input.query,item_types:input.item_types,limit:input.limit,cursor:input.cursor})}`),
   "health.get_record":input=>get(`/api/health/records/${encodeURIComponent(input.id)}`),
   "health.release_history":input=>get(`/api/health/releases${search({from:input.from,to:input.to,limit:input.limit})}`),
   "health.morning_window":input=>get(`/api/health/morning-window${search(input)}`),
@@ -88,7 +88,7 @@ export const queryTransportRegistry:Readonly<Record<string,ReadRoute>>={
   "life.projects":input=>get(`/api/life/projects${search({id:input.id,state:input.state,limit:input.limit})}`),
   "life.planning_agenda":input=>get(`/api/planning/agenda${search({from_on:input.from_on,to_on_exclusive:input.to_on_exclusive,time_zone:input.time_zone,limit:input.limit})}`),
   "life.meal_planning":input=>get(`/api/life/meal-planning${search({limit:input.limit,on:input.on,time_zone:input.time_zone})}`),
-  "money.foreign_entries":input=>get(`/api/money/foreign${search({trip_id:input.trip_id,limit:input.limit})}`),
+  "money.foreign_entries":input=>get(`/api/money/foreign${search({trip_id:input.trip_id,settlement_state:input.settlement_state,limit:input.limit})}`),
   "operations.find":input=>get(`/api/operations/by-command/${encodeURIComponent(input.command_id)}`),
   "operations.get":input=>get(`/api/operations/${encodeURIComponent(input.execution_id)}`)
 };

@@ -122,7 +122,7 @@ export interface TransactionStore {
   planningAgenda(subjectId:string,input:{fromOn:string;toOnExclusive:string;timeZone:string;limit:number;includeProjects:boolean;includeMoney:boolean;includeHealth:boolean}):Promise<{items:readonly PlanningAgendaItem[];truncated:boolean;asOf:string}>;
   mealPlanning(subjectId:string,limit:number):Promise<unknown>;
   purchaseItems(subjectId:string,query:string|undefined,limit:number):Promise<unknown>;
-  foreignEntries(subjectId:string,tripId:string|undefined,limit:number,includeTrip:boolean):Promise<unknown>;
+  foreignEntries(subjectId:string,tripId:string|undefined,limit:number,includeTrip:boolean,settlementState?:"pending"|"settled"):Promise<unknown>;
   agentPersonalContext(subjectId:string,aliasKinds:readonly string[],includeMealTemplates:boolean):Promise<{aliases:readonly Record<string,unknown>[];mealTemplates:readonly Record<string,unknown>[]}>;
 }
 

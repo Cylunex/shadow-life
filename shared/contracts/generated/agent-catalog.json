@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "a3d5ef604d4e18e823c2840cb8cd4a4d01ef0094cf86934c2322c3363fad151b",
+  "catalog_revision": "e0e36ac9d1d0077bb2e6507624d0e2db562552958f60cfe9f35833ed449944ed",
   "terms": [
     {
       "id": "activity_capture",
@@ -832,7 +832,8 @@
         "money.record_consumable_use",
         "money.planning",
         "money.foreign_entries",
-        "money.record_foreign_entry"
+        "money.record_foreign_entry",
+        "money.settle_foreign_entry"
       ],
       "instructions": [
         "按币种和统计期间汇总，展示覆盖率。",
@@ -1234,6 +1235,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -1350,6 +1352,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -2889,6 +2892,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -3005,6 +3009,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -5165,6 +5170,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -5281,6 +5287,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -5519,6 +5526,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -5635,6 +5643,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -6037,6 +6046,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -6153,6 +6163,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -6554,6 +6565,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -6670,6 +6682,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -7205,6 +7218,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -7321,6 +7335,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -7675,6 +7690,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -7791,6 +7807,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -8175,6 +8192,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -8291,6 +8309,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -9073,6 +9092,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -9189,6 +9209,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -13493,6 +13514,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -13609,6 +13631,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -13954,6 +13977,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -14070,6 +14094,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -14701,6 +14726,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -14817,6 +14843,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -15138,6 +15165,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -15254,6 +15282,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -16260,6 +16289,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -16376,6 +16406,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -16666,6 +16697,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -16782,6 +16814,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -17078,6 +17111,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -17194,6 +17228,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -17553,6 +17588,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -17669,6 +17705,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -17925,6 +17962,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -18041,6 +18079,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -18318,6 +18357,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -18434,6 +18474,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -18701,6 +18742,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -18817,6 +18859,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -19722,6 +19765,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -19838,6 +19882,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -20159,6 +20204,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -20275,6 +20321,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -20519,6 +20566,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -20635,6 +20683,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -21035,6 +21084,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -21151,6 +21201,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -21401,6 +21452,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -21517,6 +21569,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -23086,6 +23139,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -23202,6 +23256,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -23810,6 +23865,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -23926,6 +23982,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -24170,6 +24227,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -24286,6 +24344,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -24524,6 +24583,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -24640,6 +24700,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -24947,6 +25008,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -25063,6 +25125,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -25324,6 +25387,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -25440,6 +25504,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -25826,6 +25891,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -25942,6 +26008,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -27009,6 +27076,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -27125,6 +27193,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -27427,6 +27496,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -27543,6 +27613,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -27996,6 +28067,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -28112,6 +28184,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -28416,6 +28489,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -28532,6 +28606,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -28819,6 +28894,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -28935,6 +29011,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -30105,6 +30182,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -30221,6 +30299,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -31338,6 +31417,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -31454,6 +31534,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -31749,6 +31830,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -31865,6 +31947,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -32105,6 +32188,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -32221,6 +32305,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -32662,6 +32747,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -32778,6 +32864,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -34142,6 +34229,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -34258,6 +34346,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -34543,6 +34632,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -34659,6 +34749,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -34976,6 +35067,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -35092,6 +35184,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -36072,6 +36165,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -36188,6 +36282,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -36426,6 +36521,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -36542,6 +36638,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -39618,6 +39715,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -39734,6 +39832,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -39983,6 +40082,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -40099,6 +40199,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -40658,6 +40759,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -40774,6 +40876,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -41064,6 +41167,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -41180,6 +41284,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -43017,6 +43122,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -43133,6 +43239,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -43606,6 +43713,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -43722,6 +43830,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -46925,6 +47034,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -47041,6 +47151,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -47856,6 +47967,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -47972,6 +48084,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -48494,6 +48607,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -48610,6 +48724,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -48856,6 +48971,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -48972,6 +49088,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -49736,6 +49853,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -49852,6 +49970,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -50380,6 +50499,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -50496,6 +50616,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -50780,6 +50901,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -50896,6 +51018,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -51272,6 +51395,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -51388,6 +51512,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -51675,6 +51800,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -51791,6 +51917,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -52088,6 +52215,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -52204,6 +52332,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -52775,6 +52904,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -52891,6 +53021,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -53168,6 +53299,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -53284,6 +53416,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -53860,6 +53993,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -53976,6 +54110,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -54226,6 +54361,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -54342,6 +54478,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -54763,6 +54900,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -54879,6 +55017,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -55255,6 +55394,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -55371,6 +55511,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -55662,6 +55803,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -55778,6 +55920,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -56016,6 +56159,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -56132,6 +56276,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -56589,6 +56734,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -56705,6 +56851,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -57016,6 +57163,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -57132,6 +57280,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -57461,6 +57610,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -57577,6 +57727,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -57851,6 +58002,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -57967,6 +58119,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -58231,6 +58384,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -58347,6 +58501,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -58625,6 +58780,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -58741,6 +58897,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -59051,6 +59208,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -59167,6 +59325,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -59422,6 +59581,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -59538,6 +59698,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -59874,6 +60035,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -59990,6 +60152,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -60353,6 +60516,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -60469,6 +60633,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -60738,6 +60903,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -60854,6 +61020,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -61236,6 +61403,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -61352,6 +61520,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -61745,6 +61914,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -61861,6 +62031,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -62262,6 +62433,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -62378,6 +62550,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -62934,6 +63107,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -63050,6 +63224,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -63341,6 +63516,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -63457,6 +63633,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -63745,6 +63922,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -63861,6 +64039,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -64129,6 +64308,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -64245,6 +64425,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -64500,6 +64681,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -64616,6 +64798,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -64904,6 +65087,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -65020,6 +65204,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -66230,6 +66415,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -66346,6 +66532,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -66606,6 +66793,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -66722,6 +66910,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -66978,6 +67167,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -67094,6 +67284,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -67345,6 +67536,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -67461,6 +67653,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -69222,6 +69415,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -69338,6 +69532,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -69406,7 +69601,7 @@
     },
     {
       "name": "money.foreign_entries",
-      "description": "读取原币交易、独立汇率快照、旅行关联和可选共同费用结算状态。",
+      "description": "读取原币交易、报价和实际人民币结算，可筛选待结算或已结算。",
       "domain": "money",
       "mode": "read",
       "possible_effects": [
@@ -69422,6 +69617,13 @@
           "trip_id": {
             "type": "string",
             "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "settlement_state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "settled"
+            ]
           },
           "limit": {
             "default": 50,
@@ -69457,7 +69659,8 @@
                   "type": "string",
                   "enum": [
                     "expense",
-                    "income"
+                    "income",
+                    "refund"
                   ]
                 },
                 "amount": {
@@ -69542,36 +69745,85 @@
                   "maximum": 9007199254740991
                 },
                 "fx_snapshot_id": {
-                  "type": "string",
-                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "base_amount": {
-                  "type": "string",
-                  "pattern": "^(?:0|[1-9]\\d{0,17})(?:\\.\\d{1,6})?$"
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^(?:0|[1-9]\\d{0,17})(?:\\.\\d{1,6})?$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "base_currency": {
-                  "type": "string",
-                  "pattern": "^[A-Z]{3}$"
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[A-Z]{3}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "rate": {
-                  "type": "string",
-                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,12})?$"
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d{1,12})?$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "quote_convention": {
-                  "type": "string",
-                  "const": "base_per_original"
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "base_per_original"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "quoted_at": {
-                  "type": "string",
-                  "format": "date-time",
-                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "source_kind": {
-                  "type": "string",
-                  "enum": [
-                    "manual",
-                    "provider",
-                    "import"
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "manual",
+                        "provider",
+                        "import"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 },
                 "source_ref": {
@@ -69585,6 +69837,49 @@
                     {
                       "type": "string",
                       "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "settlement": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                        },
+                        "amount": {
+                          "type": "string",
+                          "pattern": "^(?:0|[1-9]\\d{0,17})(?:\\.\\d{1,6})?$"
+                        },
+                        "currency": {
+                          "type": "string",
+                          "const": "CNY"
+                        },
+                        "settled_on": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "source_ref": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "amount",
+                        "currency",
+                        "settled_on",
+                        "source_ref"
+                      ],
+                      "additionalProperties": false
                     },
                     {
                       "type": "null"
@@ -69907,6 +70202,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -70023,6 +70319,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -72465,6 +72762,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -72581,6 +72879,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -72929,6 +73228,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -73045,6 +73345,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -73113,12 +73414,13 @@
     },
     {
       "name": "money.record_foreign_entry",
-      "description": "记录原币金额、源精度、支付日和独立换算快照；换算不会覆盖原始金额。",
+      "description": "记录原币金额、源精度和交易日，可稍后按银行账单补实际人民币结算。",
       "domain": "money",
       "mode": "write",
       "possible_effects": [
         "money.entry.write",
-        "travel.trip.read"
+        "travel.trip.read",
+        "library.source.link"
       ],
       "scenarios": [
         "spending"
@@ -73127,6 +73429,73 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "occurred_on": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+          },
+          "time_zone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "source": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "text",
+                  "image",
+                  "receipt",
+                  "import"
+                ]
+              },
+              "external_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "captured_on": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "captured_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+              },
+              "time_zone": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "original_text": {
+                "type": "string",
+                "maxLength": 20000
+              },
+              "asset_version_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{7,127}$"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "additionalProperties": false,
+            "description": "Evidence needs original_text or an uploaded asset_version_id, plus captured_on or captured_at. captured_at also needs time_zone. Image text alone does not attach the original image."
+          },
           "entry_type": {
             "type": "string",
             "enum": [
@@ -73146,21 +73515,6 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 6
-          },
-          "occurred_on": {
-            "type": "string",
-            "format": "date",
-            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
-          },
-          "occurred_at": {
-            "type": "string",
-            "format": "date-time",
-            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
-          },
-          "time_zone": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 64
           },
           "counterparty": {
             "type": "string",
@@ -73187,11 +73541,6 @@
               "mixed",
               "other"
             ]
-          },
-          "note": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 2000
           },
           "trip_id": {
             "type": "string",
@@ -73281,13 +73630,12 @@
           }
         },
         "required": [
+          "occurred_on",
+          "time_zone",
           "entry_type",
           "amount",
           "currency",
           "source_scale",
-          "occurred_on",
-          "time_zone",
-          "conversion",
           "allocations"
         ],
         "additionalProperties": false
@@ -73441,6 +73789,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -73557,6 +73906,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -73711,11 +74061,11 @@
           },
           "amount": {
             "type": "string",
-            "pattern": "^(?:0|[1-9]\\d*)\\.\\d{2}$"
+            "pattern": "^(?:0|[1-9]\\d{0,17})(?:\\.\\d{1,6})?$"
           },
           "currency": {
             "type": "string",
-            "const": "CNY"
+            "pattern": "^[A-Z]{3}$"
           }
         },
         "required": [
@@ -73876,6 +74226,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -73992,6 +74343,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -74283,6 +74635,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -74399,6 +74752,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -75105,6 +75459,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -75221,6 +75576,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -75671,6 +76027,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -75787,6 +76144,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -76108,6 +76466,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -76224,6 +76583,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -76750,6 +77110,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -76866,6 +77227,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -77163,6 +77525,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -77279,6 +77642,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -77594,6 +77958,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -77710,6 +78075,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -78055,6 +78421,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -78171,6 +78538,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -78461,6 +78829,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -78577,6 +78946,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -78929,6 +79299,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -79045,6 +79416,387 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
+                    "shared_expense_allocation",
+                    "source",
+                    "activity_capture",
+                    "thread",
+                    "run",
+                    "task"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "revision": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "revision"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "actual_values": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "replayed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "protocol",
+          "capability",
+          "command_id",
+          "execution_id",
+          "status",
+          "result_kind",
+          "resources",
+          "actual_values",
+          "warnings",
+          "replayed"
+        ],
+        "additionalProperties": false
+      },
+      "matched_terms": []
+    },
+    {
+      "name": "money.settle_foreign_entry",
+      "description": "按银行账单为已有外币交易登记实际人民币结算金额与日期。",
+      "domain": "money",
+      "mode": "write",
+      "possible_effects": [
+        "money.entry.write"
+      ],
+      "scenarios": [
+        "spending"
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "money_entry_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?:0|[1-9]\\d{0,17})(?:\\.\\d{1,6})?$"
+          },
+          "settled_on": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "source_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "money_entry_id",
+          "expected_revision",
+          "amount",
+          "settled_on"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "const": "shadow.execution-result"
+          },
+          "capability": {
+            "type": "string",
+            "enum": [
+              "life.restore_recording",
+              "life.restore_screenshot",
+              "life.set_capture_policy",
+              "life.classify_activity",
+              "life.reclassify_activities",
+              "life.set_capture_goal",
+              "life.protect_capture",
+              "life.restore_activities",
+              "life.cleanup_captures",
+              "agent.restore",
+              "agent.set_intention",
+              "agent.save_task",
+              "agent.save_learning",
+              "agent.set_subscription",
+              "agent.ack_changes",
+              "life.record_meal",
+              "life.record_dining",
+              "life.correct_meal",
+              "life.void_meal",
+              "life.add_intake",
+              "life.remove_intake",
+              "life.add_meal_payment",
+              "life.attach_meal_source",
+              "life.set_personal_alias",
+              "life.record_purchase",
+              "life.enrich_purchase",
+              "life.correct_intake",
+              "life.set_price_spec",
+              "life.save_amount_evidence",
+              "life.save_interval_event",
+              "life.record_occurrence",
+              "life.save_dish_preference",
+              "life.correct_purchase",
+              "life.update_purchase_items",
+              "life.void_purchase",
+              "life.link_meal_consumption",
+              "life.save_meal_template",
+              "life.record_meal_from_template",
+              "life.save_food",
+              "life.save_recipe",
+              "life.record_meal_from_recipe",
+              "money.record_entry",
+              "money.record_refund",
+              "money.correct_entry",
+              "money.void_entry",
+              "money.set_budget",
+              "money.set_recurring_plan",
+              "money.set_spending_intent",
+              "money.set_use_cycle",
+              "money.record_consumable_use",
+              "money.save_service_card",
+              "money.record_service_card_use",
+              "money.set_occurrence_state",
+              "money.import_file",
+              "money.stage_import",
+              "money.resolve_import_candidate",
+              "money.set_import_rule",
+              "health.record_measurement",
+              "health.correct_measurement",
+              "health.save_morning_checkin",
+              "health.record_workout",
+              "health.ingest_raw",
+              "health.ingest_batch",
+              "health.set_source_state",
+              "health.set_plan",
+              "travel.create_trip",
+              "travel.correct_trip",
+              "travel.add_reservation",
+              "travel.correct_reservation",
+              "travel.void_reservation",
+              "travel.record_segment",
+              "travel.record_visit",
+              "travel.save_place",
+              "travel.save_destination",
+              "health.set_workout_route",
+              "health.set_rest_day",
+              "library.save_filter",
+              "travel.save_diary_entry",
+              "life.remember_merchant_dish",
+              "money.save_return_case",
+              "life.save_container",
+              "life.place_item",
+              "health.save_lab_result",
+              "health.save_episode",
+              "life.save_clip",
+              "life.save_offline_interval",
+              "travel.save_connection",
+              "travel.set_day_plan",
+              "travel.set_checklist",
+              "travel.set_member",
+              "travel.publish_plan",
+              "travel.start_run",
+              "travel.set_stop_outcome",
+              "travel.save_map",
+              "travel.import_track",
+              "travel.restore_bundle",
+              "life.ingest_activity",
+              "life.record_captured_expenses",
+              "life.capture_screenshot",
+              "life.register_recording",
+              "life.claim_recording",
+              "life.complete_recording",
+              "life.fail_recording",
+              "life.retry_recording",
+              "life.delete_recording",
+              "life.revise_transcript",
+              "life.set_order_capture",
+              "life.generate_activity_review",
+              "life.delete_activity",
+              "life.archive_activity",
+              "library.capture",
+              "library.revise",
+              "library.annotate",
+              "library.register_derivation",
+              "library.queue_processing",
+              "library.retry_processing",
+              "library.claim_processing",
+              "library.renew_processing",
+              "library.fail_processing",
+              "library.complete_processing",
+              "library.set_reading_state",
+              "agent.create_context_pack",
+              "agent.revoke_context_pack",
+              "agent.set_memory",
+              "notifications.set_preferences",
+              "notifications.update",
+              "notifications.register_device",
+              "notifications.set_delivery_state",
+              "life.save_owned_item",
+              "life.record_owned_item_event",
+              "life.generate_review",
+              "life.save_project",
+              "life.save_action_item",
+              "life.save_meal_plan",
+              "life.set_food_stock",
+              "life.build_shopping_list",
+              "life.update_shopping_item",
+              "money.record_foreign_entry",
+              "money.settle_foreign_entry",
+              "money.update_shared_allocation"
+            ]
+          },
+          "command_id": {
+            "type": "string",
+            "pattern": "^cmd_[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$",
+            "description": "Stable intent key, e.g. cmd_meal_20260922_001. Reuse the same key and identical input after a timeout; a genuinely new intent needs a new key."
+          },
+          "execution_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "status": {
+            "type": "string",
+            "const": "committed"
+          },
+          "result_kind": {
+            "type": "string",
+            "enum": [
+              "record",
+              "plan",
+              "task"
+            ]
+          },
+          "resources": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "agent_intention",
+                    "agent_task",
+                    "agent_learning",
+                    "agent_subscription",
+                    "meal",
+                    "meal_template",
+                    "food",
+                    "recipe",
+                    "personal_alias",
+                    "intake_item",
+                    "consumption_record",
+                    "purchase",
+                    "purchase_item",
+                    "money_entry",
+                    "refund",
+                    "budget",
+                    "recurring_plan",
+                    "recurring_occurrence",
+                    "spending_intent",
+                    "use_cycle",
+                    "service_card",
+                    "service_card_use",
+                    "consumable_use",
+                    "money_import_file",
+                    "money_import_batch",
+                    "money_import_candidate",
+                    "money_import_rule",
+                    "health_measurement",
+                    "health_workout_session",
+                    "health_raw",
+                    "health_sync_cursor",
+                    "health_plan",
+                    "trip",
+                    "trip_segment",
+                    "reservation",
+                    "visit",
+                    "place",
+                    "travel_map",
+                    "trip_track",
+                    "trip_day_plan",
+                    "purchase_price_spec",
+                    "amount_evidence",
+                    "interval_event",
+                    "interval_occurrence",
+                    "dish_preference",
+                    "destination_card",
+                    "workout_route",
+                    "workout_rest_day",
+                    "library_saved_filter",
+                    "trip_diary_entry",
+                    "return_case",
+                    "storage_container",
+                    "lab_observation",
+                    "symptom_episode",
+                    "recording_clip",
+                    "trip_connection",
+                    "trip_checklist",
+                    "trip_member",
+                    "trip_plan_version",
+                    "trip_run",
+                    "trip_stop_outcome",
+                    "library_item",
+                    "library_annotation",
+                    "library_derivation",
+                    "library_processing_job",
+                    "library_reading_state",
+                    "library_legacy_link",
+                    "agent_context_pack",
+                    "agent_memory",
+                    "notification_preferences",
+                    "notification",
+                    "notification_installation",
+                    "notification_delivery",
+                    "owned_item",
+                    "owned_item_event",
+                    "life_review",
+                    "life_project",
+                    "action_item",
+                    "meal_plan",
+                    "shopping_list",
+                    "shopping_list_item",
+                    "food_stock_lot",
+                    "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -79321,6 +80073,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -79437,6 +80190,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -79867,6 +80621,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -79983,6 +80738,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -80235,6 +80991,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -80351,6 +81108,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -80887,6 +81645,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -81003,6 +81762,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -81269,6 +82029,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -81385,6 +82146,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -81636,6 +82398,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -81752,6 +82515,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -82006,6 +82770,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -82122,6 +82887,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -82364,6 +83130,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -82480,6 +83247,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -82718,6 +83486,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -82834,6 +83603,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -83254,6 +84024,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -83370,6 +84141,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -83937,6 +84709,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -84053,6 +84826,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -84334,6 +85108,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -84450,6 +85225,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -84714,6 +85490,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -84830,6 +85607,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -86388,6 +87166,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -86504,6 +87283,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -86960,6 +87740,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -87076,6 +87857,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -87561,6 +88343,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -87677,6 +88460,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -88011,6 +88795,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -88127,6 +88912,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -88719,6 +89505,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -88835,6 +89622,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -89142,6 +89930,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -89258,6 +90047,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -89532,6 +90322,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -89648,6 +90439,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -89944,6 +90736,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -90060,6 +90853,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -90362,6 +91156,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -90478,6 +91273,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -90759,6 +91555,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -90875,6 +91672,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -91160,6 +91958,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -91276,6 +92075,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -91563,6 +92363,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -91679,6 +92480,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -91938,6 +92740,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -92054,6 +92857,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -92320,6 +93124,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -92436,6 +93241,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -92678,6 +93484,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -92794,6 +93601,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",
@@ -93044,6 +93852,7 @@
               "life.build_shopping_list",
               "life.update_shopping_item",
               "money.record_foreign_entry",
+              "money.settle_foreign_entry",
               "money.update_shared_allocation"
             ]
           },
@@ -93160,6 +93969,7 @@
                     "shopping_list_item",
                     "food_stock_lot",
                     "money_fx_snapshot",
+                    "money_fx_settlement",
                     "shared_expense_allocation",
                     "source",
                     "activity_capture",

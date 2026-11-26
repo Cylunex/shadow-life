@@ -18,3 +18,13 @@ test("meal paging preserves the date filter and opaque cursor",()=>{
 });
 test("unknown outcomes can be recovered with the original validated command id",()=>{const request=buildCapabilityHttpRequest("https://life.example.com","operations.find",{command_id:"cmd_transport_12345678"});assert.equal(request.url,"https://life.example.com/api/operations/by-command/cmd_transport_12345678");assert.throws(()=>buildCapabilityHttpRequest("https://life.example.com","operations.find",{command_id:"bad-key"}));});
 test("date-only history queries need both boundaries and preserve domain filters",()=>{const request=buildCapabilityHttpRequest("https://life.example.com","life.search",{types:["meals"],from_on:"2026-09-21",to_on_exclusive:"2026-09-22"});const url=new URL(request.url);assert.equal(url.searchParams.has("q"),false);assert.equal(url.searchParams.get("types"),"meals");assert.throws(()=>buildCapabilityHttpRequest("https://life.example.com","life.search",{}));assert.throws(()=>buildCapabilityHttpRequest("https://life.example.com","life.search",{from_on:"2026-09-21"}));});
+
+test("money transports carry date, period and combined filters through paging",()=>{
+  const request=buildCapabilityHttpRequest("https://life.example.com","money.records",{
+    on:"2026-11-22",period:"2026-11",currency:"USD",entry_type:"expense",category:"",query:"示例",limit:1,cursor:"opaque+/="
+  });
+  assert.deepEqual(Object.fromEntries(new URL(request.url).searchParams),{
+    on:"2026-11-22",period:"2026-11",currency:"USD",entry_type:"expense",category:"",q:"示例",limit:"1",cursor:"opaque+/="
+  });
+  assert.equal(buildCapabilityHttpRequest("","money.summarize",{period:"2026-11"}).url,"/api/money/summary?period=2026-11");
+});
