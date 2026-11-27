@@ -7,13 +7,14 @@
     <path
         android:name="sun"
         android:fillColor="#F4FBFF"
-        android:pathData="M38,4a8,8 0,1 1,0 16a8,8 0,1 1,0 -16Z" />
+        android:pathData="M39,3.8a7.8,7.8 0,1 1,0 15.6a7.8,7.8 0,1 1,0 -15.6Z" />
     <path
         android:name="far_bank"
-        android:fillColor="#91D5FF"
-        android:pathData="M3,19C12,16 19,18 26,22C34,27 41,28 57,23C56,27 50,31 40,34C27,38 16,37 10,42C6,36 3,28 3,19Z" />
+        android:fillColor="#B1E8FF"
+        android:fillAlpha="0.80"
+        android:pathData="M4.4,18.4C11.8,16.3 18.4,17.8 26,21.5C35.6,26.2 43.5,26.6 55.8,22.7Q57.7,22 56.6,23.8C53,28.5 45.7,31.6 37,33.7C26,36.4 17.6,37.3 11.3,41.4Q10.1,42.3 9.3,41C5.1,34.9 3,27 3.4,19.7Q3.4,18.7 4.4,18.4Z" />
     <path
         android:name="near_bank"
         android:fillColor="#CAE9FF"
-        android:pathData="M60,29C61,39 56,51 47,57C42,60 35,62 29,61C22,60 17,57 16,54C14,49 22,44 36,41C47,38 54,34 60,29Z" />
+        android:pathData="M58.9,28.7Q60.4,27.3 60.3,29.4C59.8,40.7 54.4,50.8 46.4,56.4C40.3,60.6 33.2,62 26.6,60.2C20.7,58.6 16.4,55.8 16.2,52.9C15.9,48.3 23.4,44.4 34.6,41.4C45.6,38.4 53.7,34.2 58.9,28.7Z" />
 </vector>
