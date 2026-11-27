@@ -306,7 +306,7 @@ class ScaleScanService:Service(){
   }
   private suspend fun saveMeasurement(measurement:Measurement,weight:Double,receivingAccount:String?,generation:Int){
       val app=application as ShadowApp
-      val session=app.sessions.active()?.takeIf{it.accountId==receivingAccount}
+      val session=app.activeCaptureSession()?.takeIf{it.accountId==receivingAccount}
       if(session==null){
         withContext(Dispatchers.Main.immediate){
           if(generation==scanGeneration){

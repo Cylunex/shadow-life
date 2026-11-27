@@ -45,7 +45,12 @@ class LibraryReferenceActivity:ComponentActivity(){
       LifeTheme(AppearanceStore(this).current()){
         LifeSystemBars(window)
         key(visit){
-          val accountId=app.sessions.active()?.accountId
+          val session=runCatching{app.sessions.active()}
+          if(session.isFailure){
+            LifeStorageUnavailable(onRetry={visit++},onBack=::finish)
+            return@key
+          }
+          val accountId=session.getOrNull()?.accountId
           var state by remember{mutableStateOf<LoadState<ReferencedLibraryItem>>(LoadState.Loading)}
           LaunchedEffect(ref,accountId){
             state=when{

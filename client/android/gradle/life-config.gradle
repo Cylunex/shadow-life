@@ -1,0 +1,63 @@
+// Read the same private build settings for the API client and its Android manifest.
+def loadProperties = { File input ->
+    def values = new Properties()
+    if (input?.isFile()) input.withInputStream { values.load(it) }
+    values
+}
+def embeddedHost = project.ext.lifeEmbeddedHost
+// Resolve a relative file once for both sides of the composite. Standalone paths retain the app module as their base.
+def configBase = embeddedHost ? (gradle.parent ?: gradle).rootProject.projectDir : rootProject.file('app')
+def configFile = { String path ->
+    if (!path) return null
+    def file = new File(path)
+    file.isAbsolute() ? file : new File(configBase, path)
+}
+def privateConfig = providers.gradleProperty('SHADOW_LIFE_CONFIG_FILE').orNull
+if (!privateConfig && !embeddedHost) privateConfig = providers.gradleProperty('SHADOW_ANDROID_CONFIG_FILE').orNull
+def settingsFile = configFile(privateConfig)
+if (settingsFile && !settingsFile.isFile()) throw new GradleException('The configured Life settings file does not exist.')
+def buildSettings = loadProperties(settingsFile)
+def local = embeddedHost ? new Properties() : loadProperties(rootProject.file('local.properties'))
+def mapFile = providers.gradleProperty('SHADOW_MAP_KEYS_FILE').orNull ?: buildSettings.getProperty('SHADOW_MAP_KEYS_FILE') ?:
+        local.getProperty('SHADOW_MAP_KEYS_FILE') ?: System.getenv('SHADOW_MAP_KEYS_FILE')
+def maps = loadProperties(configFile(mapFile))
+def setting = { String name, String fallback ->
+    def values = [providers.gradleProperty(name).orNull, buildSettings.getProperty(name), local.getProperty(name), maps.getProperty(name)]
+    if (name == 'AMAP_MAPS_API_KEY') values.addAll([maps.getProperty('amap-key'), maps.getProperty('amap_key')])
+    if (name == 'GOOGLE_MAPS_API_KEY') values.addAll([maps.getProperty('googlemap-apikey'), maps.getProperty('googlemap_apikey')])
+    values.find { it?.trim() } ?: fallback
+}
+def scheme = setting('SHADOW_OIDC_REDIRECT_SCHEME', embeddedHost ? 'com.shadow.app' : 'com.shadow.life')
+def redirect = setting('SHADOW_OIDC_REDIRECT_URI', scheme + (embeddedHost ? ':/life/oauth2redirect' : ':/oauth2redirect'))
+def uri = new URI(redirect)
+if (uri.scheme != scheme || (embeddedHost && scheme != 'com.shadow.app')) {
+    throw new GradleException('Life OIDC redirect scheme must match the Android callback registered by the host.')
+}
+if (embeddedHost && uri.authority == null && uri.normalize().path == '/oauth2redirect') {
+    throw new GradleException('The Shadow assistant reserves /oauth2redirect. Give Life a separate redirect path.')
+}
+def healthEnabled = setting('HEALTH_CONNECT_ENABLED', 'false')
+if (!(healthEnabled in ['true','false'])) throw new GradleException('HEALTH_CONNECT_ENABLED must be true or false')
+def aarPath = providers.gradleProperty('SAMSUNG_HEALTH_DATA_AAR').orNull
+def aar = configFile(aarPath)
+if (aar && !aar.isFile()) {
+    if (embeddedHost) throw new GradleException('SAMSUNG_HEALTH_DATA_AAR must point to the optional SDK file.')
+    aar = null
+}
+project.ext.lifeSamsungAar = aar
+project.ext.lifeClientConfig = [
+    SHADOW_API_BASE         : setting('SHADOW_API_BASE','https://api.example.com'),
+    SHADOW_OIDC_ISSUER      : setting('SHADOW_OIDC_ISSUER',''),
+    SHADOW_OIDC_CLIENT_ID   : setting('SHADOW_OIDC_CLIENT_ID','shadow-life-android'),
+    SHADOW_OIDC_REDIRECT_URI: redirect,
+    SHADOW_OIDC_RESOURCE    : setting('SHADOW_OIDC_RESOURCE','https://api.example.com'),
+    AMAP_MAPS_API_KEY       : setting('AMAP_MAPS_API_KEY',''),
+    GOOGLE_MAPS_API_KEY     : setting('GOOGLE_MAPS_API_KEY','')
+]
+project.ext.lifeManifestConfig = [
+    appAuthRedirectScheme: scheme,
+    shadowLifeAppLinkHost: setting('SHADOW_APP_LINK_HOST','life.example.com'),
+    amapMapsApiKey       : project.ext.lifeClientConfig.AMAP_MAPS_API_KEY,
+    googleMapsApiKey     : project.ext.lifeClientConfig.GOOGLE_MAPS_API_KEY
+]
+project.ext.lifeHealthEnabled = healthEnabled

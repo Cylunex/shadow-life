@@ -1,0 +1,60 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+  <!-- Usage access is granted by the user in system Settings through AppOps. -->
+  <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions"/>
+  <uses-permission android:name="android.permission.INTERNET"/>
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+  <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+  <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation"/>
+  <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+  <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30"/>
+  <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30"/>
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+  <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE"/>
+  <uses-permission android:name="android.permission.health.READ_STEPS"/>
+  <uses-permission android:name="android.permission.health.READ_WEIGHT"/>
+  <uses-permission android:name="android.permission.health.READ_SLEEP"/>
+  <uses-permission android:name="android.permission.health.READ_EXERCISE"/>
+  <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND"/>
+  <queries>
+    <package android:name="com.google.android.apps.healthdata"/>
+    <intent><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent>
+  </queries>
+  <application>
+    <meta-data android:name="com.amap.api.v2.apikey" android:value="${amapMapsApiKey}"/>
+    <meta-data android:name="com.google.android.geo.API_KEY" android:value="${googleMapsApiKey}"/>
+    <activity android:name="com.shadow.life.MainActivity" android:exported="false" android:theme="@style/Theme.ShadowLife"/>
+    <activity android:name="com.shadow.life.HealthPermissionsActivity" android:exported="true" android:theme="@style/Theme.ShadowLife">
+      <intent-filter>
+        <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+      </intent-filter>
+    </activity>
+    <activity-alias android:name="com.shadow.life.HealthPermissionUsageActivity" android:targetActivity="com.shadow.life.HealthPermissionsActivity"
+        android:exported="true" android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW_PERMISSION_USAGE"/>
+        <category android:name="android.intent.category.HEALTH_PERMISSIONS"/>
+      </intent-filter>
+    </activity-alias>
+    <service android:name="com.shadow.life.LifeScreenCaptureService" android:foregroundServiceType="specialUse" android:label="@string/life_screen_capture_name" android:exported="true" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+      <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-enabled shake gesture detection for payment bill capture while another payment app is visible"/>
+      <intent-filter><action android:name="android.accessibilityservice.AccessibilityService"/></intent-filter>
+      <meta-data android:name="android.accessibilityservice" android:resource="@xml/life_screen_capture"/>
+    </service>
+    <activity android:name="com.shadow.life.LibraryReferenceActivity" android:theme="@style/Theme.ShadowLife" android:exported="true" android:excludeFromRecents="true">
+      <intent-filter><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.DEFAULT"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="shadow" android:host="life" android:pathPrefix="/library/"/></intent-filter>
+    </activity>
+    <activity android:name="com.shadow.life.QuickScreenshotActivity" android:exported="false" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true"/>
+    <service android:name="com.shadow.life.LifeScreenshotTile" android:label="截图到 Life" android:icon="@android:drawable/ic_menu_camera" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE" android:exported="true"><intent-filter><action android:name="android.service.quicksettings.action.QS_TILE"/></intent-filter></service>
+    <service android:name="com.shadow.life.LifeRecordingService" android:exported="false" android:foregroundServiceType="microphone"/>
+    <service android:name="com.shadow.life.LifeLocationService" android:exported="false" android:foregroundServiceType="location"/>
+    <service android:name="com.shadow.life.ScaleScanService" android:exported="false" android:foregroundServiceType="connectedDevice"/>
+  </application>
+</manifest>

@@ -11,4 +11,31 @@ class ShadowApp:Application(){
       db.execSQL("ALTER TABLE pending_commands ADD COLUMN failureReason TEXT NOT NULL DEFAULT ''")
       db.execSQL("ALTER TABLE pending_attachments ADD COLUMN failureReason TEXT NOT NULL DEFAULT ''")
     }
-  }).build()};val sessions by lazy{SessionStore(this)};val queue by lazy{OfflineQueue(database)};val deviceSync by lazy{DeviceSyncStatusStore(this)};private val applicationScope=CoroutineScope(SupervisorJob()+Dispatchers.IO);override fun onCreate(){super.onCreate();sessions.active()?.let{session->applicationScope.launch{queue.secureLegacy(session);SyncScheduler.schedule(this@ShadowApp,session.accountId,ensureNext=true)}}}}
+  }).build()}
+  val sessions by lazy { SessionStore(this) }
+  val queue by lazy { OfflineQueue(database) }
+  val deviceSync by lazy { DeviceSyncStatusStore(this) }
+  private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+  override fun onCreate() {
+    super.onCreate()
+    applicationScope.launch {
+      try {
+        val session = sessions.active() ?: return@launch
+        queue.secureLegacy(session)
+        SyncScheduler.schedule(this@ShadowApp, session.accountId, ensureNext = true)
+      } catch (cancelled: CancellationException) {
+        throw cancelled
+      } catch (error: Exception) {
+        android.util.Log.w("ShadowLife", "Life startup deferred (${error.javaClass.simpleName})")
+      }
+    }
+  }
+
+  // Device callbacks can arrive while Android Keystore is locked. Capture only for a verified account.
+  internal fun activeCaptureSession(): ProductSession? = try {
+    sessions.active()
+  } catch (_: Exception) {
+    null
+  }
+}

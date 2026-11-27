@@ -11,6 +11,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -19,6 +23,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -32,12 +37,15 @@ class MainActivity:ComponentActivity(){
   private var pendingShare by mutableStateOf<SharePayload?>(null)
   private var notificationAuthorization by mutableStateOf<String?>(null)
   private var openInboxNonce by mutableStateOf(0L)
+  private var pendingEntry by mutableStateOf<LifeEntry?>(null)
   private lateinit var scalePreferences:ScalePreferences
   private var scaleSettings by mutableStateOf(ScaleProfileSettings())
   private var loginMode=LoginMode.None
   private var restoringSession=false
+  private var storageReady by mutableStateOf(false)
 
   private val loginResult=registerForActivityResult(ActivityResultContracts.StartActivityForResult()){result->
+    if(!storageReady)return@registerForActivityResult
     val completedMode=loginMode
     loginMode=LoginMode.None
     val data=result.data
@@ -69,22 +77,39 @@ class MainActivity:ComponentActivity(){
     super.onCreate(savedInstanceState)
     scaleStartRequested=savedInstanceState?.getBoolean("scale_start_requested")?:false
     enableEdgeToEdge()
-    val app=application as ShadowApp
-    scalePreferences=ScalePreferences(this);scaleSettings=scalePreferences.current()
     pendingShare=if(savedInstanceState!=null)savedInstanceState.savedSharePayload() else intent.sharePayload()
+    pendingEntry=LifeEntry.fromName(if(savedInstanceState!=null)savedInstanceState.getString(LifeEntry.EXTRA_ENTRY) else intent.getStringExtra(LifeEntry.EXTRA_ENTRY))
     if(intent.getBooleanExtra(OPEN_INBOX_EXTRA,false))openInboxNonce++
-    oidc=OidcSessions(this,app.sessions)
-    session=app.sessions.active()
     val appearances=AppearanceStore(this)
     appearance=appearances.current()
+    openLocalStores()
     setContent{LifeTheme(appearance){
       LifeSystemBars(window)
-      val model:NativeLifeViewModel=viewModel();LifeApp(session,model,appearance,loginError,pendingShare,notificationAuthorization,openInboxNonce,scaleSettings,{payload->model.importShare(payload){pendingShare=null}},{pendingShare=null},{loginError=null},{appearance=it;appearances.save(it)},::login,::logout,::syncHealth,::syncSamsung,::startScale,::saveScaleSettings,::requestNotifications,::cancelScale)}}
+      if(!storageReady){
+        LifeStorageUnavailable(onRetry={openLocalStores();session?.let(::restoreSession)},onBack=::finish)
+        return@LifeTheme
+      }
+      val model:NativeLifeViewModel=viewModel();LifeApp(session,model,appearance,loginError,pendingShare,notificationAuthorization,openInboxNonce,scaleSettings,{payload->model.importShare(payload){pendingShare=null}},{pendingShare=null},{loginError=null},{appearance=it;appearances.save(it)},::login,::logout,::syncHealth,::syncSamsung,::startScale,::saveScaleSettings,::requestNotifications,::cancelScale,pendingEntry){pendingEntry=null}}}
+  }
+  private fun openLocalStores(){
+    try {
+      val store=(application as ShadowApp).sessions
+      val active=store.active()
+      val scale=ScalePreferences(this)
+      scaleSettings=scale.current()
+      scalePreferences=scale
+      if(!::oidc.isInitialized)oidc=OidcSessions(this,store)
+      session=active
+      storageReady=true
+    } catch (_:Exception) {
+      session=null
+      storageReady=false
+    }
   }
   override fun onStart(){super.onStart();session?.let(::restoreSession)}
-  override fun onDestroy(){oidc.close();super.onDestroy()}
-  override fun onSaveInstanceState(outState:Bundle){super.onSaveInstanceState(outState);outState.putBoolean("scale_start_requested",scaleStartRequested);outState.putBoolean(SHARE_PRESENT,pendingShare!=null);pendingShare?.let{payload->outState.putString(SHARE_ID,payload.ingressId);outState.putString(SHARE_TEXT,payload.text);outState.putStringArrayList(SHARE_URIS,ArrayList(payload.uris))}}
-  override fun onNewIntent(intent:Intent){super.onNewIntent(intent);setIntent(intent);intent.sharePayload()?.let{pendingShare=it};if(intent.getBooleanExtra(OPEN_INBOX_EXTRA,false))openInboxNonce++}
+  override fun onDestroy(){if(::oidc.isInitialized)oidc.close();super.onDestroy()}
+  override fun onSaveInstanceState(outState:Bundle){super.onSaveInstanceState(outState);outState.putString(LifeEntry.EXTRA_ENTRY,pendingEntry?.name);outState.putBoolean("scale_start_requested",scaleStartRequested);outState.putBoolean(SHARE_PRESENT,pendingShare!=null);pendingShare?.let{payload->outState.putString(SHARE_ID,payload.ingressId);outState.putString(SHARE_TEXT,payload.text);outState.putStringArrayList(SHARE_URIS,ArrayList(payload.uris))}}
+  override fun onNewIntent(intent:Intent){super.onNewIntent(intent);setIntent(intent);pendingEntry=LifeEntry.fromName(intent.getStringExtra(LifeEntry.EXTRA_ENTRY));intent.sharePayload()?.let{pendingShare=it};if(intent.getBooleanExtra(OPEN_INBOX_EXTRA,false))openInboxNonce++}
 
   private fun login(){launchLogin(LoginMode.Interactive)}
   private fun launchLogin(mode:LoginMode){
@@ -105,8 +130,17 @@ class MainActivity:ComponentActivity(){
     if(restoringSession||loginMode!=LoginMode.None)return
     restoringSession=true
     lifecycleScope.launch{
-      val refreshed=(application as ShadowApp).sessions.fresh(value.accountId,this@MainActivity)
-      restoringSession=false
+      val refreshed=try {
+        (application as ShadowApp).sessions.fresh(value.accountId,this@MainActivity)
+      } catch(cancelled:CancellationException){
+        throw cancelled
+      } catch(_:Exception) {
+        session=null
+        storageReady=false
+        return@launch
+      } finally {
+        restoringSession=false
+      }
       if(session?.accountId!=value.accountId)return@launch
       when(refreshed){
         is SessionRefresh.Ready->{session=refreshed.value.session;loginError=null;resumeAccount(refreshed.value.session)}
@@ -117,7 +151,21 @@ class MainActivity:ComponentActivity(){
   }
   private fun resumeAccount(value:ProductSession){
     if(!HealthConnectSync.enabled())WorkManager.getInstance(this).cancelUniqueWork(HealthConnectScheduler.workName(value.accountId))
-    lifecycleScope.launch{val app=application as ShadowApp;withContext(Dispatchers.IO){app.queue.secureLegacy(value)};delay(500);if(session?.accountId!=value.accountId)return@launch;SyncScheduler.schedule(this@MainActivity,value.accountId);delay(1_500);if(session?.accountId==value.accountId)SamsungHealthBridge.startIfAuthorized(this@MainActivity,value.accountId)}
+    lifecycleScope.launch{
+      try {
+        withContext(Dispatchers.IO){(application as ShadowApp).queue.secureLegacy(value)}
+      } catch(cancelled:CancellationException){
+        throw cancelled
+      } catch(_:Exception) {
+        if(session?.accountId==value.accountId){session=null;storageReady=false}
+        return@launch
+      }
+      delay(500)
+      if(session?.accountId!=value.accountId)return@launch
+      SyncScheduler.schedule(this@MainActivity,value.accountId)
+      delay(1_500)
+      if(session?.accountId==value.accountId)SamsungHealthBridge.startIfAuthorized(this@MainActivity,value.accountId)
+    }
   }
   private fun logout(){session?.let{current->WorkManager.getInstance(this).cancelUniqueWork(SyncScheduler.workName(current.accountId));WorkManager.getInstance(this).cancelUniqueWork(HealthConnectScheduler.workName(current.accountId));WorkManager.getInstance(this).cancelUniqueWork("shadow-samsung-${current.accountId}");WorkManager.getInstance(this).cancelUniqueWork("shadow-samsung-now-${current.accountId}");stopService(Intent(this,ScaleScanService::class.java));NotificationSyncScheduler.cancel(this,current.accountId);oidc.logout(current)};session=null}
   private fun syncHealth(){
@@ -161,17 +209,32 @@ class MainActivity:ComponentActivity(){
   private fun syncSamsung(){val current=session?:return;SamsungHealthBridge.enable(this,current.accountId).onFailure{loginError=it.cause?.message?:it.message?:"Samsung Health 连接失败"}}
 }
 
+@androidx.compose.runtime.Composable
+internal fun LifeStorageUnavailable(onRetry:()->Unit,onBack:()->Unit) {
+  Surface(Modifier.fillMaxSize()) {
+    Column(Modifier.safeDrawingPadding().padding(24.dp),verticalArrangement=Arrangement.Center) {
+      Text("Life 的本地加密数据暂时无法读取",style=MaterialTheme.typography.titleLarge)
+      Text("请解锁设备后重试。",Modifier.padding(vertical=12.dp))
+      Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+        Button(onClick=onRetry){Text("重试")}
+        TextButton(onClick=onBack){Text("返回")}
+      }
+    }
+  }
+}
+
 private fun Intent.sharePayload():SharePayload?{
   if(action!=Intent.ACTION_SEND&&action!=Intent.ACTION_SEND_MULTIPLE)return null
   val values=mutableListOf<Uri>();clipData?.let{clip->repeat(clip.itemCount){values+=clip.getItemAt(it).uri?:return@repeat}}
   if(Build.VERSION.SDK_INT>=33){getParcelableExtra(Intent.EXTRA_STREAM,Uri::class.java)?.let(values::add);getParcelableArrayListExtra(Intent.EXTRA_STREAM,Uri::class.java)?.let(values::addAll)}else{@Suppress("DEPRECATION")(getParcelableExtra<Uri>(Intent.EXTRA_STREAM))?.let(values::add);@Suppress("DEPRECATION")(getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM))?.let(values::addAll)}
   val text=getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()?.takeIf(String::isNotBlank)
-  val ingressId=getStringExtra(SHARE_ID)?:UUID.randomUUID().toString().replace("-","").also{putExtra(SHARE_ID,it)}
+  val ingressId=getStringExtra(SHARE_ID)?.takeIf(SHARE_TOKEN::matches)?:UUID.randomUUID().toString().replace("-","").also{putExtra(SHARE_ID,it)}
   return SharePayload(ingressId,text,values.map(Uri::toString).distinct()).takeIf{it.text!=null||it.uris.isNotEmpty()}
 }
 
 private fun Bundle.savedSharePayload():SharePayload?=if(!getBoolean(SHARE_PRESENT,false))null else getString(SHARE_ID)?.let{SharePayload(it,getString(SHARE_TEXT),getStringArrayList(SHARE_URIS)?.toList().orEmpty())}
 private const val SHARE_PRESENT="com.shadow.life.share.PRESENT"
+private val SHARE_TOKEN=Regex("[a-f0-9]{32}")
 private const val SHARE_ID="com.shadow.life.share.INGRESS_ID"
 private const val SHARE_TEXT="com.shadow.life.share.TEXT"
 private const val SHARE_URIS="com.shadow.life.share.URIS"

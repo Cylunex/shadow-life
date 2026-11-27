@@ -22,7 +22,7 @@ class LifeScreenshotTile:TileService(){
 }
 class QuickScreenshotActivity:Activity(){
  override fun onCreate(state:Bundle?){super.onCreate(state)
-  if((application as ShadowApp).sessions.active()==null){Toast.makeText(this,"请先登录 Life，再使用截图收录",Toast.LENGTH_LONG).show();finish();return}
+  if((application as ShadowApp).activeCaptureSession()==null){Toast.makeText(this,"请先登录 Life，再使用截图收录",Toast.LENGTH_LONG).show();finish();return}
   val capture=LifeScreenCaptureService.active
   if(Build.VERSION.SDK_INT<30||capture==null){Toast.makeText(this,"请先启用 Life 屏幕内容服务，或使用系统截图后分享给 Life",Toast.LENGTH_LONG).show();finish();return}
   // Close the shade/activity before asking Android for the underlying app's display.
@@ -31,7 +31,7 @@ class QuickScreenshotActivity:Activity(){
 }
 @RequiresApi(30)
 internal fun LifeScreenCaptureService.captureRequestedScreenshot(){
- val app=application as ShadowApp;val session=app.sessions.active()?:return
+ val app=application as ShadowApp;val session=app.activeCaptureSession()?:return
  val observedAt=Instant.now();val root=rootInActiveWindow;val sourcePackage=root?.packageName?.toString();val windowId=root?.windowId;val visibleText=root?.let{try{readCapturePage(it)}finally{it.recycle()}}
  if(windowId==null||sourcePackage=="com.android.systemui"||sourcePackage==packageName){Toast.makeText(this,"快捷面板尚未收起，请稍后重试",Toast.LENGTH_LONG).show();return}
  val callback=object:android.accessibilityservice.AccessibilityService.TakeScreenshotCallback{
@@ -47,7 +47,7 @@ internal fun LifeScreenCaptureService.captureRequestedScreenshot(){
    if(bitmap==null){Toast.makeText(this@captureRequestedScreenshot,"截图不可读取",Toast.LENGTH_LONG).show();return}
    CoroutineScope(SupervisorJob()+Dispatchers.IO).launch{
     try{
-     if(app.sessions.active()?.accountId!=session.accountId)return@launch
+     if(app.activeCaptureSession()?.accountId!=session.accountId)return@launch
      val bytes=ByteArrayOutputStream();check(bitmap.compress(Bitmap.CompressFormat.PNG,100,bytes));check(bytes.size()<=10_000_000){"截图超过大小限制"}
      val id="screenshot_${UUID.randomUUID().toString().replace("-","")}";val now=observedAt;val metadata=JSONObject().put("capability","life.capture_screenshot").put("input",JSONObject().put("title","截图 ${LocalDateTime.now()}").put("captured_at",now.toString()).put("time_zone",ZoneId.systemDefault().id))
      if(sourcePackage!=null)metadata.getJSONObject("input").put("app_package",sourcePackage)

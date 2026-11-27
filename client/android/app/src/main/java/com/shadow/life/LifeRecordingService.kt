@@ -29,14 +29,14 @@ class LifeRecordingService:Service(){
  private var account:String?=null;private var sessionId="";private var index=0
  private var recorder:AudioRecord?=null
  private val handler=Handler(Looper.getMainLooper())
- private val accountWatch=object:Runnable{override fun run(){if(account!=null&&(application as ShadowApp).sessions.active()?.accountId!=account){running=false;recorder?.let{runCatching{it.stop()}};LifeRecordingState.status="interrupted";LifeRecordingState.message="账号已切换，录音已结束。";scope.launch{job?.join();withContext(Dispatchers.Main){stopSelf()}}}else handler.postDelayed(this,5000)}}
+ private val accountWatch=object:Runnable{override fun run(){if(account!=null&&(application as ShadowApp).activeCaptureSession()?.accountId!=account){running=false;recorder?.let{runCatching{it.stop()}};LifeRecordingState.status="interrupted";LifeRecordingState.message="账号已切换，录音已结束。";scope.launch{job?.join();withContext(Dispatchers.Main){stopSelf()}}}else handler.postDelayed(this,5000)}}
  override fun onBind(intent:Intent?):IBinder?=null
  override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{
   when(intent?.action){
    "pause"->{running=false;recorder?.let{runCatching{it.stop()}};LifeRecordingState.status="paused";createNotification(true)}
    "stop"->{running=false;recorder?.let{runCatching{it.stop()}};LifeRecordingState.status="finishing";scope.launch{job?.join();withContext(Dispatchers.Main){LifeRecordingState.status="idle";stopForeground(STOP_FOREGROUND_REMOVE);stopSelf()}}}
    else->{
-    val app=application as ShadowApp;val current=app.sessions.active()?:run{stopSelf();return START_NOT_STICKY}
+    val app=application as ShadowApp;val current=app.activeCaptureSession()?:run{stopSelf();return START_NOT_STICKY}
     if(ContextCompat.checkSelfPermission(this,Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){stopSelf();return START_NOT_STICKY}
     if(account!=null&&account!=current.accountId){stopSelf();return START_NOT_STICKY}
     account=current.accountId;LifeRecordingState.accountId=current.accountId;handler.removeCallbacks(accountWatch);handler.postDelayed(accountWatch,5000)
@@ -44,7 +44,7 @@ class LifeRecordingService:Service(){
     if(job?.isActive==true){if(LifeRecordingState.status=="paused")scope.launch{job?.join();withContext(Dispatchers.Main){onStartCommand(Intent(this@LifeRecordingService,LifeRecordingService::class.java),0,0)}};return START_NOT_STICKY}
     createNotification()
     running=true;LifeRecordingState.status="recording";LifeRecordingState.message="录音按短片段加密保存；离线可继续记录。"
-    job=scope.launch{try{while(running&&app.sessions.active()?.accountId==current.accountId){recordSegment(app,current)};if(app.sessions.active()?.accountId!=current.accountId||LifeRecordingState.status=="interrupted"){running=false;LifeRecordingState.status="interrupted";withContext(Dispatchers.Main){stopForeground(STOP_FOREGROUND_REMOVE);stopSelf()}}}catch(e:CancellationException){throw e}catch(_:Exception){LifeRecordingState.message="录音已中断，已封存的片段仍在同步队列。";LifeRecordingState.status="interrupted";running=false;withContext(Dispatchers.Main){stopForeground(STOP_FOREGROUND_REMOVE);stopSelf()}}}
+    job=scope.launch{try{while(running&&app.activeCaptureSession()?.accountId==current.accountId){recordSegment(app,current)};if(app.activeCaptureSession()?.accountId!=current.accountId||LifeRecordingState.status=="interrupted"){running=false;LifeRecordingState.status="interrupted";withContext(Dispatchers.Main){stopForeground(STOP_FOREGROUND_REMOVE);stopSelf()}}}catch(e:CancellationException){throw e}catch(_:Exception){LifeRecordingState.message="录音已中断，已封存的片段仍在同步队列。";LifeRecordingState.status="interrupted";running=false;withContext(Dispatchers.Main){stopForeground(STOP_FOREGROUND_REMOVE);stopSelf()}}}
    }
   };return START_NOT_STICKY
  }
@@ -69,7 +69,7 @@ class LifeRecordingService:Service(){
    audio.startRecording();val start=Instant.now();metadata.put("started_at",start.toString());writeRecordingMetadata(metaFile,crypto.encryptLocal(session.accountId,session.subjectId,id,metadata.toString()))
    crypto.encryptedAttachmentOutput(session.accountId,session.subjectId,id,file.outputStream()).use{output->
     val buffer=ByteArray(8192)
-    while(running&&count<rate*2*90&&app.sessions.active()?.accountId==session.accountId){
+    while(running&&count<rate*2*90&&app.activeCaptureSession()?.accountId==session.accountId){
      val n=audio.read(buffer,0,minOf(buffer.size,rate*2*90-count.toInt()))
      if(n<=0){if(running)error("Microphone interrupted");break}
      output.write(buffer,0,n);count+=n

@@ -52,7 +52,7 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
 @kotlinx.serialization.Serializable internal data class PriceBookRoute(val product:String="")
 @kotlinx.serialization.Serializable internal data class MerchantRecordsRoute(val merchant:String,val months:Int,val scope:String,val category:String)
 
-@Composable fun LifeApp(session:ProductSession?,viewModel:NativeLifeViewModel,appearance:Appearance,statusMessage:String?,pendingShare:SharePayload?,notificationAuthorization:String?,openInboxNonce:Long,scaleSettings:ScaleProfileSettings,onAcceptShare:(SharePayload)->Unit,onDiscardShare:()->Unit,onDismissStatus:()->Unit,onAppearance:(Appearance)->Unit,onLogin:()->Unit,onLogout:()->Unit,onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onSaveScale:(ScaleProfileSettings)->Unit,onNotificationPermission:()->Unit,onCancelScale:()->Unit){
+@Composable fun LifeApp(session:ProductSession?,viewModel:NativeLifeViewModel,appearance:Appearance,statusMessage:String?,pendingShare:SharePayload?,notificationAuthorization:String?,openInboxNonce:Long,scaleSettings:ScaleProfileSettings,onAcceptShare:(SharePayload)->Unit,onDiscardShare:()->Unit,onDismissStatus:()->Unit,onAppearance:(Appearance)->Unit,onLogin:()->Unit,onLogout:()->Unit,onHealthSync:()->Unit,onSamsungSync:()->Unit,onScale:()->Unit,onSaveScale:(ScaleProfileSettings)->Unit,onNotificationPermission:()->Unit,onCancelScale:()->Unit,pendingEntry:LifeEntry?=null,onEntryOpened:()->Unit={}){
   var captureNotice by remember{mutableStateOf<String?>(null)}
   val feedback=remember{SnackbarHostState()}
   LaunchedEffect(captureNotice){captureNotice?.let{feedback.showSnackbar(it);captureNotice=null}}
@@ -72,8 +72,22 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
   }
   LaunchedEffect(session?.accountId){composerOpen=false;composerSeed=null;if(session==null)viewModel.deactivateAccount() else viewModel.activateAccount(session.accountId)}
   LaunchedEffect(session?.accountId,notificationAuthorization){if(session!=null&&notificationAuthorization!=null)viewModel.registerNotificationDevice(notificationAuthorization)}
-  LaunchedEffect(session?.accountId,openInboxNonce){if(session!=null&&openInboxNonce>0){viewModel.refreshInbox();nav.navigate(InboxRoute){launchSingleTop=true}}}
   if(session==null){SignInScreen(statusMessage,onLogin);return}
+  val entry by nav.currentBackStackEntryAsState()
+  val navigationReady = entry != null
+  LaunchedEffect(session.accountId,openInboxNonce,navigationReady){
+    if(navigationReady && openInboxNonce>0){viewModel.refreshInbox();nav.navigate(InboxRoute){launchSingleTop=true}}
+  }
+  LaunchedEffect(session.accountId,pendingEntry,navigationReady){
+    if(!navigationReady)return@LaunchedEffect
+    when(pendingEntry){
+      LifeEntry.Home->nav.popBackStack(TodayRoute,false)
+      LifeEntry.QuickRecord->openComposer()
+      LifeEntry.Services->nav.navigate(FeaturesRoute){launchSingleTop=true}
+      null->return@LaunchedEffect
+    }
+    onEntryOpened()
+  }
   fun openModule(module:LifeModule,tab:String?=null){
     if(tab!=null)module.domain?.takeUnless{it==LifeDomain.Library}?.let{viewModel.loadWorkspace(it)}
     nav.openLifeModule(module,tab)
@@ -83,7 +97,7 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
     {kind->openComposer(kind?.let(::defaultCaptureSeed))},{nav.navigate(SettingsRoute())},
     {viewModel.refreshInbox();nav.navigate(InboxRoute)},{nav.navigate(ConnectionsRoute)}
   )
-  val entry by nav.currentBackStackEntryAsState();val destination=entry?.destination
+  val destination=entry?.destination
   val root=destination?.hasRoute<TodayRoute>()==true||destination?.hasRoute<RecordsRoute>()==true||destination?.hasRoute<PlansRoute>()==true
   Scaffold(containerColor=MaterialTheme.colorScheme.background,snackbarHost={SnackbarHost(feedback)},topBar={OfflineReadBanner(session.accountId){viewModel.refreshToday();viewModel.reloadWorkspace();viewModel.refreshTimeline();viewModel.refreshLibrary()}},bottomBar={Column{LiveCaptureBar(session.accountId){tab->nav.navigate(ActivityCaptureRoute(tab)){launchSingleTop=true}};if(root)LifeDock(
     selected=when{destination?.hasRoute<RecordsRoute>()==true->"记录";destination?.hasRoute<PlansRoute>()==true->"计划";destination?.hasRoute<LibraryRoute>()==true->"资料";else->"生活"},

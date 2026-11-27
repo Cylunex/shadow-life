@@ -18,12 +18,12 @@ class LifeLocationService:Service(),LocationListener {
  private var zone=ZoneId.systemDefault().id
  private var session:ProductSession?=null;private var label="停留地点";private var manager:LocationManager?=null
  private val handler=Handler(Looper.getMainLooper())
- private val accountWatch=object:Runnable{override fun run(){if((application as ShadowApp).sessions.active()?.accountId!=session?.accountId)stopSelf() else handler.postDelayed(this,5000)}}
+ private val accountWatch=object:Runnable{override fun run(){if((application as ShadowApp).activeCaptureSession()?.accountId!=session?.accountId)stopSelf() else handler.postDelayed(this,5000)}}
  override fun onBind(intent:Intent?):IBinder?=null
  override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{
   if(intent?.action=="stop"){finish();stopSelf();return START_NOT_STICKY}
   if(LifeLocationState.running)return START_NOT_STICKY
-  val app=application as ShadowApp;val active=app.sessions.active()?:run{stopSelf();return START_NOT_STICKY}
+  val app=application as ShadowApp;val active=app.activeCaptureSession()?:run{stopSelf();return START_NOT_STICKY}
   if(ContextCompat.checkSelfPermission(this,Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED&&ContextCompat.checkSelfPermission(this,Manifest.permission.ACCESS_COARSE_LOCATION)!=PackageManager.PERMISSION_GRANTED){stopSelf();return START_NOT_STICKY}
   session=active;
   val previous=checkpoint(active);if(previous.exists()&&!previous.renameTo(File(previous.parentFile,"location-recovery-${java.util.UUID.randomUUID()}.pending"))){LifeLocationState.message="上次地点检查点尚未恢复，请先恢复后开始。";stopSelf();return START_NOT_STICKY}
@@ -42,7 +42,7 @@ class LifeLocationService:Service(),LocationListener {
   return START_NOT_STICKY
  }
  override fun onLocationChanged(location:Location){
-  val active=session?:return;if((application as ShadowApp).sessions.active()?.accountId!=active.accountId){stopSelf();return}
+  val active=session?:return;if((application as ShadowApp).activeCaptureSession()?.accountId!=active.accountId){stopSelf();return}
   if(kotlin.math.abs(System.currentTimeMillis()-location.time)>120_000)return
   val sample=StaySample(location.time,location.latitude,location.longitude,location.accuracy.toDouble())
   val completed=detector.accept(sample);if(completed!=null){save(completed);val distance=FloatArray(1);Location.distanceBetween(completed.start.latitude,completed.start.longitude,sample.latitude,sample.longitude,distance);if(distance[0]>100)label="停留地点"}

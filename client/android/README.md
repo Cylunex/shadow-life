@@ -3,10 +3,13 @@
 Android is the primary daily client. It is a native Kotlin/Jetpack Compose application with package ID
 `com.shadow.life`; it does not host the product Web UI or a Basic Auth prompt.
 
-The Android build is split into the five planned Gradle groups: `app`, `core:model`, `core:data`,
-`core:designsystem`, and `devices`. Neutral presentation and session models live in model; encrypted Room/session
-storage lives in data; reusable Compose tokens/components live in designsystem; deterministic device protocol
-and sync-round logic live in devices. App owns navigation, feature UI, dependency assembly and workers.
+The standalone `app` and the Shadow Android host both consume `:embedded`. This Android library compiles the
+same Compose screens, navigation, workers, resources, and feature metadata from `app/src` and `client/features`.
+It depends on `core:model` for presentation and session models, `core:data` for encrypted Room/session storage,
+`core:designsystem` for Compose components, and `devices` for device protocols and sync logic. Each application
+owns its Android package, launcher, login callback registration and system share entry.
+Life restores encrypted sessions in the background. If the device keystore is inaccessible, the Life screen
+offers retry and return, and device capture pauses until it can verify an active account.
 
 The Life home shows common services, recent records/messages, and the configurable card feed in that order.
 The top-left module picker switches Life, Health, Meals, Money, Travel, Items and Library. Each module keeps its
@@ -125,6 +128,12 @@ valid but expose Samsung direct sync as unavailable. Release builds must point a
 Health Data SDK 1.1.0 requires Android 10, so the unified app uses `minSdk 29`. Xiaomi Scale 2 needs no key; S400
 requires its 32-hex-character BLE bindkey in the in-app encrypted scale settings.
 
+When building from the Shadow host, pass `-PSHADOW_LIFE_CONFIG_FILE=/absolute/path/to/life.properties` for
+the Life API, OIDC and map settings. The host registers the `com.shadow.app` scheme and Life defaults to
+`com.shadow.app:/life/oauth2redirect`. Register that callback for the Life public OIDC client and authorize
+map keys for the host package and signing certificate. Supply the optional Samsung SDK with a Gradle property
+named `SAMSUNG_HEALTH_DATA_AAR` in either build. The standalone Life app keeps its own callback and configuration.
+
 The OIDC client is public and uses Authorization Code + PKCE/S256. The authorization request asks for the exact
 Life API resource. Android treats the access token as an opaque bearer and activates an account only after
 `GET /api/me` returns the server-owned Life subject mapping. Session generation fences late login and refresh
@@ -140,7 +149,7 @@ browser links open directly in a Custom Tab. Life credentials are never appended
 Use JDK 17 and an Android 36 SDK:
 
 ```bash
-gradle :app:compileDebugKotlin
+gradle :app:compileDebugKotlin :app:testDebugUnitTest :core:data:testDebugUnitTest :devices:testDebugUnitTest :app:lintDebug
 ```
 
 When `HEALTH_CONNECT_ENABLED=true`, Health Connect requests the background-read permission only when the installed

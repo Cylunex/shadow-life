@@ -105,10 +105,10 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
      // Read a finite number of frames even under a constant burst of content events.
      for(wait in listOf(120L,250L,550L,1000L)){
        delay(wait)
-       if(!autoCycle.current(target,token)||(application as ShadowApp).sessions.active()?.accountId!=account||autoRule(account,pkg)!=rule||!unlocked())return@launch
+       if(!autoCycle.current(target,token)||(application as ShadowApp).activeCaptureSession()?.accountId!=account||autoRule(account,pkg)!=rule||!unlocked())return@launch
        val activity=activityByWindow[window]?.takeIf{it.first==pkg}?.second?:""
        val text=readPaymentFrame(pkg,window)?:continue
-       if(!autoCycle.current(target,token)||(application as ShadowApp).sessions.active()?.accountId!=account||autoRule(account,pkg)!=rule||!unlocked())return@launch
+       if(!autoCycle.current(target,token)||(application as ShadowApp).activeCaptureSession()?.accountId!=account||autoRule(account,pkg)!=rule||!unlocked())return@launch
        val result=paymentResultPage(pkg,activity,text,rule)?:continue
        val marker="payment_seen:$account:${result.identity}:${if(result.complete)"complete" else paymentCaptureHash(text)}"
        if(settings.contains(marker)){collected=true;if(result.complete){autoStatus(account,"这笔付款已处理，未重复提交");return@launch};continue}
@@ -116,7 +116,7 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
        try{
          // The captured frame is immutable once it is in the encrypted queue.
          savePage(application as ShadowApp,account,pkg,text,false,rule);collected=true
-         if((application as ShadowApp).sessions.active()?.accountId!=account)return@launch
+         if((application as ShadowApp).activeCaptureSession()?.accountId!=account)return@launch
          val editor=settings.edit().putLong(marker,System.currentTimeMillis())
          settings.all.filterKeys{it.startsWith("payment_seen:$account:")}.entries.sortedBy{(it.value as? Long)?:0}.dropLast(255).forEach{editor.remove(it.key)}
          editor.apply()
@@ -137,7 +137,7 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
 
  private fun refreshShake(){
    if(active!==this)return
-   val account=(application as ShadowApp).sessions.active()?.accountId
+   val account=(application as ShadowApp).activeCaptureSession()?.accountId
    val enabled=account!=null && settings.all.any{(key,value)->key.startsWith("bill_shake:$account:")&&value==true}
    if(!enabled){
      listen(null);if(foreground){stopForeground(STOP_FOREGROUND_REMOVE);foreground=false}
@@ -145,7 +145,7 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
    }
    if(!foreground)try{
      getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel("life_bill_shake","Life 摇一摇记账",NotificationManager.IMPORTANCE_LOW))
-     val open=PendingIntent.getActivity(this,5204,packageManager.getLaunchIntentForPackage(packageName),PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+     val open=PendingIntent.getActivity(this,5204,Intent(this,MainActivity::class.java),PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
      val notification=NotificationCompat.Builder(this,"life_bill_shake").setSmallIcon(android.R.drawable.ic_menu_edit)
        .setContentTitle("Life 摇一摇记账已开启").setContentText("打开支付账单详情后摇动；可回 Life 关闭").setContentIntent(open).setOngoing(true).build()
      if(Build.VERSION.SDK_INT>=34)startForeground(5204,notification,ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE) else startForeground(5204,notification)
@@ -184,7 +184,7 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
    if(!BillShakeStatus.sampling){BillShakeStatus.sampling=true;BillShakeStatus.message="已收到传感器数据，可摇动测试"}
    if(!shaken)return
    val app=application as ShadowApp
-   if(app.sessions.active()?.accountId!=account || !unlocked()){refreshShake();return}
+   if(app.activeCaptureSession()?.accountId!=account || !unlocked()){refreshShake();return}
    val root=rootInActiveWindow
    val pkg=root?.packageName?.toString()
    android.util.Log.i("LifeShake","Gesture recognized; source=${pkg?:"unavailable"}")
@@ -220,7 +220,7 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
  override fun onAccessibilityEvent(event:AccessibilityEvent?){
    if(takeoutWork?.isActive==true)return
    if(event==null||event.eventType !in setOf(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,AccessibilityEvent.TYPE_WINDOWS_CHANGED))return
-   val app=application as ShadowApp;val session=app.sessions.active()?:return
+   val app=application as ShadowApp;val session=app.activeCaptureSession()?:return
    if(!unlocked()){autoCycle.invalidate();automatic?.cancel();pending?.cancel();return}
    var name=event.packageName?.toString();var window=event.windowId
    if(event.eventType==AccessibilityEvent.TYPE_WINDOWS_CHANGED){
@@ -242,7 +242,7 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
    if(pending?.isActive==true)return
    pending=scope.launch(Dispatchers.Main){
      delay(700)
-     if(app.sessions.active()?.accountId!=session.accountId||!unlocked())return@launch
+     if(app.activeCaptureSession()?.accountId!=session.accountId||!unlocked())return@launch
      if(!settings.getStringSet("screen_packages_${session.accountId}",emptySet()).orEmpty().contains(pkg))return@launch
      val root=rootInActiveWindow?:return@launch
      if(root.packageName?.toString()!=pkg){root.recycle();return@launch}
@@ -252,7 +252,7 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
  }
 
  private suspend fun savePage(app:ShadowApp,account:String,name:String,text:String,shaken:Boolean,paymentRule:PaymentAutoRule?=null):Unit=enqueueLock.withLock {
-   if(app.sessions.active()?.accountId!=account)return
+   if(app.activeCaptureSession()?.accountId!=account)return
    if(paymentRule!=null&&(autoRule(account,name)!=paymentRule||!unlocked()))throw CancellationException("付款识别已关闭")
    val now=Instant.now()
    fun hash(value:String)=MessageDigest.getInstance("SHA-256").digest(value.toByteArray()).joinToString(""){"%02x".format(it)}
@@ -267,7 +267,7 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
    if(paymentRule!=null)item.put("payment_context",JSONObject().put("platform",paymentRule.platform).put("source_account",paymentRule.sourceAccount).put("trigger","payment_success"))
    NativeLifeRepository(this,app).saveActivities(JSONArray().put(item),account,recordExpenses=shaken||paymentRule!=null)
    last[key]=contentHash to now.epochSecond;if(last.size>50)last.remove(last.keys.first())
-   if(shaken && app.sessions.active()?.accountId==account)feedback("账单已提交记账，完整已支付账单会记为消费；回首页查看结果")
+   if(shaken && app.activeCaptureSession()?.accountId==account)feedback("账单已提交记账，完整已支付账单会记为消费；回首页查看结果")
  }
  override fun onInterrupt(){takeoutWork?.cancel();pending?.cancel();automatic?.cancel();autoCycle.invalidate()}
  private fun disconnect(){
