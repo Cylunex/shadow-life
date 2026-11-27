@@ -13,6 +13,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -270,7 +273,21 @@ private fun openReviewEvidence(nav:androidx.navigation.NavHostController,viewMod
   }
 }
 
-@Composable private fun SignInScreen(message:String?,onLogin:()->Unit){Box(Modifier.fillMaxSize().padding(28.dp),contentAlignment=Alignment.Center){Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(18.dp)){Surface(Modifier.size(72.dp),shape=RoundedCornerShape(24.dp),color=MaterialTheme.colorScheme.primaryContainer){Box(contentAlignment=Alignment.Center){Icon(Icons.Default.Add,null,Modifier.size(34.dp),tint=MaterialTheme.colorScheme.primary)}};Text("Shadow Life",style=MaterialTheme.typography.headlineLarge);Text("你的生活事实、计划与资料，在一个原生空间里。",color=MaterialTheme.colorScheme.onSurfaceVariant);message?.let{Text(it,color=MaterialTheme.colorScheme.error)};Button(onClick=onLogin,Modifier.fillMaxWidth().heightIn(min=56.dp)){Text("使用 Shadow 账号继续")}}}}
+@Composable private fun SignInScreen(message:String?,onLogin:()->Unit) {
+  Box(Modifier.fillMaxSize().padding(28.dp),contentAlignment=Alignment.Center) {
+    Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(18.dp)) {
+      Surface(Modifier.size(72.dp),shape=RoundedCornerShape(24.dp),color=colorResource(R.color.life_icon_background)) {
+        Box(contentAlignment=Alignment.Center) {
+          Image(painterResource(R.drawable.ic_life_mark),contentDescription=null,modifier=Modifier.size(52.dp))
+        }
+      }
+      Text("Shadow Life",style=MaterialTheme.typography.headlineLarge)
+      Text("你的生活事实、计划与资料，在一个原生空间里。",color=MaterialTheme.colorScheme.onSurfaceVariant)
+      message?.let{Text(it,color=MaterialTheme.colorScheme.error)}
+      Button(onClick=onLogin,Modifier.fillMaxWidth().heightIn(min=56.dp)){Text("使用 Shadow 账号继续")}
+    }
+  }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

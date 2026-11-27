@@ -340,7 +340,7 @@ class ScaleScanService:Service(){
   private fun observation(metric:String,value:String,unit:String,source:String,autofilled:Boolean=false)=JSONObject().put("metric_key",metric).put("value",value).put("unit",unit).put("original_field",source).put("autofilled",autofilled)
   private fun decimal(value:Double)=BigDecimal.valueOf(value).setScale(6,RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()
   private fun sha256(value:String)=MessageDigest.getInstance("SHA-256").digest(value.toByteArray()).joinToString(""){"%02x".format(it)}
-  private fun notification(text:String):Notification{val open=PendingIntent.getActivity(this,0,Intent(this,MainActivity::class.java),PendingIntent.FLAG_IMMUTABLE);return NotificationCompat.Builder(this,CHANNEL).setSmallIcon(R.mipmap.ic_launcher).setContentTitle("Shadow Life 体脂秤").setContentText(text).setContentIntent(open).setOngoing(true).build()}
+  private fun notification(text:String):Notification{val open=PendingIntent.getActivity(this,0,Intent(this,MainActivity::class.java),PendingIntent.FLAG_IMMUTABLE);return NotificationCompat.Builder(this,CHANNEL).setSmallIcon(R.drawable.ic_life_mark).setContentTitle("Shadow Life 体脂秤").setContentText(text).setContentIntent(open).setOngoing(true).build()}
   private fun update(text:String){getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID,notification(text))}
   private fun advertisement(model:String){if(sawAdvertisement)return;sawAdvertisement=true;Log.i(TAG,"BLE advertisement detected model=$model");updateStatus("detected","已发现 $model 广播，等待稳定读数")}
   private fun updateStatus(state:String,message:String,pendingWeight:String?=null){accountId?.let{(application as ShadowApp).deviceSync.updateScale(it,state,message,pendingWeight)}}
