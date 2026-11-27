@@ -259,3 +259,16 @@ test("session charts require a complete Samsung original from the same device an
   assert.ok(sampled.length<=1200);
   assert.deepEqual(sampled.find(p=>p.at===rareTime),{at:rareTime,speed_mps:1,heart_rate:80});
 });
+
+test("health transport upload links distinct raw observations and keeps the first receipt on replay",pgOnly,async t=>{
+  const f=await reviewFixture(t);
+  const input={source_type:"samsung",source_instance_key:"sample_device",source_fingerprint:"sample_permissions",
+    record_type:"body",record_version:1,sync_epoch:1,change_kind:"upsert",parse_version:"samsung-data-1",
+    payload:{occurred_on:"2026-09-10",time_zone:"UTC",group_kind:"measurement",observations:[{metric_key:"weight",value:"70",unit:"kg"}]}};
+  const commands=["sample_one","sample_two","sample_three"].map(id=>f.command("health.ingest_raw",{...input,client_record_id:id}));
+  for(const [index,command] of commands.entries())await f.executor.execute({...f.context,uploadBatchId:index===2?"upload_other":"upload_same"},command);
+  await f.executor.execute({...f.context,uploadBatchId:"upload_retry"},commands[0]);
+  await processPendingHealth(f.pool);
+  const page=await f.queries.lifeTimeline(f.context,{domains:["health"],view:"facts"});
+  assert.deepEqual(page.items.map(row=>row.batch_id).sort(),["upload_other","upload_same","upload_same"]);
+});

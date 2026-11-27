@@ -1138,7 +1138,7 @@ export const dailyRecordCheckResultSchema=z.object({
   actionable_messages:z.array(z.string()).max(3),as_of:instant
 }).strict();
 export const lifeTimelineInputSchema=z.object({exclude_captures:z.boolean().optional(),view:z.enum(["events","facts"]).optional(),domains:z.array(lifeOverviewDomainSchema).min(1).max(5).optional(),limit:z.number().int().min(1).max(100).default(30),cursor:z.string().max(1_000).optional()}).strict();
-export const lifeTimelineItemSchema=z.object({domain:z.enum(["meals","money","health","travel","library","items","plans"]),kind:z.string(),id:stableId,happened_at:instant,happened_on:localDate.optional(),title:z.string(),amount:storedAmount.optional(),currency:currencyCode.optional(),record_id:stableId.optional()}).strict();
+export const lifeTimelineItemSchema=z.object({domain:z.enum(["meals","money","health","travel","library","items","plans"]),kind:z.string(),id:stableId,happened_at:instant,happened_on:localDate.optional(),title:z.string(),amount:storedAmount.optional(),currency:currencyCode.optional(),record_id:stableId.optional(),batch_id:z.string().max(200).optional()}).strict();
 export const lifeTimelineResultSchema=z.object({items:z.array(lifeTimelineItemSchema),next_cursor:z.string().nullable(),as_of:instant}).strict();
 export const lifeDayInputSchema=z.object({view:z.enum(["events","facts"]).optional(),date:localDate,time_zone:ianaTimeZone,limit:z.number().int().min(1).max(100).default(30),cursor:z.string().max(1000).optional()}).strict();
 export const lifeDayRelatedSchema=z.object({domain:z.enum(["meals","money","travel","library","items"]),kind:z.string(),id:stableId,title:z.string()}).strict();

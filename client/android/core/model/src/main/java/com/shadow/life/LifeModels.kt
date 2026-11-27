@@ -80,10 +80,10 @@ data class TodayHealthSummary(
   val steps:Long?=null,val sleepMinutes:Long?=null,val updatedAt:String?=null
 )
 data class MoneyTotal(val currency:String,val netSpending:String,val income:String)
-data class TimelineItem(val domain:LifeDomain,val kind:String,val id:String,val happenedAt:String,val title:String,val amount:String?=null,val currency:String?=null,val recordId:String?=null)
+data class TimelineItem(val domain:LifeDomain,val kind:String,val id:String,val happenedAt:String,val title:String,val amount:String?=null,val currency:String?=null,val recordId:String?=null,val batchId:String?=null)
 data class TimelinePage(val items:List<TimelineItem>,val nextCursor:String?,val asOf:String)
 data class DayRelated(val domain:String,val kind:String,val id:String,val title:String)
-data class DayEntry(val domain:String,val kind:String,val id:String,val recordId:String?,val date:String,val title:String,val amount:String?,val currency:String?,val yearsAgo:Int=0,val related:List<DayRelated> = emptyList())
+data class DayEntry(val domain:String,val kind:String,val id:String,val recordId:String?,val date:String,val title:String,val amount:String?,val currency:String?,val yearsAgo:Int=0,val related:List<DayRelated> = emptyList(),val batchId:String?=null)
 data class DayPage(val date:String,val items:List<DayEntry>,val total:Int,val nextCursor:String?,val asOf:String,val authorizedDomains:List<String>)
 data class MealFoodSummary(
   val name:String,val quantity:String?=null,val unit:String?=null,

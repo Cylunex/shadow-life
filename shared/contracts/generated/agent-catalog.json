@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "0de475838f159cad51266949a2a69d7e8af051f5ce3b630540a535c4c4d64c81",
+  "catalog_revision": "392b66b6ff8ed8f47b06bb55e513bf3bad50975e06a753123d932d58920d2f28",
   "terms": [
     {
       "id": "activity_capture",
@@ -35915,6 +35915,10 @@
                   "type": "string",
                   "pattern": "^[a-z][a-z0-9_]{7,127}$"
                 },
+                "batch_id": {
+                  "type": "string",
+                  "maxLength": 200
+                },
                 "related": {
                   "maxItems": 20,
                   "type": "array",
@@ -45397,6 +45401,10 @@
                 "record_id": {
                   "type": "string",
                   "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "batch_id": {
+                  "type": "string",
+                  "maxLength": 200
                 },
                 "years_ago": {
                   "type": "integer",
@@ -65585,6 +65593,10 @@
                 "record_id": {
                   "type": "string",
                   "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "batch_id": {
+                  "type": "string",
+                  "maxLength": 200
                 }
               },
               "required": [

@@ -84812,6 +84812,10 @@
                 "record_id": {
                   "type": "string",
                   "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "batch_id": {
+                  "type": "string",
+                  "maxLength": 200
                 }
               },
               "required": [
@@ -85015,6 +85019,10 @@
                 "record_id": {
                   "type": "string",
                   "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "batch_id": {
+                  "type": "string",
+                  "maxLength": 200
                 },
                 "related": {
                   "maxItems": 20,
@@ -85228,6 +85236,10 @@
                 "record_id": {
                   "type": "string",
                   "pattern": "^[a-z][a-z0-9_]{7,127}$"
+                },
+                "batch_id": {
+                  "type": "string",
+                  "maxLength": 200
                 },
                 "years_ago": {
                   "type": "integer",

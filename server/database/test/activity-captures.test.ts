@@ -37,3 +37,20 @@ test("activity archive is idempotent and deletion fences source reuploads withou
  assert.equal((await f.pool.query("select count(*)::int n from library_items where subject_id=$1",[f.context.subjectId])).rows[0].n,1);
  await assert.rejects(()=>f.run("life.archive_activity",{id}),/unavailable/);
 });
+
+test("timeline keeps receipt membership across pages, replay and separate uploads on the same date",pgOnly,async t=>{
+  const f=await reviewFixture(t);
+  const first=await f.run("life.ingest_activity",{device_id:"device_test",items:[item,{...item,source_id:"usage_two"}]});
+  await f.run("life.ingest_activity",{device_id:"device_test",items:[item]});
+  const separate=await f.run("life.ingest_activity",{device_id:"device_test",items:[{...item,source_id:"usage_three"}]});
+  const found=new Map<string,string|undefined>();
+  let cursor:string|null=null;
+  do{
+    const page=await f.queries.lifeTimeline(f.context,{domains:["library"],limit:1,...(cursor?{cursor}:{})});
+    for(const row of page.items)found.set(row.id,row.batch_id);
+    cursor=page.next_cursor;
+  }while(cursor);
+  for(const row of first.resources.filter(r=>r.type==="activity_capture"))assert.equal(found.get(row.id),first.execution_id);
+  assert.equal(found.get(separate.resources[0]!.id),separate.execution_id);
+  assert.equal(found.size,3);
+});

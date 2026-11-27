@@ -87,7 +87,8 @@ private data class DockItem(val label:String,val route:Any,val icon:ImageVector)
     onRoute={route->nav.navigate(route){popUpTo(nav.graph.findStartDestination().id){saveState=true};launchSingleTop=true;restoreState=true}},
     onCapture={openComposer()})}
   }){outer->Box(Modifier.fillMaxSize().padding(top=outer.calculateTopPadding(),bottom=outer.calculateBottomPadding()).consumeWindowInsets(outer)){
-    CompositionLocalProvider(LocalLifeModuleNavigation provides moduleNavigation,LocalLifeMenu provides listOf("服务中心" to {nav.navigate(FeaturesRoute)},"提醒与收件箱" to {viewModel.refreshInbox();nav.navigate(InboxRoute)}),LocalLifeAssistant provides {assistantReference=null;assistantTitle=null;assistantMode=true;composerSeed=null;viewModel.editAgain();composerOpen=true;viewModel.openAssistant()}){
+    val directoryBack:(()->Unit)?=if(entry!=null&&nav.previousBackStackEntry?.destination?.hasRoute<FeaturesRoute>()==true)({nav.popBackStack();Unit}) else null
+    CompositionLocalProvider(LocalDirectoryBack provides directoryBack,LocalLifeModuleNavigation provides moduleNavigation,LocalLifeMenu provides listOf("服务中心" to {nav.navigate(FeaturesRoute)},"提醒与收件箱" to {viewModel.refreshInbox();nav.navigate(InboxRoute)}),LocalLifeAssistant provides {assistantReference=null;assistantTitle=null;assistantMode=true;composerSeed=null;viewModel.editAgain();composerOpen=true;viewModel.openAssistant()}){
     val workspaceContent:@Composable (WorkspaceRoute)->Unit={route->
       val domain=LifeDomain.valueOf(route.domain)
         val visibleOverview=if(viewModel.workspaceDomain==domain)viewModel.workspaceOverview else LoadState.Loading

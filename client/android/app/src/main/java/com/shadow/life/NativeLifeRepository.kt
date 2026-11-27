@@ -82,12 +82,12 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     val result=wireJson.decodeFromString<LifeTimelineResultDto>(getText("/api/timeline?view=$recordView&$query"))
     return TimelinePage(result.items.map{
       val domain=domainFromWire(it.domain.wireValue)
-      TimelineItem(domain,it.kind,if(it.kind=="activity_capture")"capture:${it.id}" else it.id,it.happenedAt,visibleRecordTitle(domain,it.kind,it.title),it.amount,it.currency,it.recordId)
+      TimelineItem(domain,it.kind,if(it.kind=="activity_capture")"capture:${it.id}" else it.id,it.happenedAt,visibleRecordTitle(domain,it.kind,it.title),it.amount,it.currency,it.recordId,it.batchId)
     },result.nextCursor,result.asOf)
   }
   suspend fun day(date:LocalDate,cursor:String?=null):DayPage {
     val result=wireJson.decodeFromString<LifeDayResultDto>(getText("/api/life/day?view=$recordView&date=$date&time_zone=${encode(ZoneId.systemDefault().id)}&limit=30${cursor?.let{"&cursor=${encode(it)}"}.orEmpty()}"))
-    return DayPage(result.date,result.items.map{DayEntry(it.domain.wireValue,it.kind,it.id,it.recordId,it.happenedOn?:result.date,it.title,it.amount,it.currency,related=it.related.map{link->DayRelated(link.domain.wireValue,link.kind,link.id,link.title)})},result.total.toInt(),result.nextCursor,result.asOf,result.authorizedDomains.map{it.wireValue})
+    return DayPage(result.date,result.items.map{DayEntry(it.domain.wireValue,it.kind,it.id,it.recordId,it.happenedOn?:result.date,it.title,it.amount,it.currency,related=it.related.map{link->DayRelated(link.domain.wireValue,link.kind,link.id,link.title)},batchId=it.batchId)},result.total.toInt(),result.nextCursor,result.asOf,result.authorizedDomains.map{it.wireValue})
   }
   suspend fun memories(date:LocalDate):List<DayEntry>{
     val result=wireJson.decodeFromString<LifeMemoriesResultDto>(getText("/api/life/memories?date=$date&time_zone=${encode(ZoneId.systemDefault().id)}"))

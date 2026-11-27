@@ -1,0 +1,2 @@
+DROP INDEX money_import_confirmed_record_idx;
+DROP TABLE timeline_upload_members;

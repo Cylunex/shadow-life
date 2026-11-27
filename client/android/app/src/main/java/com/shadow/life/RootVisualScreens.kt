@@ -384,7 +384,29 @@ private fun todayDeviceTime(value:Long):String?=value.takeIf{it>0}?.let{Instant.
     item{RecordFilters(domain,{domain=it},period,{period=it})}
     if(searchState!=null)item{TextButton(onClick={query="";submittedQuery="";onClearSearch()}){Text("退出搜索")}}
     if(searchState!=null){item{StateContent(searchState,{onSearch(submittedQuery)}){} };if(searchState is LoadState.Ready){items(searchState.value.items,key={"search:${it.domain}:${it.kind}:${it.id}"}){record->VisualRecordCard(record.domain,record.title,record.supporting,record.trailing){onDetail(record.domain,record.detailId?:record.id,record.title)}};if(searchState.value.nextCursor!=null)item{TextButton(onClick=onLoadMoreSearch,modifier=Modifier.fillMaxWidth(),enabled=!searchState.refreshing){Text("加载更多搜索结果")}}}}
-    else{item{StateContent(state,onRetry){} };if(state is LoadState.Ready){val now=LocalDate.now();val filtered=state.value.items.filter{item->(domain==null||item.domain.name==domain)&&inRecordPeriod(recordDate(item.happenedAt),period,now)};val groups=filtered.groupBy{recordDate(it.happenedAt)?.toString()?:"日期未知"};if(filtered.isEmpty())item{EmptyState(if(state.value.nextCursor!=null)"已加载记录中没有匹配项，可继续加载更早记录" else "当前筛选没有记录","清除筛选"){domain=null;period="all"}};groups.forEach{(date,rows)->item{Text(if(date==now.toString())"今天" else date,style=MaterialTheme.typography.titleLarge,modifier=Modifier.padding(top=8.dp))};val captures=rows.filter{it.kind=="activity_capture"};if(captures.isNotEmpty())item("captures:$date"){var showSources by rememberSaveable{mutableStateOf(false)};LifeCard{Text("活动采集 · ${captures.size} 项已加载来源",style=MaterialTheme.typography.titleMedium);TextButton(onClick={showSources=!showSources}){Text(if(showSources)"收起来源" else "展开来源")};if(showSources)captures.forEach{source->TextButton(onClick={onDetail(source.domain,source.recordId?:source.id,source.title)},modifier=Modifier.fillMaxWidth()){Text(source.title)}}}};items(rows.filterNot{it.kind=="activity_capture"},key={"${it.domain}:${it.kind}:${it.id}"}){item->VisualRecordCard(item.domain,item.title,listOfNotNull(item.domain.label(),recordTime(item.happenedAt)).joinToString(" · "),item.amount?.let{"${item.currency.orEmpty()} ${displayDecimal(it)}"}){onDetail(item.domain,item.recordId?:item.id,item.title)}}};if(state.value.nextCursor!=null)item{TextButton(onClick=onLoadMore,modifier=Modifier.fillMaxWidth(),enabled=!state.refreshing){Text("加载更早记录")}}}}
+    else {
+      item { StateContent(state,onRetry){} }
+      if(state is LoadState.Ready){
+        val now=LocalDate.now()
+        val filtered=state.value.items.filter{(domain==null||it.domain.name==domain)&&inRecordPeriod(recordDate(it.happenedAt),period,now)}
+        val groups=filtered.groupBy{it.batchId?.let{batch->"batch:$batch"}?:"record:${it.domain}:${it.kind}:${it.id}"}
+        if(filtered.isEmpty())item{EmptyState(if(state.value.nextCursor!=null)"已加载记录中没有匹配项，可继续加载更早记录" else "当前筛选没有记录","清除筛选"){domain=null;period="all"}}
+        var lastDate:String?=null
+        groups.forEach{(key,rows)->
+          val first=rows.first()
+          val date=recordDate(first.happenedAt)?.toString()?:"日期未知"
+          if(lastDate!=date)item("date:$key"){Text(if(date==now.toString())"今天" else date,style=MaterialTheme.typography.titleLarge,modifier=Modifier.padding(top=8.dp))}
+          lastDate=date
+          item(key){
+            if(rows.size==1)TimelineRecordRow(first,onDetail)
+            else UploadGroupCard(batchTitle(rows.map{it.kind}),rows.size){
+              rows.forEach{row->TimelineRecordRow(row,onDetail)}
+            }
+          }
+        }
+        if(state.value.nextCursor!=null)item{TextButton(onClick=onLoadMore,modifier=Modifier.fillMaxWidth(),enabled=!state.refreshing){Text("加载更早记录")}}
+      }
+    }
     if(searchState==null){
       item{
         LifeSection("回顾与采集"){
@@ -399,6 +421,33 @@ private fun todayDeviceTime(value:Long):String?=value.takeIf{it>0}?.let{Instant.
   }}
 }
 
+private fun batchTitle(kinds:List<String>)=when {
+  kinds.all{it=="activity_capture"}->"活动采集"
+  kinds.all{it=="money_entry"}->"账单导入"
+  else->"健康上报"
+}
+
+@Composable private fun UploadGroupCard(title:String,count:Int,content:@Composable ()->Unit){
+  var expanded by rememberSaveable{mutableStateOf(false)}
+  LifeCard {
+    Row(Modifier.fillMaxWidth().clickable(role=Role.Button){expanded=!expanded}.padding(vertical=6.dp),verticalAlignment=Alignment.CenterVertically){
+      Column(Modifier.weight(1f)){
+        Text(title,style=MaterialTheme.typography.titleMedium)
+        Text("同一批次 · 已加载 ${count} 条",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+      }
+      Text(if(expanded)"收起" else "展开",color=MaterialTheme.colorScheme.primary)
+    }
+    if(expanded)content()
+  }
+}
+
+@Composable private fun TimelineRecordRow(row:TimelineItem,onDetail:(LifeDomain,String,String)->Unit){
+  val supporting=listOfNotNull(row.domain.label(),recordDate(row.happenedAt)?.toString(),recordTime(row.happenedAt)).joinToString(" · ")
+  VisualRecordCard(row.domain,row.title,supporting,row.amount?.let{"${row.currency.orEmpty()} ${displayDecimal(it)}"}){
+    onDetail(row.domain,row.recordId?:row.id,row.title)
+  }
+}
+
 @Composable private fun DayMemorySection(selectedDay:LocalDate,day:LoadState<DayPage>,memories:LoadState<List<DayEntry>>,onDay:(LocalDate)->Unit,onMore:()->Unit,onSource:(DayEntry)->Unit){
   var expanded by rememberSaveable{mutableStateOf(false)}
   Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
@@ -409,7 +458,9 @@ private fun todayDeviceTime(value:Long):String?=value.takeIf{it>0}?.let{Instant.
     if(expanded){
     Text("过去五年同日的回忆只来自当前可读取的原记录。",style=MaterialTheme.typography.bodySmall)
     if(day is LoadState.Ready)ReadStatus(day){onDay(selectedDay)}
-    when(day){is LoadState.Ready->{Text("${day.value.date} · ${if(day.value.authorizedDomains.isEmpty())"—" else day.value.total.toString()} 条记录");if(day.value.items.isEmpty())Text(if(day.value.authorizedDomains.isEmpty())"当前没有可读取的领域" else "这一天没有可显示的记录") else day.value.items.forEach{entry->DaySourceRow(entry,onSource)};if(day.value.nextCursor!=null)TextButton(onClick=onMore,enabled=!day.refreshing){Text("加载更多")}};is LoadState.Failed->Text(day.message,color=MaterialTheme.colorScheme.error);is LoadState.Empty->Text(day.reason);else->Text("正在读取当日记录…")}
+    when(day){is LoadState.Ready->{Text("${day.value.date} · ${if(day.value.authorizedDomains.isEmpty())"—" else day.value.total.toString()} 条记录");if(day.value.items.isEmpty())Text(if(day.value.authorizedDomains.isEmpty())"当前没有可读取的领域" else "这一天没有可显示的记录") else day.value.items.groupBy{it.batchId?.let{batch->"batch:$batch"}?:"record:${it.domain}:${it.kind}:${it.id}"}.forEach{(key,rows)->
+      key(key){if(rows.size==1)DaySourceRow(rows.first(),onSource) else UploadGroupCard(batchTitle(rows.map{it.kind}),rows.size){rows.forEach{DaySourceRow(it,onSource)}}}
+    };if(day.value.nextCursor!=null)TextButton(onClick=onMore,enabled=!day.refreshing){Text("加载更多")}};is LoadState.Failed->Text(day.message,color=MaterialTheme.colorScheme.error);is LoadState.Empty->Text(day.reason);else->Text("正在读取当日记录…")}
     Text("往日回忆",style=MaterialTheme.typography.titleMedium)
     if(memories is LoadState.Ready&&memories.refreshError!=null)ReadStatus(memories){onDay(selectedDay)}
     when(memories){is LoadState.Ready->if(memories.value.isEmpty())Text("过去五年同日没有可显示的来源") else memories.value.forEach{entry->DaySourceRow(entry,onSource)};is LoadState.Failed->Text(memories.message,color=MaterialTheme.colorScheme.error);is LoadState.Empty->Text(memories.reason);else->Text("正在读取往日记录…")}

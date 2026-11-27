@@ -109,6 +109,8 @@ select { width:100%; border:1px solid #bac5b6; border-radius:12px; background:#f
 .record-browser>p { color:#667168; }
 .record-list { list-style:none; padding:0; margin:0; display:grid; gap:8px; }
 .record-list li { border:1px solid #d4dbd0; border-radius:14px; background:#f9faf6; }
+.record-list summary { cursor:pointer; padding:14px 15px; font-weight:600; }
+.record-list details > ol { display:grid; gap:6px; list-style:none; padding:0 10px 10px; }
 .record-list a { display:grid; gap:4px; padding:13px 15px; color:inherit; text-decoration:none; }
 .record-list a:hover { border-radius:14px; background:#eff4ec; }
 .record-list small { color:#667168; }

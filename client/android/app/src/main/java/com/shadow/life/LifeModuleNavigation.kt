@@ -48,6 +48,7 @@ internal data class LifeModuleNavigation(
   val onInbox:()->Unit,
   val onProjects:()->Unit
 )
+internal val LocalDirectoryBack=staticCompositionLocalOf<(() -> Unit)?>{null}
 internal val LocalLifeModuleNavigation=staticCompositionLocalOf<LifeModuleNavigation?>{null}
 
 internal fun NavHostController.openLifeModule(module:LifeModule,tab:String?=null){
@@ -80,6 +81,7 @@ internal fun moduleIcon(module:LifeModule):ImageVector=when(module){
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable internal fun LifeModuleTopBar(module:LifeModule,onBack:()->Unit={},subtitle:String?=null,onCreate:(()->Unit)?=null){
   val navigation=LocalLifeModuleNavigation.current
+  val directoryBack=LocalDirectoryBack.current
   val assistant=LocalLifeAssistant.current
   var picker by rememberSaveable{mutableStateOf(false)}
   var menu by remember{mutableStateOf(false)}
@@ -92,7 +94,8 @@ internal fun moduleIcon(module:LifeModule):ImageVector=when(module){
       subtitle?.let{Text(it,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}
     }},
     navigationIcon={
-      if(navigation==null)LifeBackButton(onBack)
+      if(directoryBack!=null)LifeBackButton(directoryBack)
+      else if(navigation==null)LifeBackButton(onBack)
       else if(module!=LifeModule.Life)TextButton(onClick={navigation.onModule(LifeModule.Life,null)}){Text("生活")}
     },
     colors=TopAppBarDefaults.topAppBarColors(containerColor=MaterialTheme.colorScheme.background),

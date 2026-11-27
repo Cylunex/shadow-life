@@ -23,6 +23,7 @@ class HealthPresentationTest {
 
   @Test fun `instants are rendered in the fact time zone`() {
     assertEquals("2026-09-14 14:30",localDateTime("2026-09-14T06:30:00Z","Asia/Shanghai"))
+    assertEquals("2026-09-14 14:30",localDateTime("2026-09-14 06:30:00.123456+00","Asia/Shanghai"))
     assertEquals("14:30",localDateTime("2026-09-14T06:30:00Z","Asia/Shanghai",includeDate=false))
   }
 

@@ -6,6 +6,12 @@ export const principals = pgTable("principals", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
 });
 
+export const timelineUploadMembers=pgTable("timeline_upload_members",{
+  subjectId:text("subject_id").references(()=>principals.id).notNull(),
+  resourceKey:text("resource_key").notNull(),
+  batchId:text("batch_id").notNull()
+},table=>[primaryKey({columns:[table.subjectId,table.resourceKey]})]);
+
 export const sources = pgTable("sources", {
   id: text("id").primaryKey(),
   subjectId: text("subject_id").references(() => principals.id).notNull(),

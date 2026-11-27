@@ -369,7 +369,8 @@ data class LifeTimelineResultDtoItemsEntry(
   @SerialName("title") val title: String,
   @SerialName("amount") val amount: String? = null,
   @SerialName("currency") val currency: String? = null,
-  @SerialName("record_id") val recordId: String? = null
+  @SerialName("record_id") val recordId: String? = null,
+  @SerialName("batch_id") val batchId: String? = null
 )
 
 @Serializable
@@ -429,6 +430,7 @@ data class LifeDayResultDtoItemsEntry(
   @SerialName("amount") val amount: String? = null,
   @SerialName("currency") val currency: String? = null,
   @SerialName("record_id") val recordId: String? = null,
+  @SerialName("batch_id") val batchId: String? = null,
   @SerialName("related") val related: List<LifeDayResultDtoItemsEntryRelatedEntry>
 )
 
@@ -476,6 +478,7 @@ data class LifeMemoriesResultDtoItemsEntry(
   @SerialName("amount") val amount: String? = null,
   @SerialName("currency") val currency: String? = null,
   @SerialName("record_id") val recordId: String? = null,
+  @SerialName("batch_id") val batchId: String? = null,
   @SerialName("years_ago") val yearsAgo: Long
 )
 

@@ -85,11 +85,12 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
     const body=z.object({commands:z.array(z.record(z.string(),z.unknown())).min(1).max(50)}).strict().parse(await context.req.json());
     const ids=new Set<string>();
     for(const command of body.commands){const id=command.command_id;if(typeof id!=="string"||ids.has(id))return context.json({protocol:"shadow.error",code:"validation",message:"Batch command IDs must be present and unique.",fields:["commands.command_id"]},422);ids.add(id);}
+    const uploadBatchId="upload_"+createHash("sha256").update(JSON.stringify([...ids].sort())).digest("hex");
     const items:Array<{command_id:string;http_status:number;result?:unknown;error?:unknown}>=[];
     for(const command of body.commands){
       const commandId=command.command_id as string;
       try{
-        const result=await dependencies.executor.execute(requestContext,command);
+        const result=await dependencies.executor.execute({...requestContext,uploadBatchId},command);
         items.push({command_id:commandId,http_status:result.replayed?200:201,result});
       }catch(error){
         if(error instanceof KernelError){items.push({command_id:commandId,http_status:error.status,error:error.detail});continue;}

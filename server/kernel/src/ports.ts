@@ -15,11 +15,13 @@ export interface RequestContext {
   readonly authorizationRevision?: number;
   readonly effects: ReadonlySet<string>;
   readonly traceId: string;
+  readonly uploadBatchId?: string;
   readonly agentRun?:{readonly runId:string;readonly ownerId:string;readonly toolCallId:string};
   readonly writeEpochs?: Readonly<Partial<Record<"health" | "ledger", number>>>;
 }
 
 export interface StoredOperation {
+  readonly uploadBatchId?:string;
   readonly actorId?: string;
   readonly clientId?: string;
   readonly agentRunId?:string;

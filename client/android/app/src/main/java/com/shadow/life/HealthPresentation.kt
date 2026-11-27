@@ -33,7 +33,9 @@ internal fun localDateTime(instant:String?,timeZone:String?,includeDate:Boolean=
   if(instant.isNullOrBlank())return null
   return runCatching{
     val zone=timeZone?.takeIf(String::isNotBlank)?.let(ZoneId::of)?:ZoneId.systemDefault()
-    Instant.parse(instant).atZone(zone).format(DateTimeFormatter.ofPattern(if(includeDate)"yyyy-MM-dd HH:mm" else "HH:mm"))
+    val timestamp=instant.trim().replace(' ','T')
+    val source=if(Regex("[+-]\\d{2}$").containsMatchIn(timestamp))timestamp+":00" else timestamp
+    Instant.parse(source).atZone(zone).format(DateTimeFormatter.ofPattern(if(includeDate)"yyyy-MM-dd HH:mm" else "HH:mm"))
   }.getOrElse{instant}
 }
 

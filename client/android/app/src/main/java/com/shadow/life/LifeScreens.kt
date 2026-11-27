@@ -533,6 +533,7 @@ private data class FeatureEntry(val group:String,val title:String,val subtitle:S
   val entries=remember{buildList{
     addAll(listOf(
     FeatureEntry("健康","体重与身体趋势","查看称重、体脂和测量历史","体重曲线 称重记录 体脂 身体",FeatureAction.Workspace(LifeDomain.Health,"body")),
+    FeatureEntry("健康","起飞记录","按月查看起飞日历和当日明细","起飞 日历 次数 频率",FeatureAction.Workspace(LifeDomain.Health,"release")),
     FeatureEntry("健康","睡眠趋势","主睡眠、分期及醒来日期","昨晚 睡了多久 睡觉 睡眠",FeatureAction.Workspace(LifeDomain.Health,"sleep")),
     FeatureEntry("健康","继续训练","回到当前组合和已完成组","健身 练 训练菜单",FeatureAction.Destination(TrainingRoute())),
     FeatureEntry("健康","动作库","搜索动作并加入今天的组合","飞鸟 卧推 动作 教学",FeatureAction.Destination(TrainingRoute("library"))),
@@ -552,6 +553,7 @@ private data class FeatureEntry(val group:String,val title:String,val subtitle:S
     FeatureEntry("资料","录音与转写","回听录音和查看转写内容","听录音 音频 转写",FeatureAction.Destination(ActivityCaptureRoute("录音"))),
     FeatureEntry("资料","应用使用记录","查看应用活动与采集内容","应用 时长 屏幕",FeatureAction.Destination(ActivityCaptureRoute())),
     FeatureEntry("资料","地点记录","查看停留与地点采集","地点 停留",FeatureAction.Destination(ActivityCaptureRoute("地点"))),
+    FeatureEntry("资料","查找已存截图","按截图标题、标签和正文查找原件","截图 图片 截屏",FeatureAction.Destination(RecordsRoute("截图"))),
     FeatureEntry("资料","截图采集设置","管理截图采集与保存选项","截图",FeatureAction.Destination(ActivityCaptureRoute("截图"))),
     FeatureEntry("资料","订单关联","查看采集到的订单与关联","订单 关联",FeatureAction.Destination(ActivityCaptureRoute("订单"))),
     FeatureEntry("资料","采集设置与导出","设置采集与导出内容","导出 采集 设置",FeatureAction.Destination(ActivityCaptureRoute("设置与导出"))),
