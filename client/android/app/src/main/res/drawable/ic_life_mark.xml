@@ -6,14 +6,14 @@
     android:viewportHeight="64">
     <path
         android:name="sun"
-        android:fillColor="#F1CA85"
+        android:fillColor="#FFC69E"
         android:pathData="M38,4a8,8 0,1 1,0 16a8,8 0,1 1,0 -16Z" />
     <path
         android:name="far_bank"
-        android:fillColor="#CCDFB6"
+        android:fillColor="#92A9DA"
         android:pathData="M3,19C12,16 19,18 26,22C34,27 41,28 57,23C56,27 50,31 40,34C27,38 16,37 10,42C6,36 3,28 3,19Z" />
     <path
         android:name="near_bank"
-        android:fillColor="#F1F4DE"
+        android:fillColor="#ECEFFD"
         android:pathData="M60,29C61,39 56,51 47,57C42,60 35,62 29,61C22,60 17,57 16,54C14,49 22,44 36,41C47,38 54,34 60,29Z" />
 </vector>
