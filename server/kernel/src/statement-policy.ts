@@ -1,3 +1,5 @@
+import { normalizeMoneyImportDate } from "./money-import.js";
+
 export interface StatementCandidate extends Record<string, unknown> {
   id: string; batch_id: string; platform: string; source_account: string; external_id: string | null; identity_kind: string | null;
   raw: Record<string, any>; source_proposed: Record<string, any>; proposed: Record<string, any>; issues: string[]; status: string;
@@ -15,6 +17,10 @@ export const statementOrder = (c: StatementCandidate): string => String(row(c)["
 const direction = (value: string | null) => value === "refund" ? "refund" : "movement";
 const sourceFields = ["entry_type", "amount", "currency", "occurred_on"];
 const sameFacts = (a: Record<string, any>, b: Record<string, any>) => sourceFields.every(k => k === "amount" && a[k] && b[k] ? statementAmount(a[k]) === statementAmount(b[k]) : (a[k] ?? null) === (b[k] ?? null));
+// Keep amount/day overlap detection conservative. A changed explicit source clock
+// is an identity conflict only when both copies carry one.
+const sameSourceFacts = (a: Record<string, any>, b: Record<string, any>) =>
+  sameFacts(a, b) && (!a.occurred_at || !b.occurred_at || Date.parse(a.occurred_at) === Date.parse(b.occurred_at));
 const sameEntry = (c: StatementCandidate, e: StatementEntry) => sameFacts(c.proposed, e);
 const normalizedMerchant = (v: string | null) => (v ?? "").replace(/^(?:支付宝|财付通|微信支付|微信|京东支付)[-－—:：]/u, "").trim();
 
@@ -24,7 +30,7 @@ export function decideStatementCandidate(c: StatementCandidate, entries: readonl
   const ignore = (reason: string): StatementDecision => ({ decision: "ignore", reason });
   const source = row(c), p = c.proposed;
   if (c.issues.includes("external_id_payload_changed")) return pending("source_identity_conflict");
-  if (c.external_id && peers.some(other => other.id !== c.id && other.status !== "ignored" && other.platform === c.platform && other.source_account === c.source_account && other.external_id === c.external_id && direction(other.identity_kind) === direction(c.identity_kind) && !sameFacts(other.source_proposed, c.source_proposed))) return pending("source_identity_conflict");
+  if (c.external_id && peers.some(other => other.id !== c.id && other.status !== "ignored" && other.platform === c.platform && other.source_account === c.source_account && other.external_id === c.external_id && direction(other.identity_kind) === direction(c.identity_kind) && !sameSourceFacts(other.source_proposed, c.source_proposed))) return pending("source_identity_conflict");
   if (c.duplicate_of_record_id) return ignore("existing_source_identity");
   // A peer may have been confirmed earlier in this file after staging duplicate pointers.
   // This applies to refunds too, before testing the remaining refundable balance.
@@ -53,8 +59,12 @@ export function decideStatementCandidate(c: StatementCandidate, entries: readonl
   const cross = order ? peers.filter(other => other.platform !== c.platform && other.source_account === c.source_account && (other.status === "confirmed" || other.duplicate_of_record_id) && sameFacts(other.proposed, p) && ((other.external_id && other.external_id.length >= 12 && order.split(/[^0-9]+/u).includes(other.external_id)) || statementOrder(other) === order)) : [];
   if (new Set(cross.map(other => other.linked_record_id ?? other.duplicate_of_record_id).filter(Boolean)).size === 1) return ignore("cross_platform_order_identity");
   const matching = entries.filter(e => sameEntry(c, e));
-  const clock = source["交易时间"] ?? source["交易成功时间"] ?? source["订单提交时间"];
-  const exact = typeof clock === "string" ? matching.filter(e => e.occurred_at && normalizedMerchant(e.counterparty) && normalizedMerchant(e.counterparty) === normalizedMerchant(p.counterparty) && new Intl.DateTimeFormat("sv-SE", { timeZone: p.time_zone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).format(new Date(e.occurred_at)) === clock.trim()) : [];
+  const rawClock = source["交易时间"] ?? source["交易成功时间"] ?? source["订单提交时间"];
+  const at = p.occurred_at ?? (typeof rawClock === "string" && typeof p.time_zone === "string"
+    ? normalizeMoneyImportDate(rawClock, p.time_zone)?.occurred_at : undefined);
+  const exact = typeof at === "string" ? matching.filter(e =>
+    e.occurred_at && Date.parse(e.occurred_at) === Date.parse(at) &&
+    normalizedMerchant(e.counterparty) && normalizedMerchant(e.counterparty) === normalizedMerchant(p.counterparty)) : [];
   if (exact.length === 1) return ignore("existing_exact_payment");
   if (matching.length) return pending("possible_existing_payment");
   if (c.duplicate_of_candidate_id && peers.some(other => other.id === c.duplicate_of_candidate_id && !["ignored", "confirmed"].includes(other.status))) return pending("existing_pending_source");

@@ -6,6 +6,8 @@ import sys
 import tempfile
 import unittest
 import zipfile
+from datetime import date
+from decimal import Decimal
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'python'))
@@ -49,6 +51,26 @@ class StatementFilesTest(unittest.TestCase):
                 row = convert(b.getvalue(), 'bill.xlsx')['rows'][0]
                 self.assertEqual(row['订单号'], '12345678901234567890')
                 self.assertEqual(row['实付金额'], '12.30')
+
+    def test_xlsx_1900_serials_keep_seconds_but_date_only_stays_date_only(self):
+        b = io.BytesIO()
+        ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+        day = Decimal((date(2026, 10, 1) - date(1899, 12, 30)).days)
+        time = day + Decimal(12 * 3600 + 31 * 60 + 6) / 86400
+        with zipfile.ZipFile(b, 'w') as z:
+            z.writestr('xl/styles.xml', f'<styleSheet xmlns="{ns}"><cellXfs><xf numFmtId="0"/><xf numFmtId="22"/><xf numFmtId="31"/></cellXfs></styleSheet>')
+            z.writestr('xl/worksheets/sheet1.xml', f'''<worksheet xmlns="{ns}"><sheetData>
+            <row><c r="A1" t="inlineStr"><is><t>交易日期</t></is></c><c r="B1" t="inlineStr"><is><t>交易订单号</t></is></c><c r="C1" t="inlineStr"><is><t>金额</t></is></c></row>
+            <row><c r="A2" s="1"><v>{time}</v></c><c r="B2"><v>12345678901234567890</v></c><c r="C2"><v>12.30</v></c></row>
+            <row><c r="A3" s="2"><v>{day}</v></c><c r="B3"><v>42</v></c><c r="C3"><v>1.00</v></c></row>
+            <row><c r="A4" t="d"><v>2026-10-02T07:45:59</v></c><c r="B4"><v>43</v></c><c r="C4"><v>2.00</v></c></row>
+            <row><c r="A5" s="1"><v>{day}</v></c><c r="B5"><v>44</v></c><c r="C5"><v>3.00</v></c></row>
+            </sheetData></worksheet>''')
+        rows = convert(b.getvalue(), 'bill.xlsx')['rows']
+        self.assertEqual([row['交易日期'] for row in rows],
+                         ['2026-10-01 12:31:06', '2026-10-01', '2026-10-02T07:45:59', '2026-10-01 00:00:00'])
+        self.assertEqual(rows[0]['交易订单号'], '12345678901234567890')
+        self.assertEqual(rows[0]['金额'], '12.30')
 
     @unittest.skipUnless(importlib.util.find_spec('pyzipper'), 'AES ZIP dependency is optional')
     def test_aes_zip_password_and_original_csv(self):

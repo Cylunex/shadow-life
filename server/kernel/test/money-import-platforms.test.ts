@@ -201,7 +201,23 @@ test("offset timestamps use the requested timezone while date-only and local exp
   assert.equal(candidates[1]!.proposed.occurred_on, "2026-10-01");
   assert.equal(candidates[2]!.proposed.occurred_on, "2026-10-01");
   assert.equal(candidates[3]!.proposed.occurred_on, "2026-10-01");
+  assert.equal(candidates[0]!.proposed.occurred_at, "2026-10-01T23:30:00.000Z");
+  assert.equal(candidates[1]!.proposed.occurred_at, "2026-10-01T10:30:00.000Z");
+  assert.equal(candidates[2]!.proposed.occurred_at, undefined);
+  assert.equal(candidates[3]!.proposed.occurred_at, "2026-10-01T15:30:00.000Z");
   assert.ok(candidates[4]!.issues.includes("invalid_date"));
   assert.ok(candidates[0]!.warnings.includes("timestamp_date_in_requested_time_zone"));
   assert.equal(candidates[0]!.raw.date, values[0]);
+});
+
+
+test("ambiguous and skipped local clocks need an explicit UTC offset", () => {
+  const times = ["2026-03-08 02:20:03", "2026-11-01 01:20:03", "2026-11-01T01:20:03-05:00", "2026-11-01 00:00:00"];
+  const candidates = parseMoneyStatement({
+    format: "json", timeZone: "America/New_York",
+    content: JSON.stringify(times.map(occurred_at => ({ occurred_at, type: "expense", amount: "1.00" })))
+  });
+  assert.ok(candidates.slice(0, 2).every(candidate => candidate.issues.includes("invalid_date")));
+  assert.equal(candidates[2]!.proposed.occurred_at, "2026-11-01T06:20:03.000Z");
+  assert.equal(candidates[3]!.proposed.occurred_at, "2026-11-01T04:00:00.000Z");
 });

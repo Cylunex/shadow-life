@@ -69,7 +69,7 @@ export async function writeMoneyImportFile(database: Database, subjectId: string
       c.status = decision.decision === "confirm" ? "confirmed" : "ignored";
       c.revision++; c.linked_record_id = written.actualValues.record_id ? String(written.actualValues.record_id) : null;
       if (c.status === "confirmed") {
-        entries.push({ id: String(written.actualValues.money_entry_id), record_id: c.linked_record_id!, amount: c.proposed.amount, currency: c.proposed.currency, entry_type: c.proposed.entry_type, occurred_on: c.proposed.occurred_on, occurred_at: null, counterparty: c.proposed.counterparty ?? null, refunded: "0" });
+        entries.push({ id: String(written.actualValues.money_entry_id), record_id: c.linked_record_id!, amount: c.proposed.amount, currency: c.proposed.currency, entry_type: c.proposed.entry_type, occurred_on: c.proposed.occurred_on, occurred_at: typeof written.actualValues.occurred_at === "string" ? written.actualValues.occurred_at : null, counterparty: c.proposed.counterparty ?? null, refunded: "0" });
         if (decision.original_entry_id) { const original = entries.find(e => e.id === decision.original_entry_id)!; const amount = statementAmount(original.refunded) + statementAmount(c.proposed.amount); original.refunded = `${amount / 1_000_000n}.${(amount % 1_000_000n).toString().padStart(6, "0")}`; }
       }
     } catch (error) {

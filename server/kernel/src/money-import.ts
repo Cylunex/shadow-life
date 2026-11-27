@@ -7,7 +7,7 @@ export interface MoneyImportCandidate {
   externalId?: string;
   /** The source event kind is immutable even when a user corrects the proposed accounting fields. */
   identityKind?: MoneyImportEntryType;
-  proposed: Partial<{ entry_type: MoneyImportEntryType; amount: string; currency: "CNY"; occurred_on: string; time_zone: string; counterparty: string; category: string; payment_method: string; note: string }>;
+  proposed: Partial<{ entry_type: MoneyImportEntryType; amount: string; currency: "CNY"; occurred_on: string; occurred_at: string; time_zone: string; counterparty: string; category: string; payment_method: string; note: string }>;
   issues: string[];
   warnings: string[];
   appliedRuleIds?: string[];
@@ -16,7 +16,7 @@ export interface MoneyImportRule { id: string; matchValue: string; replacements:
 
 const aliases = {
   externalId: ["transaction_id", "transactionid", "id", "交易单号", "交易订单号", "交易号", "订单号", "流水号"],
-  occurredOn: ["date", "occurred_on", "transaction_date", "交易日期", "日期", "时间", "交易时间"],
+  occurredOn: ["occurred_at", "transaction_time", "交易时间", "时间", "date", "occurred_on", "transaction_date", "交易日期", "日期"],
   amount: ["amount", "金额", "金额(元)", "金额（元）", "交易金额", "收支金额"],
   entryType: ["type", "entry_type", "direction", "收支类型", "类型", "收/支", "收支", "交易类型"],
   counterparty: ["merchant", "counterparty", "payee", "商家", "交易对方", "对方", "商户", "商户名称"],
@@ -61,8 +61,14 @@ export function applyMoneyImportRules(candidates: readonly MoneyImportCandidate[
 function genericCandidate(raw: Record<string, unknown>, timeZone: string): MoneyImportCandidate {
   const text = normalizedEntries(raw), issues: string[] = [], warnings: string[] = [], proposed: MoneyImportCandidate["proposed"] = { time_zone: timeZone, currency: "CNY" };
   const externalId = pick(text, aliases.externalId);
-  const occurred = pick(text, aliases.occurredOn), date = occurred ? normalizeDate(occurred, timeZone) : undefined;
-  if (!occurred) issues.push("missing_date"); else if (!date) issues.push("invalid_date"); else { proposed.occurred_on = date; if (/[ T].*(?:Z|[+-]\d{2}:?\d{2})$/u.test(occurred)) warnings.push("timestamp_date_in_requested_time_zone"); }
+  const occurred = pick(text, aliases.occurredOn), date = occurred ? normalizeMoneyImportDate(occurred, timeZone) : undefined;
+  if (!occurred) issues.push("missing_date");
+  else if (!date) issues.push("invalid_date");
+  else {
+    const { explicitOffset, ...fields } = date;
+    Object.assign(proposed, fields);
+    if (explicitOffset) warnings.push("timestamp_date_in_requested_time_zone");
+  }
   const amountText = pick(text, aliases.amount), amount = amountText ? normalizeAmount(amountText) : undefined;
   if (!amountText) issues.push("missing_amount"); else if (!amount) issues.push("invalid_amount"); else if (amount.value === "0.00") issues.push("zero_amount"); else proposed.amount = amount.value;
   const typeText = pick(text, aliases.entryType), entryType = typeText ? normalizeType(typeText) : undefined;
@@ -148,23 +154,51 @@ function detectPlatform(headers: string[]): MoneyImportPlatform {
   const names = new Set(headers.map(normalizeHeader));
   return platformHeaders.find(([, required]) => required.every(name => names.has(normalizeHeader(name))))?.[0] ?? "generic";
 }
-function normalizeDate(value: string, timeZone: string): string | undefined {
-  const match = /^(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})(?:日)?(?:$|[ T]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?$)/u.exec(value.trim());
+const statementClockOptions = {
+  year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit",
+  hourCycle: "h23"
+} as const;
+
+function wallClock(parts: Intl.DateTimeFormatPart[]): string {
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find(value => value.type === type)!.value;
+  return `${part("year").padStart(4, "0")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}:${part("second")}`;
+}
+
+/** Resolve an explicitly supplied wall clock using the statement timezone. A skipped or repeated
+ * local clock needs an offset from the source; automatically choosing a side may misdate a payment. */
+export function normalizeMoneyImportDate(value: string, timeZone: string):
+  { occurred_on: string; occurred_at?: string; explicitOffset?: true } | undefined {
+  const match = /^(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})(?:日)?(?:[ T](\d{2}):(\d{2})(?::(\d{2})(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/u.exec(value.trim());
   if (!match) return undefined;
-  const year = Number(match[1]), month = Number(match[2]), day = Number(match[3]), date = new Date(0);
-  date.setUTCFullYear(year, month - 1, day);
-  if (year < 1 || date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return undefined;
-  const time = /[ T](\d{2}):(\d{2})(?::(\d{2}))?/u.exec(value);
-  if (time && (Number(time[1]) > 23 || Number(time[2]) > 59 || Number(time[3] ?? 0) > 59)) return undefined;
-  const dateOnly = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-  const offset = /(?:Z|[+-]\d{2}:?\d{2})$/u.exec(value.trim())?.[0];
-  if (time && offset) {
-    const timestamp = Date.parse(`${dateOnly}T${time[1]}:${time[2]}:${time[3] ?? "00"}${offset}`);
-    if (!Number.isFinite(timestamp)) return undefined;
-    return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(timestamp));
+  const [, year, month, day, hour, minute, second = "00", fraction = "", offset] = match;
+  const dateOnly = `${year}-${month!.padStart(2, "0")}-${day!.padStart(2, "0")}`;
+  const date = new Date(`${dateOnly}T00:00:00Z`);
+  if (year === "0000" || !Number.isFinite(+date) || date.toISOString().slice(0, 10) !== dateOnly) return undefined;
+  if (hour === undefined) return { occurred_on: dateOnly };
+  if (Number(hour) > 23 || Number(minute) > 59 || Number(second) > 59) return undefined;
+  const clock = `${dateOnly}T${hour}:${minute}:${second}`;
+  const zone = new Intl.DateTimeFormat("en-CA", { ...statementClockOptions, timeZone });
+  if (offset) {
+    const at = new Date(`${clock}${fraction}${offset}`);
+    if (!Number.isFinite(+at)) return undefined;
+    return { occurred_on: wallClock(zone.formatToParts(at)).slice(0, 10), occurred_at: at.toISOString(), explicitOffset: true };
   }
-  // A local or date-only export has no instant. Never invent one using the machine's timezone.
-  return dateOnly;
+  const pretendUtc = Date.parse(`${clock}${fraction}Z`);
+  const offsets = new Set([-86_400_000, 0, 86_400_000].map(delta => {
+    const sample = Math.floor((pretendUtc + delta) / 1000) * 1000;
+    return Date.parse(`${wallClock(zone.formatToParts(sample))}Z`) - sample;
+  }));
+  const candidates = [...offsets].map(zoneOffset => pretendUtc - zoneOffset)
+    .filter(at => Number.isFinite(at) && wallClock(zone.formatToParts(at)) === clock);
+  if (candidates.length !== 1) return undefined;
+  return { occurred_on: dateOnly, occurred_at: new Date(candidates[0]!).toISOString() };
+}
+
+export function rebaseMoneyImportTime(at: string, sourceZone: string, day: string, targetZone: string): string | undefined {
+  const instant = new Date(at);
+  const sourceClock = wallClock(new Intl.DateTimeFormat("en-CA", { ...statementClockOptions, timeZone: sourceZone }).formatToParts(instant));
+  const milliseconds = instant.toISOString().slice(19, 23);
+  return normalizeMoneyImportDate(`${day}${sourceClock.slice(10)}${milliseconds}`, targetZone)?.occurred_at;
 }
 function normalizeAmount(value: string): { value: string; negative: boolean } | undefined {
   let text = value.trim().replace(/^[￥¥]\s*/u, "").replace(/\s*元$/u, "").trim(), negative = false;

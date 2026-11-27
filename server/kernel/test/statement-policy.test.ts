@@ -15,6 +15,12 @@ test("source identity conflicts are found on both sides before automatic account
   assert.equal(decideStatementCandidate(a, [], [a, b]).reason, "source_identity_conflict");
   assert.equal(decideStatementCandidate(b, [], [a, b]).decision, "pending");
 });
+test("exact payment matching uses the second and offsets agree as instants", () => {
+  const c = candidate({ proposed: { ...candidate().proposed, occurred_at: "2026-10-01T12:00:00+08:00" } });
+  assert.equal(decideStatementCandidate(c, [entry], [c]).reason, "existing_exact_payment");
+  assert.equal(decideStatementCandidate({ ...c, proposed: { ...c.proposed, occurred_at: "2026-10-01T04:00:01Z" } }, [entry], [c]).reason, "possible_existing_payment");
+});
+
 test("refunds need a unique original expense and a sufficient remaining balance", () => {
   const original = candidate({ status: "confirmed", linked_record_id: "record" });
   const refund = candidate({ id: "refund", external_id: "refund_001", identity_kind: "refund", proposed: { ...original.proposed, entry_type: "refund", amount: "2.30" }, source_proposed: { ...original.source_proposed, entry_type: "refund", amount: "2.30" } });

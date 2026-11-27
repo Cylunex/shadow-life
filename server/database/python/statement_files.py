@@ -10,6 +10,8 @@ import json
 import re
 import sys
 import zipfile
+from datetime import datetime, timedelta
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import PurePosixPath
 from xml.etree import ElementTree as ET
 
@@ -37,8 +39,56 @@ def xml(data):
     return ET.fromstring(text)
 
 
+# The language-dependent formats in this set describe calendar dates in all
+# East Asian variants listed by the Open XML numbering format reference.
+BUILTIN_CALENDAR_FORMATS = {14, 15, 16, 17, 27, 28, 29, 30, 31, 36, 50, 51, 54, 57, 58}
+
+
+def xlsx_date_styles(z):
+    if "xl/styles.xml" not in z.namelist():
+        return {}
+    root = xml(z.read("xl/styles.xml"))
+    formats = {fmt.get("numFmtId"): fmt.get("formatCode", "") for fmt in root.findall("s:numFmts/s:numFmt", NS)}
+    result = {}
+    for index, xf in enumerate(root.findall("s:cellXfs/s:xf", NS)):
+        fmt_id = xf.get("numFmtId", "0")
+        if fmt_id in formats:
+            # Quoted text, escaped characters, color and locale directives are not date tokens.
+            code = re.sub(r'"[^"]*"|\\.|_.|\*.|\[[^\]]*\]', "", formats[fmt_id]).split(";")[0].lower()
+            if re.search(r"[yd]", code):
+                result[str(index)] = bool(re.search(r"[hs]", code))
+        elif fmt_id == "22" or int(fmt_id) in BUILTIN_CALENDAR_FORMATS:
+            result[str(index)] = fmt_id == "22"
+    return result
+
+
+def xlsx_date_value(value, date1904, shows_clock):
+    try:
+        serial = Decimal(value)
+        if not serial.is_finite() or not 0 <= serial < 3_000_000:
+            return value
+        days = int(serial)
+        if not date1904 and days == 60:
+            # Excel can represent the fictitious Gregorian 1900-02-29.
+            return value
+        fraction = serial - days
+        seconds = int((fraction * 86_400).to_integral_value(rounding=ROUND_HALF_UP))
+        epoch = datetime(1904, 1, 1) if date1904 else datetime(1899, 12, 31)
+        if not date1904 and days > 60:
+            days -= 1
+        result = epoch + timedelta(days=days, seconds=seconds)
+        return result.isoformat(sep=" ", timespec="seconds") if shows_clock or fraction else result.date().isoformat()
+    except (InvalidOperation, OverflowError):
+        return value
+
+
 def xlsx_rows(data):
     z = archive(data)
+    members = set(z.namelist())
+    date_styles = xlsx_date_styles(z)
+    workbook = xml(z.read("xl/workbook.xml")) if "xl/workbook.xml" in members else None
+    properties = workbook.find("s:workbookPr", NS) if workbook is not None else None
+    date1904 = properties is not None and properties.get("date1904") in ("1", "true")
     strings = []
     if "xl/sharedStrings.xml" in z.namelist():
         strings = ["".join(si.itertext()) for si in xml(z.read("xl/sharedStrings.xml")).findall("s:si", NS)]
@@ -64,7 +114,11 @@ def xlsx_rows(data):
                     value = strings[int(value)]
                 elif kind == "inlineStr":
                     value = "".join(cell.find("s:is", NS).itertext())
-                elif kind not in (None, "n", "str"):
+                elif kind in (None, "n"):
+                    style = cell.get("s", "0")
+                    if value and style in date_styles:
+                        value = xlsx_date_value(value, date1904, date_styles[style])
+                elif kind not in ("str", "d"):
                     raise ValueError("Unsupported worksheet value")
                 cells[col - 1] = value
             if cells:
@@ -123,7 +177,7 @@ def convert(data, name, password=None, member=None):
     if not rows or isinstance(rows[0], dict):
         return {"name": name, "rows": rows}
     # Find the actual export header, leaving platform business rules to Life.
-    markers = {"交易时间", "交易创建时间", "订单提交时间", "date", "occurred_on", "transaction_id"}
+    markers = {"交易时间", "交易日期", "交易创建时间", "交易成功时间", "订单提交时间", "date", "occurred_on", "occurred_at", "transaction_date", "transaction_time", "transaction_id"}
     start = next((i for i, row in enumerate(rows) if len(row) >= 3 and any(c.strip() in markers for c in row)), None)
     if start is None:
         raise ValueError("No supported statement header")
