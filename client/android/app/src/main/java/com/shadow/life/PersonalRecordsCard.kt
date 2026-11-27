@@ -93,7 +93,7 @@ internal fun offlineRecordGaps(day:LocalDate, zone:ZoneId, rows:List<JSONObject>
 }
 
 @OptIn(ExperimentalLayoutApi::class)
-@Composable internal fun PersonalRecordsCard(accountId:String,section:String?=null){
+@Composable internal fun PersonalRecordsCard(accountId:String,section:String?=null,standalone:Boolean=false){
   val context=LocalContext.current
   val app=context.applicationContext as ShadowApp
   val repo=remember(accountId){NativeLifeRepository(context,app)}
@@ -103,7 +103,7 @@ internal fun offlineRecordGaps(day:LocalDate, zone:ZoneId, rows:List<JSONObject>
     putAll(mapOf("records" to "正式明细","basis" to "核对依据","received" to "到账","remaining" to "差额","group" to "分组","sleep_minutes" to "主睡眠分钟","quote" to "原文","path" to "位置","raw_name" to "原名","distance_km" to "公里","duration_minutes" to "分钟","minutes_per_km" to "分钟/公里","rpe" to "主观用力","heart_rate_avg" to "平均心率","relation" to "关联","external_id" to "外部编号","kind" to "来源","refunds" to "退款及可用份额","service_number" to "车次","origin" to "发站","destination" to "到站","starts_at" to "发车","printed_fare" to "票面金额","confirmation_code" to "订票编号","provenance" to "出处","happened_on" to "日期","supporting" to "详情"))
   }}
   val scope=rememberCoroutineScope()
-  var open by rememberSaveable(accountId){mutableStateOf(false)}
+  var open by rememberSaveable(accountId,standalone){mutableStateOf(standalone)}
   var group by rememberSaveable(accountId){mutableIntStateOf(0)}
   var action by rememberSaveable(accountId){mutableIntStateOf(0)}
   var allowed by remember(accountId){mutableStateOf<Set<String>?>(null)}
@@ -186,7 +186,7 @@ internal fun offlineRecordGaps(day:LocalDate, zone:ZoneId, rows:List<JSONObject>
     }
   }}
   LifeCard{
-    TextButton(onClick={open=!open}){Text(section?:"生活记录与复盘")}
+    if(!standalone)TextButton(onClick={open=!open}){Text(section?:"生活记录与复盘")}
     if(open){
       FlowRow{groups.forEachIndexed{i,g->if(allowed==null||g.getJSONArray("actions").trainingObjects().any{allowed!!.contains(it.getString("cap"))})TextButton(enabled=!busy,onClick={group=i;action=0;formState="{}";pickedState="{}";clearResults()}){Text(g.getString("title"))}}}
       FlowRow{actions.forEachIndexed{i,a->TextButton(enabled=!busy,onClick={action=i;clearResults()}){Text(a.getString("title"))}}}

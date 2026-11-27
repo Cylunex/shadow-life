@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "4cda20aecdb7f231bec124ebe06cd0b65e9c622de55b7e5ac9300df1fc445539",
+  "catalog_revision": "0de475838f159cad51266949a2a69d7e8af051f5ce3b630540a535c4c4d64c81",
   "terms": [
     {
       "id": "activity_capture",
@@ -65492,6 +65492,9 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "exclude_captures": {
+            "type": "boolean"
+          },
           "view": {
             "type": "string",
             "enum": [

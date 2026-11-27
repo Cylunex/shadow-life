@@ -1,4 +1,4 @@
-export type SleepInsightNight={wake_date:string;time_zone:string;started_at:string|null;ended_at:string|null;total_minutes:number;deep_minutes:number|null;rem_minutes:number|null;source_type:string};
+export type SleepInsightNight={wake_date:string;time_zone:string;started_at:string|null;ended_at:string|null;total_minutes:number;deep_minutes:number|null;light_minutes?:number|null;rem_minutes:number|null;source_type:string};
 
 function localBedtime(instant:string,zone:string):number|null{
   try{
@@ -9,7 +9,12 @@ function localBedtime(instant:string,zone:string):number|null{
 }
 
 export function buildSleepInsights(rows:SleepInsightNight[],from:string,to:string){
-  const valid=rows.filter(row=>row.total_minutes>0);
+  const valid=rows.flatMap(row=>{
+    if(row.source_type!=="samsung")return row.total_minutes>0?[row]:[];
+    if(row.light_minutes==null||row.deep_minutes==null||row.rem_minutes==null)return [];
+    const asleep=row.light_minutes+row.deep_minutes+row.rem_minutes;
+    return asleep>0&&asleep<=row.total_minutes?[{...row,total_minutes:asleep}]:[];
+  });
   const bedtimes=valid.map(row=>row.started_at?localBedtime(row.started_at,row.time_zone):null).filter((value):value is number=>value!==null);
   const mean=bedtimes.length>=3?bedtimes.reduce((sum,value)=>sum+value,0)/bedtimes.length:null;
   const inBed=valid.map(row=>row.started_at&&row.ended_at?Math.round((Date.parse(row.ended_at)-Date.parse(row.started_at))/60000):null)

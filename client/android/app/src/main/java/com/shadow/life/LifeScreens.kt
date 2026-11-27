@@ -254,7 +254,7 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun DetailScreen(title:String,state:LoadState<RecordDetail>,submitState:SubmitState,onRetry:()->Unit,onBack:()->Unit,onLink:(DetailLink)->Unit,onAction:(DetailAction)->Unit,onCorrect:(EditSeed,CorrectionDraft)->Unit,onReset:()->Unit,onQueueLibraryVision:(String)->Unit,onRetryLibraryVision:(String)->Unit,onSaveTravelDay:(TravelDayDraft)->Unit,travelPlaces:List<TravelPlaceSummary> = emptyList(),accountId:String="",onDishCatalog:(String,String)->Unit={_,_->},originalPage:Int=0,
+@Composable fun DetailScreen(title:String,state:LoadState<RecordDetail>,submitState:SubmitState,onRetry:()->Unit,onBack:()->Unit,onLink:(DetailLink)->Unit,onAction:(DetailAction)->Unit,onCorrect:(EditSeed,CorrectionDraft)->Unit,onReset:()->Unit,onQueueLibraryVision:(String)->Unit,onRetryLibraryVision:(String)->Unit,onSaveTravelDay:(TravelDayDraft)->Unit,travelPlaces:List<TravelPlaceSummary> = emptyList(),accountId:String="",onDishCatalog:(String,String)->Unit={_,_->},originalPage:Int=0,initialTravelDate:String?=null,
   onAskRecord:(ResourceRef,String)->Unit={_,_->},assistantStatus:(ResourceRef?)->LoadState<AssistantReply>?={null},onComparePrice:(String)->Unit={}
 
 ){
@@ -262,9 +262,9 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
   var purchaseLineId by rememberSaveable(title){mutableStateOf<String?>(null)}
   var editing by rememberSaveable(title){mutableStateOf(false)}
   var editingDay by rememberSaveable(title){mutableStateOf(false)}
-  var travelDate by rememberSaveable(title){mutableStateOf<String?>(null)}
+  var travelDate by rememberSaveable(title,initialTravelDate){mutableStateOf(initialTravelDate)}
   var showActions by rememberSaveable(title){mutableStateOf(false)}
-  var detailTab by rememberSaveable(title){mutableStateOf("日程")}
+  var detailTab by rememberSaveable(title,initialTravelDate){mutableStateOf(if(initialTravelDate!=null)"预订与记录" else "日程")}
   val activeDraftScope=LocalUiDraftScope.current
   var savedNotice by rememberSaveable(title){mutableStateOf<String?>(null)}
   val loadedDetail=(state as? LoadState.Ready)?.value
@@ -537,7 +537,7 @@ private data class FeatureEntry(val group:String,val title:String,val subtitle:S
     FeatureEntry("健康","继续训练","回到当前组合和已完成组","健身 练 训练菜单",FeatureAction.Destination(TrainingRoute())),
     FeatureEntry("健康","动作库","搜索动作并加入今天的组合","飞鸟 卧推 动作 教学",FeatureAction.Destination(TrainingRoute("library"))),
     FeatureEntry("健康","健康与饮食复盘","按日回看体重、睡眠、摄入及实际训练","一周 健康 复盘 营养",FeatureAction.Destination(WellnessRoute())),
-    FeatureEntry("健康","设备与同步状态","查看设备权限、同步队列和来源","手表 同步队列 设备",FeatureAction.Destination(SettingsRoute)),
+    FeatureEntry("健康","设备与同步状态","查看设备权限、同步队列和来源","手表 同步队列 设备",FeatureAction.Destination(SettingsRoute("devices"))),
     FeatureEntry("饮食","食谱与食材","餐单、购物清单、食品库存与食谱","买菜 采购 库存 菜谱 食谱 购物清单",FeatureAction.Workspace(LifeDomain.Meals,"planning")),
     FeatureEntry("饮食","购物清单","打开待采购食材","买菜 采购 待买",FeatureAction.Workspace(LifeDomain.Meals,"shopping")),
     FeatureEntry("饮食","食材库存","查看临期、库存和批次","冰箱 库存 临期",FeatureAction.Workspace(LifeDomain.Meals,"stock")),
@@ -552,7 +552,7 @@ private data class FeatureEntry(val group:String,val title:String,val subtitle:S
     FeatureEntry("资料","录音与转写","回听录音和查看转写内容","听录音 音频 转写",FeatureAction.Destination(ActivityCaptureRoute("录音"))),
     FeatureEntry("资料","应用使用记录","查看应用活动与采集内容","应用 时长 屏幕",FeatureAction.Destination(ActivityCaptureRoute())),
     FeatureEntry("资料","地点记录","查看停留与地点采集","地点 停留",FeatureAction.Destination(ActivityCaptureRoute("地点"))),
-    FeatureEntry("资料","截图","查看保存的截图","截图",FeatureAction.Destination(ActivityCaptureRoute("截图"))),
+    FeatureEntry("资料","截图采集设置","管理截图采集与保存选项","截图",FeatureAction.Destination(ActivityCaptureRoute("截图"))),
     FeatureEntry("资料","订单关联","查看采集到的订单与关联","订单 关联",FeatureAction.Destination(ActivityCaptureRoute("订单"))),
     FeatureEntry("资料","采集设置与导出","设置采集与导出内容","导出 采集 设置",FeatureAction.Destination(ActivityCaptureRoute("设置与导出"))),
     FeatureEntry("计划","生活回顾","查看各期回顾并回溯依据","一周 回忆 回顾",FeatureAction.Destination(PlansRoute(true))),
@@ -709,5 +709,5 @@ private fun reviewEvidenceActionable(kind:String)=kind in setOf("money_entry","m
 private fun ownedEventLabel(kind:String)=when(kind){"maintenance"->"维护";"repair"->"维修";"return"->"退货";"dispose"->"处置";"gift"->"赠出";"lost"->"遗失";"restore"->"恢复持有";"note"->"记录";else->kind}
 
 @Composable private fun StatusLabel(state:String){Surface(shape=RoundedCornerShape(999.dp),color=MaterialTheme.colorScheme.primaryContainer){Text(stateLabel(state),Modifier.padding(horizontal=10.dp,vertical=5.dp),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onPrimaryContainer)}}
-private fun stateLabel(state:String)=mapOf("active" to "进行中","paused" to "已暂停","completed" to "已完成","archived" to "已归档")[state]?:state
+private fun stateLabel(state:String)=mapOf("confirmed" to "已确认","voided" to "已作废","active" to "进行中","paused" to "已暂停","completed" to "已完成","archived" to "已归档")[state]?:state
 internal fun LifeDomain.label()=when(this){LifeDomain.Meals->"饮食";LifeDomain.Money->"消费";LifeDomain.Health->"健康";LifeDomain.Travel->"旅行";LifeDomain.Library->"资料"}

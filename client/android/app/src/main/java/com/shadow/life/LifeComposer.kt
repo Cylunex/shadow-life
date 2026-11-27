@@ -200,9 +200,15 @@ import java.time.LocalDate
         OptionChips(listOf("wechat" to "微信","alipay" to "支付宝","bank_card" to "银行卡","cash" to "现金"),paymentMethod){paymentMethod=if(paymentMethod==it)"" else it}
       }
       if(kind==CaptureKind.Refund)RefundEntryPicker(refundCandidates,secondary,{secondary=it},onLoadRefundCandidates)
-      else if(kind==CaptureKind.Trip)LifeDateField(secondary.ifBlank{date},{secondary=it},"结束日期")
+      else if(kind==CaptureKind.Trip){
+        LifeDateField(date,{date=it},"开始日期")
+        LifeDateField(secondary.ifBlank{date},{secondary=it},"结束日期")
+        if(secondary.isNotBlank()&&secondary<date)Text("结束日期不能早于开始日期",color=MaterialTheme.colorScheme.error)
+      }
       else if(kind !in listOf(CaptureKind.Meal,CaptureKind.Visit))OutlinedTextField(secondary,{secondary=it},Modifier.fillMaxWidth(),label={Text(secondaryLabel(kind))},minLines=if(kind==CaptureKind.Library||kind==CaptureKind.Project)4 else 1,singleLine=kind!=CaptureKind.Library&&kind!=CaptureKind.Project,keyboardOptions=KeyboardOptions(keyboardType=if(kind in listOf(CaptureKind.Purchase,CaptureKind.Workout))KeyboardType.Decimal else KeyboardType.Text))
-      LifeDateField(date,{date=it},enabled=state !is SubmitState.Sending)
+      val enteredAmount=when(kind){CaptureKind.Expense,CaptureKind.Refund->primary;CaptureKind.Purchase->secondary;else->""}
+      if(enteredAmount.isNotBlank()&&!validAmount(enteredAmount))Text("金额须大于 0，最多保留两位小数",color=MaterialTheme.colorScheme.error)
+      if(kind!=CaptureKind.Trip)LifeDateField(date,{date=it},enabled=state !is SubmitState.Sending)
       var more by rememberSaveable{mutableStateOf(note.isNotBlank()||category.isNotBlank()||paymentMethod.isNotBlank())}
       TextButton(onClick={more=!more}){Text(if(more)"收起更多信息" else if(kind in listOf(CaptureKind.Expense,CaptureKind.Purchase))"更多信息 · 备注、分类与支付方式" else "加备注")}
       if(more){
@@ -233,7 +239,7 @@ import java.time.LocalDate
       androidx.compose.foundation.lazy.LazyColumn{item{StateContent(state,{onSearch(query)}){}};items(candidates.size){index->val entry=candidates[index];LifeCard(onClick={onSelect(entry.id);expanded=false}){Text(entry.title,style=MaterialTheme.typography.titleMedium);Text(listOfNotNull(entry.trailing,entry.supporting).joinToString(" · "))}}}
     }
   }
-  Text("退款会继承普通交易的 CNY 合同；外币交易暂不在这里静默折算。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+  Text("请选择一笔人民币原交易，填写实际到账的退款金额。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -256,5 +262,14 @@ private fun defaultMeasurementUnit(metric:String)=when(metric){
 private fun defaultOption(kind:CaptureKind)=when(kind){CaptureKind.Expense->"expense";CaptureKind.Purchase->"offline_purchase";CaptureKind.Meal->"other";CaptureKind.Health->"weight";CaptureKind.OwnedItem->"owned";CaptureKind.Project->"active";CaptureKind.Refund,CaptureKind.Workout,CaptureKind.Visit,CaptureKind.Trip->"";CaptureKind.Library->"note"}
 private fun primaryLabel(kind:CaptureKind)=when(kind){CaptureKind.Expense,CaptureKind.Refund->"金额";CaptureKind.Purchase->"商家或商品";CaptureKind.Meal->"吃了什么";CaptureKind.Health->"数值";CaptureKind.Workout->"训练类型";CaptureKind.Visit->"地点";CaptureKind.Trip,CaptureKind.Project->"标题";CaptureKind.OwnedItem->"物品名称";CaptureKind.Library->"标题（可选）"}
 private fun secondaryLabel(kind:CaptureKind)=when(kind){CaptureKind.Expense->"商家（可选）";CaptureKind.Purchase->"付款金额（可选）";CaptureKind.Refund->"原交易";CaptureKind.Health->"单位";CaptureKind.Workout->"时长分钟（可选）";CaptureKind.Trip->"结束日期";CaptureKind.OwnedItem->"存放位置（可选）";CaptureKind.Project->"目标";CaptureKind.Library->"正文或链接";else->"补充信息"}
-private fun valid(kind:CaptureKind,primary:String,secondary:String,date:String)=validDate(date)&&when(kind){CaptureKind.Library->secondary.isNotBlank();CaptureKind.Health,CaptureKind.Refund,CaptureKind.Trip,CaptureKind.Project->primary.isNotBlank()&&secondary.isNotBlank();else->primary.isNotBlank()}
+private fun validAmount(value:String)=runCatching{normalizeCnyAmount(value)}.isSuccess
+private fun valid(kind:CaptureKind,primary:String,secondary:String,date:String)=validDate(date)&&when(kind){
+  CaptureKind.Library->secondary.isNotBlank()
+  CaptureKind.Expense->validAmount(primary)
+  CaptureKind.Refund->validAmount(primary)&&secondary.isNotBlank()
+  CaptureKind.Purchase->primary.isNotBlank()&&(secondary.isBlank()||validAmount(secondary))
+  CaptureKind.Trip->primary.isNotBlank()&&validDate(secondary)&&secondary>=date
+  CaptureKind.Health,CaptureKind.Project->primary.isNotBlank()&&secondary.isNotBlank()
+  else->primary.isNotBlank()
+}
 private fun validDate(value:String)=runCatching{LocalDate.parse(value);true}.getOrDefault(false)

@@ -100,13 +100,16 @@ internal fun providerConfigured(provider:TravelMapProvider)=when(provider){
         GoogleMapSurface(markers,tracks,routes,satellite,Modifier.fillMaxSize(),onGestureActive){if(!timedOut)loaded=true}
       }
     }
+    if(configured&&provider==TravelMapProvider.Google&&!loaded&&!timedOut){
+      TravelMapCanvas(markers,tracks,Modifier.fillMaxSize(),routes)
+    }
     if(!configured||(provider==TravelMapProvider.Google&&!loaded)){
       Surface(Modifier.align(Alignment.BottomCenter).padding(12.dp),shape=RoundedCornerShape(14.dp),color=MaterialTheme.colorScheme.surface.copy(alpha=.94f)){
         Column(Modifier.padding(horizontal=12.dp,vertical=8.dp)){
           val message=when{
             !configured->"${provider.label}待配置，当前显示坐标预览"
             timedOut->"Google 底图加载超时，当前显示坐标预览"
-            else->"正在加载 Google 底图…"
+            else->"坐标预览 · 正在加载 Google 底图…"
           }
           Text(message,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
           if(timedOut)Row{

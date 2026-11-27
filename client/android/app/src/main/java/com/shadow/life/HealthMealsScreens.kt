@@ -255,7 +255,7 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
       LifeCard(onClick={onDetail(LifeDomain.Health,weight.id,"本次称重")}){
         Text("最近称重",style=MaterialTheme.typography.labelLarge)
         Text("${weight.valueText} ${unitLabel(weight.unit)}",style=MaterialTheme.typography.headlineMedium,color=ActivityGreen)
-        val time=weight.occurredAt?.let{runCatching{java.time.Instant.parse(it).atZone(java.time.ZoneId.systemDefault()).toLocalDateTime().toString().replace('T',' ')}.getOrNull()}
+        val time=weight.occurredAt?.let{runCatching{java.time.Instant.parse(it).atZone(java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))}.getOrNull()}
         Text("${time?:weight.occurredOn} · ${sourceLabel(weight.sourceKind)}")
         if(composition.isNotEmpty())BodyCompositionGrid(composition)
         Text("查看本次测量")
@@ -330,7 +330,7 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
 @Composable private fun SleepWorkspace(history:List<HealthDailyOverview>,insights:HealthSleepInsightsResultDto?,onNight:(String)->Unit){
   val days=lastSevenDays(history)
   var picked by rememberSaveable{mutableStateOf<String?>(null)}
-  val date=picked?.takeIf{date->days.any{it.first.toString()==date}}?:history.lastOrNull{it.sleepMinutes!=null}?.occurredOn?:LocalDate.now().toString()
+  val date=picked?.takeIf{date->days.any{it.first.toString()==date}}?:history.lastOrNull{it.sleepId!=null}?.occurredOn?:LocalDate.now().toString()
   val night=history.firstOrNull{it.occurredOn==date}
   Column(verticalArrangement=Arrangement.spacedBy(18.dp)){
     HealthSurface{
@@ -341,15 +341,21 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
         }
         night?.sleepSource?.let{SourcePill(sourceLabel(it),SleepPurple)}
       }
-      Text(night?.sleepMinutes?.let(::minutesLabel)?:"当天没有睡眠记录",style=MaterialTheme.typography.headlineLarge)
+      Text(night?.sleepMinutes?.let(::minutesLabel)?:if(night?.sleepId!=null)"睡眠时长未知" else "当天没有睡眠记录",style=MaterialTheme.typography.headlineLarge)
+      if(night?.sleepSource=="samsung")Text("按已记录的浅睡、深睡和 REM 分期合计 · 设备记录 ${night.sleepRecordMinutes?.let(::minutesLabel)?:"—"}",style=MaterialTheme.typography.bodySmall)
       night?.sleepMinutes?.let{minutes->
-        AssessmentLabel(metricAssessment("sleep_minutes",minutes.toDouble(),"分钟",true))
+        val assessment=metricAssessment("sleep_minutes",minutes.toDouble(),"分钟",true)
+        val upper=night.sleepRecordMinutes?.minus(night.awakeMinutes?:0)
+        val incomplete=night.sleepSource=="samsung"&&upper!=null&&upper>minutes
+        if(incomplete)Text("另有 ${minutesLabel(upper!!-minutes)} 未归入睡眠分期",style=MaterialTheme.typography.bodySmall)
+        val uncertain=incomplete&&assessment.tone==HealthTone.Low&&metricAssessment("sleep_minutes",upper?.toDouble(),"分钟",true).tone!=HealthTone.Low
+        AssessmentLabel(if(uncertain)HealthAssessment(HealthTone.Neutral,"分期不足，暂无法判断达标",assessment.basis) else assessment)
         SleepStageBar(night)
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(18.dp)){
+        FlowRow(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(18.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
           sleepStages(night).forEach{(label,minutes,tone)->RingLegend(label,minutes?.let(::minutesLabel)?:"未提供","",tone)}
         }
-        night.sleepId?.let{id->TextButton(onClick={onNight(id)}){Text("查看本晚详情")}}
       }
+      night?.sleepId?.let{id->TextButton(onClick={onNight(id)}){Text("查看本晚详情")}}
     }
     HealthSurface{
       Text("近 7 晚",style=MaterialTheme.typography.titleLarge)
@@ -369,7 +375,7 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
 @Composable private fun SleepInsightsCard(insights:HealthSleepInsightsResultDto?){HealthSurface{
   Text("近 30 天睡眠统计",style=MaterialTheme.typography.titleLarge)
   if(insights==null){Text("统计暂不可用，请稍后重试",color=MaterialTheme.colorScheme.onSurfaceVariant);return@HealthSurface}
-  Text("${insights.nights} 晚有有效记录 · ${insights.atLeastSevenHours} 晚达到 7 小时",color=MaterialTheme.colorScheme.onSurfaceVariant)
+  Text("${insights.nights} 晚有有效记录 · ${insights.atLeastSevenHours} 晚有记录的睡眠达到 7 小时",color=MaterialTheme.colorScheme.onSurfaceVariant)
   if(insights.nights==0L){Text("暂无可统计的睡眠时长",color=MaterialTheme.colorScheme.onSurfaceVariant);return@HealthSurface}
   Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(18.dp)){
     HealthFact("平均时长",insights.averageMinutes?.let(::minutesLabel)?:"—")
@@ -985,12 +991,12 @@ private fun healthSourceLine(value:WorkspaceOverview.Health?)=when{value==null->
 private fun bodySnapshotMetrics(metrics:List<HealthMetricTrend>):List<HealthMetricTrend>{val order=listOf("weight","bmi","body_fat","fat_mass","lean_mass","skeletal_muscle","muscle_mass","muscle_rate","body_water","body_water_rate","bone_mass","bone_rate","visceral_fat","bmr","heart_rate");val ordered=order.mapNotNull{key->metrics.firstOrNull{it.key==key}};return ordered.filter{it.points.isNotEmpty()}.ifEmpty{ordered.take(4)}}
 private fun lastSevenDays(history:List<HealthDailyOverview>):List<Pair<LocalDate,HealthDailyOverview?>> = (0L..6L).map{LocalDate.now().minusDays(it)}.reversed().map{date->date to history.firstOrNull{it.occurredOn==date.toString()}}
 private fun dayUi(date:LocalDate)=listOf("一","二","三","四","五","六","日")[date.dayOfWeek.value-1]
-internal fun sourceLabel(value:String)=mapOf("scale" to "小米体脂秤","xiaomi_scale" to "小米体脂秤","samsung" to "Samsung Health","samsung_health" to "Samsung Health","samsung_data_sdk" to "Samsung Health","health_connect" to "Health Connect","manual" to "手动记录","legacy_health" to "旧 Health 迁移","derived" to "由原始测量计算")[value.lowercase()]?:value
+internal fun sourceLabel(value:String)=mapOf("image" to "图片","scale" to "小米体脂秤","xiaomi_scale" to "小米体脂秤","samsung" to "Samsung Health","samsung_health" to "Samsung Health","samsung_data_sdk" to "Samsung Health","health_connect" to "Health Connect","manual" to "手动记录","legacy_health" to "旧 Health 迁移","derived" to "由原始测量计算")[value.lowercase()]?:value
 internal fun unitLabel(value:String)=mapOf("level" to "级","kcal/day" to "kcal/天","bpm" to "次/分")[value.lowercase()]?:value
 internal fun workoutTypeUi(value:String):String{val key=value.trim().lowercase().replace(' ','_').replace('-','_');return mapOf("walk" to "健走","walking" to "健走","brisk_walking" to "健走","run" to "跑步","running" to "跑步","track_running" to "田径跑","jogging" to "慢跑","treadmill" to "跑步机","treadmill_running" to "跑步机跑步","running_treadmill" to "跑步机跑步","walking_treadmill" to "跑步机健走","cycling" to "自行车","biking" to "自行车","stationary_biking" to "室内自行车","indoor_cycling" to "室内自行车","mountain_biking" to "山地自行车","hiking" to "徒步","backpacking" to "旅行徒步","swimming" to "游泳","pool_swimming" to "游泳","open_water_swimming" to "户外游泳","strength_training" to "力量训练","weight_training" to "力量训练","weightlifting" to "举重","weight_machine" to "器械训练","circuit_training" to "循环训练","hiit" to "高强度间歇训练","rowing" to "划船","rowing_machine" to "划船机","elliptical" to "椭圆机","stair_climbing" to "爬楼梯","stair_climbing_machine" to "登阶机","step_machine" to "踏步机","yoga" to "瑜伽","pilates" to "普拉提","stretching" to "拉伸","dance" to "舞蹈","dancing" to "舞蹈","aerobics" to "有氧操","jump_rope" to "跳绳","football" to "足球","soccer" to "足球","basketball" to "篮球","badminton" to "羽毛球","tennis" to "网球","table_tennis" to "乒乓球","other" to "其他运动")[key]?:if(value.any{it.code>127})value else "其他运动 · ${value.replace('_',' ')}"}
 @Composable private fun workoutTone(value:String):Color=when{value.contains("run",true)||value.contains("walk",true)||value.contains("hik",true)||value.contains("backpack",true)->ActivityGreen;value.contains("swim",true)||value.contains("row",true)->ActivityBlue;value.contains("strength",true)||value.contains("weight",true)||value.contains("circuit",true)->BodyOrange;else->ActivityPurple}
 private fun workoutGlyph(value:String)=when{value.contains("run",true)->"↗";value.contains("walk",true)||value.contains("hik",true)||value.contains("backpack",true)->"↟";value.contains("swim",true)->"≈";value.contains("cycl",true)||value.contains("bik",true)->"◎";value.contains("strength",true)||value.contains("weight",true)||value.contains("circuit",true)->"◆";else->"●"}
 private fun mealTypeUi(value:String)=mapOf("breakfast" to "早餐","lunch" to "午餐","dinner" to "晚餐","snack" to "加餐","other" to "其他")[value]?:"一餐"
-private fun minutesLabel(value:Long)=if(value>=60)"${value/60} 小时 ${value%60} 分" else "$value 分钟"
+internal fun minutesLabel(value:Long)=if(value>=60)"${value/60} 小时 ${value%60} 分" else "$value 分钟"
 private fun signed(value:Double)=(if(value>0)"+" else "")+number(value)
 private fun number(value:Double):String=BigDecimal.valueOf(value).setScale(if(abs(value)>=100)0 else 1,RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()

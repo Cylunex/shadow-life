@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { capabilityRegistry, commandEnvelopeSchema, diningSceneSchema, domainRecordsResultSchema, healthObservationPayloadSchema, healthSourcesResultSchema, lifeTimelineInputSchema, lifeTodayInputSchema, lifeTodayResultSchema, moneyPlanningInputSchema, projectDirectoryResultSchema, publishTripPlanInputSchema, recordDiningInputSchema, recordMealInputSchema, setHealthPlanInputSchema, setHealthSourceStateInputSchema, setRecurringPlanInputSchema, setTripDayPlanInputSchema, setTripStopOutcomeInputSchema, universalCommandEnvelopeSchema } from "../src/index.js";
-import { healthTrendResultSchema, lifeMealRecordResultSchema, personalOperatorTools, setUseCycleInputSchema, updatePurchaseItemsInputSchema, voidMealInputSchema } from "../src/index.js";
+import { foodCatalogResultSchema, intakeItemInputSchema, healthTrendResultSchema, lifeMealRecordResultSchema, personalOperatorTools, setUseCycleInputSchema, updatePurchaseItemsInputSchema, voidMealInputSchema } from "../src/index.js";
 
 test("library reading URLs accept HTTP and HTTPS and reject executable schemes",()=>{
   const capture=capabilityRegistry["library.capture"].inputSchema;
@@ -231,4 +231,11 @@ test("void meal contract validates revision/reason and meal get_record accepts s
   assert.deepEqual(capabilityRegistry["life.void_meal"].possibleEffects, ["life.meal.write"]);
   assert.equal(lifeMealRecordResultSchema.safeParse({ kind: "meal", meal_id: "meal_12345678", revision: 2, state: "voided" }).success, true);
   assert.equal(lifeMealRecordResultSchema.safeParse({ kind: "meal", meal_id: "meal_12345678", revision: 2, state: "deleted" }).success, false);
+});
+
+test("a saved recipe can display legacy estimates while new intakes still require evidence",()=>{
+  const snapshot={name:"测试食材",estimate:true};
+  const recipe={id:"recipe_example",title:"食谱",servings:"1",instructions:null,source_url:null,state:"active",revision:1,items:[{position:0,snapshot}]};
+  assert.equal(foodCatalogResultSchema.safeParse({foods:[],recipes:[recipe],as_of:"2026-11-27T00:00:00Z"}).success,true);
+  assert.equal(intakeItemInputSchema.safeParse(snapshot).success,false);
 });

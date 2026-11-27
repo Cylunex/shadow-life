@@ -24,7 +24,7 @@ import org.json.JSONObject
     kotlinx.coroutines.delay(250)
     try{state=LoadState.Ready(repository.recipeCatalog(query))}
     catch(error:CancellationException){throw error}
-    catch(error:Exception){state=LoadState.Failed(error.message?:"食谱暂时无法读取")}
+    catch(error:Exception){state=LoadState.Failed("食谱暂时无法读取，请稍后重试")}
   }
   OutlinedTextField(query,{query=it},Modifier.fillMaxWidth(),label={Text("查找已保存食谱")},singleLine=true)
   StateContent(state,{retry++}){}

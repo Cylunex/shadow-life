@@ -4,6 +4,12 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class HealthPresentationTest {
+  @Test fun samsungSleepUsesRecordedStages(){
+    assertEquals(388L,recordedSleepMinutes("samsung",440,220,63,105))
+    assertEquals(null,recordedSleepMinutes("samsung",440,null,63,105))
+    assertEquals(420L,recordedSleepMinutes("health_connect",420,null,null,null))
+  }
+
   @Test fun `recent health records localize both metric keys and normalized wire titles`() {
     assertEquals("每日活动",healthMetricLabel("daily activity"))
     assertEquals("肌肉率",healthMetricLabel("muscle_rate"))

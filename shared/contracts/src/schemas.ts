@@ -37,7 +37,7 @@ export const sourceInputSchema = z.object({
 const consumedFraction = canonicalDecimal.refine(value => Number(value) <= 1, "must be at most one");
 
 const weightBasis=z.enum(["measured_net","payment_derived"]);
-export const intakeItemInputSchema = z.object({
+const intakeItemFields = z.object({
   name: z.string().trim().min(1).max(200),
   food_ref_id: stableId.optional(),
   free_text: z.string().trim().min(1).max(500).optional(),
@@ -58,17 +58,25 @@ export const intakeItemInputSchema = z.object({
   grouping_origin: z.enum(["actual_meal","legacy_meal_bucket"]).optional(),
   estimate: z.boolean().default(false).describe("Set true for estimated amounts or nutrition; evidence_note is then required. Unknown nutrition may be omitted."),
   evidence_note: z.string().trim().min(1).max(500).optional().describe("Basis and uncertainty of an estimate; required when estimate=true.")
-}).strict().superRefine((item, context) => {
-  if ((item.quantity === undefined) !== (item.unit === undefined)) {
-    context.addIssue({ code: "custom", message: "quantity and unit must be supplied together" });
-  }
-  if (item.weight_basis && (!item.amount_g || !item.evidence_note || item.weight_basis==="payment_derived" && !item.estimate)) {
-    context.addIssue({code:"custom",path:["weight_basis"],message:"Net weight requires grams and an evidence note. Payment-derived weight must be marked estimated."});
-  }
-  if (item.estimate && item.evidence_note === undefined) {
-    context.addIssue({ code: "custom", message: "estimated values need an evidence_note" });
-  }
-});
+}).strict();
+
+function intakeItemSchema(requireEstimateEvidence:boolean){
+  return intakeItemFields.superRefine((item, context) => {
+    if ((item.quantity === undefined) !== (item.unit === undefined)) {
+      context.addIssue({ code: "custom", message: "quantity and unit must be supplied together" });
+    }
+    if (item.weight_basis && (!item.amount_g || !item.evidence_note || item.weight_basis==="payment_derived" && !item.estimate)) {
+      context.addIssue({code:"custom",path:["weight_basis"],message:"Net weight requires grams and an evidence note. Payment-derived weight must be marked estimated."});
+    }
+    if (requireEstimateEvidence && item.estimate && item.evidence_note === undefined) {
+      context.addIssue({ code: "custom", message: "estimated values need an evidence_note" });
+    }
+  });
+}
+
+export const intakeItemInputSchema=intakeItemSchema(true);
+// Saved recipes created before evidence notes were required remain readable.
+const savedRecipeItemSchema=intakeItemSchema(false);
 
 export const datedPaymentSchema = z.object({
   amount: cnyAmount,
@@ -1129,7 +1137,7 @@ export const dailyRecordCheckResultSchema=z.object({
   confirmed_omissions:z.array(z.object({code:z.enum(["meal_records_below_minimum","expected_meal_type_missing","purchase_records_below_minimum","money_entries_below_minimum"]),domain:z.enum(["meals","purchases","money"]),message:z.string()}).strict()).max(10),
   actionable_messages:z.array(z.string()).max(3),as_of:instant
 }).strict();
-export const lifeTimelineInputSchema=z.object({view:z.enum(["events","facts"]).optional(),domains:z.array(lifeOverviewDomainSchema).min(1).max(5).optional(),limit:z.number().int().min(1).max(100).default(30),cursor:z.string().max(1_000).optional()}).strict();
+export const lifeTimelineInputSchema=z.object({exclude_captures:z.boolean().optional(),view:z.enum(["events","facts"]).optional(),domains:z.array(lifeOverviewDomainSchema).min(1).max(5).optional(),limit:z.number().int().min(1).max(100).default(30),cursor:z.string().max(1_000).optional()}).strict();
 export const lifeTimelineItemSchema=z.object({domain:z.enum(["meals","money","health","travel","library","items","plans"]),kind:z.string(),id:stableId,happened_at:instant,happened_on:localDate.optional(),title:z.string(),amount:storedAmount.optional(),currency:currencyCode.optional(),record_id:stableId.optional()}).strict();
 export const lifeTimelineResultSchema=z.object({items:z.array(lifeTimelineItemSchema),next_cursor:z.string().nullable(),as_of:instant}).strict();
 export const lifeDayInputSchema=z.object({view:z.enum(["events","facts"]).optional(),date:localDate,time_zone:ianaTimeZone,limit:z.number().int().min(1).max(100).default(30),cursor:z.string().max(1000).optional()}).strict();
@@ -1186,7 +1194,7 @@ export const moneyImportMonthResultSchema=z.object({period:z.string(),pending_pr
   is_duplicate:z.boolean(),category_missing:z.boolean(),refund_unlinked:z.boolean(),needs_data:z.boolean()
 }).strict()).max(80).optional(),total_batches:z.number().int().nonnegative().optional(),truncated:z.boolean().optional(),batches:z.array(z.object({id:stableId,source_name:z.string(),platform:moneyImportPlatformSchema.optional(),source_account:z.string().optional(),status:z.enum(["review","completed"]),created_at:instant,total:z.number().int().nonnegative(),unconfirmed:z.number().int().nonnegative(),duplicates:z.number().int().nonnegative(),uncategorized:z.number().int().nonnegative(),refunds_unlinked:z.number().int().nonnegative()}).strict()).max(100),totals:z.object({unconfirmed:z.number().int().nonnegative(),duplicates:z.number().int().nonnegative(),uncategorized:z.number().int().nonnegative(),refunds_unlinked:z.number().int().nonnegative()}).strict(),as_of:instant}).strict();
 export const foodCatalogInputSchema=z.object({query:z.string().trim().min(1).max(200).optional(),limit:z.number().int().min(1).max(100).default(50)}).strict();
-export const foodCatalogResultSchema=z.object({foods:z.array(z.object({id:stableId,name:z.string(),serving_amount:canonicalDecimal.nullable(),serving_unit:z.string().nullable(),nutrients:z.record(z.string(),z.unknown()),provenance:z.string().nullable(),state:z.enum(["active","archived"]),revision:z.number().int().positive()}).strict()),recipes:z.array(z.object({id:stableId,title:z.string(),servings:positiveDecimal,instructions:z.string().nullable(),source_url:z.url().nullable(),state:z.enum(["active","archived"]),revision:z.number().int().positive(),items:z.array(z.object({position:z.number().int().nonnegative(),snapshot:intakeItemInputSchema}).strict())}).strict()),as_of:instant}).strict();
+export const foodCatalogResultSchema=z.object({foods:z.array(z.object({id:stableId,name:z.string(),serving_amount:canonicalDecimal.nullable(),serving_unit:z.string().nullable(),nutrients:z.record(z.string(),z.unknown()),provenance:z.string().nullable(),state:z.enum(["active","archived"]),revision:z.number().int().positive()}).strict()),recipes:z.array(z.object({id:stableId,title:z.string(),servings:positiveDecimal,instructions:z.string().nullable(),source_url:z.url().nullable(),state:z.enum(["active","archived"]),revision:z.number().int().positive(),items:z.array(z.object({position:z.number().int().nonnegative(),snapshot:savedRecipeItemSchema}).strict())}).strict()),as_of:instant}).strict();
 export const moneyImportProposedSchema=z.object({entry_type:z.enum(["expense","income","refund"]).optional(),amount:cnyAmount.optional(),currency:z.literal("CNY").optional(),occurred_on:localDate.optional(),occurred_at:instant.optional(),time_zone:ianaTimeZone.optional(),counterparty:z.string().optional(),category:z.string().optional(),payment_method:z.string().optional(),note:z.string().optional()}).strict();
 export const moneyImportReviewResultSchema=z.object({batch:z.object({id:stableId,source_name:z.string(),platform:moneyImportPlatformSchema.optional(),source_account:z.string().optional(),parser_version:z.string().optional(),format:z.enum(["csv","json","markdown"]),content_hash:z.string(),status:z.enum(["review","completed"]),total:z.number().int().nonnegative(),pending:z.number().int().nonnegative(),confirmed:z.number().int().nonnegative(),ignored:z.number().int().nonnegative(),invalid:z.number().int().nonnegative(),created_at:instant}).strict(),candidates:z.array(z.object({id:stableId,position:z.number().int().nonnegative(),external_id:z.string().nullable(),platform:moneyImportPlatformSchema.optional(),source_account:z.string().optional(),identity_kind:z.enum(["expense","income","refund"]).nullable().optional(),duplicate_of_candidate_id:stableId.nullable().optional(),raw:z.record(z.string(),z.unknown()),source_proposed:moneyImportProposedSchema.optional(),proposed:moneyImportProposedSchema,issues:z.array(z.string()),warnings:z.array(z.string()),applied_rule_ids:z.array(stableId),status:z.enum(["pending","invalid","confirmed","ignored"]),duplicate_of_record_id:stableId.nullable(),linked_record_id:stableId.nullable(),revision:z.number().int().positive()}).strict()).max(500),rules:z.array(z.object({id:stableId,match_value:z.string(),replacements:moneyImportRuleReplacementsSchema,state:z.enum(["active","disabled"]),revision:z.number().int().positive()}).strict()).max(500)}).strict();
 export const healthDailyInputSchema=z.object({date:localDate}).strict();

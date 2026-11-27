@@ -46,7 +46,13 @@ import kotlinx.coroutines.launch
   LifeCard{
     Text(title,style=MaterialTheme.typography.titleMedium)
     assets.forEach{asset->
-      Text(asset.mediaType,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+      Text(when{
+        asset.mediaType.startsWith("image/")->"图片"
+        asset.mediaType=="application/pdf"->"PDF 文档"
+        asset.mediaType.startsWith("audio/")->"音频"
+        asset.mediaType.startsWith("video/")->"视频"
+        else->"原始文件"
+      },style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
       Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
         if(asset.mediaType.startsWith("image/"))TextButton(enabled=!busy,onClick={preview=asset;image=null;message=null;scope.launch{busy=true;try{checkAccount();val bytes=repository.assetPreview(asset.versionId);checkAccount();image=bytes}catch(e:CancellationException){throw e}catch(e:Exception){message=e.message}finally{busy=false}}}){Text("查看图片")}
         if(asset.mediaType=="application/pdf")TextButton(onClick={pdfId=asset.versionId}){Text("查看 PDF")}

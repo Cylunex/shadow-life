@@ -378,10 +378,11 @@ private fun todayDeviceTime(value:Long):String?=value.takeIf{it>0}?.let{Instant.
   LaunchedEffect(initialQuery){if(initialQuery.isNotBlank()){query=initialQuery;submittedQuery=initialQuery;onSearch(initialQuery)}}
   RootPage("记录",onProjects,onSettings){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp,8.dp,20.dp,28.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
     item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){OutlinedTextField(query,{query=it;if(it.isBlank()){submittedQuery="";onClearSearch()}},Modifier.weight(1f),singleLine=true,placeholder={Text("搜索记录、地点或资料")},leadingIcon={Icon(Icons.Default.Search,null)});FilledTonalIconButton(onClick={submittedQuery=query.trim();onSearch(submittedQuery)},enabled=query.isNotBlank()){Icon(Icons.Default.Search,"搜索")};FilledIconButton(onClick=onQuickCapture){Icon(Icons.Default.Add,"打开快速记录")}}}
-    item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){listOf("events" to "生活事件","facts" to "全部数据").forEach{(key,label)->FilterChip(recordsView==key,{onRecordsView(key)},label={Text(label)})}}}
+    if(searchState==null)item("record-day"){LifeCard{DayMemorySection(selectedDay,day,memories,onDay,onDayMore,onDaySource)}}
+    if(searchState==null)item{Text("时间线",style=MaterialTheme.typography.titleLarge)}
+    if(searchState==null)item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){listOf("events" to "生活事件","facts" to "全部数据").forEach{(key,label)->FilterChip(recordsView==key,{onRecordsView(key)},label={Text(label)})}}}
     item{RecordFilters(domain,{domain=it},period,{period=it})}
     if(searchState!=null)item{TextButton(onClick={query="";submittedQuery="";onClearSearch()}){Text("退出搜索")}}
-    if(searchState==null)item("record-day"){LifeCard{DayMemorySection(selectedDay,day,memories,onDay,onDayMore,onDaySource)}}
     if(searchState!=null){item{StateContent(searchState,{onSearch(submittedQuery)}){} };if(searchState is LoadState.Ready){items(searchState.value.items,key={"search:${it.domain}:${it.kind}:${it.id}"}){record->VisualRecordCard(record.domain,record.title,record.supporting,record.trailing){onDetail(record.domain,record.detailId?:record.id,record.title)}};if(searchState.value.nextCursor!=null)item{TextButton(onClick=onLoadMoreSearch,modifier=Modifier.fillMaxWidth(),enabled=!searchState.refreshing){Text("加载更多搜索结果")}}}}
     else{item{StateContent(state,onRetry){} };if(state is LoadState.Ready){val now=LocalDate.now();val filtered=state.value.items.filter{item->(domain==null||item.domain.name==domain)&&inRecordPeriod(recordDate(item.happenedAt),period,now)};val groups=filtered.groupBy{recordDate(it.happenedAt)?.toString()?:"日期未知"};if(filtered.isEmpty())item{EmptyState(if(state.value.nextCursor!=null)"已加载记录中没有匹配项，可继续加载更早记录" else "当前筛选没有记录","清除筛选"){domain=null;period="all"}};groups.forEach{(date,rows)->item{Text(if(date==now.toString())"今天" else date,style=MaterialTheme.typography.titleLarge,modifier=Modifier.padding(top=8.dp))};val captures=rows.filter{it.kind=="activity_capture"};if(captures.isNotEmpty())item("captures:$date"){var showSources by rememberSaveable{mutableStateOf(false)};LifeCard{Text("活动采集 · ${captures.size} 项已加载来源",style=MaterialTheme.typography.titleMedium);TextButton(onClick={showSources=!showSources}){Text(if(showSources)"收起来源" else "展开来源")};if(showSources)captures.forEach{source->TextButton(onClick={onDetail(source.domain,source.recordId?:source.id,source.title)},modifier=Modifier.fillMaxWidth()){Text(source.title)}}}};items(rows.filterNot{it.kind=="activity_capture"},key={"${it.domain}:${it.kind}:${it.id}"}){item->VisualRecordCard(item.domain,item.title,listOfNotNull(item.domain.label(),recordTime(item.happenedAt)).joinToString(" · "),item.amount?.let{"${item.currency.orEmpty()} ${displayDecimal(it)}"}){onDetail(item.domain,item.recordId?:item.id,item.title)}}};if(state.value.nextCursor!=null)item{TextButton(onClick=onLoadMore,modifier=Modifier.fillMaxWidth(),enabled=!state.refreshing){Text("加载更早记录")}}}}
     if(searchState==null){
@@ -443,8 +444,8 @@ private fun todayDeviceTime(value:Long):String?=value.takeIf{it>0}?.let{Instant.
         when(tab){
           "goals"->{}
           "projects"->{
-            item{Button(onClick={onCapture(CaptureKind.Project)}){Text("新建项目")}}
             val active=value.projects.filter{it.state !in setOf("completed","archived")}
+            if(active.isNotEmpty())item{Button(onClick={onCapture(CaptureKind.Project)}){Text("新建项目")}}
             val completed=value.projects.filter{it.state in setOf("completed","archived")}
             if(active.isEmpty())item{EmptyState("还没有进行中的项目","新建项目"){onCapture(CaptureKind.Project)}}
             items(active,key={"project:${it.id}"}){project->PlanVisualCard(project){onProject(project)}}
@@ -528,7 +529,7 @@ private fun todayDeviceTime(value:Long):String?=value.takeIf{it>0}?.let{Instant.
       else Text(libraryMark(value.itemType),style=MaterialTheme.typography.titleLarge)
       Column(Modifier.weight(1f)){
         Text(value.title,style=MaterialTheme.typography.titleMedium,maxLines=2,overflow=TextOverflow.Ellipsis)
-        Text(listOfNotNull(libraryTypeLabel(value.itemType),value.source?.let(::sourceLabel),value.createdAt?.take(10)).joinToString(" · "),style=MaterialTheme.typography.bodySmall)
+        Text(listOfNotNull(libraryTypeLabel(value.itemType),value.source?.let(::sourceLabel),value.createdAt?.take(10)).distinct().joinToString(" · "),style=MaterialTheme.typography.bodySmall)
         value.excerpt?.let{Text(it,maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall)}
       }
     }

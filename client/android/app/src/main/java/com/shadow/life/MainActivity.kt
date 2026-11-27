@@ -77,7 +77,15 @@ class MainActivity:ComponentActivity(){
     session=app.sessions.active()
     val appearances=AppearanceStore(this)
     appearance=appearances.current()
-    setContent{LifeTheme(appearance){val model:NativeLifeViewModel=viewModel();LifeApp(session,model,appearance,loginError,pendingShare,notificationAuthorization,openInboxNonce,scaleSettings,{payload->model.importShare(payload){pendingShare=null}},{pendingShare=null},{loginError=null},{appearance=it;appearances.save(it)},::login,::logout,::syncHealth,::syncSamsung,::startScale,::saveScaleSettings,::requestNotifications,::cancelScale)}}
+    setContent{LifeTheme(appearance){
+      val lightBars=appearance==Appearance.Light || (appearance==Appearance.System && !androidx.compose.foundation.isSystemInDarkTheme())
+      androidx.compose.runtime.SideEffect{
+        androidx.core.view.WindowCompat.getInsetsController(window,window.decorView).apply{
+          isAppearanceLightStatusBars=lightBars
+          isAppearanceLightNavigationBars=lightBars
+        }
+      }
+      val model:NativeLifeViewModel=viewModel();LifeApp(session,model,appearance,loginError,pendingShare,notificationAuthorization,openInboxNonce,scaleSettings,{payload->model.importShare(payload){pendingShare=null}},{pendingShare=null},{loginError=null},{appearance=it;appearances.save(it)},::login,::logout,::syncHealth,::syncSamsung,::startScale,::saveScaleSettings,::requestNotifications,::cancelScale)}}
   }
   override fun onStart(){super.onStart();session?.let(::restoreSession)}
   override fun onDestroy(){oidc.close();super.onDestroy()}

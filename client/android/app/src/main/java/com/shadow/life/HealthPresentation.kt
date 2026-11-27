@@ -37,6 +37,14 @@ internal fun localDateTime(instant:String?,timeZone:String?,includeDate:Boolean=
   }.getOrElse{instant}
 }
 
+internal fun recordedSleepMinutes(source:String?,total:Long,light:Long?,deep:Long?,rem:Long?):Long?{
+  if(source!="samsung")return total
+  if(light==null||deep==null||rem==null)return null
+  return (light+deep+rem).takeIf{it in 1..total}
+}
+
+internal fun HealthDailyResultDtoResultSleep.asleepMinutes()=recordedSleepMinutes(sourceType,totalMinutes,lightMinutes,deepMinutes,remMinutes)
+
 internal enum class HealthTone { Low, Good, High, Neutral }
 internal data class HealthAssessment(val tone:HealthTone,val label:String,val basis:String)
 internal data class HealthReference(val low:Double?,val high:Double?,val unit:String,val basis:String="自定参考",val highExclusive:Boolean=false)

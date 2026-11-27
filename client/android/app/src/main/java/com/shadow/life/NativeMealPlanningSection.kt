@@ -165,6 +165,9 @@ private fun plusDays(value:String,days:Long)=LocalDate.parse(value).plusDays(day
     }
     if(section=="shopping"){
     HorizontalDivider();Text("购物清单",style=MaterialTheme.typography.titleLarge)
+    if(overview.lists.isEmpty())EmptyState("还没有购物清单，可从餐单生成","前往餐单"){
+      onSectionChange?.invoke("planning")?:run{savedSection="planning"}
+    }
     overview.lists.forEach{list->LifeCard{
       Text(list.title,style=MaterialTheme.typography.titleMedium)
       Text("${list.items.count{it.state.wireValue=="needed"}} 项待买",color=MaterialTheme.colorScheme.onSurfaceVariant)

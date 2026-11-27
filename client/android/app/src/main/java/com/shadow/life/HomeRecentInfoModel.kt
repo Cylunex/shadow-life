@@ -60,7 +60,7 @@ internal class HomeRecentInfoModel(private val app:ShadowApp,private val account
           }
           launch{
             try{
-              val page=repository.timeline()
+              val page=repository.timeline(excludeCaptures=true)
               if(currentRequest==request&&app.sessions.active()?.accountId==accountId)remote=page.items.filter{it.kind!="activity_capture"}.map{item->HomeRecentInfo("record:${item.domain}:${item.recordId?:item.id}",runCatching{Instant.parse(item.happenedAt).toEpochMilli()}.getOrDefault(0),item.title,"${item.domain.label()} · 已记录",item.domain,item.recordId?:item.id)}
             }catch(e:CancellationException){throw e}catch(_:Exception){if(currentRequest==request&&app.sessions.active()?.accountId==accountId)error="最近记录未更新，可稍后刷新。"}
           }

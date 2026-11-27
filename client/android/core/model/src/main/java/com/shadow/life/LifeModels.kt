@@ -110,7 +110,7 @@ data class HealthDailyOverview(
   val sleepTotalDayMinutes:Long?=null,val napMinutes:List<Long> = emptyList(),val caloriesSource:String?=null,
   val workoutItems:List<HealthWorkoutSummary> = emptyList(),val sleepId:String?=null,
   val sleepWindow:HealthDailyResultDtoResultSleepWindow?=null,
-  val weights:List<HealthDailyResultDtoResultFactsEntry> = emptyList()
+  val weights:List<HealthDailyResultDtoResultFactsEntry> = emptyList(),val sleepRecordMinutes:Long?=null
 )
 data class MoneyRecurringSummary(val id:String,val title:String,val amount:String?,val currency:String,val cadence:String,val nextDueOn:String,val state:String)
 data class MoneyOccurrenceSummary(val id:String,val title:String,val dueOn:String,val state:String,val amount:String?,val currency:String?)
@@ -237,13 +237,13 @@ data class RecordDetail(
 @Serializable data class PlansRoute(val reviews:Boolean=false)
 @Serializable data object LibraryRoute
 @Serializable data class WorkspaceRoute(val domain:String,val tab:String="",val focus:String="")
-@Serializable data class DetailRoute(val domain:String,val id:String,val title:String="",val originalPage:Int=0)
+@Serializable data class DetailRoute(val domain:String,val id:String,val title:String="",val originalPage:Int=0,val travelDate:String?=null)
 @Serializable data class PlanDetailRoute(val id:String)
 @Serializable data class OwnedItemDetailRoute(val id:String)
 @Serializable data class ReviewDetailRoute(val id:String)
 @Serializable data class WellnessRoute(val date:String="",val days:Int=7)
 @Serializable data object FeaturesRoute
-@Serializable data object SettingsRoute
+@Serializable data class SettingsRoute(val section:String="general")
 @Serializable data object ConnectionsRoute
 @Serializable data object InboxRoute
 @Serializable data object ItemsRoute
