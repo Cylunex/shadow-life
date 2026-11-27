@@ -137,6 +137,7 @@ private data class RoadMapResult(val key:String,val routes:List<GoogleRoadRoute>
   }
   if(fullscreen){
     Dialog(onDismissRequest={fullscreen=false;listExpanded=true},properties=DialogProperties(usePlatformDefaultWidth=false,decorFitsSystemWindows=false)){
+    LifeSystemBars()
       Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background){
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal=12.dp,vertical=8.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
           Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(trip?.title?:"旅行地图",Modifier.weight(1f),style=MaterialTheme.typography.titleLarge);TextButton(onClick={fullscreen=false;listExpanded=true}){Text("返回旅程")}}

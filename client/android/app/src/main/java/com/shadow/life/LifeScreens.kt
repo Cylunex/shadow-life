@@ -5,6 +5,8 @@ import androidx.compose.foundation.rememberScrollState
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.verticalScroll
@@ -36,7 +38,7 @@ import java.util.Locale
 @Composable fun RootPage(title:String,onProjects:()->Unit,onSettings:()->Unit,onSearch:(()->Unit)?=null,content:@Composable (PaddingValues)->Unit){
   if(LocalLifeModuleNavigation.current!=null){
     val module=if(title=="资料")LifeModule.Library else LifeModule.Life
-    Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={LifeModuleTopBar(module,subtitle=title.takeUnless{it==module.label})},content=content)
+    Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={LifeModuleTopBar(module,pageTitle=title)},content=content)
     return
   }
   var menu by remember{mutableStateOf(false)}
@@ -155,7 +157,7 @@ private fun queueStateLabel(value:String)=when(value){"pending"->"待发送";"se
   var query by rememberSaveable{mutableStateOf("")}
   RootPage("记录",onProjects,onSettings){padding->
     LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(start=20.dp,end=20.dp,top=8.dp,bottom=112.dp)){
-      item{OutlinedTextField(value=query,onValueChange={query=it;if(it.isBlank())onClearSearch()},modifier=Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("搜索生活记录")},leadingIcon={Icon(Icons.Default.Search,null)},trailingIcon={IconButton(onClick={onSearch(query)},enabled=query.isNotBlank()){Icon(Icons.Default.Search,"搜索")}})}
+      item{LifeSearchBar(query,{query=it;if(it.isBlank())onClearSearch()},"搜索生活记录"){if(it.isNotEmpty())onSearch(it)}}
       item{Spacer(Modifier.height(14.dp));DomainChips(onWorkspace);Spacer(Modifier.height(16.dp))}
       if(searchState!=null){item{StateContent(searchState,{onSearch(query)}){}};if(searchState is LoadState.Ready){items(searchState.value.items,key={"search:${it.domain}:${it.id}"}){item->RecordRow(item){onDetail(item.domain,item.detailId?:item.id,item.title)};HorizontalDivider(color=MaterialTheme.colorScheme.outline.copy(alpha=.45f))};if(searchState.value.nextCursor!=null)item{TextButton(onClick=onLoadMoreSearch,Modifier.fillMaxWidth()){Text("加载更多")}}}}
       else{item{StateContent(state,onRetry){}}
@@ -207,7 +209,7 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
 @Composable fun LibraryScreen(state:LoadState<LibraryPage>,onSearch:(String)->Unit,onLoadMore:()->Unit,onDetail:(LifeDomain,String,String)->Unit,onProjects:()->Unit,onSettings:()->Unit){
   var query by rememberSaveable{mutableStateOf("")}
   RootPage("资料库",onProjects,onSettings){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp,8.dp,20.dp,112.dp)){
-    item{OutlinedTextField(value=query,onValueChange={query=it;if(it.isBlank())onSearch("")},modifier=Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("搜索标题、正文或标签")},leadingIcon={Icon(Icons.Default.Search,null)},trailingIcon={IconButton(onClick={onSearch(query)}){Icon(Icons.Default.Search,"搜索")}});Spacer(Modifier.height(18.dp))}
+    item{LifeSearchBar(query,{query=it;if(it.isBlank())onSearch("")},"搜索标题、正文或标签",onSearch=onSearch);Spacer(Modifier.height(18.dp))}
     item{StateContent(state,{onSearch(query)}){}}
     if(state is LoadState.Ready){items(state.value.items,key={it.id}){item->RecordRow(RecordSummary(LifeDomain.Library,item.itemType,item.id,item.title,item.state,null,item.revision)){onDetail(LifeDomain.Library,item.id,item.title)};HorizontalDivider(color=MaterialTheme.colorScheme.outline.copy(alpha=.45f))};if(state.value.nextCursor!=null)item{TextButton(onClick=onLoadMore,Modifier.fillMaxWidth()){Text("加载更多资料")}}}
   }}
@@ -219,7 +221,7 @@ private fun agendaKindLabel(kind:String)=when(kind){"project_action"->"项目行
   Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text(domain.label())},navigationIcon={LifeBackButton(onBack)})}){padding->LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(horizontal=20.dp,vertical=12.dp)){
     item{WorkspaceActions(domain,onCapture);Spacer(Modifier.height(18.dp))}
     if(domain==LifeDomain.Health)item{DeviceSyncPanel(deviceStatus,queueState,samsungAvailable,onHealthSync,onSamsungSync,onScale,onSettings);Spacer(Modifier.height(18.dp))}
-    item{WorkspaceOverviewContent(overviewState,onRetry);Spacer(Modifier.height(18.dp));OutlinedTextField(query,{query=it},Modifier.fillMaxWidth(),singleLine=true,label={Text("在${domain.label()}中搜索")},trailingIcon={IconButton(onClick={onSearch(query)}){Icon(Icons.Default.Search,"搜索")}});Spacer(Modifier.height(12.dp))}
+    item{WorkspaceOverviewContent(overviewState,onRetry);Spacer(Modifier.height(18.dp));LifeSearchBar(query,{query=it;if(it.isBlank())onSearch("")},"在${domain.label()}中搜索",onSearch=onSearch);Spacer(Modifier.height(12.dp))}
     item{StateContent(state,onRetry){}}
     if(state is LoadState.Ready)items(state.value.items,key={it.id}){item->RecordRow(item){onDetail(domain,item.detailId?:item.id,item.title)};HorizontalDivider(color=MaterialTheme.colorScheme.outline.copy(alpha=.45f))}
     if(state is LoadState.Ready&&state.value.nextCursor!=null)item{TextButton(onClick=onLoadMore,Modifier.fillMaxWidth()){Text("加载更多")}}
@@ -586,19 +588,60 @@ private data class FeatureEntry(val group:String,val title:String,val subtitle:S
   val shown=entries.sortedByDescending{query.isNotBlank()&&it.title.contains(query.trim(),ignoreCase=true)}.filter{query.isBlank()||listOf(it.group,it.title,it.subtitle,it.keywords).any{value->value.contains(query.trim(),ignoreCase=true)}}
   Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text("服务中心")},navigationIcon={LifeBackButton(onBack)})}){padding->
     LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
-      item{OutlinedTextField(query,{query=it},Modifier.fillMaxWidth(),singleLine=true,label={Text("搜索功能")},leadingIcon={Icon(Icons.Default.Search,null)});Text("按生活领域找功能，也可以直接搜索记录。",Modifier.padding(top=8.dp),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
-      if(shown.isEmpty())item{EmptyState("没有匹配的功能，可查看相关记录或清空搜索")}
-      shown.groupBy{it.group}.forEach{(group,groupEntries)->
-        item("group:$group"){Text(if(group=="旅行")"出行" else group,Modifier.padding(top=12.dp),style=MaterialTheme.typography.titleLarge)}
-        groupEntries.chunked(if(query.isBlank())2 else 1).forEachIndexed{index,row->item("features:$group:$index"){
-          Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){
-            row.forEach{entry->LifeCard(Modifier.weight(1f),onClick={when(val action=entry.action){is FeatureAction.Capture->onCapture(action.kind);is FeatureAction.Workspace->onWorkspace(action.domain,action.tab);is FeatureAction.Destination->onDestination(action.route);FeatureAction.Plans->onPlans();FeatureAction.HealthConnect->onHealthSync();FeatureAction.Samsung->onSamsungSync();FeatureAction.Scale->onScale()}}){
-              Text(entry.title,style=MaterialTheme.typography.titleSmall)
-              if(query.isNotBlank())Text(entry.subtitle,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-            }}
-            if(query.isBlank()&&row.size==1)Spacer(Modifier.weight(1f))
+      item { LifeSearchBar(query,{query=it},"搜索功能或记录") }
+      if(shown.isEmpty())item{EmptyState("没有匹配的功能")}
+      shown.groupBy{it.group}.forEach { (group,groupEntries) ->
+        val domain=when(group) {
+          "健康" -> LifeDomain.Health
+          "饮食" -> LifeDomain.Meals
+          "消费" -> LifeDomain.Money
+          "旅行" -> LifeDomain.Travel
+          "资料" -> LifeDomain.Library
+          else -> null
+        }
+        item("group:$group") {
+          val tone=domain?.let { domainColor(it) } ?: MaterialTheme.colorScheme.secondary
+          Row(Modifier.padding(top=10.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+            Surface(shape=MaterialTheme.shapes.small,color=tone.copy(alpha=.14f)) {
+              Box(Modifier.size(34.dp),contentAlignment=Alignment.Center) {
+                Icon(domain?.let(::lifeDomainIcon) ?: if(group=="计划") Icons.Default.DateRange else LifeModuleIcons.Box,null,tint=tone,modifier=Modifier.size(20.dp))
+              }
+            }
+            Text(if(group=="旅行") "出行" else group,style=MaterialTheme.typography.titleLarge)
           }
-        }}
+        }
+        item("services:$group") {
+          Surface(shape=MaterialTheme.shapes.medium,color=MaterialTheme.colorScheme.surface) {
+            Column {
+              val columns=if(query.isBlank() && androidx.compose.ui.platform.LocalDensity.current.fontScale < 1.3f) 2 else 1
+              groupEntries.chunked(columns).forEachIndexed { index,row ->
+                if(index>0) HorizontalDivider(Modifier.padding(horizontal=14.dp),color=MaterialTheme.colorScheme.outlineVariant.copy(alpha=.42f))
+                Row(Modifier.fillMaxWidth()) {
+                  row.forEach { entry ->
+                    Surface(onClick={when(val action=entry.action){
+                      is FeatureAction.Capture->onCapture(action.kind)
+                      is FeatureAction.Workspace->onWorkspace(action.domain,action.tab)
+                      is FeatureAction.Destination->onDestination(action.route)
+                      FeatureAction.Plans->onPlans()
+                      FeatureAction.HealthConnect->onHealthSync()
+                      FeatureAction.Samsung->onSamsungSync()
+                      FeatureAction.Scale->onScale()
+                    }},modifier=Modifier.weight(1f),color=MaterialTheme.colorScheme.surface) {
+                      Row(Modifier.heightIn(min=50.dp).padding(horizontal=12.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                          Text(entry.title,style=MaterialTheme.typography.titleSmall)
+                          if(query.isNotBlank()) Text(entry.subtitle,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight,null,Modifier.size(16.dp),tint=MaterialTheme.colorScheme.onSurfaceVariant)
+                      }
+                    }
+                  }
+                  if(row.size<columns) Spacer(Modifier.weight(1f))
+                }
+              }
+            }
+          }
+        }
       }
       if(query.isNotBlank()){
         item{Text("相关记录",style=MaterialTheme.typography.titleLarge);StateContent(matches?:LoadState.Loading,{onFindRecords(query.trim())}){}}

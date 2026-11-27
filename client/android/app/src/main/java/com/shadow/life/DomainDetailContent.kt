@@ -116,5 +116,16 @@ internal fun domainSectionHandled(detail:RecordDetail,section:DetailSection)=whe
   }
 }
 @Composable private fun DetailMetricGrid(facts:List<DetailFact>,accent:Color){
-  facts.chunked(if(androidx.compose.ui.platform.LocalDensity.current.fontScale>1.3f)1 else 2).forEach{pair->Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(20.dp)){pair.forEach{fact->Column(Modifier.weight(1f).padding(vertical=10.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){Text(fact.label,style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(fact.value,style=MaterialTheme.typography.titleLarge,color=accent)}};if(pair.size==1)Spacer(Modifier.weight(1f))}}
+  val columns=if(androidx.compose.ui.platform.LocalDensity.current.fontScale>=1.15f) 1 else 2
+  facts.chunked(columns).forEach { row ->
+    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(16.dp)) {
+      row.forEach { fact ->
+        Column(Modifier.weight(1f).padding(vertical=8.dp),verticalArrangement=Arrangement.spacedBy(5.dp)) {
+          Text(fact.label,style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.onSurfaceVariant)
+          Text(fact.value,style=MaterialTheme.typography.titleLarge,color=accent)
+        }
+      }
+      if(row.size<columns) Spacer(Modifier.weight(1f))
+    }
+  }
 }

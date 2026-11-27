@@ -3,6 +3,7 @@ package com.shadow.life
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -36,11 +37,13 @@ class LibraryReferenceActivity:ComponentActivity(){
   override fun onResume(){super.onResume();visit++}
   override fun onCreate(savedInstanceState:Bundle?){
     super.onCreate(savedInstanceState)
+    enableEdgeToEdge()
     val ref=if(intent.action==Intent.ACTION_VIEW) LibraryReference.parse(intent.dataString) else null
     val app=application as ShadowApp
     val repository=NativeLifeRepository(this,app)
     setContent{
       LifeTheme(AppearanceStore(this).current()){
+        LifeSystemBars(window)
         key(visit){
           val accountId=app.sessions.active()?.accountId
           var state by remember{mutableStateOf<LoadState<ReferencedLibraryItem>>(LoadState.Loading)}

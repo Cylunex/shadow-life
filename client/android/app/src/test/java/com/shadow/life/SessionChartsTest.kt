@@ -4,6 +4,14 @@ import android.app.Application
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.text.TextLayoutResult
+import org.junit.Assert.assertFalse
+import java.time.LocalDate
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsActions
@@ -50,6 +58,26 @@ class SessionChartsTest{
     compose.onNodeWithText("00:20 · 102 次/分").assertExists()
     compose.onNodeWithText("速度").performClick()
     compose.onNodeWithText("00:20 · 0 km/h").assertExists()
+  }
+
+  @Test @Config(qualifiers="zh-rCN-w320dp-h720dp-mdpi")
+  fun largeTextKeepsTheFullRemDurationOnANarrowScreen() {
+    val date=LocalDate.now().toString()
+    val night=HealthDailyOverview(date,null,null,null,435,78,112,0,0,date,
+      lightMinutes=245,awakeMinutes=15,sleepId="night")
+    compose.setContent {
+      CompositionLocalProvider(LocalDensity provides Density(1f,fontScale=1.45f)) {
+        LifeTheme(Appearance.Light) {
+          Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp)) { SleepWorkspace(listOf(night),null){} }
+        }
+      }
+    }
+    val layout=mutableListOf<TextLayoutResult>()
+    compose.onNodeWithText("1 小时 52 分").performScrollTo().assertIsDisplayed()
+      .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layout) }
+    val result=layout.single()
+    assertFalse("Layout ${result.size}, paragraph ${result.multiParagraph.width} × ${result.multiParagraph.height}, " +
+      "${result.lineCount} lines in ${result.layoutInput.constraints}",result.hasVisualOverflow)
   }
 
   @Test fun zeroNetDayStillOpensItsTransactions(){

@@ -5,6 +5,10 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -29,21 +33,36 @@ import java.time.LocalDate
       Column(Modifier.fillMaxWidth().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
         Text("快速记录",style=MaterialTheme.typography.headlineMedium)
         var more by rememberSaveable{mutableStateOf(false)}
-        val usual=listOf(CaptureKind.Meal,CaptureKind.Expense,CaptureKind.Health,CaptureKind.Workout)
-        val labels=listOf("记一餐","记消费","记体重","记运动")
-        usual.chunked(2).forEachIndexed{row,kinds->
-          Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
-            kinds.forEachIndexed{column,kind->
-              FilledTonalButton(onClick={mode=kind},modifier=Modifier.weight(1f).heightIn(min=48.dp)){Text(labels[row*2+column])}
+        val usual = listOf(
+          Triple(CaptureKind.Meal, "记一餐", LifeModuleIcons.Meals),
+          Triple(CaptureKind.Expense, "记消费", LifeModuleIcons.Wallet),
+          Triple(CaptureKind.Health, "记体重", lifeDomainIcon(LifeDomain.Health)),
+          Triple(CaptureKind.Workout, "记运动", LifeModuleIcons.Training)
+        )
+        usual.chunked(2).forEach { row ->
+          Row(horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+            row.forEach { (kind,label,icon) ->
+              Surface(onClick={mode=kind}, modifier=Modifier.weight(1f), shape=MaterialTheme.shapes.medium,
+                color=MaterialTheme.colorScheme.surfaceContainer) {
+                Row(Modifier.heightIn(min=60.dp).padding(horizontal=14.dp),
+                  verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+                  Icon(icon, null, tint=MaterialTheme.colorScheme.primary)
+                  Text(label, style=MaterialTheme.typography.titleMedium)
+                }
+              }
             }
           }
         }
-        TextButton(onClick=onOpenAssistant){Text("对 Life 说")}
-        TextButton(onClick={more=!more}){Text(if(more)"收起类型" else "更多类型")}
-        if(more)(CaptureKind.entries-usual.toSet()).forEach{kind->
-          TextButton(onClick={mode=kind;if(kind==CaptureKind.Refund)onLoadRefundCandidates("")},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text(kind.label)}
+        ComposerAction("对 Life 说", Icons.Default.Face, onOpenAssistant)
+        ComposerAction("录音、截图与自动记录", LifeModuleIcons.Recording, onOpenCapture)
+        ComposerAction(if(more)"收起类型" else "更多类型", LifeModuleIcons.Services, {more=!more},
+          if(more) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown)
+        if (more) (CaptureKind.entries - usual.map { it.first }.toSet()).forEach { kind ->
+          ComposerAction(kind.label, Icons.Default.Add, {
+            mode=kind
+            if(kind==CaptureKind.Refund)onLoadRefundCandidates("")
+          })
         }
-        TextButton(onClick=onOpenCapture,modifier=Modifier.fillMaxWidth()){Text("录音、截图与自动记录")}
       }
     }
     return
@@ -51,6 +70,7 @@ import java.time.LocalDate
   val saved=submitState as? SubmitState.Saved
   LaunchedEffect(saved?.receipt?.commandId){if(saved!=null&&mode!=null&&saved.receipt.warnings.isEmpty()){parentScope?.store?.clear("capture/${mode!!.name}/${initialSeed?.contextId.orEmpty()}");onSavedMessage(if(saved.receipt.queued)"已保存到本机，待同步" else "记录已保存");dirty=false;onDismiss();onReset()}}
   androidx.compose.ui.window.Dialog(onDismissRequest={leave("close")},properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false,decorFitsSystemWindows=false)){
+    LifeSystemBars()
     Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text(mode?.let{"记录${it.label}"}?:if(startWithAssistant)"Life 助手" else "快速记录")},navigationIcon={LifeBackButton{leave(if(mode!=null&&initialSeed==null)"types" else "close")}})}){padding->
       val content=Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).imePadding()
       if(mode==null){
@@ -65,6 +85,18 @@ import java.time.LocalDate
       }else Box(content){CompositionLocalProvider(LocalUiDraftScope provides parentScope?.copy(name="capture/${mode!!.name}/${initialSeed?.contextId.orEmpty()}")){CaptureForm(mode!!,initialSeed?.takeIf{it.kind==mode},submitState,refundCandidates,onLoadRefundCandidates,onSubmit,onDirty={dirty=it},onBack={leave("types")},onDone={parentScope?.store?.clear("capture/${mode!!.name}/${initialSeed?.contextId.orEmpty()}");onDismiss();onReset();mode=null})}}
     }
   if(exit!=null)AlertDialog(onDismissRequest={exit=null},title={Text("放弃未保存的内容？")},text={Text("已填写的内容尚未保存。")},confirmButton={Row{TextButton(onClick={exit=null;dirty=false;onDismiss()}){Text("保留草稿")};TextButton(onClick={val target=exit;exit=null;dirty=false;mode?.let{parentScope?.store?.clear("capture/${it.name}/${initialSeed?.contextId.orEmpty()}")};if(target=="types"){onReset();mode=null}else onDismiss()}){Text("放弃")}}},dismissButton={TextButton(onClick={exit=null}){Text("继续编辑")}})
+  }
+}
+
+@Composable private fun ComposerAction(label:String,icon:ImageVector,onClick:()->Unit,
+  trailing:ImageVector=Icons.AutoMirrored.Filled.KeyboardArrowRight) {
+  Surface(onClick=onClick, color=MaterialTheme.colorScheme.surface, shape=MaterialTheme.shapes.small) {
+    Row(Modifier.fillMaxWidth().heightIn(min=48.dp).padding(horizontal=12.dp), verticalAlignment=Alignment.CenterVertically,
+      horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+      Icon(icon,null,tint=MaterialTheme.colorScheme.secondary)
+      Text(label,Modifier.weight(1f))
+      Icon(trailing,null,tint=MaterialTheme.colorScheme.onSurfaceVariant)
+    }
   }
 }
 

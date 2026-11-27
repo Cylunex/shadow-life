@@ -2,6 +2,8 @@ package com.shadow.life
 
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.time.LocalTime
+import java.time.LocalDateTime
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -35,7 +37,13 @@ internal fun localDateTime(instant:String?,timeZone:String?,includeDate:Boolean=
     val zone=timeZone?.takeIf(String::isNotBlank)?.let(ZoneId::of)?:ZoneId.systemDefault()
     val timestamp=instant.trim().replace(' ','T')
     val source=if(Regex("[+-]\\d{2}$").containsMatchIn(timestamp))timestamp+":00" else timestamp
-    Instant.parse(source).atZone(zone).format(DateTimeFormatter.ofPattern(if(includeDate)"yyyy-MM-dd HH:mm" else "HH:mm"))
+    val format=DateTimeFormatter.ofPattern(if(includeDate) "yyyy-MM-dd HH:mm" else "HH:mm")
+    val point=runCatching { Instant.parse(source) }.getOrNull()
+    when {
+      point!=null -> point.atZone(zone).format(format)
+      'T' in source -> LocalDateTime.parse(source).format(format)
+      else -> LocalTime.parse(source).format(DateTimeFormatter.ofPattern("HH:mm"))
+    }
   }.getOrElse{instant}
 }
 

@@ -21,7 +21,7 @@ import java.time.temporal.ChronoUnit
   val month=YearMonth.parse(monthText);val from=month.atDay(1).toString();val to=minOf(month.atEndOfMonth(),LocalDate.now()).toString()
   LaunchedEffect(from,to){onLoad(from,to)}
   Column(verticalArrangement=Arrangement.spacedBy(16.dp)){
-    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){OutlinedButton(onClick={monthText=month.minusMonths(1).toString()}){Text("‹")};Text("${month.year} 年 ${month.monthValue} 月",Modifier.weight(1f),style=MaterialTheme.typography.titleLarge,textAlign=androidx.compose.ui.text.style.TextAlign.Center);OutlinedButton(onClick={monthText=month.plusMonths(1).toString()},enabled=month<YearMonth.now()){Text("›")}}
+    LifeMonthBar(month, {monthText=it.toString()}, lastMonth=YearMonth.now())
     Text("起飞记录",style=MaterialTheme.typography.headlineMedium)
     Text("只统计明确记录的次数，不计入运动或活动消耗。",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
     StateContent(state,{onLoad(from,to)}){}
@@ -36,8 +36,12 @@ import java.time.temporal.ChronoUnit
         Row(Modifier.fillMaxWidth()){listOf("一","二","三","四","五","六","日").forEach{Text(it,Modifier.weight(1f),textAlign=androidx.compose.ui.text.style.TextAlign.Center)}}
         val offset=month.atDay(1).dayOfWeek.value-1
         (0 until ((offset+month.lengthOfMonth()+6)/7)).forEach{week->Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(3.dp)){
-          repeat(7){weekday->val day=week*7+weekday-offset+1;val date=if(day in 1..month.lengthOfMonth())month.atDay(day) else null;val rows=groups[date?.toString()].orEmpty();val count=rows.filter{!it.explicitDenial}.sumOf{it.doneCount};val isSelected=selectedDay==date?.toString()&&date!=null
-            Column(Modifier.weight(1f).heightIn(min=60.dp).background(if(isSelected)MaterialTheme.colorScheme.secondaryContainer else if(count>0)MaterialTheme.colorScheme.primaryContainer.copy(alpha=.55f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.3f),RoundedCornerShape(10.dp)).then(if(date!=null&&date<=LocalDate.now())Modifier.clickable(role=Role.Button){selectedDay=if(isSelected)null else date.toString()} else Modifier).padding(vertical=8.dp),horizontalAlignment=Alignment.CenterHorizontally){Text(date?.dayOfMonth?.toString().orEmpty());Text(if(count>0)"${count}次" else if(rows.any{it.explicitDenial})"明确无" else "",style=MaterialTheme.typography.labelSmall)}
+          repeat(7){weekday->val day=week*7+weekday-offset+1;if (day !in 1..month.lengthOfMonth()) {
+              Spacer(Modifier.weight(1f))
+              return@repeat
+            }
+            val date=month.atDay(day);val rows=groups[date.toString()].orEmpty();val count=rows.filter{!it.explicitDenial}.sumOf{it.doneCount};val isSelected=selectedDay==date.toString()
+            Column(Modifier.weight(1f).heightIn(min=60.dp).background(if(isSelected)MaterialTheme.colorScheme.secondaryContainer else if(count>0)MaterialTheme.colorScheme.primaryContainer.copy(alpha=.55f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.3f),RoundedCornerShape(10.dp)).then(if(date<=LocalDate.now())Modifier.clickable(role=Role.Button){selectedDay=if(isSelected)null else date.toString()} else Modifier).padding(vertical=8.dp),horizontalAlignment=Alignment.CenterHorizontally){Text(day.toString());Text(if(count>0)"${count}次" else if(rows.any{it.explicitDenial})"明确无" else "",style=MaterialTheme.typography.labelSmall)}
           }
         }}
         Text("空白表示未记录；次数颜色仅表示有记录。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)

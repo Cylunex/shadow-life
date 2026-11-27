@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -32,5 +33,15 @@ class ModuleCaptureActionTest {
     }
     labels.forEach { label -> compose.onNodeWithContentDescription(label).performClick() }
     compose.runOnIdle { assertEquals(labels, tapped) }
+  }
+
+  @Test fun detailMenuKeepsAllThreeCaptureTypesReachable() {
+    val selected = mutableListOf<CaptureKind>()
+    compose.setContent { LifeTheme(Appearance.Dark) { MoneyCaptureMenu { selected.add(it) } } }
+    listOf("记收支", "记购买", "登记退款").forEach { label ->
+      compose.onNodeWithContentDescription("记消费").performClick()
+      compose.onNodeWithText(label).performClick()
+    }
+    compose.runOnIdle { assertEquals(listOf(CaptureKind.Expense, CaptureKind.Purchase, CaptureKind.Refund), selected) }
   }
 }

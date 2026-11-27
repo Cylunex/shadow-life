@@ -26,6 +26,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
+import java.time.LocalDate
 import kotlinx.serialization.Serializable
 
 @Serializable internal data object ModuleDetailFixture
@@ -163,6 +164,46 @@ class LifeModuleNavigationTest {
     store.save(listOf(TodayCardKind.Body))
     assertEquals(listOf(TodayCardKind.Body),TodayCardLayoutStore(context,"one").current())
     assertEquals(defaultTodayCards,TodayCardLayoutStore(context,"two").current())
+  }
+
+  @Test fun recordsKeepBatchDetailsAndSearchReachableWithTheDatePanelCollapsed() {
+    val date=LocalDate.of(2026,11,26)
+    val rows=listOf(
+      TimelineItem(LifeDomain.Meals,"meal","lunch","${date}T12:00:00Z","午餐 · 番茄鸡蛋面"),
+      TimelineItem(LifeDomain.Health,"measurement","weight","${date}T08:00:00Z","体重",batchId="scale:sample"),
+      TimelineItem(LifeDomain.Health,"measurement","body_fat","${date}T08:00:00Z","体脂率",batchId="scale:sample")
+    )
+    var found=""
+    var opened=""
+    var appearance by mutableStateOf(Appearance.Light)
+    compose.setContent {
+      LifeTheme(appearance) {
+        CompositionLocalProvider(LocalLifeModuleNavigation provides LifeModuleNavigation({_,_->},{},{},{},{},{})) {
+          RecordsVisualScreen(
+            state=LoadState.Ready(TimelinePage(rows,null,date.toString())), searchState=null, onRetry={}, onLoadMore={},
+            onSearch={found=it}, onLoadMoreSearch={}, onClearSearch={found=""}, onDetail={_,id,_->opened=id},
+            onQuickCapture={},onProjects={},onSettings={},selectedDay=date,day=LoadState.Loading,
+            memories=LoadState.Loading,onDay={},onDayMore={},onDaySource={}
+          )
+        }
+      }
+    }
+    compose.onNodeWithText("选择日期").assertDoesNotExist()
+    compose.onNodeWithText("午餐 · 番茄鸡蛋面").assertIsDisplayed()
+    screenshot("records-light")
+    compose.runOnIdle { appearance=Appearance.Dark }
+    compose.onNodeWithText("体脂秤称重").performClick()
+    compose.onNodeWithText("体脂率").performClick()
+    assertEquals("body_fat",opened)
+    screenshot("records-dark-expanded")
+    compose.onNodeWithText("某一天").performClick()
+    compose.onNodeWithText("选择日期").assertIsDisplayed()
+    compose.onNodeWithText("某一天").performClick()
+    compose.onNode(hasSetTextAction()).performTextInput(" 咖啡 ")
+    compose.onNode(hasSetTextAction()).performImeAction()
+    assertEquals("咖啡",found)
+    compose.onNodeWithContentDescription("清空搜索").performClick()
+    assertEquals("",found)
   }
 
   private fun screenshot(name:String){

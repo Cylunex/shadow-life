@@ -17,6 +17,7 @@ import java.time.ZoneOffset
 import java.time.Instant
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,7 +35,7 @@ import androidx.compose.ui.unit.dp
 
 @Composable fun LifeCard(modifier:Modifier=Modifier,onClick:(()->Unit)?=null,content:@Composable ColumnScope.()->Unit){
   val shape=RoundedCornerShape(18.dp)
-  Surface(modifier=modifier.fillMaxWidth().then(if(onClick!=null)Modifier.clickable(role=Role.Button,onClick=onClick) else Modifier),shape=shape,color=MaterialTheme.colorScheme.surface,tonalElevation=0.dp,shadowElevation=0.dp,border=BorderStroke(1.dp,MaterialTheme.colorScheme.outline.copy(alpha=.3f))){Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(8.dp),content=content)}
+  Surface(modifier=modifier.fillMaxWidth().then(if(onClick!=null)Modifier.clickable(role=Role.Button,onClick=onClick) else Modifier),shape=shape,color=MaterialTheme.colorScheme.surface,tonalElevation=0.dp,shadowElevation=0.dp,border=BorderStroke(1.dp,MaterialTheme.colorScheme.outline.copy(alpha=.14f))){Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(8.dp),content=content)}
 }
 
 @Composable fun RecordRow(item:RecordSummary,onClick:()->Unit){
@@ -66,15 +67,20 @@ import androidx.compose.ui.unit.dp
 @Composable fun EmptyState(message:String,actionLabel:String?=null,onAction:(()->Unit)?=null){Column(Modifier.fillMaxWidth().padding(vertical=28.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(10.dp)){Text(message,color=MaterialTheme.colorScheme.onSurfaceVariant);if(actionLabel!=null&&onAction!=null)TextButton(onClick=onAction){Text(actionLabel)}}}
 @Composable fun SectionError(message:String,onRetry:()->Unit){Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.errorContainer){Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Text(message,Modifier.weight(1f),color=MaterialTheme.colorScheme.onErrorContainer);IconButton(onClick=onRetry){Icon(Icons.Default.Refresh,"重试")}}}}
 
-@Composable internal fun domainColor(domain:LifeDomain)=when(domain){LifeDomain.Health->lifeHealthAccent();LifeDomain.Meals->MaterialTheme.colorScheme.tertiary;LifeDomain.Money->androidx.compose.ui.graphics.Color(0xFFE7C65D);LifeDomain.Travel->androidx.compose.ui.graphics.Color(0xFF70CADA);LifeDomain.Library->androidx.compose.ui.graphics.Color(0xFFD98BB8)}
-
+@Composable fun domainColor(domain: LifeDomain) = when (domain) {
+  LifeDomain.Health -> lifeHealthAccent()
+  LifeDomain.Meals -> MaterialTheme.colorScheme.tertiary
+  LifeDomain.Money -> MaterialTheme.colorScheme.primary
+  LifeDomain.Travel -> if (MaterialTheme.colorScheme.background.luminance() < .5f) Color(0xFF92C9D1) else Color(0xFF37666E)
+  LifeDomain.Library -> MaterialTheme.colorScheme.secondary
+}
 
 fun lifeDomainIcon(domain:LifeDomain)=when(domain){
   LifeDomain.Health->Icons.Default.FavoriteBorder
-  LifeDomain.Meals->Icons.Default.ShoppingCart
-  LifeDomain.Money->Icons.Default.Star
+  LifeDomain.Meals->LifeModuleIcons.Meals
+  LifeDomain.Money->LifeModuleIcons.Wallet
   LifeDomain.Travel->Icons.Default.Place
-  LifeDomain.Library->Icons.Default.Menu
+  LifeDomain.Library->LifeModuleIcons.Folder
 }
 
 @Composable fun LifeBackButton(onBack:()->Unit){IconButton(onClick=onBack){Icon(Icons.AutoMirrored.Filled.ArrowBack,"返回")}}
@@ -100,10 +106,7 @@ fun lifeDomainIcon(domain:LifeDomain)=when(domain){
   }
 }
 
-/** Health retains its established green independently of the global blue accent. */
-@Composable fun lifeHealthAccent():androidx.compose.ui.graphics.Color =
-  if(MaterialTheme.colorScheme.background.luminance()<.5f)androidx.compose.ui.graphics.Color(0xFF7CEB52)
-  else androidx.compose.ui.graphics.Color(0xFF346A23)
+@Composable fun lifeHealthAccent(): Color = MaterialTheme.colorScheme.primary
 
 val LocalLifeAssistant=staticCompositionLocalOf<(() -> Unit)?>{null}
 

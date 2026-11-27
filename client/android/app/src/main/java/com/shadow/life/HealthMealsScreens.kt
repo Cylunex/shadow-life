@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -240,7 +241,22 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
   }
 }
 
-@Composable private fun RingLegend(label:String,value:String,unit:String,color:Color){Row(verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(9.dp).clip(CircleShape).background(color));Spacer(Modifier.width(9.dp));Column{Text(label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);Row(verticalAlignment=Alignment.Bottom){Text(value,style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.SemiBold,color=color);Spacer(Modifier.width(4.dp));Text(unit,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}}
+@Composable private fun RingLegend(label:String,value:String,unit:String,color:Color,modifier:Modifier=Modifier) {
+  Row(modifier,verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(9.dp)) {
+    Box(Modifier.size(9.dp).clip(CircleShape).background(color))
+    Column {
+      Text(label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+      if (unit.isEmpty()) {
+        Text(value,Modifier.fillMaxWidth(),style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.SemiBold,color=color)
+      } else {
+        Row(verticalAlignment=Alignment.Bottom,horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+          Text(value,style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.SemiBold,color=color)
+          Text(unit,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+      }
+    }
+  }
+}
 
 @Composable private fun BodyMetricsWorkspace(accountId:String,metrics:List<HealthMetricTrend>,hiddenMetrics:Set<String>,onToggleMetric:(String)->Unit,onDetail:(LifeDomain,String,String)->Unit,onCapture:(CaptureKind)->Unit,onReview:(Int)->Unit){
   var metricKey by rememberSaveable{mutableStateOf("weight")};var days by rememberSaveable{mutableIntStateOf(30)};val available=metrics.filter{it.key !in hiddenMetrics&&!it.unavailable&&it.points.isNotEmpty()};val metric=available.firstOrNull{it.key==metricKey}?:available.firstOrNull();val cutoff=LocalDate.now().minusDays(days.toLong()-1);val shown=metric?.points.orEmpty().filter{runCatching{LocalDate.parse(it.occurredOn) in cutoff..LocalDate.now()}.getOrDefault(false)};val latest=shown.lastOrNull();val first=shown.firstOrNull();val average=shown.map{it.value}.average().takeUnless{it.isNaN()}
@@ -260,7 +276,7 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
       LifeCard(onClick={onDetail(LifeDomain.Health,weight.id,"本次称重")}){
         Text("最近称重",style=MaterialTheme.typography.labelLarge)
         Text("${weight.valueText} ${unitLabel(weight.unit)}",style=MaterialTheme.typography.headlineMedium,color=ActivityGreen)
-        val time=weight.occurredAt?.let{runCatching{java.time.Instant.parse(it).atZone(java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))}.getOrNull()}
+        val time=localDateTime(weight.occurredAt,null)
         Text("${time?:weight.occurredOn} · ${sourceLabel(weight.sourceKind)}")
         if(composition.isNotEmpty())BodyCompositionGrid(composition)
         Text("查看本次测量")
@@ -288,7 +304,7 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
     metrics.sortedBy{preferred.indexOf(it.key).takeIf{index->index>=0}?:preferred.size}.take(6).forEach{metric->
       Surface(Modifier.widthIn(min=110.dp).weight(1f),shape=MaterialTheme.shapes.small,
         color=MaterialTheme.colorScheme.surfaceContainer){
-        Column(Modifier.padding(8.dp)){
+        Column(Modifier.padding(12.dp)){
           Text(metric.label,style=MaterialTheme.typography.labelMedium)
           Text("${metric.value} ${metric.unit}",style=MaterialTheme.typography.titleMedium)
           Text(if(metric.derived)"计算值" else "设备值",style=MaterialTheme.typography.labelSmall)
@@ -332,7 +348,7 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
 
 @Composable private fun WorkoutCard(workout:HealthWorkoutSummary,onClick:()->Unit){val title=workoutTypeUi(workout.sessionType);val tone=workoutTone(workout.sessionType);HealthSurface(onClick=onClick){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Top){Box(Modifier.size(48.dp).clip(CircleShape).background(tone.copy(alpha=.16f)),contentAlignment=Alignment.Center){Text(workoutGlyph(workout.sessionType),style=MaterialTheme.typography.titleLarge,color=tone)};Spacer(Modifier.width(13.dp));Column(Modifier.weight(1f)){Text(title,style=MaterialTheme.typography.titleLarge);Text("${workout.occurredOn}${localDateTime(workout.startedAt,workout.timeZone,includeDate=false)?.let{" · $it"}.orEmpty()}",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};Column(horizontalAlignment=Alignment.End,verticalArrangement=Arrangement.spacedBy(5.dp)){workout.sourceKind?.let{SourcePill(sourceLabel(it),tone)};workout.autoDetected?.let{SourcePill(if(it)"自动记录" else "手动记录",if(it)ActivityBlue else tone)}}};val facts=listOfNotNull(workout.distanceKm?.let{"距离" to "${healthValueText(it,"km")} km"},workout.durationMinutes?.let{"时长" to minutesLabel(it)},workout.caloriesKcal?.let{"热量" to "${healthValueText(it,"kcal")} kcal"},workout.heartRateAvg?.let{"运动平均心率" to "$it 次/分"},workoutPerformance(workout),workout.rpe?.let{"主观强度" to "$it / 10"});if(facts.isNotEmpty())Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(20.dp)){facts.forEach{(label,value)->HealthFact(label,value)}} else Text("这条运动记录没有更多指标。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
 
-@Composable private fun SleepWorkspace(history:List<HealthDailyOverview>,insights:HealthSleepInsightsResultDto?,onNight:(String)->Unit){
+@Composable internal fun SleepWorkspace(history:List<HealthDailyOverview>,insights:HealthSleepInsightsResultDto?,onNight:(String)->Unit){
   val days=lastSevenDays(history)
   var picked by rememberSaveable{mutableStateOf<String?>(null)}
   val date=picked?.takeIf{date->days.any{it.first.toString()==date}}?:history.lastOrNull{it.sleepId!=null}?.occurredOn?:LocalDate.now().toString()
@@ -356,8 +372,15 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
         val uncertain=incomplete&&assessment.tone==HealthTone.Low&&metricAssessment("sleep_minutes",upper?.toDouble(),"分钟",true).tone!=HealthTone.Low
         AssessmentLabel(if(uncertain)HealthAssessment(HealthTone.Neutral,"分期不足，暂无法判断达标",assessment.basis) else assessment)
         SleepStageBar(night)
-        FlowRow(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(18.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
-          sleepStages(night).forEach{(label,minutes,tone)->RingLegend(label,minutes?.let(::minutesLabel)?:"未提供","",tone)}
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+          val fontScale=androidx.compose.ui.platform.LocalDensity.current.fontScale
+          val columns=if(maxWidth < 240.dp * fontScale) 1 else 2
+          FlowRow(Modifier.fillMaxWidth(),maxItemsInEachRow=columns,
+            horizontalArrangement=Arrangement.spacedBy(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+            sleepStages(night).forEach { (label,duration,tone) ->
+              RingLegend(label,duration?.let(::minutesLabel)?:"未提供","",tone,Modifier.weight(1f))
+            }
+          }
         }
       }
       night?.sleepId?.let{id->TextButton(onClick={onNight(id)}){Text("查看本晚详情")}}
@@ -476,10 +499,12 @@ private fun sleepStages(day:HealthDailyOverview?)=listOf(
   }
   val mealScroll=rememberModuleListState(mealTab)
   Scaffold(containerColor=MaterialTheme.colorScheme.background,
-    topBar={Column{
-      LifeModuleTopBar(LifeModule.Meals,onBack)
-      if(mealTab=="records"||mealTab=="history")TextButton(onClick={mealTab=if(mealTab=="records")"history" else "records"}){
-        Text(if(mealTab=="records")"查找历史饮食" else "返回当日饮食")
+    topBar={LifeModuleTopBar(LifeModule.Meals,onBack) {
+      if (mealTab=="records" || mealTab=="history") {
+        IconButton(onClick={mealTab=if(mealTab=="records") "history" else "records"}) {
+          if (mealTab=="records") Icon(Icons.Default.Search,"查找历史饮食")
+          else Icon(Icons.Default.DateRange,"返回当日饮食")
+        }
       }
     }},
     floatingActionButton={if(mealTab=="records")ModuleCaptureAction("记一餐"){onMealCapture(selectedDate,"other")}},
@@ -491,10 +516,6 @@ private fun sleepStages(day:HealthDailyOverview?)=listOf(
           if(dayRecords.isNotEmpty())setOf(selectedDate) else emptySet()
         DateNavigator(selectedDate,{selectedDate=it},recordedDates)
         if(week.state is LoadState.Failed)TextButton(onClick=week.retry){Text("重试读取本周餐次标记")}
-        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-          OutlinedButton(onClick={onDishCatalog(selectedDate)},modifier=Modifier.weight(1f)){Text("门店菜单")}
-          OutlinedButton(onClick={onDishStats(selectedDate)},modifier=Modifier.weight(1f)){Text("菜品统计")}
-        }
       }
       item{StateContent(day.state,day.retry){}}
       if(dayPage!=null){
@@ -506,6 +527,12 @@ private fun sleepStages(day:HealthDailyOverview?)=listOf(
         }
         mealDayGroups(groupedMeals,assetPreviews,onLoadAsset,onDetail,{type->onMealCapture(selectedDate,type)},onAddPhoto,
           {record->onCopyMeal(record,selectedDate)})
+      }
+      item {
+        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+          AssistChip(onClick={onDishCatalog(selectedDate)}, label={Text("门店菜单")})
+          AssistChip(onClick={onDishStats(selectedDate)}, label={Text("菜品统计")})
+        }
       }
       item{
         FlowRow(horizontalArrangement=Arrangement.spacedBy(4.dp)){
@@ -536,9 +563,8 @@ private fun sleepStages(day:HealthDailyOverview?)=listOf(
     if(planning!=null&&mealTab !in setOf("records","history"))item{NativeMealPlanningSection(planning,mealPlanningState,onSaveMealPlan,onBuildShopping,onUpdateShopping,onSetFoodStock,onSaveRecipe,onResetMealPlanning,initialTab,accountId,controlledSection=mealTab,onSectionChange={mealTab=it},focusStockId=focusStockId,onStockPurchase=onStockPurchase)}
     if(mealTab=="history"){
       item{
-        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
-          OutlinedTextField(query,{query=it.take(200)},Modifier.weight(1f),singleLine=true,label={Text("食物、餐次或备注")})
-          TextButton(onClick={submittedHistory=query.trim()}){Text("搜索")}
+        LifeSearchBar(query, {query=it.take(200); if (it.isBlank()) submittedHistory=""}, "食物、餐次或备注") {
+          submittedHistory=it
         }
       }
       item{StateContent(history.state,history.retry){}}
@@ -852,7 +878,7 @@ private fun decodeMealThumbnail(bytes:ByteArray):ImageBitmap{
     points.getOrNull(selected)?.let{point->
       Text(point.occurredOn,style=MaterialTheme.typography.labelLarge)
       measurementsByDay[point.occurredOn].orEmpty().forEach{reading->
-        val time=reading.occurredAt?.let{runCatching{java.time.Instant.parse(it).atZone(java.time.ZoneId.systemDefault()).toLocalTime().toString().take(5)}.getOrNull()}
+        val time=localDateTime(reading.occurredAt,null,includeDate=false)
         val label=listOfNotNull(time,"${reading.valueText} ${unitLabel(reading.unit)}",sourceLabel(reading.sourceKind)).joinToString(" · ")
         if(onOpen==null)Text(label,style=MaterialTheme.typography.bodySmall)
         else TextButton(onClick={onOpen(reading)}){Text(label)}

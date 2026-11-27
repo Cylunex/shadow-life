@@ -93,10 +93,10 @@ import java.time.format.DateTimeFormatter
       }
     }}
     error?.let{Text(it,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.error)}
-    FlowRow(horizontalArrangement=Arrangement.spacedBy(4.dp)){
-      TextButton(onClick=onOrders){Text("采集结果")}
+    FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+      AssistChip(onClick=onOrders,label={Text("采集结果")})
       if(rows.size>2)TextButton(onClick={expanded=!expanded}){Text(if(expanded)"收起" else "展开 ${rows.size} 条")}
-      TextButton(onClick=onRecords){Text("全部记录")}
+      AssistChip(onClick=onRecords,label={Text("全部记录")})
     }
     }
   }

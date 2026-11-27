@@ -1,6 +1,12 @@
 package com.shadow.life
 
+import android.view.ViewTreeObserver
+import android.view.Window
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.view.WindowCompat
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -8,12 +14,30 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
+@Composable internal fun LifeSystemBars(activityWindow: Window? = null) {
+  val view = LocalView.current
+  val window = activityWindow ?: (view.parent as? DialogWindowProvider)?.window ?: return
+  val lightBackground = MaterialTheme.colorScheme.background.luminance() > .5f
+  DisposableEffect(view, window, lightBackground) {
+    fun applyAppearance() {
+      val controller = WindowCompat.getInsetsController(window, window.decorView)
+      controller.isAppearanceLightStatusBars = lightBackground
+      controller.isAppearanceLightNavigationBars = lightBackground
+    }
+    applyAppearance()
+    val listener = ViewTreeObserver.OnWindowFocusChangeListener { focused -> if (focused) applyAppearance() }
+    view.viewTreeObserver.addOnWindowFocusChangeListener(listener)
+    onDispose { if (view.viewTreeObserver.isAlive) view.viewTreeObserver.removeOnWindowFocusChangeListener(listener) }
+  }
+}
+
 /** Full-screen task surface shared by editors and source readers. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable internal fun LifeFullScreen(
   title:String,onDismiss:()->Unit,actions:@Composable RowScope.()->Unit={},content:@Composable ()->Unit
 ){
   Dialog(onDismissRequest=onDismiss,properties=DialogProperties(usePlatformDefaultWidth=false,decorFitsSystemWindows=false)){
+    LifeSystemBars()
     Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text(title)},navigationIcon={LifeBackButton(onDismiss)},actions=actions)}){padding->
       Box(Modifier.fillMaxSize().padding(padding).imePadding().navigationBarsPadding().padding(horizontal=20.dp)){content()}
     }
