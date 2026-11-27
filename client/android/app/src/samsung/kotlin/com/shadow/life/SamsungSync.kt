@@ -39,7 +39,6 @@ import com.samsung.android.sdk.health.data.request.LocalTimeGroupUnit
 import com.samsung.android.sdk.health.data.request.ReadDataRequest
 import java.math.BigDecimal
 import java.math.RoundingMode
-import java.security.MessageDigest
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -136,6 +135,9 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
     }
     status.updateSamsung(accountId,"syncing","正在连接 Samsung Health")
     var queuedCount=0
+    var queuedAggregates=0
+    var unchangedAggregates=0
+    var migratedAggregates=0
     var queuedSinceDispatch=false
     var lastDispatch=Long.MIN_VALUE
     fun dispatchUploads(force:Boolean=false){
@@ -160,24 +162,31 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
       val now=System.currentTimeMillis()
       val prefs=applicationContext.getSharedPreferences("samsung-health-sync",Context.MODE_PRIVATE)
       val last=prefs.getLong("last_sync_$accountId",0)
-      val permissionFingerprint=sha256(granted.map{it.toString()}.sorted().joinToString("|"))
-      val permissionsChanged=prefs.getString("permission_fingerprint_$accountId",null)!=permissionFingerprint
-      val days=if(last==0L||permissionsChanged)30 else (((now-last)/86_400_000L).toInt()+2).coerceIn(2,30)
+      val permissionFingerprint=samsungPermissionFingerprint(granted.mapTo(hashSetOf()){it.dataType.name to it.accessType.name})
+      val stableFingerprintKey="permission_fingerprint_v2_$accountId"
+      val previousFingerprint=prefs.getString(stableFingerprintKey,null)
+      // Old digests can still match historical content when that day is read again.
+      val legacyFingerprint=prefs.getString("permission_fingerprint_$accountId",null)
+      val days=samsungReadDays(now,last,previousFingerprint,permissionFingerprint)
       val through=LocalDate.now()
       val healthConnectPermissions=if(HealthConnectSync.available(applicationContext))HealthConnectClient.getOrCreate(applicationContext).permissionController.getGrantedPermissions() else emptySet()
-      val readScope=sha256(listOf(session.subjectId,permissionFingerprint,ZoneId.systemDefault().id,healthConnectPermissions.sorted().joinToString("|"),SAMSUNG_PARSE_VERSION).joinToString("|"))
-      val previousProgress=status.samsungProgress(accountId)?.takeIf{it.scope==readScope&&it.through<=through}
+      fun readScopeFor(fingerprint:String)=samsungSyncDigest(listOf(session.subjectId,fingerprint,ZoneId.systemDefault().id,healthConnectPermissions.sorted().joinToString("|"),SAMSUNG_PARSE_VERSION).joinToString("|"))
+      val readScope=readScopeFor(permissionFingerprint)
+      val legacyScope=legacyFingerprint?.takeIf{previousFingerprint==null}?.let(::readScopeFor)
+      val previousProgress=status.samsungProgress(accountId)
+        ?.takeIf{it.through<=through&&(it.scope==readScope||it.scope==legacyScope)}
+        ?.copy(scope=readScope)
       // Reuse tokens only for the same date bounds. After midnight, rescan the open window
       // with the new end date so a single failed type cannot keep newer records out.
       var progress=previousProgress?.takeIf{it.through==through} ?: SamsungReadProgress(
-        readScope,previousProgress?.from?.coerceAtLeast(through.minusDays(29))?:through.minusDays((days-1).toLong()),through,now
+        readScope,previousProgress?.from?.coerceAtLeast(through.minusDays(29))?:through.minusDays(days-1),through,now
       )
       status.saveSamsungProgress(accountId,progress)
       val versionKey="aggregate_version_$accountId"
       val readVersion=maxOf(now,prefs.getLong(versionKey,last)+1)
       check(prefs.edit().putLong(versionKey,readVersion).commit()){"无法保存同步版本"}
       val hashes=applicationContext.getSharedPreferences("samsung-health-content",Context.MODE_PRIVATE)
-      val prefix=sha256("$accountId|${session.subjectId}").take(24)+":"
+      val prefix=samsungSyncDigest("$accountId|${session.subjectId}").take(24)+":"
       val previous=hashes.all.mapNotNull{(key,value)->(value as? String)?.takeIf{key.startsWith(prefix)}?.let{key to it}}.toMap().toMutableMap()
       val changes=hashes.edit()
       val cutoff=now-45*86_400_000L
@@ -193,23 +202,30 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
       }
       val failed=try{
         withTimeoutOrNull(180_000L){
-          readCommands(store,session,progress.from,progress.through,readVersion,granted,healthConnectPermissions,
+          readCommands(store,session,progress.from,progress.through,readVersion,granted,permissionFingerprint,healthConnectPermissions,
             progress={progress},saveProgress=::save
           ){command,content->
             val key=content?.let{prefix+it.first}
             val prior=key?.let{previous[it]}
-            val digest=content?.second
-            if(key!=null&&prior!=null&&digest!=null&&prior.substringAfter(':')==digest){
-              if(prior.substringBefore(':').toLongOrNull()?.let{now-it>86_400_000L}==true)changes.putString(key,"$now:$digest")
+            val digest=content?.let{samsungAggregateDigest(it.second,SAMSUNG_PARSE_VERSION,prior?.substringAfter(':'),legacyFingerprint)}
+            if(key!=null&&prior!=null&&digest!=null&&digest.match!=SamsungAggregateMatch.Changed){
+              unchangedAggregates++
+              if(digest.match==SamsungAggregateMatch.Legacy)migratedAggregates++
+              if(digest.match==SamsungAggregateMatch.Legacy||prior.substringBefore(':').toLongOrNull()?.let{now-it>86_400_000L}==true){
+                val hash="$now:${digest.value}"
+                previous[key]=hash
+                changes.putString(key,hash)
+              }
             }else {
               val queued=app.queue.enqueueCommand(session,command.commandId,command.capability,command.body)
-              if(key!=null){
-                val hash="$now:$digest"
+              if(key!=null&&digest!=null){
+                val hash="$now:${digest.value}"
                 previous[key]=hash
                 changes.putString(key,hash)
               }
               if(queued>=0){
                 queuedCount++
+                if(digest!=null)queuedAggregates++
                 queuedSinceDispatch=true
                 dispatchUploads()
               }
@@ -226,12 +242,12 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
         status.updateSamsung(accountId,"error","${failed.size} 类数据读取未完成，将从断点重试",queuedCount)
         return Result.retry()
       }
-      check(prefs.edit().putLong("last_sync_$accountId",progress.startedAt).putString("permission_fingerprint_$accountId",permissionFingerprint).commit()){"无法保存本轮同步结果"}
+      check(prefs.edit().putLong("last_sync_$accountId",progress.startedAt).putString(stableFingerprintKey,permissionFingerprint).commit()){"无法保存本轮同步结果"}
       status.saveSamsungProgress(accountId,null)
       val state=if(missing>0)"needs_permission" else "complete"
       val message=if(missing>0)"已读完授权数据，仍有 $missing 类权限未授予" else "Samsung Health 已完成读取"
       status.updateSamsung(accountId,state,message,queuedCount,readCompleted=true)
-      Log.i("SamsungSyncWorker","Samsung read completed new_commands=$queuedCount granted=${granted.size}/${SamsungSync.PERMISSIONS.size}")
+      Log.i("SamsungSyncWorker","Samsung read completed new_commands=$queuedCount granted=${granted.size}/${SamsungSync.PERMISSIONS.size} new_aggregates=$queuedAggregates unchanged_aggregates=$unchangedAggregates migrated_aggregates=$migratedAggregates")
       Result.success(workDataOf("records" to queuedCount,"missing_permissions" to missing))
     }catch(error:CancellationException){
       status.updateSamsung(accountId,"paused","本轮读取已中断，下次从已保存的进度继续",queuedCount)
@@ -245,16 +261,15 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
     }
   }
 
-  private suspend fun readCommands(store:HealthDataStore,session:ProductSession,start:LocalDate,end:LocalDate,version:Long,samsungPermissions:Set<Permission>,healthConnectPermissions:Set<String>,progress:()->SamsungReadProgress,saveProgress:(SamsungReadProgress)->Unit,enqueue:suspend(HealthQueuedCommand,Pair<String,String>?)->Unit):Set<String>{
+  private suspend fun readCommands(store:HealthDataStore,session:ProductSession,start:LocalDate,end:LocalDate,version:Long,samsungPermissions:Set<Permission>,fingerprint:String,healthConnectPermissions:Set<String>,progress:()->SamsungReadProgress,saveProgress:(SamsungReadProgress)->Unit,enqueue:suspend(HealthQueuedCommand,Pair<String,String>?)->Unit):Set<String>{
     val failed=linkedSetOf<String>()
     val zone=ZoneId.systemDefault()
-    val instance="android-samsung-${sha256(android.provider.Settings.Secure.getString(applicationContext.contentResolver,android.provider.Settings.Secure.ANDROID_ID)?:"unknown").take(24)}"
-    val fingerprint=sha256(samsungPermissions.map{it.toString()}.sorted().joinToString("|"))
+    val instance="android-samsung-${samsungSyncDigest(android.provider.Settings.Secure.getString(applicationContext.contentResolver,android.provider.Settings.Secure.ANDROID_ID)?:"unknown").take(24)}"
     val timeFilter=LocalTimeFilter.of(start.atStartOfDay(),end.plusDays(1).atStartOfDay())
     val dateFilter=LocalDateFilter.of(start,end,true,true)
     suspend fun add(type:String,id:String,payload:JSONObject,recordVersion:Long=version){
       val command=healthDeviceRecordCommand(session.accountId,session.subjectId,"samsung",instance,fingerprint,type,id,recordVersion,payload,SAMSUNG_PARSE_VERSION)
-      val content=if(recordVersion==version) Pair(sha256("$instance|$type|$id"),sha256("$fingerprint|$SAMSUNG_PARSE_VERSION|$payload")) else null
+      val content=if(recordVersion==version) samsungSyncDigest("$instance|$type|$id") to payload.toString() else null
       enqueue(command,content)
     }
     fun pointVersion(point:HealthDataPoint)=(point.updateTime?:point.endTime?:point.startTime)?.toEpochMilli()?:version
@@ -272,7 +287,7 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
     }
     suspend fun archive(type:DataType,point:HealthDataPoint){
       val payload=samsungHealthPointPayload(type,point)
-      val identity=point.uid?:sha256(payload.toString()).take(32)
+      val identity=point.uid?:samsungSyncDigest(payload.toString()).take(32)
       val clientId="samsung-archive-${typeKey(type)}-$identity"
       val encoded=payload.toString()
       val recordVersion=pointVersion(point)
@@ -402,6 +417,5 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
   private fun bodyPayload(date:LocalDate,instant:Instant?,zone:ZoneId,observations:JSONArray)=JSONObject().put("occurred_on",date.toString()).apply{if(instant!=null)put("occurred_at",instant.toString())}.put("time_zone",zone.id).put("group_kind","measurement").put("observations",observations)
   private fun observation(metric:String,value:String,unit:String,source:String)=JSONObject().put("metric_key",metric).put("value",value).put("unit",unit).put("original_field",source).put("autofilled",false)
   private fun decimal(value:Double)=BigDecimal.valueOf(value).setScale(6,RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()
-  private fun sha256(value:String)=MessageDigest.getInstance("SHA-256").digest(value.toByteArray()).joinToString(""){"%02x".format(it)}
   companion object { private val workerMutex=Mutex() }
 }
