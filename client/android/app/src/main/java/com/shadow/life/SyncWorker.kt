@@ -13,6 +13,12 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -36,19 +42,29 @@ object SyncScheduler {
     WorkManager.getInstance(context).enqueueUniqueWork(workName(accountId),if(ensureNext)ExistingWorkPolicy.APPEND_OR_REPLACE else ExistingWorkPolicy.KEEP,request)
   }
   fun retryNow(context:Context,accountId:String){
-    val request=OneTimeWorkRequestBuilder<SyncWorker>().setInputData(workDataOf("account_id" to accountId)).setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()).setBackoffCriteria(BackoffPolicy.EXPONENTIAL,10,TimeUnit.SECONDS).build()
-    WorkManager.getInstance(context).enqueueUniqueWork(workName(accountId),ExistingWorkPolicy.APPEND_OR_REPLACE,request)
+    val request=OneTimeWorkRequestBuilder<SyncWorker>()
+      .setInputData(workDataOf("account_id" to accountId))
+      .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+      .setBackoffCriteria(BackoffPolicy.EXPONENTIAL,10,TimeUnit.SECONDS)
+      .build()
+    WorkManager.getInstance(context).enqueueUniqueWork(workName(accountId),ExistingWorkPolicy.REPLACE,request)
   }
 }
 
 class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(context,params){
   override suspend fun doWork():Result=withContext(Dispatchers.IO){
-    val accountId=inputData.getString("account_id")?:return@withContext Result.failure()
+    // A canceled worker may still be returning from a blocking HTTP call.
+    uploadMutex.withLock { sync() }
+  }
+
+  private suspend fun sync():Result {
+    val accountId=inputData.getString("account_id")?:return Result.failure()
     val app=applicationContext as ShadowApp
-    val fresh=when(val refresh=app.sessions.fresh(accountId,applicationContext)){
+    // Persist a rotated refresh token even if manual retry cancels this worker mid-refresh.
+    val fresh=when(val refresh=withContext(NonCancellable){app.sessions.fresh(accountId,applicationContext)}){
       is SessionRefresh.Ready->refresh.value
-      SessionRefresh.Retryable->return@withContext Result.retry()
-      SessionRefresh.ReauthRequired->return@withContext Result.failure(workDataOf("reason" to "reauth_required"))
+      SessionRefresh.Retryable->{Log.w(TAG,"sync waiting for session refresh");return Result.retry()}
+      SessionRefresh.ReauthRequired->return Result.failure(workDataOf("reason" to "reauth_required"))
     }
     val session=fresh.session
     val accessToken=fresh.accessToken
@@ -58,6 +74,8 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
     var recoveredCommands=0
     var committedCommands=0
     Log.i(TAG,"sync started")
+
+    reconcileReceipts(app,session,accessToken)?.let{return it}
 
     for(attachment in dao.readyAttachments(accountId,session.subjectId,CaptureLocalSettings.canSync(applicationContext,app,accountId),MAX_ATTACHMENTS_PER_RUN)){
       if(attachment.captureMetadata.isNotBlank()&&!CaptureLocalSettings.canSync(applicationContext,app,accountId))continue
@@ -75,7 +93,7 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
         connection=activeConnection
         file.inputStream().use{input->activeConnection.outputStream.use{output->app.queue.copyAttachment(attachment,input,object:java.io.FilterOutputStream(output){override fun write(bytes:ByteArray,offset:Int,length:Int){if(attachment.captureMetadata.isNotBlank()&&!CaptureLocalSettings.canSync(applicationContext,app,accountId))throw CaptureSyncPaused();out.write(bytes,offset,length)};override fun write(value:Int){if(attachment.captureMetadata.isNotBlank()&&!CaptureLocalSettings.canSync(applicationContext,app,accountId))throw CaptureSyncPaused();out.write(value)}})}}
         val code=activeConnection.responseCode
-        if(code==401){dao.markAttachment(attachment.id,"unknown");app.sessions.revoke(accountId);return@withContext Result.failure(workDataOf("reason" to "reauth_required"))}
+        if(code==401){dao.markAttachment(attachment.id,"unknown");app.sessions.revoke(accountId);return Result.failure(workDataOf("reason" to "reauth_required"))}
         if(code !in listOf(200,201)){
           if(code==429||code>=500){if(attachment.attempts>=7)dao.markAttachment(attachment.id,"failed",queueHttpIssue(code))else{dao.markAttachment(attachment.id,"unknown");needsRetry=true};continue}
           dao.markAttachment(attachment.id,if(code in listOf(403,409,413,422))"blocked" else "failed",queueHttpIssue(code))
@@ -112,7 +130,7 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
     }
     for(batch in healthCommandBatches(batchCandidates)){
       val outcome=uploadHealthBatch(app,session,accessToken,batch)
-      if(outcome.reauthRequired)return@withContext Result.failure(workDataOf("reason" to "reauth_required"))
+      if(outcome.reauthRequired)return Result.failure(workDataOf("reason" to "reauth_required"))
       if(!outcome.fallbackToSingles)handledByBatch+=batch.map{it.first.commandId}
       needsRetry=needsRetry||outcome.needsRetry
       recoveredCommands+=outcome.recovered
@@ -121,10 +139,6 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
 
     for(command in pendingCommands.filterNot{it.commandId in handledByBatch}){
       if(command.capability in CaptureLocalSettings.commands&&!CaptureLocalSettings.canSync(applicationContext,app,accountId))continue
-      if(command.state=="unknown"){
-        val recovered=lookupReceipt(session,accessToken,command)
-        if(recovered!=null){commitVerified(app,command,recovered);recoveredCommands++;continue}
-      }
       val body=try{app.queue.commandBody(command)}catch(_:QueueKeyUnavailableException){dao.setCommandState(command.commandId,"blocked","key_unavailable");continue}
       dao.mark(command.commandId,"uploading")
       var connection:HttpURLConnection?=null
@@ -138,10 +152,10 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
         connection=activeConnection
         activeConnection.outputStream.use{if(command.capability in CaptureLocalSettings.commands&&!CaptureLocalSettings.canSync(applicationContext,app,accountId))throw CaptureSyncPaused();it.write(body.toByteArray(StandardCharsets.UTF_8))}
         val code=activeConnection.responseCode
-        if(code==401){dao.setCommandState(command.commandId,"unknown");app.sessions.revoke(accountId);return@withContext Result.failure(workDataOf("reason" to "reauth_required"))}
+        if(code==401){dao.setCommandState(command.commandId,"unknown");app.sessions.revoke(accountId);return Result.failure(workDataOf("reason" to "reauth_required"))}
         if(code in listOf(200,201)){
           val receiptText=activeConnection.inputStream.bufferedReader().use{it.readText()}
-          val verified=receiptText.takeIf{validReceipt(it,command)}?:lookupReceipt(session,accessToken,command)
+          val verified=receiptText.takeIf{validReceipt(it,command)}?:lookupReceipt(session,accessToken,command).verifiedBody
           if(verified!=null){commitVerified(app,command,verified);committedCommands++;continue}
           if(command.attempts>=7)dao.setCommandState(command.commandId,"failed","unverified")else{dao.setCommandState(command.commandId,"unknown");needsRetry=true};continue
         }
@@ -150,7 +164,7 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
           dao.setCommandState(command.commandId,"pending");showWriteFence(app,command);Log.w("SyncWorker","server kept ${command.capability} behind a migration write fence");needsRetry=true;continue
         }
         if(code==429||code>=500){
-          val recovered=if(code>=500)lookupReceipt(session,accessToken,command) else null
+          val recovered=if(code>=500)lookupReceipt(session,accessToken,command).verifiedBody else null
           if(recovered!=null){commitVerified(app,command,recovered);recoveredCommands++}
           else if(command.attempts>=7)dao.setCommandState(command.commandId,"failed",queueHttpIssue(code))
           else{dao.setCommandState(command.commandId,"unknown");needsRetry=true}
@@ -159,10 +173,10 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
         val terminal=if(isDeterministicCommandFailure(code))"blocked" else "failed"
         recordRejection(app,command,terminal,code,errorBody)
       }catch(_:CaptureSyncPaused){dao.setCommandState(command.commandId,"pending")
-      }catch(error:CancellationException){dao.setCommandState(command.commandId,"unknown");throw error
+      }catch(error:CancellationException){throw error
       }catch(_:QueueKeyUnavailableException){dao.setCommandState(command.commandId,"blocked","key_unavailable")
       }catch(_:Exception){
-        val recovered=lookupReceipt(session,accessToken,command)
+        val recovered=lookupReceipt(session,accessToken,command).verifiedBody
         if(recovered!=null){commitVerified(app,command,recovered);recoveredCommands++}else if(command.attempts>=7)dao.setCommandState(command.commandId,"failed","unverified")else{dao.setCommandState(command.commandId,"unknown");needsRetry=true}
       }finally{connection?.disconnect()}
     }
@@ -170,9 +184,45 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
     if(HealthConnectSync.enabled()&&dao.healthRound(accountId,session.subjectId)?.progress?.ready==true)HealthConnectScheduler.resume(applicationContext,accountId)
     val includeCaptures=CaptureLocalSettings.canSync(applicationContext,app,accountId)
     val remaining=dao.readyCommands(accountId,session.subjectId,includeCaptures,1).size+dao.readyAttachments(accountId,session.subjectId,includeCaptures,1).size
-    if(!needsRetry&&remaining>0)SyncScheduler.schedule(applicationContext,accountId,ensureNext=true)
+    val awaitingReceipt=dao.commandsAwaitingReceipt(accountId,session.subjectId,includeCaptures,1).isNotEmpty()
+    if(!needsRetry&&(remaining>0||awaitingReceipt))SyncScheduler.schedule(applicationContext,accountId,ensureNext=true)
     Log.i(TAG,"sync finished recovered=$recoveredCommands committed=$committedCommands retry=$needsRetry remaining=$remaining")
-    if(needsRetry)Result.retry()else Result.success()
+    return if(needsRetry)Result.retry()else Result.success()
+  }
+
+  private suspend fun reconcileReceipts(app:ShadowApp,session:ProductSession,accessToken:String):Result? {
+    val dao=app.database.commands()
+    var checked=0
+    var recovered=0
+    var missing=0
+    var deferred=0
+    try {
+      while(true){
+        val includeCaptures=CaptureLocalSettings.canSync(applicationContext,app,session.accountId)
+        val commands=dao.commandsAwaitingReceipt(session.accountId,session.subjectId,includeCaptures,MAX_COMMANDS_PER_RUN)
+        if(commands.isEmpty())return null
+        val results=commands.chunked(MAX_CONCURRENT_RECEIPT_LOOKUPS).flatMap { group->
+          coroutineScope {
+            group.map{command->async{lookupReceipt(session,accessToken,command)}}.awaitAll()
+          }
+        }
+        for((command,result) in commands.zip(results)){
+          checked++
+          when(result){
+            is ReceiptLookup.Verified->{commitVerified(app,command,result.verifiedBody);recovered++}
+            ReceiptLookup.Missing->{dao.setCommandState(command.commandId,"pending");missing++}
+            ReceiptLookup.ReauthRequired->{
+              app.sessions.revoke(session.accountId)
+              return Result.failure(workDataOf("reason" to "reauth_required"))
+            }
+            ReceiptLookup.Deferred->deferred++
+          }
+        }
+        if(deferred>0)return Result.retry()
+      }
+    } finally {
+      if(checked>0)Log.i(TAG,"receipt reconciliation checked=$checked recovered=$recovered missing=$missing deferred=$deferred")
+    }
   }
 
   private suspend fun commitVerified(app:ShadowApp,command:PendingCommand,receipt:String){
@@ -232,7 +282,7 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
       }
       Log.i(TAG,"batch upload commands=${batch.size} committed=$committed retry=$retry")
       return BatchUploadOutcome(committed=committed,needsRetry=retry)
-    }catch(error:CancellationException){batch.forEach{dao.setCommandState(it.first.commandId,"unknown")};throw error
+    }catch(error:CancellationException){throw error
     }catch(error:Exception){Log.w(TAG,"batch upload outcome unknown commands=${batch.size} type=${error.javaClass.simpleName}");return recoverBatchAfterUnknown(app,session,accessToken,batch)
     }finally{connection?.disconnect()}
   }
@@ -240,7 +290,7 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
   private suspend fun recoverBatchAfterUnknown(app:ShadowApp,session:ProductSession,accessToken:String,batch:List<Pair<PendingCommand,String>>):BatchUploadOutcome{
     val dao=app.database.commands();var recovered=0;var retry=false
     for((command,_) in batch){
-      val receipt=lookupReceipt(session,accessToken,command)
+      val receipt=lookupReceipt(session,accessToken,command).verifiedBody
       if(receipt!=null){commitVerified(app,command,receipt);recovered++}
       else if(command.attempts>=7)dao.setCommandState(command.commandId,"failed","unverified")
       else{dao.setCommandState(command.commandId,"unknown");retry=true}
@@ -248,25 +298,29 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
     return BatchUploadOutcome(recovered=recovered,needsRetry=retry)
   }
 
-  private fun lookupReceipt(session:ProductSession,accessToken:String,command:PendingCommand):String?{
-    val encoded=URLEncoder.encode(command.commandId,StandardCharsets.UTF_8.toString())
-    val connection=URL("${session.apiBase}/api/operations/by-command/$encoded").openConnection() as HttpURLConnection
+  private fun lookupReceipt(session:ProductSession,accessToken:String,command:PendingCommand):ReceiptLookup{
+    var connection:HttpURLConnection?=null
     return try{
-      connection.requestMethod="GET";connection.connectTimeout=15_000;connection.readTimeout=20_000
-      connection.setRequestProperty("Authorization","Bearer $accessToken")
-      val requestId=requestId(command.commandId,command.attempts,"receipt");connection.setRequestProperty("X-Request-Id",requestId)
-      val code=connection.responseCode
-      if(code!=200){val errorCode=runCatching{JSONObject(connection.errorStream?.bufferedReader()?.use{it.readText()}.orEmpty()).optString("code")}.getOrNull()?.takeIf(String::isNotBlank);Log.w(TAG,"receipt lookup request_id=$requestId status=$code code=${errorCode?:"unknown"} capability=${command.capability}");null}
-      else connection.inputStream.bufferedReader().use{it.readText()}.takeIf{validReceipt(it,command)}.also{if(it==null)Log.w(TAG,"receipt lookup request_id=$requestId returned an invalid envelope capability=${command.capability}")}
+      val encoded=URLEncoder.encode(command.commandId,StandardCharsets.UTF_8.toString())
+      val active=(URL("${session.apiBase}/api/operations/by-command/$encoded").openConnection() as HttpURLConnection).apply {
+        requestMethod="GET";connectTimeout=15_000;readTimeout=20_000
+        setRequestProperty("Authorization","Bearer $accessToken")
+        setRequestProperty("X-Request-Id",requestId(command.commandId,command.attempts,"receipt"))
+      }
+      connection=active
+      val status=active.responseCode
+      val stream=if(status==200)active.inputStream else active.errorStream
+      val result=classifyReceiptLookup(status,stream?.bufferedReader()?.use{it.readText()}.orEmpty(),command)
+      if(result==ReceiptLookup.Deferred)Log.w(TAG,"receipt lookup deferred status=$status capability=${command.capability}")
+      result
+    }catch(error:CancellationException){
+      throw error
     }catch(error:Exception){
-      Log.w(TAG,"receipt lookup transport failure request_id=${requestId(command.commandId,command.attempts,"receipt")} capability=${command.capability} type=${error.javaClass.simpleName}");null
-    }finally{connection.disconnect()}
+      Log.w(TAG,"receipt lookup transport failure capability=${command.capability} type=${error.javaClass.simpleName}")
+      ReceiptLookup.Deferred
+    }finally{connection?.disconnect()}
   }
 
-  private fun validReceipt(text:String,command:PendingCommand):Boolean=runCatching{
-    val receipt=JSONObject(text)
-    receipt.optString("protocol")=="shadow.execution-result"&&receipt.optString("status")=="committed"&&receipt.optString("command_id")==command.commandId&&receipt.optString("capability")==command.capability&&receipt.optString("execution_id").isNotBlank()
-  }.getOrDefault(false)
   private fun retryableNotApplied(text:String)=runCatching{JSONObject(text).optString("code")=="retryable_not_applied"}.getOrDefault(false)
   private fun requestId(commandId:String,attempts:Int,phase:String)="android-$phase-${commandId.takeLast(16)}-${attempts.coerceAtLeast(0)}"
   private fun showWriteFence(app:ShadowApp,command:PendingCommand){when{command.commandId.startsWith("cmd_scale_")->app.deviceSync.updateScale(command.accountId,"error","Life 健康写入正在迁移保护中，读数已安全保留")}}
@@ -277,8 +331,36 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
     when{command.commandId.startsWith("cmd_scale_")->app.deviceSync.updateScale(command.accountId,"error",message)}
     Log.w(TAG,"command rejected status=$status code=${code.ifBlank{"unknown"}} capability=${command.capability}")
   }
-  companion object{private const val TAG="SyncWorker";private const val MAX_COMMANDS_PER_RUN=24;private const val MAX_ATTACHMENTS_PER_RUN=4}
+  companion object{
+    private const val TAG="SyncWorker"
+    private const val MAX_COMMANDS_PER_RUN=24
+    private const val MAX_ATTACHMENTS_PER_RUN=4
+    private const val MAX_CONCURRENT_RECEIPT_LOOKUPS=4
+    private val uploadMutex=Mutex()
+  }
 }
+
+internal sealed class ReceiptLookup(open val verifiedBody:String?=null){
+  data class Verified(override val verifiedBody:String):ReceiptLookup(verifiedBody)
+  data object Missing:ReceiptLookup()
+  data object ReauthRequired:ReceiptLookup()
+  data object Deferred:ReceiptLookup()
+}
+
+internal fun classifyReceiptLookup(status:Int,body:String,command:PendingCommand):ReceiptLookup=when{
+  status==200&&validReceipt(body,command)->ReceiptLookup.Verified(body)
+  status==401->ReceiptLookup.ReauthRequired
+  status==404&&runCatching {
+    val error=JSONObject(body)
+    error.optString("protocol")=="shadow.error"&&error.optString("code")=="not_found"
+  }.getOrDefault(false)->ReceiptLookup.Missing
+  else->ReceiptLookup.Deferred
+}
+
+private fun validReceipt(text:String,command:PendingCommand):Boolean=runCatching{
+  val receipt=JSONObject(text)
+  receipt.optString("protocol")=="shadow.execution-result"&&receipt.optString("status")=="committed"&&receipt.optString("command_id")==command.commandId&&receipt.optString("capability")==command.capability&&receipt.optString("execution_id").isNotBlank()
+}.getOrDefault(false)
 
 internal data class BatchUploadOutcome(val committed:Int=0,val recovered:Int=0,val needsRetry:Boolean=false,val reauthRequired:Boolean=false,val fallbackToSingles:Boolean=false)
 internal fun queueHttpIssue(status:Int,code:String=""):String=when{
