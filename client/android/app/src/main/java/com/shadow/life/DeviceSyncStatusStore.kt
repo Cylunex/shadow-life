@@ -23,8 +23,9 @@ data class DeviceSyncStatus(
   val samsungState:String="idle",val samsungMessage:String="尚未连接",val samsungUpdatedAt:Long=0,val samsungRecords:Int=0,
   val scaleState:String="idle",val scaleMessage:String="尚未开始称重",val scaleUpdatedAt:Long=0,
   val scaleLastWeight:String?=null,val scaleLastModel:String?=null,val scaleMeasuredAt:Long=0,
-  val scalePendingWeight:String?=null
+  val scalePendingWeight:String?=null,val samsungLastReadAt:Long=0,val samsungLastUploadedAt:Long=0
 ){
+  val samsungReading get()=samsungState in setOf("authorizing","syncing")
   val scaleActive get()=scaleState in setOf("starting","scanning","detected","collecting","reading","needs_config","key_mismatch")
 }
 
@@ -37,27 +38,50 @@ class DeviceSyncStatusStore(context:Context){
     EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
     EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
   )
-  fun current(accountId:String)=DeviceSyncStatus(
-    samsungState=values.getString(key(accountId,"samsung_state"),"idle").orEmpty(),
-    samsungMessage=values.getString(key(accountId,"samsung_message"),"尚未连接").orEmpty(),
-    samsungUpdatedAt=values.getLong(key(accountId,"samsung_updated_at"),0),
-    samsungRecords=values.getInt(key(accountId,"samsung_records"),0),
-    scaleState=values.getString(key(accountId,"scale_state"),"idle").orEmpty(),
-    scaleMessage=values.getString(key(accountId,"scale_message"),"尚未开始称重").orEmpty(),
-    scaleUpdatedAt=values.getLong(key(accountId,"scale_updated_at"),0),
-    scaleLastWeight=values.getString(key(accountId,"scale_weight"),null),
-    scaleLastModel=values.getString(key(accountId,"scale_model"),null),
-    scaleMeasuredAt=values.getLong(key(accountId,"scale_measured_at"),0),
-    scalePendingWeight=values.getString(key(accountId,"scale_pending_weight"),null)
-  )
+  fun current(accountId:String):DeviceSyncStatus {
+    val state=values.getString(key(accountId,"samsung_state"),"idle").orEmpty()
+    val updatedAt=values.getLong(key(accountId,"samsung_updated_at"),0)
+    val stale=state in setOf("syncing","authorizing")&&System.currentTimeMillis()-updatedAt>300_000L
+    return DeviceSyncStatus(
+      samsungState=if(stale)"paused" else state,
+      samsungMessage=if(stale)"上次读取已中断，等待恢复" else values.getString(key(accountId,"samsung_message"),"尚未连接").orEmpty(),
+      samsungUpdatedAt=updatedAt,
+      samsungRecords=values.getInt(key(accountId,"samsung_records"),0),
+      scaleState=values.getString(key(accountId,"scale_state"),"idle").orEmpty(),
+      scaleMessage=values.getString(key(accountId,"scale_message"),"尚未开始称重").orEmpty(),
+      scaleUpdatedAt=values.getLong(key(accountId,"scale_updated_at"),0),
+      scaleLastWeight=values.getString(key(accountId,"scale_weight"),null),
+      scaleLastModel=values.getString(key(accountId,"scale_model"),null),
+      scaleMeasuredAt=values.getLong(key(accountId,"scale_measured_at"),0),
+      scalePendingWeight=values.getString(key(accountId,"scale_pending_weight"),null),
+      samsungLastReadAt=values.getLong(key(accountId,"samsung_last_read_at"),0),
+      samsungLastUploadedAt=values.getLong(key(accountId,"samsung_last_uploaded_at"),if(state=="committed")updatedAt else 0)
+    )
+  }
   fun observe(accountId:String):Flow<DeviceSyncStatus> = callbackFlow{
     val prefix="$accountId:"
     val listener=SharedPreferences.OnSharedPreferenceChangeListener{_,changed->if(changed?.startsWith(prefix)==true)trySend(Unit)}
     values.registerOnSharedPreferenceChangeListener(listener);trySend(Unit);awaitClose{values.unregisterOnSharedPreferenceChangeListener(listener)}
   }.conflate().map{withContext(Dispatchers.IO){current(accountId)}}.distinctUntilChanged()
-  fun updateSamsung(accountId:String,state:String,message:String,records:Int?=null){writer.launch{writeMutex.withLock{values.edit().putString(key(accountId,"samsung_state"),state).putString(key(accountId,"samsung_message"),message).putLong(key(accountId,"samsung_updated_at"),System.currentTimeMillis()).apply{records?.let{putInt(key(accountId,"samsung_records"),it)}}.apply()}}}
+  fun updateSamsung(accountId:String,state:String,message:String,records:Int?=null,readCompleted:Boolean=false){
+    writeStatus {
+      val now=System.currentTimeMillis()
+      putString(key(accountId,"samsung_state"),state)
+      putString(key(accountId,"samsung_message"),message)
+      putLong(key(accountId,"samsung_updated_at"),now)
+      records?.let{putInt(key(accountId,"samsung_records"),it)}
+      if(readCompleted)putLong(key(accountId,"samsung_last_read_at"),now)
+    }
+  }
+  fun recordSamsungUpload(accountId:String){
+    writeStatus { putLong(key(accountId,"samsung_last_uploaded_at"),System.currentTimeMillis()) }
+  }
+  internal fun samsungProgress(accountId:String)=SamsungReadProgress.decode(values.getString(key(accountId,"samsung_read_progress"),null))
+  internal fun saveSamsungProgress(accountId:String,progress:SamsungReadProgress?){
+    check(values.edit().putString(key(accountId,"samsung_read_progress"),progress?.encode()).commit()){"无法保存 Samsung Health 读取进度"}
+  }
   fun updateScale(accountId:String,state:String,message:String,pendingWeight:String?=null){
-    writeScale {
+    writeStatus {
       putString(key(accountId,"scale_state"),state)
       putString(key(accountId,"scale_message"),message)
       putLong(key(accountId,"scale_updated_at"),System.currentTimeMillis())
@@ -65,7 +89,7 @@ class DeviceSyncStatusStore(context:Context){
     }
   }
   fun recordScale(accountId:String,weight:String,model:String,measuredAt:Long,updateState:Boolean=true){
-    writeScale {
+    writeStatus {
       if(updateState){
         putString(key(accountId,"scale_state"),"queued")
         putString(key(accountId,"scale_message"),"已收到稳定读数，等待上传")
@@ -77,8 +101,8 @@ class DeviceSyncStatusStore(context:Context){
       putLong(key(accountId,"scale_measured_at"),measuredAt)
     }
   }
-  private fun writeScale(edit:SharedPreferences.Editor.()->Unit){
-    // Acquire the lock in call order so scanning, preview and save cannot overwrite newer states.
+  private fun writeStatus(edit:SharedPreferences.Editor.()->Unit){
+    // Acquire the lock in call order so progress and terminal states are presented in order.
     writer.launch(start=CoroutineStart.UNDISPATCHED){
       writeMutex.withLock{withContext(Dispatchers.IO){values.edit().apply(edit).apply()}}
     }

@@ -49,7 +49,7 @@ internal val captureDomains=listOf("unknown" to "未分类","work" to "工作","
   insight?.let{data->
    Text("${data.fromOn} — ${data.toOnExclusive}（结束日不含）");Text("应用使用 ${data.appUsageSeconds/60} 分钟 · ${data.sourceCount} 项来源")
    Text("只统计已观察到的区间，重叠取并集。分类之间可能重叠；应用时长不等于专注时间。",style=MaterialTheme.typography.bodySmall)
-   data.apps.take(20).forEach{Text("${it.title}：${it.seconds/60} 分钟 · ${it.intervals} 段")}
+   data.apps.take(20).forEach{Text("${captureActivityTitle(context,it.title,it.packageName)}：${it.seconds/60} 分钟 · ${it.intervals} 段")}
    data.groups.forEach{group->Text("${captureBehaviors.firstOrNull{it.first==group.behavior.wireValue}?.second} / ${captureDomains.firstOrNull{it.first==group.lifeDomain.wireValue}?.second}：${group.seconds/60} 分钟")}
    if(data.projects.isNotEmpty()){Text("项目投入",style=MaterialTheme.typography.titleMedium);data.projects.forEach{Text("${it.title}：${it.seconds/60} 分钟 · ${it.count} 项来源")}}
    if(data.dailyFacts.isNotEmpty()){Text("所选日期的生活事实",style=MaterialTheme.typography.titleMedium);data.dailyFacts.forEach{Text("${it.label}：${it.value} ${it.unit}")}}
@@ -65,7 +65,7 @@ internal val captureDomains=listOf("unknown" to "未分类","work" to "工作","
   OutlinedTextField(query,{query=it.take(200)},label={Text("搜索原文、订单、地点或转写")},modifier=Modifier.fillMaxWidth())
   CaptureChoice("类型",kind,listOf("" to "全部","app_usage" to "应用使用","screen_text" to "屏幕／截图","recording" to "录音转写","stay" to "停留地点","manual" to "手动活动")){kind=it};CaptureChoice("行为",behavior,listOf("" to "全部")+captureBehaviors){behavior=it};CaptureChoice("项目",project,listOf("" to "全部")+insight?.projects.orEmpty().map{it.id to it.title}){project=it}
   Button(enabled=!busy,onClick={run{val range=insight?:error("请先加载日期范围");search=repository.captureSearch(range.fromOn,range.toOnExclusive,query,kind.ifBlank{null},behavior.ifBlank{null},project.ifBlank{null})}}){Text("检索所选范围")}
-  search?.items?.forEach{row->TextButton(onClick={selectedSource=row.id}){Text("${row.title} · ${row.startedAt}")}}
+  search?.items?.forEach{row->TextButton(onClick={selectedSource=row.id}){Text("${captureActivityTitle(context,row.title,row.appPackage)} · ${localDateTime(row.startedAt,row.timeZone)}")}}
   search?.nextBeforeId?.let{cursor->TextButton(enabled=!busy,onClick={run{val range=insight!!;val next=repository.captureSearch(range.fromOn,range.toOnExclusive,query,kind.ifBlank{null},behavior.ifBlank{null},project.ifBlank{null},cursor);search=next.copy(items=search!!.items+next.items)}}){Text("加载更多")}}
  }
  else->{
@@ -98,7 +98,7 @@ internal val captureDomains=listOf("unknown" to "未分类","work" to "工作","
  fun run(block:suspend()->Unit){scope.launch{try{check(app.sessions.active()?.accountId==accountId);block()}catch(e:CancellationException){throw e}catch(e:Exception){message=e.message}}}
  LaunchedEffect(accountId,id){try{load()}catch(e:CancellationException){throw e}catch(e:Exception){message=e.message}}
  Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)){
-  source?.let{row->Text(row.title,style=MaterialTheme.typography.titleLarge);Text("${row.startedAt} — ${row.endedAt}");Text(row.text?.let(::captureReadableText)?:"此来源只有已观察的活动区间。");row.latitude?.let{Text("坐标 $it, ${row.longitude} · 精度 ${row.accuracyM} 米")};Text("分类依据：${mapOf("user" to "用户更正","app_rule" to "应用默认规则","app_category" to "按应用类别","content_suggestion" to "由可见内容推断","unknown" to "尚未分类")[row.classificationOrigin]?:row.classificationOrigin}")
+  source?.let{row->Text(captureActivityTitle(context,row.title,row.appPackage),style=MaterialTheme.typography.titleLarge);Text(captureActivityInterval(row.startedAt,row.endedAt,row.timeZone));Text(row.text?.let(::captureReadableText)?:"此来源只有已观察的活动区间。");row.latitude?.let{Text("坐标 $it, ${row.longitude} · 精度 ${row.accuracyM} 米")};Text("分类依据：${mapOf("user" to "用户更正","app_rule" to "应用默认规则","app_category" to "按应用类别","content_suggestion" to "由可见内容推断","unknown" to "尚未分类")[row.classificationOrigin]?:row.classificationOrigin}")
    CaptureChoice("行为",behavior,captureBehaviors){behavior=it};CaptureChoice("领域",domain,captureDomains){domain=it};CaptureChoice("项目",project,listOf("" to "不关联")+projects){project=it}
    if(row.appPackage!=null)Row{Text("作为此应用以后的默认分类");Switch(rememberApp,{rememberApp=it})}
    Button(onClick={run{repository.captureWrite("life.classify_activity",JSONObject().put("id",id).put("expected_revision",row.classificationRevision).put("behavior",behavior).put("life_domain",domain).put("project_id",project.ifBlank{null}?:JSONObject.NULL).put("remember_app",rememberApp),accountId);message="分类更正已进入同步队列，完成后刷新。"}}){Text("保存分类与项目")}

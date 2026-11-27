@@ -19,6 +19,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
+import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.toRoute
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import kotlinx.serialization.Serializable
 
@@ -49,11 +51,20 @@ internal data class LifeModuleNavigation(
 internal val LocalLifeModuleNavigation=staticCompositionLocalOf<LifeModuleNavigation?>{null}
 
 internal fun NavHostController.openLifeModule(module:LifeModule,tab:String?=null){
+  // Same-day links are temporary overlays. Back can return to their source,
+  // but an explicit module switch must not save them as that source's top page.
+  fun currentIsSameDayLink():Boolean {
+    val entry=currentBackStackEntry?:return false
+    return entry.destination.hasRoute<WorkspaceRoute>()&&entry.toRoute<WorkspaceRoute>().tab.startsWith("day/")
+  }
+  while(currentIsSameDayLink()&&popBackStack()) Unit
   navigate(module.route()){
     popUpTo(graph.findStartDestination().id){saveState=true}
     launchSingleTop=true
     restoreState=true
   }
+  // A restored stack from an older build can already contain a same-day overlay.
+  while(currentIsSameDayLink()&&popBackStack()) Unit
   if(tab!=null){
     popBackStack(module.route(),inclusive=false)
     getBackStackEntry(module.route()).savedStateHandle["module-section"]="$tab|${android.os.SystemClock.elapsedRealtimeNanos()}"
@@ -98,7 +109,7 @@ internal fun moduleIcon(module:LifeModule):ImageVector=when(module){
     }}
   )
   if(picker&&navigation!=null)ModalBottomSheet(onDismissRequest={picker=false}){
-    LazyColumn(Modifier.fillMaxWidth(),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
+    LazyColumn(Modifier.fillMaxWidth().navigationBarsPadding(),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
       item{Text("切换模块",style=MaterialTheme.typography.titleLarge)}
       LifeModule.entries.chunked(2).forEach{modules->item{Row(horizontalArrangement=Arrangement.spacedBy(12.dp)){
         modules.forEach{value->Surface(onClick={picker=false;if(value!=module)navigation.onModule(value,null)},modifier=Modifier.weight(1f),shape=RoundedCornerShape(16.dp),color=if(value==module)MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer){

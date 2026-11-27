@@ -304,7 +304,7 @@ private fun SettingsScreen(
       if(settingsTab=="general"){
       LifeSection("账号"){
         LifeCard{
-          Text(session.displayName?:session.subjectId,style=MaterialTheme.typography.titleMedium)
+          Text(session.displayName?.takeUnless{it.isBlank()||it.equals("null",ignoreCase=true)}?:"已登录",style=MaterialTheme.typography.titleMedium)
           Text("Shadow Identity",color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
       }
@@ -335,8 +335,17 @@ private fun SettingsScreen(
                 "${value.attachments} 个加密附件 · ${value.failed} 项需处理",
                 color=if(value.failed>0)MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
               )
+              if(value.failures.isNotEmpty()){
+                HorizontalDivider()
+                value.failures.forEach{issue->
+                  Text("${queueSourceLabel(issue.source)} · ${issue.count} 项",style=MaterialTheme.typography.titleSmall)
+                  Text(queueIssueLabel(issue.reason),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+              }
               Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
-                TextButton(onClick=onRetryQueue,enabled=value.failed+value.reconciling>0){Text("重试")}
+                TextButton(onClick=onRetryQueue,enabled=value.failed+value.reconciling+value.waiting+value.attachments>0){
+                  Text(if(value.failed+value.reconciling>0)"重试同步" else "立即发送")
+                }
                 TextButton(onClick={confirmClear=true},enabled=value.terminal>0){Text("清理已结束项目")}
               }
             }
@@ -364,6 +373,29 @@ private fun SettingsScreen(
     )
   }
   if(editScale)ScaleSettingsDialog(scaleSettings,{editScale=false;onSaveScale(it)},{editScale=false})
+}
+
+private fun queueSourceLabel(source:String)=when(source){
+  "samsung"->"Samsung Health"
+  "scale"->"小米体脂秤"
+  "health_connect"->"Health Connect"
+  "capture"->"活动与采集"
+  "money"->"消费"
+  "attachment"->"附件"
+  else->"生活记录"
+}
+
+private fun queueIssueLabel(reason:String)=when(reason){
+  "permission"->"当前账号缺少写入权限，恢复权限后可重试"
+  "conflict"->"与云端现有版本冲突，请先刷新对应记录"
+  "validation"->"服务器无法接受数据格式，请检查客户端版本或原记录"
+  "too_large"->"内容超过上传大小限制"
+  "file_missing"->"本机原件已不可读取，可从原处重新收存"
+  "key_unavailable"->"本机无法解密这条记录或附件"
+  "transport","service_unavailable"->"网络或服务暂不可用，恢复后可重试"
+  "unverified"->"尚未核对到提交回执，可重试核对"
+  "server_rejected"->"服务器拒绝了上传，可重试确认"
+  else->"旧版本未保存失败原因，重试后可查看新的结果"
 }
 
 @Composable private fun ScaleSettingsDialog(current:ScaleProfileSettings,onSave:(ScaleProfileSettings)->Unit,onDismiss:()->Unit){

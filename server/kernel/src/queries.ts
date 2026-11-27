@@ -60,7 +60,7 @@ import { buildConsumptionStats } from "./consumption-stats.js";
 import { buildDailyRecordCheck } from "./daily-record-check.js";
 
 type Domain="money"|"health"|"travel"|"library";
-type Cursor={domain:Domain;query:string;filter?:string;at:string;kind:string;id:string;as_of:string};
+type Cursor={domain:Domain;query:string;filter?:string;on?:string;at:string;kind:string;id:string;as_of:string};
 type LifeRecordSection="meal"|"purchase"|"money"|"sources";
 type TimelineCursor={domains:string;at:string;domain:string;kind:string;id:string;as_of:string};
 type SearchCursor={signature:string;on:string;domain:LifeOverviewDomain;kind:string;id:string;as_of:string};
@@ -186,9 +186,34 @@ export class QueryService {
     const filters=[period,currency,entryType,itemTypes?.slice().sort()];
     if(on||category!==undefined)filters.push(on,category);
     const filter=filters.some(value=>value!==undefined)?JSON.stringify(filters):undefined;
-    const limit=options.limit;if(!Number.isInteger(limit)||limit<1||limit>100)throw invalidInput("limit must be between 1 and 100",["limit"]);const query=options.query?.trim().toLocaleLowerCase()??"";let asOf:string|undefined,before:Cursor|undefined;
-    if(options.cursor){try{before=JSON.parse(Buffer.from(options.cursor,"base64url").toString("utf8")) as Cursor;}catch{throw invalidInput("cursor is invalid",["cursor"]);}if(before.domain!==domain||before.query!==query||before.filter!==filter||!before.at||!before.kind||!before.id||!before.as_of)throw invalidInput("cursor does not match this query",["cursor"]);asOf=before.as_of;}
-    const page=await this.unitOfWork.read(store=>store.listDomain(context.subjectId,domain,{includePurchase:context.effects.has("life.meal.read"),...(query?{query}:{}),...(period?{period}:{}),...(currency?{currency}:{}),...(entryType?{entryType}:{}),...(itemTypes?{itemTypes}:{}),...(on?{on}:{}),...(category===undefined?{}:{category}),limit,...(asOf?{asOf}:{}),...(before?{before:{at:before.at,kind:before.kind,id:before.id}}:{})}));asOf=page.asOf;const items=page.items.map(({_page_at,...item})=>item);const last=page.items.at(-1),next=page.hasMore&&last?Buffer.from(JSON.stringify({domain,query,...(filter?{filter}:{}),at:last._page_at,kind:last.kind,id:last.id,as_of:asOf} satisfies Cursor)).toString("base64url"):null;return domainRecordsResultSchema.parse({items,next_cursor:next,as_of:asOf});
+    const limit=options.limit;
+    const query=options.query?.trim().toLocaleLowerCase()??"";
+    const monthlyMoney=domain==="money"&&period!==undefined;
+    let before:Cursor|undefined;
+    if(options.cursor){
+      try{before=JSON.parse(Buffer.from(options.cursor,"base64url").toString("utf8")) as Cursor;}
+      catch{throw invalidInput("cursor is invalid",["cursor"]);}
+      if(!before||before.domain!==domain||before.query!==query||before.filter!==filter||!before.at||!before.kind||!before.id||!before.as_of||
+        (before.on!==undefined&&(!monthlyMoney||!domainRecordsInputSchema.shape.on.safeParse(before.on).success))){
+        throw invalidInput("cursor does not match this query",["cursor"]);
+      }
+    }
+    // Cursors issued before occurrence ordering must finish in their original order.
+    const orderByOccurrence=monthlyMoney&&(!before||before.on!==undefined);
+    const page=await this.unitOfWork.read(store=>store.listDomain(context.subjectId,domain,{
+      includePurchase:context.effects.has("life.meal.read"),
+      ...(query?{query}:{}),...(period?{period}:{}),...(currency?{currency}:{}),...(entryType?{entryType}:{}),
+      ...(itemTypes?{itemTypes}:{}),...(on?{on}:{}),...(category===undefined?{}:{category}),
+      orderByOccurrence,limit,
+      ...(before?{asOf:before.as_of,before:{at:before.at,kind:before.kind,id:before.id,...(before.on?{on:before.on}:{})}}:{})
+    }));
+    const items=page.items.map(({_page_at,...item})=>item);
+    const last=page.items.at(-1);
+    const next=page.hasMore&&last?Buffer.from(JSON.stringify({
+      domain,query,...(filter?{filter}:{}),...(orderByOccurrence&&last.happened_on?{on:last.happened_on}:{}),
+      at:last._page_at,kind:last.kind,id:last.id,as_of:page.asOf
+    } satisfies Cursor)).toString("base64url"):null;
+    return domainRecordsResultSchema.parse({items,next_cursor:next,as_of:page.asOf});
   }
   async healthReleaseHistory(context:RequestContext,input:unknown){if(!context.effects.has("health.measurement.read"))throw permissionDenied("health.measurement.read");const parsed=healthReleaseHistoryInputSchema.parse(input);return healthReleaseHistoryResultSchema.parse(await this.unitOfWork.read(store=>store.healthReleaseHistory(context.subjectId,parsed)));}
   async stockRecipes(context:RequestContext,input:unknown){

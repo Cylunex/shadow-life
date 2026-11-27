@@ -21,6 +21,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withTimeoutOrNull
 
 private data class RoadMapResult(val key:String,val routes:List<GoogleRoadRoute>,val unavailable:Int)
 
@@ -56,24 +62,39 @@ private data class RoadMapResult(val key:String,val routes:List<GoogleRoadRoute>
   val roadMap by produceState<RoadMapResult?>(initialValue=null,provider,showRoutes,roadKey){
     this.value=null
     if(provider==TravelMapProvider.Google&&showRoutes&&routes.isNotEmpty()){
-      val found=mutableListOf<GoogleRoadRoute>();var unavailable=0
-      for(segment in routes){
-        val key=segment.joinToString(";"){"${it.latitude},${it.longitude}"}
-        val route=roadCache[key]?:try{fetchGoogleRoadRoute(context,segment,BuildConfig.GOOGLE_MAPS_API_KEY)?.also{roadCache[key]=it}}catch(error:CancellationException){throw error}catch(_:Exception){null}
-        if(route==null)unavailable++ else found+=route
+      coroutineScope{
+        val found=mutableMapOf<Int,GoogleRoadRoute>()
+        val concurrency=Semaphore(4)
+        val requests=routes.mapIndexed{index,segment->async{
+          val key=segment.joinToString(";"){"${it.latitude},${it.longitude}"}
+          val route=roadCache[key]?:concurrency.withPermit{
+            try{fetchGoogleRoadRoute(context,segment,BuildConfig.GOOGLE_MAPS_API_KEY)?.also{roadCache[key]=it}}
+            catch(error:CancellationException){throw error}
+            catch(_:Exception){null}
+          }
+          if(route!=null)found[index]=route
+        }}
+        val finished=withTimeoutOrNull(8_000L){requests.awaitAll()}!=null
+        this@produceState.value=RoadMapResult(roadKey,found.toSortedMap().values.toList(),routes.size-found.size)
+        if(!finished)requests.forEach{it.cancel()}
       }
-      this.value=RoadMapResult(roadKey,found,unavailable)
     }
   }
   val activeRoadMap=roadMap?.takeIf{it.key==roadKey}
-  val displayRoutes=if(!showRoutes)emptyList() else if(provider==TravelMapProvider.Google)activeRoadMap?.routes?.map{it.points}.orEmpty() else routes
+  val displayRoutes=when{
+    !showRoutes->emptyList()
+    provider==TravelMapProvider.Amap->routes
+    activeRoadMap==null->emptyList()
+    activeRoadMap.routes.isEmpty()->routes
+    else->activeRoadMap.routes.map{it.points}
+  }
   val routeStatus=when{
     scope=="theme"->"主题地图和导入轨迹与行程计划分别保存。"
-    provider==TravelMapProvider.Amap->"高德底图上的橙线仅示意地点顺序，不是道路导航。"
-    !showRoutes->"路线已隐藏；计划地点不代表实际到访。"
+    !showRoutes->"路线已隐藏。"
     routes.isEmpty()->"当前范围没有连续的可定位地点。"
-    activeRoadMap==null->"正在计算 Google 驾车道路路线…"
-    activeRoadMap.routes.isEmpty()->"没有可用的驾车道路路线；可在地点清单中逐段打开 Google 地图。"
+    provider==TravelMapProvider.Amap->"橙线仅示意地点顺序。"
+    activeRoadMap==null->"正在读取 Google 驾车路线…"
+    activeRoadMap.routes.isEmpty()->"Google 道路路线暂不可用，已显示地点顺序。"
     else->"Google 驾车道路路线 · ${"%.1f".format(activeRoadMap.routes.sumOf{it.distanceMeters}/1000.0)} 公里 · 约 ${(activeRoadMap.routes.sumOf{it.durationSeconds}+30)/60} 分钟${if(activeRoadMap.unavailable>0)"；${activeRoadMap.unavailable} 段无可用道路" else ""}。计划地点不代表实际到访。"
   }
   val visibleDays=if(scope=="day")orderedDays.filter{it.date==selectedDate} else orderedDays
@@ -92,7 +113,8 @@ private data class RoadMapResult(val key:String,val routes:List<GoogleRoadRoute>
   @Composable fun mapView(modifier:Modifier,gesture:(Boolean)->Unit){
     if(provider==TravelMapProvider.Amap&&!amapConsent&&providerConfigured(provider)){
       Box(modifier){TravelMapCanvas(displayMarkers,tracks,Modifier.fillMaxSize(),displayRoutes);TextButton(onClick={showAmapConsent=true},Modifier.align(Alignment.BottomCenter)){Text("同意隐私说明后加载高德地图")}}
-    }else TravelNativeMap(provider,displayMarkers,tracks,modifier,displayRoutes,satellite,gesture)
+    }else TravelNativeMap(provider,displayMarkers,tracks,modifier,displayRoutes,satellite,gesture,
+      onTryAmap={selectProvider(TravelMapProvider.Amap)})
   }
   @Composable fun controls(){
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){
@@ -105,7 +127,7 @@ private data class RoadMapResult(val key:String,val routes:List<GoogleRoadRoute>
     }
   }
   @Composable fun stops(gesture:(Boolean)->Unit){
-    if(scope!="theme")TravelMapStopPanel(scope,visibleDays,dates,selectedDate,value.placeItems,markers.size,displayRoutes,listExpanded,{listExpanded=!listExpanded},gesture)
+    if(scope!="theme")TravelMapStopPanel(scope,visibleDays,dates,selectedDate,value.placeItems,markers.size,routes,listExpanded,{listExpanded=!listExpanded},gesture)
     else Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
       Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){
         FilterChip(selectedMap==null,{selectedMap=null},label={Text("全部足迹 ${markers.size}")})

@@ -41,11 +41,13 @@ data class AssistantMessage(val id:String,val role:String,val content:String,val
 data class AssistantConversation(val threadId:String,val items:List<AssistantMessage>,val nextCursor:String?,val asOf:String)
 data class SharePayload(val ingressId:String,val text:String?,val uris:List<String>)
 data class ProjectLinkItem(val id:String,val title:String,val subtitle:String,val icon:String,val state:String,val launchMode:String?,val appLinkUrl:String?,val webFallbackUrl:String?,val androidPackage:String?,val authHint:String,val order:Int)
+data class QueueFailureGroup(val source:String,val reason:String,val count:Int)
 data class QueueSummary(
   val waiting:Int,val reconciling:Int,val failed:Int,val completed:Int,val attachments:Int,
   val latestScaleState:String?=null,val latestScaleAt:Long?=null,
   val latestSamsungState:String?=null,val latestSamsungAt:Long?=null,
-  val committedReceipts:List<OperationReceipt> = emptyList()
+  val committedReceipts:List<OperationReceipt> = emptyList(),
+  val failures:List<QueueFailureGroup> = emptyList()
 ){val terminal:Int get()=failed+completed}
 data class NotificationTarget(val kind:String,val id:String,val on:String?)
 data class NotificationItem(val id:String,val title:String,val body:String,val scheduledAt:String,val state:String,val readState:String,val deliveryState:String,val target:NotificationTarget?=null)

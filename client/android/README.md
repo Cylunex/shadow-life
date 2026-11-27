@@ -55,9 +55,9 @@ as well. Oversized route payloads are split into ordered, lossless archive chunk
 the optional Health Connect integration is explicitly enabled and the matching permission is already granted,
 Samsung steps/sleep/exercise and weight remain archived but are not projected into both paths, avoiding duplicate
 dashboard facts. Health Connect is disabled by default; Samsung direct sync remains the primary health source.
-After Samsung permission has been granted, returning to Life starts an immediate unique sync and keeps the hourly
-background schedule. Life, Health and Settings show the live read state, record count, queue state and committed
-result. Xiaomi Scale 2/S400 scanning reports scan start, first matching advertisement, stable measurement, local
+After Samsung permission has been granted, returning to Life requests an immediate sync and keeps the 30-minute
+background schedule. The reader checkpoints each processed page and completed type and starts upload while it
+continues reading. Settings shows read and upload timestamps separately, plus queued failures by source and reason. Xiaomi Scale 2/S400 scanning reports scan start, first matching advertisement, stable measurement, local
 queueing and server commit in the same visible panel; the latest accepted weight remains visible after the service
 notification closes.
 

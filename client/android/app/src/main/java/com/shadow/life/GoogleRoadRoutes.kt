@@ -18,7 +18,7 @@ internal suspend fun fetchGoogleRoadRoute(context:Context,stops:List<TravelMapPo
   val body=JSONObject().put("origin",waypoint(stops.first())).put("destination",waypoint(stops.last())).put("travelMode","DRIVE")
   if(stops.size>2)body.put("intermediates",JSONArray().apply{stops.drop(1).dropLast(1).forEach{put(waypoint(it))}})
   val connection=(URL("https://routes.googleapis.com/directions/v2:computeRoutes").openConnection() as HttpURLConnection).apply{
-    requestMethod="POST";connectTimeout=8000;readTimeout=12000;doOutput=true
+    requestMethod="POST";connectTimeout=3_000;readTimeout=5_000;doOutput=true
     setRequestProperty("Content-Type","application/json")
     setRequestProperty("X-Goog-Api-Key",apiKey)
     setRequestProperty("X-Goog-FieldMask","routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline")

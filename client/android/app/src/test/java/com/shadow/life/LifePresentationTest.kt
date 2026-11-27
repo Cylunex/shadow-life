@@ -29,6 +29,26 @@ class LifePresentationTest {
     assertEquals("1",totals.single{it.key=="iron_mg"}.amount.toString())
   }
 
+  @Test fun `ordinary yuan display removes padding while foreign and stored precision survive`() {
+    val cny=money("yuan","expense","CNY","0.010000")
+    assertEquals("¥0.01",recordAmountLabel(cny))
+    assertEquals("0.010000",recordAmount(cny)?.toPlainString())
+    assertEquals("USD 0.010001",recordAmountLabel(money("usd","expense","USD","0.010001")))
+  }
+
+  @Test fun `trip overview distinguishes historical planned and current trips`() {
+    val historical=TravelTripSummary("history","历史","2026-09-20","2026-10-01","Asia/Shanghai",null,false)
+    val next=historical.copy(id="next",startsOn="2026-12-03",endsOn="2026-12-04")
+    val later=next.copy(id="later",startsOn="2027-01-01",endsOn="2027-01-03")
+    val current=historical.copy(id="current",startsOn="2026-11-26",endsOn="2026-11-27")
+    val today="2026-11-27"
+    assertEquals("已结束的旅程",tripHeadline(featuredTrip(listOf(historical),null,today),today))
+    assertEquals(next,featuredTrip(listOf(later,next,historical),null,today))
+    assertEquals("下一段旅程",tripHeadline(next,today))
+    assertEquals(current,featuredTrip(listOf(next,current,historical),null,today))
+    assertEquals("正在旅行",tripHeadline(current,today))
+  }
+
   @Test fun `money summaries keep currencies precision and negative net spending`() {
     val records=listOf(
       money("a","expense","CNY","100000000000000000.123456"),

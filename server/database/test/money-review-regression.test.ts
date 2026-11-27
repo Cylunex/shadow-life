@@ -116,3 +116,32 @@ test("foreign expenses and refunds keep original currency before and after actua
   const summary=await queries.summarizeMoney(context,{period:"2026-11"});
   assert.ok(summary.totals.every(row=>row.currency==="USD"));
 });
+
+test("monthly money is ordered by transaction day and time across backfills and cursor pages",pgOnly,async t=>{
+  const {run,queries,context}=await reviewFixture(t);
+  const period="2026-11";
+  const record=async(occurred_on:string,occurred_at?:string)=>String((await run("money.record_foreign_entry",{
+    entry_type:"expense",amount:"12.00",currency:"USD",source_scale:2,time_zone:"Asia/Shanghai",
+    occurred_on,...(occurred_at?{occurred_at}:{})
+  })).actual_values.money_entry_id);
+  const earlier=await record("2026-11-27","2026-11-26T23:00:00Z");
+  const latest=await record("2026-11-27","2026-11-27T02:00:00Z");
+  const timeless=await record("2026-11-27");
+  const backfill=await record("2026-11-04");
+  const first=await queries.listDomain(context,"money",{period,currency:"USD",limit:2});
+  assert.deepEqual(first.items.map(row=>row.id),[latest,earlier]);
+  assert.ok(first.next_cursor);
+  await record("2026-11-28","2026-11-28T01:00:00Z");
+  const second=await queries.listDomain(context,"money",{period,currency:"USD",limit:2,cursor:first.next_cursor});
+  assert.deepEqual(second.items.map(row=>row.id),[timeless,backfill]);
+  assert.equal(second.next_cursor,null);
+
+  const byCreation=await queries.listDomain(context,"money",{currency:"USD",limit:2});
+  assert.equal(byCreation.items[1]?.id,backfill);
+  assert.ok(byCreation.next_cursor);
+  const legacy=JSON.parse(Buffer.from(byCreation.next_cursor,"base64url").toString("utf8"));
+  legacy.filter=JSON.stringify([period,"USD",null,null]);
+  const oldCursor=Buffer.from(JSON.stringify(legacy)).toString("base64url");
+  const legacyPage=await queries.listDomain(context,"money",{period,currency:"USD",limit:3,cursor:oldCursor});
+  assert.deepEqual(legacyPage.items.map(row=>row.id),[timeless,latest,earlier]);
+});

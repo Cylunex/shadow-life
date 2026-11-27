@@ -82,7 +82,7 @@ class OidcSessions(private val activity:Activity,private val store:SessionStore)
       }
     }
   }
-  private fun loadIdentity(token:String):IdentityView { val connection=(URL(BuildConfig.SHADOW_API_BASE.trimEnd('/')+"/api/me").openConnection() as HttpURLConnection).apply{connectTimeout=10_000;readTimeout=15_000;setRequestProperty("Authorization","Bearer $token");setRequestProperty("Accept","application/json")};try{if(connection.responseCode!=200)error("Identity admission failed");val json=JSONObject(connection.inputStream.bufferedReader().use{it.readText()});return IdentityView(json.getString("issuer"),json.getString("oidc_sub"),json.getString("life_subject_id"),json.getString("environment_id"),json.optString("display_name").takeIf(String::isNotBlank))}finally{connection.disconnect()} }
+  private fun loadIdentity(token:String):IdentityView { val connection=(URL(BuildConfig.SHADOW_API_BASE.trimEnd('/')+"/api/me").openConnection() as HttpURLConnection).apply{connectTimeout=10_000;readTimeout=15_000;setRequestProperty("Authorization","Bearer $token");setRequestProperty("Accept","application/json")};try{if(connection.responseCode!=200)error("Identity admission failed");val json=JSONObject(connection.inputStream.bufferedReader().use{it.readText()});return IdentityView(json.getString("issuer"),json.getString("oidc_sub"),json.getString("life_subject_id"),json.getString("environment_id"),json.optNullableString("display_name"))}finally{connection.disconnect()} }
 }
 private data class IdentityView(val issuer:String,val oidcSub:String,val subjectId:String,val environmentId:String,val displayName:String?)
 

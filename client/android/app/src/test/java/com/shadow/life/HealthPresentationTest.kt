@@ -4,6 +4,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class HealthPresentationTest {
+  @Test fun `recent health records localize both metric keys and normalized wire titles`() {
+    assertEquals("每日活动",healthMetricLabel("daily activity"))
+    assertEquals("肌肉率",healthMetricLabel("muscle_rate"))
+  }
+
   @Test fun `health decimals use human friendly precision`() {
     assertEquals("85.7",healthValueText("85.700000","kg"))
     assertEquals("1714",healthValueText("1714.000000","kcal/day"))

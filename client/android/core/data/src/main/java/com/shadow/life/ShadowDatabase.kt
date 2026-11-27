@@ -1,14 +1,15 @@
 package com.shadow.life
 import androidx.room.*
 import kotlinx.coroutines.flow.Flow
-@Entity(tableName="pending_commands",indices=[Index(value=["accountId","subjectId","commandId"],unique=true)]) data class PendingCommand(@PrimaryKey val commandId:String,val accountId:String,val subjectId:String,val capability:String,val body:String,val state:String="pending",val attempts:Int=0,val createdAt:Long=System.currentTimeMillis(),@ColumnInfo(defaultValue="0")val encryptionVersion:Int=0,@ColumnInfo(defaultValue="''")val receiptBody:String="")
-@Entity(tableName="pending_attachments",indices=[Index(value=["accountId","subjectId","commandId"],unique=true)]) data class PendingAttachment(@PrimaryKey val id:String,val accountId:String,val subjectId:String,val commandId:String,val localPath:String,val mediaType:String,val state:String="pending",@ColumnInfo(defaultValue="0")val attempts:Int=0,val createdAt:Long=System.currentTimeMillis(),@ColumnInfo(defaultValue="0")val encryptionVersion:Int=0,@ColumnInfo(defaultValue="''")val capturedOn:String="",@ColumnInfo(defaultValue="''")val displayName:String="",@ColumnInfo(defaultValue="''")val captureMetadata:String="")
+@Entity(tableName="pending_commands",indices=[Index(value=["accountId","subjectId","commandId"],unique=true)]) data class PendingCommand(@PrimaryKey val commandId:String,val accountId:String,val subjectId:String,val capability:String,val body:String,val state:String="pending",val attempts:Int=0,val createdAt:Long=System.currentTimeMillis(),@ColumnInfo(defaultValue="0")val encryptionVersion:Int=0,@ColumnInfo(defaultValue="''")val receiptBody:String="",@ColumnInfo(defaultValue="''")val failureReason:String="")
+@Entity(tableName="pending_attachments",indices=[Index(value=["accountId","subjectId","commandId"],unique=true)]) data class PendingAttachment(@PrimaryKey val id:String,val accountId:String,val subjectId:String,val commandId:String,val localPath:String,val mediaType:String,val state:String="pending",@ColumnInfo(defaultValue="0")val attempts:Int=0,val createdAt:Long=System.currentTimeMillis(),@ColumnInfo(defaultValue="0")val encryptionVersion:Int=0,@ColumnInfo(defaultValue="''")val capturedOn:String="",@ColumnInfo(defaultValue="''")val displayName:String="",@ColumnInfo(defaultValue="''")val captureMetadata:String="",@ColumnInfo(defaultValue="''")val failureReason:String="")
 @Entity(tableName="health_sync_rounds",primaryKeys=["accountId","subjectId"])
 data class HealthSyncRoundRow(val accountId:String,val subjectId:String,@Embedded val progress:HealthRoundState)
 data class QueueStatusRow(
   val waiting:Int,val reconciling:Int,val failed:Int,val completed:Int,val attachments:Int,
   val latestScaleState:String?,val latestScaleAt:Long?,val latestSamsungState:String?,val latestSamsungAt:Long?
 )
+data class QueueFailureRow(val source:String,val reason:String,val count:Int)
 data class CommittedCommandRow(val commandId:String,val accountId:String,val subjectId:String,val capability:String,val state:String,val createdAt:Long,val receiptBody:String)
 @Dao interface CommandDao{
   @Query("select * from pending_commands where accountId=:account and subjectId=:subject and capability='life.record_meal' and encryptionVersion=1 and state in ('pending','uploading','unknown','blocked','failed','committed') order by createdAt desc limit 500")
@@ -52,6 +53,20 @@ data class CommittedCommandRow(val commandId:String,val accountId:String,val sub
     (select state from pending_commands where accountId=:account and subjectId=:subject and commandId like 'cmd_samsung_%' order by createdAt desc,commandId desc limit 1) as latestSamsungState,
     (select createdAt from pending_commands where accountId=:account and subjectId=:subject and commandId like 'cmd_samsung_%' order by createdAt desc,commandId desc limit 1) as latestSamsungAt
   """)fun observeStatus(account:String,subject:String):Flow<QueueStatusRow>
+  @Query("""select source,reason,count(*) as count from (
+    select case
+      when substr(commandId,1,12)='cmd_samsung_' then 'samsung'
+      when substr(commandId,1,10)='cmd_scale_' then 'scale'
+      when substr(commandId,1,7)='cmd_hc_' then 'health_connect'
+      when capability in ('life.ingest_activity','life.capture_screenshot','life.register_recording','life.restore_activities','life.restore_recording') then 'capture'
+      when capability like 'money.%' or capability='life.record_purchase' then 'money'
+      else 'record'
+    end as source,failureReason as reason from pending_commands
+    where accountId=:account and subjectId=:subject and state in ('blocked','failed')
+    union all select 'attachment',failureReason from pending_attachments
+    where accountId=:account and subjectId=:subject and state in ('blocked','failed')
+  ) group by source,reason order by count desc,source,reason""")
+  fun observeFailures(account:String,subject:String):Flow<List<QueueFailureRow>>
   @Query("select commandId,accountId,subjectId,capability,state,createdAt,receiptBody from pending_commands where accountId=:account and subjectId=:subject and state='committed' and receiptBody<>'' order by createdAt desc,commandId desc limit :limit")fun observeRecentCommitted(account:String,subject:String,limit:Int):Flow<List<CommittedCommandRow>>
   @Query("select (select count(*) from pending_commands where accountId='' and state='needs_account')+(select count(*) from pending_attachments where accountId='' and state='needs_account')")fun observeRecoverableCount():Flow<Int>
   @Query("update pending_commands set accountId=:account,subjectId=:subject,state='needs_encryption' where accountId='' and state='needs_account'")suspend fun recoverCommandsToAccount(account:String,subject:String):Int
@@ -59,20 +74,20 @@ data class CommittedCommandRow(val commandId:String,val accountId:String,val sub
   @Transaction suspend fun recoverToAccount(account:String,subject:String)=recoverCommandsToAccount(account,subject)+recoverAttachmentsToAccount(account,subject)
   @Query("select * from pending_commands where accountId=:account and subjectId=:subject and encryptionVersion=0")suspend fun legacyCommands(account:String,subject:String):List<PendingCommand>
   @Query("update pending_commands set body=:body,encryptionVersion=1,state='pending' where commandId=:id")suspend fun secureCommand(id:String,body:String)
-  @Query("update pending_commands set state=:state,attempts=attempts+1 where commandId=:id")suspend fun mark(id:String,state:String)
-  @Query("update pending_commands set state=:state where commandId=:id")suspend fun setCommandState(id:String,state:String)
-  @Query("update pending_commands set state='committed',receiptBody=:receipt where commandId=:id")suspend fun commitCommand(id:String,receipt:String)
-  @Query("update pending_commands set state='unknown',attempts=0 where accountId=:account and subjectId=:subject and state in ('blocked','failed') and encryptionVersion=1")suspend fun retryCommands(account:String,subject:String):Int
+  @Query("update pending_commands set state=:state,attempts=attempts+1,failureReason='' where commandId=:id")suspend fun mark(id:String,state:String)
+  @Query("update pending_commands set state=:state,failureReason=:reason where commandId=:id")suspend fun setCommandState(id:String,state:String,reason:String="")
+  @Query("update pending_commands set state='committed',receiptBody=:receipt,failureReason='' where commandId=:id")suspend fun commitCommand(id:String,receipt:String)
+  @Query("update pending_commands set state='unknown',attempts=0,failureReason='' where accountId=:account and subjectId=:subject and state in ('blocked','failed') and encryptionVersion=1")suspend fun retryCommands(account:String,subject:String):Int
   @Query("delete from pending_commands where accountId=:account and subjectId=:subject and state in ('committed','blocked','failed') and commandId not in (select waitingCommandId from health_sync_rounds where waitingCommandId is not null)")suspend fun clearTerminalCommands(account:String,subject:String):Int
   @Insert(onConflict=OnConflictStrategy.IGNORE)suspend fun enqueueAttachment(value:PendingAttachment):Long
   @Query("select * from pending_attachments where id=:id")suspend fun attachment(id:String):PendingAttachment?
   @Query("select * from pending_attachments where accountId=:account and subjectId=:subject and state in ('pending','uploading','unknown') and encryptionVersion=1 order by createdAt limit :limit")suspend fun pendingAttachments(account:String,subject:String,limit:Int):List<PendingAttachment>
   @Query("select * from pending_attachments where accountId=:account and subjectId=:subject and encryptionVersion=0")suspend fun legacyAttachments(account:String,subject:String):List<PendingAttachment>
   @Query("update pending_attachments set encryptionVersion=1,state='pending' where id=:id")suspend fun secureAttachment(id:String)
-  @Query("update pending_attachments set state=:state where id=:id")suspend fun markAttachment(id:String,state:String)
-  @Query("update pending_attachments set state=:state,attempts=attempts+1 where id=:id")suspend fun markAttachmentAttempt(id:String,state:String)
-  @Query("update pending_attachments set state='pending',attempts=0 where accountId=:account and subjectId=:subject and state in ('blocked','failed') and encryptionVersion=1")suspend fun retryAttachments(account:String,subject:String):Int
+  @Query("update pending_attachments set state=:state,failureReason=:reason where id=:id")suspend fun markAttachment(id:String,state:String,reason:String="")
+  @Query("update pending_attachments set state=:state,attempts=attempts+1,failureReason='' where id=:id")suspend fun markAttachmentAttempt(id:String,state:String)
+  @Query("update pending_attachments set state='pending',attempts=0,failureReason='' where accountId=:account and subjectId=:subject and state in ('blocked','failed') and encryptionVersion=1")suspend fun retryAttachments(account:String,subject:String):Int
   @Query("select * from pending_attachments where accountId=:account and subjectId=:subject and state in ('committed','blocked','failed')")suspend fun terminalAttachments(account:String,subject:String):List<PendingAttachment>
   @Query("delete from pending_attachments where id=:id and state in ('committed','blocked','failed')")suspend fun clearTerminalAttachment(id:String):Int
 }
-@Database(entities=[PendingCommand::class,PendingAttachment::class,HealthSyncRoundRow::class],version=8,exportSchema=true)abstract class ShadowDatabase:RoomDatabase(){abstract fun commands():CommandDao}
+@Database(entities=[PendingCommand::class,PendingAttachment::class,HealthSyncRoundRow::class],version=9,exportSchema=true)abstract class ShadowDatabase:RoomDatabase(){abstract fun commands():CommandDao}

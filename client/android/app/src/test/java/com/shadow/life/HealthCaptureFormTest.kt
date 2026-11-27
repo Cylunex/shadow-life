@@ -2,6 +2,7 @@ package com.shadow.life
 
 import android.app.Application
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
@@ -51,7 +52,7 @@ class HealthCaptureFormTest {
 
     compose.onNodeWithText("记体重").performClick()
     compose.onNode(hasSetTextAction() and hasText("数值")).performTextInput("71.35")
-    compose.onNodeWithText("保存记录").performScrollTo().assertIsEnabled().performClick()
+    compose.onNodeWithText("保存记录").assertIsDisplayed().assertIsEnabled().performClick()
     compose.runOnIdle {
       assertEquals("weight", submitted?.option)
       assertEquals("71.35", submitted?.primary)
@@ -59,7 +60,7 @@ class HealthCaptureFormTest {
     }
 
     compose.onNodeWithText("心率").performScrollTo().performClick()
-    compose.onNodeWithText("保存记录").performScrollTo().assertIsEnabled().performClick()
+    compose.onNodeWithText("保存记录").assertIsDisplayed().assertIsEnabled().performClick()
     compose.runOnIdle {
       assertEquals("heart_rate", submitted?.option)
       assertEquals("bpm", submitted?.secondary)

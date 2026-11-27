@@ -1015,15 +1015,36 @@ function storeFor(database: Database | Transaction): TransactionStore {
       const asOf=options.asOf??(await database.execute<{as_of:string}>(sql`select to_char(clock_timestamp() at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as as_of`)).rows[0]!.as_of;
       const pattern=`%${options.query??""}%`,before=options.before?sql`and (page_at,kind,id)<(${options.before.at}::timestamptz,${options.before.kind},${options.before.id})`:sql``;
       const finish=(rows:{kind:string;id:string;page_at:string;value:Record<string,unknown>}[])=>({items:rows.slice(0,options.limit).map(domainRecordSummary),hasMore:rows.length>options.limit,asOf});
-      if(domain==="money"){const result=await database.execute<{kind:string;id:string;page_at:string;value:Record<string,unknown>}>(sql`select kind,id,to_char(page_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') page_at,value from (select 'money_entry'::text kind,entry.id,record.created_at page_at,to_jsonb(entry)||jsonb_build_object('title',${moneyTitle(options.includePurchase??false)},'amount',entry.amount::text,'record_id',record.id,'state',record.state,'revision',record.revision) value from money_entries entry join consumption_records record on record.id=entry.record_id where entry.subject_id=${subjectId}
-        union all select 'purchase'::text kind,purchase.id,record.created_at page_at,to_jsonb(purchase)||jsonb_build_object('title',coalesce(purchase.merchant,'购买记录'),'amount',null,'record_id',record.id,'state',record.state,'revision',record.revision) value
-        from purchases purchase join consumption_records record on record.id=purchase.record_id where purchase.subject_id=${subjectId} and ${options.includePurchase??false} and not exists(select 1 from money_entries entry where entry.record_id=record.id)
-        ) page where page_at<=${asOf}::timestamptz ${before}
-        ${options.period?sql`and left(value->>'occurred_on',7)=${options.period} and value->>'state'='confirmed'`:sql``}
-        ${options.currency?sql`and value->>'currency'=${options.currency}`:sql``}
-        ${options.entryType?sql`and value->>'entry_type'=${options.entryType}`:sql``}
-        ${options.on?sql`and kind='money_entry' and value->>'occurred_on'=${options.on}`:sql``}
-        ${options.category===undefined?sql``:sql`and coalesce(value->>'category','')=${options.category}`} and (${options.query??null}::text is null or lower(value::text) like ${pattern}) order by page_at desc,kind desc,id desc limit ${options.limit+1}`);return finish(result.rows);}
+      if(domain==="money"){
+        const occurrenceOrder=options.orderByOccurrence===true;
+        const moneyBefore=occurrenceOrder&&options.before?.on
+          ?sql`and (occurred_on,page_at,kind,id)<(${options.before.on}::date,${options.before.at}::timestamptz,${options.before.kind},${options.before.id})`
+          :before;
+        const ordering=occurrenceOrder?sql`occurred_on desc,page_at desc,kind desc,id desc`:sql`page_at desc,kind desc,id desc`;
+        // The finite minimum sorts date-only facts after timed facts on the same day.
+        const entryOrder=occurrenceOrder?sql`coalesce(entry.occurred_at,'0001-01-01 00:00:00+00'::timestamptz)`:sql`record.created_at`;
+        const purchaseOrder=occurrenceOrder?sql`coalesce(purchase.occurred_at,'0001-01-01 00:00:00+00'::timestamptz)`:sql`record.created_at`;
+        const result=await database.execute<{kind:string;id:string;page_at:string;value:Record<string,unknown>}>(sql`
+          select kind,id,to_char(page_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') page_at,value
+          from (
+            select 'money_entry'::text kind,entry.id,record.created_at,entry.occurred_on,${entryOrder} page_at,
+              to_jsonb(entry)||jsonb_build_object('title',${moneyTitle(options.includePurchase??false)},'amount',entry.amount::text,'record_id',record.id,'state',record.state,'revision',record.revision) value
+            from money_entries entry join consumption_records record on record.id=entry.record_id where entry.subject_id=${subjectId}
+            union all
+            select 'purchase'::text kind,purchase.id,record.created_at,purchase.occurred_on,${purchaseOrder},
+              to_jsonb(purchase)||jsonb_build_object('title',coalesce(purchase.merchant,'购买记录'),'amount',null,'record_id',record.id,'state',record.state,'revision',record.revision)
+            from purchases purchase join consumption_records record on record.id=purchase.record_id
+            where purchase.subject_id=${subjectId} and ${options.includePurchase??false} and not exists(select 1 from money_entries entry where entry.record_id=record.id)
+          ) page where created_at<=${asOf}::timestamptz ${moneyBefore}
+          ${options.period?sql`and left(value->>'occurred_on',7)=${options.period} and value->>'state'='confirmed'`:sql``}
+          ${options.currency?sql`and value->>'currency'=${options.currency}`:sql``}
+          ${options.entryType?sql`and value->>'entry_type'=${options.entryType}`:sql``}
+          ${options.on?sql`and kind='money_entry' and value->>'occurred_on'=${options.on}`:sql``}
+          ${options.category===undefined?sql``:sql`and coalesce(value->>'category','')=${options.category}`}
+          and (${options.query??null}::text is null or lower(value::text) like ${pattern})
+          order by ${ordering} limit ${options.limit+1}`);
+        return finish(result.rows);
+      }
       if(domain==="health"){const result=await database.execute<{kind:string;id:string;page_at:string;value:Record<string,unknown>}>(sql`select kind,id,to_char(page_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') page_at,value from (
         select 'measurement'::text kind,id,created_at page_at,to_jsonb(value.*) value from health_measurements value where subject_id=${subjectId}
         union all select 'observation',id,created_at,to_jsonb(value.*) from health_observations value where subject_id=${subjectId}

@@ -46,6 +46,7 @@ class LifeModuleNavigationTest {
           composable<TodayRoute>{Text("生活首页")}
           composable<MoneyModuleRoute>{entry->LifeModuleEntry(entry,LifeDomain.Money){route->ModuleFixture(LifeModule.Money,route.tab,moneyModuleTabs)}}
           composable<HealthModuleRoute>{entry->LifeModuleEntry(entry,LifeDomain.Health){route->ModuleFixture(LifeModule.Health,route.tab,healthModuleTabs)}}
+          composable<WorkspaceRoute>{Text("同日饮食")}
           composable<ModuleDetailFixture>{Text("已打开消费详情")}
         }
       }
@@ -81,6 +82,23 @@ class LifeModuleNavigationTest {
     compose.runOnIdle{nav.openLifeModule(LifeModule.Health)}
     compose.onNodeWithText("睡眠").assertIsSelected()
     compose.onNodeWithTag("query").assertTextContains("昨晚")
+  }
+
+  @Test fun switchingBackFromSameDayMealsKeepsTheHealthSectionAndDropsTheOverlay(){
+    showNavigation()
+    compose.runOnIdle{nav.openLifeModule(LifeModule.Health)}
+    compose.onNodeWithText("睡眠").performClick()
+    compose.onNodeWithTag("query").performTextInput("昨晚")
+    compose.runOnIdle{nav.navigate(WorkspaceRoute(LifeDomain.Meals.name,"day/2026-11-26"))}
+    compose.onNodeWithText("同日饮食").assertIsDisplayed()
+    compose.runOnIdle{nav.openLifeModule(LifeModule.Health)}
+    compose.onNodeWithText("同日饮食").assertDoesNotExist()
+    compose.onNodeWithText("睡眠").assertIsSelected()
+    compose.onNodeWithTag("query").assertTextContains("昨晚")
+    compose.runOnIdle{nav.openLifeModule(LifeModule.Money)}
+    compose.runOnIdle{nav.openLifeModule(LifeModule.Health)}
+    compose.onNodeWithText("睡眠").assertIsSelected()
+    compose.onNodeWithText("同日饮食").assertDoesNotExist()
   }
 
   @Test fun serviceLinksOverrideTheRememberedTabEvenWhenTheSameLinkIsRepeated(){

@@ -82,7 +82,7 @@ import org.json.JSONObject
     data?.let{Text("已记录使用：${it.usageSeconds/60} 分钟 · ${it.total} 条活动",style=MaterialTheme.typography.titleLarge)}
     TextButton(enabled=!busy,onClick={run{read();message=null}}){Text("刷新已同步记录")}
     message?.let{Text(it)};if(busy)LinearProgressIndicator(Modifier.fillMaxWidth())
-    data?.items?.sortedBy{it.startedAt}?.forEach{item->Card(Modifier.fillMaxWidth()){Column(Modifier.padding(14.dp)){Text(item.title,style=MaterialTheme.typography.titleMedium);TextButton(onClick={onSource(item.id)}){Text("分类、项目与长期保留")};Text("${item.startedAt} — ${item.endedAt}",style=MaterialTheme.typography.bodySmall);item.latitude?.let{Text("坐标 $it, ${item.longitude} · 精度 ${item.accuracyM} 米")};item.text?.let{Text(it)}
+    data?.items?.sortedBy{it.startedAt}?.forEach{item->Card(Modifier.fillMaxWidth()){Column(Modifier.padding(14.dp)){Text(captureActivityTitle(context,item.title,item.appPackage),style=MaterialTheme.typography.titleMedium);TextButton(onClick={onSource(item.id)}){Text("分类、项目与长期保留")};Text(captureActivityInterval(item.startedAt,item.endedAt,item.timeZone),style=MaterialTheme.typography.bodySmall);item.latitude?.let{Text("坐标 $it, ${item.longitude} · 精度 ${item.accuracyM} 米")};item.text?.let{Text(it)}
       if(item.kind.wireValue=="screen_text"&&item.text!=null)TextButton(enabled=!busy,onClick={run{val value=repository.activityOrder(item.id);if(app.sessions.active()?.accountId==accountId)order=value}}){Text("查看订单字段")};Row{if(item.text!=null)TextButton(enabled=!busy&&item.libraryItemId==null,onClick={run{repository.activityAction("life.archive_activity",item.id,accountId);message="已进入加密归档队列，完成后可在资料中检索；请稍后刷新。"}}){Text(if(item.libraryItemId==null)"另存到资料" else "已归档")};TextButton(enabled=!busy,onClick={deleteId=item.id}){Text("删除采集记录")}}
     }}}
     data?.nextBeforeId?.let{before->TextButton(enabled=!busy,onClick={run{read(before)}}){Text("加载更多")}}
@@ -91,6 +91,21 @@ import org.json.JSONObject
   order?.let{value->AlertDialog(onDismissRequest={order=null},title={Text("页面中的订单信息")},text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)){Text("以下仅列出页面字段；实际账目关联请看采集工作区的订单页。");listOf("订单号" to value.orderId,"交易号" to value.transactionId,"商家" to value.merchant,"商品" to value.product,"订单金额" to value.orderAmount,"实付金额" to value.paidAmount,"退款金额" to value.refundAmount,"付款时间" to value.paymentTime).forEach{(label,field)->Text("$label：${field?:"未识别"}")};value.issues.forEach{Text(it)}}},confirmButton={TextButton(onClick={order=null}){Text("关闭")}})}
   deleteId?.let{id->AlertDialog(onDismissRequest={deleteId=null},title={Text("删除这条采集记录？")},text={Text("采集内容将删除且相同来源重传不会恢复；录音来源同时删除音频与转写的访问。你另存到资料的副本会保留。")},confirmButton={TextButton(onClick={deleteId=null;run{repository.activityAction("life.delete_activity",id,accountId);message="删除请求已进入加密同步队列，完成后刷新确认。"}}){Text("删除")}},dismissButton={TextButton(onClick={deleteId=null}){Text("取消")}})}
 }
+internal fun captureActivityTitle(context:Context,title:String,packageName:String?):String {
+  val name=packageName?.takeIf(String::isNotBlank)
+    ?:title.takeIf{it.matches(Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+"))}
+    ?:return title
+  if(title!=name&&title.isNotBlank())return title
+  val manager=context.packageManager
+  return runCatching{
+    @Suppress("DEPRECATION")
+    manager.getApplicationInfo(name,0).loadLabel(manager).toString()
+  }.getOrNull()?.takeUnless{it.isBlank()||it==name}?:"未知应用"
+}
+
+internal fun captureActivityInterval(start:String,end:String,zone:String):String =
+  "${localDateTime(start,zone)?:start} — ${localDateTime(end,zone)?:end}"
+
 internal fun readUsage(context:Context,date:LocalDate):List<JSONObject>{
   val ops=context.getSystemService(AppOpsManager::class.java)
   check(ops.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS,Process.myUid(),context.packageName)==AppOpsManager.MODE_ALLOWED){"请先授予应用使用情况访问权限"}

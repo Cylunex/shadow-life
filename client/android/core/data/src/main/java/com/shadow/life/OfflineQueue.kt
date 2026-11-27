@@ -20,13 +20,14 @@ class OfflineQueue(private val database:ShadowDatabase,private val crypto:QueueC
   fun observeStatus(session:ProductSession):Flow<QueueSummary> {
     val status=database.commands().observeStatus(session.accountId,session.subjectId).distinctUntilChanged()
     val receipts=database.commands().observeRecentCommitted(session.accountId,session.subjectId,RECENT_RECEIPT_LIMIT).distinctUntilChanged().map(::verifiedReceipts)
-    return combine(status,receipts){queue,committedReceipts->
+    val failures=database.commands().observeFailures(session.accountId,session.subjectId).distinctUntilChanged()
+    return combine(status,receipts,failures){queue,committedReceipts,issues->
     QueueSummary(
     waiting=queue.waiting,reconciling=queue.reconciling,failed=queue.failed,completed=queue.completed,
     attachments=queue.attachments,
     latestScaleState=queue.latestScaleState?.let(::sourceState),latestScaleAt=queue.latestScaleAt,
     latestSamsungState=queue.latestSamsungState?.let(::sourceState),latestSamsungAt=queue.latestSamsungAt,
-    committedReceipts=committedReceipts
+    committedReceipts=committedReceipts,failures=issues.map{QueueFailureGroup(it.source,it.reason,it.count)}
   )}.distinctUntilChanged().flowOn(Dispatchers.IO)
   }
   suspend fun enqueueCommand(session:ProductSession,commandId:String,capability:String,plainBody:String):Long{
@@ -74,7 +75,7 @@ class OfflineQueue(private val database:ShadowDatabase,private val crypto:QueueC
 
   suspend fun secureLegacy(session:ProductSession):Int{
     var secured=0
-    for(command in database.commands().legacyCommands(session.accountId,session.subjectId))try{val body=if(crypto.isEncryptedCommand(command.body))command.body else crypto.encryptCommand(session.accountId,session.subjectId,command.commandId,command.body);database.commands().secureCommand(command.commandId,body);secured++}catch(_:QueueKeyUnavailableException){database.commands().mark(command.commandId,"blocked")}
+    for(command in database.commands().legacyCommands(session.accountId,session.subjectId))try{val body=if(crypto.isEncryptedCommand(command.body))command.body else crypto.encryptCommand(session.accountId,session.subjectId,command.commandId,command.body);database.commands().secureCommand(command.commandId,body);secured++}catch(_:QueueKeyUnavailableException){database.commands().setCommandState(command.commandId,"blocked","key_unavailable")}
     for(attachment in database.commands().legacyAttachments(session.accountId,session.subjectId)){
       val file=File(attachment.localPath)
       val temporary=File(file.parentFile,"${file.name}.encrypting")
@@ -91,7 +92,7 @@ class OfflineQueue(private val database:ShadowDatabase,private val crypto:QueueC
         throw error
       }catch(_:QueueKeyUnavailableException){
         temporary.delete()
-        database.commands().markAttachment(attachment.id,"blocked")
+        database.commands().markAttachment(attachment.id,"blocked","key_unavailable")
       }catch(_:Exception){
         temporary.delete()
         database.commands().markAttachment(attachment.id,"failed")

@@ -110,14 +110,19 @@ import java.util.Locale
         Column(Modifier.weight(1f)){
           Text("Samsung Health",style=MaterialTheme.typography.titleLarge)
           Text(status.samsungMessage,color=deviceStatusColor(status.samsungState))
-          val details=listOfNotNull(status.samsungRecords.takeIf{it>0}?.let{"最近读取 $it 条"},deviceTime(status.samsungUpdatedAt),queue?.latestSamsungState?.let{"上传${queueStateLabel(it)}"})
+          val details=listOfNotNull(
+            status.samsungRecords.takeIf{it>0}?.let{"本次新增入队 $it 条"},
+            deviceTime(status.samsungLastReadAt)?.let{"上次读完 $it"},
+            deviceTime(status.samsungLastUploadedAt)?.let{"上次上传 $it"},
+            queue?.latestSamsungState?.let{"最新记录${queueStateLabel(it)}"}
+          )
           if(details.isNotEmpty())Text(details.joinToString(" · "),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
       }
-      Button(onClick=onSamsungSync,enabled=samsungAvailable&&status.samsungState!="syncing",modifier=Modifier.fillMaxWidth().heightIn(min=50.dp)){
-        Text(when{!samsungAvailable->"当前版本未包含 Samsung SDK";status.samsungState in setOf("idle","needs_permission")->"连接 Samsung Health";status.samsungState=="syncing"->"正在同步…";else->"立即同步 Samsung Health"})
+      Button(onClick=onSamsungSync,enabled=samsungAvailable&&!status.samsungReading,modifier=Modifier.fillMaxWidth().heightIn(min=50.dp)){
+        Text(when{!samsungAvailable->"当前版本未包含 Samsung SDK";status.samsungState in setOf("idle","needs_permission")->"连接 Samsung Health";status.samsungReading->"正在读取…";else->"立即同步 Samsung Health"})
       }
-      Text("授权后，每次打开 Life 都会自动检查新数据，并每小时后台同步。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+      Text("授权后，打开 Life 会检查新数据，后台约每 30 分钟检查一次。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }
     LifeCard{
       Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
@@ -580,24 +585,6 @@ private data class FeatureEntry(val group:String,val title:String,val subtitle:S
   Scaffold(containerColor=MaterialTheme.colorScheme.background,topBar={TopAppBar(title={Text("服务中心")},navigationIcon={LifeBackButton(onBack)})}){padding->
     LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
       item{OutlinedTextField(query,{query=it},Modifier.fillMaxWidth(),singleLine=true,label={Text("搜索功能")},leadingIcon={Icon(Icons.Default.Search,null)});Text("按生活领域找功能，也可以直接搜索记录。",Modifier.padding(top=8.dp),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
-      if(query.isNotBlank())shown.firstOrNull{it.title.contains(query.trim(),ignoreCase=true)}?.let{entry->
-        val action=entry.action
-        if(action is FeatureAction.Workspace||action is FeatureAction.Destination)item("exact-feature"){
-          LifeCard(onClick={when(action){is FeatureAction.Workspace->onWorkspace(action.domain,action.tab);is FeatureAction.Destination->onDestination(action.route);else->Unit}}){
-            Text(entry.title,style=MaterialTheme.typography.titleMedium)
-            Text(entry.subtitle,style=MaterialTheme.typography.bodySmall)
-          }
-        }
-      }
-      if(query.isNotBlank()){
-        item{Text("相关记录",style=MaterialTheme.typography.titleLarge);StateContent(matches?:LoadState.Loading,{onFindRecords(query.trim())}){}}
-        val found=(matches as? LoadState.Ready)?.value
-        if(found!=null){
-          items(found.items.take(10),key={"search:${it.domain}:${it.id}"}){record->RecordRow(record){onRecord(record)}}
-          if(found.items.isEmpty())item{Text("没有匹配的生活记录")}
-        }
-      }
-      if(query.isNotBlank())item{TextButton(onClick={onFindRecords(query.trim())},modifier=Modifier.fillMaxWidth()){Text("查找与“$query”相关的生活记录")}}
       if(shown.isEmpty())item{EmptyState("没有匹配的功能，可查看相关记录或清空搜索")}
       shown.groupBy{it.group}.forEach{(group,groupEntries)->
         item("group:$group"){Text(if(group=="旅行")"出行" else group,Modifier.padding(top=12.dp),style=MaterialTheme.typography.titleLarge)}
@@ -611,6 +598,15 @@ private data class FeatureEntry(val group:String,val title:String,val subtitle:S
           }
         }}
       }
+      if(query.isNotBlank()){
+        item{Text("相关记录",style=MaterialTheme.typography.titleLarge);StateContent(matches?:LoadState.Loading,{onFindRecords(query.trim())}){}}
+        val found=(matches as? LoadState.Ready)?.value
+        if(found!=null){
+          items(found.items.take(10),key={"search:${it.domain}:${it.id}"}){record->RecordRow(record){onRecord(record)}}
+          if(found.items.isEmpty())item{Text("没有匹配的生活记录")}
+        }
+      }
+      if(query.isNotBlank())item{TextButton(onClick={onFindRecords(query.trim())},modifier=Modifier.fillMaxWidth()){Text("查找与“$query”相关的生活记录")}}
     }
   }
 }

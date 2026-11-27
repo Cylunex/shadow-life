@@ -11,14 +11,22 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +53,7 @@ import com.google.android.gms.maps.model.MarkerOptions as GoogleMarkerOptions
 import com.google.android.gms.maps.model.PolylineOptions as GooglePolylineOptions
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLngBounds
+import kotlinx.coroutines.delay
 
 internal enum class TravelMapProvider(val label:String){Amap("高德地图"),Google("Google 地图")}
 internal data class TravelMapMarker(val id:String,val title:String,val latitude:Double,val longitude:Double,val favorite:Boolean=false,val supporting:String?=null,val label:String?=null)
@@ -71,17 +80,42 @@ internal fun providerConfigured(provider:TravelMapProvider)=when(provider){
 }
 
 @Composable internal fun TravelNativeMap(
-  provider:TravelMapProvider,markers:List<TravelMapMarker>,tracks:List<TravelTrackSummary>,modifier:Modifier=Modifier,routes:List<List<TravelMapPoint>> = emptyList(),satellite:Boolean=false,onGestureActive:(Boolean)->Unit={}
+  provider:TravelMapProvider,markers:List<TravelMapMarker>,tracks:List<TravelTrackSummary>,modifier:Modifier=Modifier,routes:List<List<TravelMapPoint>> = emptyList(),satellite:Boolean=false,onGestureActive:(Boolean)->Unit={},onTryAmap:(()->Unit)?=null
 ){
-  val context=LocalContext.current
   val configured=providerConfigured(provider)
+  var attempt by remember(provider){mutableStateOf(0)}
+  var loaded by remember(provider,satellite,attempt){mutableStateOf(false)}
+  var timedOut by remember(provider,satellite,attempt){mutableStateOf(false)}
+  LaunchedEffect(provider,satellite,attempt,loaded){
+    if(configured&&provider==TravelMapProvider.Google&&!loaded){
+      delay(8_000L)
+      timedOut=true
+    }
+  }
   Box(modifier.clip(RoundedCornerShape(24.dp))){
     when{
-      !configured->TravelMapCanvas(markers,tracks,Modifier.fillMaxSize(),routes)
+      !configured||timedOut->TravelMapCanvas(markers,tracks,Modifier.fillMaxSize(),routes)
       provider==TravelMapProvider.Amap->AmapSurface(markers,tracks,routes,satellite,Modifier.fillMaxSize(),onGestureActive)
-      else->GoogleMapSurface(markers,tracks,routes,satellite,Modifier.fillMaxSize(),onGestureActive)
+      else->key(attempt){
+        GoogleMapSurface(markers,tracks,routes,satellite,Modifier.fillMaxSize(),onGestureActive){if(!timedOut)loaded=true}
+      }
     }
-    if(!configured){Surface(Modifier.align(Alignment.BottomCenter).padding(12.dp),shape=RoundedCornerShape(14.dp),color=MaterialTheme.colorScheme.surface.copy(alpha=.94f)){Text("${provider.label}密钥未配置，当前显示坐标预览",Modifier.padding(horizontal=12.dp,vertical=8.dp),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
+    if(!configured||(provider==TravelMapProvider.Google&&!loaded)){
+      Surface(Modifier.align(Alignment.BottomCenter).padding(12.dp),shape=RoundedCornerShape(14.dp),color=MaterialTheme.colorScheme.surface.copy(alpha=.94f)){
+        Column(Modifier.padding(horizontal=12.dp,vertical=8.dp)){
+          val message=when{
+            !configured->"${provider.label}待配置，当前显示坐标预览"
+            timedOut->"Google 底图加载超时，当前显示坐标预览"
+            else->"正在加载 Google 底图…"
+          }
+          Text(message,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+          if(timedOut)Row{
+            TextButton(onClick={attempt++}){Text("重试底图")}
+            if(onTryAmap!=null)TextButton(onClick=onTryAmap){Text("切到高德")}
+          }
+        }
+      }
+    }
   }
 }
 
@@ -129,7 +163,7 @@ internal class MapGestureFrame(context:Context):FrameLayout(context){
   override fun onDetachedFromWindow(){onGestureActive(false);super.onDetachedFromWindow()}
 }
 
-@Composable private fun GoogleMapSurface(markers:List<TravelMapMarker>,tracks:List<TravelTrackSummary>,routes:List<List<TravelMapPoint>>,satellite:Boolean,modifier:Modifier,onGestureActive:(Boolean)->Unit){
+@Composable private fun GoogleMapSurface(markers:List<TravelMapMarker>,tracks:List<TravelTrackSummary>,routes:List<List<TravelMapPoint>>,satellite:Boolean,modifier:Modifier,onGestureActive:(Boolean)->Unit,onLoaded:()->Unit){
   val context=LocalContext.current
   val lifecycle=LocalLifecycleOwner.current.lifecycle
   val renderState=remember{TravelMapRenderState()}
@@ -138,7 +172,9 @@ internal class MapGestureFrame(context:Context):FrameLayout(context){
   DisposableEffect(lifecycle,mapView){var destroyed=false;fun pause(){if(!destroyed)mapView.onPause()};fun destroy(){if(!destroyed){mapView.onDestroy();destroyed=true}};val observer=LifecycleEventObserver{_,event->when(event){Lifecycle.Event.ON_RESUME->if(!destroyed)mapView.onResume();Lifecycle.Event.ON_PAUSE->pause();Lifecycle.Event.ON_DESTROY->destroy();else->{}}};lifecycle.addObserver(observer);if(lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))mapView.onResume();onDispose{lifecycle.removeObserver(observer);mapView.parent?.requestDisallowInterceptTouchEvent(false);pause();destroy()}}
   AndroidView(modifier=modifier,factory={touchFrame},update={frame->frame.onGestureActive=onGestureActive;val content=TravelMapContent(markers,tracks,routes,satellite);if(renderState.content!=content){renderState.content=content;mapView.getMapAsync{map->
     if(renderState.content!=content)return@getMapAsync
-    map.mapType=if(satellite)GoogleMapApi.MAP_TYPE_SATELLITE else GoogleMapApi.MAP_TYPE_NORMAL;map.uiSettings.isZoomControlsEnabled=true;map.uiSettings.isCompassEnabled=true;map.uiSettings.isScrollGesturesEnabled=true;map.uiSettings.isZoomGesturesEnabled=true;map.clear();val bounds=LatLngBounds.Builder();var count=0;var firstPoint:GoogleLatLng?=null
+    map.mapType=if(satellite)GoogleMapApi.MAP_TYPE_SATELLITE else GoogleMapApi.MAP_TYPE_NORMAL
+    map.setOnMapLoadedCallback{if(renderState.content==content)onLoaded()}
+    map.uiSettings.isZoomControlsEnabled=true;map.uiSettings.isCompassEnabled=true;map.uiSettings.isScrollGesturesEnabled=true;map.uiSettings.isZoomGesturesEnabled=true;map.clear();val bounds=LatLngBounds.Builder();var count=0;var firstPoint:GoogleLatLng?=null
     fun include(point:GoogleLatLng){bounds.include(point);count++;if(firstPoint==null)firstPoint=point}
     markers.forEach{item->val point=GoogleLatLng(item.latitude,item.longitude);include(point);val options=GoogleMarkerOptions().position(point).title(listOfNotNull(item.label,item.title).joinToString(" ")).snippet(item.supporting);if(item.label!=null)options.icon(BitmapDescriptorFactory.fromBitmap(numberedMarker(item.label)));map.addMarker(options)}
     tracks.forEach{track->val points=sampleTrack(track.points).map{GoogleLatLng(it.latitude,it.longitude)};points.forEach(::include);if(points.size>1)map.addPolyline(GooglePolylineOptions().addAll(points).width(9f).color(0xff56d6c9.toInt()))}

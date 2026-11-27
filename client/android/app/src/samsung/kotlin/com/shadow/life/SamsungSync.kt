@@ -2,6 +2,7 @@ package com.shadow.life
 
 import android.app.Activity
 import android.content.Context
+import android.os.SystemClock
 import android.util.Base64
 import android.util.Log
 import android.widget.Toast
@@ -47,9 +48,11 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -96,7 +99,6 @@ object SamsungSync {
         status(context).updateSamsung(accountId,"needs_permission","尚未授权，点此连接")
         return@launch
       }
-      status(context).updateSamsung(accountId,"syncing","已自动启动 Samsung Health 同步")
       schedule(context,accountId,2)
     }catch(error:Exception){
       Log.w("SamsungSync","automatic Samsung sync unavailable",error)
@@ -115,15 +117,13 @@ object SamsungSync {
   private fun status(context:Context)=(context.applicationContext as ShadowApp).deviceSync
 }
 
-private data class SamsungReadResult(val commandCount:Int,val failedTypes:Set<String>)
-
 class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(context,params){
   override suspend fun doWork():Result {
     if(!workerMutex.tryLock()){
       Log.i("SamsungSyncWorker","another Samsung read is already active; skipping duplicate worker")
-      return Result.success(workDataOf("reason" to "already_running"))
+      return Result.retry()
     }
-    try{return runSync()}finally{workerMutex.unlock()}
+    try{return withContext(Dispatchers.IO){runSync()}}finally{workerMutex.unlock()}
   }
 
   private suspend fun runSync():Result {
@@ -134,10 +134,25 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
       status.updateSamsung(accountId,"error","登录已失效，无法同步")
       return Result.failure()
     }
-    status.updateSamsung(accountId,"syncing","正在分页读取 Samsung Health")
+    status.updateSamsung(accountId,"syncing","正在连接 Samsung Health")
+    var queuedCount=0
+    var queuedSinceDispatch=false
+    var lastDispatch=Long.MIN_VALUE
+    fun dispatchUploads(force:Boolean=false){
+      val elapsed=SystemClock.elapsedRealtime()
+      if(queuedSinceDispatch&&(force||lastDispatch==Long.MIN_VALUE||elapsed-lastDispatch>=15_000L)){
+        SyncScheduler.schedule(applicationContext,accountId)
+        queuedSinceDispatch=false
+        lastDispatch=elapsed
+      }
+    }
     return try{
+      // Recover queued rows even after Android stops a reader before its next dispatch.
+      if(app.database.commands().inFlight(accountId,session.subjectId,"health.ingest_raw")>0)
+        SyncScheduler.schedule(applicationContext,accountId,ensureNext=false)
       val store=HealthDataService.getStore(applicationContext)
-      val granted=store.getGrantedPermissions(SamsungSync.PERMISSIONS)
+      val granted=withTimeoutOrNull(20_000L){store.getGrantedPermissions(SamsungSync.PERMISSIONS)}
+        ?:error("读取 Samsung Health 权限超时")
       if(granted.isEmpty()){
         status.updateSamsung(accountId,"needs_permission","权限已撤销，点此重新连接")
         return Result.success(workDataOf("reason" to "permissions_required"))
@@ -148,58 +163,89 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
       val permissionFingerprint=sha256(granted.map{it.toString()}.sorted().joinToString("|"))
       val permissionsChanged=prefs.getString("permission_fingerprint_$accountId",null)!=permissionFingerprint
       val days=if(last==0L||permissionsChanged)30 else (((now-last)/86_400_000L).toInt()+2).coerceIn(2,30)
-      val end=LocalDate.now()
-      val start=end.minusDays((days-1).toLong())
+      val through=LocalDate.now()
       val healthConnectPermissions=if(HealthConnectSync.available(applicationContext))HealthConnectClient.getOrCreate(applicationContext).permissionController.getGrantedPermissions() else emptySet()
-      // Aggregates represent the latest read of a day. Persist the fence before
-      // enqueue so a partial read or clock correction cannot reuse a version.
+      val readScope=sha256(listOf(session.subjectId,permissionFingerprint,ZoneId.systemDefault().id,healthConnectPermissions.sorted().joinToString("|"),SAMSUNG_PARSE_VERSION).joinToString("|"))
+      val previousProgress=status.samsungProgress(accountId)?.takeIf{it.scope==readScope&&it.through<=through}
+      // Reuse tokens only for the same date bounds. After midnight, rescan the open window
+      // with the new end date so a single failed type cannot keep newer records out.
+      var progress=previousProgress?.takeIf{it.through==through} ?: SamsungReadProgress(
+        readScope,previousProgress?.from?.coerceAtLeast(through.minusDays(29))?:through.minusDays((days-1).toLong()),through,now
+      )
+      status.saveSamsungProgress(accountId,progress)
       val versionKey="aggregate_version_$accountId"
       val readVersion=maxOf(now,prefs.getLong(versionKey,last)+1)
       check(prefs.edit().putLong(versionKey,readVersion).commit()){"无法保存同步版本"}
       val hashes=applicationContext.getSharedPreferences("samsung-health-content",Context.MODE_PRIVATE)
       val prefix=sha256("$accountId|${session.subjectId}").take(24)+":"
-      val previous=hashes.all.filterKeys{it.startsWith(prefix)}
+      val previous=hashes.all.mapNotNull{(key,value)->(value as? String)?.takeIf{key.startsWith(prefix)}?.let{key to it}}.toMap().toMutableMap()
       val changes=hashes.edit()
       val cutoff=now-45*86_400_000L
-      for((key,value) in previous)if((value as? String)?.substringBefore(':')?.toLongOrNull()?.let{it<cutoff}!=false)changes.remove(key)
-      val read=readCommands(store,session,start,end,readVersion,granted,healthConnectPermissions){command,content->
-        val key=content?.let{prefix+it.first}
-        val prior=key?.let{previous[it] as? String}
-        val digest=content?.second
-        if(key!=null&&prior!=null&&digest!=null&&prior.substringAfter(':')==digest) {
-          if(prior.substringBefore(':').toLongOrNull()?.let{now-it>86_400_000L}==true)changes.putString(key,"$now:$digest")
-          -1L
-        }else {
-          val queued=app.queue.enqueueCommand(session,command.commandId,command.capability,command.body)
-          if(key!=null)changes.putString(key,"$now:$digest")
-          queued
+      for((key,value) in previous.toMap())if(value.substringBefore(':').toLongOrNull()?.let{it<cutoff}!=false){
+        changes.remove(key)
+        previous.remove(key)
+      }
+      fun save(next:SamsungReadProgress){
+        changes.apply()
+        status.saveSamsungProgress(accountId,next)
+        progress=next
+        status.updateSamsung(accountId,"syncing","正在读取 Samsung Health · 已完成 ${progress.completedTypes.size} 类",queuedCount)
+      }
+      val failed=try{
+        withTimeoutOrNull(180_000L){
+          readCommands(store,session,progress.from,progress.through,readVersion,granted,healthConnectPermissions,
+            progress={progress},saveProgress=::save
+          ){command,content->
+            val key=content?.let{prefix+it.first}
+            val prior=key?.let{previous[it]}
+            val digest=content?.second
+            if(key!=null&&prior!=null&&digest!=null&&prior.substringAfter(':')==digest){
+              if(prior.substringBefore(':').toLongOrNull()?.let{now-it>86_400_000L}==true)changes.putString(key,"$now:$digest")
+            }else {
+              val queued=app.queue.enqueueCommand(session,command.commandId,command.capability,command.body)
+              if(key!=null){
+                val hash="$now:$digest"
+                previous[key]=hash
+                changes.putString(key,hash)
+              }
+              if(queued>=0){
+                queuedCount++
+                queuedSinceDispatch=true
+                dispatchUploads()
+              }
+            }
+          }
         }
+      }finally{changes.apply()}
+      if(failed==null){
+        status.updateSamsung(accountId,"paused","本轮读取已暂停，稍后从已保存的进度继续",queuedCount)
+        return Result.retry()
       }
-      changes.apply()
-      if(read.commandCount>0)SyncScheduler.schedule(applicationContext,accountId)
       val missing=SamsungSync.PERMISSIONS.size-granted.size
-      if(read.failedTypes.isEmpty())prefs.edit().putLong("last_sync_$accountId",now).putString("permission_fingerprint_$accountId",permissionFingerprint).apply()
-      val state=if(read.failedTypes.isNotEmpty())"error" else if(missing>0)"needs_permission" else if(read.commandCount==0)"complete" else "queued"
-      val message=when{
-        read.failedTypes.isNotEmpty()->"已读取 ${read.commandCount} 条；${read.failedTypes.joinToString("、")} 读取不完整，将自动重试"
-        missing>0->"已读取 ${read.commandCount} 条；仍有 $missing 类权限未授予"
-        read.commandCount==0->"读取完成，暂无新数据"
-        else->"已完整读取 ${read.commandCount} 条，正在上传"
+      if(failed.isNotEmpty()){
+        status.updateSamsung(accountId,"error","${failed.size} 类数据读取未完成，将从断点重试",queuedCount)
+        return Result.retry()
       }
-      status.updateSamsung(accountId,state,message,read.commandCount)
-      Log.i("SamsungSyncWorker","Samsung read completed records=${read.commandCount} granted=${granted.size}/${SamsungSync.PERMISSIONS.size} failed=${read.failedTypes.joinToString()}")
-      Result.success(workDataOf("records" to read.commandCount,"failed_types" to read.failedTypes.size,"missing_permissions" to missing))
+      check(prefs.edit().putLong("last_sync_$accountId",progress.startedAt).putString("permission_fingerprint_$accountId",permissionFingerprint).commit()){"无法保存本轮同步结果"}
+      status.saveSamsungProgress(accountId,null)
+      val state=if(missing>0)"needs_permission" else "complete"
+      val message=if(missing>0)"已读完授权数据，仍有 $missing 类权限未授予" else "Samsung Health 已完成读取"
+      status.updateSamsung(accountId,state,message,queuedCount,readCompleted=true)
+      Log.i("SamsungSyncWorker","Samsung read completed new_commands=$queuedCount granted=${granted.size}/${SamsungSync.PERMISSIONS.size}")
+      Result.success(workDataOf("records" to queuedCount,"missing_permissions" to missing))
     }catch(error:CancellationException){
+      status.updateSamsung(accountId,"paused","本轮读取已中断，下次从已保存的进度继续",queuedCount)
       throw error
     }catch(error:Exception){
       Log.w("SamsungSyncWorker","Samsung read failed",error)
-      status.updateSamsung(accountId,"error","读取失败：${error.message?:"未知错误"}")
+      status.updateSamsung(accountId,"error","读取失败：${error.message?:"未知错误"}",queuedCount)
       Result.retry()
+    }finally{
+      withContext(NonCancellable){dispatchUploads(force=true)}
     }
   }
 
-  private suspend fun readCommands(store:HealthDataStore,session:ProductSession,start:LocalDate,end:LocalDate,version:Long,samsungPermissions:Set<Permission>,healthConnectPermissions:Set<String>,enqueue:suspend(HealthQueuedCommand,Pair<String,String>?)->Long):SamsungReadResult{
-    var commandCount=0
+  private suspend fun readCommands(store:HealthDataStore,session:ProductSession,start:LocalDate,end:LocalDate,version:Long,samsungPermissions:Set<Permission>,healthConnectPermissions:Set<String>,progress:()->SamsungReadProgress,saveProgress:(SamsungReadProgress)->Unit,enqueue:suspend(HealthQueuedCommand,Pair<String,String>?)->Unit):Set<String>{
     val failed=linkedSetOf<String>()
     val zone=ZoneId.systemDefault()
     val instance="android-samsung-${sha256(android.provider.Settings.Secure.getString(applicationContext.contentResolver,android.provider.Settings.Secure.ANDROID_ID)?:"unknown").take(24)}"
@@ -209,13 +255,20 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
     suspend fun add(type:String,id:String,payload:JSONObject,recordVersion:Long=version){
       val command=healthDeviceRecordCommand(session.accountId,session.subjectId,"samsung",instance,fingerprint,type,id,recordVersion,payload,SAMSUNG_PARSE_VERSION)
       val content=if(recordVersion==version) Pair(sha256("$instance|$type|$id"),sha256("$fingerprint|$SAMSUNG_PARSE_VERSION|$payload")) else null
-      if(enqueue(command,content)>=0)commandCount++
+      enqueue(command,content)
     }
     fun pointVersion(point:HealthDataPoint)=(point.updateTime?:point.endTime?:point.startTime)?.toEpochMilli()?:version
     fun permitted(type:DataType)=Permission.of(type,AccessType.READ) in samsungPermissions
+    suspend fun attempt(key:String,block:suspend()->Unit){
+      if(key in progress().completedTypes)return
+      try{
+        check(withTimeoutOrNull(90_000L){block();true}==true){"Samsung Health data type timed out"}
+        saveProgress(progress().complete(key))
+      }catch(error:CancellationException){throw error}
+      catch(error:Exception){failed+=key;Log.w("SamsungSyncWorker","$key read failed",error)}
+    }
     suspend fun attempt(type:DataType,block:suspend()->Unit){
-      if(!permitted(type))return
-      try{block()}catch(error:CancellationException){throw error}catch(error:Exception){failed+=type.name;Log.w("SamsungSyncWorker","${type.name} read failed",error)}
+      if(permitted(type))attempt(type.name,block)
     }
     suspend fun archive(type:DataType,point:HealthDataPoint){
       val payload=samsungHealthPointPayload(type,point)
@@ -240,37 +293,40 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
       add("archive","samsung-aggregate-${typeKey(type)}-$operation-$day",samsungAggregatePayload(type,operation,point.startTime?.toString(),point.endTime?.toString(),point.value))
     }}
 
-    val activity=mutableMapOf<LocalDate,JSONObject>()
-    fun activityPayload(day:LocalDate)=activity.getOrPut(day){JSONObject().put("occurred_on",day.toString()).put("time_zone",zone.id).put("field_sources",JSONObject())}
-    attempt(DataTypes.STEPS){
-      val points=store.aggregateData(DataType.StepsType.TOTAL.requestBuilder.setLocalTimeFilterWithGroup(timeFilter,LocalTimeGroup.of(LocalTimeGroupUnit.DAILY,1)).build()).dataList
-      archiveAggregates(DataTypes.STEPS,"total",points)
-      if(HealthPermission.getReadPermission(StepsRecord::class) !in healthConnectPermissions)points.forEach{point->point.value?.takeIf{it>0}?.let{steps->
-        val payload=activityPayload(point.getStartLocalDateTime().toLocalDate());payload.put("steps",steps);payload.getJSONObject("field_sources").put("steps","samsung_data_sdk")
-      }}
+    // Steps and active time share one daily projection; only advance their checkpoint together.
+    if(permitted(DataTypes.STEPS)||permitted(DataTypes.ACTIVITY_SUMMARY))attempt("daily_activity"){
+      val activity=mutableMapOf<LocalDate,JSONObject>()
+      fun activityPayload(day:LocalDate)=activity.getOrPut(day){JSONObject().put("occurred_on",day.toString()).put("time_zone",zone.id).put("field_sources",JSONObject())}
+      if(permitted(DataTypes.STEPS)){
+        val points=store.aggregateData(DataType.StepsType.TOTAL.requestBuilder.setLocalTimeFilterWithGroup(timeFilter,LocalTimeGroup.of(LocalTimeGroupUnit.DAILY,1)).build()).dataList
+        archiveAggregates(DataTypes.STEPS,"total",points)
+        if(HealthPermission.getReadPermission(StepsRecord::class) !in healthConnectPermissions)points.forEach{point->point.value?.takeIf{it>0}?.let{steps->
+          val payload=activityPayload(point.getStartLocalDateTime().toLocalDate());payload.put("steps",steps);payload.getJSONObject("field_sources").put("steps","samsung_data_sdk")
+        }}
+      }
+      if(permitted(DataTypes.ACTIVITY_SUMMARY)){
+        val group=LocalTimeGroup.of(LocalTimeGroupUnit.DAILY,1)
+        val activeTime=store.aggregateData(DataType.ActivitySummaryType.TOTAL_ACTIVE_TIME.requestBuilder.setLocalTimeFilterWithGroup(timeFilter,group).build()).dataList
+        val activeCalories=store.aggregateData(DataType.ActivitySummaryType.TOTAL_ACTIVE_CALORIES_BURNED.requestBuilder.setLocalTimeFilterWithGroup(timeFilter,group).build()).dataList
+        val totalCalories=store.aggregateData(DataType.ActivitySummaryType.TOTAL_CALORIES_BURNED.requestBuilder.setLocalTimeFilterWithGroup(timeFilter,group).build()).dataList
+        val distance=store.aggregateData(DataType.ActivitySummaryType.TOTAL_DISTANCE.requestBuilder.setLocalTimeFilterWithGroup(timeFilter,group).build()).dataList
+        archiveAggregates(DataTypes.ACTIVITY_SUMMARY,"total_active_time",activeTime);archiveAggregates(DataTypes.ACTIVITY_SUMMARY,"total_active_calories_burned",activeCalories)
+        archiveAggregates(DataTypes.ACTIVITY_SUMMARY,"total_calories_burned",totalCalories);archiveAggregates(DataTypes.ACTIVITY_SUMMARY,"total_distance",distance)
+        activeTime.forEach{point->point.value?.toMinutes()?.takeIf{it>0}?.let{minutes->val payload=activityPayload(point.getStartLocalDateTime().toLocalDate());payload.put("active_minutes",minutes);payload.getJSONObject("field_sources").put("active_minutes","samsung_data_sdk")}}
+        activeCalories.forEach{point->point.value?.takeIf{it>0}?.let{calories->val payload=activityPayload(point.getStartLocalDateTime().toLocalDate());payload.put("device_calories_kcal",decimal(calories.toDouble()));payload.getJSONObject("field_sources").put("device_calories_kcal","samsung_data_sdk")}}
+      }
+      for((day,payload) in activity.toSortedMap())add("daily_activity","samsung-activity-$day",payload)
     }
-    attempt(DataTypes.ACTIVITY_SUMMARY){
-      val group=LocalTimeGroup.of(LocalTimeGroupUnit.DAILY,1)
-      val activeTime=store.aggregateData(DataType.ActivitySummaryType.TOTAL_ACTIVE_TIME.requestBuilder.setLocalTimeFilterWithGroup(timeFilter,group).build()).dataList
-      val activeCalories=store.aggregateData(DataType.ActivitySummaryType.TOTAL_ACTIVE_CALORIES_BURNED.requestBuilder.setLocalTimeFilterWithGroup(timeFilter,group).build()).dataList
-      val totalCalories=store.aggregateData(DataType.ActivitySummaryType.TOTAL_CALORIES_BURNED.requestBuilder.setLocalTimeFilterWithGroup(timeFilter,group).build()).dataList
-      val distance=store.aggregateData(DataType.ActivitySummaryType.TOTAL_DISTANCE.requestBuilder.setLocalTimeFilterWithGroup(timeFilter,group).build()).dataList
-      archiveAggregates(DataTypes.ACTIVITY_SUMMARY,"total_active_time",activeTime);archiveAggregates(DataTypes.ACTIVITY_SUMMARY,"total_active_calories_burned",activeCalories)
-      archiveAggregates(DataTypes.ACTIVITY_SUMMARY,"total_calories_burned",totalCalories);archiveAggregates(DataTypes.ACTIVITY_SUMMARY,"total_distance",distance)
-      activeTime.forEach{point->point.value?.toMinutes()?.takeIf{it>0}?.let{minutes->val payload=activityPayload(point.getStartLocalDateTime().toLocalDate());payload.put("active_minutes",minutes);payload.getJSONObject("field_sources").put("active_minutes","samsung_data_sdk")}}
-      activeCalories.forEach{point->point.value?.takeIf{it>0}?.let{calories->val payload=activityPayload(point.getStartLocalDateTime().toLocalDate());payload.put("device_calories_kcal",decimal(calories.toDouble()));payload.getJSONObject("field_sources").put("device_calories_kcal","samsung_data_sdk")}}
-    }
-    for((day,payload) in activity.toSortedMap())add("daily_activity","samsung-activity-$day",payload)
 
     attempt(DataTypes.HEART_RATE){
-      forEachDual(store,DataTypes.HEART_RATE,timeFilter){archive(DataTypes.HEART_RATE,it)}
+      forEachDual(store,DataTypes.HEART_RATE,DataTypes.HEART_RATE.name,timeFilter,progress,saveProgress){archive(DataTypes.HEART_RATE,it)}
       val daily=LocalDateGroup.of(LocalDateGroupUnit.DAILY,1)
       val mins=store.aggregateData(DataType.HeartRateType.MIN.requestBuilder.setLocalDateFilterWithGroup(dateFilter,daily).build()).dataList.associate{it.getStartLocalDateTime().toLocalDate() to it.value}
       val maxes=store.aggregateData(DataType.HeartRateType.MAX.requestBuilder.setLocalDateFilterWithGroup(dateFilter,daily).build()).dataList.associate{it.getStartLocalDateTime().toLocalDate() to it.value}
       (mins.keys+maxes.keys).forEach{day->val observations=JSONArray();mins[day]?.let{observations.put(observation("heart_rate",decimal(it.toDouble()),"bpm","samsung:daily_min"))};maxes[day]?.let{observations.put(observation("heart_rate",decimal(it.toDouble()),"bpm","samsung:daily_max"))};if(observations.length()>0)add("body","samsung-heart-$day",bodyPayload(day,null,zone,observations))}
     }
 
-    attempt(DataTypes.SLEEP){forEachDual(store,DataTypes.SLEEP,timeFilter){point->
+    attempt(DataTypes.SLEEP){forEachDual(store,DataTypes.SLEEP,DataTypes.SLEEP.name,timeFilter,progress,saveProgress){point->
       archive(DataTypes.SLEEP,point)
       if(HealthPermission.getReadPermission(SleepSessionRecord::class) in healthConnectPermissions)return@forEachDual
       val uid=point.uid?:return@forEachDual;val endTime=point.endTime?:return@forEachDual;var light=0L;var deep=0L;var rem=0L;var awake=0L
@@ -279,7 +335,7 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
       add("sleep","samsung-sleep-$uid",JSONObject().put("wake_date",wake.toString()).put("time_zone",zone.id).put("started_at",point.startTime.toString()).put("ended_at",endTime.toString()).put("total_minutes",total).put("light_minutes",light).put("deep_minutes",deep).put("rem_minutes",rem).put("awake_minutes",awake),pointVersion(point))
     }}
 
-    attempt(DataTypes.EXERCISE){forEachDual(store,DataTypes.EXERCISE,timeFilter){point->
+    attempt(DataTypes.EXERCISE){forEachDual(store,DataTypes.EXERCISE,DataTypes.EXERCISE.name,timeFilter,progress,saveProgress){point->
       archive(DataTypes.EXERCISE,point)
       if(HealthPermission.getReadPermission(ExerciseSessionRecord::class) in healthConnectPermissions)return@forEachDual
       val uid=point.uid?:return@forEachDual;val started=point.startTime?:return@forEachDual;val sessionPoint=point.getValue(DataType.ExerciseType.SESSIONS)?.firstOrNull();val predefined=point.getValue(DataType.ExerciseType.EXERCISE_TYPE);val customTitle=point.getValue(DataType.ExerciseType.CUSTOM_TITLE)?.trim()?.takeIf{it.isNotBlank()};val mapping=samsungExerciseMapping(predefined?.name,customTitle)
@@ -289,7 +345,7 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
       add("workout","samsung-exercise-$uid",payload,pointVersion(point))
     }}
 
-    attempt(DataTypes.BODY_COMPOSITION){forEachDual(store,DataTypes.BODY_COMPOSITION,timeFilter){point->
+    attempt(DataTypes.BODY_COMPOSITION){forEachDual(store,DataTypes.BODY_COMPOSITION,DataTypes.BODY_COMPOSITION.name,timeFilter,progress,saveProgress){point->
       archive(DataTypes.BODY_COMPOSITION,point)
       val observations=JSONArray();if(HealthPermission.getReadPermission(WeightRecord::class) !in healthConnectPermissions)point.getValue(DataType.BodyCompositionType.WEIGHT)?.let{observations.put(observation("weight",decimal(it.toDouble()),"kg","samsung:weight"))};point.getValue(DataType.BodyCompositionType.HEIGHT)?.let{observations.put(observation("height",decimal(it.toDouble()),"cm","samsung:height"))};point.getValue(DataType.BodyCompositionType.BODY_MASS_INDEX)?.let{observations.put(observation("bmi",decimal(it.toDouble()),"kg/m²","samsung:bmi"))};point.getValue(DataType.BodyCompositionType.BODY_FAT)?.let{observations.put(observation("body_fat",decimal(it.toDouble()),"%","samsung:body_fat"))};point.getValue(DataType.BodyCompositionType.BODY_FAT_MASS)?.let{observations.put(observation("fat_mass",decimal(it.toDouble()),"kg","samsung:fat_mass"))};(point.getValue(DataType.BodyCompositionType.FAT_FREE_MASS)?:point.getValue(DataType.BodyCompositionType.FAT_FREE))?.let{observations.put(observation("lean_mass",decimal(it.toDouble()),"kg","samsung:lean_mass"))};(point.getValue(DataType.BodyCompositionType.SKELETAL_MUSCLE_MASS)?:point.getValue(DataType.BodyCompositionType.SKELETAL_MUSCLE))?.let{observations.put(observation("skeletal_muscle",decimal(it.toDouble()),"kg","samsung:skeletal_muscle"))};point.getValue(DataType.BodyCompositionType.MUSCLE_MASS)?.let{observations.put(observation("muscle_mass",decimal(it.toDouble()),"kg","samsung:muscle_mass"))};point.getValue(DataType.BodyCompositionType.TOTAL_BODY_WATER)?.let{observations.put(observation("body_water",decimal(it.toDouble()),"kg","samsung:body_water"))};point.getValue(DataType.BodyCompositionType.BASAL_METABOLIC_RATE)?.let{observations.put(observation("bmr",decimal(it.toDouble()),"kcal/day","samsung:bmr"))}
       if(observations.length()>0){val instant=point.startTime?:return@forEachDual;add("body","samsung-body-${point.uid?:instant.toEpochMilli()}",bodyPayload(instant.atZone(zone).toLocalDate(),instant,zone,observations),pointVersion(point))}
@@ -297,7 +353,7 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
 
     suspend fun vital(type:DataType.Readable<HealthDataPoint,ReadDataRequest.DualTimeBuilder<HealthDataPoint>>,prefix:String,values:(HealthDataPoint)->JSONArray){
       val dataType=type as DataType
-      attempt(dataType){forEachDual(store,type,timeFilter){point->archive(dataType,point);val observations=values(point);if(observations.length()>0){val instant=point.startTime?:return@forEachDual;add("body","samsung-$prefix-${point.uid?:instant.toEpochMilli()}",bodyPayload(instant.atZone(zone).toLocalDate(),instant,zone,observations),pointVersion(point))}}}
+      attempt(dataType){forEachDual(store,type,dataType.name,timeFilter,progress,saveProgress){point->archive(dataType,point);val observations=values(point);if(observations.length()>0){val instant=point.startTime?:return@forEachDual;add("body","samsung-$prefix-${point.uid?:instant.toEpochMilli()}",bodyPayload(instant.atZone(zone).toLocalDate(),instant,zone,observations),pointVersion(point))}}}
     }
     vital(DataTypes.BLOOD_OXYGEN,"oxygen"){point->JSONArray().also{items->point.getValue(DataType.BloodOxygenType.OXYGEN_SATURATION)?.let{items.put(observation("spo2",decimal(it.toDouble()),"%","samsung:oxygen_saturation"))};point.getValue(DataType.BloodOxygenType.MIN_OXYGEN_SATURATION)?.let{items.put(observation("spo2",decimal(it.toDouble()),"%","samsung:min_oxygen_saturation"))};point.getValue(DataType.BloodOxygenType.MAX_OXYGEN_SATURATION)?.let{items.put(observation("spo2",decimal(it.toDouble()),"%","samsung:max_oxygen_saturation"))}}}
     vital(DataTypes.SKIN_TEMPERATURE,"skin-temperature"){point->JSONArray().also{items->point.getValue(DataType.SkinTemperatureType.SKIN_TEMPERATURE)?.let{items.put(observation("temperature",decimal(it.toDouble()),"°C","samsung:skin_temperature"))};point.getValue(DataType.SkinTemperatureType.MIN_SKIN_TEMPERATURE)?.let{items.put(observation("temperature",decimal(it.toDouble()),"°C","samsung:min_skin_temperature"))};point.getValue(DataType.SkinTemperatureType.MAX_SKIN_TEMPERATURE)?.let{items.put(observation("temperature",decimal(it.toDouble()),"°C","samsung:max_skin_temperature"))}}}
@@ -309,9 +365,9 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
       DataTypes.FLOORS_CLIMBED,DataTypes.WATER_INTAKE,DataTypes.NUTRITION,
       DataTypes.SLEEP_APNEA,DataTypes.IRREGULAR_HEART_RHYTHM_NOTIFICATION
     )
-    archiveOnlyDual.forEach{type->attempt(type){forEachDual(store,type,timeFilter){archive(type,it)}}}
+    archiveOnlyDual.forEach{type->attempt(type){forEachDual(store,type,type.name,timeFilter,progress,saveProgress){archive(type,it)}}}
 
-    attempt(DataTypes.ENERGY_SCORE){forEachLocalDate(store,DataTypes.ENERGY_SCORE,dateFilter){archive(DataTypes.ENERGY_SCORE,it)}}
+    attempt(DataTypes.ENERGY_SCORE){forEachLocalDate(store,DataTypes.ENERGY_SCORE,DataTypes.ENERGY_SCORE.name,dateFilter,progress,saveProgress){archive(DataTypes.ENERGY_SCORE,it)}}
     attempt(DataTypes.USER_PROFILE){store.readData(DataTypes.USER_PROFILE.readDataRequestBuilder.build()).dataList.forEachIndexed{index,point->add("archive","samsung-user-profile-$index",samsungUserProfilePayload(DataTypes.USER_PROFILE,point))}}
 
     val goalGroup=LocalDateGroup.of(LocalDateGroupUnit.DAILY,1)
@@ -321,29 +377,25 @@ class SamsungSyncWorker(context:Context,params:WorkerParameters):CoroutineWorker
     attempt(DataTypes.ACTIVE_TIME_GOAL){archiveAggregates(DataTypes.ACTIVE_TIME_GOAL,"last",store.aggregateData(DataType.ActiveTimeGoalType.LAST.requestBuilder.setLocalDateFilterWithGroup(dateFilter,goalGroup).build()).dataList)}
     attempt(DataTypes.WATER_INTAKE_GOAL){archiveAggregates(DataTypes.WATER_INTAKE_GOAL,"last",store.aggregateData(DataType.WaterIntakeGoalType.LAST.requestBuilder.setLocalDateFilterWithGroup(dateFilter,goalGroup).build()).dataList)}
     attempt(DataTypes.NUTRITION_GOAL){archiveAggregates(DataTypes.NUTRITION_GOAL,"last_calories",store.aggregateData(DataType.NutritionGoalType.LAST_CALORIES.requestBuilder.setLocalDateFilterWithGroup(dateFilter,goalGroup).build()).dataList)}
-    return SamsungReadResult(commandCount,failed)
+    return failed
   }
 
-  private suspend fun forEachDual(store:HealthDataStore,type:DataType.Readable<HealthDataPoint,ReadDataRequest.DualTimeBuilder<HealthDataPoint>>,filter:LocalTimeFilter,onPoint:suspend(HealthDataPoint)->Unit){
-    val seen=mutableSetOf<String>();var token:String?=null
-    do{
-      val builder=type.readDataRequestBuilder.setLocalTimeFilter(filter).setPageSize(500);token?.let{builder.setPageToken(it)}
-      val response=store.readData(builder.build())
-      token=response.pageToken?.takeIf{it.isNotBlank()}
-      check(token==null||seen.add(token)){"Samsung Health returned a repeated page token"}
-      for(point in response.dataList)onPoint(point)
-    }while(token!=null)
+  private suspend fun forEachDual(
+    store:HealthDataStore,type:DataType.Readable<HealthDataPoint,ReadDataRequest.DualTimeBuilder<HealthDataPoint>>,
+    key:String,filter:LocalTimeFilter,progress:()->SamsungReadProgress,save:(SamsungReadProgress)->Unit,onPoint:suspend(HealthDataPoint)->Unit
+  )=forEachSamsungPage(key,progress,save,onPoint){token->
+    val builder=type.readDataRequestBuilder.setLocalTimeFilter(filter).setPageSize(100)
+    token?.let{builder.setPageToken(it)}
+    store.readData(builder.build()).let{it.dataList to it.pageToken}
   }
 
-  private suspend fun forEachLocalDate(store:HealthDataStore,type:DataType.Readable<HealthDataPoint,ReadDataRequest.LocalDateBuilder<HealthDataPoint>>,filter:LocalDateFilter,onPoint:suspend(HealthDataPoint)->Unit){
-    val seen=mutableSetOf<String>();var token:String?=null
-    do{
-      val builder=type.readDataRequestBuilder.setLocalDateFilter(filter).setPageSize(500);token?.let{builder.setPageToken(it)}
-      val response=store.readData(builder.build())
-      token=response.pageToken?.takeIf{it.isNotBlank()}
-      check(token==null||seen.add(token)){"Samsung Health returned a repeated page token"}
-      for(point in response.dataList)onPoint(point)
-    }while(token!=null)
+  private suspend fun forEachLocalDate(
+    store:HealthDataStore,type:DataType.Readable<HealthDataPoint,ReadDataRequest.LocalDateBuilder<HealthDataPoint>>,
+    key:String,filter:LocalDateFilter,progress:()->SamsungReadProgress,save:(SamsungReadProgress)->Unit,onPoint:suspend(HealthDataPoint)->Unit
+  )=forEachSamsungPage(key,progress,save,onPoint){token->
+    val builder=type.readDataRequestBuilder.setLocalDateFilter(filter).setPageSize(100)
+    token?.let{builder.setPageToken(it)}
+    store.readData(builder.build()).let{it.dataList to it.pageToken}
   }
 
   private fun typeKey(type:DataType)=type.name.substringAfterLast('.').replace(Regex("[^a-zA-Z0-9_-]"),"_")

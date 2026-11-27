@@ -51,7 +51,7 @@ export interface TransactionStore {
   foodCatalog(subjectId:string,query:string|undefined,limit:number):Promise<unknown>;
   summarizeMoney(subjectId: string, period?:string): Promise<MoneySummary>;
   executeDomainWrite(value: { subjectId: string; command: UniversalCommandEnvelope; context?: RequestContext; nextId(type: string): string }): Promise<{ resources: ExecutionResult["resources"]; actualValues: ExecutionResult["actual_values"]; warnings?: string[] }>;
-  listDomain(subjectId:string,domain:"money"|"health"|"travel"|"library",options:{view?:"events"|"facts";includePurchase?:boolean;query?:string;period?:string;currency?:string;entryType?:string;itemTypes?:string[];on?:string;category?:string;limit:number;asOf?:string;before?:{at:string;kind:string;id:string}}):Promise<{items:readonly DomainRecordPageItem[];hasMore:boolean;asOf:string}>;
+  listDomain(subjectId:string,domain:"money"|"health"|"travel"|"library",options:{view?:"events"|"facts";includePurchase?:boolean;query?:string;period?:string;currency?:string;entryType?:string;itemTypes?:string[];on?:string;category?:string;orderByOccurrence?:boolean;limit:number;asOf?:string;before?:{on?:string;at:string;kind:string;id:string}}):Promise<{items:readonly DomainRecordPageItem[];hasMore:boolean;asOf:string}>;
   captureCompletion?(subjectId:string,name:string,input:unknown,context:RequestContext):Promise<unknown>;
   captureWorkspace?(subjectId:string,input:{date:string;time_zone:string;recordings_before_id?:string|undefined},canReadMeals?:boolean):Promise<unknown>;
   activitySource?(subjectId:string,id:string):Promise<unknown>;

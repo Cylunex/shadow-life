@@ -62,7 +62,7 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
     for(attachment in dao.readyAttachments(accountId,session.subjectId,CaptureLocalSettings.canSync(applicationContext,app,accountId),MAX_ATTACHMENTS_PER_RUN)){
       if(attachment.captureMetadata.isNotBlank()&&!CaptureLocalSettings.canSync(applicationContext,app,accountId))continue
       val file=File(attachment.localPath)
-      if(!file.isFile){dao.markAttachment(attachment.id,"failed");continue}
+      if(!file.isFile){dao.markAttachment(attachment.id,"failed","file_missing");continue}
       dao.markAttachmentAttempt(attachment.id,"uploading")
       var connection:HttpURLConnection?=null
       try{
@@ -77,15 +77,15 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
         val code=activeConnection.responseCode
         if(code==401){dao.markAttachment(attachment.id,"unknown");app.sessions.revoke(accountId);return@withContext Result.failure(workDataOf("reason" to "reauth_required"))}
         if(code !in listOf(200,201)){
-          if(code==429||code>=500){if(attachment.attempts>=7)dao.markAttachment(attachment.id,"failed")else{dao.markAttachment(attachment.id,"unknown");needsRetry=true};continue}
-          dao.markAttachment(attachment.id,if(code in listOf(403,409,413,422))"blocked" else "failed")
+          if(code==429||code>=500){if(attachment.attempts>=7)dao.markAttachment(attachment.id,"failed",queueHttpIssue(code))else{dao.markAttachment(attachment.id,"unknown");needsRetry=true};continue}
+          dao.markAttachment(attachment.id,if(code in listOf(403,409,413,422))"blocked" else "failed",queueHttpIssue(code))
           continue
         }
         val uploadedText=activeConnection.inputStream.bufferedReader().use{it.readText()}
         val uploaded=runCatching{JSONObject(uploadedText)}.getOrNull()
         val assetVersionId=uploaded?.optString("asset_version_id").orEmpty()
         val valid=uploaded?.optString("protocol")=="shadow.asset"&&assetVersionId.isNotBlank()&&uploaded.optString("sha256").isNotBlank()&&uploaded.optString("media_type")==attachment.mediaType
-        if(!valid){if(attachment.attempts>=7)dao.markAttachment(attachment.id,"failed")else{dao.markAttachment(attachment.id,"unknown");needsRetry=true};continue}
+        if(!valid){if(attachment.attempts>=7)dao.markAttachment(attachment.id,"failed","unverified")else{dao.markAttachment(attachment.id,"unknown");needsRetry=true};continue}
         val capturedOn=attachment.capturedOn.ifBlank{Instant.ofEpochMilli(attachment.createdAt).atZone(ZoneOffset.UTC).toLocalDate().toString()}
         val isImage=attachment.mediaType.startsWith("image/")
         val input=JSONObject().put("title",attachment.displayName.ifBlank{if(isImage)"来自 Android 的图片" else "来自 Android 的文件"}).put("item_type",if(isImage)"image" else "document").put("tags",JSONArray().apply{if(attachment.commandId.startsWith("cmd_android_share_")){put("losna:process");put("losna:batch:${attachment.commandId.removePrefix("cmd_android_share_").substringBeforeLast("_")}")}}).put("source",JSONObject().put("kind",if(isImage)"image" else "import").put("captured_on",capturedOn).put("asset_version_id",assetVersionId))
@@ -98,8 +98,8 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
         if(!file.exists()||file.delete())dao.clearTerminalAttachment(attachment.id)
       }catch(_:CaptureSyncPaused){dao.markAttachment(attachment.id,"pending")
       }catch(error:CancellationException){dao.markAttachment(attachment.id,"unknown");throw error
-      }catch(_:QueueKeyUnavailableException){dao.markAttachment(attachment.id,"blocked")
-      }catch(_:Exception){if(attachment.attempts>=7)dao.markAttachment(attachment.id,"failed")else{dao.markAttachment(attachment.id,"unknown");needsRetry=true}
+      }catch(_:QueueKeyUnavailableException){dao.markAttachment(attachment.id,"blocked","key_unavailable")
+      }catch(_:Exception){if(attachment.attempts>=7)dao.markAttachment(attachment.id,"failed","transport")else{dao.markAttachment(attachment.id,"unknown");needsRetry=true}
       }finally{connection?.disconnect()}
     }
 
@@ -108,7 +108,7 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
     val batchCandidates=mutableListOf<Pair<PendingCommand,String>>()
     for(command in pendingCommands.filter{it.capability=="health.ingest_raw"}){
       try{batchCandidates+=command to app.queue.commandBody(command)}
-      catch(_:QueueKeyUnavailableException){dao.setCommandState(command.commandId,"blocked");handledByBatch+=command.commandId}
+      catch(_:QueueKeyUnavailableException){dao.setCommandState(command.commandId,"blocked","key_unavailable");handledByBatch+=command.commandId}
     }
     for(batch in healthCommandBatches(batchCandidates)){
       val outcome=uploadHealthBatch(app,session,accessToken,batch)
@@ -125,7 +125,7 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
         val recovered=lookupReceipt(session,accessToken,command)
         if(recovered!=null){commitVerified(app,command,recovered);recoveredCommands++;continue}
       }
-      val body=try{app.queue.commandBody(command)}catch(_:QueueKeyUnavailableException){dao.setCommandState(command.commandId,"blocked");continue}
+      val body=try{app.queue.commandBody(command)}catch(_:QueueKeyUnavailableException){dao.setCommandState(command.commandId,"blocked","key_unavailable");continue}
       dao.mark(command.commandId,"uploading")
       var connection:HttpURLConnection?=null
       try{
@@ -143,7 +143,7 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
           val receiptText=activeConnection.inputStream.bufferedReader().use{it.readText()}
           val verified=receiptText.takeIf{validReceipt(it,command)}?:lookupReceipt(session,accessToken,command)
           if(verified!=null){commitVerified(app,command,verified);committedCommands++;continue}
-          if(command.attempts>=7)dao.setCommandState(command.commandId,"failed")else{dao.setCommandState(command.commandId,"unknown");needsRetry=true};continue
+          if(command.attempts>=7)dao.setCommandState(command.commandId,"failed","unverified")else{dao.setCommandState(command.commandId,"unknown");needsRetry=true};continue
         }
         val errorBody=activeConnection.errorStream?.bufferedReader()?.use{it.readText()}.orEmpty()
         if(code==503&&retryableNotApplied(errorBody)){
@@ -152,19 +152,18 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
         if(code==429||code>=500){
           val recovered=if(code>=500)lookupReceipt(session,accessToken,command) else null
           if(recovered!=null){commitVerified(app,command,recovered);recoveredCommands++}
-          else if(command.attempts>=7)dao.setCommandState(command.commandId,"failed")
+          else if(command.attempts>=7)dao.setCommandState(command.commandId,"failed",queueHttpIssue(code))
           else{dao.setCommandState(command.commandId,"unknown");needsRetry=true}
           continue
         }
         val terminal=if(isDeterministicCommandFailure(code))"blocked" else "failed"
-        dao.setCommandState(command.commandId,terminal)
-        showRejected(app,command,code,errorBody)
+        recordRejection(app,command,terminal,code,errorBody)
       }catch(_:CaptureSyncPaused){dao.setCommandState(command.commandId,"pending")
       }catch(error:CancellationException){dao.setCommandState(command.commandId,"unknown");throw error
-      }catch(_:QueueKeyUnavailableException){dao.setCommandState(command.commandId,"blocked")
+      }catch(_:QueueKeyUnavailableException){dao.setCommandState(command.commandId,"blocked","key_unavailable")
       }catch(_:Exception){
         val recovered=lookupReceipt(session,accessToken,command)
-        if(recovered!=null){commitVerified(app,command,recovered);recoveredCommands++}else if(command.attempts>=7)dao.setCommandState(command.commandId,"failed")else{dao.setCommandState(command.commandId,"unknown");needsRetry=true}
+        if(recovered!=null){commitVerified(app,command,recovered);recoveredCommands++}else if(command.attempts>=7)dao.setCommandState(command.commandId,"failed","unverified")else{dao.setCommandState(command.commandId,"unknown");needsRetry=true}
       }finally{connection?.disconnect()}
     }
     // Also recovers a process death after the atomic receipt commit but before the wake-up.
@@ -178,7 +177,7 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
 
   private suspend fun commitVerified(app:ShadowApp,command:PendingCommand,receipt:String){
     try{app.queue.commit(command,receipt)}catch(_:QueueKeyUnavailableException){app.database.commands().commitWithHealthRound(command,"")}
-    when{command.commandId.startsWith("cmd_scale_")->app.deviceSync.updateScale(command.accountId,"committed","称重数据已同步到 Life");command.commandId.startsWith("cmd_samsung_")->app.deviceSync.updateSamsung(command.accountId,"committed","Samsung Health 数据已同步到 Life")}
+    when{command.commandId.startsWith("cmd_scale_")->app.deviceSync.updateScale(command.accountId,"committed","称重数据已同步到 Life");command.commandId.startsWith("cmd_samsung_")->app.deviceSync.recordSamsungUpload(command.accountId)}
   }
 
   private suspend fun uploadHealthBatch(app:ShadowApp,session:ProductSession,accessToken:String,batch:List<Pair<PendingCommand,String>>):BatchUploadOutcome{
@@ -201,7 +200,7 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
       if(code!=200){
         val errorBody=activeConnection.errorStream?.bufferedReader()?.use{it.readText()}.orEmpty()
         if(code==503&&retryableNotApplied(errorBody)){batch.forEach{dao.setCommandState(it.first.commandId,"pending")};return BatchUploadOutcome(needsRetry=true)}
-        if(isDeterministicCommandFailure(code)){batch.forEach{(command,_)->dao.setCommandState(command.commandId,"blocked");showRejected(app,command,code,errorBody)};return BatchUploadOutcome()}
+        if(isDeterministicCommandFailure(code)){batch.forEach{(command,_)->recordRejection(app,command,"blocked",code,errorBody)};return BatchUploadOutcome()}
         return recoverBatchAfterUnknown(app,session,accessToken,batch)
       }
       val response=JSONObject(activeConnection.inputStream.bufferedReader().use{it.readText()})
@@ -210,16 +209,25 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
       var committed=0;var retry=false
       for((command,_) in batch){
         val item=byId[command.commandId]
-        if(item==null){dao.setCommandState(command.commandId,"unknown");retry=true;continue}
+        if(item==null){
+          if(command.attempts>=7)dao.setCommandState(command.commandId,"failed","unverified")
+          else{dao.setCommandState(command.commandId,"unknown");retry=true}
+          continue
+        }
         val itemCode=item.optInt("http_status",500)
         val result=item.optJSONObject("result")?.toString()
         val errorBody=item.optJSONObject("error")?.toString().orEmpty()
         when{
           itemCode in listOf(200,201)&&result!=null&&validReceipt(result,command)->{commitVerified(app,command,result);committed++}
           itemCode==503&&retryableNotApplied(errorBody)->{dao.setCommandState(command.commandId,"pending");showWriteFence(app,command);retry=true}
-          isDeterministicCommandFailure(itemCode)->{dao.setCommandState(command.commandId,"blocked");showRejected(app,command,itemCode,errorBody)}
-          itemCode==429||itemCode>=500->{if(command.attempts>=7)dao.setCommandState(command.commandId,"failed")else{dao.setCommandState(command.commandId,"unknown");retry=true}}
-          else->dao.setCommandState(command.commandId,"failed")
+          isDeterministicCommandFailure(itemCode)->recordRejection(app,command,"blocked",itemCode,errorBody)
+          itemCode in listOf(200,201)||itemCode==429||itemCode>=500->{
+            if(command.attempts>=7){
+              val reason=if(itemCode<300)"unverified" else queueHttpIssue(itemCode)
+              dao.setCommandState(command.commandId,"failed",reason)
+            }else{dao.setCommandState(command.commandId,"unknown");retry=true}
+          }
+          else->recordRejection(app,command,"failed",itemCode,errorBody)
         }
       }
       Log.i(TAG,"batch upload commands=${batch.size} committed=$committed retry=$retry")
@@ -234,7 +242,7 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
     for((command,_) in batch){
       val receipt=lookupReceipt(session,accessToken,command)
       if(receipt!=null){commitVerified(app,command,receipt);recovered++}
-      else if(command.attempts>=7)dao.setCommandState(command.commandId,"failed")
+      else if(command.attempts>=7)dao.setCommandState(command.commandId,"failed","unverified")
       else{dao.setCommandState(command.commandId,"unknown");retry=true}
     }
     return BatchUploadOutcome(recovered=recovered,needsRetry=retry)
@@ -261,17 +269,26 @@ class SyncWorker(context:Context,params:WorkerParameters):CoroutineWorker(contex
   }.getOrDefault(false)
   private fun retryableNotApplied(text:String)=runCatching{JSONObject(text).optString("code")=="retryable_not_applied"}.getOrDefault(false)
   private fun requestId(commandId:String,attempts:Int,phase:String)="android-$phase-${commandId.takeLast(16)}-${attempts.coerceAtLeast(0)}"
-  private fun showWriteFence(app:ShadowApp,command:PendingCommand){when{command.commandId.startsWith("cmd_scale_")->app.deviceSync.updateScale(command.accountId,"error","Life 健康写入正在迁移保护中，读数已安全保留");command.commandId.startsWith("cmd_samsung_")->app.deviceSync.updateSamsung(command.accountId,"error","Life 健康写入正在迁移保护中，数据已安全保留")}}
-  private fun showRejected(app:ShadowApp,command:PendingCommand,status:Int,body:String){
+  private fun showWriteFence(app:ShadowApp,command:PendingCommand){when{command.commandId.startsWith("cmd_scale_")->app.deviceSync.updateScale(command.accountId,"error","Life 健康写入正在迁移保护中，读数已安全保留")}}
+  private suspend fun recordRejection(app:ShadowApp,command:PendingCommand,state:String,status:Int,body:String){
     val code=runCatching{JSONObject(body).optString("code")}.getOrDefault("")
+    app.database.commands().setCommandState(command.commandId,state,queueHttpIssue(status,code))
     val message=when(code){"conflict"->"服务器拒绝了旧版本或冲突数据，请重新发起同步";"validation"->"数据字段与服务器不兼容，请升级后重新同步";"permission_denied"->"当前账户没有健康数据写入权限";else->"数据上传失败（HTTP $status），请在数据状态中重试"}
-    when{command.commandId.startsWith("cmd_scale_")->app.deviceSync.updateScale(command.accountId,"error",message);command.commandId.startsWith("cmd_samsung_")->app.deviceSync.updateSamsung(command.accountId,"error",message)}
+    when{command.commandId.startsWith("cmd_scale_")->app.deviceSync.updateScale(command.accountId,"error",message)}
     Log.w(TAG,"command rejected status=$status code=${code.ifBlank{"unknown"}} capability=${command.capability}")
   }
   companion object{private const val TAG="SyncWorker";private const val MAX_COMMANDS_PER_RUN=24;private const val MAX_ATTACHMENTS_PER_RUN=4}
 }
 
 internal data class BatchUploadOutcome(val committed:Int=0,val recovered:Int=0,val needsRetry:Boolean=false,val reauthRequired:Boolean=false,val fallbackToSingles:Boolean=false)
+internal fun queueHttpIssue(status:Int,code:String=""):String=when{
+  status==403||code=="permission_denied"->"permission"
+  status==409||code=="conflict"->"conflict"
+  status==413->"too_large"
+  status in listOf(400,415,422)||code=="validation"->"validation"
+  status==429||status>=500->"service_unavailable"
+  else->"server_rejected"
+}
 internal fun isDeterministicCommandFailure(status:Int)=status in listOf(400,403,409,413,415,422)
 internal fun healthCommandBatches(commands:List<Pair<PendingCommand,String>>,maxCommands:Int=12,maxBytes:Int=350_000):List<List<Pair<PendingCommand,String>>>{
   val batches=mutableListOf<MutableList<Pair<PendingCommand,String>>>();var bytes=0

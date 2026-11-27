@@ -37,6 +37,10 @@ internal fun todayMealMacroShares(nutrition:TodayMealNutrition?):List<Pair<Strin
 }
 internal fun recordCurrency(record:RecordSummary):String?=record.trailing?.substringBefore(' ')?.takeIf{it.matches(Regex("[A-Z]{3}"))}
 internal fun recordAmount(record:RecordSummary):BigDecimal?=record.trailing?.substringAfter(' ',"")?.toBigDecimalOrNull()
+internal fun recordAmountLabel(record:RecordSummary):String? =
+  if(recordCurrency(record)=="CNY")recordAmount(record)?.let{"¥${displayDecimal(it.toPlainString())}"}?:record.trailing
+  else record.trailing
+
 internal data class MoneyCardTotals(val expense:BigDecimal,val refund:BigDecimal,val income:BigDecimal){val net:BigDecimal get()=expense-refund}
 internal fun moneyCardTotals(records:List<RecordSummary>,currency:String):MoneyCardTotals {
   val rows=records.filter{recordCurrency(it)==currency}

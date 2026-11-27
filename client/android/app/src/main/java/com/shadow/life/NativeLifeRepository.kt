@@ -69,12 +69,20 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     )
   }
 
+  private fun visibleRecordTitle(domain:LifeDomain,kind:String,title:String):String=when{
+    kind=="activity_capture"->captureActivityTitle(context,title,null)
+    domain==LifeDomain.Health->healthMetricLabel(title)
+    domain==LifeDomain.Meals&&title in setOf("breakfast","lunch","dinner","snack","other")->mealTypeLabel(title)
+    else->title
+  }
+
   var recordView:String="events"
   suspend fun timeline(cursor:String?=null,domains:Set<LifeDomain> = LifeDomain.entries.toSet()):TimelinePage {
     val query=buildList { add("limit=30");add("domains="+domains.joinToString(","){it.name.lowercase()});if(cursor!=null)add("cursor=${encode(cursor)}") }.joinToString("&")
     val result=wireJson.decodeFromString<LifeTimelineResultDto>(getText("/api/timeline?view=$recordView&$query"))
     return TimelinePage(result.items.map{
-      TimelineItem(domainFromWire(it.domain.wireValue),it.kind,if(it.kind=="activity_capture")"capture:${it.id}" else it.id,it.happenedAt,it.title,it.amount,it.currency,it.recordId)
+      val domain=domainFromWire(it.domain.wireValue)
+      TimelineItem(domain,it.kind,if(it.kind=="activity_capture")"capture:${it.id}" else it.id,it.happenedAt,visibleRecordTitle(domain,it.kind,it.title),it.amount,it.currency,it.recordId)
     },result.nextCursor,result.asOf)
   }
   suspend fun day(date:LocalDate,cursor:String?=null):DayPage {
@@ -101,7 +109,8 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     val dates=if(from!=null&&until!=null)"&from_on=$from&to_on_exclusive=$until" else ""
     val result=wireJson.decodeFromString<LifeSearchResultDto>(getText("/api/search?view=$recordView&q=${encode(query)}&limit=50$filters$dates${cursor?.let{"&cursor=${encode(it)}"}.orEmpty()}"))
     return RecordPage(result.items.map{item->
-      RecordSummary(domainFromWire(item.domain.wireValue),item.kind,if(item.kind=="activity_capture")"capture:${item.id}" else item.id,item.title,item.supporting?:item.happenedOn,item.amount?.let{listOfNotNull(item.currency,it).joinToString(" ")},null,item.recordId,happenedOn=item.happenedOn)
+      val domain=domainFromWire(item.domain.wireValue)
+      RecordSummary(domain,item.kind,if(item.kind=="activity_capture")"capture:${item.id}" else item.id,visibleRecordTitle(domain,item.kind,item.title),item.supporting?:item.happenedOn,item.amount?.let{listOfNotNull(item.currency,it).joinToString(" ")},null,item.recordId,happenedOn=item.happenedOn)
     },result.nextCursor,result.asOf)
   }
 
@@ -285,7 +294,8 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     val result=wireJson.decodeFromString<DomainRecordsResultDto>(getText("/api/$apiDomain?$params"))
     return RecordPage(result.items.map{item->
       val trailing=item.amount?.let{value->listOfNotNull(item.currency,value).joinToString(" ")}
-      RecordSummary(domain,item.kind,item.id,item.title,item.supporting,trailing,item.revision?.toInt(),item.recordId,item.entryType?.wireValue,recordState=item.state,happenedOn=item.happenedOn)
+      val title=visibleRecordTitle(domain,item.kind,item.title)
+      RecordSummary(domain,item.kind,item.id,title,item.supporting,trailing,item.revision?.toInt(),item.recordId,item.entryType?.wireValue,recordState=item.state,happenedOn=item.happenedOn)
     },result.nextCursor,result.asOf)
   }
 

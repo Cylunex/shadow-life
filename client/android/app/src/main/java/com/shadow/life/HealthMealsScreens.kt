@@ -402,7 +402,7 @@ private fun sleepStages(day:HealthDailyOverview?)=listOf(
   val scaleSummary=listOfNotNull(scaleWeight,status.scaleMessage).joinToString(" · ")
   LifeSection("设备与同步",action={TextButton(onClick=onSettings){Text("管理")}}){
     HealthSurface {
-      SyncRow("Samsung Health",if(!samsungAvailable)"当前包未包含 SDK" else status.samsungMessage,status.samsungState,onSamsungSync)
+      SyncRow("Samsung Health",if(!samsungAvailable)"当前包未包含 SDK" else status.samsungMessage,status.samsungState,onSamsungSync,enabled=samsungAvailable&&!status.samsungReading)
       HorizontalDivider(color=MaterialTheme.colorScheme.outline.copy(alpha=.32f))
       SyncRow("小米体脂秤",scaleSummary,status.scaleState,onScale,enabled=!status.scaleActive)
       if(HealthConnectSync.enabled()){
