@@ -28,3 +28,10 @@ test("money transports carry date, period and combined filters through paging",(
   });
   assert.equal(buildCapabilityHttpRequest("","money.summarize",{period:"2026-11"}).url,"/api/money/summary?period=2026-11");
 });
+
+test("the timeline read route forwards the selected view and capture filter",()=>{
+  const request=buildCapabilityHttpRequest("https://life.example.com","life.timeline",{view:"events",exclude_captures:true});
+  const url=new URL(request.url);
+  assert.equal(url.searchParams.get("view"),"events");
+  assert.equal(url.searchParams.get("exclude_captures"),"true");
+});
