@@ -41,6 +41,13 @@ test("screenshot routes keep Losna, save-only and selected LLM jobs independent"
   const jobs=(await f.pool.query("select requested_processor from library_processing_jobs where item_id=$1",[id])).rows;
   assert.equal(jobs.length,recognition==="llm"?1:0);if(recognition==="llm")assert.equal(jobs[0].requested_processor,"llm-vision-v1:detail");
  }
+ for(const rows of [(await f.queries.lifeTimeline(f.context,{domains:["library"]})).items,(await f.queries.listDomain(f.context,"library",{})).items]){
+   assert.equal(rows.filter(row=>row.batch_id==="screenshot:share_synthetic_batch").length,2);
+   assert.equal(rows.find(row=>row.id===llmItem)?.batch_id,undefined);
+ }
+ await f.run("life.capture_screenshot",{...base,recognition:"save",batch_id:"share_synthetic_batch",app_package:"example.test",text:"分段原文"});
+ const day=await f.queries.lifeDay(f.context,{date:"2026-11-09",time_zone:"UTC"});
+ assert.ok(day.items.some(row=>row.kind==="activity_capture"&&row.batch_id==="screenshot:share_synthetic_batch"));
  assert.equal((await processPendingLibrary(f.pool)).filter(r=>r.state==="completed").length,1);assert.deepEqual(mock.models,["synthetic-detail"]);
  const observed=(await f.queries.libraryItem(f.context,llmItem)).payment_observation!;
  assert.equal(observed.product,"打卤面");assert.equal(observed.merchant,"合成食堂");assert.equal(observed.paid_amount,"20.60");

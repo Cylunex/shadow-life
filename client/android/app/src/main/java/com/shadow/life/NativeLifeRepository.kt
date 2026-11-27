@@ -295,7 +295,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     return RecordPage(result.items.map{item->
       val trailing=item.amount?.let{value->listOfNotNull(item.currency,value).joinToString(" ")}
       val title=visibleRecordTitle(domain,item.kind,item.title)
-      RecordSummary(domain,item.kind,item.id,title,item.supporting,trailing,item.revision?.toInt(),item.recordId,item.entryType?.wireValue,recordState=item.state,happenedOn=item.happenedOn)
+      RecordSummary(domain,item.kind,item.id,title,item.supporting,trailing,item.revision?.toInt(),item.recordId,item.entryType?.wireValue,recordState=item.state,happenedOn=item.happenedOn,batchId=item.batchId)
     },result.nextCursor,result.asOf)
   }
 
@@ -478,7 +478,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
     return LibraryPage(page.items.map{item->
       val preview=item.libraryPreview
       LibrarySummary(item.id,item.title,preview?.itemType?:item.kind,item.state,item.revision?.toInt(),
-        preview?.createdAt,preview?.source,preview?.excerpt,preview?.imageVersionId)
+        preview?.createdAt,preview?.source,preview?.excerpt,preview?.imageVersionId,item.batchId)
     },page.nextCursor,page.asOf)
   }
 

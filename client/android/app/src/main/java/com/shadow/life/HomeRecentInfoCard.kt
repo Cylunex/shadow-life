@@ -30,9 +30,11 @@ import java.time.format.DateTimeFormatter
   val session=app.sessions.active()?.takeIf{it.accountId==accountId}
   val localFlow=remember(accountId,session?.subjectId){
     if(session==null)flowOf(emptyList()) else app.database.commands().observeRecentCaptures(accountId,session.subjectId).map{commands->
-      commands.flatMap{command->
+      val entries=commands.flatMap{command->
         try{recentCaptureEntries(command.commandId,command.createdAt,command.state,app.queue.commandBody(command),if(command.state=="committed")app.queue.receiptBody(command) else null)}catch(e:CancellationException){throw e}catch(_:Exception){emptyList()}
-      }.take(8)
+      }
+      val visible=entries.map{it.batchId?:it.key}.distinct().take(8).toSet()
+      entries.filter{(it.batchId?:it.key) in visible}
     }.distinctUntilChanged().flowOn(Dispatchers.IO)
   }
   val local by localFlow.collectAsStateWithLifecycle(initialValue=emptyList())
@@ -47,7 +49,7 @@ import java.time.format.DateTimeFormatter
   var resumed by remember{mutableStateOf(lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))}
   DisposableEffect(lifecycle){val observer=LifecycleEventObserver{_,event->if(event==Lifecycle.Event.ON_RESUME){resumed=true}else if(event==Lifecycle.Event.ON_PAUSE)resumed=false};lifecycle.addObserver(observer);onDispose{lifecycle.removeObserver(observer)}}
   LaunchedEffect(accountId,local,resumed){if(resumed)model.refresh(local)}
-  val localRows=local.mapNotNull{item->if(item.state=="committed"&&resolved.containsKey(item.key))resolved[item.key] else HomeRecentInfo(item.key,item.at,item.title,recentCaptureState(item.state),preview=item.preview,localState=item.state)}
+  val localRows=local.mapNotNull{item->if(item.state=="committed"&&resolved.containsKey(item.key))resolved[item.key] else HomeRecentInfo(item.key,item.at,item.title,recentCaptureState(item.state),preview=item.preview,localState=item.state,batchId=item.batchId)}
   val rows=mergeHomeRecentInfo(localRows,remote)
   LifeCard{
     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("最近记录／消息",style=MaterialTheme.typography.titleMedium);TextButton(onClick={if(messages)onRefreshInbox() else model.refresh(local,manual=true)},enabled=messages||!loading){Text(if(!messages&&loading)"更新中" else "刷新")}}
@@ -75,6 +77,7 @@ import java.time.format.DateTimeFormatter
     }else{
     if(rows.isEmpty())Text(if(loading)"正在读取最近信息…" else "暂无最近信息，摇一摇收录后可在这里查看。",style=MaterialTheme.typography.bodySmall)
     rows.take(if(expanded)5 else 2).forEach{row->key(row.key){
+      val content:@Composable (HomeRecentInfo)->Unit={row->
       Column(Modifier.fillMaxWidth().clickable{if(row.domain!=null&&row.targetId!=null)onDetail(row.domain,row.targetId,row.title) else preview=row}.padding(vertical=6.dp),verticalArrangement=Arrangement.spacedBy(3.dp)){
         Text(row.title,maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodyMedium)
         Text("${row.status} · ${DateTimeFormatter.ofPattern("M/d HH:mm").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(row.at))}",style=MaterialTheme.typography.labelSmall,color=when{
@@ -83,6 +86,10 @@ import java.time.format.DateTimeFormatter
           row.targetId==null->MaterialTheme.colorScheme.tertiary
           else->MaterialTheme.colorScheme.onSurfaceVariant
         },maxLines=2,overflow=TextOverflow.Ellipsis)
+      }
+      }
+      if(row.batchRows.isEmpty())content(row) else UploadGroupCard(batchTitle(row.batchId,row.batchRows.map{if(it.domain==LifeDomain.Money)"money_entry" else ""}),row.batchRows.size,row.title){
+        row.batchRows.forEach{content(it)}
       }
     }}
     error?.let{Text(it,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.error)}

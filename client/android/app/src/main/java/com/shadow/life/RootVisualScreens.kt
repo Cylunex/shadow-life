@@ -399,7 +399,7 @@ private fun todayDeviceTime(value:Long):String?=value.takeIf{it>0}?.let{Instant.
           lastDate=date
           item(key){
             if(rows.size==1)TimelineRecordRow(first,onDetail)
-            else UploadGroupCard(batchTitle(rows.map{it.kind}),rows.size){
+            else UploadGroupCard(batchTitle(first.batchId,rows.map{it.kind}),rows.size,recordTime(first.happenedAt)){
               rows.forEach{row->TimelineRecordRow(row,onDetail)}
             }
           }
@@ -421,18 +421,22 @@ private fun todayDeviceTime(value:Long):String?=value.takeIf{it>0}?.let{Instant.
   }}
 }
 
-private fun batchTitle(kinds:List<String>)=when {
+internal fun batchTitle(batchId:String?,kinds:List<String>)=when {
+  batchId?.startsWith("screenshot:")==true->"批量截图"
+  batchId?.startsWith("scale:")==true->"体脂秤称重"
+  batchId?.startsWith("samsung:")==true->"三星健康同步"
   kinds.all{it=="activity_capture"}->"活动采集"
   kinds.all{it=="money_entry"}->"账单导入"
   else->"健康上报"
 }
 
-@Composable private fun UploadGroupCard(title:String,count:Int,content:@Composable ()->Unit){
+@Composable internal fun UploadGroupCard(title:String,count:Int,summary:String?=null,content:@Composable ()->Unit){
   var expanded by rememberSaveable{mutableStateOf(false)}
   LifeCard {
     Row(Modifier.fillMaxWidth().clickable(role=Role.Button){expanded=!expanded}.padding(vertical=6.dp),verticalAlignment=Alignment.CenterVertically){
       Column(Modifier.weight(1f)){
         Text(title,style=MaterialTheme.typography.titleMedium)
+        summary?.let{Text(it,style=MaterialTheme.typography.bodySmall,maxLines=1,overflow=TextOverflow.Ellipsis)}
         Text("同一批次 · 已加载 ${count} 条",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
       }
       Text(if(expanded)"收起" else "展开",color=MaterialTheme.colorScheme.primary)
@@ -459,7 +463,7 @@ private fun batchTitle(kinds:List<String>)=when {
     Text("过去五年同日的回忆只来自当前可读取的原记录。",style=MaterialTheme.typography.bodySmall)
     if(day is LoadState.Ready)ReadStatus(day){onDay(selectedDay)}
     when(day){is LoadState.Ready->{Text("${day.value.date} · ${if(day.value.authorizedDomains.isEmpty())"—" else day.value.total.toString()} 条记录");if(day.value.items.isEmpty())Text(if(day.value.authorizedDomains.isEmpty())"当前没有可读取的领域" else "这一天没有可显示的记录") else day.value.items.groupBy{it.batchId?.let{batch->"batch:$batch"}?:"record:${it.domain}:${it.kind}:${it.id}"}.forEach{(key,rows)->
-      key(key){if(rows.size==1)DaySourceRow(rows.first(),onSource) else UploadGroupCard(batchTitle(rows.map{it.kind}),rows.size){rows.forEach{DaySourceRow(it,onSource)}}}
+      key(key){if(rows.size==1)DaySourceRow(rows.first(),onSource) else UploadGroupCard(batchTitle(rows.first().batchId,rows.map{it.kind}),rows.size){rows.forEach{DaySourceRow(it,onSource)}}}
     };if(day.value.nextCursor!=null)TextButton(onClick=onMore,enabled=!day.refreshing){Text("加载更多")}};is LoadState.Failed->Text(day.message,color=MaterialTheme.colorScheme.error);is LoadState.Empty->Text(day.reason);else->Text("正在读取当日记录…")}
     Text("往日回忆",style=MaterialTheme.typography.titleMedium)
     if(memories is LoadState.Ready&&memories.refreshError!=null)ReadStatus(memories){onDay(selectedDay)}
@@ -559,8 +563,13 @@ private fun batchTitle(kinds:List<String>)=when {
       item{StateContent(state,{onSearch(submitted,type)}){}}
       if(state is LoadState.Ready){
         if(state.value.items.isEmpty())item{EmptyState("没有匹配的资料")}
-        items(state.value.items,key={it.id}){entry->
-          LibraryVisualCard(entry,repository,accountId){onDetail(LifeDomain.Library,entry.id,entry.title)}
+        state.value.items.groupBy{it.batchId?:"item:${it.id}"}.forEach{(key,rows)->
+          item(key){
+            val content:@Composable ()->Unit={rows.forEach{entry->
+              LibraryVisualCard(entry,repository,accountId){onDetail(LifeDomain.Library,entry.id,entry.title)}
+            }}
+            if(rows.size>1)UploadGroupCard("批量截图",rows.size,rows.first().title,content) else content()
+          }
         }
         if(state.value.nextCursor!=null)item{TextButton(onClick=onLoadMore,enabled=!state.refreshing){Text("加载更多资料")}}
       }

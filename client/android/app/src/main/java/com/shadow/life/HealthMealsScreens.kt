@@ -179,7 +179,12 @@ private val MealCoral:Color @Composable get()=if(MaterialTheme.colorScheme.backg
       if(tab=="overview"&&selectedDate==today){
         item{Text("最近健康记录",style=MaterialTheme.typography.titleLarge)}
         item{StateContent(recordsState,onRetry){} }
-        if(recordsState is LoadState.Ready){items(recordsState.value.items.size){index->val record=recordsState.value.items[index];RecordRow(record){onDetail(LifeDomain.Health,record.detailId?:record.id,record.title)}};if(recordsState.value.nextCursor!=null)item{TextButton(onClick=onLoadMore,Modifier.fillMaxWidth()){Text("加载更多健康记录")}}}
+        if(recordsState is LoadState.Ready){recordsState.value.items.groupBy{it.batchId?:"record:${it.kind}:${it.id}"}.forEach{(key,rows)->
+          item(key){
+            val content:@Composable ()->Unit={rows.forEach{record->RecordRow(record){onDetail(LifeDomain.Health,record.detailId?:record.id,record.title)}}}
+            if(rows.size>1)UploadGroupCard(batchTitle(rows.first().batchId,rows.map{it.kind}),rows.size,rows.map{it.title}.distinct().take(3).joinToString(" · "),content) else content()
+          }
+        };if(recordsState.value.nextCursor!=null)item{TextButton(onClick=onLoadMore,Modifier.fillMaxWidth()){Text("加载更多健康记录")}}}
       }
       if(tab=="overview")item{
         LifeSection("健康档案"){

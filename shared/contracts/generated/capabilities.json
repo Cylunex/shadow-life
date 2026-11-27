@@ -87693,6 +87693,10 @@
                     "refund"
                   ]
                 },
+                "batch_id": {
+                  "type": "string",
+                  "maxLength": 200
+                },
                 "library_preview": {
                   "type": "object",
                   "properties": {
@@ -88095,6 +88099,10 @@
                     "income",
                     "refund"
                   ]
+                },
+                "batch_id": {
+                  "type": "string",
+                  "maxLength": 200
                 },
                 "library_preview": {
                   "type": "object",
@@ -101364,6 +101372,10 @@
                     "refund"
                   ]
                 },
+                "batch_id": {
+                  "type": "string",
+                  "maxLength": 200
+                },
                 "library_preview": {
                   "type": "object",
                   "properties": {
@@ -103978,6 +103990,10 @@
                     "income",
                     "refund"
                   ]
+                },
+                "batch_id": {
+                  "type": "string",
+                  "maxLength": 200
                 },
                 "library_preview": {
                   "type": "object",

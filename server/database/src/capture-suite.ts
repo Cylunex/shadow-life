@@ -61,7 +61,7 @@ export async function writeCaptureSuite(db:DB,subject:string,command:UniversalCo
   const recognition=input.recognition??"losna";
   const result=await nested({protocol:"shadow.command",command_id:command.command_id,capability:"library.capture",input:{title:input.title,item_type:"image",tags:["截图收录",...(recognition==="losna"?["losna:process",...(input.batch_id?["losna:batch:"+input.batch_id]:[])]:[])],source:{kind:"image",asset_version_id:input.asset_version_id,captured_at:input.captured_at,time_zone:input.time_zone}}});
   const screenshotId=String(result.actualValues.library_item_id);
-  await db.execute(sql`insert into capture_screenshot_sources(item_id,subject_id,app_package,captured_at,time_zone) values(${screenshotId},${subject},${input.app_package??null},${input.captured_at}::timestamptz,${input.time_zone})`);
+  await db.execute(sql`insert into capture_screenshot_sources(item_id,subject_id,app_package,captured_at,time_zone,batch_id) values(${screenshotId},${subject},${input.app_package??null},${input.captured_at}::timestamptz,${input.time_zone},${input.batch_id??null})`);
   const policy=(await capturePolicy(db,subject)).policy;let canRecognize=false;
   const modelId=input.vision_model_id??screenshotVisionModels()[0]?.id;
   const modelAvailable=Boolean(modelId&&screenshotVisionModels().some(model=>model.id===modelId));

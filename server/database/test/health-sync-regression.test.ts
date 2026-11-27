@@ -192,6 +192,12 @@ test("event view groups scale constituents before paging and searches child metr
  const record={source_type:"scale",source_instance_key:"scale-events",source_fingerprint:"scale-events",record_type:"body",client_record_id:"weigh-a",record_version:1,sync_epoch:1,change_kind:"upsert",parse_version:"xiaomi-ble-2",payload:{occurred_on:"2026-09-10",occurred_at:"2026-09-10T02:30:00Z",time_zone:"UTC",group_kind:"measurement",observations:[{metric_key:"weight",value:"68.4",unit:"kg"},{metric_key:"body_fat",value:"21.8",unit:"%",autofilled:true},{metric_key:"muscle_mass",value:"50.2",unit:"kg",autofilled:true}]}};
  await run("health.ingest_raw",record);await run("health.ingest_raw",{...record,client_record_id:"weigh-b",payload:{...record.payload,occurred_at:"2026-09-10T03:30:00Z"}});await processPendingHealth(pool);
  const facts=await queries.lifeTimeline(context,{domains:["health"],view:"facts",limit:100});assert.equal(facts.items.length,6);
+ const healthList=await queries.listDomain(context,"health",{limit:100});
+ for(const items of [facts.items,healthList.items]){
+   const batches=new Set(items.map(row=>row.batch_id));
+   assert.equal(batches.size,2);
+   for(const batch of batches){assert.ok(batch?.startsWith("scale:"));assert.equal(items.filter(row=>row.batch_id===batch).length,3);}
+ }
  const events=await queries.lifeTimeline(context,{domains:["health"],view:"events",limit:1});assert.equal(events.items.length,1);assert.ok(events.next_cursor);assert.match(events.items[0]!.title,/3 项指标/);
  const next=await queries.lifeTimeline(context,{domains:["health"],view:"events",limit:1,cursor:events.next_cursor!});assert.equal(next.items.length,1);assert.notEqual(next.items[0]!.id,events.items[0]!.id);assert.equal(next.next_cursor,null);
  await assert.rejects(()=>queries.lifeTimeline(context,{domains:["health"],view:"facts",cursor:events.next_cursor!}));
@@ -271,4 +277,22 @@ test("health transport upload links distinct raw observations and keeps the firs
   await processPendingHealth(f.pool);
   const page=await f.queries.lifeTimeline(f.context,{domains:["health"],view:"facts"});
   assert.deepEqual(page.items.map(row=>row.batch_id).sort(),["upload_other","upload_same","upload_same"]);
+});
+
+test("one Samsung aggregate sync groups heart and activity across transport pages, separate from another sync",pgOnly,async t=>{
+  const f=await reviewFixture(t);
+  const base={source_type:"samsung",source_instance_key:"watch-batch",source_fingerprint:"watch-permissions",sync_epoch:1,change_kind:"upsert",parse_version:"samsung-data-4"};
+  const day="2026-09-10";
+  const body={occurred_on:day,time_zone:"UTC",group_kind:"measurement",observations:[{metric_key:"heart_rate",value:"78",unit:"bpm"}]};
+  await f.run("health.ingest_raw",{...base,record_type:"body",client_record_id:"samsung-heart-"+day,record_version:100,payload:body});
+  await f.run("health.ingest_raw",{...base,record_type:"daily_activity",client_record_id:"samsung-activity-"+day,record_version:100,payload:{occurred_on:day,time_zone:"UTC",steps:250}});
+  await f.run("health.ingest_raw",{...base,record_type:"body",client_record_id:"samsung-heart-2026-09-11",record_version:101,payload:{...body,occurred_on:"2026-09-11"}});
+  await processPendingHealth(f.pool);
+  const timeline=await f.queries.lifeTimeline(f.context,{domains:["health"],view:"facts"});
+  const records=await f.queries.listDomain(f.context,"health",{});
+  for(const rows of [timeline.items,records.items]){
+    assert.equal(rows.length,3);
+    assert.equal(rows.filter(row=>row.batch_id?.startsWith("samsung:")&&row.batch_id.endsWith(":100")).length,2);
+    assert.equal(rows.filter(row=>row.batch_id?.endsWith(":101")).length,1);
+  }
 });

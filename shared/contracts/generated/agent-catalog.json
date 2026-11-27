@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "392b66b6ff8ed8f47b06bb55e513bf3bad50975e06a753123d932d58920d2f28",
+  "catalog_revision": "33722e2b36d8a85fb5838f2b26b5ddbd9f3f3ea635e5f7708af567b1990fe678",
   "terms": [
     {
       "id": "activity_capture",
@@ -15529,6 +15529,10 @@
                     "refund"
                   ]
                 },
+                "batch_id": {
+                  "type": "string",
+                  "maxLength": 200
+                },
                 "library_preview": {
                   "type": "object",
                   "properties": {
@@ -23502,6 +23506,10 @@
                     "income",
                     "refund"
                   ]
+                },
+                "batch_id": {
+                  "type": "string",
+                  "maxLength": 200
                 },
                 "library_preview": {
                   "type": "object",
@@ -75024,6 +75032,10 @@
                     "refund"
                   ]
                 },
+                "batch_id": {
+                  "type": "string",
+                  "maxLength": 200
+                },
                 "library_preview": {
                   "type": "object",
                   "properties": {
@@ -89195,6 +89207,10 @@
                     "income",
                     "refund"
                   ]
+                },
+                "batch_id": {
+                  "type": "string",
+                  "maxLength": 200
                 },
                 "library_preview": {
                   "type": "object",

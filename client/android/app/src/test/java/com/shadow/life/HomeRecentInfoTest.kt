@@ -23,6 +23,19 @@ class HomeRecentInfoTest {
     val unrelated=original.copy(key="another",targetId="another_image",at=20)
     assertEquals(listOf(text,unrelated),mergeHomeRecentInfo(listOf(text),listOf(original,unrelated)))
   }
+  @Test fun screenshotBatchKeepsOriginalsAndUsesOneHomeSlot(){
+    val command="""{"command_id":"cmd_image","capability":"life.capture_screenshot","input":{"title":"截图","batch_id":"order_synthetic"}}"""
+    val receipt="""{"protocol":"shadow.execution-result","status":"committed","command_id":"cmd_image","capability":"life.capture_screenshot","resources":[{"type":"library_item","id":"library_image"}]}"""
+    val saved=recentCaptureEntries("cmd_image",10,"committed",command,receipt).single()
+    assertEquals("screenshot:order_synthetic",saved.batchId)
+    assertEquals("library_image",saved.libraryId)
+    val first=HomeRecentInfo("image1",30,"第一张","已保存",LifeDomain.Library,"one",batchId=saved.batchId)
+    val second=first.copy(key="image2",at=10,targetId="two")
+    val separate=first.copy(key="image3",at=20,targetId="three",batchId="screenshot:other")
+    val home=mergeHomeRecentInfo(emptyList(),listOf(first,separate,second),2)
+    assertEquals(listOf(first,second),home.first().batchRows)
+    assertEquals(separate,home.last())
+  }
   private val item="""{"source_id":"shake_a","kind":"screen_text","title":"摇一摇补记 · 微信","text":"付款材料"}"""
   private fun body(items:String=item)="""{"command_id":"cmd_a","capability":"life.ingest_activity","input":{"device_id":"shake","items":[$items]}}"""
   private fun receipt(resources:String="""{"type":"activity_capture","id":"source_a"}""",commandId:String="cmd_a")="""{"protocol":"shadow.execution-result","command_id":"$commandId","capability":"life.ingest_activity","status":"committed","resources":[$resources]}"""

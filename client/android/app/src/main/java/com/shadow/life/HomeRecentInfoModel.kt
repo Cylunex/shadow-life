@@ -43,13 +43,14 @@ internal class HomeRecentInfoModel(private val app:ShadowApp,private val account
                     val detail=repository.detail(LifeDomain.Money,item.moneyRecordId)
                     HomeRecentInfo(item.key,item.at,listOfNotNull(detail.title,detail.heroValue).joinToString(" · "),if(detail.state=="confirmed")"已入账 · 查看消费" else "账目状态已变化",LifeDomain.Money,item.moneyRecordId)
                   }
+                  item.libraryId!=null->HomeRecentInfo(item.key,item.at,item.title,"截图已收录",LifeDomain.Library,item.libraryId,batchId=item.batchId)
                   item.sourceId!=null->{
                     val source=repository.activitySource(item.sourceId)
                     val recordId=source.consumptionRecordId?:source.relatedConsumptionRecordId
                     if(recordId!=null){
                       val detail=repository.detail(LifeDomain.Money,recordId)
                       HomeRecentInfo(item.key,item.at,listOfNotNull(detail.title,detail.heroValue).joinToString(" · "),if(detail.state=="confirmed"){if(source.consumptionRecordId==null)"付款页已归组 · 查看对应消费" else "已入账 · 查看消费"} else "账目状态已变化",LifeDomain.Money,recordId,originalLibraryId=source.libraryItemId,captureOrderId=source.captureOrderId)
-                    }else HomeRecentInfo(item.key,item.at,source.title,if(source.text?.startsWith("life.takeout.v1\n")==true)"订单文字已提取 · 查看文字" else if(source.title.startsWith("付款自动识别")||source.title.startsWith("摇一摇补记"))"材料已收录 · 尚未入账，查看采集结果" else "材料已收录",LifeDomain.Library,"capture:${source.id}",originalLibraryId=source.libraryItemId,captureOrderId=source.captureOrderId)
+                    }else HomeRecentInfo(item.key,item.at,source.title,if(source.text?.startsWith("life.takeout.v1\n")==true)"订单文字已提取 · 查看文字" else if(source.title.startsWith("付款自动识别")||source.title.startsWith("摇一摇补记"))"材料已收录 · 尚未入账，查看采集结果" else "材料已收录",LifeDomain.Library,"capture:${source.id}",originalLibraryId=source.libraryItemId,captureOrderId=source.captureOrderId,batchId=item.batchId)
                   }
                   else->HomeRecentInfo(item.key,item.at,"采集结果待核对","已同步 · 查看采集结果")
                 }
@@ -61,7 +62,7 @@ internal class HomeRecentInfoModel(private val app:ShadowApp,private val account
           launch{
             try{
               val page=repository.timeline(excludeCaptures=true)
-              if(currentRequest==request&&app.sessions.active()?.accountId==accountId)remote=page.items.filter{it.kind!="activity_capture"}.map{item->HomeRecentInfo("record:${item.domain}:${item.recordId?:item.id}",runCatching{Instant.parse(item.happenedAt).toEpochMilli()}.getOrDefault(0),item.title,"${item.domain.label()} · 已记录",item.domain,item.recordId?:item.id)}
+              if(currentRequest==request&&app.sessions.active()?.accountId==accountId)remote=page.items.filter{it.kind!="activity_capture"}.map{item->HomeRecentInfo("record:${item.domain}:${item.recordId?:item.id}",runCatching{Instant.parse(item.happenedAt).toEpochMilli()}.getOrDefault(0),item.title,"${item.domain.label()} · 已记录",item.domain,item.recordId?:item.id,batchId=item.batchId)}
             }catch(e:CancellationException){throw e}catch(_:Exception){if(currentRequest==request&&app.sessions.active()?.accountId==accountId)error="最近记录未更新，可稍后刷新。"}
           }
         }

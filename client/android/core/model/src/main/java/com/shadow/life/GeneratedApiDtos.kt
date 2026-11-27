@@ -62,6 +62,7 @@ data class DomainRecordsResultDtoItemsEntry(
   @SerialName("amount") val amount: String?,
   @SerialName("currency") val currency: String?,
   @SerialName("entry_type") val entryType: DomainRecordsResultDtoItemsEntryEntryType? = null,
+  @SerialName("batch_id") val batchId: String? = null,
   @SerialName("library_preview") val libraryPreview: DomainRecordsResultDtoItemsEntryLibraryPreview? = null,
   @SerialName("workout_plan") val workoutPlan: DomainRecordsResultDtoItemsEntryWorkoutPlan? = null
 )

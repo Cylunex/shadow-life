@@ -7,12 +7,12 @@ import kotlinx.coroutines.joinAll
 
 internal data class RecentCaptureInfo(
   val key:String,val at:Long,val title:String,val state:String,val preview:String?,
-  val sourceId:String?=null,val moneyRecordId:String?=null
+  val sourceId:String?=null,val moneyRecordId:String?=null,val batchId:String?=null,val libraryId:String?=null
 )
 internal data class HomeRecentInfo(
   val key:String,val at:Long,val title:String,val status:String,
   val domain:LifeDomain?=null,val targetId:String?=null,val preview:String?=null,val localState:String?=null,
-  val originalLibraryId:String?=null,val captureOrderId:String?=null
+  val originalLibraryId:String?=null,val captureOrderId:String?=null,val batchId:String?=null,val batchRows:List<HomeRecentInfo> = emptyList()
 )
 private fun JsonObject.text(key:String)=this[key]?.jsonPrimitive?.contentOrNull
 
@@ -20,13 +20,19 @@ internal fun recentCaptureEntries(commandId:String,at:Long,state:String,body:Str
   val command=Json.parseToJsonElement(body).jsonObject
   if(command.text("command_id")!=commandId)return emptyList()
   if(command.text("capability")=="life.capture_screenshot"){
-    val input=command["input"]!!.jsonObject;val text=input.text("text")?:return emptyList()
-    if(!text.startsWith("life.takeout.v1\n"))return emptyList()
+    val input=command["input"]!!.jsonObject;val text=input.text("text")
+    val batchId=input.text("batch_id")?.let{"screenshot:$it"}
+    val hasOrderText=text?.startsWith("life.takeout.v1\n")==true
+    if(!hasOrderText&&batchId==null)return emptyList()
     val saved=receipt?.takeIf{it.isNotBlank()}?.let{Json.parseToJsonElement(it).jsonObject}
     val verified=state=="committed"&&saved?.text("protocol")=="shadow.execution-result"&&saved.text("status")=="committed"&&saved.text("command_id")==commandId&&saved.text("capability")=="life.capture_screenshot"
     val sources=if(verified)saved!!["resources"]?.jsonArray?.map{it.jsonObject}?.filter{it.text("type")=="activity_capture"}.orEmpty() else emptyList()
+    if(!hasOrderText){
+      val libraryId=if(verified)saved!!["resources"]?.jsonArray?.map{it.jsonObject}?.singleOrNull{it.text("type")=="library_item"}?.text("id") else null
+      return listOf(RecentCaptureInfo(commandId,at,input.text("title")?:"截图",state,null,batchId=batchId,libraryId=libraryId))
+    }
     return listOf(RecentCaptureInfo("$commandId:takeout",at,if(state=="committed")"订单文字已同步" else input.text("title")?:"外卖订单文字",state,
-      if(state=="committed")null else captureReadableText(text),sources.singleOrNull()?.text("id")))
+      if(state=="committed")null else captureReadableText(text.orEmpty()),sources.singleOrNull()?.text("id"),batchId=batchId))
   }
   if(command.text("capability")!="life.ingest_activity")return emptyList()
   val all=command["input"]!!.jsonObject["items"]!!.jsonArray.map{it.jsonObject}
@@ -63,7 +69,10 @@ internal fun mergeHomeRecentInfo(local:List<HomeRecentInfo>,remote:List<HomeRece
     if(rows.size>1&&(representative.domain==LifeDomain.Money||representative.captureOrderId!=null))representative.copy(at=latest.at,status="${representative.status} · ${rows.size} 份采集材料") else representative
   }
   val originals=local.mapNotNull{it.originalLibraryId}.toSet()
-  return (captures+remote.filterNot{it.domain==LifeDomain.Library&&it.targetId in originals}).distinctBy(::identity).sortedByDescending{it.at}.take(limit)
+  val ordered=(captures+remote.filterNot{it.domain==LifeDomain.Library&&it.targetId in originals}).distinctBy(::identity).sortedByDescending{it.at}
+  return ordered.groupBy{it.batchId?.let{batch->"batch:$batch"}?:"record:${it.key}"}.values.take(limit).map{rows->
+    if(rows.size==1)rows.first() else rows.first().copy(batchRows=rows)
+  }
 }
 
 internal fun hasNewCaptureResults(local:List<RecentCaptureInfo>,resolvedKeys:Set<String>):Boolean =

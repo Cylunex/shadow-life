@@ -143,6 +143,16 @@ async function readHealthTrends(database:Pick<NodePgDatabase<typeof schema>,"exe
 
 
 function selectedFields(value:Record<string,unknown>,keys:readonly string[]):Record<string,unknown>{return Object.fromEntries(keys.flatMap(key=>value[key]===null||value[key]===undefined?[]:[[key,value[key]]]));}
+// The scale identifies a weighing by raw revision. Android Samsung daily aggregates
+// share the monotonic read version for one sync. Other point versions are provider
+// timestamps and only a recorded upload can link distinct points.
+function healthBatchKey(){
+  return sql`case when source.source_type='scale' then 'scale:'||raw.id||':'||split_part(page_key,':',3)
+    when source.source_type='samsung' and raw.client_record_id ~ '^samsung-(heart|activity)-[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+      and raw.record_type=case when raw.client_record_id like 'samsung-heart-%' then 'body' else 'daily_activity' end
+      then 'samsung:'||source.id||':'||split_part(page_key,':',3)
+    else coalesce(member.batch_id,case when kind='observation' then page_key end) end`;
+}
 function domainRecordSummary(row:{kind:string;id:string;page_at:string;value:Record<string,unknown>}):DomainRecordPageItem{
   const value=row.value,text=(...keys:string[])=>keys.flatMap(key=>typeof value[key]==="string"&&value[key]!==""?[value[key] as string]:[])[0]??null;
   const rawTitle=text("title","name","counterparty","place_name","label","metric","metric_key","session_type","habit_key","item_type","category","entry_type")??row.kind.replaceAll("_"," ");
@@ -153,7 +163,7 @@ function domainRecordSummary(row:{kind:string;id:string;page_at:string;value:Rec
   const entryType=text("entry_type") as "expense"|"income"|"refund"|null;
   // List titles are previews; purchase names and notes remain complete in detail and search.
   const previewTitle=title.length>500?`${title.slice(0,499).replace(/[\uD800-\uDBFF]$/u,"")}…`:title;
-  return{kind:row.kind,id:row.id,title:previewTitle,supporting:text("occurred_on","wake_date","starts_on","plan_date","ends_on","state"),happened_on:happenedOn,state:text("state","ownership_state"),revision,record_id:recordId,amount:text("amount"),currency:text("currency"),...(entryType?{entry_type:entryType}:{}),...(row.kind==="library_item"?{library_preview:{
+  return{kind:row.kind,id:row.id,...(text("batch_id")?{batch_id:String(value.batch_id)}:{}),title:previewTitle,supporting:text("occurred_on","wake_date","starts_on","plan_date","ends_on","state"),happened_on:happenedOn,state:text("state","ownership_state"),revision,record_id:recordId,amount:text("amount"),currency:text("currency"),...(entryType?{entry_type:entryType}:{}),...(row.kind==="library_item"?{library_preview:{
     item_type:text("item_type")??"document",created_at:new Date(String(value.created_at)).toISOString(),
     source:text("source_kind"),excerpt:text("excerpt"),image_version_id:text("image_version_id")
   }}:{}),...(row.kind==="workout_plan"?{workout_plan:{schedule:setHealthPlanInputSchema.shape.schedule.parse(value.schedule??{})!,detail:setHealthPlanInputSchema.shape.detail.parse(value.detail??null)!}}:{}),_page_at:row.page_at};
@@ -1082,7 +1092,7 @@ function storeFor(database: Database | Transaction): TransactionStore {
           order by ${ordering} limit ${options.limit+1}`);
         return finish(result.rows);
       }
-      if(domain==="health"){const result=await database.execute<{kind:string;id:string;page_at:string;value:Record<string,unknown>}>(sql`select kind,id,to_char(page_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') page_at,value from (
+      if(domain==="health"){const result=await database.execute<{kind:string;id:string;page_at:string;value:Record<string,unknown>}>(sql`with limited as (select *, 'health:'||(value->>'raw_id')||':'||(value->>'raw_version') page_key from (
         select 'measurement'::text kind,id,created_at page_at,to_jsonb(value.*) value from health_measurements value where subject_id=${subjectId}
         union all select 'observation',id,created_at,to_jsonb(value.*) from health_observations value where subject_id=${subjectId}
         union all select 'daily_wellbeing',id,created_at,to_jsonb(value.*) from health_daily_wellbeing value where subject_id=${subjectId}
@@ -1093,7 +1103,13 @@ function storeFor(database: Database | Transaction): TransactionStore {
         union all select 'habit_plan',id,created_at,to_jsonb(value.*) from health_habit_definitions value where subject_id=${subjectId}
         union all select 'goal',id,created_at,to_jsonb(value.*) from health_goals value where subject_id=${subjectId}
         union all select 'workout_plan',id,created_at,to_jsonb(value.*) from workout_plans value where subject_id=${subjectId}
-      ) page where page_at<=${asOf}::timestamptz ${before} and (${options.query??null}::text is null or lower(value::text) like ${pattern} or lower(kind) like ${pattern}) order by page_at desc,kind desc,id desc limit ${options.limit+1}`);return finish(result.rows);}
+      ) page where page_at<=${asOf}::timestamptz ${before} and (${options.query??null}::text is null or lower(value::text) like ${pattern} or lower(kind) like ${pattern}) order by page_at desc,kind desc,id desc limit ${options.limit+1})
+        select kind,limited.id,to_char(page_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') page_at,
+          value||jsonb_build_object('batch_id',${healthBatchKey()}) value from limited
+        left join timeline_upload_members member on member.subject_id=${subjectId} and member.resource_key=page_key
+        left join health_raw_records raw on raw.subject_id=${subjectId} and raw.id=value->>'raw_id'
+        left join health_source_instances source on source.id=raw.source_instance_id
+        order by limited.page_at desc,kind desc,limited.id desc`);return finish(result.rows);}
       if(domain==="travel"){const result=await database.execute<{kind:string;id:string;page_at:string;value:Record<string,unknown>}>(sql`with visible_trips as(select trip.* from trips trip where trip.subject_id=${subjectId} or exists(select 1 from trip_members member where member.trip_id=trip.id and member.subject_id=${subjectId})),page as(
         select 'trip'::text kind,trip.id,trip.created_at page_at,to_jsonb(trip) value from visible_trips trip
         union all select 'reservation',reservation.id,reservation.created_at,case when reservation.subject_id=${subjectId} then to_jsonb(reservation) else to_jsonb(reservation)-'fare_entry_id'-'source_id'-'confirmation_code'-'seat'-'note' end from reservations reservation join visible_trips trip on trip.id=reservation.trip_id where reservation.voided_at is null and (reservation.subject_id=${subjectId} or reservation.visibility='shared')
@@ -1103,6 +1119,7 @@ function storeFor(database: Database | Transaction): TransactionStore {
         union all select 'place',place.id,place.created_at,to_jsonb(place) from places place where place.subject_id=${subjectId}
       ) select kind,id,to_char(page_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') page_at,value from page where page_at<=${asOf}::timestamptz ${before} and (${options.query??null}::text is null or lower(value::text) like ${pattern} or lower(kind) like ${pattern}) order by page_at desc,kind desc,id desc limit ${options.limit+1}`);return finish(result.rows);}
       const result=await database.execute<{kind:string;id:string;page_at:string;value:Record<string,unknown>}>(sql`select 'library_item'::text kind,item.id,to_char(item.created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') page_at,to_jsonb(item)||jsonb_build_object('text',revision.text,'url',revision.url,'tags',revision.tags,'revision',revision.revision,
+        'batch_id',(select 'screenshot:'||shot.batch_id from capture_screenshot_sources shot where shot.subject_id=item.subject_id and shot.item_id=item.id),
         'source_kind',(select source.kind from sources source where source.id=item.source_id and source.subject_id=item.subject_id),
         'image_version_id',(select version.id from sources source join asset_versions version on version.id=source.asset_version_id
           join assets asset on asset.id=version.asset_id where source.id=item.source_id and source.subject_id=item.subject_id
@@ -1267,13 +1284,26 @@ function storeFor(database: Database | Transaction): TransactionStore {
         union all select 'travel','reservation',reservation.id,coalesce(reservation.starts_at,reservation.created_at),reservation.created_at,reservation.title,null,null,trip.id,(reservation.starts_at at time zone ${zone})::date,null from reservations reservation join trips trip on trip.id=reservation.trip_id where ${include("travel")} and reservation.voided_at is null and (reservation.subject_id=${subjectId} or reservation.visibility='shared') and (trip.subject_id=${subjectId} or exists(select 1 from trip_members member where member.trip_id=trip.id and member.subject_id=${subjectId}))
         union all select 'travel','trip_segment',segment.id,coalesce(segment.starts_at,segment.created_at),segment.created_at,segment.origin||' → '||segment.destination,null,null,trip.id,(segment.starts_at at time zone ${zone})::date,null from trip_segments segment join trips trip on trip.id=segment.trip_id where ${include("travel")} and segment.voided_at is null and (segment.subject_id=${subjectId} or segment.visibility='shared') and (trip.subject_id=${subjectId} or exists(select 1 from trip_members member where member.trip_id=trip.id and member.subject_id=${subjectId}))
         union all select 'travel','visit',visit.id,coalesce(visit.occurred_at,visit.occurred_on::timestamp at time zone visit.time_zone),visit.created_at,visit.place_name,null,null,visit.trip_id,coalesce((visit.occurred_at at time zone ${zone})::date,visit.occurred_on),null from visits visit where ${include("travel")} and (visit.subject_id=${subjectId} or visit.visibility='shared') and (visit.subject_id=${subjectId} or exists(select 1 from trip_members member where member.trip_id=visit.trip_id and member.subject_id=${subjectId}))
-        union all select 'library','activity_capture',a.id,a.started_at,a.created_at,a.title,null,null,null,(a.started_at at time zone ${zone})::date,'capture:'||a.id from activity_captures a where ${include("library")&&!options.excludeCaptures} and a.subject_id=${subjectId} and a.deleted_at is null
-        union all select 'library','library_item',item.id,item.created_at,item.created_at,item.title,null,null,null,coalesce(revision.document_date,(item.created_at at time zone ${zone})::date),null from library_items item join library_revisions revision on revision.item_id=item.id and revision.revision=item.current_revision where ${include("library")} and item.subject_id=${subjectId} and item.state='active'
+        union all select 'library','activity_capture',a.id,a.started_at,a.created_at,a.title,null,null,null,(a.started_at at time zone ${zone})::date,coalesce('screenshot:'||shot.batch_id,'capture:'||a.id) from activity_captures a left join capture_screenshot_sources shot on shot.subject_id=a.subject_id and shot.item_id=a.library_item_id where ${include("library")&&!options.excludeCaptures} and a.subject_id=${subjectId} and a.deleted_at is null
+        union all select 'library','library_item',item.id,item.created_at,item.created_at,item.title,null,null,null,coalesce(revision.document_date,(item.created_at at time zone ${zone})::date),'screenshot:'||shot.batch_id from library_items item left join capture_screenshot_sources shot on shot.subject_id=item.subject_id and shot.item_id=item.id join library_revisions revision on revision.item_id=item.id and revision.revision=item.current_revision where ${include("library")} and item.subject_id=${subjectId} and item.state='active'
         union all select 'items','owned_item',item.id,coalesce(item.started_on::timestamp at time zone ${zone},item.created_at),item.created_at,item.name,null,null,null,coalesce(item.started_on,(item.created_at at time zone ${zone})::date),null from owned_items item where ${options.includeItems??false} and item.subject_id=${subjectId} and item.ownership_state='owned'
         union all select 'items','owned_item_event',event.id,event.occurred_on::timestamp at time zone ${zone},event.created_at,item.name||' · '||event.event_kind,null,null,event.owned_item_id,event.occurred_on,null from owned_item_events event join owned_items item on item.id=event.owned_item_id where ${options.includeItems??false} and event.subject_id=${subjectId}
         union all select 'plans','action_completion',action.id,action.completed_at,action.completed_at,action.title,null,null,action.project_id,(action.completed_at at time zone ${zone})::date,null from action_items action where ${options.includePlans??false} and action.subject_id=${subjectId} and action.state='completed' and action.completed_at is not null
       ), visible as(select * from page where created_at<=${asOf}::timestamptz ${on}), summary as(select count(*)::int total from visible)
-      select visible.domain,visible.kind,visible.id,to_char(visible.happened_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') happened_at,visible.event_on::text happened_on,visible.title,visible.amount,visible.currency,visible.record_id,coalesce(member.batch_id, case when visible.kind='money_entry' then (select candidate.batch_id from money_import_candidates candidate where candidate.subject_id=${subjectId} and candidate.linked_record_id=visible.record_id and candidate.status='confirmed' order by candidate.created_at,candidate.id limit 1) when visible.kind='observation' then visible.resource_key end) batch_id,summary.total from summary left join lateral(select * from visible where true ${before} order by happened_at desc,domain desc,kind desc,id desc limit ${options.limit+1}) visible on true left join timeline_upload_members member on member.subject_id=${subjectId} and member.resource_key=visible.resource_key order by visible.happened_at desc,visible.domain desc,visible.kind desc,visible.id desc`);
+      select visible.domain,visible.kind,visible.id,to_char(visible.happened_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') happened_at,visible.event_on::text happened_on,visible.title,visible.amount,visible.currency,visible.record_id,
+        case when visible.domain='health' then ${healthBatchKey()}
+             when page_key like 'screenshot:%' then page_key
+             when visible.kind='money_entry' then (select candidate.batch_id from money_import_candidates candidate
+               where candidate.subject_id=${subjectId} and candidate.linked_record_id=visible.record_id and candidate.status='confirmed'
+               order by candidate.created_at,candidate.id limit 1)
+             else member.batch_id end batch_id,summary.total
+      from summary left join lateral(select * from visible where true ${before}
+        order by happened_at desc,domain desc,kind desc,id desc limit ${options.limit+1}) visible on true
+      cross join lateral (select visible.resource_key page_key) keys
+      left join health_raw_records raw on visible.domain='health' and raw.subject_id=${subjectId} and raw.id=split_part(page_key,':',2)
+      left join health_source_instances source on source.id=raw.source_instance_id
+      left join timeline_upload_members member on member.subject_id=${subjectId} and member.resource_key=visible.resource_key
+      order by visible.happened_at desc,visible.domain desc,visible.kind desc,visible.id desc`);
       const rows=result.rows.filter(row=>row.id!==null);
       return{items:rows.slice(0,options.limit).map(row=>({domain:row.domain! as "meals"|"money"|"health"|"travel"|"library"|"items"|"plans",kind:row.kind!,id:row.id!,happened_at:row.happened_at!,...(row.happened_on?{happened_on:row.happened_on}:{}),title:row.kind==="workout_session"?workoutSessionLabel(row.title!):row.kind==="habit_log"?healthHabitLabel(row.title!):row.title!,...(row.amount?{amount:row.amount}:{}),...(row.currency?{currency:row.currency}:{}),...(row.batch_id?{batch_id:row.batch_id}:{}),...(row.record_id?{record_id:row.record_id}:{})})),hasMore:rows.length>options.limit,asOf,total:result.rows[0]?.total??0};
     },

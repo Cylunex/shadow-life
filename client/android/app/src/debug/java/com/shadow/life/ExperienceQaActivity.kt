@@ -28,6 +28,14 @@ class ExperienceQaActivity:ComponentActivity(){
       val planning=PlanningWorkspace(emptyList(),listOf(PlanSummary("project-qa","整理周末行程","留出阅读时间","active",null,1,2)),emptyList(),emptyList(),false,today)
       val samples=(0..6).map{index->HealthTrendPoint("weight-$index",LocalDate.now().minusDays((6-index).toLong()).toString(),65.0+index*.1,(65.0+index*.1).toString(),"kg","manual",1)}
       val health=WorkspaceOverview.Health(1,0,1,snapshot.health,metrics=listOf(HealthMetricTrend("weight","体重",samples,7,false)),asOf=today)
+      val batchExamples=listOf(
+        Triple("screenshot:order_demo",LifeDomain.Library,listOf("订单截图 · 第一段","订单截图 · 第二段")),
+        Triple("scale:weigh_demo",LifeDomain.Health,listOf("体重","体脂率","肌肉量")),
+        Triple("samsung:sync_demo",LifeDomain.Health,listOf("每日活动","心率"))
+      ).flatMap{(batch,domain,titles)->titles.mapIndexed{index,title->
+        TimelineItem(domain,if(domain==LifeDomain.Library)"library_item" else "observation",
+          "$batch-$index","${today}T11:00:00+08:00",title,batchId=batch)
+      }}
       LifeTheme(if(dark)Appearance.Dark else Appearance.Light){
         if(screen in setOf("qa-meal","qa-lunch","qa-dining")){
           Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background){EventDetailsQa(screen)}
@@ -40,7 +48,7 @@ class ExperienceQaActivity:ComponentActivity(){
                 screen.startsWith("qa-")->EventDetailsQa(screen)
                 else->when(screen){
                 "home"->TodayVisualScreen("experience-qa",LoadState.Ready(snapshot),LoadState.Ready(health),DeviceSyncStatus(scaleLastWeight="65.2",scaleLastModel="小米体脂秤"),LoadState.Ready(QueueSummary(0,0,0,0,0)),false,{}, {_,_->},{},{},{},{_,_,_->},{},{},{},{},{},{},{},{},onSettings={},trainingState=LoadState.Empty("暂无训练"))
-                "records"->RecordsVisualScreen(LoadState.Ready(TimelinePage(listOf(TimelineItem(LifeDomain.Money,"expense","money-qa","${today}T12:00:00+08:00","午餐","28.00","CNY")),null,today)),null,{},{},{},{},{},{_,_,_->},{composer=true},{},{},LocalDate.now(),LoadState.Ready(DayPage(today,emptyList(),0,null,today,listOf("money"))),LoadState.Ready(emptyList()),{},{},{})
+                "records"->RecordsVisualScreen(LoadState.Ready(TimelinePage(listOf(TimelineItem(LifeDomain.Money,"expense","money-qa","${today}T12:00:00+08:00","午餐","28.00","CNY"))+batchExamples,null,today)),null,{},{},{},{},{},{_,_,_->},{composer=true},{},{},LocalDate.now(),LoadState.Ready(DayPage(today,emptyList(),0,null,today,listOf("money"))),LoadState.Ready(emptyList()),{},{},{})
                 "plans"->PlansVisualScreen(LoadState.Ready(planning),null,{},{},{},{},{},{_,_->},{},{},{},{},goals={Text("明确的目标与偏好")})
                 "library"->LibraryVisualScreen(LoadState.Ready(LibraryPage(listOf(LibrarySummary("note-qa","周末阅读笔记","note","active",1),LibrarySummary("ticket-qa","周六的车票","ticket","active",1)),null,today)),{_,_->},{},{_,_,_->},{},{},{},accountId="experience-qa")
                 "health"->HealthWorkspaceScreen("experience-qa",LoadState.Ready(health),LoadState.Empty("暂无记录"),DeviceSyncStatus(),LoadState.Ready(QueueSummary(0,0,0,0,0)),false,{},{},{},{_,_,_->},{},{},{},{},{},{},initialTab="body",releaseState=LoadState.Empty("暂无记录"),onReleaseLoad={_,_->})

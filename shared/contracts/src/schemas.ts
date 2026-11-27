@@ -1106,6 +1106,7 @@ export const domainRecordSummarySchema=z.object({
   amount:signedStoredAmount.nullable(),
   currency:currencyCode.nullable(),
   entry_type:z.enum(["expense","income","refund"]).optional(),
+  batch_id:z.string().max(200).optional(),
   library_preview:z.object({item_type:z.string(),created_at:instant,source:z.string().nullable(),excerpt:z.string().nullable(),image_version_id:stableId.nullable()}).strict().optional(),
   workout_plan:z.object({schedule:z.json(),detail:z.json().nullable()}).strict().optional()
 }).strict();

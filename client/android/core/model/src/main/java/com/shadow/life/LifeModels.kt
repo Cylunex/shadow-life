@@ -94,7 +94,7 @@ data class MealCardSummary(
   val mealType:String,val occurredOn:String,val occurredAt:String?,val timeZone:String,val note:String?,
   val foods:List<MealFoodSummary>,val photoAssetVersionId:String?=null,val reusableFoods:List<MealDraftItem> = emptyList()
 )
-data class RecordSummary(val domain:LifeDomain,val kind:String,val id:String,val title:String,val supporting:String?,val trailing:String?,val revision:Int?,val detailId:String?=null,val subtype:String?=null,val meal:MealCardSummary?=null,val recordState:String?=null,val happenedOn:String?=null)
+data class RecordSummary(val domain:LifeDomain,val kind:String,val id:String,val title:String,val supporting:String?,val trailing:String?,val revision:Int?,val detailId:String?=null,val subtype:String?=null,val meal:MealCardSummary?=null,val recordState:String?=null,val happenedOn:String?=null,val batchId:String?=null)
 data class RecordPage(val items:List<RecordSummary>,val nextCursor:String?,val asOf:String)
 data class HealthTrendPoint(val id:String,val occurredOn:String,val value:Double,val valueText:String,val unit:String,val sourceKind:String,val revision:Int,val occurredAt:String?=null,val originalField:String?=null)
 data class HealthMetricTrend(val key:String,val label:String,val points:List<HealthTrendPoint>,val coveragePoints:Int,val truncated:Boolean,val unavailable:Boolean=false)
@@ -188,7 +188,7 @@ data class ReviewSummary(
   val evidence:List<ReviewEvidence> = emptyList(),val limitationItems:List<String> = emptyList()
 )
 data class PlanningWorkspace(val agenda:List<AgendaItem>,val projects:List<PlanSummary>,val ownedItems:List<OwnedItemSummary>,val reviews:List<ReviewSummary>,val truncated:Boolean,val asOf:String,val partialFailures:List<String> = emptyList(),val ownedItemsTruncated:Boolean=false,val ownedAttention:OwnedItemsResultDtoAttention?=null)
-data class LibrarySummary(val id:String,val title:String,val itemType:String,val state:String?,val revision:Int?,val createdAt:String?=null,val source:String?=null,val excerpt:String?=null,val thumbnailId:String?=null)
+data class LibrarySummary(val id:String,val title:String,val itemType:String,val state:String?,val revision:Int?,val createdAt:String?=null,val source:String?=null,val excerpt:String?=null,val thumbnailId:String?=null,val batchId:String?=null)
 data class LibraryPage(val items:List<LibrarySummary>,val nextCursor:String?,val asOf:String)
 data class DetailFact(val label:String,val value:String)
 data class DetailLink(val kind:String,val id:String,val title:String,val supporting:String?=null)
