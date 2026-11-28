@@ -53,7 +53,7 @@ class NotificationSyncWorker(context:Context,params:WorkerParameters):CoroutineW
     val installationId=app.sessions.installationId()
     for(item in response.optJSONArray("items").objects().filter{candidate->candidate.optString("delivery_state")=="ready"&&candidate.optJSONArray("deliveries").objects().none{it.optString("installation_id")==installationId&&it.optString("state") in setOf("scheduled","delivered")}}){
       val id=item.getString("id")
-      val intent=Intent(applicationContext,MainActivity::class.java).putExtra(OPEN_INBOX_EXTRA,true).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+      val intent=lifeWorkspaceIntent(applicationContext, "com.shadow.life.INBOX_ACTIVITY").putExtra(OPEN_INBOX_EXTRA,true).putExtra("com.shadow.life.NOTIFICATION_ACCOUNT", accountId).putExtra("com.shadow.life.NOTIFICATION_SUBJECT", fresh.session.subjectId).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
       val pending=PendingIntent.getActivity(applicationContext,id.hashCode(),intent,PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
       manager.notify(id.hashCode(),Notification.Builder(applicationContext,CHANNEL_ID).setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle("Shadow Life").setContentText("有一项生活安排待处理").setContentIntent(pending).setAutoCancel(true).setCategory(Notification.CATEGORY_REMINDER).setVisibility(Notification.VISIBILITY_PRIVATE).build())
       val input=JSONObject().put("notification_id",id).put("installation_id",installationId).put("state","delivered").put("attempt",1)

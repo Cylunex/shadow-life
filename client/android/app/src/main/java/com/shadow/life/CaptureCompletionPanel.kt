@@ -17,13 +17,6 @@ import kotlinx.coroutines.*
 import org.json.*
 import java.time.LocalDate
 
-internal object CaptureLocalSettings {
- private fun preferences(context:Context)=context.getSharedPreferences("activity_capture",Context.MODE_PRIVATE)
- fun sync(context:Context,account:String)=preferences(context).getBoolean("capture_sync_$account",true)
- fun canSync(context:Context,app:ShadowApp,account:String)=sync(context,account)&&app.sessions.active()?.accountId==account
- fun setSync(context:Context,account:String,enabled:Boolean){preferences(context).edit().putBoolean("capture_sync_$account",enabled).apply();SyncScheduler.schedule(context,account)}
- val commands=setOf("life.ingest_activity","life.capture_screenshot","life.register_recording","life.restore_activities","life.restore_recording")
-}
 internal val captureBehaviors=listOf("unknown" to "未分类","reading" to "阅读","browsing" to "浏览","communication" to "沟通","shopping" to "购物","media" to "影音娱乐","work" to "工作","learning" to "学习","exercise" to "运动","travel" to "出行","rest" to "休息","other" to "其他")
 internal val captureDomains=listOf("unknown" to "未分类","work" to "工作","growth" to "成长","life" to "生活","health" to "健康","relationships" to "关系","leisure" to "休闲")
 @Composable internal fun CaptureChoice(label:String,value:String,options:List<Pair<String,String>>,choose:(String)->Unit){LifeChoiceField(label,value,options,choose)}

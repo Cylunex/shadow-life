@@ -145,7 +145,7 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
    }
    if(!foreground)try{
      getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel("life_bill_shake","Life 摇一摇记账",NotificationManager.IMPORTANCE_LOW))
-     val open=PendingIntent.getActivity(this,5204,Intent(this,MainActivity::class.java),PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+     val open=PendingIntent.getActivity(this,5204,lifeWorkspaceIntent(this),PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
      val notification=NotificationCompat.Builder(this,"life_bill_shake").setSmallIcon(android.R.drawable.ic_menu_edit)
        .setContentTitle("Life 摇一摇记账已开启").setContentText("打开支付账单详情后摇动；可回 Life 关闭").setContentIntent(open).setOngoing(true).build()
      if(Build.VERSION.SDK_INT>=34)startForeground(5204,notification,ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE) else startForeground(5204,notification)
@@ -265,7 +265,7 @@ class LifeScreenCaptureService:AccessibilityService(), SensorEventListener {
    val digest=hash("$name:${now.toEpochMilli()}:$text")
    val item=JSONObject().put("source_id","screen_$digest").put("kind","screen_text").put("title",if(paymentRule!=null)"付款自动识别 · "+(if(paymentRule.platform=="wechat")"微信" else "支付宝") else if(shaken)"摇一摇补记 · "+(if(billPlatforms[name]=="wechat")"微信" else "支付宝") else text.lineSequence().first().take(200)).put("text",text).put("app_package",name).put("started_at",now.toString()).put("ended_at",now.toString()).put("time_zone",ZoneId.systemDefault().id)
    if(paymentRule!=null)item.put("payment_context",JSONObject().put("platform",paymentRule.platform).put("source_account",paymentRule.sourceAccount).put("trigger","payment_success"))
-   NativeLifeRepository(this,app).saveActivities(JSONArray().put(item),account,recordExpenses=shaken||paymentRule!=null)
+   app.enqueueActivities(this,JSONArray().put(item),account,recordExpenses=shaken||paymentRule!=null)
    last[key]=contentHash to now.epochSecond;if(last.size>50)last.remove(last.keys.first())
    if(shaken && app.activeCaptureSession()?.accountId==account)feedback("账单已提交记账，完整已支付账单会记为消费；回首页查看结果")
  }

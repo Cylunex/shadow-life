@@ -18,7 +18,7 @@ internal object OrderCaptureSettings {
 }
 
 /** Shared originals are routed without trying to OCR/classify the image on the phone. */
-internal fun sharedImageMetadata(context:Context,account:String,batch:String?=null):String {
+fun sharedImageMetadata(context:Context,account:String,batch:String?=null):String {
  val input=JSONObject().put("title","分享图片").put("captured_at",Instant.now().toString()).put("time_zone",ZoneId.systemDefault().id)
  if(batch!=null)input.put("batch_id","share_"+batch.take(48).replace(Regex("[^a-z0-9_]"),"_"))
  return JSONObject().put("capability","life.capture_screenshot").put("input",OrderCaptureSettings.apply(context,account,input)).toString()

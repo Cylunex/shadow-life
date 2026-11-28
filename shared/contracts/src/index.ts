@@ -23,3 +23,4 @@ export * from "./diet-review-schemas.js";
 export * from "./capture-completion-schemas.js";
 
 export * from "./takeout-schemas.js";
+export * from "./life-source.js";

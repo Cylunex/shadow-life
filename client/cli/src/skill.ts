@@ -1,8 +1,30 @@
 import { readFile } from "node:fs/promises";
 import { isAbsolute } from "node:path";
-import { LifeClient, toolError, isCapability } from "@shadow/life-client/client";
+import { LifeClient, ToolFailure, toolError, isCapability } from "@shadow/life-client/client";
 import { uploadLocalImage, uploadLocalFile, uploadTool, uploadFileTool, uploadAttachmentTool, uploadLocalAttachment } from "@shadow/life-client/media";
-import { agentScenarioNameSchema } from "@shadow/contracts";
+import { agentScenarioNameSchema, lifeSourceScope } from "@shadow/contracts";
+
+async function readSource(client: LifeClient) {
+  if (!client.allows("life.get_record") && !client.allows("health.trend")) return { isError: true, code: "permission_denied" };
+  try {
+    let scope: unknown;
+    try {
+      const source = await client.request("/api/source") as {scope?: unknown} | null;
+      scope = source?.scope;
+    } catch (error) {
+      if (!(error instanceof ToolFailure) || error.detail.http_status !== 404) throw error;
+      const me = await client.request("/api/me") as Record<string, unknown> | null;
+      if (Array.isArray(me?.effects) && (me.effects.includes("life.meal.read") || me.effects.includes("health.measurement.read"))) {
+        scope = await lifeSourceScope(me.issuer, me.environment_id, me.life_subject_id);
+      }
+    }
+    if (typeof scope === "string" && /^[0-9a-f]{64}$/u.test(scope)) return { scope };
+    return { isError: true, code: "source_unavailable" };
+  } catch (error) {
+    const denied = error instanceof ToolFailure && [401, 403].includes(Number(error.detail.http_status));
+    return { isError: true, code: denied ? "permission_denied" : "source_unavailable" };
+  }
+}
 
 // One JSON document in/out; no protocol handshake or resident MCP process.
 export async function runSkill(configPath: string, action: string, name?: string, args: unknown = {}) {
@@ -18,13 +40,28 @@ export async function runSkill(configPath: string, action: string, name?: string
     ...(config.proxySecret ? { proxySecret: config.proxySecret } : {}),
     ...(config.proxyClientId ? { proxyClientId: config.proxyClientId } : {}),
     ...(config.scenario ? { scenario: agentScenarioNameSchema.parse(config.scenario) } : {}) });
-  if (action === "catalog") return [...await client.listTools(), ...(roots.length ? [uploadTool, uploadAttachmentTool, ...(client.allows("money.import_file") ? [uploadFileTool] : [])] : [])];
+  if (action === "source") return readSource(client);
+  if (action === "call-scoped") {
+    const request = args as {scope?: unknown; arguments?: unknown} | null;
+    if (!name || !["life.get_record", "health.trend"].includes(name) || !isCapability(name) ||
+        typeof request?.scope !== "string" || !/^[0-9a-f]{64}$/u.test(request.scope)) return { isError: true, code: "permission_denied" };
+    // One credential snapshot for both attestations and the read, even when the config file is rotated.
+    const before = await readSource(client);
+    if (before.scope !== request.scope) return { isError: true, code: "permission_denied" };
+    try {
+      const result = await client.call(name, request.arguments);
+      const after = await readSource(client);
+      return after.scope === request.scope ? result : { isError: true, code: "permission_denied" };
+    } catch (error) { return { ...toolError(error, name, request.arguments).structuredContent, isError: true }; }
+  }
+  if (action === "catalog") return [...(await client.listTools()).map(tool =>
+    ["life.get_record", "health.trend"].includes(tool.name) ? { ...tool, _meta: { "shadow.life/source": 1 } } : tool), ...(roots.length ? [uploadTool, uploadAttachmentTool, ...(client.allows("money.import_file") ? [uploadFileTool] : [])] : [])];
   if(action==="describe"&&name){
     const tool=(await client.listTools()).find(t=>t.name===name);
     if(!tool)throw new Error("Capability unavailable for this profile and account");
     return tool;
   }
-  if (action !== "call" || !name) throw new Error("Usage: skill --config <private.json> catalog | describe <capability> | call <capability> [input.json]; default input is stdin");
+  if (action !== "call" || !name) throw new Error("Usage: skill --config <private.json> catalog | source | describe <capability> | call <capability> [input.json]; default input is stdin");
   try {
     if (name === uploadAttachmentTool.name) return await uploadLocalAttachment(client, roots, args);
     if (name === uploadTool.name) return await uploadLocalImage(client, roots, args);
@@ -38,7 +75,7 @@ if (process.argv[1]?.endsWith("/skill.ts")) {
   const [, , flag, configPath, action, name, inputPath] = process.argv;
   if (flag !== "--config" || !configPath || !action) throw new Error("Life skill requires --config <private.json> and catalog/call");
   let args: unknown = {};
-  if (action === "call") {
+  if (action === "call" || action === "call-scoped") {
     let raw: string;
     if (inputPath) raw = await readFile(inputPath, "utf8");
     else { const chunks: Buffer[] = []; for await (const chunk of process.stdin) chunks.push(Buffer.from(chunk)); raw = Buffer.concat(chunks).toString("utf8"); }

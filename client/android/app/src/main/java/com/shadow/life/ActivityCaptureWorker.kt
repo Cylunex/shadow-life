@@ -15,12 +15,11 @@ class ActivityCaptureWorker(context:Context,parameters:WorkerParameters):Corouti
    val app=applicationContext as ShadowApp
    if(!ActivityCaptureScheduler.enabled(applicationContext,account)||app.sessions.active()?.accountId!=account)return@withContext Result.success()
    try{
-     val repository=NativeLifeRepository(applicationContext,app)
      for(date in listOf(LocalDate.now().minusDays(1),LocalDate.now())){
        if(!ActivityCaptureScheduler.enabled(applicationContext,account)||app.sessions.active()?.accountId!=account)return@withContext Result.success()
        for(batch in readUsage(applicationContext,date).chunked(100)){
          if(!ActivityCaptureScheduler.enabled(applicationContext,account))return@withContext Result.success()
-         repository.saveActivities(JSONArray(batch),account)
+         app.enqueueActivities(applicationContext,JSONArray(batch),account)
        }
      }
      Result.success()

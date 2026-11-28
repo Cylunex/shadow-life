@@ -53,6 +53,9 @@ class ScaleScanService:Service(){
   private val pending=ScaleReadingWindow(handler,SETTLE_MS,::enqueue)
   private val s400=ScaleReadingWindow(handler,SETTLE_MS,::enqueue)
   private val scalePreferences by lazy { ScalePreferences(this) }
+  private data class Owner(val id:String,val subject:String,val generation:Long,val api:String)
+  private fun ProductSession.scaleOwner()=Owner(accountId,subjectId,generation,apiBase)
+  private var scanOwner:Owner?=null
   private var scanStartedAt=0L
   private var lastBindkeyWarning:String?=null
   @Volatile private var accepting=false
@@ -67,6 +70,10 @@ class ScaleScanService:Service(){
   override fun onBind(intent:Intent?):IBinder?=null
   override fun onCreate(){super.onCreate();getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel(CHANNEL,"体脂秤称重",NotificationManager.IMPORTANCE_LOW))}
   override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{
+    if (!intent.matchesCaptureOwner(application as ShadowApp)) {
+      if (accountId == null) stopSelfResult(startId)
+      return START_NOT_STICKY
+    }
     if(intent?.action==ACTION_CANCEL){
       if(accountId==null||accountId==intent.getStringExtra(EXTRA_ACCOUNT_ID)){
         accepting=false;val generation=++scanGeneration
@@ -83,6 +90,8 @@ class ScaleScanService:Service(){
     s400.clear()
     accepting=true
     accountId=intent?.getStringExtra(EXTRA_ACCOUNT_ID)
+    scanOwner=(application as ShadowApp).activeCaptureSession()?.takeIf{it.accountId==accountId}?.scaleOwner()
+    if(scanOwner==null){accepting=false;stopSelfResult(startId);return START_NOT_STICKY}
     sawAdvertisement=false
     scanStartedAt=SystemClock.elapsedRealtime()
     lastBindkeyWarning=null
@@ -280,7 +289,7 @@ class ScaleScanService:Service(){
     val weight=measurement.frame.weightKg?:return
     if(!accepting)return
     val generation=scanGeneration
-    val receivingAccount=accountId
+    val receivingOwner=scanOwner
     accepting=false
     stopScan()
     handler.removeCallbacks(finish)
@@ -291,7 +300,7 @@ class ScaleScanService:Service(){
     updateStatus("reading","正在安全保存体重",decimal(weight))
     scope.launch {
       try {
-        saveMeasurement(measurement,weight,receivingAccount,generation)
+        saveMeasurement(measurement,weight,receivingOwner,generation)
       } catch(error:CancellationException){
         throw error
       } catch(error:Exception){
@@ -304,9 +313,9 @@ class ScaleScanService:Service(){
       }
     }
   }
-  private suspend fun saveMeasurement(measurement:Measurement,weight:Double,receivingAccount:String?,generation:Int){
+  private suspend fun saveMeasurement(measurement:Measurement,weight:Double,receivingOwner:Owner?,generation:Int){
       val app=application as ShadowApp
-      val session=app.activeCaptureSession()?.takeIf{it.accountId==receivingAccount}
+      val session=app.activeCaptureSession()?.takeIf{it.scaleOwner()==receivingOwner}
       if(session==null){
         withContext(Dispatchers.Main.immediate){
           if(generation==scanGeneration){
@@ -315,7 +324,7 @@ class ScaleScanService:Service(){
         }
         return
       }
-      val settings=runCatching{scalePreferences.current()}.getOrNull();val observations=JSONArray().put(observation("weight",decimal(weight),"kg","${measurement.frame.model}:weight"))
+      val settings=runCatching{scalePreferences.bodyProfile(session)}.getOrNull();val observations=JSONArray().put(observation("weight",decimal(weight),"kg","${measurement.frame.model}:weight"))
       measurement.frame.impedanceLow?.let{observations.put(observation("impedance_low",decimal(it),"ohm","${measurement.frame.model}:impedance_low"))};measurement.frame.impedanceHigh?.let{observations.put(observation("impedance_high",decimal(it),"ohm","${measurement.frame.model}:impedance_high"))};measurement.frame.heartRate?.let{observations.put(observation("heart_rate",it.toString(),"bpm","${measurement.frame.model}:heart_rate"))}
       val profile=settings?.profile();val impedance=measurement.frame.impedanceLow;val composition=if(profile!=null&&impedance!=null)xiaomiBodyComposition(weight,impedance,profile,measurement.instant.atZone(measurement.zone).toLocalDate()) else null
       composition?.let{
@@ -328,7 +337,7 @@ class ScaleScanService:Service(){
       rememberBroadcast(measurement,session.accountId)
       withContext(Dispatchers.Main.immediate){
         val current=generation==scanGeneration
-        app.deviceSync.recordScale(session.accountId,decimal(weight),measurement.frame.model,measurement.instant.toEpochMilli(),updateState=current)
+        app.deviceSync.recordScale(session.accountId,decimal(weight),measurement.frame.model,measurement.instant.toEpochMilli(),updateState=current,subjectId=session.subjectId)
         SyncScheduler.schedule(this@ScaleScanService,session.accountId)
         Log.i(TAG,"Stable measurement queued model=${measurement.frame.model} inserted=$inserted")
         if(current){
@@ -340,7 +349,7 @@ class ScaleScanService:Service(){
   private fun observation(metric:String,value:String,unit:String,source:String,autofilled:Boolean=false)=JSONObject().put("metric_key",metric).put("value",value).put("unit",unit).put("original_field",source).put("autofilled",autofilled)
   private fun decimal(value:Double)=BigDecimal.valueOf(value).setScale(6,RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()
   private fun sha256(value:String)=MessageDigest.getInstance("SHA-256").digest(value.toByteArray()).joinToString(""){"%02x".format(it)}
-  private fun notification(text:String):Notification{val open=PendingIntent.getActivity(this,0,Intent(this,MainActivity::class.java),PendingIntent.FLAG_IMMUTABLE);return NotificationCompat.Builder(this,CHANNEL).setSmallIcon(R.drawable.ic_life_mark).setContentTitle("Shadow Life 体脂秤").setContentText(text).setContentIntent(open).setOngoing(true).build()}
+  private fun notification(text:String):Notification{val open=PendingIntent.getActivity(this,0,lifeWorkspaceIntent(this),PendingIntent.FLAG_IMMUTABLE);return NotificationCompat.Builder(this,CHANNEL).setSmallIcon(R.drawable.ic_life_mark).setContentTitle("Shadow Life 体脂秤").setContentText(text).setContentIntent(open).setOngoing(true).build()}
   private fun update(text:String){getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID,notification(text))}
   private fun advertisement(model:String){if(sawAdvertisement)return;sawAdvertisement=true;Log.i(TAG,"BLE advertisement detected model=$model");updateStatus("detected","已发现 $model 广播，等待稳定读数")}
   private fun updateStatus(state:String,message:String,pendingWeight:String?=null){accountId?.let{(application as ShadowApp).deviceSync.updateScale(it,state,message,pendingWeight)}}

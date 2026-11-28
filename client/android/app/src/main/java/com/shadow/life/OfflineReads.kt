@@ -3,11 +3,6 @@ package com.shadow.life
 import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.security.MessageDigest
 
@@ -62,15 +57,5 @@ internal class OfflineReadCache(context:Context){
     val keys=timestamps.keys.filter{it.startsWith(prefix)}
     preferences.edit().apply{keys.forEach{remove(it)}}.commit()
     keys.forEach{timestamps.remove(it)}
-  }
-}
-@Composable internal fun OfflineReadBanner(accountId:String,onRetry:()->Unit){
-  val cached by OfflineReads.cached.collectAsState()
-  val times=cached[accountId].orEmpty().values
-  if(times.isNotEmpty())Surface(color=MaterialTheme.colorScheme.secondaryContainer){
-    Row(Modifier.fillMaxWidth().padding(horizontal=16.dp),horizontalArrangement=Arrangement.SpaceBetween){
-      Text("部分内容为离线副本 · "+java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT,java.text.DateFormat.SHORT).format(java.util.Date(times.min())),Modifier.weight(1f).padding(vertical=12.dp),style=MaterialTheme.typography.bodySmall)
-      TextButton(onClick=onRetry){Text("重试")}
-    }
   }
 }

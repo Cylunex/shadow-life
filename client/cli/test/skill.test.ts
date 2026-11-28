@@ -40,3 +40,35 @@ test("skill uses private config, authorized HTTP schemas and preserves command e
   assert.equal(JSON.parse(launch.stdout)[0].name,"life.link_meal_consumption");
   assert.deepEqual(calls[1]?.body,{protocol:"shadow.command",capability:"life.link_meal_consumption",...args});
 });
+
+test("source discloses only the authenticated scope, requires a real issuer on older servers and fails closed on revocation", async t => {
+  let status = 200;
+  const scope = "ab".repeat(32), paths: string[] = [];
+  const me = { issuer: "https://identity.example.com/tenant", environment_id: "测试空间", life_subject_id: "subject_source_test", effects: ["life.meal.read"] };
+  const server = createServer((req, res) => {
+    paths.push(req.url!);
+    assert.equal(req.headers.authorization, "Bearer synthetic-token");
+    res.setHeader("content-type", "application/json");
+    if (req.url === "/api/source") { res.statusCode = status; res.end(JSON.stringify({scope, extra: "hidden"})); }
+    else { res.end(JSON.stringify(me)); }
+  });
+  await new Promise<void>(resolve => server.listen(0,"127.0.0.1",resolve));
+  t.after(() => new Promise<void>(resolve => server.close(() => resolve())));
+  const dir = await mkdtemp(join(tmpdir(),"life-source-")); t.after(() => rm(dir,{recursive:true,force:true}));
+  const file = join(dir,"config.json"), address = server.address() as {port:number};
+  await writeFile(file, JSON.stringify({api:`http://127.0.0.1:${address.port}`, token:"synthetic-token"}));
+  assert.deepEqual(await runSkill(file, "source"), {scope});
+  status = 404;
+  const expected = (await import("node:crypto")).createHash("sha256").update(JSON.stringify(["shadow-life-source-v1", me.issuer, me.environment_id, me.life_subject_id])).digest("hex");
+  assert.deepEqual(await runSkill(file, "source"), {scope:expected});
+  me.issuer = "shadow:trusted-proxy";
+  assert.deepEqual(await runSkill(file, "source"), {isError:true,code:"source_unavailable"});
+  paths.length = 0;
+  status = 403;
+  assert.deepEqual(await runSkill(file, "source"), {isError:true,code:"permission_denied"});
+  assert.deepEqual(paths, ["/api/source"]);
+  paths.length = 0;
+  status = 200;
+  assert.deepEqual(await runSkill(file,"call-scoped","health.trend",{scope:"c".repeat(64),arguments:{}}), {isError:true,code:"permission_denied"});
+  assert.deepEqual(paths, ["/api/source"]);
+});

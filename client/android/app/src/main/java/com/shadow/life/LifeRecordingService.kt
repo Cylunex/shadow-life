@@ -32,6 +32,10 @@ class LifeRecordingService:Service(){
  private val accountWatch=object:Runnable{override fun run(){if(account!=null&&(application as ShadowApp).activeCaptureSession()?.accountId!=account){running=false;recorder?.let{runCatching{it.stop()}};LifeRecordingState.status="interrupted";LifeRecordingState.message="账号已切换，录音已结束。";scope.launch{job?.join();withContext(Dispatchers.Main){stopSelf()}}}else handler.postDelayed(this,5000)}}
  override fun onBind(intent:Intent?):IBinder?=null
  override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{
+    if (!intent.matchesCaptureOwner(application as ShadowApp)) {
+      if (account == null) stopSelfResult(startId)
+      return START_NOT_STICKY
+    }
   when(intent?.action){
    "pause"->{running=false;recorder?.let{runCatching{it.stop()}};LifeRecordingState.status="paused";createNotification(true)}
    "stop"->{running=false;recorder?.let{runCatching{it.stop()}};LifeRecordingState.status="finishing";scope.launch{job?.join();withContext(Dispatchers.Main){LifeRecordingState.status="idle";stopForeground(STOP_FOREGROUND_REMOVE);stopSelf()}}}
@@ -51,7 +55,7 @@ class LifeRecordingService:Service(){
  private fun createNotification(paused:Boolean=false){
   val manager=getSystemService(NotificationManager::class.java);manager.createNotificationChannel(NotificationChannel("life_recording","Life 录音",NotificationManager.IMPORTANCE_LOW))
   fun action(value:String)=PendingIntent.getService(this,value.hashCode(),Intent(this,LifeRecordingService::class.java).setAction(value),PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-  val open=PendingIntent.getActivity(this,5201,Intent(this,MainActivity::class.java),PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+  val open=PendingIntent.getActivity(this,5201,lifeWorkspaceIntent(this),PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
   startForeground(5201,NotificationCompat.Builder(this,"life_recording").setSmallIcon(android.R.drawable.ic_btn_speak_now).setContentTitle(if(paused)"Life 录音已暂停" else "Life 正在录音").setContentText("音频在本机加密保存，可暂停或结束").setContentIntent(open).setOngoing(true).addAction(0,if(paused)"继续" else "暂停",action(if(paused)"start" else "pause")).addAction(0,"结束",action("stop")).build())
  }
  private suspend fun recordSegment(app:ShadowApp,session:ProductSession){

@@ -23,7 +23,8 @@ data class DeviceSyncStatus(
   val samsungState:String="idle",val samsungMessage:String="尚未连接",val samsungUpdatedAt:Long=0,val samsungRecords:Int=0,
   val scaleState:String="idle",val scaleMessage:String="尚未开始称重",val scaleUpdatedAt:Long=0,
   val scaleLastWeight:String?=null,val scaleLastModel:String?=null,val scaleMeasuredAt:Long=0,
-  val scalePendingWeight:String?=null,val samsungLastReadAt:Long=0,val samsungLastUploadedAt:Long=0
+  val scalePendingWeight:String?=null,val samsungLastReadAt:Long=0,val samsungLastUploadedAt:Long=0,
+  val scaleMeasurementSubject:String?=null
 ){
   val samsungReading get()=samsungState in setOf("authorizing","syncing")
   val scaleActive get()=scaleState in setOf("starting","scanning","detected","collecting","reading","needs_config","key_mismatch")
@@ -51,6 +52,7 @@ class DeviceSyncStatusStore(context:Context){
       scaleMessage=values.getString(key(accountId,"scale_message"),"尚未开始称重").orEmpty(),
       scaleUpdatedAt=values.getLong(key(accountId,"scale_updated_at"),0),
       scaleLastWeight=values.getString(key(accountId,"scale_weight"),null),
+      scaleMeasurementSubject=values.getString(key(accountId,"scale_measurement_subject"),null),
       scaleLastModel=values.getString(key(accountId,"scale_model"),null),
       scaleMeasuredAt=values.getLong(key(accountId,"scale_measured_at"),0),
       scalePendingWeight=values.getString(key(accountId,"scale_pending_weight"),null),
@@ -88,7 +90,7 @@ class DeviceSyncStatusStore(context:Context){
       putString(key(accountId,"scale_pending_weight"),pendingWeight)
     }
   }
-  fun recordScale(accountId:String,weight:String,model:String,measuredAt:Long,updateState:Boolean=true){
+  fun recordScale(accountId:String,weight:String,model:String,measuredAt:Long,updateState:Boolean=true,subjectId:String?=null){
     writeStatus {
       if(updateState){
         putString(key(accountId,"scale_state"),"queued")
@@ -96,6 +98,7 @@ class DeviceSyncStatusStore(context:Context){
         putLong(key(accountId,"scale_updated_at"),System.currentTimeMillis())
         remove(key(accountId,"scale_pending_weight"))
       }
+      putString(key(accountId,"scale_measurement_subject"),subjectId)
       putString(key(accountId,"scale_weight"),weight)
       putString(key(accountId,"scale_model"),model)
       putLong(key(accountId,"scale_measured_at"),measuredAt)

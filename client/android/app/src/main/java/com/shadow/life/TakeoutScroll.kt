@@ -182,7 +182,7 @@ internal suspend fun LifeScreenCaptureService.collectTakeoutOrder(account:String
    val complete=takeoutEnded(combined,platform)
    val text=takeoutEnvelope(platform,width,offset+screenHeight,combined,complete)
    val item=JSONObject().put("source_id",id).put("kind","screen_text").put("title",if(complete)"${platformName}订单 · 无障碍" else "${platformName}订单 · 部分无障碍文字").put("text",text).put("app_package",pkg).put("started_at",now.toString()).put("ended_at",now.toString()).put("time_zone",ZoneId.systemDefault().id)
-   NativeLifeRepository(this@collectTakeoutOrder,app).saveActivities(org.json.JSONArray().put(item),account)
+   app.enqueueActivities(this@collectTakeoutOrder,org.json.JSONArray().put(item),account)
    BillShakeStatus.message=(if(complete)"${platformName}订单文字已保存，未使用截图或 OCR" else "已保存所选范围的订单文字；商品或订单信息可能不完整")+(stopNote?.let{"；$it"}?:"")
   }else{
    val encoded=withContext(Dispatchers.Default){encodeOrderSegments(frames,imageProgress.segments,imageWidth,imageHeight)}

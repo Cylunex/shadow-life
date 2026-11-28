@@ -52,7 +52,7 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   internal suspend fun captureWrite(capability:String,input:JSONObject,accountId:String):OperationReceipt=withContext(Dispatchers.IO){enqueueCommand(capability,input,expectedAccountId=accountId)}
   internal suspend fun activityOrder(id:String):ActivityOrderResultDto=wireJson.decodeFromString(getText("/api/life/activities/${encode(id)}/order"))
   internal suspend fun activityAction(capability:String,id:String,accountId:String):OperationReceipt=withContext(Dispatchers.IO){enqueueCommand(capability,JSONObject().put("id",id),expectedAccountId=accountId)}
-  internal suspend fun saveActivities(items:JSONArray,accountId:String,recordExpenses:Boolean=false):OperationReceipt = withContext(Dispatchers.IO){enqueueCommand("life.ingest_activity",JSONObject().put("device_id",app.sessions.installationId()).put("items",items).apply{if(recordExpenses)put("record_expenses",true)},expectedAccountId=accountId)}
+  internal suspend fun saveActivities(items:JSONArray,accountId:String,recordExpenses:Boolean=false) = app.enqueueActivities(context,items,accountId,recordExpenses)
   suspend fun today(date:LocalDate=LocalDate.now()):TodaySnapshot {
     val zone=ZoneId.systemDefault().id
     val result=wireJson.decodeFromString<LifeTodayResultDto>(getText("/api/today?date=$date&time_zone=${encode(zone)}"))
@@ -1183,14 +1183,13 @@ class NativeLifeRepository(private val context:Context,private val app:ShadowApp
   }
 
   private suspend fun enqueueCommand(capability:String,input:JSONObject,stableCommandId:String?=null,expectedAccountId:String?=null):OperationReceipt{
-    val session=app.sessions.active()?:error("请先登录 Shadow Life");if(expectedAccountId!=null&&session.accountId!=expectedAccountId)error("账号已切换，请在当前账号重新输入");val commandId=stableCommandId?:"cmd_android_${UUID.randomUUID().toString().replace("-","")}";val body=JSONObject().put("protocol","shadow.command").put("capability",capability).put("command_id",commandId).put("input",input).toString();app.queue.enqueueCommand(session,commandId,capability,body);SyncScheduler.schedule(context,session.accountId);return OperationReceipt(capability,commandId,queued=true)
+    return app.enqueueLifeCommand(context,capability,input,stableCommandId,expectedAccountId)
   }
 
   private suspend fun <T> partialRequest(block:suspend()->T):Result<T> = try{Result.success(block())}catch(error:CancellationException){throw error}catch(error:Exception){Result.failure(error)}
 }
 
 private fun JSONArray?.objects():List<JSONObject>{if(this==null)return emptyList();return (0 until length()).mapNotNull{optJSONObject(it)}}
-internal fun JSONObject.optNullableString(key:String):String?=if(!has(key)||isNull(key))null else optString(key).takeIf(String::isNotBlank)
 private fun encode(value:String)=java.net.URLEncoder.encode(value,Charsets.UTF_8.name())
 internal fun consumptionStatsDateRange(today:LocalDate,months:Int):Pair<LocalDate,LocalDate>{require(months in setOf(1,3,6,12));val current=today.withDayOfMonth(1);return current.minusMonths(months.toLong()-1) to current.plusMonths(1)}
 private fun decimal(value:String):String { val normalized=value.trim().removePrefix("+");require(Regex("^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$").matches(normalized)){"请输入有效数值，最多 6 位小数"};return normalized }

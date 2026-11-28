@@ -12,6 +12,7 @@ The config uses the structure in `client/cli/config/skill.example.json`; actual
 configuration and credentials stay outside Git in a 0600 file. Only the config path
 belongs in a launcher. No MCP process or registration is needed.
 
+- Append `source` to verify the active Life data space before sharing a native card. It returns only a SHA-256 scope for comparison. If unavailable, keep the card in its original account.
 - Append `catalog` to list authorized capability schemas.
 - Append `call agent.discover input.json` to discover relevant capabilities.
 - Append `call <capability> input.json` to execute; omit the filename to read JSON from stdin.

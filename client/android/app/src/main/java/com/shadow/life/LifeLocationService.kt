@@ -21,6 +21,10 @@ class LifeLocationService:Service(),LocationListener {
  private val accountWatch=object:Runnable{override fun run(){if((application as ShadowApp).activeCaptureSession()?.accountId!=session?.accountId)stopSelf() else handler.postDelayed(this,5000)}}
  override fun onBind(intent:Intent?):IBinder?=null
  override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{
+    if (!intent.matchesCaptureOwner(application as ShadowApp)) {
+      if (session == null) stopSelfResult(startId)
+      return START_NOT_STICKY
+    }
   if(intent?.action=="stop"){finish();stopSelf();return START_NOT_STICKY}
   if(LifeLocationState.running)return START_NOT_STICKY
   val app=application as ShadowApp;val active=app.activeCaptureSession()?:run{stopSelf();return START_NOT_STICKY}
@@ -30,7 +34,8 @@ class LifeLocationService:Service(),LocationListener {
   zone=ZoneId.systemDefault().id;label=intent?.getStringExtra("label")?.trim()?.take(200)?.ifBlank{"停留地点"}?:"停留地点"
   getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel("life_location","Life 地点记录",NotificationManager.IMPORTANCE_LOW))
   val stop=PendingIntent.getService(this,5202,Intent(this,LifeLocationService::class.java).setAction("stop"),PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-  startForeground(5202,NotificationCompat.Builder(this,"life_location").setSmallIcon(android.R.drawable.ic_menu_mylocation).setContentTitle("Life 正在记录停留地点").setContentText("仅保存满足停留条件的区间，可随时结束").setOngoing(true).addAction(0,"结束",stop).build())
+  val open = PendingIntent.getActivity(this, 5202, lifeWorkspaceIntent(this), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+  startForeground(5202,NotificationCompat.Builder(this,"life_location").setSmallIcon(android.R.drawable.ic_menu_mylocation).setContentTitle("Life 正在记录停留地点").setContentText("仅保存满足停留条件的区间，可随时结束").setOngoing(true).setContentIntent(open).addAction(0,"结束",stop).build())
   LifeLocationState.accountId=active.accountId;LifeLocationState.running=true;LifeLocationState.message=if(ContextCompat.checkSelfPermission(this,Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED)"等待精度足够的定位，停留至少五分钟后形成记录。" else "当前仅授权大致位置；精度不足时不形成停留，可在系统设置授予精确位置。"
   manager=getSystemService(LocationManager::class.java)
   try{
@@ -63,7 +68,7 @@ class LifeLocationService:Service(),LocationListener {
 }
 private suspend fun saveCapturedStay(context:Context,app:ShadowApp,session:ProductSession,stay:CapturedStay,label:String,zone:String){
  val input=JSONObject().put("source_id",stay.sourceId).put("kind","stay").put("title",label).put("started_at",Instant.ofEpochMilli(stay.start.at).toString()).put("ended_at",Instant.ofEpochMilli(stay.last.at).toString()).put("time_zone",zone).put("latitude",stay.start.latitude).put("longitude",stay.start.longitude).put("accuracy_m",maxOf(stay.start.accuracy,stay.last.accuracy))
- NativeLifeRepository(context,app).saveActivities(JSONArray().put(input),session.accountId)
+ app.enqueueActivities(context,JSONArray().put(input),session.accountId)
 }
 private fun persistStay(file:File,session:ProductSession,stay:CapturedStay,label:String,zone:String){
  fun sample(s:StaySample)=JSONObject().put("at",s.at).put("lat",s.latitude).put("lon",s.longitude).put("accuracy",s.accuracy)

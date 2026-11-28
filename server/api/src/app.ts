@@ -1,4 +1,4 @@
-import {capabilityVisible} from "@shadow/contracts";
+import { capabilityVisible, lifeSourceScope } from "@shadow/contracts";
 import { captureDateSchema, activitiesInputSchema } from "@shadow/contracts";
 import { wellnessReviewInputSchema } from "@shadow/contracts";
 import { runEventsPageResultSchema, runPageInputSchema, runPageResultSchema, threadRunsResultSchema, agentDiscoveryInstructions, workoutProgressionInputSchema } from "@shadow/contracts";
@@ -30,6 +30,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
     catch { return context.json({ status: "not_ready" }, 503); }
   });
 
+  app.use("/api/source", async (context, next) => { context.header("Cache-Control", "no-store"); await next(); });
   app.use("/api/*", authMiddleware({ development: dependencies.developmentAuth,...dependencies.auth }));
   app.use("/api/agent/*", async (context, next) => { context.header("Cache-Control", "no-store"); await next(); });
   app.use("/api/commands/*", bodyLimit({ maxSize: 1024 * 1024, onError: (context) => context.json({ protocol: "shadow.error", code: "validation", message: "Command body is too large." }, 413) }));
@@ -38,6 +39,15 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.use("/api/agent/context",bodyLimit({maxSize:16*1024,onError:context=>context.json({protocol:"shadow.error",code:"validation",message:"Context input is too large."},413)}));
   app.use("/api/agent/tools/validate", bodyLimit({ maxSize: 1024 * 1024, onError: context => context.json({ protocol: "shadow.error", code: "validation", message: "Tool input is too large." }, 413) }));
   app.use("/api/assets",bodyLimit({maxSize:20*1024*1024,onError:context=>context.json({protocol:"shadow.error",code:"validation",message:"Asset is too large."},413)}));
+  app.get("/api/source", async context => {
+    const account = context.get("requestContext");
+    const allowed = account.effects.has("life.meal.read") || account.effects.has("health.measurement.read");
+    // The proxy authenticates a mapped Life subject without its own OIDC principal.
+    const issuer = account.issuer === "shadow:trusted-proxy" ? dependencies.auth?.issuer : account.issuer;
+    const scope = allowed && await lifeSourceScope(issuer, account.environmentId, account.subjectId);
+    if (!scope) return context.json({ protocol: "shadow.error", code: "permission_denied", message: "Life source is unavailable." }, 403);
+    return context.json({ scope });
+  });
   app.get("/api/me",context=>{const value=context.get("requestContext");context.header("Cache-Control","no-store");return context.json(lifeMeResultSchema.parse({issuer:value.issuer??"shadow:unknown",oidc_sub:value.oidcSubject??value.actorId,life_subject_id:value.subjectId,environment_id:value.environmentId??"default",display_name:value.displayName??null,effects:[...value.effects].sort(),authorization_revision:value.authorizationRevision??1}));});
   app.get("/api/project-links",context=>{context.header("Cache-Control","private, max-age=300");return context.json(projectDirectoryResultSchema.parse(dependencies.projectLinks??{schema_version:1,catalog_revision:"empty",items:[]}));});
   app.get("/api/search",async context=>context.json(await dependencies.queries.lifeSearch(context.get("requestContext"),lifeSearchInputSchema.parse({...(context.req.query("view")?{view:context.req.query("view")}:{}),q:context.req.query("q"),...(context.req.query("types")?{types:context.req.query("types")!.split(",").filter(Boolean)}:{}),...(context.req.query("from_on")?{from_on:context.req.query("from_on")} :{}),...(context.req.query("to_on_exclusive")?{to_on_exclusive:context.req.query("to_on_exclusive")} :{}),limit:Number(context.req.query("limit")??"30"),...(context.req.query("cursor")?{cursor:context.req.query("cursor")} :{})}))));

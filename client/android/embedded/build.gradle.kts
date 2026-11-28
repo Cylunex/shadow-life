@@ -32,7 +32,7 @@ android {
     sourceSets {
         getByName("main") {
             java.srcDir(lifeApp.resolve("src/main/java"))
-            res.srcDir(lifeApp.resolve("src/main/res"))
+            res.srcDirs(lifeApp.resolve("src/main/res"), rootProject.file("platform-res"))
             assets.srcDirs(lifeApp.resolve("src/main/assets"), rootProject.file("../features"))
             if (samsungHealthAar != null) java.srcDir(lifeApp.resolve("src/samsung/kotlin"))
         }
