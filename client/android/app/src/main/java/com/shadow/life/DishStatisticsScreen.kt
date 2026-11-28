@@ -3,15 +3,12 @@ package com.shadow.life
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 import kotlinx.coroutines.CancellationException
@@ -69,10 +66,7 @@ import kotlinx.coroutines.CancellationException
                     name to (store?.let{"$name · 已收录 ${it.menuItems} 道 · 实吃 ${it.meals} 餐"} ?: name)
                 }){merchant=it}
                 TextButton(onClick={onMenu(merchant,date)}){Text(if(merchant.isBlank())"浏览门店菜单" else "查看这家门店的菜单")}
-                OutlinedTextField(query,{query=it.take(160)},Modifier.fillMaxWidth(),singleLine=true,label={Text("搜索菜名")},
-                    trailingIcon={TextButton(onClick=::applySearch){Text("查询")}},
-                    keyboardOptions=KeyboardOptions(imeAction=ImeAction.Search),
-                    keyboardActions=KeyboardActions(onSearch={applySearch()}))
+                LifeSearchBar(query,{query=it.take(160)},"搜索菜名"){applySearch()}
             }
             stats?.let { data->
                 item{

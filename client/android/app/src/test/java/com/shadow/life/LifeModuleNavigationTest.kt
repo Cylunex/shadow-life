@@ -183,7 +183,7 @@ class LifeModuleNavigationTest {
             state=LoadState.Ready(TimelinePage(rows,null,date.toString())), searchState=null, onRetry={}, onLoadMore={},
             onSearch={found=it}, onLoadMoreSearch={}, onClearSearch={found=""}, onDetail={_,id,_->opened=id},
             onQuickCapture={},onProjects={},onSettings={},selectedDay=date,day=LoadState.Loading,
-            memories=LoadState.Loading,onDay={},onDayMore={},onDaySource={}
+            memories=LoadState.Loading,onDay={},onDayMore={},onDaySource={},accountId="sample",onPersonal={opened="personal"}
           )
         }
       }
@@ -196,6 +196,10 @@ class LifeModuleNavigationTest {
     compose.onNodeWithText("体脂率").performClick()
     assertEquals("body_fat",opened)
     screenshot("records-dark-expanded")
+    compose.onNodeWithText("生活记录与复盘").performScrollTo().performClick()
+    assertEquals("personal",opened)
+    screenshot("records-review-dark")
+    compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("某一天"))
     compose.onNodeWithText("某一天").performClick()
     compose.onNodeWithText("选择日期").assertIsDisplayed()
     compose.onNodeWithText("某一天").performClick()
@@ -204,6 +208,73 @@ class LifeModuleNavigationTest {
     assertEquals("咖啡",found)
     compose.onNodeWithContentDescription("清空搜索").performClick()
     assertEquals("",found)
+  }
+
+  @Test fun budgetPageShowsAmountsInTheirCurrencyAndOpensTheSelectedRevision(){
+    val budgets=listOf(
+      MoneyPlanningResultDtoBudgetsEntry("total",null,"3000","CNY",3,"gross","1240.80"),
+      MoneyPlanningResultDtoBudgetsEntry("meals","外出用餐","400","CNY",7,"gross","428.50"),
+      MoneyPlanningResultDtoBudgetsEntry("other","旅行","0","USD",1,"gross","12.30")
+    )
+    val overview=WorkspaceOverview.Money("2026-11",emptyList(),0,0,0,asOf="2026-11-28",budgetDetails=budgets)
+    var saved:NativeBudgetDraft?=null
+    compose.setContent{LifeTheme(Appearance.Light){
+      Scaffold(topBar={LifeModuleTopBar(LifeModule.Money,pageTitle="消费规划")}){padding->
+        LazyColumn(Modifier.padding(padding),contentPadding=PaddingValues(16.dp)){
+          item{NativeBudgetSection(overview,SubmitState.Editing,{saved=it},{})}
+        }
+      }
+    }}
+    compose.onNodeWithText("剩余 CNY 1759.20").assertIsDisplayed()
+    compose.onNodeWithText("超支 CNY 28.50").assertIsDisplayed()
+    compose.onNodeWithText("超支 USD 12.30").assertIsDisplayed()
+    compose.onNodeWithContentDescription("调整旅行预算").assertDoesNotExist()
+    screenshot("budget-light")
+    compose.onNodeWithContentDescription("调整外出用餐预算").performClick()
+    compose.onNodeWithText("保存预算").performClick()
+    assertEquals(NativeBudgetDraft("2026-11","外出用餐","400",7),saved)
+  }
+
+  @Test fun shoppingRowKeepsEachStateReachableAndDisablesWritesWhileSaving(){
+    var item by mutableStateOf(MealPlanningResultDtoShoppingListsEntryItemsEntry("lot","青椒","2","个",
+      emptyList(),MealPlanningResultDtoShoppingListsEntryItemsEntryState.Needed,null,4))
+    var busy by mutableStateOf(false)
+    compose.setContent{LifeTheme(Appearance.Light){
+      ShoppingItemRow(item,"缺口 1 个",busy){source,target->
+        assertEquals(item,source)
+        item=source.copy(state=MealPlanningResultDtoShoppingListsEntryItemsEntryState.entries.first{it.wireValue==target},
+          revision=source.revision+1)
+      }
+    }}
+    val toggle=compose.onNode(isToggleable())
+    toggle.assertIsOff().performClick()
+    toggle.assertIsOn().performClick()
+    toggle.assertIsOff().performClick()
+    val more=compose.onNodeWithContentDescription("青椒的更多操作")
+    more.performClick()
+    compose.onNodeWithText("跳过").performClick()
+    toggle.assertIsOff()
+    more.performClick()
+    compose.onNodeWithText("恢复待买").performClick()
+    assertEquals("needed",item.state.wireValue)
+    more.performClick()
+    compose.onNodeWithText("跳过").performClick()
+    toggle.performClick().assertIsOn()
+    compose.runOnIdle{assertEquals(11L,item.revision);busy=true}
+    toggle.assertIsNotEnabled()
+    more.assertIsNotEnabled()
+  }
+
+  @Test fun personalResultsShowReadableAmountsAndKeepSourceReferencesInDetails(){
+    val row=org.json.JSONObject("""{"name":"退回水杯","received":"18.50","refunds":[{"amount":"18.50","refund_entry_id":"sample-refund"}]}""")
+    compose.setContent{LifeTheme(Appearance.Light){LifeCard{
+      PersonalResultSummary(row,mapOf("received" to "到账","refunds" to "退款"),"售后进度")
+    }}}
+    compose.onNodeWithText("退回水杯").assertIsDisplayed()
+    compose.onNodeWithText("sample-refund",substring=true).assertDoesNotExist()
+    compose.onNodeWithText("查看详情").performClick()
+    compose.onNodeWithText("已到账 18.50").assertIsDisplayed()
+    compose.onNodeWithText("退款编号 sample-refund",substring=true).assertIsDisplayed()
   }
 
   private fun screenshot(name:String){

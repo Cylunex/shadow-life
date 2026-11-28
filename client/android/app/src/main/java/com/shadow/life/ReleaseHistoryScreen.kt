@@ -41,7 +41,7 @@ import java.time.temporal.ChronoUnit
               return@repeat
             }
             val date=month.atDay(day);val rows=groups[date.toString()].orEmpty();val count=rows.filter{!it.explicitDenial}.sumOf{it.doneCount};val isSelected=selectedDay==date.toString()
-            Column(Modifier.weight(1f).heightIn(min=60.dp).background(if(isSelected)MaterialTheme.colorScheme.secondaryContainer else if(count>0)MaterialTheme.colorScheme.primaryContainer.copy(alpha=.55f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.3f),RoundedCornerShape(10.dp)).then(if(date<=LocalDate.now())Modifier.clickable(role=Role.Button){selectedDay=if(isSelected)null else date.toString()} else Modifier).padding(vertical=8.dp),horizontalAlignment=Alignment.CenterHorizontally){Text(day.toString());Text(if(count>0)"${count}次" else if(rows.any{it.explicitDenial})"明确无" else "",style=MaterialTheme.typography.labelSmall)}
+            Column(Modifier.weight(1f).heightIn(min=60.dp).background(if(isSelected)MaterialTheme.colorScheme.secondaryContainer else if(count>0)MaterialTheme.colorScheme.primaryContainer.copy(alpha=.55f) else androidx.compose.ui.graphics.Color.Transparent,RoundedCornerShape(10.dp)).then(if(date<=LocalDate.now())Modifier.clickable(role=Role.Button){selectedDay=if(isSelected)null else date.toString()} else Modifier).padding(vertical=8.dp),horizontalAlignment=Alignment.CenterHorizontally){Text(day.toString());Text(if(count>0)"${count}次" else if(rows.any{it.explicitDenial})"明确无" else "",style=MaterialTheme.typography.labelSmall)}
           }
         }}
         Text("空白表示未记录；次数颜色仅表示有记录。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)

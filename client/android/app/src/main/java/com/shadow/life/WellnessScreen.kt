@@ -62,11 +62,11 @@ import java.time.LocalDate
           item{LifeCard{
             Text(selected,style=MaterialTheme.typography.titleLarge)
             val weight=day.optJSONObject("weight")
-            if(weight!=null)TextButton(onClick={onHealth(weight.getString("id"))}){Text("体重 ${weight.getString("value")} kg · 查看测量")} else Text("当天没有已记录体重")
+            if(weight!=null)LifeTextAction(onClick={onHealth(weight.getString("id"))}){Text("体重 ${weight.getString("value")} kg · 查看测量")} else Text("当天没有已记录体重")
             val sleep=day.optJSONObject("sleep")
-            if(sleep!=null)TextButton(onClick={onHealth(sleep.getString("id"))}){Text("主睡眠 ${sleep.getInt("minutes")} 分钟 · 查看睡眠")} else Text("当天没有已记录睡眠")
+            if(sleep!=null)LifeTextAction(onClick={onHealth(sleep.getString("id"))}){Text("主睡眠 ${sleep.getInt("minutes")} 分钟 · 查看睡眠")} else Text("当天没有已记录睡眠")
             val energy=day.getJSONObject("nutrients").getJSONObject("energy_kcal")
-            TextButton(onClick={onMeals(selected)}){Text("${day.getInt("meals")} 餐 · 查看这天的饮食")}
+            LifeTextAction(onClick={onMeals(selected)}){Text("${day.getInt("meals")} 餐 · 查看这天的饮食")}
             Text(if(energy.isNull("known_total"))"热量尚未记录" else "已知 ${energy.getString("known_total")} kcal · ${energy.getInt("known_items")}/${day.getInt("items")} 项有热量")
             val workout=day.getJSONObject("workouts")
             Text("实际训练 ${workout.getInt("sessions")} 次 · "+if(workout.isNull("minutes"))"时长未知" else "已知 ${workout.getInt("minutes")} 分钟")

@@ -225,7 +225,7 @@ import java.util.Locale
 }
 
 @Composable private fun PremiumTodayCard(onClick:()->Unit,content:@Composable ColumnScope.()->Unit){
-  Surface(Modifier.fillMaxWidth().clickable(role=Role.Button,onClick=onClick),shape=RoundedCornerShape(24.dp),color=MaterialTheme.colorScheme.surface,border=androidx.compose.foundation.BorderStroke(1.dp,MaterialTheme.colorScheme.outline.copy(alpha=.14f))){Column(Modifier.padding(22.dp),verticalArrangement=Arrangement.spacedBy(12.dp),content=content)}
+  Surface(Modifier.fillMaxWidth().clickable(role=Role.Button,onClick=onClick),shape=RoundedCornerShape(24.dp),color=MaterialTheme.colorScheme.surface,border=lifeCardBorder()){Column(Modifier.padding(22.dp),verticalArrangement=Arrangement.spacedBy(12.dp),content=content)}
 }
 
 @Composable private fun TodayCardHeader(title:String,mark:String,tone:Color,trailing:String){
@@ -252,7 +252,7 @@ import java.util.Locale
 }
 @Composable private fun TodayMetric(label:String,value:String,unit:String,tone:Color,modifier:Modifier){Column(modifier){Text(label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);Row(verticalAlignment=Alignment.Bottom){Box(Modifier.size(7.dp).background(tone,RoundedCornerShape(99.dp)));Spacer(Modifier.width(6.dp));Text(value,style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.SemiBold,maxLines=1);Text(" $unit",Modifier.padding(bottom=2.dp),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
 @Composable private fun BodyFact(label:String,point:HealthTrendPoint?,modifier:Modifier){BodyFact(label,point?.valueText?:"—",point?.unit.orEmpty(),modifier)}
-@Composable private fun BodyFact(label:String,value:String,unit:String,modifier:Modifier){Surface(modifier,shape=RoundedCornerShape(15.dp),color=MaterialTheme.colorScheme.surface.copy(alpha=.62f)){Column(Modifier.padding(10.dp)){Text(label,style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant);Text("$value${unit.takeIf(String::isNotBlank)?.let{" $it"}.orEmpty()}",style=MaterialTheme.typography.titleSmall,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis)}}}
+@Composable private fun BodyFact(label:String,value:String,unit:String,modifier:Modifier){Surface(modifier,shape=RoundedCornerShape(15.dp),color=MaterialTheme.colorScheme.surfaceContainer){Column(Modifier.padding(10.dp)){Text(label,style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant);Text("$value${unit.takeIf(String::isNotBlank)?.let{" $it"}.orEmpty()}",style=MaterialTheme.typography.titleSmall,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis)}}}
 
 @Composable private fun MiniBarChart(values:List<Double?>,tone:Color,modifier:Modifier){Canvas(modifier){val valid=values.filterNotNull();if(valid.isEmpty())return@Canvas;val max=valid.maxOrNull()?.coerceAtLeast(1.0)?:1.0;val gap=5.dp.toPx();val count=values.size.coerceAtLeast(1);val width=((size.width-gap*(count-1))/count).coerceAtLeast(3.dp.toPx());values.forEachIndexed{index,value->val ratio=((value?:0.0)/max).toFloat().coerceIn(0f,1f);val left=index*(width+gap);drawRoundRect(color=tone.copy(alpha=if(value==null).12f else .82f),topLeft=Offset(left,size.height*(1f-(if(value==null).03f else ratio))),size=androidx.compose.ui.geometry.Size(width,size.height*(if(value==null).03f else ratio)),cornerRadius=androidx.compose.ui.geometry.CornerRadius(width/2,width/2))}}}
 @Composable private fun MiniSparkline(values:List<Double>,tone:Color,modifier:Modifier){Canvas(modifier){if(values.isEmpty())return@Canvas;val min=values.minOrNull()?:0.0;val max=values.maxOrNull()?:min;val span=(max-min).takeIf{it>0}?:1.0;val points=values.mapIndexed{index,value->Offset(if(values.size==1)size.width else size.width*index/(values.lastIndex),size.height-(size.height*((value-min)/span).toFloat()*.72f+size.height*.14f))};points.zipWithNext().forEach{(a,b)->drawLine(tone,a,b,3.dp.toPx(),StrokeCap.Round)};points.lastOrNull()?.let{drawCircle(tone,4.dp.toPx(),it)}}}
@@ -439,10 +439,12 @@ private fun todayDeviceTime(value:Long):String?=value.takeIf{it>0}?.let{Instant.
     if(searchState==null){
       item{
         LifeSection("回顾与采集"){
-          TextButton(onClick=onActivity){Text("活动与采集")}
-          if(accountId.isNotBlank()){
-            TextButton(onClick=onIntervals){Text("上次是什么时候")}
-            TextButton(onClick=onPersonal){Text("生活记录与复盘")}
+          LifeCard {
+            LifeActionRow("活动与采集", LifeModuleIcons.Recording, onClick=onActivity)
+            if(accountId.isNotBlank()){
+              LifeActionRow("上次是什么时候", Icons.Default.DateRange, onClick=onIntervals)
+              LifeActionRow("生活记录与复盘", LifeModuleIcons.Folder, onClick=onPersonal)
+            }
           }
         }
       }
@@ -489,7 +491,7 @@ internal fun batchTitle(batchId:String?,kinds:List<String>)=when {
 @Composable private fun DayMemorySection(selectedDay:LocalDate,day:LoadState<DayPage>,memories:LoadState<List<DayEntry>>,onDay:(LocalDate)->Unit,onMore:()->Unit,onSource:(DayEntry)->Unit){
   var expanded by rememberSaveable{mutableStateOf(false)}
   Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
-    Surface(onClick={expanded=!expanded}, shape=MaterialTheme.shapes.medium, color=MaterialTheme.colorScheme.surface) {
+    Surface(onClick={expanded=!expanded}, shape=MaterialTheme.shapes.medium, color=MaterialTheme.colorScheme.surface, border=lifeCardBorder()) {
       Row(Modifier.fillMaxWidth().heightIn(min=48.dp).padding(horizontal=14.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
         Icon(Icons.Default.DateRange,null,tint=MaterialTheme.colorScheme.primary)
         Text("某一天",Modifier.weight(1f),style=MaterialTheme.typography.titleMedium)
@@ -534,7 +536,7 @@ internal fun batchTitle(batchId:String?,kinds:List<String>)=when {
   }
 }
 
-@Composable private fun VisualRecordCard(domain:LifeDomain,title:String,supporting:String?,trailing:String?,onClick:()->Unit){val tone=domainColor(domain);Surface(Modifier.fillMaxWidth().clickable(role=Role.Button,onClick=onClick),shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surface,border=androidx.compose.foundation.BorderStroke(1.dp,MaterialTheme.colorScheme.outline.copy(alpha=.14f))){Row(Modifier.padding(15.dp),verticalAlignment=Alignment.CenterVertically){Surface(Modifier.size(43.dp),shape=RoundedCornerShape(14.dp),color=tone.copy(alpha=.13f)){Box(contentAlignment=Alignment.Center){Icon(lifeDomainIcon(domain),null,tint=tone)}};Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(title,style=MaterialTheme.typography.titleMedium,maxLines=2,overflow=TextOverflow.Ellipsis);supporting?.let{Text(it,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};trailing?.let{Text(it,style=MaterialTheme.typography.titleMedium,color=tone)}};Spacer(Modifier.width(8.dp));Text("›",color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
+@Composable private fun VisualRecordCard(domain:LifeDomain,title:String,supporting:String?,trailing:String?,onClick:()->Unit){val tone=domainColor(domain);Surface(Modifier.fillMaxWidth().clickable(role=Role.Button,onClick=onClick),shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surface,border=lifeCardBorder()){Row(Modifier.padding(15.dp),verticalAlignment=Alignment.CenterVertically){Surface(Modifier.size(43.dp),shape=RoundedCornerShape(14.dp),color=tone.copy(alpha=.13f)){Box(contentAlignment=Alignment.Center){Icon(lifeDomainIcon(domain),null,tint=tone)}};Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(title,style=MaterialTheme.typography.titleMedium,maxLines=2,overflow=TextOverflow.Ellipsis);supporting?.let{Text(it,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};trailing?.let{Text(it,style=MaterialTheme.typography.titleMedium,color=tone)}};Spacer(Modifier.width(8.dp));Text("›",color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun PlansVisualScreen(state:LoadState<PlanningWorkspace>,message:String?,onRetry:()->Unit,onProject:(PlanSummary)->Unit,onOwnedItem:(OwnedItemSummary)->Unit,onReview:(ReviewSummary)->Unit,onAgenda:(AgendaItem)->Unit,onAgendaAction:(AgendaItem,String)->Unit,onCapture:(CaptureKind)->Unit,onItems:()->Unit,onProjects:()->Unit,onSettings:()->Unit,onTraining:()->Unit={},onGoals:()->Unit={},goals:@Composable ()->Unit={},initialReviews:Boolean=false,onRange:(LocalDate,Long)->Unit={_,_->}){
@@ -642,15 +644,17 @@ internal fun batchTitle(batchId:String?,kinds:List<String>)=when {
 }
 
 @Composable private fun LibraryVisualCard(value:LibrarySummary,repository:NativeLifeRepository,accountId:String,nested:Boolean,onClick:()->Unit){
-  Surface(onClick=onClick,modifier=Modifier.fillMaxWidth(),shape=MaterialTheme.shapes.medium,color=MaterialTheme.colorScheme.surface){
+  Surface(onClick=onClick,modifier=Modifier.fillMaxWidth(),shape=MaterialTheme.shapes.medium,color=MaterialTheme.colorScheme.surface,border=if(nested)null else lifeCardBorder()){
     Row(Modifier.padding(if(nested) 8.dp else 16.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
       val thumbnail=value.thumbnailId?.let{id->
         val read=rememberLifeRead(accountId,id){repository.assetPreview(id)}
         val bytes=(read.state as? LoadState.Ready)?.value
         remember(bytes){bytes?.let{raw->android.graphics.BitmapFactory.decodeByteArray(raw,0,raw.size)}?.asImageBitmap()}
       }
-      if(thumbnail!=null)androidx.compose.foundation.Image(thumbnail,null,Modifier.size(56.dp),contentScale=androidx.compose.ui.layout.ContentScale.Crop)
-      else Text(libraryMark(value.itemType),style=MaterialTheme.typography.titleLarge)
+      if(thumbnail!=null)androidx.compose.foundation.Image(thumbnail,null,Modifier.size(56.dp).clip(RoundedCornerShape(12.dp)),contentScale=androidx.compose.ui.layout.ContentScale.Crop)
+      else Surface(Modifier.size(56.dp),shape=RoundedCornerShape(12.dp),color=MaterialTheme.colorScheme.secondaryContainer){
+        Box(contentAlignment=Alignment.Center){Icon(libraryIcon(value.itemType),null,tint=MaterialTheme.colorScheme.onSecondaryContainer)}
+      }
       Column(Modifier.weight(1f)){
         Text(value.title,style=MaterialTheme.typography.titleMedium,maxLines=2,overflow=TextOverflow.Ellipsis)
         Text(listOfNotNull(libraryTypeLabel(value.itemType),value.source?.let(::sourceLabel),value.createdAt?.take(10)).distinct().joinToString(" · "),style=MaterialTheme.typography.bodySmall)
@@ -702,5 +706,11 @@ private fun planKind(value:String)=mapOf("project_action" to "项目任务","rec
 private fun domainMark(value:LifeDomain)=when(value){LifeDomain.Health->"健";LifeDomain.Meals->"食";LifeDomain.Money->"¥";LifeDomain.Travel->"行";LifeDomain.Library->"资"}
 private fun libraryGroup(value:String)=when{value.contains("image")||value.contains("photo")||value.contains("screenshot")->"image";value.contains("link")||value.contains("url")||value=="web"->"link";value.contains("ticket")||value.contains("booking")||value.contains("receipt")->"ticket";value.contains("note")||value.contains("text")->"note";else->"document"}
 private fun libraryTypeLabel(value:String)=mapOf("image" to "图片","photo" to "照片","screenshot" to "截图","link" to "链接","note" to "笔记","ticket" to "票券","receipt" to "凭证","document" to "文件","file" to "文件")[libraryGroup(value)]?:value
-private fun libraryMark(value:String)=when(libraryGroup(value)){"image"->"▧";"link"->"↗";"note"->"✎";"ticket"->"券";else->"文"}
+private fun libraryIcon(value:String)=when(libraryGroup(value)){
+  "image" -> LifeModuleIcons.Photo
+  "link" -> Icons.Default.Share
+  "note" -> Icons.Default.Edit
+  "ticket" -> LifeModuleIcons.Wallet
+  else -> LifeModuleIcons.Folder
+}
 private fun rootMinutes(value:Long)="${value/60} 小时 ${value%60} 分"

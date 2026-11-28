@@ -14,6 +14,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
+import java.time.ZonedDateTime
 import java.time.ZoneId
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
@@ -105,6 +107,39 @@ import org.json.JSONObject
   }
 }
 
+internal fun quoteInstant(local:ZonedDateTime,date:LocalDate,time:LocalTime):Instant?{
+  val requested=date.atTime(time)
+  val offsets=local.zone.rules.getValidOffsets(requested)
+  val offset=local.offset.takeIf{it in offsets} ?: offsets.firstOrNull() ?: return null
+  return requested.toInstant(offset)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable private fun QuoteTimeField(instant:Instant,zone:ZoneId,enabled:Boolean,onChange:(Instant)->Unit){
+  val local=instant.atZone(zone)
+  var pickingTime by rememberSaveable{mutableStateOf(false)}
+  var timeError by rememberSaveable{mutableStateOf(false)}
+  fun update(date:LocalDate,time:LocalTime){
+    val value=quoteInstant(local,date,time)
+    timeError=value==null
+    if(value!=null)onChange(value)
+  }
+  LifeDateField(local.toLocalDate().toString(),{update(LocalDate.parse(it),local.toLocalTime())},"报价日期",enabled)
+  OutlinedButton(onClick={pickingTime=true},enabled=enabled,modifier=Modifier.fillMaxWidth()){
+    Text("报价时间",Modifier.weight(1f))
+    Text(local.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))+" · "+zone.id)
+  }
+  if(timeError)Text("该时刻因夏令时跳过，当前仍使用上方显示的报价时间。",color=MaterialTheme.colorScheme.error)
+  if(pickingTime){
+    val picker=rememberTimePickerState(local.hour,local.minute,is24Hour=true)
+    AlertDialog(onDismissRequest={pickingTime=false},title={Text("报价时间")},text={TimeInput(picker)},
+      confirmButton={TextButton(enabled=enabled,onClick={
+        update(local.toLocalDate(),LocalTime.of(picker.hour,picker.minute))
+        pickingTime=false
+      }){Text("确定")}},dismissButton={TextButton(onClick={pickingTime=false}){Text("取消")}})
+  }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable private fun ForeignEntryForm(busy:Boolean,onSave:(JSONObject)->Unit){
   var type by rememberSaveable{mutableStateOf("expense")}
@@ -129,7 +164,7 @@ import org.json.JSONObject
     Text("参考换算（可选）",style=MaterialTheme.typography.titleMedium)
     MoneyDecimalField("人民币金额",converted,{converted=it})
     MoneyDecimalField("汇率（CNY / 原币）",rate,{rate=it})
-    OutlinedTextField(quotedAt,{quotedAt=it},Modifier.fillMaxWidth(),label={Text("报价时刻（ISO 8601）")},singleLine=true)
+    if(converted.isNotBlank() || rate.isNotBlank())QuoteTimeField(Instant.parse(quotedAt),zone,!busy){quotedAt=it.toString()}
     if(type=="expense"){
       Text("共同份额",style=MaterialTheme.typography.titleMedium)
       allocations.forEachIndexed{index,json->

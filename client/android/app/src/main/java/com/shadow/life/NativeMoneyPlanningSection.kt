@@ -1,5 +1,8 @@
 package com.shadow.life
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -16,6 +19,24 @@ import java.time.LocalDate
   is SubmitState.Saved->Text(if(state.receipt.queued)"已保存，正在同步" else "已保存",color=MaterialTheme.colorScheme.primary)
   else->Unit
 }}
+
+@Composable internal fun BudgetUsage(amount:String,spent:String,currency:String){
+  val limit=amount.toBigDecimalOrNull()
+  val used=spent.toBigDecimalOrNull()
+  Text("已用 $currency $spent / $amount",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+  if(limit==null || used==null || limit.signum()<0 || used.signum()<0)return
+  val remaining=limit-used
+  val over=remaining.signum()<0
+  val tone=if(over) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary
+  Text("${if(over)"超支" else "剩余"} $currency ${remaining.abs().toPlainString()}",
+    style=MaterialTheme.typography.titleMedium,color=tone)
+  val fraction=when{
+    over -> 1f
+    limit.signum()==0 -> 0f
+    else -> used.divide(limit,java.math.MathContext.DECIMAL64).toFloat()
+  }
+  LinearProgressIndicator(progress={fraction},modifier=Modifier.fillMaxWidth(),color=tone)
+}
 
 @Composable internal fun NativeBudgetSection(overview:WorkspaceOverview.Money,state:SubmitState,onSave:(NativeBudgetDraft)->Unit,onReset:()->Unit){
   var showEditor by rememberSaveable{mutableStateOf(false)}
@@ -34,11 +55,16 @@ import java.time.LocalDate
     }
     if(overview.coverage?.budgets==true)Text("仅显示前 ${overview.limits?.budgets} 项预算。",color=MaterialTheme.colorScheme.onSurfaceVariant)
     if(overview.budgetDetails.isEmpty())Text("所选月份还没有预算。",color=MaterialTheme.colorScheme.onSurfaceVariant)
+    if(overview.budgetDetails.isNotEmpty())Text("已用按支出原额计算，退款不冲减。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     overview.budgetDetails.forEach{budget->LifeCard{
-      Text(budget.category?:"全部消费",style=MaterialTheme.typography.titleMedium)
-      Text("已用 ${budget.currency} ${budget.spent} / ${budget.amount}")
-      Text("已用按支出原额计算，退款不冲减",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-      if(budget.currency=="CNY")TextButton(onClick={onReset();category=budget.category.orEmpty();amount=budget.amount;revision=budget.revision;showEditor=true},enabled=!busy){Text("调整金额")}
+      Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+        val title=budget.category?:"全部消费"
+        Text(title,Modifier.weight(1f),style=MaterialTheme.typography.titleMedium)
+        if(budget.currency=="CNY")IconButton(enabled=!busy,onClick={
+          onReset();category=budget.category.orEmpty();amount=budget.amount;revision=budget.revision;showEditor=true
+        }){Icon(Icons.Default.Edit,"调整${title}预算")}
+      }
+      BudgetUsage(budget.amount,budget.spent,budget.currency)
     }}
   }
 }

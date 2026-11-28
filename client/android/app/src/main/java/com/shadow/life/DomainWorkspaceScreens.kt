@@ -300,7 +300,12 @@ private fun LazyListScope.moneyMonthBreakdown(data:MonthlyMoneyRead,period:Strin
 }
 
 @Composable private fun BudgetPreview(value:WorkspaceOverview.Money,onOpen:()->Unit){LifeSection("预算",action={TextButton(onClick=onOpen){Text("完整预算")}}){if(value.budgets.isEmpty())EmptyState("本月还没有预算") else value.budgets.take(2).forEach{BudgetCard(it)}}}
-@Composable private fun BudgetCard(value:BudgetProgress){val amount=value.amount.toDoubleOrNull()?:0.0;val spent=value.spent.toDoubleOrNull()?:0.0;val ratio=if(amount>0)(spent/amount).toFloat().coerceIn(0f,1f) else 0f;LifeCard{Row(Modifier.fillMaxWidth()){Column(Modifier.weight(1f)){Text(value.title,style=MaterialTheme.typography.titleMedium);Text("${value.currency} ${value.spent} / ${value.amount}",color=MaterialTheme.colorScheme.onSurfaceVariant)};Text(if(spent>amount)"超支" else "剩余 ${moneyNumber((amount-spent).coerceAtLeast(0.0))}",color=if(spent>amount)MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)};LinearProgressIndicator({ratio},Modifier.fillMaxWidth().height(9.dp),color=if(spent>amount)MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary,trackColor=MaterialTheme.colorScheme.surfaceVariant)}}
+@Composable private fun BudgetCard(value:BudgetProgress){
+  LifeCard {
+    Text(value.title,style=MaterialTheme.typography.titleMedium)
+    BudgetUsage(value.amount,value.spent,value.currency)
+  }
+}
 
 @Composable private fun RecurringPreview(value:WorkspaceOverview.Money,onOpen:()->Unit){LifeSection("订阅与周期费用",action={TextButton(onClick=onOpen){Text("全部")}}){LifeCard(onClick=onOpen){Text("${value.recurringPlans} 个周期计划",style=MaterialTheme.typography.titleLarge);Text("${value.openOccurrences} 项待处理 · ${value.spendingIntents} 个消费意向",color=MaterialTheme.colorScheme.onSurfaceVariant);value.recurring.firstOrNull()?.let{Text("最近：${it.title} · ${it.nextDueOn}",color=MaterialTheme.colorScheme.secondary)}}}}
 @Composable private fun UseCyclePreview(value:WorkspaceOverview.Money,onOpen:()->Unit){LifeSection("消耗品余量",action={TextButton(onClick=onOpen){Text("全部")}}){if(value.useCycles.isEmpty())EmptyState("没有正在追踪的消耗品") else LifeCard(onClick=onOpen){Text("${value.useCycles.size} 个使用周期",style=MaterialTheme.typography.titleLarge);value.useCycles.first().let{Text(useCycleLine(it),color=if(it.balanceStatus in setOf("replenish_now","depleted","needs_specification"))MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)}}}}
@@ -332,7 +337,7 @@ private fun useCycleLine(item:MoneyUseCycleSummary)=if(item.usageState=="pending
     record.kind == "purchase" -> "未记录付款"
     else -> statusUi(record.subtype.orEmpty())
   }
-  Surface(onClick=onClick, modifier=Modifier.fillMaxWidth(), shape=MaterialTheme.shapes.medium, color=colors.surface) {
+  Surface(onClick=onClick, modifier=Modifier.fillMaxWidth(), shape=MaterialTheme.shapes.medium, color=colors.surface, border=lifeCardBorder()) {
     Row(Modifier.padding(14.dp), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.spacedBy(10.dp)) {
       Surface(shape=RoundedCornerShape(12.dp), color=tone.copy(alpha=.13f)) {
         Box(Modifier.size(38.dp), contentAlignment=Alignment.Center) { Text(mark, color=tone) }

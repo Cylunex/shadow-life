@@ -535,20 +535,22 @@ private fun sleepStages(day:HealthDailyOverview?)=listOf(
         }
       }
       item{
-        FlowRow(horizontalArrangement=Arrangement.spacedBy(4.dp)){
-          TextButton(onClick={onHealthDay(selectedDate)}){Text("同日健康")}
-          TextButton(onClick={onReview(selectedDate)}){Text("饮食与体重复盘")}
-          TextButton(onClick=onStats){Text("订单与消费统计")}
+        LifeCard {
+          LifeActionRow("同日健康", lifeDomainIcon(LifeDomain.Health)){onHealthDay(selectedDate)}
+          LifeActionRow("饮食与体重复盘", LifeModuleIcons.Meals){onReview(selectedDate)}
+          LifeActionRow("订单与消费统计", LifeModuleIcons.Statistics, onClick=onStats)
+          if(allRecords.isNotEmpty()){
+            var copying by rememberSaveable{mutableStateOf(false)}
+            LifeActionRow("用最近一餐", Icons.Default.Refresh, expanded=copying){copying=!copying}
+            if(copying)allRecords.take(10).forEach{record->
+              LifeActionRow("${record.meal?.occurredOn.orEmpty()} · ${record.title}", LifeModuleIcons.Meals){onCopyMeal(record,selectedDate)}
+            }
+          }
         }
       }
     if(photoState is SubmitState.Sending)item{LinearProgressIndicator(Modifier.fillMaxWidth())}
     if(photoState is SubmitState.Rejected)item{Text(photoState.message,color=MaterialTheme.colorScheme.error)}
 
-    }
-    if(mealTab=="records"&&allRecords.isNotEmpty())item{
-      var copying by rememberSaveable{mutableStateOf(false)}
-      TextButton(onClick={copying=!copying}){Text("用最近一餐")}
-      if(copying)allRecords.take(10).forEach{record->TextButton(onClick={onCopyMeal(record,selectedDate)}){Text("${record.meal?.occurredOn} · ${record.title}")}}
     }
     if(showsDay)items(pendingMeals,key={"pending-meal:${it.id}"}){meal->
       HealthSurface{
@@ -588,9 +590,9 @@ private fun sleepStages(day:HealthDailyOverview?)=listOf(
   var calendar by rememberSaveable{mutableStateOf(false)}
   Column {
     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
-      TextButton(onClick={onSelect(day.minusWeeks(1).toString())}){Text("上周")}
+      LifePeriodArrow(false,"上周"){onSelect(day.minusWeeks(1).toString())}
       TextButton(onClick={calendar=true}){Text(selected)}
-      TextButton(onClick={onSelect(day.plusWeeks(1).coerceAtMost(today).toString())},enabled=monday.plusWeeks(1)<=today){Text("下周")}
+      LifePeriodArrow(true,"下周",enabled=monday.plusWeeks(1)<=today){onSelect(day.plusWeeks(1).coerceAtMost(today).toString())}
     }
     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(2.dp)){
       repeat(7){offset->

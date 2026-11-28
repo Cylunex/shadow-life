@@ -26,7 +26,7 @@ import org.json.JSONObject
     catch(error:CancellationException){throw error}
     catch(error:Exception){state=LoadState.Failed("食谱暂时无法读取，请稍后重试")}
   }
-  OutlinedTextField(query,{query=it},Modifier.fillMaxWidth(),label={Text("查找已保存食谱")},singleLine=true)
+  LifeSearchBar(query,{query=it},"查找已保存食谱")
   StateContent(state,{retry++}){}
   val recipes=(state as? LoadState.Ready)?.value?.getJSONArray("recipes")
   if(recipes!=null){

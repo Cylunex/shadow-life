@@ -1,5 +1,11 @@
 package com.shadow.life
 
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
 import android.view.ViewTreeObserver
 import android.view.Window
 import androidx.compose.foundation.layout.*
@@ -52,11 +58,21 @@ import androidx.compose.ui.window.DialogProperties
   if(open)LifeFullScreen(label,{open=false}){
     var query by androidx.compose.runtime.saveable.rememberSaveable{androidx.compose.runtime.mutableStateOf("")}
     Column(verticalArrangement=Arrangement.spacedBy(12.dp)){
-      OutlinedTextField(query,{query=it},modifier=Modifier.fillMaxWidth(),singleLine=true,label={Text("搜索")})
-      androidx.compose.foundation.lazy.LazyColumn{
+      LifeSearchBar(query,{query=it},"搜索")
+      androidx.compose.foundation.lazy.LazyColumn(Modifier.selectableGroup()){
         val shown=options.filter{query.isBlank()||it.second.contains(query.trim(),ignoreCase=true)}
         if(shown.isEmpty())item{EmptyState("没有匹配项")}
-        items(shown.size){index->val (key,title)=shown[index];TextButton(onClick={onSelect(key);open=false},modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)){Text(title,Modifier.weight(1f));if(key==value)Text("✓")}}
+        items(shown.size){index->
+          val (key,title)=shown[index]
+          val selected=key==value
+          Surface(shape=MaterialTheme.shapes.small,color=if(selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface){
+            Row(Modifier.fillMaxWidth().selectable(selected,role=Role.RadioButton){onSelect(key);open=false}
+              .heightIn(min=52.dp).padding(horizontal=16.dp),verticalAlignment=Alignment.CenterVertically){
+              Text(title,Modifier.weight(1f),style=MaterialTheme.typography.bodyLarge)
+              if(selected)Icon(Icons.Default.Check,null)
+            }
+          }
+        }
       }
     }
   }

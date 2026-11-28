@@ -298,7 +298,7 @@ private fun openReviewEvidence(nav:androidx.navigation.NavHostController,viewMod
       Text("Shadow Life",style=MaterialTheme.typography.headlineLarge)
       Text("你的生活事实、计划与资料，在一个原生空间里。",color=MaterialTheme.colorScheme.onSurfaceVariant)
       message?.let{Text(it,color=MaterialTheme.colorScheme.error)}
-      Button(onClick=onLogin,Modifier.fillMaxWidth().heightIn(min=56.dp)){Text("使用 Shadow 账号继续")}
+      Button(onClick=onLogin,Modifier.fillMaxWidth().heightIn(min=56.dp),colors=ButtonDefaults.buttonColors(containerColor=MaterialTheme.colorScheme.secondary,contentColor=MaterialTheme.colorScheme.onSecondary)){Text("使用 Shadow 账号继续")}
     }
   }
 }

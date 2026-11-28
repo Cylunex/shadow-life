@@ -33,9 +33,11 @@ import androidx.compose.ui.unit.dp
   }
 }
 
+@Composable fun lifeCardBorder() = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .18f))
+
 @Composable fun LifeCard(modifier:Modifier=Modifier,onClick:(()->Unit)?=null,content:@Composable ColumnScope.()->Unit){
   val shape=RoundedCornerShape(18.dp)
-  Surface(modifier=modifier.fillMaxWidth().then(if(onClick!=null)Modifier.clickable(role=Role.Button,onClick=onClick) else Modifier),shape=shape,color=MaterialTheme.colorScheme.surface,tonalElevation=0.dp,shadowElevation=0.dp,border=BorderStroke(1.dp,MaterialTheme.colorScheme.outline.copy(alpha=.14f))){Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(8.dp),content=content)}
+  Surface(modifier=modifier.fillMaxWidth().then(if(onClick!=null)Modifier.clickable(role=Role.Button,onClick=onClick) else Modifier),shape=shape,color=MaterialTheme.colorScheme.surface,tonalElevation=0.dp,shadowElevation=0.dp,border=lifeCardBorder()){Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(8.dp),content=content)}
 }
 
 @Composable fun RecordRow(item:RecordSummary,onClick:()->Unit){
@@ -70,7 +72,7 @@ import androidx.compose.ui.unit.dp
 @Composable fun domainColor(domain: LifeDomain) = when (domain) {
   LifeDomain.Health -> lifeHealthAccent()
   LifeDomain.Meals -> MaterialTheme.colorScheme.tertiary
-  LifeDomain.Money -> MaterialTheme.colorScheme.primary
+  LifeDomain.Money -> MaterialTheme.colorScheme.secondary
   LifeDomain.Travel -> if (MaterialTheme.colorScheme.background.luminance() < .5f) Color(0xFF92C9D1) else Color(0xFF37666E)
   LifeDomain.Library -> MaterialTheme.colorScheme.secondary
 }

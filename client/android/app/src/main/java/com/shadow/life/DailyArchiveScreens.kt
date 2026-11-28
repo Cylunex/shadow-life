@@ -87,9 +87,9 @@ import java.time.ZoneId
               Text(listOfNotNull(row.getString("value"),row.optString("unit").takeUnless{row.isNull("unit")}).joinToString(" "))
               Text("${row.getString("tested_on")} · 报告第 ${row.getInt("page")} 页")
               if(!row.isNull("reference"))Text("报告参考范围 · ${row.getString("reference")}")
-              TextButton(onClick={edit=row.toString()}){Text("编辑结果")}
-              TextButton(onClick={onReport(row.getString("report_id"),row.getInt("page"))}){Text("打开报告原件")}
-              if(indicator==null)TextButton(onClick={indicator=labIndicator(row)}){Text("看同项历次结果")}
+              LifeTextAction(onClick={edit=row.toString()}){Text("编辑结果")}
+              LifeTextAction(onClick={onReport(row.getString("report_id"),row.getInt("page"))}){Text("打开报告原件")}
+              if(indicator==null)LifeTextAction(onClick={indicator=labIndicator(row)}){Text("看同项历次结果")}
             }
           }
           if(shown.isEmpty()&&page!=null)item{Text("此页暂无对应指标，可继续查看下一页。")}
@@ -102,7 +102,7 @@ import java.time.ZoneId
             Text(row.getString("title"),style=MaterialTheme.typography.titleMedium)
             Text(row.getString("started_on")+if(row.isNull("ended_on"))" 起" else " 至 ${row.getString("ended_on")}")
             if(expanded){
-              TextButton(onClick={edit=row.toString()}){Text("更新发作记录")}
+              LifeTextAction(onClick={edit=row.toString()}){Text("更新发作记录")}
               if(!row.isNull("note"))Text(row.getString("note"))
               row.getJSONArray("points").trainingObjects().sortedBy{it.getString("at")}.forEach{point->
                 val local=Instant.parse(point.getString("at")).atZone(zone).toLocalDateTime().toString().replace('T',' ')
@@ -170,7 +170,7 @@ private fun labIndicator(row:JSONObject)=row.getString("raw_name").trim()+"\n"+
       }
       initialPurchase?.let{source->item{
         Text(source.getString("product"),style=MaterialTheme.typography.titleMedium)
-        TextButton(onClick={onOrder(source.getString("record_id"))}){Text("打开购买记录")}
+        LifeTextAction(onClick={onOrder(source.getString("record_id"))}){Text("打开购买记录")}
       }}
       val page=(state as? LoadState.Ready)?.value
       val rows=page?.getJSONArray("items")?.trainingObjects().orEmpty()
@@ -182,8 +182,8 @@ private fun labIndicator(row:JSONObject)=row.getString("raw_name").trim()+"\n"+
           Text(row.getString("name"),style=MaterialTheme.typography.titleMedium)
           Text("待退差额 · ${row.getString("remaining")} $currency",style=MaterialTheme.typography.titleLarge)
           Text("预计退款 ${row.getString("expected_amount")} · 已分配到账 ${row.getString("received")} $currency")
-          TextButton(onClick={edit=row.toString()}){Text("编辑／分配退款")}
-          TextButton(onClick={onOrder(row.getString("record_id"))}){Text("打开购买记录")}
+          LifeTextAction(onClick={edit=row.toString()}){Text("编辑／分配退款")}
+          LifeTextAction(onClick={onOrder(row.getString("record_id"))}){Text("打开购买记录")}
         }
       }
       item{

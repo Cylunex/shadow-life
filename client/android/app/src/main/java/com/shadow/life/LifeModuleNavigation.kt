@@ -179,6 +179,8 @@ internal val travelModuleTabs=listOf(ModuleTab("overview","旅程",Icons.Default
     visible.chunked(4).forEach{row->Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(4.dp)){
       row.forEach{(label,icon,action)->Column(Modifier.weight(1f).clickable(role=Role.Button,onClick=action).padding(vertical=8.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(8.dp)){
         val tone = when (icon) {
+          LifeModuleIcons.Services -> MaterialTheme.colorScheme.onSurfaceVariant
+          LifeModuleIcons.Wallet, LifeModuleIcons.Folder -> MaterialTheme.colorScheme.secondary
           LifeModuleIcons.Meals -> domainColor(LifeDomain.Meals)
           moduleIcon(LifeModule.Travel) -> domainColor(LifeDomain.Travel)
           else -> MaterialTheme.colorScheme.primary

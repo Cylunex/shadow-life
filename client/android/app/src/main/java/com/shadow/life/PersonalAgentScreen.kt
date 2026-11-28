@@ -16,8 +16,9 @@ import java.time.LocalDate
 import java.util.UUID
 
 private fun JsonObject.field(name:String)=(get(name) as? JsonPrimitive)?.content.orEmpty()
-private val personalLabels=mapOf("global" to "全部场景","daily" to "日常","planning" to "生活规划","spending" to "消费","health" to "健康","travel" to "旅行","library" to "资料","preference" to "偏好","constraint" to "限制","goal" to "目标","other" to "一般","dietary" to "饮食","time_budget" to "时间上限","budget" to "预算","open" to "未开始","running" to "进行中","waiting" to "等待材料","completed" to "已完成","cancelled" to "已取消")
+private val personalLabels=mapOf("active" to "生效中","archived" to "已归档","global" to "全部场景","daily" to "日常","planning" to "生活规划","spending" to "消费","health" to "健康","travel" to "旅行","library" to "资料","preference" to "偏好","constraint" to "限制","goal" to "目标","other" to "一般","dietary" to "饮食","time_budget" to "时间上限","budget" to "预算","open" to "未开始","running" to "进行中","waiting" to "等待材料","completed" to "已完成","cancelled" to "已取消")
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable fun PersonalAgentScreen(accountId:String,state:LoadState<FoundationListDto>,submit:SubmitState,onLoad:(String,String,Int)->Unit,onSave:(String,JSONObject)->Unit,onBack:()->Unit,embedded:Boolean=false){
   var tab by rememberSaveable(accountId){mutableStateOf("intentions")}
   var on by rememberSaveable(accountId){mutableStateOf(LocalDate.now().toString())}
@@ -63,10 +64,9 @@ private val personalLabels=mapOf("global" to "全部场景","daily" to "日常",
     return result
   }
   val busy=submit is SubmitState.Sending
-  Column((if(embedded)Modifier.fillMaxWidth()else Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(20.dp)),verticalArrangement=Arrangement.spacedBy(12.dp)){
-    if(!embedded)Row{LifeBackButton(onBack);Text("目标与偏好",style=MaterialTheme.typography.headlineSmall)}
+  val content:@Composable ColumnScope.()->Unit = {
     Text("维护明确的目标和偏好，查看持续任务与有依据的观察。")
-    Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf("intentions" to "目标偏好","tasks" to "任务","learning" to "经验").forEach{(key,label)->FilterChip(tab==key,{tab=key},{Text(label)})}}
+    LifeTabs(tab,{tab=it},listOf("intentions" to "目标偏好","tasks" to "任务","learning" to "经验"))
     LifeDateField(on,{on=it},"查看日期")
     Row{if(tab!="learning")Button(onClick={edit(null)},enabled=!busy){Text("新增")};TextButton(onClick={onLoad(tab,on,0)}){Text("刷新")}}
     if(localError!=null)Text(localError!!,color=MaterialTheme.colorScheme.error)
@@ -96,7 +96,7 @@ private val personalLabels=mapOf("global" to "全部场景","daily" to "日常",
       is LoadState.Empty->Text(state.reason)
       is LoadState.Ready->{
         if(state.value.items.isEmpty())Text("这个类别还没有记录。")
-        state.value.items.forEach{item->Card(Modifier.fillMaxWidth()){Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
+        state.value.items.forEach{item->LifeCard{
           Text(item.field("statement").ifBlank{item.field("title")},style=MaterialTheme.typography.titleMedium)
           Text("${personalLabels[item.field("scope")]?:item.field("scope")} · ${personalLabels[item.field("state")]?:item.field("state")}")
           if(item.field("current_step").isNotBlank())Text("当前：${item.field("current_step")}")
@@ -105,13 +105,18 @@ private val personalLabels=mapOf("global" to "全部场景","daily" to "日常",
           if(item.field("valid_from").isNotBlank()||item.field("valid_to_exclusive").isNotBlank())Text("${item.field("valid_from").ifBlank{"长期"}} — ${item.field("valid_to_exclusive").ifBlank{"无结束日期"}}")
           if(item.field("evidence_current")=="false")Text("依据已变更，请重新读取相关记录。")
           val lease=item["lease"] as? JsonObject
-          if(lease?.field("active")=="true")Text("助手正在处理，可接手时间：${lease.field("expires_at")}")
-          Text("更新于 ${item.field("updated_at")} · 修订 ${item.field("revision")}",style=MaterialTheme.typography.bodySmall)
+          if(lease?.field("active")=="true")Text(listOfNotNull("助手正在处理",localDateTime(lease.field("expires_at"),null)?.let{"可接手时间 $it"}).joinToString(" · "))
+          Text(listOfNotNull(localDateTime(item.field("updated_at"),null)?.let{"更新于 $it"},"修订 ${item.field("revision")}").joinToString(" · "),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
           Row{if(tab!="learning")TextButton(enabled=!busy&&(lease?.field("active")!="true"||lease.field("token").let{it.isNotBlank()&&it!="null"}),onClick={edit(item)}){Text("更正")};if(tab!="tasks"&&item.field("state")!="archived")TextButton(enabled=!busy,onClick={onSave(if(tab=="intentions")"agent.set_intention" else "agent.save_learning",input(item,true))}){Text("归档")}}
-        }}}
+        }}
         state.value.nextOffset?.let{offset->TextButton(onClick={onLoad(tab,on,offset.toInt())}){Text("继续加载")}}
       }
     }
+  }
+  if(embedded)Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(12.dp),content=content)
+  else Scaffold(topBar={TopAppBar(title={Text("目标与偏好")},navigationIcon={LifeBackButton(onBack)})}){insets->
+    Column(Modifier.fillMaxSize().padding(insets).verticalScroll(rememberScrollState()).imePadding().padding(20.dp),
+      verticalArrangement=Arrangement.spacedBy(12.dp),content=content)
   }
 }
 @Composable private fun PersonalChoice(label:String,value:String,values:List<String>,onChange:(String)->Unit){LifeChoiceField(label,value,values.map{it to (personalLabels[it]?:it)},onChange)}

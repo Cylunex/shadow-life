@@ -1,5 +1,15 @@
 package com.shadow.life
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -76,7 +86,7 @@ private fun plusDays(value:String,days:Long)=LocalDate.parse(value).plusDays(day
     }
     }
     if(section=="stock"){
-    HorizontalDivider();Text("实际食品库存",style=MaterialTheme.typography.titleLarge)
+    Text("实际食品库存",style=MaterialTheme.typography.titleLarge)
     Text("只填写亲自核实的库存；购物清单标记买到不会自动入库。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     TextButton(onClick={onReset();editingLotJson=null;stockName="";stockQuantity="";stockUnit="";stockExpiry="";showStockEditor=!showStockEditor},enabled=!busy){Text(if(showStockEditor)"取消编辑" else "记录库存")}
     if(showStockEditor)LifeCard{Text(if(editingLot==null)"记录新批次" else "校正 ${editingLot.name}",style=MaterialTheme.typography.titleMedium);OutlinedTextField(stockName,{stockName=it},Modifier.fillMaxWidth(),label={Text("食品名称")});OutlinedTextField(stockQuantity,{stockQuantity=it},Modifier.fillMaxWidth(),label={Text("实际数量（可填 0）")});OutlinedTextField(stockUnit,{stockUnit=it},Modifier.fillMaxWidth(),label={Text("单位")});OutlinedTextField(stockExpiry,{stockExpiry=it},Modifier.fillMaxWidth(),label={Text("到期日 YYYY-MM-DD（可选）")});Button(onClick={stockSubmitted=true;onSetStock(editingLot,stockName,stockQuantity,stockUnit,stockExpiry.ifBlank{null})},enabled=!busy&&stockName.isNotBlank()&&stockQuantity.toBigDecimalOrNull()!=null&&stockQuantity.toBigDecimalOrNull()!!>=java.math.BigDecimal.ZERO&&stockUnit.isNotBlank()&&runCatching{stockExpiry.isBlank()||LocalDate.parse(stockExpiry)!=null}.getOrDefault(false)){Text("保存库存批次")}}
@@ -92,34 +102,45 @@ private fun plusDays(value:String,days:Long)=LocalDate.parse(value).plusDays(day
         .thenBy{it.expiresOn.orEmpty().ifBlank{"9999-12-31"}})
     if(lots.isEmpty())Text("当前筛选下没有已加载批次。",color=MaterialTheme.colorScheme.onSurfaceVariant)
     lots.groupBy{it.name}.forEach{(name,batches)->
-      var expanded by rememberSaveable(name,focusStockId){mutableStateOf(batches.any{it.id==focusStockId})}
-      val quantities=batches.groupBy{it.unit}.mapNotNull{(unit,rows)->
-        val amounts=rows.mapNotNull{it.quantity.toBigDecimalOrNull()}
-        if(amounts.size!=rows.size)null else "${amounts.fold(java.math.BigDecimal.ZERO){total,amount->total+amount}.stripTrailingZeros().toPlainString()} $unit"
+      key(name){
+        var expanded by rememberSaveable(focusStockId){mutableStateOf(batches.any{it.id==focusStockId})}
+        val quantities=batches.groupBy{it.unit}.mapNotNull{(unit,rows)->
+          val amounts=rows.mapNotNull{it.quantity.toBigDecimalOrNull()}
+          if(amounts.size!=rows.size)null else "${amounts.fold(java.math.BigDecimal.ZERO){total,amount->total+amount}.stripTrailingZeros().toPlainString()} $unit"
+        }
+        LifeCard {
+          Row(Modifier.fillMaxWidth().clickable(role=Role.Button){expanded=!expanded}.heightIn(min=48.dp),
+            verticalAlignment=Alignment.CenterVertically){
+            Column(Modifier.weight(1f)){
+              Text(name,style=MaterialTheme.typography.titleMedium)
+              Text(quantities.joinToString(" · ").ifBlank{"数量待补"}+" · ${batches.size} 个批次")
+              batches.mapNotNull{it.expiresOn}.minOrNull()?.let{Text("最早到期 $it",style=MaterialTheme.typography.bodySmall)}
+            }
+            Icon(if(expanded)Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,if(expanded)"收起批次" else "展开批次")
+          }
+          if(expanded)batches.forEach{lot->
+            HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
+            Column(Modifier.fillMaxWidth().padding(start=12.dp),verticalArrangement=Arrangement.spacedBy(4.dp)){
+              Text("${lot.quantity} ${lot.unit}")
+              lot.purchaseRecordId?.let{id->TextButton(onClick={onStockPurchase(id)}){Text("查看购买来源")}}
+              StockRecipesCard(accountId,lot.id,today)
+              val deadline=attention[lot.id]
+              Text(listOfNotNull(lot.expiresOn,deadlineLabel(deadline?.state?.wireValue,deadline?.daysUntil)).joinToString(" · "))
+              val quantity=lot.quantity.toBigDecimalOrNull()
+              if(quantity!=null&&quantity.signum()>0){
+                TextButton(enabled=!busy,onClick={onSetStock(lot,lot.name,"0",lot.unit,lot.expiresOn)}){Text("用完")}
+              }
+              lot.note?.takeIf(String::isNotBlank)?.let{Text(it,style=MaterialTheme.typography.bodySmall)}
+              TextButton(onClick={onReset();editingLotJson=kotlinx.serialization.json.Json.encodeToString(MealPlanningResultDtoStockLotsEntry.serializer(),lot);showStockEditor=true;stockName=lot.name;stockQuantity=lot.quantity;stockUnit=lot.unit;stockExpiry=lot.expiresOn.orEmpty()},enabled=!busy){Text("校正")}
+            }
+          }
+        }
       }
-      LifeCard(onClick={expanded=!expanded}){
-        Text(name,style=MaterialTheme.typography.titleMedium)
-        Text(quantities.joinToString(" · ").ifBlank{"数量待补"}+" · ${batches.size} 个批次")
-        batches.mapNotNull{it.expiresOn}.minOrNull()?.let{Text("最早到期 $it",style=MaterialTheme.typography.bodySmall)}
-      }
-      if(expanded)batches.forEach{lot->LifeCard{
-      Text("${lot.quantity} ${lot.unit}")
-      lot.purchaseRecordId?.let{id->TextButton(onClick={onStockPurchase(id)}){Text("查看购买来源")}}
-      StockRecipesCard(accountId,lot.id,today)
-      val deadline=attention[lot.id]
-      Text(listOfNotNull(lot.expiresOn,deadlineLabel(deadline?.state?.wireValue,deadline?.daysUntil)).joinToString(" · "))
-      val quantity=lot.quantity.toBigDecimalOrNull()
-      if(quantity!=null&&quantity.signum()>0){
-        TextButton(enabled=!busy,onClick={onSetStock(lot,lot.name,"0",lot.unit,lot.expiresOn)}){Text("用完")}
-      }
-      lot.note?.takeIf(String::isNotBlank)?.let{Text(it,style=MaterialTheme.typography.bodySmall)}
-      TextButton(onClick={onReset();editingLotJson=kotlinx.serialization.json.Json.encodeToString(MealPlanningResultDtoStockLotsEntry.serializer(),lot);showStockEditor=true;stockName=lot.name;stockQuantity=lot.quantity;stockUnit=lot.unit;stockExpiry=lot.expiresOn.orEmpty()},enabled=!busy){Text("校正")}
-    }}}
+    }
     if(overview.stockTruncated)Text("库存批次超过 100 条，缺口保持未知。")
-    if(overview.lists.isNotEmpty())HorizontalDivider()
     }
     if(section=="planning"){
-    HorizontalDivider();Text("已保存餐单",style=MaterialTheme.typography.titleLarge)
+    Text("已保存餐单",style=MaterialTheme.typography.titleLarge)
     if(overview.plans.isEmpty())Text("还没有餐单，可以先安排一餐。",color=MaterialTheme.colorScheme.onSurfaceVariant)
     overview.plans.forEach{plan->LifeCard{
       var extraNames by rememberSaveable(plan.id){mutableStateOf("")}
@@ -164,7 +185,7 @@ private fun plusDays(value:String,days:Long)=LocalDate.parse(value).plusDays(day
     }
     }
     if(section=="shopping"){
-    HorizontalDivider();Text("购物清单",style=MaterialTheme.typography.titleLarge)
+    Text("购物清单",style=MaterialTheme.typography.titleLarge)
     if(overview.lists.isEmpty())EmptyState("还没有购物清单，可从餐单生成","前往餐单"){
       onSectionChange?.invoke("planning")?:run{savedSection="planning"}
     }
@@ -174,19 +195,43 @@ private fun plusDays(value:String,days:Long)=LocalDate.parse(value).plusDays(day
       var showDone by rememberSaveable(list.id){mutableStateOf(false)}
       val (needed,done)=list.items.partition{it.state.wireValue=="needed"}
       if(done.isNotEmpty())TextButton(onClick={showDone=!showDone}){Text(if(showDone)"收起已处理" else "已处理 · ${done.size}")}
-      (if(showDone)needed+done else needed).forEach{item->Column(verticalArrangement=Arrangement.spacedBy(3.dp)){
-        Text("${item.name}${item.quantity?.let{" · $it ${item.unit.orEmpty()}"}.orEmpty()}",style=MaterialTheme.typography.bodyLarge)
-        Text(when(item.state.wireValue){"bought"->"已买到";"skipped"->"已跳过";else->"待买"}+" · "+stockGap(item,overview.stockLots,overview.stockTruncated,overview.plans.firstOrNull{it.id==list.mealPlanId}?.endsOn?:LocalDate.now().toString()),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-          if(item.state.wireValue!="bought")TextButton(onClick={onUpdate(item,"bought")},enabled=!busy){Text("买到了")}
-          if(item.state.wireValue!="skipped")TextButton(onClick={onUpdate(item,"skipped")},enabled=!busy){Text("跳过")}
-          if(item.state.wireValue!="needed")TextButton(onClick={onUpdate(item,"needed")},enabled=!busy){Text("恢复待买")}
-        }
-      }}
+      val neededBy=overview.plans.firstOrNull{it.id==list.mealPlanId}?.endsOn?:today
+      (if(showDone)needed+done else needed).forEach{item->
+        key(item.id){ShoppingItemRow(item,stockGap(item,overview.stockLots,overview.stockTruncated,neededBy),busy,onUpdate)}
+      }
     }}
   }
 }
 
+}
+
+@Composable internal fun ShoppingItemRow(item:MealPlanningResultDtoShoppingListsEntryItemsEntry,gap:String,busy:Boolean,
+  onUpdate:(MealPlanningResultDtoShoppingListsEntryItemsEntry,String)->Unit){
+  val state=item.state.wireValue
+  val bought=state=="bought"
+  var menu by remember{mutableStateOf(false)}
+  Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+    Row(Modifier.weight(1f).toggleable(bought,enabled=!busy,role=Role.Checkbox){
+      onUpdate(item,if(it)"bought" else "needed")
+    }.heightIn(min=52.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
+      Surface(Modifier.size(24.dp),shape=CircleShape,border=androidx.compose.foundation.BorderStroke(1.dp,MaterialTheme.colorScheme.secondary),
+        color=if(bought)MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surface){
+        if(bought)Icon(Icons.Default.Check,null,Modifier.padding(3.dp),tint=MaterialTheme.colorScheme.onSecondary)
+      }
+      Column {
+        Text(item.name+item.quantity?.let{" · $it ${item.unit.orEmpty()}"}.orEmpty(),style=MaterialTheme.typography.bodyLarge)
+        val label=when(state){"bought"->"已买到";"skipped"->"已跳过";else->"待买"}
+        Text("$label · $gap",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+      }
+    }
+    Box{
+      IconButton(enabled=!busy,onClick={menu=true}){Icon(Icons.Default.MoreVert,"${item.name}的更多操作")}
+      DropdownMenu(expanded=menu&&!busy,onDismissRequest={menu=false}){
+        val skip=state!="skipped"
+        DropdownMenuItem(text={Text(if(skip)"跳过" else "恢复待买")},onClick={menu=false;onUpdate(item,if(skip)"skipped" else "needed")})
+      }
+    }
+  }
 }
 
 private fun stockGap(item:MealPlanningResultDtoShoppingListsEntryItemsEntry,lots:List<MealPlanningResultDtoStockLotsEntry>,truncated:Boolean,neededBy:String):String{

@@ -115,9 +115,15 @@ import org.json.JSONObject
           data?.let{Text("已记录使用：${it.usageSeconds/60} 分钟 · ${it.total} 条活动",style=MaterialTheme.typography.titleLarge)}
           TextButton(enabled=!busy,onClick={run{read();message=null}}){Text("刷新已同步记录")}
         }
-        data?.items?.sortedBy{it.startedAt}?.forEach{item->Card(Modifier.fillMaxWidth()){Column(Modifier.padding(14.dp)){Text(captureActivityTitle(context,item.title,item.appPackage),style=MaterialTheme.typography.titleMedium);TextButton(onClick={onSource(item.id)}){Text("分类、项目与长期保留")};Text(captureActivityInterval(item.startedAt,item.endedAt,item.timeZone),style=MaterialTheme.typography.bodySmall);item.latitude?.let{Text("坐标 $it, ${item.longitude} · 精度 ${item.accuracyM} 米")};item.text?.let{Text(it)}
-              if(item.kind.wireValue=="screen_text"&&item.text!=null)TextButton(enabled=!busy,onClick={run{val value=repository.activityOrder(item.id);if(app.sessions.active()?.accountId==accountId)order=value}}){Text("查看订单字段")};Row{if(item.text!=null)TextButton(enabled=!busy&&item.libraryItemId==null,onClick={run{repository.activityAction("life.archive_activity",item.id,accountId);message="已进入加密归档队列，完成后可在资料中检索；请稍后刷新。"}}){Text(if(item.libraryItemId==null)"另存到资料" else "已归档")};TextButton(enabled=!busy,onClick={deleteId=item.id}){Text("删除采集记录")}}
-            }}}
+        data?.items?.sortedBy{it.startedAt}?.forEach{item->LifeCard {
+          Text(captureActivityTitle(context,item.title,item.appPackage),style=MaterialTheme.typography.titleMedium)
+          Text(captureActivityInterval(item.startedAt,item.endedAt,item.timeZone),
+            style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+          item.latitude?.let{Text("坐标 $it, ${item.longitude} · 精度 ${item.accuracyM} 米")}
+          item.text?.let{Text(it)}
+          LifeTextAction(onClick={onSource(item.id)}){Text("分类、项目与长期保留")}
+          if(item.kind.wireValue=="screen_text"&&item.text!=null)TextButton(enabled=!busy,onClick={run{val value=repository.activityOrder(item.id);if(app.sessions.active()?.accountId==accountId)order=value}}){Text("查看订单字段")};Row{if(item.text!=null)TextButton(enabled=!busy&&item.libraryItemId==null,onClick={run{repository.activityAction("life.archive_activity",item.id,accountId);message="已进入加密归档队列，完成后可在资料中检索；请稍后刷新。"}}){Text(if(item.libraryItemId==null)"另存到资料" else "已归档")};TextButton(enabled=!busy,onClick={deleteId=item.id}){Text("删除采集记录")}}
+        }}
         data?.nextBeforeId?.let{before->TextButton(enabled=!busy,onClick={run{read(before)}}){Text("加载更多")}}
       }
     }

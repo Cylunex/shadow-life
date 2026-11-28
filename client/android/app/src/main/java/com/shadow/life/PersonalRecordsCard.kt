@@ -2,8 +2,9 @@ package com.shadow.life
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -98,14 +99,14 @@ internal fun offlineRecordGaps(day:LocalDate, zone:ZoneId, rows:List<JSONObject>
   val app=context.applicationContext as ShadowApp
   val repo=remember(accountId){NativeLifeRepository(context,app)}
   val groups=remember(section){context.assets.open("personal-records.json").bufferedReader().use{JSONArray(it.readText()).trainingObjects().filter{g->section==null||g.getString("title")==section}}}
-  val labels=remember{buildMap<String,String>{
+  val labels=remember(section){buildMap<String,String>{
     groups.forEach{g->g.getJSONArray("actions").trainingObjects().forEach{a->a.getJSONArray("fields").trainingObjects().forEach{put(it.getString("key"),it.getString("label"))}}}
     putAll(mapOf("records" to "正式明细","basis" to "核对依据","received" to "到账","remaining" to "差额","group" to "分组","sleep_minutes" to "主睡眠分钟","quote" to "原文","path" to "位置","raw_name" to "原名","distance_km" to "公里","duration_minutes" to "分钟","minutes_per_km" to "分钟/公里","rpe" to "主观用力","heart_rate_avg" to "平均心率","relation" to "关联","external_id" to "外部编号","kind" to "来源","refunds" to "退款及可用份额","service_number" to "车次","origin" to "发站","destination" to "到站","starts_at" to "发车","printed_fare" to "票面金额","confirmation_code" to "订票编号","provenance" to "出处","happened_on" to "日期","supporting" to "详情"))
   }}
   val scope=rememberCoroutineScope()
   var open by rememberSaveable(accountId,standalone){mutableStateOf(standalone)}
-  var group by rememberSaveable(accountId){mutableIntStateOf(0)}
-  var action by rememberSaveable(accountId){mutableIntStateOf(0)}
+  var group by rememberSaveable(accountId,section){mutableIntStateOf(0)}
+  var action by rememberSaveable(accountId,section){mutableIntStateOf(0)}
   var allowed by remember(accountId){mutableStateOf<Set<String>?>(null)}
   var formState by rememberSaveable(accountId){mutableStateOf("{}")}
   val form=remember(formState){JSONObject(formState)}
@@ -128,7 +129,11 @@ internal fun offlineRecordGaps(day:LocalDate, zone:ZoneId, rows:List<JSONObject>
   }
   fun set(key:String,value:String){formState=JSONObject(formState).put(key,value).toString()}
   fun clearResults(){rows=emptyList();result=JSONObject();next=emptyMap();selection=emptySet();status=""}
-  val actions=groups[group].getJSONArray("actions").trainingObjects().filter{allowed?.contains(it.getString("cap"))!=false}
+  val availableGroups=groups.withIndex().filter{(_,g)->
+    allowed==null || g.getJSONArray("actions").trainingObjects().any{it.getString("cap") in allowed.orEmpty()}
+  }
+  val activeGroup=availableGroups.firstOrNull{it.index==group} ?: availableGroups.firstOrNull()
+  val actions=activeGroup?.value?.getJSONArray("actions")?.trainingObjects().orEmpty().filter{allowed?.contains(it.getString("cap"))!=false}
   val current=actions.getOrNull(action)?:actions.firstOrNull()
   val cap=current?.getString("cap").orEmpty()
   fun openAction(target:String,values:Map<String,String>,record:JSONObject=JSONObject()){
@@ -188,10 +193,19 @@ internal fun offlineRecordGaps(day:LocalDate, zone:ZoneId, rows:List<JSONObject>
   LifeCard{
     if(!standalone)TextButton(onClick={open=!open}){Text(section?:"生活记录与复盘")}
     if(open){
-      FlowRow{groups.forEachIndexed{i,g->if(allowed==null||g.getJSONArray("actions").trainingObjects().any{allowed!!.contains(it.getString("cap"))})TextButton(enabled=!busy,onClick={group=i;action=0;formState="{}";pickedState="{}";clearResults()}){Text(g.getString("title"))}}}
-      FlowRow{actions.forEachIndexed{i,a->TextButton(enabled=!busy,onClick={action=i;clearResults()}){Text(a.getString("title"))}}}
+      FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)){
+        availableGroups.forEach{(i,g)->
+          FilterChip(activeGroup?.index==i,enabled=!busy,onClick={group=i;action=0;formState="{}";pickedState="{}";clearResults()},label={Text(g.getString("title"))})
+        }
+      }
+      if(activeGroup==null)Text("当前没有可用的记录功能",color=MaterialTheme.colorScheme.onSurfaceVariant)
+      HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
+      FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)){
+        actions.forEachIndexed{i,a->
+          FilterChip(a==current,enabled=!busy,onClick={action=i;clearResults()},label={Text(a.getString("title"))})
+        }
+      }
       current?.let{a->
-        Text(a.getString("title"),style=MaterialTheme.typography.titleMedium)
         for(f in a.getJSONArray("fields").trainingObjects()){
           val k=f.getString("key");val v=if(form.has(k))form.clean(k) else personalInitial(f)
           val choices=f.optJSONObject("choices")?:if(f.getString("type")=="bool")JSONObject().put("true","是").put("false","否") else null
@@ -204,7 +218,7 @@ internal fun offlineRecordGaps(day:LocalDate, zone:ZoneId, rows:List<JSONObject>
                   .associate{it.substringBefore(' ') to it.substringAfter(' ')}.toMutableMap()
                 if(value.isBlank())currentAmounts.remove(id) else currentAmounts[id]=value
                 set(k,currentAmounts.entries.joinToString("\n"){(id,amount)->"$id $amount"})
-              },label={Text("已到账 ${refund.clean("amount")} · 本项可分配 ${refund.clean("available")} ${form.clean("currency")}")})
+              },modifier=Modifier.fillMaxWidth(),label={Text("已到账 ${refund.clean("amount")} · 本项可分配 ${refund.clean("available")} ${form.clean("currency")}")})
             }
             continue
           }
@@ -218,7 +232,7 @@ internal fun offlineRecordGaps(day:LocalDate, zone:ZoneId, rows:List<JSONObject>
             continue
           }
           if(choices!=null){Text(f.getString("label"));FlowRow{choices.keys().forEach{code->FilterChip(selected=v==code,onClick={set(k,code)},label={Text(choices.getString(code))})}}}
-          else OutlinedTextField(v,{set(k,it)},label={Text(f.getString("label"))},placeholder={Text(when(f.getString("type")){
+          else OutlinedTextField(v,{set(k,it)},Modifier.fillMaxWidth(),label={Text(f.getString("label"))},placeholder={Text(when(f.getString("type")){
             "refs"->"每行：visit / photo / audio 加编号";"points"->"每行：时刻 程度 备注";"allocations"->"每行：退款编号 分配金额";"evidence"->"出处说明，或 menu_photo 照片编号";"instant"->"2026-11-13T09:00";else->""})})
         }
         val validSegment=recordingSeconds<=0||(form.clean("end_ms").toDoubleOrNull()?:0.0)>(form.clean("start_ms").toDoubleOrNull()?:0.0)
@@ -239,7 +253,7 @@ internal fun offlineRecordGaps(day:LocalDate, zone:ZoneId, rows:List<JSONObject>
       if(result.has("evening"))for((key,title) in listOf("evening" to "晚间训练","rest" to "休息日"))result.optJSONObject(key)?.let{Text("$title · ${it.optInt("samples")} 个样本 · 缺测 ${it.optInt("missing")} · 平均 ${it.clean("average_minutes").ifBlank{"未知"}} 分钟")}
       rows.forEach{r->
         HorizontalDivider()
-        for(k in r.keys())if(labels.containsKey(k)&&!r.isNull(k)&&r.clean(k)!="[]"&&r.clean(k)!="{}")Text("${labels[k]}  ${r.clean(k)}")
+        key(cap,r){PersonalResultSummary(r,labels,current?.clean("title").orEmpty(),result.clean("queryZone").ifBlank{null})}
         val zone=if(cap=="life.offline_day")ZoneId.of(result.getString("queryZone")) else null
         fun selectedFields(mapping:JSONObject):Map<String,String> {
           val fields=mapping.keys().asSequence().associateWith{fillPersonal(it,r,mapping.getString(it),zone)}

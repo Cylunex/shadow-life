@@ -65,7 +65,7 @@ class DishStatisticsScreenTest {
         compose.onNodeWithText("番茄汤").performScrollTo().performClick()
         compose.runOnIdle { assertEquals("meal_second",latest);assertEquals(2,reads) }
         compose.onNodeWithText("搜索菜名").performScrollTo().performTextInput("鱼")
-        compose.onNodeWithText("查询").performClick()
+        compose.onNodeWithContentDescription("搜索").performClick()
         compose.onNodeWithText("记录中没有匹配的菜品").assertExists()
         compose.onNodeWithText("番茄汤").assertDoesNotExist()
     }

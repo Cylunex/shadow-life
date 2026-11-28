@@ -14,6 +14,10 @@ object LifeModuleIcons {
   private fun outline(name:String,draw:PathBuilder.()->Unit)=ImageVector.Builder(name,24.dp,24.dp,24f,24f).apply{
     path(fill=null,stroke=SolidColor(Color.Black),strokeLineWidth=1.8f,strokeLineCap=StrokeCap.Round,strokeLineJoin=StrokeJoin.Round,pathBuilder=draw)
   }.build()
+  val Photo = outline("LifePhoto") {
+    moveTo(3f,5f);lineTo(21f,5f);lineTo(21f,19f);lineTo(3f,19f);close()
+    moveTo(4f,17f);lineTo(9f,12f);lineTo(12f,15f);lineTo(16f,10f);lineTo(21f,15f)
+  }
   val Wallet=outline("LifeWallet"){
     moveTo(20f,7f);lineTo(5f,7f);curveTo(2f,7f,2f,3f,5f,3f);lineTo(18f,3f);lineTo(18f,7f)
     moveTo(3f,5f);lineTo(3f,19f);lineTo(21f,19f);lineTo(21f,7f);lineTo(20f,7f)

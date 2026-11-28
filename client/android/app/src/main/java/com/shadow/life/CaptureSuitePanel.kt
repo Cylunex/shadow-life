@@ -51,15 +51,17 @@ import java.time.LocalDate
 
  when(section){
  "录音"->{
-  Text(if(LifeRecordingState.accountId==accountId)"录音状态：${mapOf("idle" to "未录音","recording" to "正在录音","paused" to "已暂停","finishing" to "正在封存","interrupted" to "已中断")[LifeRecordingState.status]?:LifeRecordingState.status}" else "录音尚未开始")
-  if(LifeRecordingState.accountId==accountId)Text(LifeRecordingState.message)
-  Row{Button(onClick={if(ContextCompat.checkSelfPermission(context,Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED)recordStart()else microphonePermission.launch(Manifest.permission.RECORD_AUDIO)}){Text(if(LifeRecordingState.status=="paused")"继续录音" else "开始录音")};TextButton(onClick={context.startService(Intent(context,LifeRecordingService::class.java).setAction("pause"))},enabled=LifeRecordingState.accountId==accountId&&LifeRecordingState.status=="recording"){Text("暂停")};TextButton(onClick={context.startService(Intent(context,LifeRecordingService::class.java).setAction("stop"))},enabled=LifeRecordingState.accountId==accountId&&LifeRecordingState.status in listOf("recording","paused")){Text("结束")}}
-  Text("音频先加密保存，按短片段上传。系统终止后不会自动重启麦克风。",style=MaterialTheme.typography.bodySmall)
-  TextButton(enabled=!busy,onClick={run{message=recoverRecordingSegments(context,app,app.sessions.active()?:error("请先登录"))}}){Text("恢复已封存片段")}
-  if(data?.transcriptionAvailable==false)Text("转写处理器尚未配置或不可用，原音频仍会保存。")
-  data?.recordings?.forEach{record->Card(Modifier.fillMaxWidth()){Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
-   Text(record.title,style=MaterialTheme.typography.titleMedium);Text(record.startedAt);Text("转写：${mapOf("queued" to "等待处理","running" to "处理中","completed" to "已完成","failed" to "失败")[record.state.wireValue]}");record.error?.let{Text(it)};if(!record.audioAvailable)Text("音频已按保留策略清理，转写仍保留。")
-   Row{Text("长期保留音频");Switch(checked=record.protectedValue,onCheckedChange={keep->run{write("life.protect_capture",JSONObject().put("id",record.id).put("kind","recording").put("protected",keep))}})}
+  LifeCard {
+    Text(if(LifeRecordingState.accountId==accountId)"录音状态：${mapOf("idle" to "未录音","recording" to "正在录音","paused" to "已暂停","finishing" to "正在封存","interrupted" to "已中断")[LifeRecordingState.status]?:LifeRecordingState.status}" else "录音尚未开始")
+    if(LifeRecordingState.accountId==accountId)Text(LifeRecordingState.message)
+    FlowRow{Button(onClick={if(ContextCompat.checkSelfPermission(context,Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED)recordStart()else microphonePermission.launch(Manifest.permission.RECORD_AUDIO)}){Text(if(LifeRecordingState.status=="paused")"继续录音" else "开始录音")};TextButton(onClick={context.startService(Intent(context,LifeRecordingService::class.java).setAction("pause"))},enabled=LifeRecordingState.accountId==accountId&&LifeRecordingState.status=="recording"){Text("暂停")};TextButton(onClick={context.startService(Intent(context,LifeRecordingService::class.java).setAction("stop"))},enabled=LifeRecordingState.accountId==accountId&&LifeRecordingState.status in listOf("recording","paused")){Text("结束")}}
+    Text("音频先加密保存，按短片段上传。系统终止后不会自动重启麦克风。",style=MaterialTheme.typography.bodySmall)
+    TextButton(enabled=!busy,onClick={run{message=recoverRecordingSegments(context,app,app.sessions.active()?:error("请先登录"))}}){Text("恢复已封存片段")}
+    if(data?.transcriptionAvailable==false)Text("转写处理器尚未配置或不可用，原音频仍会保存。")
+  }
+  data?.recordings?.forEach{record->LifeCard{
+   Text(record.title,style=MaterialTheme.typography.titleMedium);localDateTime(record.startedAt,null)?.let{Text(it,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};Text("转写：${mapOf("queued" to "等待处理","running" to "处理中","completed" to "已完成","failed" to "失败")[record.state.wireValue]}");record.error?.let{Text(it)};if(!record.audioAvailable)Text("音频已按保留策略清理，转写仍保留。")
+   Row(Modifier.fillMaxWidth(),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){Text("长期保留音频",Modifier.weight(1f));Switch(checked=record.protectedValue,onCheckedChange={keep->run{write("life.protect_capture",JSONObject().put("id",record.id).put("kind","recording").put("protected",keep))}})}
    fun play(at:Int){
     if(playback.id==record.id){playback.seek(at,true);return}
     run{
@@ -99,11 +101,11 @@ import java.time.LocalDate
       }
     }
    }
-  }}}
+  }}
   data?.recordingsNextBeforeId?.let{before->TextButton(enabled=!busy,onClick={run{val requested=date;val token=++generation;val next=repository.captureWorkspace(requested,before);if(token==generation&&app.sessions.active()?.accountId==accountId&&selectedDate.value==requested)data=next.copy(recordings=(data?.recordings.orEmpty()+next.recordings).distinctBy{it.id})}}){Text("加载更早的录音片段")}}
 
  }
- "地点"->{
+ "地点"->LifeCard{
   OutlinedTextField(value=placeName,onValueChange={placeName=it.take(200)},label={Text("地点名称（可选，如家、公司）")},modifier=Modifier.fillMaxWidth())
   Text("只保存精度足够、至少三次采样且持续五分钟的停留。移动到新地点后恢复通用名称，附近商家不会自动认作已到访。")
   Button(enabled=!LifeLocationState.running,onClick={locationPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION))}){Text("开始记录停留地点")}
@@ -137,7 +139,7 @@ import java.time.LocalDate
       order.status!="paid"->"尚未识别为已支付账单"
       else->"付款身份、币种或采集规则需核对"
     }
-    Card(Modifier.fillMaxWidth()){Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
+    LifeCard {
       Text(capturedOrderField(fields,"merchant")?:capturedOrderField(fields,"product")?:capturePlatformName(order.platform),style=MaterialTheme.typography.titleMedium,maxLines=2,overflow=TextOverflow.Ellipsis)
       Text("${capturePlatformName(order.platform)} · ${order.sourceCount} 份材料",style=MaterialTheme.typography.bodySmall)
       mapOf("paid_amount" to "实付","order_amount" to "订单金额","payment_time" to "付款时间").forEach{(key,label)->capturedOrderField(fields,key)?.let{Text("$label：$it",maxLines=2,overflow=TextOverflow.Ellipsis)}}
@@ -160,64 +162,66 @@ import java.time.LocalDate
         Text("尚未入账 · $reason",color=MaterialTheme.colorScheme.onSurfaceVariant)
         TextButton(onClick={showOrderSettings=true;rules.firstOrNull()?.let{selectApp(it.appPackage)}}){Text("查看采集规则")}
       }else TextButton(onClick={onMoneyRecord(order.recordId!!)}){Text("已入账 · 查看消费详情 →")}
-    }}
+    }
   }
   TextButton(onClick={showOrderSettings=!showOrderSettings}){Text(if(showOrderSettings)"收起采集设置" else "摇一摇与自动记账设置")}
-  if(showOrderSettings){
-  Text("摇一摇记账",style=MaterialTheme.typography.titleMedium)
-  Text("每个应用需要单独开启。先点下方应用名称，再打开出现的摇一摇开关；新增来源应用默认关闭。")
-  Text("在已开启的应用打开订单顶部，摇一下。截图浮条会先截当前一屏。点“手动滑”后慢滑并停稳即可收录下一屏，也可以点“自动滚动”。点“完成保存”收录所选范围。能读取订单文字时，点“下一屏”继续。")
-  FlowRow{(billPlatforms+takeoutPackages).forEach{(pkg,value)->FilterChip(selected=selectedApp==pkg,onClick={selectApp(pkg)},label={Text(apps.firstOrNull{it.activityInfo.packageName==pkg}?.loadLabel(context.packageManager)?.toString()?:mapOf("com.taobao.taobao" to "淘宝内闪购","me.ele.mall" to "闪购零售","com.sankuai.meituan.takeoutnew" to "美团外卖")[pkg]?:capturePlatformName(value))})}}
-  Box{TextButton(onClick={showApps=true}){Text(apps.firstOrNull{it.activityInfo.packageName==selectedApp}?.loadLabel(context.packageManager)?.toString()?:"选择其他订单来源应用")};DropdownMenu(expanded=showApps,onDismissRequest={showApps=false}){apps.forEach{info->DropdownMenuItem(text={Text(info.loadLabel(context.packageManager).toString())},onClick={selectApp(info.activityInfo.packageName)})}}}
-  if(selectedApp.isNotBlank()){
-   val key=shakeKey(accountId,selectedApp)
-   var enabled by remember(key){mutableStateOf(prefs.getBoolean(key,false))}
-   Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){Text("此应用摇一摇采集",Modifier.weight(1f));Switch(checked=enabled,onCheckedChange={enabled=it;prefs.edit().putBoolean(key,it).apply()},enabled=hasSensor||enabled)}
-   Text(BillShakeStatus.message)
-   Text("可留在此页摇动测试；识别成功会显示提示，随后再进入单笔账单详情。",style=MaterialTheme.typography.bodySmall)
-   Text(if(LifeScreenCaptureService.active==null)"屏幕内容服务：未连接" else "屏幕内容服务：已连接")
-   if(!hasSensor)Text("此设备没有加速度传感器，请手动记账。")
-   TextButton(onClick={context.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))}){Text("启用 Life 屏幕内容服务")}
-   Text("支付账单证据完整时入账；订单材料不重复新增付款。长截图按所选方式交给 LLM 或 Losna，不使用本地 OCR。",style=MaterialTheme.typography.bodySmall)
+  if(showOrderSettings)LifeCard{
+    Text("摇一摇记账",style=MaterialTheme.typography.titleMedium)
+    Text("每个应用需要单独开启。先点下方应用名称，再打开出现的摇一摇开关；新增来源应用默认关闭。")
+    Text("在已开启的应用打开订单顶部，摇一下。截图浮条会先截当前一屏。点“手动滑”后慢滑并停稳即可收录下一屏，也可以点“自动滚动”。点“完成保存”收录所选范围。能读取订单文字时，点“下一屏”继续。")
+    FlowRow{(billPlatforms+takeoutPackages).forEach{(pkg,value)->FilterChip(selected=selectedApp==pkg,onClick={selectApp(pkg)},label={Text(apps.firstOrNull{it.activityInfo.packageName==pkg}?.loadLabel(context.packageManager)?.toString()?:mapOf("com.taobao.taobao" to "淘宝内闪购","me.ele.mall" to "闪购零售","com.sankuai.meituan.takeoutnew" to "美团外卖")[pkg]?:capturePlatformName(value))})}}
+    Box{TextButton(onClick={showApps=true}){Text(apps.firstOrNull{it.activityInfo.packageName==selectedApp}?.loadLabel(context.packageManager)?.toString()?:"选择其他订单来源应用")};DropdownMenu(expanded=showApps,onDismissRequest={showApps=false}){apps.forEach{info->DropdownMenuItem(text={Text(info.loadLabel(context.packageManager).toString())},onClick={selectApp(info.activityInfo.packageName)})}}}
+    if(selectedApp.isNotBlank()){
+     val key=shakeKey(accountId,selectedApp)
+     var enabled by remember(key){mutableStateOf(prefs.getBoolean(key,false))}
+     Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){Text("此应用摇一摇采集",Modifier.weight(1f));Switch(checked=enabled,onCheckedChange={enabled=it;prefs.edit().putBoolean(key,it).apply()},enabled=hasSensor||enabled)}
+     Text(BillShakeStatus.message)
+     Text("可留在此页摇动测试；识别成功会显示提示，随后再进入单笔账单详情。",style=MaterialTheme.typography.bodySmall)
+     Text(if(LifeScreenCaptureService.active==null)"屏幕内容服务：未连接" else "屏幕内容服务：已连接")
+     if(!hasSensor)Text("此设备没有加速度传感器，请手动记账。")
+     TextButton(onClick={context.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))}){Text("启用 Life 屏幕内容服务")}
+     Text("支付账单证据完整时入账；订单材料不重复新增付款。长截图按所选方式交给 LLM 或 Losna，不使用本地 OCR。",style=MaterialTheme.typography.bodySmall)
+    }
   }
-  OrderImageProcessingSettings(context,accountId,data?.screenshotModels.orEmpty().map{it.id to it.name})
-  if(selectedApp.isNotBlank()&&platform in setOf("wechat","alipay")){
-   val automaticKey=paymentAutoKey(accountId,selectedApp)
-   var automaticEnabled by remember(automaticKey){mutableStateOf(prefs.contains(automaticKey))}
-   Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){Text("付款后自动识别",Modifier.weight(1f));Switch(checked=automaticEnabled,enabled=automaticEnabled||!busy&&sourceAccount.isNotBlank(),onCheckedChange={value->
-     if(!value){automaticEnabled=false;prefs.edit().remove(automaticKey).apply()}
-     else{
-       val binding=JSONObject().put("platform",platform).put("source_account",sourceAccount.trim())
-       val rule=JSONObject().put("app_package",selectedApp).put("platform",platform).put("source_account",sourceAccount.trim()).put("enabled",associate).put("auto_accounting",autoAccounting)
-       run{
-         // Queue the same account scope first so later shake captures use this binding too.
-         write("life.set_order_capture",rule)
-         check(app.sessions.active()?.accountId==accountId){"账号已切换"}
-         prefs.edit().putString(automaticKey,binding.toString()).apply();automaticEnabled=true
+  if(showOrderSettings)LifeCard {
+    OrderImageProcessingSettings(context,accountId,data?.screenshotModels.orEmpty().map{it.id to it.name})
+    if(selectedApp.isNotBlank()&&platform in setOf("wechat","alipay")){
+     val automaticKey=paymentAutoKey(accountId,selectedApp)
+     var automaticEnabled by remember(automaticKey){mutableStateOf(prefs.contains(automaticKey))}
+     Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){Text("付款后自动识别",Modifier.weight(1f));Switch(checked=automaticEnabled,enabled=automaticEnabled||!busy&&sourceAccount.isNotBlank(),onCheckedChange={value->
+       if(!value){automaticEnabled=false;prefs.edit().remove(automaticKey).apply()}
+       else{
+         val binding=JSONObject().put("platform",platform).put("source_account",sourceAccount.trim())
+         val rule=JSONObject().put("app_package",selectedApp).put("platform",platform).put("source_account",sourceAccount.trim()).put("enabled",associate).put("auto_accounting",autoAccounting)
+         run{
+           // Queue the same account scope first so later shake captures use this binding too.
+           write("life.set_order_capture",rule)
+           check(app.sessions.active()?.accountId==accountId){"账号已切换"}
+           prefs.edit().putString(automaticKey,binding.toString()).apply();automaticEnabled=true
+         }
        }
-     }
-   })}
-   Text("仅在此应用可读的支付成功页采集；信息完整后自动入消费，不需要摇动。第三方应用须选择实际付款平台，不能覆盖所有 SDK 页面。",style=MaterialTheme.typography.bodySmall)
-   if(PaymentAutoStatus.accountId==accountId)Text(PaymentAutoStatus.message,style=MaterialTheme.typography.bodySmall)
-   Text(if(LifeScreenCaptureService.active==null)"屏幕内容服务未连接，自动识别尚未运行" else "屏幕内容服务已连接")
-   TextButton(onClick={context.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))}){Text("检查屏幕内容服务")}
-   TextButton(onClick={context.startActivity(Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))}){Text("检查系统后台限制")}
-  }
-  Box{TextButton(onClick={showPlatforms=true}){Text("平台：${capturePlatformName(platform)}")};DropdownMenu(expanded=showPlatforms,onDismissRequest={showPlatforms=false}){listOf("generic","taobao","jd","meituan","alipay","wechat").forEach{value->DropdownMenuItem(text={Text(capturePlatformName(value))},onClick={platform=value;showPlatforms=false})}}}
-  OutlinedTextField(value=sourceAccount,onValueChange={sourceAccount=it.take(200)},label={Text("平台账号标识（与账单导入保持一致）")},modifier=Modifier.fillMaxWidth())
-  Row{Text("自动关联新采集的订单");Switch(checked=associate,onCheckedChange={associate=it})}
-  Row{Text("后台自动采集：证据完整时记账");Switch(checked=autoAccounting,onCheckedChange={autoAccounting=it})}
-  Text("自动记账要求订单或交易身份、明确实付和付款时间、人民币证据以及写入权限；冲突和缺失只保留观察。")
-  Button(enabled=!busy&&selectedApp.isNotBlank()&&sourceAccount.isNotBlank(),onClick={run{write("life.set_order_capture",JSONObject().put("app_package",selectedApp).put("platform",platform).put("source_account",sourceAccount.trim()).put("enabled",associate).put("auto_accounting",autoAccounting));if(prefs.contains(paymentAutoKey(accountId,selectedApp))){prefs.edit().apply{if(platform in setOf("wechat","alipay"))putString(paymentAutoKey(accountId,selectedApp),JSONObject().put("platform",platform).put("source_account",sourceAccount.trim()).toString()) else remove(paymentAutoKey(accountId,selectedApp))}.apply()}}}){Text("保存此应用的规则")}
+     })}
+     Text("仅在此应用可读的支付成功页采集；信息完整后自动入消费，不需要摇动。第三方应用须选择实际付款平台，不能覆盖所有 SDK 页面。",style=MaterialTheme.typography.bodySmall)
+     if(PaymentAutoStatus.accountId==accountId)Text(PaymentAutoStatus.message,style=MaterialTheme.typography.bodySmall)
+     Text(if(LifeScreenCaptureService.active==null)"屏幕内容服务未连接，自动识别尚未运行" else "屏幕内容服务已连接")
+     TextButton(onClick={context.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))}){Text("检查屏幕内容服务")}
+     TextButton(onClick={context.startActivity(Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))}){Text("检查系统后台限制")}
+    }
+    Box{TextButton(onClick={showPlatforms=true}){Text("平台：${capturePlatformName(platform)}")};DropdownMenu(expanded=showPlatforms,onDismissRequest={showPlatforms=false}){listOf("generic","taobao","jd","meituan","alipay","wechat").forEach{value->DropdownMenuItem(text={Text(capturePlatformName(value))},onClick={platform=value;showPlatforms=false})}}}
+    OutlinedTextField(value=sourceAccount,onValueChange={sourceAccount=it.take(200)},label={Text("平台账号标识（与账单导入保持一致）")},modifier=Modifier.fillMaxWidth())
+    Row(Modifier.fillMaxWidth(),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){Text("自动关联新采集的订单",Modifier.weight(1f));Switch(checked=associate,onCheckedChange={associate=it})}
+    Row(Modifier.fillMaxWidth(),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){Text("后台自动采集：证据完整时记账",Modifier.weight(1f));Switch(checked=autoAccounting,onCheckedChange={autoAccounting=it})}
+    Text("自动记账要求订单或交易身份、明确实付和付款时间、人民币证据以及写入权限；冲突和缺失只保留观察。")
+    Button(enabled=!busy&&selectedApp.isNotBlank()&&sourceAccount.isNotBlank(),onClick={run{write("life.set_order_capture",JSONObject().put("app_package",selectedApp).put("platform",platform).put("source_account",sourceAccount.trim()).put("enabled",associate).put("auto_accounting",autoAccounting));if(prefs.contains(paymentAutoKey(accountId,selectedApp))){prefs.edit().apply{if(platform in setOf("wechat","alipay"))putString(paymentAutoKey(accountId,selectedApp),JSONObject().put("platform",platform).put("source_account",sourceAccount.trim()).toString()) else remove(paymentAutoKey(accountId,selectedApp))}.apply()}}}){Text("保存此应用的规则")}
   }
 
  }
  "回顾"->{
   Text("按已采集来源生成十分钟材料、小时主线、日概览及周／月汇总。来源变化后可重算。")
   Row{listOf("day" to "日","week" to "周","month" to "月").forEach{(period,label)->TextButton(enabled=!busy,onClick={run{write("life.generate_activity_review",JSONObject().put("date",date.toString()).put("time_zone",java.time.ZoneId.systemDefault().id).put("period",period))}}){Text("生成${label}回顾")}}}
-  data?.reviews?.forEach{review->Card(Modifier.fillMaxWidth()){Column(Modifier.padding(12.dp)){Text("${review.fromOn} — ${review.toOnExclusive} · 修订 ${review.revision}");if(review.stale)Text("来源已变化，需要重算");Text(review.body);review.sourceRefs.forEachIndexed{index,ref->TextButton(enabled=!busy,onClick={run{val found=repository.activitySource(ref.id);check(app.sessions.active()?.accountId==accountId);source=found}}){Text("来源 ${index+1}：${ref.title}")}}}}}
+  data?.reviews?.forEach{review->LifeCard{Text("${review.fromOn} — ${review.toOnExclusive} · 修订 ${review.revision}");if(review.stale)Text("来源已变化，需要重算");Text(review.body);review.sourceRefs.forEachIndexed{index,ref->TextButton(enabled=!busy,onClick={run{val found=repository.activitySource(ref.id);check(app.sessions.active()?.accountId==accountId);source=found}}){Text("来源 ${index+1}：${ref.title}")}}}}
  }
- "截图"->{
+ "截图"->LifeCard{
   Text(if(Build.VERSION.SDK_INT>=30)"下拉快捷设置后，点“截图到 Life”，当前页面会直接截图、加密并进入收录队列。首次需启用 Life 屏幕内容服务。" else "当前系统请使用系统截图后分享给 Life；直接截图磁贴需要 Android 11 及以上。")
   TextButton(onClick={context.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))}){Text("启用 Life 屏幕内容服务")}
   if(Build.VERSION.SDK_INT>=33)Button(onClick={context.getSystemService(StatusBarManager::class.java).requestAddTileService(ComponentName(context,LifeScreenshotTile::class.java),"截图到 Life",Icon.createWithResource(context,android.R.drawable.ic_menu_camera),context.mainExecutor){code->message=if(code==StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED||code==StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED)"截图磁贴已就绪，可下拉快捷设置使用。" else "可在快捷设置的编辑页手动添加“截图到 Life”。"}}){Text("添加截图快捷磁贴")}

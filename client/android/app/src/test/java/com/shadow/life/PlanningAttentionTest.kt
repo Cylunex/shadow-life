@@ -4,6 +4,16 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PlanningAttentionTest {
+  @Test fun quotePickerPreservesFractionalSecondsAndOffsetAndRejectsMissingLocalTimes(){
+    val zone=java.time.ZoneId.of("America/New_York")
+    val instant=java.time.Instant.parse("2026-11-01T06:30:27.125Z")
+    val local=instant.atZone(zone)
+    assertEquals(instant,quoteInstant(local,local.toLocalDate(),local.toLocalTime()))
+    assertNull(quoteInstant(local,java.time.LocalDate.of(2026,3,8),java.time.LocalTime.of(2,30)))
+    assertEquals(java.time.Instant.parse("2026-11-02T06:30:27.125Z"),
+      quoteInstant(local,local.toLocalDate().plusDays(1),local.toLocalTime()))
+  }
+
   private fun item(id:String,name:String,state:String="owned",returnState:OwnedItemsResultDtoAttentionItemsEntryReturnWindowState=OwnedItemsResultDtoAttentionItemsEntryReturnWindowState.Unknown)=
     OwnedItemSummary(id,name,state,"书房","2026-11-10","2026-10-23",1,0,0,locationPath=listOf("书房","文件柜"),attention=OwnedItemsResultDtoAttentionItemsEntry(id,OwnedItemsResultDtoAttentionItemsEntryReturnWindow(returnState,1),OwnedItemsResultDtoAttentionItemsEntryWarranty(OwnedItemsResultDtoAttentionItemsEntryWarrantyState.Unknown,null)))
   @Test fun serverDeadlineStatesRemainDistinct(){

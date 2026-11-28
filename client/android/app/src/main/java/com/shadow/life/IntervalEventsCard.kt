@@ -1,6 +1,15 @@
 package com.shadow.life
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
@@ -63,17 +72,33 @@ import java.time.ZoneId
   LifeCard{
     if(!initiallyOpen)TextButton(onClick={open=!open},enabled=!busy){Text("上次是什么时候")}
     if(open){
-      OutlinedTextField(name,{name=it},label={Text("新事项，例如换滤芯")})
+      OutlinedTextField(name,{name=it},Modifier.fillMaxWidth(),label={Text("新事项，例如换滤芯")})
       TextButton(enabled=available&&name.isNotBlank(),onClick={save("life.save_interval_event",JSONObject().put("name",name.trim()))}){Text("创建事项")}
       events.forEach{event->
         val history=event.getJSONArray("history").trainingObjects()
-        TextButton(onClick={selected=event.getString("id")}){Text(event.getString("name")+" · "+(history.firstOrNull()?.let{"上次 ${it.getString("occurred_on")}，距今 ${it.getInt("days_ago")} 天"}?:"暂无记录"))}
+        val id=event.getString("id")
+        val latest=history.firstOrNull()
+        HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
+        Row(Modifier.fillMaxWidth().clickable(role=Role.Button){selected=if(selected==id)"" else id}
+          .heightIn(min=56.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
+          Column(Modifier.weight(1f)){
+            Text(event.getString("name"),style=MaterialTheme.typography.titleMedium)
+            Text(latest?.let{"上次 ${it.getString("occurred_on")}"}?:"暂无记录",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+          }
+          latest?.let{
+            Surface(shape=MaterialTheme.shapes.small,color=MaterialTheme.colorScheme.secondaryContainer){
+              Text("距今 ${it.getInt("days_ago")} 天",Modifier.padding(horizontal=10.dp,vertical=6.dp),
+                style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.onSecondaryContainer)
+            }
+          }
+          Icon(if(selected==id)Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,if(selected==id)"收起记录" else "展开记录")
+        }
         if(selected==event.getString("id")){
           history.forEach{row->Text(row.getString("occurred_on")+(if(row.isNull("interval_days"))"" else " · 间隔 ${row.getInt("interval_days")} 天")+" "+row.optString("note").takeUnless{it=="null"}.orEmpty())}
           if(!event.getBoolean("archived")){
             Button(enabled=available,onClick={occurrence(LocalDate.now().toString())}){Text("今天做了")}
-            OutlinedTextField(date,{date=it},label={Text("补记日期 yyyy-MM-dd")})
-            OutlinedTextField(note,{note=it},label={Text("备注")})
+            LifeDateField(date,{date=it},"补记日期",enabled=available)
+            OutlinedTextField(note,{note=it},Modifier.fillMaxWidth(),label={Text("备注")})
             TextButton(enabled=available,onClick={occurrence(date)}){Text("补记一次")}
           }
         }

@@ -69,8 +69,7 @@ import org.json.JSONObject
   }
   LifeFullScreen(if(onSelect==null)"常购价格" else "选择购买明细",::goBack){
     Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(8.dp)){
-      OutlinedTextField(query,{query=it.take(200)},Modifier.fillMaxWidth(),label={Text("搜索商品")},
-        singleLine=true,trailingIcon={TextButton(onClick={product="";search=query.trim();cursor=null;retry++}){Text("搜索")}})
+      LifeSearchBar(query,{query=it.take(200)},"搜索商品"){product="";search=it;cursor=null;retry++}
       val data=(state as? LoadState.Ready)?.value
       if(data==null)StateContent(state,{retry++}){}
       if(data!=null)LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(8.dp)){
@@ -125,7 +124,7 @@ import org.json.JSONObject
     if(name!=row.getString("raw_name"))Text(row.getString("raw_name"),style=MaterialTheme.typography.bodySmall)
     Text(listOfNotNull(row.getString("occurred_on"),row.optNullableString("merchant"),
       row.optNullableString("line_amount")?.let{"$it $currency"}).joinToString(" · "))
-    if(onSelect!=null)TextButton(onClick={onSelect(row)}){Text("选择这条购买明细")}
+    if(onSelect!=null)LifeTextAction(onClick={onSelect(row)}){Text("选择这条购买明细")}
     else{
       val reason=row.optNullableString("unavailable_reason")
       Text(when{
@@ -137,12 +136,12 @@ import org.json.JSONObject
         else->"暂无可比行价"
       })
       FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)){
-        if(onCompare!=null)TextButton(onClick={onCompare(name)}){Text("比较同款")}
-        TextButton(onClick={onRecord(row.getString("record_id"))}){Text("打开购买记录")}
-        if(reason=="unallocated_refund")TextButton(onClick=onRefund){Text("查看退款")}
+        if(onCompare!=null)LifeTextAction(onClick={onCompare(name)}){Text("比较同款")}
+        LifeTextAction(onClick={onRecord(row.getString("record_id"))}){Text("打开购买记录")}
+        if(reason=="unallocated_refund")LifeTextAction(onClick=onRefund){Text("查看退款")}
         if(reason=="missing_spec"||reason=="deductions_exceed_amount"||
           (reason==null&&row.isNull("unit_price")&&(row.isNull("unit")||row.isNull("pack_size")))){
-          TextButton(onClick=onEdit){Text(if(reason=="deductions_exceed_amount")"核对规格与口径" else "补规格")}
+          LifeTextAction(onClick=onEdit){Text(if(reason=="deductions_exceed_amount")"核对规格与口径" else "补规格")}
         }
       }
     }

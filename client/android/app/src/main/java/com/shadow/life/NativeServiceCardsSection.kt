@@ -37,7 +37,7 @@ import java.time.LocalDate
     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("次卡与服务权益",style=MaterialTheme.typography.headlineSmall);TextButton(onClick={edit(null)},enabled=!busy){Text("新增次卡")}}
     Text("理发、洗车、课时等按实际使用扣次；购买金额仍由原消费记录管理。",color=MaterialTheme.colorScheme.onSurfaceVariant)
     when(submit){is SubmitState.Sending->LinearProgressIndicator(Modifier.fillMaxWidth());is SubmitState.Rejected->Text(submit.message,color=MaterialTheme.colorScheme.error);is SubmitState.Saved->Text(if(submit.receipt.queued)"已保存，正在同步" else "已保存",color=MaterialTheme.colorScheme.primary);else->Unit}
-    OutlinedTextField(query,{query=it},Modifier.fillMaxWidth(),label={Text("搜索卡名或商家")},singleLine=true,trailingIcon={TextButton(onClick={submittedQuery=query.trim();onSearch(submittedQuery)}){Text("查找")}})
+    LifeSearchBar(query,{query=it},"搜索卡名或商家"){submittedQuery=it;onSearch(it)}
     if(editorOpen)LifeCard{
       Text(if(editing==null)"新增次卡" else "编辑次卡",style=MaterialTheme.typography.titleLarge)
       OutlinedTextField(name,{name=it},Modifier.fillMaxWidth(),label={Text("卡名")},singleLine=true)
@@ -45,7 +45,7 @@ import java.time.LocalDate
       Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){OutlinedTextField(total,{total=it},Modifier.weight(1f),label={Text("总次数")},singleLine=true);OutlinedTextField(unit,{unit=it},Modifier.weight(1f),label={Text("单位")},singleLine=true)}
       LifeDateField(start,{start=it},"开始日期")
       LifeOptionalDateField(expiry,{expiry=it},"到期日期（可选）")
-      OutlinedTextField(purchaseQuery,{purchaseQuery=it},Modifier.fillMaxWidth(),label={Text("查找原购买 / 支出")},singleLine=true,trailingIcon={TextButton(onClick={onSearchPurchases(purchaseQuery)}){Text("查找")}})
+      LifeSearchBar(purchaseQuery,{purchaseQuery=it},"查找原购买 / 支出",onSearch=onSearchPurchases)
       val purchases=records.filter{it.detailId!=null&&it.recordState=="confirmed"&&it.kind in setOf("money_entry","purchase")}.distinctBy{it.detailId}.take(15)
       Text("关联近期购买或支出（可选）",style=MaterialTheme.typography.titleSmall)
       Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)){
@@ -62,7 +62,7 @@ import java.time.LocalDate
       if(cardsState.value.items.isEmpty())Text("还没有匹配的次卡。",color=MaterialTheme.colorScheme.onSurfaceVariant)
       cardsState.value.items.forEach{card->LifeCard{
         Text(card.name,style=MaterialTheme.typography.titleMedium)
-        Text("剩余 ${card.remainingUnits} / ${card.totalUnits} ${card.unitLabel} · ${serviceCardStatus(card.balanceStatus.wireValue)}")
+        ServiceCardBalance(card)
         card.expiresOn?.let{Text("有效期至 $it",color=MaterialTheme.colorScheme.onSurfaceVariant)}
         TextButton(onClick={onOpen(card.id)}){Text("查看与记录使用")}
       }}
@@ -78,7 +78,8 @@ import java.time.LocalDate
         is SubmitState.Saved->Text(if(submit.receipt.queued)"已存本机，待同步" else "已保存")
         else->Unit
       }
-      Text("${selected.merchantName.orEmpty()} · ${serviceCardStatus(selected.balanceStatus.wireValue)} · 剩余 ${selected.remainingUnits} ${selected.unitLabel}")
+      selected.merchantName?.takeIf(String::isNotBlank)?.let{Text(it,style=MaterialTheme.typography.titleMedium)}
+      ServiceCardBalance(selected)
       Text("开始 ${selected.startedOn} · 到期 ${selected.expiresOn?:"未设置"}",color=MaterialTheme.colorScheme.onSurfaceVariant)
       selected.note?.let{Text(it)}
       TextButton(onClick={edit(selected);onClose()},enabled=!busy){Text("编辑次卡")}
@@ -104,6 +105,15 @@ import java.time.LocalDate
       }
     }
   }
+}
+
+@Composable private fun ServiceCardBalance(card:ServiceCardsResultDtoItemsEntry){
+  Text("剩余 ${card.remainingUnits} / ${card.totalUnits} ${card.unitLabel} · ${serviceCardStatus(card.balanceStatus.wireValue)}",
+    style=MaterialTheme.typography.titleSmall)
+  if(card.totalUnits>0) LinearProgressIndicator(
+    progress={(card.remainingUnits.toFloat()/card.totalUnits).coerceIn(0f,1f)},
+    modifier=Modifier.fillMaxWidth(),color=MaterialTheme.colorScheme.secondary
+  )
 }
 
 private fun serviceCardStatus(status:String)=when(status){"depleted"->"已用完";"expired"->"已到期";"closed"->"已关闭";else->"可使用"}
