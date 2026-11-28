@@ -183,6 +183,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.get("/api/life/wellness-review",async context=>context.json(await dependencies.queries.wellnessReview(context.get("requestContext"),wellnessReviewInputSchema.parse({to:context.req.query("to"),days:Number(context.req.query("days")??"7")}))));
   app.get("/api/health/sleep-insights",async context=>context.json(await dependencies.queries.healthSleepInsights(context.get("requestContext"),healthSleepInsightsInputSchema.parse({to:context.req.query("to"),days:Number(context.req.query("days")??"30")}))));
   app.get("/api/health/records/:id",async context=>context.json(await dependencies.queries.healthRecord(context.get("requestContext"),context.req.param("id"))));
+  app.get("/api/travel/visits/:id",async context=>context.json(await dependencies.queries.standaloneVisit(context.get("requestContext"),context.req.param("id"))));
   app.get("/api/travel/trips/:id",async context=>context.json(await dependencies.queries.travelTrip(context.get("requestContext"),context.req.param("id"))));
   app.get("/api/travel/workspace",async context=>context.json(await dependencies.queries.travelWorkspace(context.get("requestContext"),context.req.query("trip_id")?{trip_id:context.req.query("trip_id")} :{})));
   app.get("/api/travel/trips/:id/export",async context=>context.json(await dependencies.queries.travelExport(context.get("requestContext"),{trip_id:context.req.param("id"),format:context.req.query("format")})));
@@ -320,6 +321,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
         if(capabilityName==="life.wellness_review")return dependencies.queries.wellnessReview(requestContext,parsed);
         if(capabilityName==="health.sleep_insights")return dependencies.queries.healthSleepInsights(requestContext,parsed);
         if(capabilityName==="health.get_record")return dependencies.queries.healthRecord(requestContext,(parsed as {id:string}).id);
+        if(capabilityName==="travel.get_visit")return dependencies.queries.standaloneVisit(requestContext,(parsed as {id:string}).id);
         if(capabilityName==="travel.get_trip")return dependencies.queries.travelTrip(requestContext,(parsed as {id:string}).id);
         if(capabilityName==="travel.workspace")return dependencies.queries.travelWorkspace(requestContext,parsed);
         if(capabilityName==="travel.export")return dependencies.queries.travelExport(requestContext,parsed);
@@ -466,6 +468,7 @@ export function requestLogRoute(path:string):string{
   if(/^\/api\/money\/import-files\/[^/]+$/u.test(path))return "/api/money/import-files/:fileId";
   if(/^\/api\/assets\/[^/]+(?:\/preview)?$/u.test(path))return path.endsWith("/preview")?"/api/assets/:versionId/preview":"/api/assets/:versionId";
   if(/^\/api\/commands\/[^/]+$/u.test(path))return"/api/commands/:capability";
+  if(/^\/api\/travel\/visits\/[^/]+$/u.test(path))return"/api/travel/visits/:id";
   if(/^\/api\/health\/records\/[^/]+$/u.test(path))return"/api/health/records/:id";
   if(/^\/api\/life\/records\/[^/]+$/u.test(path))return"/api/life/records/:id";
   return path.length<=160?path:"/:long-path";

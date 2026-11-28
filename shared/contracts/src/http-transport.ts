@@ -74,6 +74,7 @@ export const queryTransportRegistry:Readonly<Record<string,ReadRoute>>={
   "life.wellness_review":input=>get(`/api/life/wellness-review${search(input)}`),
   "health.daily":input=>get(`/api/health/daily/${encodeURIComponent(input.date)}`),
   "health.sleep_insights":input=>get(`/api/health/sleep-insights${search({to:input.to,days:input.days})}`),
+  "travel.get_visit":input=>get(`/api/travel/visits/${encodeURIComponent(input.id)}`),
   "travel.get_trip":input=>get(`/api/travel/trips/${encodeURIComponent(input.id)}`),
   "travel.workspace":input=>get(`/api/travel/workspace${search({trip_id:input.trip_id})}`),
   "travel.export":input=>get(`/api/travel/trips/${encodeURIComponent(input.trip_id)}/export${search({format:input.format})}`),

@@ -1,0 +1,32 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { pgOnly, reviewFixture } from "./review-fixture.js";
+
+test("standalone visits use an exact owner-scoped read, including date-only records; trip membership never grants access",pgOnly,async t=>{
+  const {run,queries,context,unitOfWork,pool}=await reviewFixture(t);
+  const first=await run("travel.record_visit",{place_name:"山间书舍",occurred_on:"2026-10-18",time_zone:"Asia/Shanghai",visibility:"shared",note:"私人笔记"});
+  const id=String(first.actual_values.visit_id);
+  const detailed=await queries.standaloneVisit(context,id);
+  assert.equal(detailed.id,id);assert.equal(detailed.trip_id,null);assert.equal(detailed.place_name,"山间书舍");
+  assert.equal(detailed.note,"私人笔记");assert.equal(detailed.occurred_at,null);
+  assert.equal(detailed.occurred_on,"2026-10-18");assert.equal(detailed.revision,1);
+  assert.ok(!("subject_id" in detailed) && !("source_id" in detailed));
+  const other={...context,actorId:"subject_visit_other",subjectId:"subject_visit_other"};
+  await unitOfWork.ensurePrincipal(other.subjectId);
+  await assert.rejects(()=>queries.standaloneVisit(other,id),/not found/);
+  await assert.rejects(()=>queries.standaloneVisit({...context,effects:new Set()},id),/travel.trip.read/);
+  await assert.rejects(()=>queries.standaloneVisit(context,"invalid"),/invalid/);
+  const trip=await run("travel.create_trip",{title:"同行",starts_on:"2026-10-18",ends_on:"2026-10-20",time_zone:"Asia/Shanghai"});
+  const tripId=String(trip.actual_values.trip_id);
+  await pool.query("insert into trip_members(trip_id,subject_id,role,visibility) values($1,$2,'viewer','shared')",[tripId,other.subjectId]);
+  const child=await run("travel.record_visit",{trip_id:tripId,place_name:"共同一站",occurred_on:"2026-10-19",time_zone:"Asia/Shanghai",visibility:"shared",note:"个人感想"});
+  const childId=String(child.actual_values.visit_id);
+  for(const viewer of [context,other])await assert.rejects(()=>queries.standaloneVisit(viewer,childId),/not found/);
+  const sharedChild=(await queries.travelTrip(other,tripId)).visits.find(row=>row.id===childId);
+  assert.ok(sharedChild && !("note" in sharedChild));
+  const personal=(await queries.listDomain(context,"travel",{})).items;
+  assert.ok(personal.some(row=>row.kind==="visit" && row.id===id && row.record_id===null));
+  assert.ok(personal.some(row=>row.id===childId && row.record_id===tripId));
+  assert.equal((await queries.listDomain(other,"travel",{})).items.some(row=>row.id===id),false);
+  await assert.rejects(()=>queries.standaloneVisit(other,id),/not found/);
+});

@@ -81,6 +81,8 @@ test("source discloses only the authenticated scope, requires a real issuer on o
 test("record cards list only authorized queries and enforce exact parent reads in the bound space", async t => {
   const scope = "12".repeat(32), paths: string[] = [];
   const name = "life.owned_items", id = "owned_example";
+  const visit = {id:"visit_standalone",trip_id:null,place_name:"林间步道",occurred_on:"2026-11-27",occurred_at:null,
+    latitude:null,longitude:null,time_zone:"Asia/Shanghai",visibility:"private",revision:1,created_at:"2026-11-27T00:00:00Z",note:null};
   const server = createServer((req, res) => {
     paths.push(req.url!);
     assert.equal(req.headers.authorization, "Bearer synthetic-token");
@@ -90,6 +92,7 @@ test("record cards list only authorized queries and enforce exact parent reads i
       {name, description:name, input_schema:capabilityRegistry[name].inputSchema.toJSONSchema()},
     ]}));
     const url = new URL(req.url!, "http://localhost");
+    if (url.pathname === "/api/travel/visits/" + visit.id) return res.end(JSON.stringify(visit));
     assert.equal(url.pathname, "/api/life/owned-items");
     assert.equal(url.searchParams.get("id"), id);
     assert.equal(url.searchParams.get("limit"), "1");
@@ -112,4 +115,12 @@ test("record cards list only authorized queries and enforce exact parent reads i
   assert.deepEqual(result.items, []);
   assert.equal(paths.at(0), "/api/source");
   assert.equal(paths.at(-1), "/api/source");
+  paths.length = 0;
+  const args = {arguments:{id:visit.id}};
+  assert.deepEqual(await runSkill(file,"call-scoped","travel.get_visit",{...args,scope:"a".repeat(64)}),
+    {isError:true,code:"permission_denied"});
+  assert.deepEqual(paths,["/api/source"]);
+  paths.length = 0;
+  assert.deepEqual(await runSkill(file,"call-scoped","travel.get_visit",{...args,scope}),visit);
+  assert.deepEqual(paths,["/api/source","/api/travel/visits/" + visit.id,"/api/source"]);
 });

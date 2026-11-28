@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "750a4f0a899d1823877064026995b4f61cc4acf7e0eadf7c531069ee9ffaa8b5",
+  "catalog_revision": "0dd9910afb03fdaee1bbc94fccda9876f2ed962a7af8d8b8d3cf18208a1c9208",
   "terms": [
     {
       "id": "activity_capture",
@@ -613,6 +613,7 @@
       "capabilities": [
         "travel.record_visit",
         "travel.get_trip",
+        "travel.get_visit",
         "travel.records"
       ],
       "lookup_tools": []
@@ -921,6 +922,7 @@
         "travel.record_visit",
         "travel.records",
         "travel.get_trip",
+        "travel.get_visit",
         "travel.save_destination",
         "travel.destinations",
         "travel.save_diary_entry",
@@ -87035,6 +87037,131 @@
           "my_runs",
           "revisions",
           "as_of"
+        ],
+        "additionalProperties": false
+      },
+      "matched_terms": []
+    },
+    {
+      "name": "travel.get_visit",
+      "description": "按编号读取本人未归入旅程的一次实际到访。",
+      "domain": "travel",
+      "mode": "read",
+      "possible_effects": [
+        "travel.trip.read"
+      ],
+      "scenarios": [
+        "travel"
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "result_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "trip_id": {
+            "type": "null"
+          },
+          "place_name": {
+            "type": "string"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d{1,7})?$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d{1,7})?$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "occurred_on": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "occurred_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "time_zone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "shared",
+              "private"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "trip_id",
+          "place_name",
+          "latitude",
+          "longitude",
+          "occurred_on",
+          "occurred_at",
+          "time_zone",
+          "visibility",
+          "revision",
+          "created_at",
+          "note"
         ],
         "additionalProperties": false
       },

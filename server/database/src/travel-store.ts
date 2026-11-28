@@ -5,8 +5,15 @@ import type { TransactionStore } from "@shadow/kernel";
 type Database = Pick<NodePgDatabase, "execute">;
 
 
-export function travelStore(database: Database): Pick<TransactionStore, "travelTrip" | "travelWorkspace" | "travelExportData"> {
+export function travelStore(database: Database): Pick<TransactionStore, "standaloneVisit" | "travelTrip" | "travelWorkspace" | "travelExportData"> {
   return {
+    async standaloneVisit(subjectId,id){
+      const result=await database.execute(sql`select id,trip_id,place_name,latitude::text,longitude::text,occurred_on::text,
+        to_char(occurred_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') occurred_at,time_zone,visibility,revision,
+        to_char(created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') created_at,note
+        from visits where subject_id=${subjectId} and id=${id} and trip_id is null`);
+      return result.rows[0];
+    },
     async travelTrip(subjectId,id){
       const result=await database.execute(sql`select to_jsonb(trip) trip,
       coalesce((select jsonb_agg(case when reservation.subject_id=${subjectId} then to_jsonb(reservation)

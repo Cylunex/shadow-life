@@ -107,6 +107,7 @@ export interface TransactionStore {
   healthDaily(subjectId:string,date:string):Promise<unknown|undefined>;
   healthSleepNights(subjectId:string,from:string,to:string):Promise<import("./sleep-insights.js").SleepInsightNight[]>;
   healthRecord(subjectId:string,id:string):Promise<unknown|undefined>;
+  standaloneVisit(subjectId:string,id:string):Promise<unknown|undefined>;
   travelTrip(subjectId:string,id:string):Promise<unknown|undefined>;
   travelWorkspace(subjectId:string,tripId?:string):Promise<unknown|undefined>;
   travelExportData(subjectId:string,tripId:string):Promise<unknown|undefined>;

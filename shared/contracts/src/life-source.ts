@@ -1,5 +1,5 @@
 export const lifeCardQueries: ReadonlySet<string> = new Set([
-  "life.get_record", "health.trend", "health.get_record", "travel.get_trip", "library.get_item",
+  "life.get_record", "health.trend", "health.get_record", "travel.get_trip", "travel.get_visit", "library.get_item",
   "life.owned_items", "life.projects", "life.activity_source",
 ]);
 const cardReadEffects = ["life.meal.read", "money.entry.read", "health.measurement.read", "travel.trip.read",
