@@ -78820,6 +78820,10 @@
               "additionalProperties": false
             }
           },
+          "preserve_links": {
+            "type": "boolean",
+            "const": true
+          },
           "reason": {
             "type": "string",
             "minLength": 1,
@@ -78996,6 +79000,10 @@
                   ],
                   "additionalProperties": false
                 }
+              },
+              "preserve_links": {
+                "type": "boolean",
+                "const": true
               },
               "reason": {
                 "type": "string",
@@ -79437,6 +79445,10 @@
           "health_habit_id": {
             "type": "string",
             "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "preserve_sources": {
+            "type": "boolean",
+            "const": true
           }
         },
         "required": [
@@ -79536,6 +79548,10 @@
               "health_habit_id": {
                 "type": "string",
                 "pattern": "^[a-z][a-z0-9_]{7,127}$"
+              },
+              "preserve_sources": {
+                "type": "boolean",
+                "const": true
               }
             },
             "required": [

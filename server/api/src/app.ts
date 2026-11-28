@@ -1,4 +1,4 @@
-import { capabilityVisible, lifeSourceScope } from "@shadow/contracts";
+import { capabilityVisible, lifeSourceScope, canReadLifeSource } from "@shadow/contracts";
 import { captureDateSchema, activitiesInputSchema } from "@shadow/contracts";
 import { wellnessReviewInputSchema } from "@shadow/contracts";
 import { runEventsPageResultSchema, runPageInputSchema, runPageResultSchema, threadRunsResultSchema, agentDiscoveryInstructions, workoutProgressionInputSchema } from "@shadow/contracts";
@@ -41,7 +41,7 @@ export function createApp(dependencies: { unitOfWork: PostgresUnitOfWork; execut
   app.use("/api/assets",bodyLimit({maxSize:20*1024*1024,onError:context=>context.json({protocol:"shadow.error",code:"validation",message:"Asset is too large."},413)}));
   app.get("/api/source", async context => {
     const account = context.get("requestContext");
-    const allowed = account.effects.has("life.meal.read") || account.effects.has("health.measurement.read");
+    const allowed = canReadLifeSource(account.effects);
     // The proxy authenticates a mapped Life subject without its own OIDC principal.
     const issuer = account.issuer === "shadow:trusted-proxy" ? dependencies.auth?.issuer : account.issuer;
     const scope = allowed && await lifeSourceScope(issuer, account.environmentId, account.subjectId);

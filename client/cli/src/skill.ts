@@ -2,10 +2,10 @@ import { readFile } from "node:fs/promises";
 import { isAbsolute } from "node:path";
 import { LifeClient, ToolFailure, toolError, isCapability } from "@shadow/life-client/client";
 import { uploadLocalImage, uploadLocalFile, uploadTool, uploadFileTool, uploadAttachmentTool, uploadLocalAttachment } from "@shadow/life-client/media";
-import { agentScenarioNameSchema, lifeSourceScope } from "@shadow/contracts";
+import { agentScenarioNameSchema, lifeSourceScope, canReadLifeSource, lifeCardQueries } from "@shadow/contracts";
 
 async function readSource(client: LifeClient) {
-  if (!client.allows("life.get_record") && !client.allows("health.trend")) return { isError: true, code: "permission_denied" };
+  if (![...lifeCardQueries].some(name => client.allows(name))) return { isError: true, code: "permission_denied" };
   try {
     let scope: unknown;
     try {
@@ -14,7 +14,7 @@ async function readSource(client: LifeClient) {
     } catch (error) {
       if (!(error instanceof ToolFailure) || error.detail.http_status !== 404) throw error;
       const me = await client.request("/api/me") as Record<string, unknown> | null;
-      if (Array.isArray(me?.effects) && (me.effects.includes("life.meal.read") || me.effects.includes("health.measurement.read"))) {
+      if (Array.isArray(me?.effects) && canReadLifeSource(new Set(me.effects))) {
         scope = await lifeSourceScope(me.issuer, me.environment_id, me.life_subject_id);
       }
     }
@@ -43,8 +43,13 @@ export async function runSkill(configPath: string, action: string, name?: string
   if (action === "source") return readSource(client);
   if (action === "call-scoped") {
     const request = args as {scope?: unknown; arguments?: unknown} | null;
-    if (!name || !["life.get_record", "health.trend"].includes(name) || !isCapability(name) ||
+    if (!name || !lifeCardQueries.has(name) || !isCapability(name) ||
         typeof request?.scope !== "string" || !/^[0-9a-f]{64}$/u.test(request.scope)) return { isError: true, code: "permission_denied" };
+    if (["life.owned_items", "life.projects"].includes(name)) {
+      const record = request.arguments as { id?: unknown; limit?: unknown } | null;
+      if (typeof record?.id !== "string" || !/^[a-z][a-z0-9_]{7,127}$/u.test(record.id) || record.limit !== 1)
+        return { isError: true, code: "permission_denied" };
+    }
     // One credential snapshot for both attestations and the read, even when the config file is rotated.
     const before = await readSource(client);
     if (before.scope !== request.scope) return { isError: true, code: "permission_denied" };
@@ -55,7 +60,7 @@ export async function runSkill(configPath: string, action: string, name?: string
     } catch (error) { return { ...toolError(error, name, request.arguments).structuredContent, isError: true }; }
   }
   if (action === "catalog") return [...(await client.listTools()).map(tool =>
-    ["life.get_record", "health.trend"].includes(tool.name) ? { ...tool, _meta: { "shadow.life/source": 1 } } : tool), ...(roots.length ? [uploadTool, uploadAttachmentTool, ...(client.allows("money.import_file") ? [uploadFileTool] : [])] : [])];
+    lifeCardQueries.has(tool.name) ? { ...tool, _meta: { "shadow.life/source": 1, "shadow.life/record-cards": 1 } } : tool), ...(roots.length ? [uploadTool, uploadAttachmentTool, ...(client.allows("money.import_file") ? [uploadFileTool] : [])] : [])];
   if(action==="describe"&&name){
     const tool=(await client.listTools()).find(t=>t.name===name);
     if(!tool)throw new Error("Capability unavailable for this profile and account");

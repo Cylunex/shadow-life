@@ -61,6 +61,11 @@ test("source discloses only the authenticated scope, requires a real issuer on o
   status = 404;
   const expected = (await import("node:crypto")).createHash("sha256").update(JSON.stringify(["shadow-life-source-v1", me.issuer, me.environment_id, me.life_subject_id])).digest("hex");
   assert.deepEqual(await runSkill(file, "source"), {scope:expected});
+  me.effects = ["money.entry.read"];
+  assert.deepEqual(await runSkill(file, "source"), {scope:expected});
+  me.effects = ["life.project.write"];
+  assert.deepEqual(await runSkill(file, "source"), {isError:true,code:"source_unavailable"});
+  me.effects = ["life.project.read"];
   me.issuer = "shadow:trusted-proxy";
   assert.deepEqual(await runSkill(file, "source"), {isError:true,code:"source_unavailable"});
   paths.length = 0;
@@ -71,4 +76,40 @@ test("source discloses only the authenticated scope, requires a real issuer on o
   status = 200;
   assert.deepEqual(await runSkill(file,"call-scoped","health.trend",{scope:"c".repeat(64),arguments:{}}), {isError:true,code:"permission_denied"});
   assert.deepEqual(paths, ["/api/source"]);
+});
+
+test("record cards list only authorized queries and enforce exact parent reads in the bound space", async t => {
+  const scope = "12".repeat(32), paths: string[] = [];
+  const name = "life.owned_items", id = "owned_example";
+  const server = createServer((req, res) => {
+    paths.push(req.url!);
+    assert.equal(req.headers.authorization, "Bearer synthetic-token");
+    res.setHeader("content-type", "application/json");
+    if (req.url === "/api/source") return res.end(JSON.stringify({scope}));
+    if (req.url?.startsWith("/api/capabilities?")) return res.end(JSON.stringify({capabilities:[
+      {name, description:name, input_schema:capabilityRegistry[name].inputSchema.toJSONSchema()},
+    ]}));
+    const url = new URL(req.url!, "http://localhost");
+    assert.equal(url.pathname, "/api/life/owned-items");
+    assert.equal(url.searchParams.get("id"), id);
+    assert.equal(url.searchParams.get("limit"), "1");
+    return res.end(JSON.stringify({items:[], as_of:"2026-11-27T00:00:00Z"}));
+  });
+  await new Promise<void>(resolve => server.listen(0,"127.0.0.1",resolve));
+  t.after(() => new Promise<void>(resolve => server.close(() => resolve())));
+  const dir = await mkdtemp(join(tmpdir(),"life-record-card-"));
+  t.after(() => rm(dir,{recursive:true,force:true}));
+  const file = join(dir,"config.json"), address = server.address() as {port:number};
+  await writeFile(file, JSON.stringify({api:`http://127.0.0.1:${address.port}`, token:"synthetic-token", profile:"authorized"}));
+  const catalog = await runSkill(file, "catalog") as Array<{name:string;_meta?:Record<string,number>}>;
+  assert.deepEqual(catalog.map(tool => tool.name), [name]);
+  assert.deepEqual(catalog[0]?._meta, {"shadow.life/source":1,"shadow.life/record-cards":1});
+  paths.length = 0;
+  for (const args of [{}, {limit:1}, {id,limit:10}])
+    assert.deepEqual(await runSkill(file,"call-scoped",name,{scope,arguments:args}), {isError:true,code:"permission_denied"});
+  assert.deepEqual(paths, []);
+  const result = await runSkill(file,"call-scoped",name,{scope,arguments:{id,limit:1}}) as {items:unknown[]};
+  assert.deepEqual(result.items, []);
+  assert.equal(paths.at(0), "/api/source");
+  assert.equal(paths.at(-1), "/api/source");
 });

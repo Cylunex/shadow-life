@@ -1,5 +1,5 @@
 {
-  "catalog_revision": "33722e2b36d8a85fb5838f2b26b5ddbd9f3f3ea635e5f7708af567b1990fe678",
+  "catalog_revision": "750a4f0a899d1823877064026995b4f61cc4acf7e0eadf7c531069ee9ffaa8b5",
   "terms": [
     {
       "id": "activity_capture",
@@ -57021,6 +57021,10 @@
           "health_habit_id": {
             "type": "string",
             "pattern": "^[a-z][a-z0-9_]{7,127}$"
+          },
+          "preserve_sources": {
+            "type": "boolean",
+            "const": true
           }
         },
         "required": [
@@ -61765,6 +61769,10 @@
               ],
               "additionalProperties": false
             }
+          },
+          "preserve_links": {
+            "type": "boolean",
+            "const": true
           },
           "reason": {
             "type": "string",
