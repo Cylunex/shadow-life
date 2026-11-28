@@ -23,9 +23,11 @@ suspend fun ShadowApp.enqueueLifeCommand(
     input: JSONObject,
     stableCommandId: String? = null,
     expectedAccountId: String? = null,
+    expectedOwner: ProductSession? = null,
 ): OperationReceipt = withContext(Dispatchers.IO) {
     val session = sessions.active() ?: error("请先登录 Shadow Life")
-    check(expectedAccountId == null || session.accountId == expectedAccountId) { "账号已切换，请在当前账号重新输入" }
+    check((expectedAccountId == null || session.accountId == expectedAccountId) &&
+        (expectedOwner == null || session.sameCaptureOwner(expectedOwner))) { "账号已切换，请在当前账号重新输入" }
     val id = stableCommandId ?: "cmd_android_" + UUID.randomUUID().toString().replace("-", "")
     val body = JSONObject().put("protocol", "shadow.command").put("capability", capability)
         .put("command_id", id).put("input", input)
@@ -35,11 +37,20 @@ suspend fun ShadowApp.enqueueLifeCommand(
 }
 
 internal suspend fun ShadowApp.enqueueActivities(
-    context: Context, items: JSONArray, accountId: String, recordExpenses: Boolean = false,
+    context: Context, items: JSONArray, accountId: String, recordExpenses: Boolean = false, expectedOwner: ProductSession? = null,
+    stableCommandId: String? = null,
 ): OperationReceipt = withContext(Dispatchers.IO) {
     val input = JSONObject().put("device_id", sessions.installationId()).put("items", items)
     if (recordExpenses) input.put("record_expenses", true)
-    enqueueLifeCommand(context, "life.ingest_activity", input, expectedAccountId = accountId)
+    enqueueLifeCommand(context, "life.ingest_activity", input, stableCommandId, expectedAccountId = accountId, expectedOwner = expectedOwner)
+}
+
+internal fun ProductSession?.sameCaptureOwner(expected: ProductSession?): Boolean = this != null && expected != null &&
+    accountId == expected.accountId && subjectId == expected.subjectId && generation == expected.generation && apiBase == expected.apiBase
+
+internal fun Intent.bindCaptureOwner(owner: ProductSession?): Intent = apply {
+    if (owner != null) putExtra("account_id", owner.accountId).putExtra("account_subject", owner.subjectId)
+        .putExtra("account_generation", owner.generation)
 }
 
 /** Older service notifications omit the generation. New host controls are bound to the initiating session. */
